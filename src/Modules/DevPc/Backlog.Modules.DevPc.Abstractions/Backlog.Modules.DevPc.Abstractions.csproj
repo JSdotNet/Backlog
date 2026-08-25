@@ -34,6 +34,25 @@
     <RootNamespace>Backlog.Modules.DevPc.Abstractions</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The switches over DevToolKind and DevToolProvider have no catch-all arm,
+         because the catch-all was the bug: KeyFor answered any kind it had not
+         been told about with an "mcp:" key, which ParseKey then resolved against
+         the wrong array, silently. Removing the arm is only half the fix — the
+         compiler reports an unhandled member as a warning, and a warning in a
+         solution this size is a thing nobody sees. So:
+
+         CS8509 (a named enum member no arm covers) is an error: adding a kind
+                without handling it everywhere fails the build, which is the
+                whole point of taking the catch-all out.
+         CS8524 (the (DevToolKind)7 an int cast can produce, which no exhaustive
+                switch can name) is off: guarding that is exactly what the arm we
+                just removed would be for, and it can only arise from a cast of a
+                value the catalog format has no way to express. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <NoWarn>$(NoWarn);CS8524</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- The catalog merge and the per-machine path resolution decide what a
          person sees as "installed", so they are worth testing directly rather

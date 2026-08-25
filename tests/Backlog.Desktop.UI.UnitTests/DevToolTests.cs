@@ -1101,3 +1101,587 @@ public class UnsupportedDevToolServiceTests
         Assert.False(string.IsNullOrWhiteSpace(result.Message));
     }
 }
+
+/// <summary>
+/// When a difference between two versions is an update to offer.
+///
+/// <para>Every fixture here is a version string this machine really printed.
+/// Two of them are the reason the comparison stopped being a string inequality:
+/// an MSIX app and a click-to-run suite both self-update on their own channel,
+/// so their installed version routinely reads <em>ahead</em> of the winget
+/// manifest, and "differs" announced an update for both of them on every check
+/// forever.</para>
+/// </summary>
+public class DevToolVersionComparisonTests
+{
+    /// <summary>The two real inversions, by name. Neither is an error and
+    /// neither is an update — the installed side is simply further along.</summary>
+    [Theory]
+    [InlineData("1.34493.1.0", "1.30096.1")]            // Anthropic.Claude: MSIX ahead of the winget exe manifest
+    [InlineData("16.0.20326.20100", "16.0.20228.20124")] // Microsoft.Office: C2R ahead of the manifest
+    public void An_installed_version_ahead_of_the_available_one_is_not_an_update(string installed, string available) =>
+        Assert.False(DevToolInfo.VersionDiffers(installed, available));
+
+    [Theory]
+    [InlineData("1.30096.1", "1.34493.1.0")]
+    [InlineData("1.2.3", "1.2.4")]
+    [InlineData("v1.0.65", "v1.0.80")]
+    [InlineData("1.0.65", "v1.0.80")]
+    public void A_newer_available_version_is_an_update(string installed, string available) =>
+        Assert.True(DevToolInfo.VersionDiffers(installed, available));
+
+    /// <summary>Absent components are zero, so the same version written to two
+    /// widths is one version. winget prints both forms for the same package.</summary>
+    [Theory]
+    [InlineData("1.2", "1.2.0")]
+    [InlineData("1.2.0.0", "1.2")]
+    public void The_same_number_at_two_widths_is_the_same_version(string installed, string available) =>
+        Assert.False(DevToolInfo.VersionDiffers(installed, available));
+
+    /// <summary>Real version strings that are not dotted numbers at all. None of
+    /// them may throw, and none of them can be ordered — so the answer falls back
+    /// to the inequality this comparison used to be.</summary>
+    [Theory]
+    [InlineData("2.54.0.windows.1", "2.55.0.windows.1", true)]
+    [InlineData("2.54.0.windows.1", "2.54.0.windows.1", false)]
+    [InlineData("13.5.2+a22cec24", "13.5.2+a22cec24", false)]
+    [InlineData("13.5.2+a22cec24", "13.6.0+b1c2d3e4", true)]
+    [InlineData("2.55.0.windows.1", "2.54.0.windows.1", true)]
+    public void A_version_that_is_not_a_dotted_number_compares_as_text(string installed, string available, bool expected) =>
+        Assert.Equal(expected, DevToolInfo.VersionDiffers(installed, available));
+
+    /// <summary>A repository-backed row puts two short commits in the version
+    /// columns, and a commit that happens to be all digits is not a number: the
+    /// remote one sorting lower than the local one is a pending update, not a
+    /// machine that is ahead.</summary>
+    [Fact]
+    public void Two_commits_that_are_all_digits_still_differ() =>
+        Assert.True(DevToolInfo.VersionDiffers("9921470", "1234560"));
+
+    [Theory]
+    [InlineData("unknown", "1.2.3")]
+    [InlineData("1.2.3", "unknown")]
+    [InlineData("not installed", "1.2.3")]
+    [InlineData("1.2.3", "—")]
+    [InlineData("configured", "source")]
+    [InlineData("", "1.2.3")]
+    public void A_column_that_holds_no_version_is_never_an_update(string installed, string available) =>
+        Assert.False(DevToolInfo.VersionDiffers(installed, available));
+}
+
+/// <summary>
+/// The <c>applications</c> array: the machine's own software inventory, beside
+/// the two arrays that were only ever about AI tooling.
+/// </summary>
+public class ApplicationCatalogTests
+{
+    /// <summary>Every kind, because the catch-all this replaced minted an
+    /// <c>mcp:</c> key for anything it had not been told about — which
+    /// <see cref="DevToolConfiguration.ParseKey"/> then resolved to the wrong
+    /// array, quietly, for a kind nobody had thought about yet.</summary>
+    [Theory]
+    [InlineData(DevToolKind.Plugin, "plugin:architecture", "plugins", "name")]
+    [InlineData(DevToolKind.McpServer, "mcp:JSdotNet.MCP.Guidelines", "mcpServers", "packageId")]
+    [InlineData(DevToolKind.Marketplace, "marketplace:jsdotnet-copilot", "claude.marketplaces", "name")]
+    [InlineData(DevToolKind.Application, "app:Microsoft.VisualStudioCode", "applications", "id")]
+    public void Every_kind_round_trips_through_its_key(DevToolKind kind, string expectedKey, string expectedArray, string expectedIdName)
+    {
+        var id = expectedKey[(expectedKey.IndexOf(':') + 1)..];
+
+        var key = DevToolConfiguration.KeyFor(kind, id);
+        Assert.Equal(expectedKey, key);
+
+        var (arrayName, idName, idValue) = DevToolConfiguration.ParseKey(key);
+        Assert.Equal(expectedArray, arrayName);
+        Assert.Equal(expectedIdName, idName);
+        Assert.Equal(id, idValue);
+    }
+
+    /// <summary>AC1. Every catalog on every machine predates this array, and a
+    /// machine that never grows one has to keep behaving exactly as it did.</summary>
+    [Fact]
+    public async Task A_catalog_with_no_applications_array_reads_exactly_as_before()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            {
+              "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ],
+              "mcpServers": [ { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "enabled": true } ]
+            }
+            """);
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+
+        Assert.Single(config.Root["plugins"]!.AsArray());
+        Assert.Single(config.Root["mcpServers"]!.AsArray());
+        Assert.Empty(DevToolConfiguration.ReadApplications(config.Root));
+
+        // Reading must not invent the array either: the catalog is hand-edited and
+        // a property nobody asked for appearing after a read is a diff to explain.
+        Assert.Null(config.Root["applications"]);
+    }
+
+    [Fact]
+    public void An_application_entry_is_read_into_its_provider_and_its_commands()
+    {
+        var root = JsonNode.Parse("""
+            {
+              "applications": [
+                {
+                  "id": "Microsoft.VisualStudioCode",
+                  "name": "Visual Studio Code",
+                  "provider": "winget",
+                  "group": "Team developer tools",
+                  "note": "Also on PATH as code.cmd.",
+                  "detectOnly": true,
+                  "probe": { "command": "code", "args": ["--version"], "shell": true, "encoding": "utf-16le" },
+                  "enabled": true
+                }
+              ]
+            }
+            """)!;
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(root));
+
+        Assert.Equal("Microsoft.VisualStudioCode", application.Id);
+        Assert.Equal("Visual Studio Code", application.Name);
+        Assert.Equal(DevToolProvider.Winget, application.Provider);
+        Assert.Equal("Team developer tools", application.Group);
+        Assert.Equal("Also on PATH as code.cmd.", application.Note);
+        Assert.True(application.DetectOnly);
+        Assert.True(application.Enabled);
+        Assert.Equal("app:Microsoft.VisualStudioCode", application.Key);
+
+        var probe = application.Probe!;
+        Assert.Equal("code", probe.Command);
+        Assert.Equal(["--version"], probe.Args);
+        Assert.True(probe.Shell);
+        Assert.Equal("utf-16le", probe.Encoding);
+        Assert.Null(application.Detect);
+        Assert.Null(application.Install);
+    }
+
+    /// <summary>An entry with no <c>install</c> is the checklist row: something to
+    /// look for and nothing to press.</summary>
+    [Fact]
+    public void A_command_entry_carries_what_to_run_and_what_to_expect()
+    {
+        var root = JsonNode.Parse("""
+            {
+              "applications": [
+                {
+                  "id": "git-pull-rebase",
+                  "name": "git pull.rebase = true",
+                  "provider": "command",
+                  "detect": { "command": "git", "args": ["config","--global","pull.rebase"], "expect": "true" },
+                  "install": { "command": "git", "args": ["config","--global","pull.rebase","true"] },
+                  "enabled": true
+                },
+                {
+                  "id": "dev-drive",
+                  "name": "Dev Drive configured",
+                  "provider": "command",
+                  "detect": { "command": "fsutil", "args": ["devdrv","query","D:"], "expect": "trusted Dev Drive" },
+                  "enabled": true
+                }
+              ]
+            }
+            """)!;
+
+        var applications = DevToolConfiguration.ReadApplications(root);
+
+        Assert.Equal(DevToolProvider.Command, applications[0].Provider);
+        Assert.Equal("true", applications[0].Detect!.Expect);
+        Assert.Equal("git", applications[0].Install!.Command);
+        Assert.False(applications[0].Detect!.Shell);
+
+        Assert.Null(applications[1].Install);
+        Assert.Equal("trusted Dev Drive", applications[1].Detect!.Expect);
+    }
+
+    /// <summary>A provider this version has not met is a row that must not be
+    /// acted on and must not disappear. It lands on the one provider that runs
+    /// nothing — and it says so, rather than being silently reclassified.</summary>
+    [Theory]
+    [InlineData("\"chocolatey\"", "chocolatey")]
+    [InlineData("42", "")]
+    [InlineData("null", "")]
+    public void An_unreadable_provider_degrades_to_a_manual_row(string providerJson, string expectedDeclared)
+    {
+        var root = JsonNode.Parse($$"""
+            {
+              "applications": [
+                { "id": "mystery", "provider": {{providerJson}}, "enabled": true },
+                { "id": "Git.Git", "name": "Git", "provider": "winget", "enabled": true }
+              ]
+            }
+            """)!;
+
+        var applications = DevToolConfiguration.ReadApplications(root);
+
+        Assert.Equal(2, applications.Count);
+        Assert.Equal(DevToolProvider.Manual, applications[0].Provider);
+        Assert.False(applications[0].ProviderRecognised);
+        Assert.Equal(expectedDeclared, applications[0].DeclaredProvider);
+
+        // The name falls back to the id, so an entry with neither still has
+        // something to draw.
+        Assert.Equal("mystery", applications[0].Name);
+
+        // And the entry beside it is untouched: one bad row is one bad row.
+        Assert.Equal(DevToolProvider.Winget, applications[1].Provider);
+        Assert.True(applications[1].ProviderRecognised);
+    }
+
+    [Fact]
+    public void A_provider_that_says_manual_is_recognised_as_one()
+    {
+        var root = JsonNode.Parse("""
+            { "applications": [ { "id": "office-signed-in", "provider": "MANUAL", "enabled": true } ] }
+            """)!;
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(root));
+
+        Assert.Equal(DevToolProvider.Manual, application.Provider);
+        Assert.True(application.ProviderRecognised);
+    }
+
+    /// <summary>The array is read for the pane, so one malformed entry cannot be
+    /// allowed to take the other thirty rows down with it.</summary>
+    [Fact]
+    public void An_entry_that_is_not_a_row_is_skipped_rather_than_thrown_on()
+    {
+        var root = JsonNode.Parse("""
+            {
+              "applications": [
+                { "provider": "winget", "enabled": true },
+                "Git.Git",
+                null,
+                { "id": "   ", "provider": "winget" },
+                { "id": "Git.Git", "provider": "winget", "enabled": true }
+              ]
+            }
+            """)!;
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(root));
+
+        Assert.Equal("Git.Git", application.Id);
+    }
+
+    [Fact]
+    public void A_root_with_no_applications_at_all_reads_as_none()
+    {
+        Assert.Empty(DevToolConfiguration.ReadApplications(null));
+        Assert.Empty(DevToolConfiguration.ReadApplications(JsonNode.Parse("""{ "applications": {} }""")));
+    }
+
+    /// <summary>The import bar is the same for the new array as for the two old
+    /// ones — which is why a grouping marker in the catalog is a <c>group</c>
+    /// property on a real entry and never an object of its own.</summary>
+    [Fact]
+    public void An_application_without_an_id_is_refused_by_the_import()
+    {
+        Assert.False(DevToolConfiguration.TryReadCatalog(
+            """{ "plugins": [], "applications": [ { "name": "Step 7 - Team developer tools" } ] }""",
+            out _,
+            out var error));
+
+        Assert.Contains("applications", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("id", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A catalog that is only applications is a real file: a machine
+    /// being set up from the HowTo has software to check before it has a single
+    /// plugin.</summary>
+    [Fact]
+    public void A_catalog_that_is_only_applications_is_accepted()
+    {
+        Assert.True(DevToolConfiguration.TryReadCatalog(
+            """{ "applications": [ { "id": "Git.Git", "provider": "winget", "enabled": true } ] }""",
+            out var root,
+            out _));
+
+        Assert.Single(root["applications"]!.AsArray());
+    }
+
+    /// <summary>Without this the per-machine file merges for plugins and MCP
+    /// servers and silently does nothing for applications — the same gap
+    /// <c>claude.marketplaces</c> has, and one that reads as "the override did not
+    /// save" rather than as a missing merge.</summary>
+    [Fact]
+    public async Task A_pc_override_wins_for_an_application()
+    {
+        var root = CreateTempToolConfigRoot();
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, """
+            {
+              "plugins": [],
+              "applications": [
+                { "id": "Docker.DockerDesktop", "name": "Docker Desktop", "provider": "winget", "enabled": true },
+                { "id": "Git.Git", "name": "Git", "provider": "winget", "enabled": true }
+              ]
+            }
+            """);
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
+        await File.WriteAllTextAsync(paths.PcConfigPath, """
+            {
+              "applications": [
+                { "id": "Docker.DockerDesktop", "enabled": false },
+                { "id": "Never.Heard.Of.It", "enabled": true }
+              ]
+            }
+            """);
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var applications = DevToolConfiguration.ReadApplications(config.Root);
+
+        Assert.False(applications[0].Enabled);
+        Assert.True(applications[1].Enabled);
+        Assert.DoesNotContain(applications, application => application.Id == "Never.Heard.Of.It");
+    }
+
+    /// <summary>A manual row has nothing to probe, so the only thing that can
+    /// change its state is the person saying they did it — per machine, in the
+    /// same file and the same shape the enabled override already uses.</summary>
+    [Fact]
+    public async Task An_acknowledgement_is_written_to_the_pc_config()
+    {
+        var root = CreateTempToolConfigRoot();
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, """
+            {
+              "plugins": [],
+              "applications": [
+                { "id": "office-signed-in", "name": "Signed in to Microsoft 365", "provider": "manual", "enabled": true }
+              ]
+            }
+            """);
+
+        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", true);
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
+
+        Assert.True(application.Acknowledged);
+        Assert.True(application.Enabled);
+
+        var pcConfig = await File.ReadAllTextAsync(paths.PcConfigPath);
+        Assert.Contains("\"id\": \"office-signed-in\"", pcConfig);
+        Assert.Contains("\"acknowledged\": true", pcConfig);
+
+        // Acknowledging says nothing about whether the machine wants the row.
+        Assert.DoesNotContain("\"enabled\"", pcConfig, StringComparison.Ordinal);
+
+        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", false);
+
+        var reread = await DevToolConfiguration.ReadAsync(paths);
+        Assert.False(DevToolConfiguration.ReadApplications(reread.Root)[0].Acknowledged);
+    }
+
+    [Fact]
+    public void An_acknowledgement_reaches_the_row_it_is_drawn_from()
+    {
+        Assert.True(ManualRow() with { Acknowledged = true } is { Acknowledged: true });
+        Assert.False(ManualRow().Acknowledged);
+    }
+
+    private static DevToolInfo ManualRow() => new(
+        "app:office-signed-in",
+        DevToolKind.Application,
+        "Signed in to Microsoft 365",
+        null,
+        ConfiguredEnabled: true,
+        Installed: false,
+        DevToolOutput.NoVersion,
+        DevToolOutput.NoVersion,
+        "Manual check");
+
+    [Fact]
+    public async Task Adding_a_winget_application_writes_its_provider_and_nothing_it_did_not_say()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "Microsoft.VisualStudioCode", DisplayName: "Visual Studio Code")
+            {
+                Provider = DevToolProvider.Winget
+            });
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
+
+        Assert.Equal("Microsoft.VisualStudioCode", entry["id"]!.GetValue<string>());
+        Assert.Equal("Visual Studio Code", entry["name"]!.GetValue<string>());
+        Assert.Equal("winget", entry["provider"]!.GetValue<string>());
+        Assert.True(entry["enabled"]!.GetValue<bool>());
+
+        // Nothing the draft did not say: the format's silence is meaningful and a
+        // property that only restates a default is a line to explain later.
+        Assert.False(entry.ContainsKey("detect"));
+        Assert.False(entry.ContainsKey("install"));
+        Assert.False(entry.ContainsKey("group"));
+        Assert.False(entry.ContainsKey("detectOnly"));
+        Assert.False(entry.ContainsKey("hosts"));
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
+        Assert.Equal(DevToolProvider.Winget, application.Provider);
+        Assert.True(application.ProviderRecognised);
+    }
+
+    [Fact]
+    public async Task Adding_a_command_application_writes_what_it_runs()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "git-pull-rebase", DisplayName: "git pull.rebase = true")
+            {
+                Provider = DevToolProvider.Command,
+                DetectCommand = "git",
+                DetectArgs = ["config", "--global", "pull.rebase"],
+                DetectExpect = "true",
+                InstallCommand = "git",
+                InstallArgs = ["config", "--global", "pull.rebase", "true"]
+            });
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
+
+        Assert.Equal(DevToolProvider.Command, application.Provider);
+        Assert.Equal("git", application.Detect!.Command);
+        Assert.Equal(["config", "--global", "pull.rebase"], application.Detect.Args);
+        Assert.Equal("true", application.Detect.Expect);
+        Assert.Equal(["config", "--global", "pull.rebase", "true"], application.Install!.Args);
+        Assert.Null(application.Install.Expect);
+    }
+
+    /// <summary>An install nobody declared is the checklist row, and it is the
+    /// absence of the property that says so.</summary>
+    [Fact]
+    public async Task A_command_application_with_no_install_is_written_as_a_checklist_row()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "dev-drive", DisplayName: "Dev Drive configured")
+            {
+                Provider = DevToolProvider.Command,
+                DetectCommand = "fsutil",
+                DetectArgs = ["devdrv", "query", "D:"],
+                DetectExpect = "trusted Dev Drive"
+            });
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
+
+        Assert.False(entry.ContainsKey("install"));
+        Assert.Null(DevToolConfiguration.ReadApplications(config.Root)[0].Install);
+    }
+
+    [Fact]
+    public async Task An_application_without_an_id_says_what_an_application_needs()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "  ")));
+
+        Assert.Contains("application", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A command entry with nothing to run can never answer whether it is
+    /// there, so it is refused at the form rather than written and drawn as a row
+    /// that is permanently unknown.</summary>
+    [Fact]
+    public async Task A_command_application_without_a_detect_command_is_refused()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "dev-drive") { Provider = DevToolProvider.Command }));
+
+        Assert.Contains("detect", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task An_application_id_that_is_already_in_the_catalog_is_refused()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            { "plugins": [], "applications": [ { "id": "Git.Git", "provider": "winget", "enabled": true } ] }
+            """);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "git.git") { Provider = DevToolProvider.Winget }));
+    }
+
+    private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
+    {
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(CreateTempToolConfigRoot(), "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, json);
+        return paths;
+    }
+
+    private static string CreateTempToolConfigRoot()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(path, ".tools"));
+        return path;
+    }
+}
+
+/// <summary>
+/// Claude Desktop as a third host — and the one thing that must not follow from
+/// adding it.
+/// </summary>
+public class ClaudeDesktopHostTests
+{
+    /// <summary>The load-bearing assertion of the whole host change.
+    /// <see cref="DevToolHosts.Both"/> is what a catalog entry means by saying
+    /// nothing, and every entry on every machine says nothing. Folding the new
+    /// host into it would make each of them claim a registration that was never
+    /// made and offer an Install for it.</summary>
+    [Fact]
+    public void The_silent_default_does_not_include_claude_desktop()
+    {
+        Assert.False(DevToolHosts.Both.HasFlag(DevToolHosts.ClaudeDesktop));
+        Assert.Equal(DevToolHosts.Copilot | DevToolHosts.Claude, DevToolHosts.Both);
+        Assert.Equal(DevToolHosts.Both, DevToolOutput.ParseHosts(null));
+    }
+
+    [Fact]
+    public void Claude_desktop_is_its_own_flag()
+    {
+        Assert.Equal(4, (int)DevToolHosts.ClaudeDesktop);
+        Assert.False(DevToolHosts.ClaudeDesktop.HasFlag(DevToolHosts.Claude));
+    }
+
+    /// <summary>Opt-in only, so an entry that wants it has to write it — which
+    /// means the writer has to be able to.</summary>
+    [Fact]
+    public async Task An_entry_for_claude_desktop_carries_it_in_its_hosts()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".tools"));
+        var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
+        await File.WriteAllTextAsync(paths.CatalogPath, """{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines")
+            {
+                Hosts = DevToolHosts.Claude | DevToolHosts.ClaudeDesktop,
+                ClaudeCommand = "guidelines"
+            });
+
+        var hosts = (await DevToolConfiguration.ReadAsync(paths)).Root["mcpServers"]![0]!["hosts"]!.AsArray()
+            .Select(node => node!.GetValue<string>())
+            .ToArray();
+
+        Assert.Equal(["claude", "claude-desktop"], hosts);
+    }
+}

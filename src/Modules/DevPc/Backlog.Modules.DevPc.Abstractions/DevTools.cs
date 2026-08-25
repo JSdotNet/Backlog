@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -20,7 +21,144 @@ public enum DevToolKind
     /// <c>&lt;name&gt;@&lt;marketplace&gt;</c>, and a machine whose marketplace was
     /// never added fails every Claude plugin for one reason that was nowhere on
     /// the screen.</para></summary>
-    Marketplace
+    Marketplace,
+
+    /// <summary>A piece of software this machine is supposed to have — a winget
+    /// package, a VS Code extension, a setting the setup guide asks for.
+    ///
+    /// <para>The three kinds above each <em>are</em> their own mechanism: a plugin
+    /// is what the host CLI installs, an MCP server is a .NET tool plus a
+    /// registration. That held while every kind had exactly one mechanism and
+    /// applications break it — a marketplace extension and a winget package are
+    /// both "software this PC should have" and are installed two entirely
+    /// different ways. So this is the one kind whose mechanism is declared rather
+    /// than implied, in the entry's own <see cref="DevToolProvider"/>.</para></summary>
+    Application
+}
+
+/// <summary>
+/// What installs an <see cref="DevToolKind.Application"/> and what answers for it.
+///
+/// <para>Three mechanisms and a fourth that is the absence of one. A checklist row
+/// is a <see cref="Command"/> entry that declined to say how to install itself,
+/// rather than a kind of its own, so "detect-only" does not have to be handled in
+/// every switch that already handles a provider.</para>
+/// </summary>
+public enum DevToolProvider
+{
+    /// <summary>A winget package, detected and installed by its exact package id.</summary>
+    Winget,
+
+    /// <summary>A VS Code extension, by its <c>publisher.name</c> marketplace id.</summary>
+    VsCodeExtension,
+
+    /// <summary>A command the entry itself declares. Its <c>detect</c> answers
+    /// whether the machine already has it — by the version it prints, or by the
+    /// substring <see cref="DevToolCommandSpec.Expect"/> names when it prints
+    /// prose instead. An entry with no <c>install</c> is the checklist row: worth
+    /// looking for, and not ours to press a button about.</summary>
+    Command,
+
+    /// <summary>Something with no honest automated answer at all — a sign-in, a
+    /// menu item that renders, a first run without errors. It carries a per-machine
+    /// acknowledgement instead of a probe, and must never be drawn as a detected
+    /// state.
+    ///
+    /// <para>Also where an entry whose <c>provider</c> this version does not
+    /// recognise lands. The safe reading of a mechanism nobody here knows is the
+    /// one that runs nothing; <see cref="DevToolApplication.ProviderRecognised"/>
+    /// is what keeps that from being silent.</para></summary>
+    Manual
+}
+
+/// <summary>
+/// A command an application entry declares, exactly as the catalog spells it.
+///
+/// <para><paramref name="Args"/> is a list and not a command line because the
+/// launcher passes them through <c>ArgumentList</c>: a winget id with a literal
+/// <c>+</c> in it and a path with a space both survive that, and neither survives
+/// hand-quoting.</para>
+///
+/// <para><paramref name="Expect"/> is how a probe with no version answers. Several
+/// real probes print prose rather than a number, and without a substring to look
+/// for each of them would have to invent a fake version to avoid claiming "up to
+/// date" about nothing.</para>
+///
+/// <para><paramref name="Shell"/> and <paramref name="Encoding"/> are two facts
+/// about running the process that only the entry knows: some CLIs on PATH are
+/// <c>.cmd</c> shims that cannot be started directly, and some write UTF-16LE to a
+/// redirected pipe, where a UTF-8 reader gets every other byte as a null.</para>
+/// </summary>
+public sealed record DevToolCommandSpec(
+    string Command,
+    IReadOnlyList<string> Args,
+    string? Expect = null,
+    bool Shell = false,
+    string? Encoding = null);
+
+/// <summary>
+/// One entry of the catalog's <c>applications</c> array, read into something a
+/// describer can branch on without touching <see cref="JsonNode"/> again.
+/// </summary>
+public sealed record DevToolApplication(
+    string Id,
+    string Name,
+    DevToolProvider Provider,
+    bool Enabled)
+{
+    /// <summary>How the row is addressed, minted the same way every other kind's
+    /// key is.</summary>
+    public string Key => DevToolConfiguration.KeyFor(DevToolKind.Application, Id);
+
+    /// <summary>A heading to file the row under. The setup guide this catalog
+    /// follows is a sequence of steps, and thirty ungrouped rows lose that
+    /// structure — so the grouping is a property of the entry rather than the
+    /// array order, which nothing preserves once a person hand-edits the file.</summary>
+    public string? Group { get; init; }
+
+    /// <summary>Something the row has to say to the person reading it: an install
+    /// that needs a reboot, a version that legitimately reads backwards.</summary>
+    public string? Note { get; init; }
+
+    /// <summary>The package manager knows this package and cannot install it
+    /// unattended — an IDE whose workloads need an hour and an override, a suite
+    /// whose activation is a sign-in. The row still reports what is installed; it
+    /// just has no button.</summary>
+    public bool DetectOnly { get; init; }
+
+    /// <summary>An optional cross-check against what actually answers on PATH.
+    /// The package manager reports what is registered, which is not the same
+    /// question, and the two disagreeing is worth seeing rather than picking a
+    /// winner between.</summary>
+    public DevToolCommandSpec? Probe { get; init; }
+
+    /// <summary>What answers whether this machine has it, for
+    /// <see cref="DevToolProvider.Command"/>.</summary>
+    public DevToolCommandSpec? Detect { get; init; }
+
+    /// <summary>What puts it there, or nothing — which is what makes the row a
+    /// checklist item.</summary>
+    public DevToolCommandSpec? Install { get; init; }
+
+    /// <summary>Whether the person said they had done it, for a
+    /// <see cref="DevToolProvider.Manual"/> row. Per machine, so it lives in the
+    /// per-PC override file rather than the shared catalog.</summary>
+    public bool Acknowledged { get; init; }
+
+    /// <summary>The <c>provider</c> string exactly as the catalog spelled it, or
+    /// empty when it said nothing.</summary>
+    public string DeclaredProvider { get; init; } = string.Empty;
+
+    /// <summary>Whether <see cref="Provider"/> is what the entry asked for.
+    ///
+    /// <para>False means the entry named a mechanism this version has never heard
+    /// of, and the row was parked on <see cref="DevToolProvider.Manual"/> so that
+    /// nothing runs on its behalf. Dropping such an entry would hide a typo in a
+    /// hand-edited file behind a row that simply is not there.</para></summary>
+    /// <remarks>Defaults to true, because a caller that builds one of these named
+    /// the mechanism as an enum value rather than as text — there was nothing to
+    /// fail to recognise. Only the catalog reader ever says otherwise.</remarks>
+    public bool ProviderRecognised { get; init; } = true;
 }
 
 /// <summary>
@@ -39,6 +177,19 @@ public enum DevToolHosts
     None = 0,
     Copilot = 1,
     Claude = 2,
+
+    /// <summary>The Claude desktop app, which is a separate registration from the
+    /// Claude CLI beside it: its own config file, its own server list, and a full
+    /// restart before a change to either takes effect.</summary>
+    ClaudeDesktop = 4,
+
+    /// <summary>What an entry means by saying nothing.
+    ///
+    /// <para>Deliberately not every host. This is the value silence parses to, and
+    /// every entry on every machine is silent — so folding
+    /// <see cref="ClaudeDesktop"/> in here would make each of them claim a
+    /// registration that was never made, and the pane would offer an Install for
+    /// each. The desktop host is opt-in, by an entry naming it.</para></summary>
     Both = Copilot | Claude
 }
 
@@ -92,6 +243,14 @@ public sealed record DevToolInfo(
     /// it always did.</para></summary>
     public IReadOnlyList<DevToolHostState> HostStates { get; init; } = [];
 
+    /// <summary>Whether the person said they had done this, for a row nothing can
+    /// probe.
+    ///
+    /// <para>It is not <see cref="Installed"/> under another name, and collapsing
+    /// the two would be the lie the whole manual provider exists to avoid: nothing
+    /// checked this machine, somebody ticked a box on it.</para></summary>
+    public bool Acknowledged { get; init; }
+
     public bool UpdateAvailable => HostStates.Count > 0
         ? HostStates.Any(state => VersionDiffers(state.InstalledVersion, state.AvailableVersion))
         : VersionDiffers(InstalledVersion, AvailableVersion);
@@ -130,14 +289,102 @@ public sealed record DevToolInfo(
         !string.IsNullOrWhiteSpace(availableVersion)
         && !availableVersion.Trim().Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Whether the available version is an update to the installed one.
+    ///
+    /// <para>It was a string inequality, and two real packages break that
+    /// permanently: an MSIX app and a click-to-run suite each self-update on a
+    /// channel of their own, so the version on the machine routinely reads
+    /// <em>ahead</em> of the package manager's manifest. Both announced an update
+    /// on every check, forever, and pressing it changed nothing.</para>
+    ///
+    /// <para>So where both sides are dotted numbers they are ordered component by
+    /// component and only a genuinely newer available version counts. Where they
+    /// are not — <c>2.54.0.windows.1</c>, <c>13.5.2+a22cec24</c> and a pair of
+    /// short commit shas are all real contents of these two columns — nothing can
+    /// be ordered and the answer falls back to the inequality this used to be.</para>
+    /// </summary>
     public static bool VersionDiffers(string installedVersion, string availableVersion)
     {
         var installed = NormalizeVersion(installedVersion);
         var available = NormalizeVersion(availableVersion);
 
-        return installed is not null
-            && available is not null
-            && !string.Equals(installed, available, StringComparison.OrdinalIgnoreCase);
+        if (installed is null || available is null)
+        {
+            return false;
+        }
+
+        if (string.Equals(installed, available, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return CompareNumeric(installed, available) is not { } comparison || comparison > 0;
+    }
+
+    /// <summary>
+    /// How the available version orders against the installed one, or nothing when
+    /// one of them is not a number to begin with.
+    ///
+    /// <para>Both sides must carry a dot. A bare run of digits is not a version —
+    /// it is what a repository-backed row puts in these columns, where an
+    /// all-numeric short commit sorting lower than the local one is a pending
+    /// update rather than a machine that is ahead.</para>
+    ///
+    /// <para>Missing trailing components are zero, so <c>1.2</c> and <c>1.2.0</c>
+    /// are one version. The package manager prints both forms for the same
+    /// package.</para>
+    /// </summary>
+    private static int? CompareNumeric(string installed, string available)
+    {
+        if (TryReadComponents(installed) is not { } installedParts || TryReadComponents(available) is not { } availableParts)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < Math.Max(installedParts.Length, availableParts.Length); index++)
+        {
+            var installedPart = index < installedParts.Length ? installedParts[index] : 0;
+            var availablePart = index < availableParts.Length ? availableParts[index] : 0;
+
+            if (installedPart != availablePart)
+            {
+                return availablePart.CompareTo(installedPart);
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Every component of a dotted number, or nothing if any one of them
+    /// is not a number.
+    ///
+    /// <para>All of it or none of it: <c>2.55.0.windows.1</c> would otherwise be
+    /// ordered against <c>2.54.0.windows.1</c> on the second component and never
+    /// reach the word that says these are not numbers. Deciding on a prefix is how
+    /// a comparison starts suppressing updates it does not actually
+    /// understand.</para></summary>
+    private static long[]? TryReadComponents(string version)
+    {
+        // A bare run of digits is not a version — it is what a repository-backed
+        // row puts in these columns, and ordering two commit shas is meaningless.
+        if (!version.Contains('.'))
+        {
+            return null;
+        }
+
+        var parts = version.Split('.');
+        var components = new long[parts.Length];
+
+        for (var index = 0; index < parts.Length; index++)
+        {
+            if (!long.TryParse(parts[index], NumberStyles.None, CultureInfo.InvariantCulture, out components[index]))
+            {
+                return null;
+            }
+        }
+
+        return components;
     }
 
     private static string? NormalizeVersion(string version)
@@ -218,6 +465,34 @@ public sealed record DevToolDraft(
 
     /// <summary>The arguments that follow the command, in order.</summary>
     public IReadOnlyList<string> ClaudeArgs { get; init; } = [];
+
+    /// <summary>What installs the new application, for
+    /// <see cref="DevToolKind.Application"/> and nothing else.
+    ///
+    /// <para>Unlike every other property here, this one is written even when it
+    /// carries its default. The catalog's silence means "both hosts" for
+    /// <c>hosts</c> and "no override" for the rest, but it means nothing at all
+    /// for a mechanism — an entry that does not say how it is installed is an
+    /// entry nothing can act on — so there is no default to leave out.</para></summary>
+    public DevToolProvider Provider { get; init; } = DevToolProvider.Winget;
+
+    /// <summary>What to run to find out whether this machine already has it, for
+    /// a <see cref="DevToolProvider.Command"/> application.</summary>
+    public string? DetectCommand { get; init; }
+
+    /// <inheritdoc cref="ClaudeArgs" />
+    public IReadOnlyList<string> DetectArgs { get; init; } = [];
+
+    /// <summary>The substring that means "yes" when the detect command answers in
+    /// prose rather than with a version.</summary>
+    public string? DetectExpect { get; init; }
+
+    /// <summary>What to run to put it there. Left blank on purpose for a checklist
+    /// row: an entry with no install is one to look at rather than press.</summary>
+    public string? InstallCommand { get; init; }
+
+    /// <inheritdoc cref="ClaudeArgs" />
+    public IReadOnlyList<string> InstallArgs { get; init; } = [];
 }
 
 /// <summary>
@@ -423,14 +698,152 @@ public static class DevToolConfiguration
     /// kind of argument.</summary>
     public const string MarketplacesPath = "claude.marketplaces";
 
-    /// <summary>The key a tool is addressed by, minted in one place so the
-    /// prefixes <see cref="ParseKey"/> reads are the prefixes callers write.</summary>
+    /// <summary>Where the machine's own software inventory lives, beside the two
+    /// arrays that were only ever about AI tooling.</summary>
+    public const string ApplicationsArrayName = "applications";
+
+    /// <summary>What identifies an application entry. A winget id, an extension id
+    /// or a slug — all of which contain dots and none of which contain a colon, so
+    /// the <c>app:</c> prefix stays unambiguous.</summary>
+    public const string ApplicationIdName = "id";
+
+    /// <summary>
+    /// The key a tool is addressed by, minted in one place so the prefixes
+    /// <see cref="ParseKey"/> reads are the prefixes callers write.
+    ///
+    /// <para>Every kind is spelled out and there is no catch-all, which is the
+    /// point: the arm this replaced minted an <c>mcp:</c> key for any kind it had
+    /// not been told about, and <see cref="ParseKey"/> then resolved it against
+    /// the wrong array — silently, and for exactly as long as it took somebody to
+    /// add an enum member. A member added now fails to compile here instead.</para>
+    /// </summary>
     public static string KeyFor(DevToolKind kind, string id) => kind switch
     {
         DevToolKind.Plugin => $"plugin:{id}",
+        DevToolKind.McpServer => $"mcp:{id}",
         DevToolKind.Marketplace => $"marketplace:{id}",
-        _ => $"mcp:{id}"
+        DevToolKind.Application => $"app:{id}"
     };
+
+    /// <summary>The <c>provider</c> string a <see cref="DevToolProvider"/> is
+    /// written as. Exhaustive for the same reason <see cref="KeyFor"/> is: a
+    /// mechanism added here and not spelled out would be written as another
+    /// mechanism's name.</summary>
+    public static string ProviderName(DevToolProvider provider) => provider switch
+    {
+        DevToolProvider.Winget => "winget",
+        DevToolProvider.VsCodeExtension => "vscode-extension",
+        DevToolProvider.Command => "command",
+        DevToolProvider.Manual => "manual"
+    };
+
+    /// <summary>
+    /// Which mechanism a <c>provider</c> string names.
+    ///
+    /// <para>A catch-all here is right where <see cref="KeyFor"/>'s was wrong: the
+    /// input is arbitrary text out of a hand-edited file rather than a value this
+    /// code produced, and the safe reading of a mechanism nobody knows is the one
+    /// that runs nothing. <see cref="DevToolApplication.ProviderRecognised"/>
+    /// carries the fact that it happened.</para>
+    /// </summary>
+    public static DevToolProvider ParseProvider(string? provider) => provider?.Trim().ToLowerInvariant() switch
+    {
+        "winget" => DevToolProvider.Winget,
+        "vscode-extension" => DevToolProvider.VsCodeExtension,
+        "command" => DevToolProvider.Command,
+        _ => DevToolProvider.Manual
+    };
+
+    /// <summary>
+    /// The application entries a catalog declares, in the order it declares them.
+    ///
+    /// <para>An entry that cannot be read is skipped rather than thrown on. This
+    /// array is the whole software inventory of a machine — thirty-odd rows in a
+    /// file people hand-edit — and one mistyped entry taking the other twenty-nine
+    /// off the screen would be a far worse answer than one missing row.</para>
+    /// </summary>
+    public static IReadOnlyList<DevToolApplication> ReadApplications(JsonNode? root)
+    {
+        if (FindArray(root, ApplicationsArrayName) is not { } array)
+        {
+            return [];
+        }
+
+        var applications = new List<DevToolApplication>();
+
+        foreach (var node in array)
+        {
+            if (node is JsonObject entry && ReadApplication(entry) is { } application)
+            {
+                applications.Add(application);
+            }
+        }
+
+        return applications;
+    }
+
+    /// <summary>One application entry, or nothing when it carries no id — the one
+    /// property the import already refuses a catalog for going without, because it
+    /// is what every override and every button on the row is addressed by.</summary>
+    public static DevToolApplication? ReadApplication(JsonObject entry)
+    {
+        var id = GetString(entry, ApplicationIdName).Trim();
+        if (id.Length == 0)
+        {
+            return null;
+        }
+
+        var name = GetString(entry, "name").Trim();
+        var declaredProvider = GetString(entry, "provider").Trim();
+        var provider = ParseProvider(declaredProvider);
+
+        return new DevToolApplication(
+            id,
+            name.Length == 0 ? id : name,
+            provider,
+            GetBool(entry, "enabled"))
+        {
+            Group = GetOptionalString(entry, "group"),
+            Note = GetOptionalString(entry, "note"),
+            DetectOnly = GetBool(entry, "detectOnly"),
+            Probe = ReadCommandSpec(entry["probe"]),
+            Detect = ReadCommandSpec(entry["detect"]),
+            Install = ReadCommandSpec(entry["install"]),
+            Acknowledged = GetBool(entry, "acknowledged"),
+            DeclaredProvider = declaredProvider,
+            ProviderRecognised = ProviderName(provider).Equals(declaredProvider, StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    /// <summary>A declared command, or nothing when there is no command to run.
+    /// An entry that named arguments and no executable is the same as an entry
+    /// that named neither: there is nothing to launch.</summary>
+    private static DevToolCommandSpec? ReadCommandSpec(JsonNode? node)
+    {
+        if (node is not JsonObject spec || GetString(spec, "command").Trim() is not { Length: > 0 } command)
+        {
+            return null;
+        }
+
+        var args = new List<string>();
+        if (spec["args"] is JsonArray declared)
+        {
+            foreach (var argument in declared)
+            {
+                if (argument is JsonValue value && value.TryGetValue<string>(out var text))
+                {
+                    args.Add(text);
+                }
+            }
+        }
+
+        return new DevToolCommandSpec(
+            command,
+            args,
+            GetOptionalString(spec, "expect"),
+            GetBool(spec, "shell"),
+            GetOptionalString(spec, "encoding"));
+    }
 
     /// <summary>
     /// Which hosts an entry declares, read from its <c>hosts</c> array.
@@ -487,11 +900,16 @@ public static class DevToolConfiguration
 
         if (id.Length == 0)
         {
+            // Spelled out for every kind, and with no catch-all, for the reason
+            // KeyFor gives: the arm this replaced answered for any kind it had not
+            // been told about, so a new one told the person to name a package id
+            // for something that has none.
             throw new InvalidOperationException(draft.Kind switch
             {
                 DevToolKind.Plugin => "A plugin needs a name.",
+                DevToolKind.McpServer => "An MCP server needs a package id.",
                 DevToolKind.Marketplace => "A marketplace needs a name.",
-                _ => "An MCP server needs a package id."
+                DevToolKind.Application => "An application needs an id."
             });
         }
 
@@ -507,6 +925,17 @@ public static class DevToolConfiguration
         if (draft.Kind is DevToolKind.Marketplace && source.Length == 0)
         {
             throw new InvalidOperationException("A marketplace needs a source.");
+        }
+
+        // The other providers know how to find their own package. A command
+        // application is the one that has to be told, and one that was not can
+        // never answer whether the machine has it — so it is refused here rather
+        // than written and drawn forever as a row of unknowns.
+        if (draft.Kind is DevToolKind.Application
+            && draft.Provider is DevToolProvider.Command
+            && string.IsNullOrWhiteSpace(draft.DetectCommand))
+        {
+            throw new InvalidOperationException("A command application needs a detect command.");
         }
 
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
@@ -537,6 +966,31 @@ public static class DevToolConfiguration
                 // machine may or may not want, it is where the Claude plugins that
                 // do want it are resolved from.
                 entry["source"] = source;
+                array.Add(entry);
+
+                await WriteCatalogAsync(paths.CatalogPath, root, ct).ConfigureAwait(false);
+                return;
+            }
+
+            if (draft.Kind is DevToolKind.Application)
+            {
+                // No hosts property: an application is software this machine
+                // should have, not a registration with an AI host, so the question
+                // the hosts filter answers is not one this entry has.
+                entry["provider"] = ProviderName(draft.Provider);
+                WriteIfPresent(entry, "name", draft.DisplayName);
+
+                if (CommandSpecFor(draft.DetectCommand, draft.DetectArgs, draft.DetectExpect) is { } detect)
+                {
+                    entry["detect"] = detect;
+                }
+
+                if (CommandSpecFor(draft.InstallCommand, draft.InstallArgs, expect: null) is { } install)
+                {
+                    entry["install"] = install;
+                }
+
+                entry["enabled"] = true;
                 array.Add(entry);
 
                 await WriteCatalogAsync(paths.CatalogPath, root, ct).ConfigureAwait(false);
@@ -734,20 +1188,28 @@ public static class DevToolConfiguration
         var plugins = document["plugins"] as JsonArray;
         var servers = document["mcpServers"] as JsonArray;
         var marketplaces = FindArray(document, MarketplacesPath);
+        var applications = document[ApplicationsArrayName] as JsonArray;
 
         // Marketplaces count as content on their own. A machine that installs only
         // Claude plugins is set up by adding the marketplace first, and refusing
         // that catalog would mean the import could not be used to bootstrap the one
-        // thing every Claude plugin id resolves against.
-        if (plugins is null && servers is null && marketplaces is null)
+        // thing every Claude plugin id resolves against. Applications count for the
+        // matching reason: a machine being set up has software to check before it
+        // has a single plugin.
+        if (plugins is null && servers is null && marketplaces is null && applications is null)
         {
-            error = "A tool catalog needs a \"plugins\", an \"mcpServers\" or a \"claude.marketplaces\" array.";
+            error = "A tool catalog needs a \"plugins\", an \"mcpServers\", a \"claude.marketplaces\" or an \"applications\" array.";
             return false;
         }
 
+        // Applications are held to the same bar as the rest, which is why a
+        // grouping marker in the catalog is a "group" property on a real entry
+        // rather than an object of its own: an entry with no id has nothing for an
+        // override to address and nothing for a button to act on.
         if (!EveryEntryCarriesAnId(plugins, "plugins", "name", out error)
             || !EveryEntryCarriesAnId(servers, "mcpServers", "packageId", out error)
-            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, "name", out error))
+            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, "name", out error)
+            || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, ApplicationIdName, out error))
         {
             return false;
         }
@@ -800,10 +1262,37 @@ public static class DevToolConfiguration
         MergeArray(root, pcRoot, "plugins", "name");
         MergeArray(root, pcRoot, "mcpServers", "packageId");
 
+        // Applications merge for the same reason the two above do, and the cost of
+        // forgetting is worse: an application override is where a machine says it
+        // has acknowledged a manual row or does not want an app, and an array that
+        // is not merged makes every one of those writes silently inert — a saved
+        // setting that reads back as never saved.
+        MergeArray(root, pcRoot, ApplicationsArrayName, ApplicationIdName);
+
         return new DevToolConfigurationDocument(root, true, paths.CatalogPath, paths.PcConfigPath);
     }
 
-    public static async Task WriteEnabledOverrideAsync(DevToolConfigurationPaths paths, string key, bool enabled, CancellationToken ct = default)
+    public static Task WriteEnabledOverrideAsync(DevToolConfigurationPaths paths, string key, bool enabled, CancellationToken ct = default) =>
+        WritePcOverrideAsync(paths, key, "enabled", enabled, ct);
+
+    /// <summary>
+    /// Records that the person has done what a manual row asks for.
+    ///
+    /// <para>Per machine, and in the per-PC file rather than the shared catalog,
+    /// because that is what the fact is about: "this laptop is signed in" is not
+    /// something to sync to the next one. It is deliberately a second property
+    /// beside <c>enabled</c> and not a reuse of it — a row can be one the machine
+    /// wants and has not done yet, and collapsing the two would make ticking the
+    /// box the same act as removing the row.</para>
+    /// </summary>
+    public static Task WriteAcknowledgementAsync(DevToolConfigurationPaths paths, string key, bool acknowledged, CancellationToken ct = default) =>
+        WritePcOverrideAsync(paths, key, "acknowledged", acknowledged, ct);
+
+    /// <summary>Sets one property on one entry of the per-PC file, making the file,
+    /// the array and the entry when they are not there yet. The file is small and
+    /// rewritten whole, so both overrides go through here rather than each
+    /// re-deriving where an entry lives.</summary>
+    private static async Task WritePcOverrideAsync(DevToolConfigurationPaths paths, string key, string propertyName, bool value, CancellationToken ct)
     {
         var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var (arrayName, idName, idValue) = ParseKey(key);
@@ -816,7 +1305,7 @@ public static class DevToolConfiguration
             array.Add(tool);
         }
 
-        tool["enabled"] = enabled;
+        tool[propertyName] = value;
 
         Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath) ?? Environment.CurrentDirectory);
         await using var stream = File.Create(paths.PcConfigPath);
@@ -945,7 +1434,46 @@ public static class DevToolConfiguration
             names.Add("claude");
         }
 
+        // The desktop host is the one that has to be written down: it is outside
+        // what silence means, so an entry that does not name it is an entry that
+        // does not target it.
+        if (hosts.HasFlag(DevToolHosts.ClaudeDesktop))
+        {
+            names.Add("claude-desktop");
+        }
+
         entry["hosts"] = names;
+    }
+
+    /// <summary>A declared command as the catalog spells it, or nothing when there
+    /// is no command — which is how a checklist row says it has no install: by the
+    /// property not being there at all.</summary>
+    private static JsonObject? CommandSpecFor(string? command, IReadOnlyList<string> args, string? expect)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            return null;
+        }
+
+        var spec = new JsonObject { ["command"] = command.Trim() };
+        var values = new JsonArray();
+
+        foreach (var argument in args)
+        {
+            if (!string.IsNullOrWhiteSpace(argument))
+            {
+                values.Add(argument);
+            }
+        }
+
+        if (values.Count > 0)
+        {
+            spec["args"] = values;
+        }
+
+        WriteIfPresent(spec, "expect", expect);
+
+        return spec;
     }
 
     /// <summary>The <c>claude</c> section of an MCP server entry, or nothing when
@@ -991,6 +1519,20 @@ public static class DevToolConfiguration
     private static string GetString(JsonObject node, string name) =>
         node[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : string.Empty;
 
+    /// <inheritdoc cref="GetString" />
+    /// <summary>A string property that is absent when it is blank, so the record
+    /// it lands on can say "nothing here" with a null rather than with an empty
+    /// string every caller has to remember to test for.</summary>
+    private static string? GetOptionalString(JsonObject node, string name) =>
+        GetString(node, name).Trim() is { Length: > 0 } text ? text : null;
+
+    /// <summary>A boolean property, or false. It reads the value the same way
+    /// <see cref="GetString"/> does rather than demanding one: a
+    /// <c>"enabled": "yes"</c> in a hand-edited catalog is a row that is not
+    /// enabled, not an exception out of a read of the whole file.</summary>
+    private static bool GetBool(JsonObject node, string name) =>
+        node[name] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
+
     /// <summary>Which array a key addresses, which property identifies an entry
     /// in it, and the id itself. Public because it is how a caller turns the key
     /// a row carries back into the entry behind it.</summary>
@@ -1009,6 +1551,11 @@ public static class DevToolConfiguration
         if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
         {
             return (MarketplacesPath, "name", key["marketplace:".Length..]);
+        }
+
+        if (key.StartsWith("app:", StringComparison.OrdinalIgnoreCase))
+        {
+            return (ApplicationsArrayName, ApplicationIdName, key["app:".Length..]);
         }
 
         throw new ArgumentException("Unknown tool key.", nameof(key));
