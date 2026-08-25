@@ -13,7 +13,7 @@
             <div>
                 <FileField Label="Tool catalog"
                            Accept=".json"
-                           HelpText="A copilot-tools.json. Up to 1 MB."
+                           HelpText="An ai-tools.json. Up to 1 MB."
                            OnTextRead="OnCatalogRead"
                            OnRejected="OnCatalogRejected"
                            ErrorMessage="@_error"
@@ -99,7 +99,7 @@
     private const string FileFieldCode = """
         <FileField Label="Tool catalog"
                    Accept=".json"
-                   HelpText="A copilot-tools.json. Up to 1 MB."
+                   HelpText="An ai-tools.json. Up to 1 MB."
                    OnTextRead="json => _json = json"
                    OnRejected="message => _error = message"
                    ErrorMessage="@_error" />

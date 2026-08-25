@@ -29,7 +29,7 @@
         <div>
             <p class="tools-panel__eyebrow">System tools</p>
             <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
-            <p class="tools-panel__subtitle">Configured and disabled Copilot plugins, repository tools, and MCP servers.</p>
+            <p class="tools-panel__subtitle">Configured and disabled Copilot and Claude plugins, marketplaces, repository tools, and MCP servers.</p>
         </div>
         <div class="tools-panel__header-actions">
             @* The library's badge wearing this pane's count class. *@
@@ -88,7 +88,7 @@
         }
         else
         {
-            <div class="tools-table" role="table" aria-label="Configured Copilot tools">
+            <div class="tools-table" role="table" aria-label="Configured Copilot and Claude tools">
                 <div class="tools-table__row tools-table__row--head" role="row">
                     <span role="columnheader">Tool</span>
                     <span role="columnheader">Installed</span>
@@ -101,12 +101,32 @@
                     <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
                         <div role="cell" class="tools-table__tool">
                             <strong>@tool.Name</strong>
+                            @* The library's badge wearing this table's host class.
+                               Which hosts an entry is for decides what its Update
+                               actually does, and a catalog that drives two of them
+                               with one row is unreadable without it being said. *@
+                            <Badge BaseClass="tools-table__hosts"
+                                   Kind=""
+                                   Title="@HostTitle(tool)"
+                                   TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
                             <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @tool.Status</span>
                         </div>
                         <span role="cell" class="tools-table__version">@tool.InstalledVersion</span>
                         <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">@tool.AvailableVersion</span>
                         <div role="cell" class="tools-table__actions">
-                            @if (tool.CanUpdate)
+                            @if (tool.Kind is CopilotToolKind.Marketplace)
+                            {
+                                @* A marketplace has no version to be behind, so it
+                                   never earns an Update through CanUpdate the way a
+                                   tool does. What it has is two states — Claude
+                                   knows it or does not — and one verb for each. *@
+                                <AppButton Variant="ButtonVariant.Secondary"
+                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                           OnClick="() => ApplyToolActionAsync(tool, CopilotToolAction.Update)">
+                                    @(tool.Installed ? "Update" : "Add")
+                                </AppButton>
+                            }
+                            else if (tool.CanUpdate)
                             {
                                 <AppButton Variant="ButtonVariant.Secondary"
                                            Disabled="@(_toolsLoading || ToolActionBusy)"
@@ -132,11 +152,18 @@
                             {
                                 <span class="tools-table__action-note">@ActionNote(tool)</span>
                             }
-                            <AppButton Variant="ButtonVariant.Ghost"
-                                       Disabled="@(_toolsLoading || ToolActionBusy)"
-                                       OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
-                                @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                            </AppButton>
+                            @if (tool.Kind is not CopilotToolKind.Marketplace)
+                            {
+                                @* Not for a marketplace. It is not a tool this
+                                   machine opts into — it is where the Claude
+                                   plugins that do come from — so the only way to
+                                   stop wanting one is to remove it. *@
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                           OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? CopilotToolAction.Disable : CopilotToolAction.Enable)">
+                                    @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                </AppButton>
+                            }
                             @if (CanEdit)
                             {
                                 @* The row's test id is shared by every row, so a driver
@@ -194,12 +221,39 @@
                          TestId="tools-add-kind"
                          OnChanged="OnDraftKindChanged" />
 
-            @if (_draftKind is CopilotToolKind.Plugin)
+            @if (_draftKind is not CopilotToolKind.Marketplace)
+            {
+                @* A marketplace has no hosts to choose between: it is a Claude
+                   mechanism and nothing else, so offering the choice would be
+                   offering an answer that cannot be given. *@
+                <SelectField Label="Hosts"
+                             CurrentValue="@_draftHosts.ToString()"
+                             Options="@HostOptions"
+                             TestId="tools-add-hosts"
+                             OnChanged="OnDraftHostsChanged" />
+            }
+
+            @if (_draftKind is CopilotToolKind.Marketplace)
+            {
+                <TextField Label="Name"
+                           Value="@_draftMarketplaceName"
+                           ValueChanged="value => _draftMarketplaceName = value"
+                           HelpText="What Claude will call it — the marketplace half of a plugin id."
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-name" />
+                <TextField Label="Source"
+                           Value="@_draftSource"
+                           ValueChanged="value => _draftSource = value"
+                           HelpText="The repository it is added from: an owner/repo, or a URL."
+                           ErrorMessage="@_draftSourceError"
+                           TestId="tools-add-source" />
+            }
+            else if (_draftKind is CopilotToolKind.Plugin)
             {
                 <TextField Label="Name"
                            Value="@_draftPluginName"
                            ValueChanged="value => _draftPluginName = value"
-                           HelpText="The plugin's name, exactly as the Copilot CLI lists it."
+                           HelpText="The plugin's name, exactly as its host CLI lists it. Claude's own name for it, when it differs, goes below."
                            ErrorMessage="@_draftIdError"
                            TestId="tools-add-name" />
                 <TextField Label="Source"
@@ -215,6 +269,24 @@
                              EmptyLabel="Plugin (default)"
                              TestId="tools-add-plugin-kind"
                              OnChanged="value => _draftPluginKind = value ?? string.Empty" />
+
+                @if (_draftHosts.HasFlag(CopilotToolHosts.Claude))
+                {
+                    @* Both blank in the ordinary case: a plugin's Claude id falls
+                       back to its own name and to the first marketplace in the
+                       catalog, and writing either out when it only restates the
+                       fallback makes the catalog harder to read. *@
+                    <TextField Label="Claude name"
+                               Value="@_draftClaudeName"
+                               ValueChanged="value => _draftClaudeName = value"
+                               HelpText="Optional. Only when the marketplace calls it something else."
+                               TestId="tools-add-claude-name" />
+                    <TextField Label="Claude marketplace"
+                               Value="@_draftClaudeMarketplace"
+                               ValueChanged="value => _draftClaudeMarketplace = value"
+                               HelpText="Optional. Defaults to the first marketplace in the catalog."
+                               TestId="tools-add-claude-marketplace" />
+                }
             }
             else
             {
@@ -229,6 +301,28 @@
                            ValueChanged="value => _draftDisplayName = value"
                            HelpText="Optional. What the row reads as beside the package id."
                            TestId="tools-add-name" />
+
+                @if (_draftHosts.HasFlag(CopilotToolHosts.Claude))
+                {
+                    @* The .NET tool above is shared by both hosts. These three are
+                       the extra step Claude needs on top of it: a user-scope
+                       registration pointing at the executable the tool installs. *@
+                    <TextField Label="Claude server name"
+                               Value="@_draftClaudeServerName"
+                               ValueChanged="value => _draftClaudeServerName = value"
+                               HelpText="Optional. What 'claude mcp' registers it as; defaults to the name above."
+                               TestId="tools-add-claude-server-name" />
+                    <TextField Label="Claude command"
+                               Value="@_draftClaudeCommand"
+                               ValueChanged="value => _draftClaudeCommand = value"
+                               HelpText="The executable the tool installs. Leave blank to install the tool without registering it."
+                               TestId="tools-add-claude-command" />
+                    <TextField Label="Claude arguments"
+                               Value="@_draftClaudeArgs"
+                               ValueChanged="value => _draftClaudeArgs = value"
+                               HelpText="Optional. Separated by spaces, in the order they are passed."
+                               TestId="tools-add-claude-args" />
+                }
             }
         </div>
     </ChildContent>
@@ -252,7 +346,7 @@
             </p>
             <FileField Label="Catalog file"
                        Accept=".json"
-                       HelpText="A copilot-tools.json with a plugins or mcpServers array."
+                       HelpText="An ai-tools.json with a plugins, mcpServers or claude.marketplaces array."
                        ErrorMessage="@_importError"
                        OnTextRead="OnImportFileRead"
                        OnRejected="OnImportFileRejected"
@@ -314,11 +408,18 @@
 
     private bool _addOpen;
     private CopilotToolKind _draftKind = CopilotToolKind.Plugin;
+    private CopilotToolHosts _draftHosts = CopilotToolHosts.Both;
     private string _draftPluginName = string.Empty;
     private string _draftSource = string.Empty;
     private string _draftPluginKind = string.Empty;
     private string _draftPackageId = string.Empty;
     private string _draftDisplayName = string.Empty;
+    private string _draftMarketplaceName = string.Empty;
+    private string _draftClaudeName = string.Empty;
+    private string _draftClaudeMarketplace = string.Empty;
+    private string _draftClaudeServerName = string.Empty;
+    private string _draftClaudeCommand = string.Empty;
+    private string _draftClaudeArgs = string.Empty;
     private string? _draftIdError;
     private string? _draftSourceError;
 
@@ -364,7 +465,12 @@
         ? string.Empty
         : $"{_removing.Name} is dropped from the catalog, along with anything this PC had overridden about it. The tool itself is not uninstalled.";
 
-    private bool CanUpdateAnyTool => _tools.Any(tool => tool.CanUpdate);
+    /// <summary>Whether "Update all" has anything to do. A marketplace Claude has
+    /// never been told about counts, even though it has no version to be behind:
+    /// every Claude plugin id resolves against one, so a missing marketplace is a
+    /// whole block of rows failing for a single reason.</summary>
+    private bool CanUpdateAnyTool =>
+        _tools.Any(tool => tool.CanUpdate || (tool.Kind is CopilotToolKind.Marketplace && !tool.Installed));
 
     /// <summary>What a row says when there is nothing to press.
     ///
@@ -409,7 +515,18 @@
     private static readonly IReadOnlyList<SelectorOption> KindOptions =
     [
         new(nameof(CopilotToolKind.Plugin), "Plugin"),
-        new(nameof(CopilotToolKind.McpServer), "MCP server")
+        new(nameof(CopilotToolKind.McpServer), "MCP server"),
+        new(nameof(CopilotToolKind.Marketplace), "Claude marketplace")
+    ];
+
+    /// <summary>Both first, because it is both the default and the common answer:
+    /// an entry that says nothing about hosts is an entry for both, and the catalog
+    /// writes the property only when the answer is one of the other two.</summary>
+    private static readonly IReadOnlyList<SelectorOption> HostOptions =
+    [
+        new(nameof(CopilotToolHosts.Both), "Copilot and Claude"),
+        new(nameof(CopilotToolHosts.Copilot), "Copilot only"),
+        new(nameof(CopilotToolHosts.Claude), "Claude only")
     ];
 
     /// <summary>The plugin kinds the desktop host actually branches on, plus the
@@ -537,7 +654,12 @@
 
     private void OnDraftKindChanged(string? value)
     {
-        _draftKind = value == nameof(CopilotToolKind.McpServer) ? CopilotToolKind.McpServer : CopilotToolKind.Plugin;
+        _draftKind = value switch
+        {
+            nameof(CopilotToolKind.McpServer) => CopilotToolKind.McpServer,
+            nameof(CopilotToolKind.Marketplace) => CopilotToolKind.Marketplace,
+            _ => CopilotToolKind.Plugin
+        };
 
         // The fields the other kind filled in are not this kind's fields, and a
         // stale error under a field that is no longer on screen would reappear
@@ -545,6 +667,13 @@
         _draftIdError = null;
         _draftSourceError = null;
     }
+
+    private void OnDraftHostsChanged(string? value) => _draftHosts = value switch
+    {
+        nameof(CopilotToolHosts.Copilot) => CopilotToolHosts.Copilot,
+        nameof(CopilotToolHosts.Claude) => CopilotToolHosts.Claude,
+        _ => CopilotToolHosts.Both
+    };
 
     /// <summary>
     /// What the form can decide on its own, decided on its own. The port validates
@@ -558,16 +687,25 @@
         _draftSourceError = null;
 
         var plugin = _draftKind is CopilotToolKind.Plugin;
-        var id = (plugin ? _draftPluginName : _draftPackageId).Trim();
+        var marketplace = _draftKind is CopilotToolKind.Marketplace;
+        var id = (marketplace ? _draftMarketplaceName : plugin ? _draftPluginName : _draftPackageId).Trim();
 
         if (id.Length == 0)
         {
-            _draftIdError = plugin ? "A plugin needs a name." : "An MCP server needs a package id.";
+            _draftIdError = _draftKind switch
+            {
+                CopilotToolKind.Plugin => "A plugin needs a name.",
+                CopilotToolKind.Marketplace => "A marketplace needs a name.",
+                _ => "An MCP server needs a package id."
+            };
         }
 
-        if (plugin && string.IsNullOrWhiteSpace(_draftSource))
+        // A marketplace is all source — a name with nothing behind it is a name
+        // Claude has no way to resolve — so it is required for the same reason a
+        // plugin's is.
+        if ((plugin || marketplace) && string.IsNullOrWhiteSpace(_draftSource))
         {
-            _draftSourceError = "A plugin needs a source.";
+            _draftSourceError = plugin ? "A plugin needs a source." : "A marketplace needs a source.";
         }
 
         if (_draftIdError is not null || _draftSourceError is not null)
@@ -578,9 +716,19 @@
         var draft = new CopilotToolDraft(
             _draftKind,
             id,
-            plugin ? _draftSource.Trim() : null,
-            plugin ? null : NullIfBlank(_draftDisplayName),
-            plugin ? NullIfBlank(_draftPluginKind) : null);
+            plugin || marketplace ? _draftSource.Trim() : null,
+            plugin || marketplace ? null : NullIfBlank(_draftDisplayName),
+            plugin ? NullIfBlank(_draftPluginKind) : null)
+        {
+            // A marketplace is a Claude mechanism whatever the form last had
+            // selected, and the hosts selector is not on screen for one.
+            Hosts = marketplace ? CopilotToolHosts.Claude : _draftHosts,
+            ClaudeName = plugin ? NullIfBlank(_draftClaudeName) : null,
+            ClaudeMarketplace = plugin ? NullIfBlank(_draftClaudeMarketplace) : null,
+            ClaudeServerName = plugin || marketplace ? null : NullIfBlank(_draftClaudeServerName),
+            ClaudeCommand = plugin || marketplace ? null : NullIfBlank(_draftClaudeCommand),
+            ClaudeArgs = plugin || marketplace ? [] : SplitArgs(_draftClaudeArgs)
+        };
 
         if (await RunCatalogEditAsync(AddKey, () => CopilotTools.AddAsync(draft)))
         {
@@ -588,6 +736,12 @@
             ResetDraft();
         }
     }
+
+    /// <summary>The arguments box as an argument list. Split on whitespace, which
+    /// is what the field says it does and what an argument list looks like when it
+    /// is typed rather than assembled — <c>agent mcp</c>, not a JSON array.</summary>
+    private static IReadOnlyList<string> SplitArgs(string value) =>
+        value.Split((char[])[' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private void OpenImportDialog()
     {
@@ -679,14 +833,40 @@
     private void ResetDraft()
     {
         _draftKind = CopilotToolKind.Plugin;
+        _draftHosts = CopilotToolHosts.Both;
         _draftPluginName = string.Empty;
         _draftSource = string.Empty;
         _draftPluginKind = string.Empty;
         _draftPackageId = string.Empty;
         _draftDisplayName = string.Empty;
+        _draftMarketplaceName = string.Empty;
+        _draftClaudeName = string.Empty;
+        _draftClaudeMarketplace = string.Empty;
+        _draftClaudeServerName = string.Empty;
+        _draftClaudeCommand = string.Empty;
+        _draftClaudeArgs = string.Empty;
         _draftIdError = null;
         _draftSourceError = null;
     }
+
+    /// <summary>Which hosts a row is for, short enough to sit beside the name.
+    /// "Both" is spelled out rather than left blank: a row that says nothing about
+    /// hosts is indistinguishable from one whose badge failed to render, and the
+    /// whole point of the badge is that the answer is never assumed.</summary>
+    private static string HostLabel(CopilotToolHosts hosts) => hosts switch
+    {
+        CopilotToolHosts.Copilot => "Copilot",
+        CopilotToolHosts.Claude => "Claude",
+        CopilotToolHosts.Both => "Copilot + Claude",
+        _ => "No host"
+    };
+
+    /// <summary>The badge's tooltip: what each host answered, when they answered
+    /// differently enough to be worth reading one by one. A row whose hosts agree
+    /// gets no tooltip, because the columns already say it.</summary>
+    private static string? HostTitle(CopilotToolInfo tool) => tool.HostStates.Count < 2
+        ? null
+        : string.Join(" · ", tool.HostStates.Select(state => $"{HostLabel(state.Host)}: {state.Status}"));
 
     private static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
