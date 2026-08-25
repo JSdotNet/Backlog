@@ -70,6 +70,31 @@ public static class KnowledgeInlineTargets
     /// is the same bargain <see cref="MarkdownRender"/> already strikes for a
     /// scheme it will not navigate to, wearing the same class, so a reader meets one
     /// shape of unfollowable link rather than two.</para>
+    ///
+    /// <para>An image splits the same two ways and settles both without asking
+    /// where the file is. A scheme is somebody else's picture, hosted where it is
+    /// reachable, and stays the <c>img</c> <see cref="MarkdownRender"/> already
+    /// writes. A relative target is the file beside the chapter, and there is no
+    /// origin it could be resolved against: the folders sit outside every
+    /// <c>wwwroot</c>, so the <c>src</c> the author wrote is a request to whatever
+    /// host happens to be serving the app, which answers 404. So it is not
+    /// resolved — it is dropped, and the alt text stands in its place. Which is
+    /// the answer a link already gave to this exact target: <c>assets/shot.png</c>
+    /// written as <c>[…](…)</c> has been inert since relative links were read at
+    /// all, and the same path written as <c>![…](…)</c> reaching a different
+    /// verdict was the whole of the defect.</para>
+    ///
+    /// <para>It is a smaller loss than it sounds. The picture is still correct
+    /// where the file is read as plain markdown — a checkout, or GitHub — because
+    /// there the relative path is the right spelling and this changes nothing
+    /// about it. What a reader loses is a broken-image icon.</para>
+    ///
+    /// <para>Nothing here reaches for the file, and that is the point rather than
+    /// an omission. Serving it would make this a file server with a root to pin
+    /// and a traversal rule to get right, and inlining it would put a synchronous
+    /// disk read inside a render pass; both belong to a decision about whether the
+    /// knowledge pane displays pictures at all, which is not a decision a
+    /// rendering rule gets to make on its own.</para>
     /// </summary>
     private static RenderFragment? Draw(
         string target,
@@ -79,6 +104,15 @@ public static class KnowledgeInlineTargets
         Func<KnowledgeReference, string?>? hrefFor,
         EventCallback<KnowledgeReference> onNavigate)
     {
+        // Asked and answered before a reference is looked for at all, because an
+        // image never becomes one. `![the model](domain.md)` is an author writing
+        // one syntax and meaning the other, and turning it into the control a link
+        // would have become would be this deciding what they meant.
+        if (kind is MarkdownInlineKind.Image)
+        {
+            return MarkdownRender.NamesScheme(target) ? null : Inert(text, "md-image--inert");
+        }
+
         var reference = kind is MarkdownInlineKind.Link
             ? KnowledgeReference.ParseKnowledgePath(target, documentPath)
             : KnowledgeReference.ParseKnowledgePath(target);
@@ -95,7 +129,7 @@ public static class KnowledgeInlineTargets
 
         if (kind is not MarkdownInlineKind.Link || MarkdownRender.NamesScheme(target)) return null;
 
-        return Inert(text);
+        return Inert(text, "md-link--inert");
     }
 
     private static RenderFragment Link(
@@ -112,10 +146,15 @@ public static class KnowledgeInlineTargets
         builder.CloseComponent();
     };
 
-    private static RenderFragment Inert(string text) => builder =>
+    /// <summary>The words with no destination behind them. The class is the
+    /// caller's because <see cref="MarkdownRender"/> already draws both shapes —
+    /// <c>md-link--inert</c> for a link it will not follow, <c>md-image--inert</c>
+    /// for a picture it will not fetch — and a reader should meet the same two
+    /// here rather than a third of this file's own.</summary>
+    private static RenderFragment Inert(string text, string className) => builder =>
     {
         builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "class", "md-link--inert");
+        builder.AddAttribute(1, "class", className);
         builder.AddContent(2, text);
         builder.CloseElement();
     };

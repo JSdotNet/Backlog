@@ -42,9 +42,10 @@ public static class MarkdownRender
     /// <summary>
     /// A second reading of what an inline points at, offered to the caller before
     /// the default rendering is chosen. It is handed the target — a code span's
-    /// own text, or a link's URL — and the words the author wrote, and it returns
-    /// the fragment to draw instead, or <see langword="null"/> to leave that
-    /// inline exactly as it has always rendered.
+    /// own text, or a link's or an image's URL — and the words the author wrote,
+    /// which for an image is its alt text, and it returns the fragment to draw
+    /// instead, or <see langword="null"/> to leave that inline exactly as it has
+    /// always rendered.
     /// <para>
     /// A hook rather than a rule baked in here, because the same code span means
     /// different things in different places: <c>.domain/sessions/domain.md</c> in
@@ -60,6 +61,15 @@ public static class MarkdownRender
     /// one is the most quotable file name in the repository. Without the
     /// distinction the caller would have to guess it from the target matching the
     /// text, which a link whose words are its own URL also does.
+    /// </para>
+    /// <para>
+    /// An image is a third question again, and the sharpest of the three: its
+    /// target is fetched with no click to consent to it, so a caller that cannot
+    /// place one is not choosing between a link and plain words but between a
+    /// request it cannot vouch for and none. A relative <c>src</c> is also the one
+    /// target with nowhere to resolve <em>to</em> — a knowledge chapter's picture
+    /// sits beside it on disk, outside any <c>wwwroot</c>, so there is no origin
+    /// the path could be right about.
     /// </para>
     /// </summary>
     public delegate RenderFragment? MarkdownInlineTarget(string target, string text, MarkdownInlineKind kind);
@@ -77,13 +87,19 @@ public static class MarkdownRender
                     builder.AddContent(seq++, text.Text);
                     break;
 
-                // Both hooked cases come first so the caller gets the refusal —
+                // All three hooked cases come first so the caller gets the refusal —
                 // returning null — rather than having to reproduce the default it
                 // is declining to replace.
                 case MdCodeSpan codeSpan when target?.Invoke(codeSpan.Text, codeSpan.Text, MarkdownInlineKind.CodeSpan) is { } replacement:
                     builder.AddContent(seq++, replacement);
                     break;
                 case MdLink hooked when target?.Invoke(hooked.Url, hooked.Text, MarkdownInlineKind.Link) is { } replacement:
+                    builder.AddContent(seq++, replacement);
+                    break;
+                // The alt text is what an image says when the picture is not there,
+                // which makes it the right thing to hand a hook that may decide the
+                // picture should not be fetched at all.
+                case MdImage hooked when target?.Invoke(hooked.Url, hooked.Alt, MarkdownInlineKind.Image) is { } replacement:
                     builder.AddContent(seq++, replacement);
                     break;
 
@@ -218,8 +234,8 @@ public static class MarkdownRender
 
 /// <summary>
 /// Which inline a <see cref="MarkdownRender.MarkdownInlineTarget"/> is being asked
-/// about. Two members and no more, because the hook is only ever offered the two
-/// inlines that carry a target somebody might follow.
+/// about. Three members and no more, because those are all the inlines that carry
+/// a target at all: two a reader may follow, and one the browser follows for them.
 /// </summary>
 public enum MarkdownInlineKind
 {
@@ -232,5 +248,12 @@ public enum MarkdownInlineKind
     /// <summary>A markdown link, whose target is its URL. The author wrote the
     /// syntax of a thing to be followed, which is the difference that lets a
     /// caller resolve it against the document around it.</summary>
-    Link
+    Link,
+
+    /// <summary>An image, whose target is its URL and whose words are its alt
+    /// text. Resolved against the document like a link is, because the author
+    /// wrote a path meaning the file beside them — but the answer a caller gives
+    /// is not a link's answer: a picture it cannot place is a request nobody asked
+    /// for, so refusing it leaves the alt text and no <c>src</c> at all.</summary>
+    Image
 }
