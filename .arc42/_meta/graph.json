@@ -1061,7 +1061,7 @@
           "path": ".domain/capture/features.md",
           "slug": "copilot-app-session-capture",
           "level": 3,
-          "line": 130,
+          "line": 158,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#source-adapter"

@@ -104,6 +104,34 @@ status: draft
 
 Run all monitors on a configurable schedule without manual intervention.
 
+### Composable monitors
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/capture/domain.md#source-adapter, .domain/monitoring/features.md#automation-status]
+```
+
+Let the user compose a monitor themselves — a trigger, a condition, and the
+capture it produces — instead of choosing only from the monitors the product
+ships with. A composed monitor carries the same schedule, retry/backoff, and
+failure-logging guarantees as a built-in one and still delivers a normalized
+capture, so nothing downstream can tell the two apart.
+
+Recorded as a possibility, not a commitment. What prompted it is xyOps
+(<https://github.com/pixlcore/xyops>), a self-hosted automation platform that
+wires events, triggers, actions, and monitors into pipelines through a visual
+editor and files the result carrying its own context. Whether this capability is
+built in-product or obtained by running such a platform behind the
+`Source Adapter` anti-corruption layer is a technology choice this chapter does
+not settle. Either way the local-first rule holds: a composed monitor's source
+credentials stay on the machine and never route through the optional Cloud
+Service.
+
+Boundary: this covers monitors watching sources *outside* the product. Signals
+about the product's own health continue to reach the Inbox as Monitoring's
+`FollowUpCaptured`, not as a capture.
+
 ## Web clipper capture
 
 ```meta
