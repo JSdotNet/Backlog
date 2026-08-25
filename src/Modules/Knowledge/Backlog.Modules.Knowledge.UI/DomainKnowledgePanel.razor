@@ -666,11 +666,18 @@
     /// <summary>The chapter as a buffer, and nothing else: no title, because the
     /// file view's header above it names the document, and Bare because that header
     /// now carries the way in and out of editing too. This is only on screen while
-    /// the reader is writing.</summary>
+    /// the reader is writing.
+    ///
+    /// <para>Fill for the other half of that bargain. The file view here is given
+    /// no MaxHeight and sits in a scrolling article, so the pane is what decides
+    /// how tall the document is — and a surface sized by a textarea's row count
+    /// would leave the reader a short box with the rest of the pane empty under
+    /// it, which is exactly the space the header's Edit button just opened.</para></summary>
     private RenderFragment ChapterEditor() => @<KnowledgeChapterEditor @ref="_editor"
                                                                        Chapter="@_chapter.Chapter"
                                                                        InitialText="@_chapter.Text"
                                                                        Bare="true"
+                                                                       Fill="true"
                                                                        OnSaved="OnChapterSavedAsync"
                                                                        OnSaveFailed="OnChapterSaveFailed" />;
 
