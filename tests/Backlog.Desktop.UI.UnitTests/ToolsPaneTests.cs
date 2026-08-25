@@ -316,6 +316,28 @@ public sealed class ToolsPaneTests
         Assert.Equal(["Copilot + Claude", "Claude", "Copilot"], labels);
     }
 
+    /// <summary>An application is machine software, not a registration with an AI
+    /// tool, so it has no host to name and gets no badge at all.
+    ///
+    /// <para>It used to get one reading "No host", which is what the label says for
+    /// the flags value an application deliberately carries. That answered a
+    /// question the row had never asked, on every one of the fifty-odd application
+    /// rows at once.</para></summary>
+    [Fact]
+    public void An_application_row_carries_no_host_badge()
+    {
+        var application = Tool("app:Microsoft.VisualStudioCode", "Visual Studio Code") with
+        {
+            Kind = DevToolKind.Application,
+            Hosts = DevToolHosts.None
+        };
+        using var context = Context(FakeDevToolService.With(application));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-hosts']"));
+    }
+
     /// <summary>The badge carries what each host answered, when there is more than
     /// one answer to carry. A row whose hosts agree gets no tooltip — the columns
     /// already say it.</summary>

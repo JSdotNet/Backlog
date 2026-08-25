@@ -152,11 +152,19 @@
                                             @* The library's badge wearing this table's host class.
                                                Which hosts an entry is for decides what its Update
                                                actually does, and a catalog that drives two of them
-                                               with one row is unreadable without it being said. *@
-                                            <Badge BaseClass="tools-table__hosts"
-                                                   Kind=""
-                                                   Title="@HostTitle(tool)"
-                                                   TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
+                                               with one row is unreadable without it being said.
+
+                                               An application has no host at all — it is machine
+                                               software, not a registration with an AI tool — so it
+                                               gets no badge rather than a badge reading "No host",
+                                               which answered a question the row never asked. *@
+                                            @if (tool.Hosts is not DevToolHosts.None)
+                                            {
+                                                <Badge BaseClass="tools-table__hosts"
+                                                       Kind=""
+                                                       Title="@HostTitle(tool)"
+                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
+                                            }
                                             <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
                                             @if (NoteOf(tool) is { Length: > 0 } note)
                                             {
