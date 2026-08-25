@@ -18,7 +18,7 @@
     component owns the buttons, the text, and nothing in between.
 *@
 
-<div class="markdown-editor @CssClass" data-testid="@TestId">
+<div class="@ClassValue" data-testid="@TestId">
     <div class="markdown-editor__toolbar" role="toolbar" aria-label="@ToolbarLabel" aria-controls="@_surfaceId">
         @foreach (var group in Actions)
         {
@@ -136,6 +136,48 @@
     [Parameter]
     public int Rows { get; set; } = 14;
 
+    /// <summary>
+    /// Take the height the host gives this rather than the one
+    /// <see cref="Rows"/> asks for, and scroll the text inside it.
+    /// <para>
+    /// For an editor that lives in a pane which already knows how tall it is — a
+    /// file view whose header carried the Edit that put this on screen. There the
+    /// row count is a guess about somebody else's layout, and the reader sees it
+    /// as a short box with the rest of the pane empty underneath. With this on
+    /// the toolbar keeps its own size, the text takes everything left, and the
+    /// drag handle goes: a control offering to make the box taller inside a box
+    /// that is already exactly as tall as it may be would be offering to fight
+    /// the layout.
+    /// </para>
+    /// <para>
+    /// Off by default, and <see cref="Rows"/> still sizes every editor that does
+    /// not ask. A host with no definite height of its own has nothing to fill,
+    /// and would get a one-line editor for its trouble.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    /// <summary>
+    /// Give up the frame: no edge of its own, no rounded corner, nothing between
+    /// the toolbar and the wall of whatever this was put inside.
+    /// <para>
+    /// The same bargain <c>CodeView.Bare</c> and <c>MarkdownCompareView.Bare</c>
+    /// already take, and for the same reason. A host that draws a frame and then
+    /// fills it with a component carrying its own draws two lines a pixel apart,
+    /// and a reader who sees two edges looks for the two things they separate.
+    /// The focus ring survives it — the border was carrying the focus state, so
+    /// without one this takes an inset outline instead, which is what the file
+    /// view's own scroll region already does.
+    /// </para>
+    /// <para>
+    /// Off by default: an editor sitting on a page rather than inside something
+    /// is its own object, and needs to look like one.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
     [Parameter]
     public bool AutoGrow { get; set; }
 
@@ -147,6 +189,18 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>The root's classes: the block, the height it was asked to take,
+    /// the frame it was asked to give up, and whatever the host was already
+    /// putting there — beside them rather than instead of them, which is what the
+    /// class attribute used to concatenate by hand.</summary>
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "markdown-editor",
+        Fill ? "markdown-editor--fill" : null,
+        Bare ? "markdown-editor--bare" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string? SurfaceTestId => TestId is null ? null : $"{TestId}-surface";
 

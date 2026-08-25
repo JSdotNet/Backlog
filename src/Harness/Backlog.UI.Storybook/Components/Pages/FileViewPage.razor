@@ -199,10 +199,17 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
                       @bind-CompareBaselineId="_baseline"
                       CompareBaselines="@Baselines">
                 <EditBodyContent>
+                    @* Fill, because this pane has a height and the editor should
+                       take it: Rows is what the editor falls back to when nobody
+                       has told it how tall to be, and here somebody has. Without
+                       it the reader presses Edit on a full-height pane and gets a
+                       sixteen-row box with the rest of the pane empty under it. *@
                     <MarkdownEditor Value="@_domain"
                                     ValueChanged="value => _domain = value"
                                     AriaLabel="Chapter source"
                                     Rows="16"
+                                    Fill="true"
+                                    Bare="true"
                                     TestId="file-view-domain-editor" />
                 </EditBodyContent>
             </FileView>
@@ -830,7 +837,10 @@ Its own strip and not another row in the header: the header identifies the file,
                   @bind-Comparing="comparing"
                   CompareBaselines="@baselines">
             <EditBodyContent>
-                <MarkdownEditor Value="@markdown" ValueChanged="OnChanged" Rows="16" />
+                @* Fill, because the pane above already has a height: Rows is the
+                   fallback for an editor nobody sized, and one here would leave
+                   dead space under the last row. *@
+                <MarkdownEditor Value="@markdown" ValueChanged="OnChanged" Rows="16" Fill="true" Bare="true" />
             </EditBodyContent>
         </FileView>
         """;

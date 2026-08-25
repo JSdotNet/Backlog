@@ -138,6 +138,70 @@ public sealed class FileViewBodyTests
     }
 
     [Fact]
+    public void A_host_editor_on_screen_says_so_on_the_article_and_on_the_body()
+    {
+        // The two modifiers are one statement in two places, because the height
+        // has to be handed down through both: the article takes what the pane
+        // gives it, and the body stretches to what is left under the header. A
+        // reader who pressed Edit and got a fourteen-row box with dead space
+        // under it is what these prevent.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "domain.md")
+            .Add(v => v.Body, "# Domain\n")
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.Editing, true)
+            .Add(v => v.EditBodyContent, Editor()));
+
+        Assert.Contains("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.Contains("file-view__body--edit", view.Find(".file-view__body").ClassList);
+
+        // The class the rest of the stylesheet addresses is still the first one
+        // on the element: a modifier that replaced the block would take the
+        // padding, the overflow and the scrollbar with it.
+        Assert.Contains("file-view__body", view.Find(".file-view__body").ClassList);
+    }
+
+    [Fact]
+    public void Reading_the_file_leaves_both_modifiers_off()
+    {
+        // A host that supplied an editor is not editing until a reader asks, and
+        // the read view already fills the pane the way it always did.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "domain.md")
+            .Add(v => v.Body, "# Domain\n")
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.EditBodyContent, Editor()));
+
+        Assert.DoesNotContain("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.DoesNotContain("file-view__body--edit", view.Find(".file-view__body").ClassList);
+    }
+
+    [Fact]
+    public void A_body_supplied_for_both_modes_is_not_the_editing_state()
+    {
+        // BodyContent is whatever the host draws in every mode, and this
+        // component has no idea whether that is an editor, a picture or a table.
+        // Stretching it on the strength of Editing would be sizing a body on a
+        // flag that says nothing about what is in it — the modifiers follow the
+        // fragment that is on screen, and here that is not EditBodyContent.
+        using var context = new BunitContext();
+
+        var view = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "domain.md")
+            .Add(v => v.Body, "# Domain\n")
+            .Add(v => v.CanEdit, true)
+            .Add(v => v.Editing, true)
+            .Add(v => v.BodyContent, Editor()));
+
+        Assert.DoesNotContain("file-view--editing", view.Find(".file-view").ClassList);
+        Assert.DoesNotContain("file-view__body--edit", view.Find(".file-view__body").ClassList);
+    }
+
+    [Fact]
     public void A_test_id_still_reaches_the_scroll_region_a_host_filled()
     {
         using var context = new BunitContext();

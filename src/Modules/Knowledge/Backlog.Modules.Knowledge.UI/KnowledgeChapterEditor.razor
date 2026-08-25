@@ -19,7 +19,7 @@
     that would fail on the first keystroke.
 *@
 
-<div class="knowledge-chapter-editor" data-testid="knowledge-chapter-surface">
+<div class="@ClassValue" data-testid="knowledge-chapter-surface">
     <div class="knowledge-chapter-editor__state">
         <SaveIndicator State="@_saveState" TestId="knowledge-chapter-save-state" />
         <Alert Message="@_error" TestId="knowledge-chapter-save-error" Role="status" />
@@ -33,6 +33,8 @@
                       CanEdit="@(!Bare && Chapter is not null)"
                       AllowCopy="@(!Bare)"
                       HideFrontmatter="@HideFrontmatter"
+                      Fill="@Fill"
+                      BareEditor="@Bare"
                       OnBlur="FlushAsync"
                       TestId="knowledge-chapter" />
 </div>
@@ -77,6 +79,13 @@
 
     private static KnowledgeChapterStatus ReadBaseline(string markdown) => KnowledgeChapterStatus.Read(markdown);
 
+    /// <summary>The wrapper's classes. The grid is the block and stays the block:
+    /// the state row above the document is what it is for, and that arrangement
+    /// is the same whichever height this is taking. The modifier only changes
+    /// where the height comes from.</summary>
+    private string ClassValue =>
+        Fill ? "knowledge-chapter-editor knowledge-chapter-editor--fill" : "knowledge-chapter-editor";
+
     /// <summary>Which chapter is being edited, or null when the selection could
     /// not be resolved to a file. Null is not an error state — it is a body that
     /// can be read and not written.</summary>
@@ -115,6 +124,11 @@
     /// underneath the one the host is already showing.
     /// </para>
     /// <para>
+    /// The editor's own frame goes with the bar, for the same reason: a host that
+    /// carries the controls is a host that drew the edge they sit on, and an
+    /// editor keeping its border inside that one draws two lines a pixel apart.
+    /// </para>
+    /// <para>
     /// What this surface is actually for is untouched by it: the buffer, the 750 ms
     /// debounce, the flush triggers, the save indicator and the status merge are the
     /// same either way.
@@ -141,6 +155,26 @@
     /// </summary>
     [Parameter]
     public bool HideFrontmatter { get; set; }
+
+    /// <summary>
+    /// Whether this surface takes the height its host gives it rather than being
+    /// as tall as its own content.
+    /// <para>
+    /// For the panels whose file view header carries the Edit that put this on
+    /// screen: the pane there is already exactly as tall as it means to be, and
+    /// a surface sized by a textarea's row count leaves the reader a short box
+    /// with the rest of the pane empty underneath it. With this on the wrapper
+    /// gives up its content height, the save row keeps its own, and the document
+    /// takes what is left — which it passes on to the editor in turn.
+    /// </para>
+    /// <para>
+    /// Off by default, because a host with no definite height has nothing to
+    /// fill: the areas that render this under something other than a file view
+    /// still want the grid they have, and get it unchanged.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Fill { get; set; }
 
     /// <summary>Raised after a write lands, so a panel can re-read whatever it
     /// derived from the chapter — a status badge, a heading list, a diagram.</summary>

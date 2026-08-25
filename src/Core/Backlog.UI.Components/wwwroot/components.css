@@ -2272,6 +2272,21 @@ button.md-check {
     min-width: 0;
 }
 
+/* Filling: the height the host gave this goes on down to the editor, which is
+   the only child that can use it. The document itself is a bar over a body and
+   holds no height of its own, so this is two lines of plumbing rather than a
+   layout — min-height:0 so the row may shrink past the length of the chapter,
+   and the editor taking what is left of it. The read view is left alone: a
+   rendered body is already as tall as the body. */
+.markdown-document--fill {
+    min-height: 0;
+}
+
+.markdown-document--fill > .markdown-editor {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .markdown-document__bar {
     display: flex;
     align-items: center;
@@ -3490,6 +3505,81 @@ button.task-panel__check:focus-visible {
     font: inherit;
     white-space: inherit;
     overflow-wrap: inherit;
+}
+
+/*
+   Fill mode: the host decides how tall this is, and the text takes whatever is
+   left under the toolbar.
+
+   The rows attribute is the only height a textarea has of its own, and inside a
+   pane that already knows how tall it is that number is a guess — the reader
+   presses Edit in a full-height pane and gets a fourteen-row box with dead space
+   under it. So the height is handed down instead: the editor is a column, the
+   toolbar stays its own size, and every box between it and the textarea is told
+   to stretch and allowed to shrink. min-height:0 on each of them is the whole
+   trick — a flex child refuses to go below its content without it, and the text
+   would push the editor open rather than scroll inside it.
+
+   Every rule is scoped under the modifier because nothing that renders an editor
+   today asks for this, and Rows has to keep meaning what it means for all of
+   them. The .entry-detail__note overrides in the desktop app's stylesheet are
+   the same shape from the other direction — a host that grows past the space
+   rather than one that stops at it — and they stay as they are.
+*/
+.markdown-editor--fill {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Block in the general case, for the reason recorded above it: a textarea's
+   intrinsic width is about twenty columns, and as a flex item it took that
+   instead of the room it was given. Here it has to be a column all the same, so
+   it takes the width back explicitly rather than by being a block. */
+.markdown-editor--fill .markdown-editor__surface {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+
+.markdown-editor--fill .markdown-editor__grow {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The last box in the chain is the one the reader types in, and it is the only
+   one given a height rather than a share: the wrapper is already exactly as tall
+   as it may be, so 100% of it is the answer. The drag handle goes with it — a
+   control offering to make this taller would be offering to fight the layout. */
+.markdown-editor--fill .markdown-editor__input {
+    height: 100%;
+    resize: none;
+}
+
+/*
+   Bare: the host drew the frame, so this one comes off.
+
+   Inside a file view's body the two edges end up a pixel apart — the pane's own
+   border and this one — and two lines read as two things with something between
+   them. There is nothing between them.
+
+   The focus state has to be rebuilt rather than dropped, because the border was
+   carrying it: the textarea's own ring is suppressed a few rules up so the
+   editor could show one ring for the whole surface, and taking the border away
+   without this would leave a reader tabbing into an editor that says nothing.
+   An inset outline is what the file view's scroll region already uses for the
+   same problem, and it lands in the same place the border did.
+*/
+.markdown-editor--bare {
+    border: 0;
+    border-radius: 0;
+}
+
+.markdown-editor--bare:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
 }
 
 /* --- Markdown syntax colours --------------------------------------------- */
@@ -4768,6 +4858,27 @@ button.tag-chip__label {
     min-height: 0;
 }
 
+/* Editing takes the same bargain --fill does, for as long as the host's editor
+   is the body. A rendered file is as tall as the file and fills the pane on its
+   own; a textarea is as tall as its row count, so the moment a reader presses
+   Edit the pane goes from full to a short box with dead space under it. This is
+   the pane taking its height back on the reader's behalf.
+
+   Asked for unconditionally, and safe to be: height:100% inside a parent with no
+   definite height resolves to auto, which is exactly the content-sized box the
+   MaxHeight hosts already have. So a pane that gives this a height gets a
+   filled editor and a host that sizes the body to content gets what it always
+   got, without either of them having to say which one they are. */
+.file-view--editing {
+    height: 100%;
+}
+
+.file-view--editing .file-view__body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+
 /* One surface, one rule. The header and the body share the card's background —
    a shade under the header drew the boundary twice — but the rule stays: the
    header is fixed and the body scrolls under it, and that needs a line. */
@@ -4930,6 +5041,38 @@ button.tag-chip__label {
 .file-view__body > :last-child,
 .md-compare__body > :last-child {
     margin-bottom: 0;
+}
+
+/* Later in the stylesheet than the block rules it answers, and deliberately: the
+   padding and the scrollbar gutter above are no less specific than a modifier,
+   so a modifier that withdrew them from further up would lose to them and the
+   editor would keep the inset it is trying to give back. Same reason the fill
+   rules for the knowledge panels sit where they do in the app's stylesheet. */
+/* And the room goes on down to whatever the host put inside. A column with one
+   stretching child rather than a height on the child itself: the host's body is
+   an editor, an editor is a toolbar over a surface, and only the surface may
+   grow. min-height:0 is what lets it shrink past its own content and scroll
+   instead of pushing the body open — the same line, for the same reason, as the
+   one --fill needs above. */
+.file-view__body--edit {
+    display: flex;
+    flex-direction: column;
+    /* Every inset the reading body keeps, withdrawn for the one body that fills
+       it edge to edge. The padding holds prose off the pane's border, which is
+       what prose needs; an editor already pads its own text and draws its own
+       toolbar, so the same inset reads as a margin around a control — a box
+       floating inside the pane rather than the pane being the box. The
+       scrollbar gutter goes with it: the reading body reserves the track so a
+       file growing past the fold does not shift sideways, and an editor that
+       scrolls inside its own textarea from the first keystroke never has that
+       moment. The two together are the space on all four sides. */
+    padding: 0;
+    scrollbar-gutter: auto;
+}
+
+.file-view__body--edit > * {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 /* The path and the file's own actions share the right-hand side of the header:

@@ -3952,6 +3952,52 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* Filling the pane the panel's file view gave it, instead of being as tall as
+   the chapter's own rows.
+
+   A grid is as tall as its rows unless it is told what its rows are, so it is
+   told: the state row keeps its own size and the document takes the rest.
+   minmax(0, 1fr) rather than a bare 1fr because a grid track's automatic minimum
+   is its content — with 1fr alone the document would refuse to go below the
+   length of the chapter, and a long file would push the row open instead of
+   scrolling inside it. min-height:0 is the same bargain one level up, for this
+   box as a child of the file view's body.
+
+   Here rather than in the component library because .knowledge-chapter-editor is
+   this app's class: the library styles the editor inside it and knows nothing
+   about the wrapper the panels put around one. */
+.knowledge-chapter-editor--fill {
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    /* The gap goes because the row above it is usually not there. Both children
+       of the state row render nothing until there is something to say, so an
+       idle chapter has a zero-height row — and a grid gap is drawn between rows
+       whether or not the first one has any content in it, which put a strip of
+       empty space between the file view's header and the editor for the whole of
+       every chapter nobody had typed into. */
+    gap: 0;
+}
+
+/* Which leaves the state row to hold itself off the pane's edges, now that the
+   body it sits in has given up its padding — and to take up no room at all on
+   the chapters where it has nothing to say, which is most of them.
+
+   The inset goes on the children and not on the row, because the row is always
+   in the DOM. Its two components render nothing while idle, but the markup
+   between them is whitespace, so :empty is false and a padding here would draw
+   a strip of empty space under the file view's header for the whole of every
+   chapter nobody had typed into — the very gap this was withdrawing everywhere
+   else. Whitespace is not a flex item, so with the padding gone an idle row is
+   genuinely zero high, and the indicator that does appear brings its own
+   margins with it. */
+.knowledge-chapter-editor--fill .knowledge-chapter-editor__state {
+    padding: 0;
+}
+
+.knowledge-chapter-editor--fill .knowledge-chapter-editor__state > * {
+    margin: var(--spacing-xs) var(--spacing-md);
+}
+
 /* Right-aligned, following the state selectors in these same panels — a reader
    scanning for "did that save" looks where the other status lives. Both children
    render nothing until there is something to say, so the row is zero-height for

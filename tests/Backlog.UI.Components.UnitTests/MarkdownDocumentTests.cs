@@ -209,6 +209,150 @@ public sealed class MarkdownDocumentTests
         Assert.Contains("applyTo:", view.Find("[data-testid='doc-read']").TextContent, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void An_editor_told_to_fill_wears_the_modifier_that_lets_it()
+    {
+        // Rows is the only height a textarea has of its own, and inside a pane
+        // that already knows how tall it is that number is a guess which leaves
+        // dead space under the last row. The modifier is how the editor gives the
+        // height back to the layout.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<MarkdownEditor>(parameters => parameters
+            .Add(e => e.Value, Body)
+            .Add(e => e.Fill, true)
+            .Add(e => e.CssClass, "chapter-editor"));
+
+        var editor = view.Find(".markdown-editor");
+
+        Assert.Contains("markdown-editor--fill", editor.ClassList);
+
+        // Beside whatever the host was already putting there, not instead of it.
+        Assert.Contains("chapter-editor", editor.ClassList);
+    }
+
+    [Fact]
+    public void An_editor_nobody_sized_renders_exactly_as_it_always_did()
+    {
+        // Every editor in this product predates the parameter, and Rows is still
+        // what sizes them. Off is the default for that reason.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<MarkdownEditor>(parameters => parameters
+            .Add(e => e.Value, Body));
+
+        Assert.DoesNotContain("markdown-editor--fill", view.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public void A_document_that_fills_hands_the_room_straight_down_to_the_editor()
+    {
+        // The document is a pass-through here and nothing more: it holds no
+        // height of its own, so the only useful thing it can do with the answer
+        // is give it to the surface that has to stretch.
+        using var context = new BunitContext();
+
+        var filled = Render(context, parameters => parameters
+            .Add(d => d.Editing, true)
+            .Add(d => d.Fill, true));
+
+        Assert.Contains("markdown-editor--fill", filled.Find(".markdown-editor").ClassList);
+
+        var sized = Render(context, parameters => parameters.Add(d => d.Editing, true));
+
+        Assert.DoesNotContain("markdown-editor--fill", sized.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public void An_editor_inside_somebody_elses_frame_gives_up_its_own()
+    {
+        // Two borders a pixel apart read as two things with something between
+        // them, and inside a file view's body there is nothing between them. The
+        // focus ring is what the border was also carrying, so it comes back as an
+        // outline in the stylesheet rather than going with it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<MarkdownEditor>(parameters => parameters
+            .Add(e => e.Value, Body)
+            .Add(e => e.Bare, true));
+
+        Assert.Contains("markdown-editor--bare", view.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public void An_editor_standing_on_its_own_keeps_its_frame()
+    {
+        // An editor on a page rather than inside something is its own object and
+        // has to look like one, which is why off is the default.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<MarkdownEditor>(parameters => parameters
+            .Add(e => e.Value, Body));
+
+        Assert.DoesNotContain("markdown-editor--bare", view.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public void A_document_told_the_frame_is_the_hosts_hands_that_down_too()
+    {
+        // The same pass-through the height takes, for the same reason: the frame
+        // in question is the editor's, and this component draws none of its own.
+        using var context = new BunitContext();
+
+        var bare = Render(context, parameters => parameters
+            .Add(d => d.Editing, true)
+            .Add(d => d.BareEditor, true));
+
+        Assert.Contains("markdown-editor--bare", bare.Find(".markdown-editor").ClassList);
+
+        var framed = Render(context, parameters => parameters.Add(d => d.Editing, true));
+
+        Assert.DoesNotContain("markdown-editor--bare", framed.Find(".markdown-editor").ClassList);
+    }
+
+    [Fact]
+    public void A_bar_with_nothing_in_it_is_not_drawn()
+    {
+        // No title, no copy, no way into editing: a host carrying all three in
+        // its own header. Drawn anyway, the row was two rems of empty space
+        // between that header and the first line of the file.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<MarkdownDocument>(parameters => parameters
+            .Add(d => d.Value, Body)
+            .Add(d => d.Editing, true)
+            .Add(d => d.CanEdit, false)
+            .Add(d => d.AllowCopy, false));
+
+        Assert.Empty(view.FindAll(".markdown-document__bar"));
+    }
+
+    [Fact]
+    public void A_bar_with_anything_in_it_still_is()
+    {
+        // One of the three is enough, and the title is the one a host hands over
+        // when it has no header of its own.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var titled = context.Render<MarkdownDocument>(parameters => parameters
+            .Add(d => d.Value, Body)
+            .Add(d => d.Title, "notes.md"));
+
+        Assert.Single(titled.FindAll(".markdown-document__bar"));
+
+        var editable = context.Render<MarkdownDocument>(parameters => parameters
+            .Add(d => d.Value, Body)
+            .Add(d => d.CanEdit, true));
+
+        Assert.Single(editable.FindAll(".markdown-document__bar"));
+    }
+
     /// <summary>The same document, holding a file that opens with a frontmatter
     /// block. Its own renderer because the shared one below has already named the
     /// text it hands over.</summary>
