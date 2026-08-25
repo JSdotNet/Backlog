@@ -35,6 +35,8 @@
                       HideFrontmatter="@HideFrontmatter"
                       Fill="@Fill"
                       BareEditor="@Bare"
+                      KnowledgeDocumentPath="@KnowledgeDocumentPath"
+                      OnKnowledgeNavigate="@OnKnowledgeNavigate"
                       OnBlur="FlushAsync"
                       TestId="knowledge-chapter" />
 </div>
@@ -175,6 +177,24 @@
     /// </summary>
     [Parameter]
     public bool Fill { get; set; }
+
+    /// <summary>The repository-relative path of the chapter being written, carrying
+    /// its area folder, for the read half of this surface.
+    ///
+    /// <para>Separate from <see cref="Chapter"/> even though both name the file,
+    /// because they name it in different terms: a ref is a root plus a path
+    /// relative to that root, which is what a writer needs and not what a link in
+    /// the prose resolves against. Three of the five areas show a chapter through
+    /// this surface rather than through the file view, so without it their links
+    /// would be the only ones in the product still opening a browser.</para></summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
+
+    /// <summary>Raised with the reference a reader followed in the read view. The
+    /// panel owns nothing about the selection either — it passes the request on to
+    /// the pane — so this is a relay and not a move.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
 
     /// <summary>Raised after a write lands, so a panel can re-read whatever it
     /// derived from the chapter — a status badge, a heading list, a diagram.</summary>

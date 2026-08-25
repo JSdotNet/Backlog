@@ -339,11 +339,19 @@
     {
         return section switch
         {
-            "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            @* Every section takes the same callback. Two of them used to, and the
+               difference was not a decision anybody made about Design, Technology
+               or Instructions — it was that those three grew a reference control
+               after this switch was written. A reader who can follow a reference
+               out of a domain chapter and not out of the design chapter beside it
+               is being told the two kinds of chapter are different things, and they
+               are not: the target is a repository path either way and the selection
+               this pane holds is the same selection. *@
+            "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
-            "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" />,
-            "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
+            "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             _ => @<Alert Message="Turn on knowledge sections in Settings to read repository knowledge here." BaseClass="knowledge-empty" Role="status" />
         };
     }

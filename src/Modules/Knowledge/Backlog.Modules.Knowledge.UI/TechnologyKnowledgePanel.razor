@@ -142,16 +142,20 @@
                                         }
                                     </div>
 
+                                    @* Both relation lists draw the shared reference
+                                       control now. They were hand-rolled anchors whose
+                                       href was the reference itself — `.arc42/03-….md`
+                                       — which the app's own origin has nothing to
+                                       serve, so every relation on every node was a way
+                                       out of the app to a page that does not exist. The
+                                       chip's own class went with them: a reference is a
+                                       link, which is the same trade the metadata strip
+                                       already made when it stopped drawing badges. *@
                                     @if (node.DependsOn.Count > 0)
                                     {
                                         <div class="tech-node__relations">
                                             <span>Depends on</span>
-                                            <div>
-                                                @foreach (var dependency in node.DependsOn)
-                                                {
-                                                    <a href="@ReferenceHref(dependency)" class="relation-chip">@ReferenceLabel(dependency)</a>
-                                                }
-                                            </div>
+                                            <div>@RenderRelations(node.DependsOn)</div>
                                         </div>
                                     }
 
@@ -159,12 +163,7 @@
                                     {
                                         <div class="tech-node__relations">
                                             <span>Related</span>
-                                            <div>
-                                                @foreach (var related in node.Related)
-                                                {
-                                                    <a href="@ReferenceHref(related)" class="relation-chip relation-chip--muted">@ReferenceLabel(related)</a>
-                                                }
-                                            </div>
+                                            <div>@RenderRelations(node.Related)</div>
                                         </div>
                                     }
                                 </article>
@@ -198,6 +197,21 @@
 
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>
+    /// Raised when a reader follows a relation off a technology node.
+    /// <para>
+    /// This section has no chapter selection of its own — it is the one section with
+    /// no knowledge menu beside it, and its layer tabs are the selection instead —
+    /// so what following a relation can move is the section. Which is most of what
+    /// these relations are for: a node depends on a runtime and is related to an
+    /// architecture chapter, and the chapter is what a reader is trying to get to.
+    /// The host decides whether the target exists; a relation that resolves to no
+    /// section stays the label it was.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
 
     private TechnologyLayer? ActiveLayer => !string.IsNullOrWhiteSpace(SelectedPath)
         ? _view?.Layers.FirstOrDefault(layer => PathMatches(layer.FileName, SelectedPath)) ?? _view?.Layers.FirstOrDefault()
@@ -323,9 +337,29 @@
         return string.Join(' ', label.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
     }
 
-    private static string ReferenceHref(string reference) => reference.StartsWith(".", StringComparison.Ordinal)
-        ? reference.Replace('\\', '/')
-        : reference;
+    /// <summary>One relation list, drawn through the shared reference control so a
+    /// relation reads and behaves the way one does everywhere else. The label stays
+    /// this panel's: the node grid is a summary and a full repository path in a card
+    /// this dense is mostly punctuation, so the shortened words go on the control and
+    /// the reference itself stays on the title.</summary>
+    private RenderFragment RenderRelations(IReadOnlyList<string> references) => __builder =>
+    {
+        @foreach (var reference in references)
+        {
+            @if (KnowledgeReference.Parse(reference) is { } parsed)
+            {
+                <KnowledgeReferenceLink Reference="@parsed"
+                                        Text="@ReferenceLabel(reference)"
+                                        OnNavigate="NavigateKnowledgeReferenceAsync" />
+            }
+        }
+    };
+
+    /// <summary>Follows a relation by asking the host for the chapter it names. A
+    /// relation naming no section resolves to nothing, which leaves the label
+    /// reading as the label it always was.</summary>
+    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
 
     private static string StateSelectId(string itemPath) => "knowledge-" + new string(itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') + "-state";
 

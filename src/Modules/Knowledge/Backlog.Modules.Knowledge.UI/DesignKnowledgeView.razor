@@ -178,6 +178,14 @@
                            records instead of trading them for a re-render of what
                            the parse already holds.
 
+                           The path a link in the body resolves against is handed
+                           over separately from the one printed beside the name:
+                           the model carries a bare file name, and a sibling link
+                           resolved against that lands in the repository root
+                           rather than in `.design`. Following one is a request
+                           to the host rather than a move, because the selection
+                           is the host's.
+
                            Editing is a mode of the header rather than a surface
                            mounted on arrival, so the reader who came to read gets
                            the file and the reader who came to write asks for the
@@ -200,11 +208,13 @@
                                   RenderKnowledgeMetadataFields="false"
                                   ShowDiagramSource="false"
                                   KnowledgeFolder="KnowledgeFolder.Design"
+                                  KnowledgeDocumentPath="@DocumentPath(file)"
                                   OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(file, change)"
+                                  OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
                                   CanEdit="true"
                                   Editing="@_editing"
                                   EditingChanged="OnEditingChangedAsync"
-                                  EditBodyContent="@ChapterEditor(chapter)" />
+                                  EditBodyContent="@ChapterEditor(chapter, file)" />
                     }
                     else
                     {
@@ -241,7 +251,12 @@
                                                        Heading="@SectionHeading(section)"
                                                        OnStatusChanged="status => ChangeSectionStatusAsync(file, section, status)" />
                                 }
-                                <KnowledgeBlocks Blocks="section.Blocks" DiagramTitle="@section.Heading" />
+                                @* The overview draws every file at once, so which
+                                   document a reference resolves against is per file
+                                   rather than per pane. *@
+                                <KnowledgeBlocks Blocks="section.Blocks"
+                                                 DiagramTitle="@section.Heading"
+                                                 InlineTarget="@InlineTargetFor(file)" />
                             </section>
                         }
                     }
@@ -264,6 +279,21 @@
 
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>
+    /// Raised when a reader follows a reference out of a design document.
+    /// <para>
+    /// Which chapter is shown is <see cref="SelectedPath"/>, and that is the host's
+    /// — the pane holds one selection per section and this panel is one section's
+    /// screen. So following a reference is a request rather than a move: the panel
+    /// says which chapter was asked for and the host decides whether it exists. A
+    /// host that does not take the callback gets a reference that still reads
+    /// correctly and goes nowhere, which is what the standalone page has. The same
+    /// shape the Domain and arc42 panels already keep.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
 
     protected override void OnInitialized()
     {
@@ -463,12 +493,50 @@
     /// header now carries the way in and out of editing too — the bar would put a
     /// second Edit button directly under the first and render the chapter again
     /// underneath the one already on screen. Only there while the reader is
-    /// writing.</summary>
-    private RenderFragment ChapterEditor(KnowledgeChapterRef chapter) => @<KnowledgeChapterEditor @ref="_editor"
-                                                                                                  Chapter="@chapter"
-                                                                                                  InitialText="@_chapter.Text"
-                                                                                                  Bare="true"
-                                                                                                  OnSaved="OnChapterSavedAsync" />;
+    /// writing.
+    ///
+    /// <para>The document path and the navigate callback go with it even so. Bare
+    /// holds this surface in its editing mode for as long as it is on screen, so
+    /// today the pair reaches nothing here — the read view a reference is followed
+    /// out of is the file view's, above. They stay because they are what this
+    /// surface needs the moment it draws a read view again, and because the three
+    /// areas that show a chapter through it rather than through a file view hand it
+    /// the same pair.</para></summary>
+    private RenderFragment ChapterEditor(KnowledgeChapterRef chapter, DesignKnowledgeFile file) =>
+        @<KnowledgeChapterEditor @ref="_editor"
+                                 Chapter="@chapter"
+                                 InitialText="@_chapter.Text"
+                                 Bare="true"
+                                 KnowledgeDocumentPath="@DocumentPath(file)"
+                                 OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
+                                 OnSaved="OnChapterSavedAsync" />;
+
+    /// <summary>The document's path as the rest of the product spells one:
+    /// repository-relative, with the area folder on the front.
+    ///
+    /// <para>Design parses its folder <c>TopDirectoryOnly</c>, so a file name is
+    /// the whole of what the model carries — and a sibling link resolved against a
+    /// bare file name lands in the repository root rather than in
+    /// <c>.design</c>. Which is most of the links this folder has: it is one flat
+    /// folder of guidelines that cross-reference each other by name.</para></summary>
+    private static string DocumentPath(DesignKnowledgeFile file) =>
+        ".design/" + file.FileName.Replace('\\', '/').TrimStart('/');
+
+    /// <summary>How a reference in this file's prose is drawn. Built per file
+    /// because the base document is what a relative link resolves against, and the
+    /// folder overview has every file on screen at once.</summary>
+    private MarkdownRender.MarkdownInlineTarget InlineTargetFor(DesignKnowledgeFile file) =>
+        KnowledgeInlineTargets.For(
+            DocumentPath(file),
+            null,
+            EventCallback.Factory.Create<KnowledgeReference>(this, NavigateKnowledgeReferenceAsync));
+
+    /// <summary>Follows a reference by asking the host for that chapter — the host
+    /// owns the selection, so this is a request and not a move. A reference that
+    /// does not resolve to a chapter in a section goes nowhere, which is what leaves
+    /// a bare file path reading as the text the author wrote.</summary>
+    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
 
     /// <summary>
     /// The chapter behind the document on screen, and its text, or

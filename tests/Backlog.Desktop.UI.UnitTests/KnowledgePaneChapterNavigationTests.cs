@@ -86,6 +86,70 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
     }
 
+    /// <summary>A chapter linking the way the knowledge folders actually link: the
+    /// author writes the path their own editor resolves, which is relative to the
+    /// file they are in and never rooted at the repository.</summary>
+    private const string RelativeContextMap = """
+        # Context Map
+
+        ```meta
+        status: draft
+        ```
+
+        Work is logged against a [backlog entry](backlog/domain.md#domain-event-aiworklogged),
+        the system in its surroundings is drawn in [context and scope](../.arc42/03-context-and-scope.md),
+        and the shape of it is [in the picture](assets/context.png).
+        """;
+
+    [Fact]
+    public async Task Following_a_relative_reference_opens_the_chapter_it_resolves_to()
+    {
+        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+
+        Reference(component, ".domain/backlog/domain.md#domain-event-aiworklogged").Click();
+
+        // The same landing as the rooted form: the chapter as a file, and the menu
+        // marking where the reader now is. It used to be an anchor with
+        // target="_blank" on `backlog/domain.md`, which is the reader's browser
+        // asking the app's own origin for a repository path.
+        component.WaitForAssertion(() => Assert.Equal(".domain/backlog/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        Assert.Equal("Domain", component.Find(".knowledge-menu__item--active").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task Following_a_relative_reference_across_folders_switches_section()
+    {
+        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+
+        Reference(component, ".arc42/03-context-and-scope.md").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+        Assert.Contains("Context And Scope", component.Find(".knowledge-menu__item--active").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_relative_link_that_is_not_a_chapter_is_not_a_way_out_to_the_browser()
+    {
+        await using var harness = CreateHarness(contextMap: RelativeContextMap);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+
+        // An image beside the chapter is not a chapter, and nothing in this pane
+        // can open one. The author's words stay because they wrote them; the
+        // destination goes, because there was never one to offer.
+        var body = component.Find("[data-testid='domain-chapter-file'] .file-view__body");
+
+        Assert.Contains("in the picture", body.QuerySelector("span.md-link--inert")!.TextContent, StringComparison.Ordinal);
+        Assert.Empty(body.QuerySelectorAll("a.md-link"));
+    }
+
     /// <summary>The reference as the reader sees it: a control in the prose, found
     /// by the path it carries rather than by its position, because the same chapter
     /// holds several.</summary>
