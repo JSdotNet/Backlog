@@ -1,4 +1,4 @@
-@inject IJSRuntime Js
+﻿@inject IJSRuntime Js
 
 @*
     A list of tasks that can be reordered.
@@ -338,6 +338,7 @@
                    OnEditMove="MoveEdit"
                    OnDelete="@DeleteRequest"
                    AllowCopy="@AllowCopy"
+                   CopyValue="@RowCopyValue?.Invoke(task)"
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
                    Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
@@ -537,6 +538,27 @@
     /// </summary>
     [Parameter]
     public Func<TaskRow, string?>? RowCssClass { get; set; }
+
+    /// <summary>
+    /// What a row hands to the clipboard, when the row's own text is not it.
+    /// Null for a row — or unsupplied for the list — leaves that row copying what
+    /// it always copied: its title, and its body under it when it has one.
+    /// <para>
+    /// The same shape as <see cref="RowCssClass"/> and for the same reason. A
+    /// <see cref="TaskRow"/> is a task, so a document the row was projected from
+    /// is not on it and cannot be: the surface holding that document is the only
+    /// thing that can answer. A backlog entry is the case in point — its row
+    /// deliberately carries no body, because a body would give every row in the
+    /// column a disclosure, and a copy left to the default would hand over a bare
+    /// title.
+    /// </para>
+    /// <para>
+    /// Per row rather than one string for the list, because the answer is about
+    /// this task and not about the list it is in.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TaskRow, string?>? RowCopyValue { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }

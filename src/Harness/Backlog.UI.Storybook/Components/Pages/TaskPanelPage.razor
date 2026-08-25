@@ -118,7 +118,9 @@ Why these are slots rather than parameters is the same answer this component giv
 
 The footer is a stack rather than a row of buttons, because it is sometimes a control and the thing that control revealed — a source view, a confirmation — and a slot that laid its content out in a line would be a slot those cannot go in. Which way the controls themselves sit is the host's, as it is in every other slot here.
 
-Both are drawn only when something is passed. A panel with neither is exactly the panel the stories above show."
+Both are drawn only when something is passed. A panel with neither is exactly the panel the stories above show.
+
+`CopyValue` puts a copy button on the heading line, behind the state — the same order a row in the list reads in, so a reader who opened a row finds the control where they left it. It is required rather than derived, and that is the difference between this component and a row: a row is given its text, while the panel's body is a slot that may be a list of steps, a page of markdown or a form, and there is no reading it back. Null or blank leaves the button off rather than offering a copy of nothing; `AllowCopy=&quot;false&quot;` is for a host that has the text and does not want the button."
            Code="@SlotsCode">
         <div class="sb-side-panel">
             <TaskPanel Title="Ship the panel behind the backlog list"
@@ -127,6 +129,7 @@ Both are drawn only when something is passed. A panel with neither is exactly th
                        OnRename="_ => { }"
                        Tags="@_tags"
                        OnTagRemoved="RemoveTag"
+                       CopyValue="@SlotsCopyValue"
                        TestId="panel-slots">
                 <StatusContent>
                     @* The status as a control, on the heading line where the badge
@@ -525,6 +528,11 @@ The circle goes the same way. Nothing listening for the tick and nothing ticked,
             </Body>
         </TaskPanel>
         """;
+
+    /// <summary>What this story's panel hands to the clipboard: the task as a
+    /// reader would paste it, which is the title and the text under it.</summary>
+    private const string SlotsCopyValue =
+        "Ship the panel behind the backlog list\n\nThe panel says where things go and nothing at all about what they are.";
 
     private const string SlotsCode = """
         <TaskPanel Title="@task.Title" Done="@task.Done" OnToggle="Toggle" OnRename="Rename"

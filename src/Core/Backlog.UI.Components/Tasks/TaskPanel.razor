@@ -1,4 +1,4 @@
-@inject IJSRuntime Js
+﻿@inject IJSRuntime Js
 
 @*
     The whole of one task, beside the list it came from.
@@ -157,6 +157,26 @@
         {
             <StatusBadge Status="@Status" CssClass="task-panel__status" TestId="@Suffix("status")" />
         }
+
+        @* Behind the state, which is where the row puts it too. A reader who
+           opened this panel to read a task and then wants to take it somewhere
+           finds the control in the same place on both surfaces, in the same
+           shape, drawn by the same component.
+
+           Only when the host says what to copy. The panel's body is a slot — it
+           may be a list of steps, a page of markdown, or a form — so unlike a row
+           this component cannot read its own text back, and a button that
+           reported a copy of nothing would be worse than no button. *@
+        @if (OffersCopy)
+        {
+            <CopyButton Text="@(CopyValue ?? string.Empty)"
+                        Label="@(CopyLabel ?? $"Copy {Title}")"
+                        CssClass="task-panel__copy"
+                        ButtonCssClass="task-panel__copy-button"
+                        StatusCssClass="task-panel__copy-status"
+                        ButtonTestId="@Suffix("copy")"
+                        StatusTestId="@Suffix("copy-status")" />
+        }
     </header>
 
     @if (TagList.Count > 0)
@@ -258,6 +278,37 @@
     /// </summary>
     [Parameter]
     public RenderFragment? StatusContent { get; set; }
+
+    /// <summary>Whether the panel offers to copy the task. On by default, and
+    /// still silent until <see cref="CopyValue"/> says what there is to copy —
+    /// this is the switch for a host that has the text and does not want the
+    /// button, not the switch that supplies it.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; } = true;
+
+    /// <summary>
+    /// What the copy button hands over, verbatim.
+    /// <para>
+    /// Required rather than derived, and that is the difference between this
+    /// component and a row. A row is given its title and its body as text, so it
+    /// can always answer for itself; the panel's body is a
+    /// <see cref="Body"/> slot, which may be a list of steps, a page of markdown
+    /// or a form, and there is no reading it back. The surface that rendered the
+    /// body is the only thing that knows what the task says.
+    /// </para>
+    /// <para>
+    /// Null or blank leaves the button off entirely, rather than offering a copy
+    /// of nothing.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? CopyValue { get; set; }
+
+    /// <summary>What a screen reader calls the copy button. Defaults to "Copy"
+    /// and the task's title, which is what a reader needs when a page holds more
+    /// than one of these.</summary>
+    [Parameter]
+    public string? CopyLabel { get; set; }
 
     /// <summary>What it is filed under. Left off entirely when there is nothing
     /// — an empty tag strip is a row of blank space where the reader learns
@@ -364,6 +415,10 @@
         Done ? "task-panel--done" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>Whether there is a copy to offer: the host has to have both
+    /// allowed it and said what it copies.</summary>
+    private bool OffersCopy => AllowCopy && !string.IsNullOrWhiteSpace(CopyValue);
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
 

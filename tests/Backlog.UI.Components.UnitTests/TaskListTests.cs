@@ -1506,69 +1506,220 @@ public sealed class TaskListTests
         Assert.Equal("a", move?.Id);
         Assert.Equal("c", move?.TargetId);
     }
-
-    // --- The status on a row -----------------------------------------------
-
-    /// <summary>
-    /// A status reads on the title's line rather than in the metadata line under
-    /// it, drawn by the same <c>StatusBadge</c> the panel puts beside its heading.
-    /// <para>
-    /// The line under a title says when the task happens and how far through it
-    /// is; a status says what the task currently <em>is</em>, which is what the
-    /// title is doing. Same fact, same shape, same place in a row and in the panel
-    /// that row opens into — so a reader is not made to look for it twice.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void A_status_is_a_badge_beside_the_title_and_not_a_detail()
-    {
-        using var context = new BunitContext();
-
-        var view = context.Render<TaskItem>(p => p
+
+
+    // --- The status on a row -----------------------------------------------
+
+
+
+    /// <summary>
+
+    /// A status reads on the title's line rather than in the metadata line under
+
+    /// it, drawn by the same <c>StatusBadge</c> the panel puts beside its heading.
+
+    /// <para>
+
+    /// The line under a title says when the task happens and how far through it
+
+    /// is; a status says what the task currently <em>is</em>, which is what the
+
+    /// title is doing. Same fact, same shape, same place in a row and in the panel
+
+    /// that row opens into — so a reader is not made to look for it twice.
+
+    /// </para>
+
+    /// </summary>
+
+    [Fact]
+
+    public void A_status_is_a_badge_beside_the_title_and_not_a_detail()
+
+    {
+
+        using var context = new BunitContext();
+
+
+
+        var view = context.Render<TaskItem>(p => p
+
             .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks", Status: "in progress"))
-            .Add(t => t.TestId, "row"));
-
-        var badge = view.Find("[data-testid='row-status']");
-
-        Assert.Contains("task-item__status", badge.ClassList);
-        Assert.Contains("badge--status-inprogress", badge.ClassList);
-        Assert.Equal("in progress", badge.TextContent);
-
-        // Not on the metadata line, which is a different kind of fact.
-        Assert.DoesNotContain("in progress", view.Find(".task-item__meta").TextContent, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void A_row_with_no_status_draws_no_badge()
-    {
-        // Not every list of tasks has a lifecycle — a checklist of sub-items has
-        // none — and a row drawing an empty badge would claim a state nobody set.
-        using var context = new BunitContext();
-
-        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.TestId, "row"));
+
+
+
+        var badge = view.Find("[data-testid='row-status']");
+
+
+
+        Assert.Contains("task-item__status", badge.ClassList);
+
+        Assert.Contains("badge--status-inprogress", badge.ClassList);
+
+        Assert.Equal("in progress", badge.TextContent);
+
+
+
+        // Not on the metadata line, which is a different kind of fact.
+
+        Assert.DoesNotContain("in progress", view.Find(".task-item__meta").TextContent, StringComparison.Ordinal);
+
+    }
+
+
+
+    [Fact]
+
+    public void A_row_with_no_status_draws_no_badge()
+
+    {
+
+        // Not every list of tasks has a lifecycle — a checklist of sub-items has
+
+        // none — and a row drawing an empty badge would claim a state nobody set.
+
+        using var context = new BunitContext();
+
+
+
+        var view = context.Render<TaskItem>(p => p
+
             .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks"))
-            .Add(t => t.TestId, "row"));
-
-        Assert.Empty(view.FindAll(".task-item__status"));
-        Assert.Null(new TaskRow("a", "Ship it").Status);
-    }
-
-    /// <summary>A row whose title is a field keeps its status, for the reason it
-    /// keeps its metadata line: the same facts must not be dropped by a decision
-    /// about how the title is edited.</summary>
-    [Fact]
-    public void A_row_being_renamed_still_says_where_it_has_got_to()
-    {
-        using var context = new BunitContext();
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-
-        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.TestId, "row"));
+
+
+
+        Assert.Empty(view.FindAll(".task-item__status"));
+
+        Assert.Null(new TaskRow("a", "Ship it").Status);
+
+    }
+
+
+
+    /// <summary>A row whose title is a field keeps its status, for the reason it
+
+    /// keeps its metadata line: the same facts must not be dropped by a decision
+
+    /// about how the title is edited.</summary>
+
+    [Fact]
+
+    public void A_row_being_renamed_still_says_where_it_has_got_to()
+
+    {
+
+        using var context = new BunitContext();
+
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+
+
+        var view = context.Render<TaskItem>(p => p
+
             .Add(t => t.Task, new TaskRow("a", "Ship it", Status: "ready"))
-            .Add(t => t.OnRename, (TaskRename _) => { })
+            .Add(t => t.OnRename, (TaskRename _) => { })
+
             .Add(t => t.DirectRename, true)
-            .Add(t => t.TestId, "row"));
-
-        Assert.NotNull(view.Find("[data-testid='row-rename']"));
-        Assert.Equal("ready", view.Find("[data-testid='row-status']").TextContent);
-    }
+            .Add(t => t.TestId, "row"));
+
+
+
+        Assert.NotNull(view.Find("[data-testid='row-rename']"));
+
+        Assert.Equal("ready", view.Find("[data-testid='row-status']").TextContent);
+
+    }
+
+    /// <summary>What a list's rows copy, decided per row by the host.
+    /// <para>
+    /// The same shape as <c>RowCssClass</c>, and for the same reason: a
+    /// <c>TaskRow</c> is a task, so the text a host would rather hand over — an
+    /// entry's whole markdown, a step's chapter — is not on it and can only come
+    /// from the surface that has the document.
+    /// </para></summary>
+    [Fact]
+    public void A_list_can_say_what_each_of_its_rows_copies()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.RowCopyValue, task => $"{task.Title}\n\nas a prompt")
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-b-copy']").Click();
+
+        Assert.Equal(
+            "Second\n\nas a prompt",
+            Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
+    }
+
+    /// <summary>A row the host said nothing about copies what it always copied.
+    /// The hook is per row, so a list that answers for some rows and not others
+    /// must not lose the default on the rest.</summary>
+    [Fact]
+    public void A_row_the_host_has_no_answer_for_still_copies_itself()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.RowCopyValue, task => task.Id == "a" ? "replaced" : null)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-c-copy']").Click();
+
+        Assert.Equal(
+            "Third",
+            Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
+    }
+
+    /// <summary>Where the copy button sits on the row: after the state, after the
+    /// host's own slot, and still ahead of the bin.
+    /// <para>
+    /// The order is the assertion, not the presence. Everything from the circle to
+    /// the actions slot says what the task is and where it has got to — a host puts
+    /// its status picker in that slot — and copying is the one act that takes the
+    /// task away with you, so it reads once the row has finished answering. The bin
+    /// stays last, because it is the only control whose result is that there is no
+    /// row.
+    /// </para></summary>
+    [Fact]
+    public void The_copy_button_reads_after_the_state_and_before_the_bin()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it"))
+            .Add(t => t.OnDelete, (string _) => { })
+            .Add(t => t.Actions, (RenderFragment<TaskRow>)(task => builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "data-testid", "host-state");
+                builder.AddContent(2, "ready");
+                builder.CloseElement();
+            }))
+            .Add(t => t.TestId, "row"));
+
+        var row = view.Find(".task-item");
+        var order = row.Children.Select(c => c.ClassName ?? string.Empty).ToList();
+
+        int IndexOf(string cssClass) => order.FindIndex(c => c.Split(' ').Contains(cssClass));
+
+        var state = IndexOf("task-item__actions");
+        var copy = IndexOf("task-item__copy");
+        var bin = IndexOf("task-item__delete");
+
+        var drawn = string.Join(", ", order);
+        Assert.True(state >= 0 && copy >= 0 && bin >= 0, $"Missing a control: {drawn}");
+        Assert.True(state < copy, $"Copy must follow the state, but the order was: {drawn}");
+        Assert.True(copy < bin, $"The bin must stay last, but the order was: {drawn}");
+    }
 }
