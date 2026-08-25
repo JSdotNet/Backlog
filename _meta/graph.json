@@ -10,23 +10,23 @@
     ".design"
   ],
   "stats": {
-    "nodes": 685,
-    "edges": 1257,
+    "nodes": 686,
+    "edges": 1260,
     "nodesByFolder": {
       "arc42": 63,
-      "domain": 470,
+      "domain": 471,
       "backlog": 4,
       "tech": 53,
       "design": 95
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 574,
+      "chapter": 575,
       "heading": 8
     },
     "nodesByStatus": {
       "active": 184,
-      "proposed": 29,
+      "proposed": 30,
       "draft": 401,
       "accepted": 3,
       "deprecated": 3,
@@ -37,8 +37,8 @@
       "none": 8
     },
     "edgesByType": {
-      "contains": 582,
-      "related": 595,
+      "contains": 583,
+      "related": 597,
       "depends-on": 78,
       "implements": 2
     }
@@ -2443,6 +2443,23 @@
       },
       {
         "data": {
+          "id": ".domain/capture/features.md#composable-monitors",
+          "label": "Composable monitors",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/capture/features.md",
+          "slug": "composable-monitors",
+          "level": 3,
+          "line": 107,
+          "status": "proposed",
+          "related": [
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/monitoring/features.md#automation-status"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/capture/features.md#web-clipper-capture",
           "label": "Web clipper capture",
           "type": "chapter",
@@ -2450,7 +2467,7 @@
           "path": ".domain/capture/features.md",
           "slug": "web-clipper-capture",
           "level": 2,
-          "line": 107,
+          "line": 135,
           "status": "draft"
         }
       },
@@ -2463,7 +2480,7 @@
           "path": ".domain/capture/features.md",
           "slug": "ide-capture",
           "level": 2,
-          "line": 118,
+          "line": 146,
           "status": "draft"
         }
       },
@@ -2476,7 +2493,7 @@
           "path": ".domain/capture/features.md",
           "slug": "copilot-app-session-capture",
           "level": 3,
-          "line": 130,
+          "line": 158,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#source-adapter"
@@ -2492,7 +2509,7 @@
           "path": ".domain/capture/features.md",
           "slug": "manual-import",
           "level": 2,
-          "line": 145,
+          "line": 173,
           "status": "draft"
         }
       },
@@ -2505,7 +2522,7 @@
           "path": ".domain/capture/features.md",
           "slug": "normalized-delivery",
           "level": 2,
-          "line": 155,
+          "line": 183,
           "status": "draft",
           "related": [
             ".domain/inbox/features.md#incoming-queue"
@@ -2521,7 +2538,7 @@
           "path": ".domain/capture/features.md",
           "slug": "in-app-feedback-capture",
           "level": 2,
-          "line": 167,
+          "line": 195,
           "status": "draft",
           "feature-flag": [
             "feedback-reporting"
@@ -11740,6 +11757,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/capture/features.md#automation-capture->.domain/capture/features.md#composable-monitors",
+          "source": ".domain/capture/features.md#automation-capture",
+          "target": ".domain/capture/features.md#composable-monitors",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/capture/features.md->.domain/capture/features.md#web-clipper-capture",
           "source": ".domain/capture/features.md",
           "target": ".domain/capture/features.md#web-clipper-capture",
@@ -16631,6 +16656,22 @@
           "id": "related:.domain/capture/domain.md#itemcaptured->.domain/inbox/domain.md#inbox-item",
           "source": ".domain/capture/domain.md#itemcaptured",
           "target": ".domain/inbox/domain.md#inbox-item",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/capture/features.md#composable-monitors->.domain/capture/domain.md#source-adapter",
+          "source": ".domain/capture/features.md#composable-monitors",
+          "target": ".domain/capture/domain.md#source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/capture/features.md#composable-monitors->.domain/monitoring/features.md#automation-status",
+          "source": ".domain/capture/features.md#composable-monitors",
+          "target": ".domain/monitoring/features.md#automation-status",
           "type": "related"
         }
       },
