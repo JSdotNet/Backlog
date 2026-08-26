@@ -76,7 +76,11 @@ public static class AppFeatures
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell.", Status: AppFeatureStatus.Dev),
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
-        new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers.", Status: AppFeatureStatus.Dev),
+        new(
+            DevPcFeatures.SystemTools,
+            "System tools",
+            "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",
+            Status: AppFeatureStatus.Dev),
         new(
             SessionFeatures.Sessions,
             "Sessions",
