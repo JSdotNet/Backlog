@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "00e0d054af6d265dcb7c7a7ffcfbb925460335f0e9e919765ebf8eb5f336a950": {
+      "chapter": "flow.md",
+      "ordinal": 1,
+      "type": "lifecycle",
+      "kind": "statediagram-v2",
+      "spec": "flow.1.lifecycle.json",
+      "artifact": "flow.1.lifecycle.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}

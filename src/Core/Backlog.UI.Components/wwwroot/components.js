@@ -1267,6 +1267,105 @@
             }
         },
 
+        /*
+            Shows a generated Archify artifact in place of a drawn mermaid diagram.
+
+            `srcdoc` rather than `src`, because the artifact is not one of the app's
+            own assets: it sits in whichever repository clone the reader configured,
+            and the app reads it off disk. There is no URL to point at, in either
+            host - the desktop is a WebView over local files and the harness serves
+            its own wwwroot.
+
+            `sandbox="allow-scripts"` is set in the markup, which puts the frame in
+            an opaque origin. Archify's viewer survives that: every access it makes
+            to localStorage is wrapped, naming sandboxed iframes as the reason.
+            Scripts have to stay allowed or the document renders as an unstyled
+            skeleton.
+
+            The appended script is what `?theme=dark&embed=1` does for the storybook,
+            which a srcdoc document cannot be given: the artifact resolves its theme
+            before first paint from the query string, then from localStorage, then
+            from `prefers-color-scheme` - and with the first two unavailable here, a
+            reader whose system prefers light would get a light diagram inside an app
+            `.design/design-principles.md` makes dark-only. So the theme is pinned
+            from out here, through the same `data-theme` attribute the artifact
+            publishes, and re-pinned if anything inside changes it. Nothing in the
+            generated file is touched, so a regeneration cannot undo this.
+
+            The cost is that the artifact's own theme toggle does nothing in-app.
+            `data-embed` hides the toolbar it lives on, so there is no dead control
+            on screen, and a reader who wants the full viewer opens the file itself.
+        */
+        renderArtifact(element, id, html) {
+            /*
+                `matchMedia` is lied to, and that is the part that does the work.
+
+                The artifact resolves its own theme in an inline script in its head:
+                query string, then localStorage, then
+                `matchMedia('(prefers-color-scheme: light)')`. The first two are
+                unreachable in an opaque-origin sandbox, so on a machine set to
+                light it used to resolve light, write `data-theme="light"`, and
+                commit the light background — and the observer below then corrected
+                the attribute a microtask later, which the artifact's own
+                `transition: background 0.2s` turned into a visible light-to-dark
+                fade of about 170ms.
+
+                Correcting the answer after the fact cannot win that race; the
+                resolver has to be given the right answer in the first place. So the
+                frame's `prefers-color-scheme` is answered as dark before the
+                artifact's script ever asks, and every other media query is passed
+                through to the real implementation untouched.
+
+                The observer stays, for the theme toggle inside the artifact and for
+                anything else that writes the attribute later. `color-scheme` stays
+                too, but for what it actually governs — the UA's canvas and
+                scrollbars — rather than for the flash, which was never its doing.
+            */
+            const pin = `<script>(function(){try{var h=document.documentElement;`
+                + `h.setAttribute('data-embed','true');`
+                + `var real=window.matchMedia&&window.matchMedia.bind(window);`
+                + `if(real){window.matchMedia=function(q){var r=real(q);`
+                + `if(typeof q==='string'&&q.indexOf('prefers-color-scheme')>=0){`
+                + `var dark=q.indexOf('light')<0;`
+                + `return{media:r.media,matches:dark,onchange:null,`
+                + `addListener:function(){},removeListener:function(){},`
+                + `addEventListener:function(){},removeEventListener:function(){},`
+                + `dispatchEvent:function(){return false;}};}`
+                + `return r;};}`
+                + `var pin=function(){if(h.getAttribute('data-theme')!=='dark')h.setAttribute('data-theme','dark');};`
+                + `pin();new MutationObserver(pin).observe(h,{attributes:true,attributeFilter:['data-theme']});`
+                + `}catch(_){}})();<\/script>`;
+
+            /*
+                Injected into the artifact's own <head> rather than appended after
+                the document, because the script above only works if it runs before
+                the artifact's theme resolver does. Appended at the end it was
+                always a frame too late.
+            */
+            const suppressFlash = `<style>:root{color-scheme:dark}</style>${pin}`;
+            const source = String(html ?? '');
+            const head = source.search(/<head[^>]*>/i);
+            const injected = head < 0
+                // No <head> to aim at. Appending is the old behaviour and still
+                // correct, just a frame late.
+                ? `${source}${suppressFlash}`
+                : source.slice(0, source.indexOf('>', head) + 1)
+                    + suppressFlash
+                    + source.slice(source.indexOf('>', head) + 1);
+
+            element.srcdoc = injected;
+
+            backlogDiagramInstances.set(id, {
+                destroy() {
+                    // Dropping the document releases the frame's own runtime, its
+                    // observer and the roughly 675 KB behind it. A closed panel that
+                    // kept all three would be the difference between a knowledge
+                    // pane that can be browsed and one that cannot.
+                    element.srcdoc = '';
+                }
+            });
+        },
+
         renderGraph(element, id, data) {
             backlogRenderGenericGraph(element, id, data);
         },

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Rescheduling Flow",
+    "viewBox": [1100, 760],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "reader", "type": "external", "label": "Reader" },
+    { "id": "view", "type": "frontend", "label": "Timeline view" },
+    { "id": "plan", "type": "backend", "label": "Roadmap Plan" },
+    { "id": "store", "type": "database", "label": "Plan storage" },
+    { "id": "monitor", "type": "external", "label": "Monitoring" }
+  ],
+  "segments": [
+    { "from": 160, "to": 340, "label": "Proposal" },
+    { "from": 360, "to": 555, "label": "Window is valid" },
+    { "from": 575, "to": 690, "label": "Window is not valid" }
+  ],
+  "messages": [
+    { "id": "drag", "from": "reader", "to": "view", "y": 195, "label": "drag a span, or move it with the keyboard", "variant": "default", "note": "the view snaps to the week and previews at the target placement" },
+    { "id": "drop", "from": "reader", "to": "view", "y": 250, "label": "drop", "variant": "default" },
+    { "id": "propose", "from": "view", "to": "plan", "y": 305, "label": "propose PlannedWindow (and lane, if it moved)", "variant": "emphasis", "note": "the plan validates the window: end >= start, both inclusive" },
+    { "id": "persist", "from": "plan", "to": "store", "y": 390, "label": "persist the whole plan atomically", "variant": "emphasis" },
+    { "id": "scheduled", "from": "plan", "to": "monitor", "y": 435, "label": "RoadmapItemScheduled (with the previous window)", "variant": "dashed" },
+    { "id": "accepted", "from": "plan", "to": "view", "y": 480, "label": "accepted plan", "variant": "return" },
+    { "id": "redraw", "from": "view", "to": "reader", "y": 525, "label": "redraw from the accepted plan", "variant": "return" },
+    { "id": "rejected", "from": "plan", "to": "view", "y": 610, "label": "rejected, with the reason", "variant": "return" },
+    { "id": "put-back", "from": "view", "to": "reader", "y": 660, "label": "put it back, and say why", "variant": "return" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "A proposal, not a change",
+      "items": [
+        "The view that draws the plan never edits it",
+        "It reports where something was dropped and redraws from what it gets back",
+        "Nothing is persisted until the plan has accepted it"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "A drop that moves nothing",
+      "items": [
+        "Less than half a week travelled produces no proposal at all",
+        "An edge clamped against the opposite edge produces no proposal either",
+        "Picking something up and putting it down must not rewrite a plan"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "What the plan does not do",
+      "items": [
+        "A reschedule never touches dependencies; dependent work is not dragged along",
+        "The plan is allowed to contradict itself, and that is the reader's cue",
+        "The event carries the previous window, so a consumer needs no history of its own"
+      ]
+    }
+  ]
+}

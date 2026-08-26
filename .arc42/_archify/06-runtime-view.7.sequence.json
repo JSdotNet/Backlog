@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Repository Baseline Scan and Health Signal",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1400, 700]
+  },
+  "participants": [
+    { "id": "scheduler", "type": "backend", "label": "Desktop Scheduler" },
+    { "id": "repomgmt", "type": "backend", "label": "Repository Management" },
+    { "id": "reporegistry", "type": "database", "label": "Repository Registry" },
+    { "id": "pkg", "type": "external", "label": "Package Registries" },
+    { "id": "techstack", "type": "backend", "label": "Technology Stack" },
+    { "id": "index", "type": "database", "label": "Local JSON Index" },
+    { "id": "monitoring", "type": "backend", "label": "Monitoring Service" }
+  ],
+  "segments": [
+    { "from": 150, "to": 248, "label": "Start scan" },
+    { "from": 264, "to": 360, "label": "Loop: for each registered manifest" },
+    { "from": 376, "to": 604, "label": "Compare baselines and signal" }
+  ],
+  "messages": [
+    { "id": "start-scan", "from": "scheduler", "to": "repomgmt", "y": 182, "label": "Start dependency scan", "variant": "emphasis" },
+    { "id": "load-repos", "from": "repomgmt", "to": "reporegistry", "y": 226, "label": "Load registered repos and manifests", "variant": "default" },
+    { "id": "query-packages", "from": "repomgmt", "to": "pkg", "y": 294, "label": "Query latest package metadata", "variant": "default" },
+    { "id": "package-versions", "from": "pkg", "to": "repomgmt", "y": 338, "label": "Current versions / advisories", "variant": "return" },
+    { "id": "compare-baselines", "from": "repomgmt", "to": "techstack", "y": 406, "label": "Compare discovered versions to baselines", "variant": "emphasis" },
+    { "id": "drift-evaluation", "from": "techstack", "to": "repomgmt", "y": 450, "label": "Drift and policy evaluation", "variant": "return" },
+    { "id": "persist-snapshot", "from": "repomgmt", "to": "index", "y": 494, "label": "Persist repository health snapshot", "variant": "default" },
+    { "id": "emit-signals", "from": "repomgmt", "to": "monitoring", "y": 538, "label": "Emit ProgressSignal(s)", "variant": "emphasis" },
+    { "id": "state-updated", "from": "monitoring", "to": "scheduler", "y": 582, "label": "Dashboard/alert state updated", "variant": "return" }
+  ]
+}

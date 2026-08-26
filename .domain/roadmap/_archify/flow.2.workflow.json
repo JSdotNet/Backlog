@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Dependency Validation Flow",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "proposal", "label": "Proposed edge" },
+    { "id": "membership", "label": "Membership check" },
+    { "id": "self-check", "label": "Self check" },
+    { "id": "cycle-check", "label": "Cycle check" },
+    { "id": "stored", "label": "Stored" },
+    { "id": "drawn", "label": "Drawn" }
+  ],
+  "mainPath": ["add", "exists", "self", "cycle", "accept", "contradiction"],
+  "nodes": [
+    { "id": "add", "lane": "proposal", "col": 1, "width": 190, "type": "external", "label": "Add dependency", "sublabel": "node waits on target" },
+    { "id": "exists", "lane": "membership", "col": 1, "width": 190, "type": "security", "label": "Target exists in this plan?" },
+    { "id": "reject-missing", "lane": "membership", "col": 4, "width": 160, "type": "security", "label": "Rejected: unknown node" },
+    { "id": "self", "lane": "self-check", "col": 1, "width": 190, "type": "security", "label": "Target is the node itself?" },
+    { "id": "reject-self", "lane": "self-check", "col": 4, "width": 220, "type": "security", "label": "Rejected: cannot wait on itself" },
+    { "id": "cycle", "lane": "cycle-check", "col": 1, "width": 190, "type": "security", "label": "Would it close a cycle?" },
+    { "id": "reject-cycle", "lane": "cycle-check", "col": 4, "width": 210, "type": "security", "label": "Rejected: plan left untouched" },
+    { "id": "accept", "lane": "stored", "col": 2, "width": 140, "type": "database", "label": "Accepted and stored" },
+    { "id": "contradiction", "lane": "stored", "col": 4, "width": 190, "type": "backend", "label": "Successor opens first?", "sublabel": "before the predecessor closes" },
+    { "id": "clean", "lane": "drawn", "col": 4, "width": 190, "type": "frontend", "label": "Drawn as a plain arrow" },
+    { "id": "report", "lane": "drawn", "col": 1, "width": 190, "type": "frontend", "label": "Reported as a contradiction", "sublabel": "drawn as a doubling-back arrow" }
+  ],
+  "edges": [
+    { "id": "propose", "from": "add", "to": "exists", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "unknown", "from": "exists", "to": "reject-missing", "label": "no", "role": "error", "variant": "security" },
+    { "id": "exists-yes", "from": "exists", "to": "self", "label": "yes", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "itself", "from": "self", "to": "reject-self", "label": "yes", "role": "error", "variant": "security" },
+    { "id": "self-no", "from": "self", "to": "cycle", "label": "no", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "closes-cycle", "from": "cycle", "to": "reject-cycle", "label": "yes", "role": "error", "variant": "security" },
+    { "id": "cycle-no", "from": "cycle", "to": "accept", "label": "no", "role": "main", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "then-check", "from": "accept", "to": "contradiction", "role": "main" },
+    { "id": "no-contradiction", "from": "contradiction", "to": "clean", "label": "no", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top", "labelDx": 60 },
+    { "id": "contradiction-yes", "from": "contradiction", "to": "report", "label": "yes", "role": "branch", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Refusals, not warnings",
+      "items": [
+        "The three rejections are refusals to store",
+        "The plan is unchanged and the reason is returned to the caller",
+        "An unknown target, the node itself, and a closing cycle are all refused"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "A contradiction refuses nothing",
+      "items": [
+        "Dates that do not fit are a normal, temporary state of a plan being worked out",
+        "The check never refuses anything and never leaves the edge unstored",
+        "The arrow that doubles back through the gutter is how the reader sees it"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Cycle detection",
+      "items": [
+        "It walks the whole graph reachable from the target",
+        "It is an invariant of the plan rather than of a node",
+        "So it is checked on the root before the edge is accepted"
+      ]
+    }
+  ]
+}

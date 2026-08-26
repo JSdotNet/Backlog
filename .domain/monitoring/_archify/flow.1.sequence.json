@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Signal flow",
+    "viewBox": [1240, 780],
+    "quality_profile": "showcase",
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "backlog", "type": "backend", "label": "Backlog" },
+    { "id": "inbox", "type": "backend", "label": "Inbox" },
+    { "id": "github", "type": "external", "label": "GitHub" },
+    { "id": "appinsights", "type": "external", "label": "Application Insights" },
+    { "id": "devpc", "type": "backend", "label": "Dev PC Management" },
+    { "id": "monitoring", "type": "backend", "label": "Monitoring" },
+    { "id": "dashboard", "type": "frontend", "label": "Dashboard" }
+  ],
+  "messages": [
+    { "id": "status-changed", "from": "backlog", "to": "monitoring", "y": 200, "label": "StatusChanged (item_id, new_status, changed_at)", "variant": "default" },
+    { "id": "queue-depth-changed", "from": "inbox", "to": "monitoring", "y": 250, "label": "QueueDepthChanged (depth, age_max, processing_rate)", "variant": "default" },
+    { "id": "issue-updated", "from": "github", "to": "monitoring", "y": 300, "label": "IssueUpdated (backlog_item_id, url, status)", "variant": "default" },
+    { "id": "metric-received", "from": "appinsights", "to": "monitoring", "y": 350, "label": "MetricReceived (project, metric, value, severity)", "variant": "default" },
+    { "id": "machine-status-changed", "from": "devpc", "to": "monitoring", "y": 400, "label": "MachineStatusChanged (machine_id, status, last_heartbeat)", "variant": "default" },
+    { "id": "compliance-updated", "from": "devpc", "to": "monitoring", "y": 450, "label": "ComplianceUpdated (machine_id, compliance_score)", "variant": "default" },
+    { "id": "publish-dashboards", "from": "monitoring", "to": "dashboard", "y": 560, "label": "ProgressSignals + QueueHealth + InfraDashboard", "variant": "emphasis", "note": "Signals aggregated and correlated" },
+    { "id": "follow-up-captured", "from": "dashboard", "to": "inbox", "y": 650, "label": "FollowUpCaptured (title, source: monitoring)", "variant": "default", "note": "Follow-up actions identified" }
+  ],
+  "activations": [
+    { "participant": "monitoring", "from": 195, "to": 565, "type": "backend" },
+    { "participant": "dashboard", "from": 555, "to": 655, "type": "frontend" }
+  ]
+}

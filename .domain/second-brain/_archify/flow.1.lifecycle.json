@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Knowledge Note Lifecycle",
+    "viewBox": [
+      980,
+      660
+    ],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Workflow phases"
+    },
+    {
+      "id": "archive",
+      "label": "Archive, with restore"
+    }
+  ],
+  "states": [
+    {
+      "id": "created",
+      "type": "start",
+      "label": "Created",
+      "sublabel": "from Inbox or manually",
+      "lane": "main",
+      "col": 0
+    },
+    {
+      "id": "organized",
+      "type": "active",
+      "label": "Organized",
+      "sublabel": "topic and PARA category",
+      "lane": "main",
+      "col": 2
+    },
+    {
+      "id": "linked",
+      "type": "active",
+      "label": "Linked",
+      "sublabel": "backlog entries, notes",
+      "lane": "main",
+      "col": 4
+    },
+    {
+      "id": "archived",
+      "type": "neutral",
+      "label": "Archived",
+      "sublabel": "PARA category archive",
+      "lane": "archive",
+      "col": 1
+    }
+  ],
+  "transitions": [
+    {
+      "id": "organize",
+      "from": "created",
+      "to": "organized",
+      "label": "Assigned topic and PARA category",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "link",
+      "from": "organized",
+      "to": "linked",
+      "label": "Linked to backlog entries or other notes",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        556,
+        202
+      ]
+    },
+    {
+      "id": "relink",
+      "from": "linked",
+      "to": "organized",
+      "label": "Links updated",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          710,
+          90
+        ],
+        [
+          402,
+          90
+        ]
+      ],
+      "labelAt": [
+        556,
+        82
+      ]
+    },
+    {
+      "id": "archive-organized",
+      "from": "organized",
+      "to": "archived",
+      "label": "Note no longer active",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          402,
+          307
+        ]
+      ],
+      "labelAt": [
+        402,
+        248
+      ]
+    },
+    {
+      "id": "archive-linked",
+      "from": "linked",
+      "to": "archived",
+      "label": "Note no longer active",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          710,
+          307
+        ]
+      ],
+      "labelAt": [
+        710,
+        248
+      ]
+    },
+    {
+      "id": "restore",
+      "from": "archived",
+      "to": "organized",
+      "label": "Restored",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          556,
+          230
+        ],
+        [
+          402,
+          230
+        ]
+      ],
+      "labelAt": [
+        556,
+        254
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Phases, not a stored enum",
+      "items": [
+        "Created, Organized, Linked and Archived are workflow phases",
+        "PARA Category = archive is the persisted archived state",
+        "A note carries a primary topic and a PARA Category"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Organizing and linking",
+      "items": [
+        "Organizing assigns the topic and the PARA category",
+        "Linking reaches backlog entries and other notes",
+        "Updating links returns the note to Organized"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Archiving is reversible",
+      "items": [
+        "A note no longer active can be archived from Organized or Linked",
+        "Restoring returns it to Organized",
+        "Archived is not an end of the note"
+      ]
+    }
+  ]
+}

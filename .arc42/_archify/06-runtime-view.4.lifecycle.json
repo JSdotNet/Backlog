@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Sync Item Lifecycle",
+    "quality_profile": "showcase",
+    "viewBox": [980, 660]
+  },
+  "lanes": [
+    { "id": "main", "label": "Item states" },
+    { "id": "recovery", "label": "Retry loop" }
+  ],
+  "states": [
+    { "id": "captured", "type": "start", "label": "Captured", "sublabel": "user captures item", "lane": "main", "col": 0 },
+    { "id": "pendingsync", "type": "waiting", "label": "PendingSync", "lane": "main", "col": 1 },
+    { "id": "syncing", "type": "active", "label": "Syncing", "lane": "main", "col": 2 },
+    { "id": "synced", "type": "success", "label": "Synced", "sublabel": "confirmed on Cloud Service", "lane": "main", "col": 3 },
+    { "id": "syncfailed", "type": "failure", "label": "SyncFailed", "sublabel": "exponential backoff, max 5 retries", "lane": "recovery", "col": 0, "width": 150 }
+  ],
+  "transitions": [
+    { "id": "network-available", "from": "captured", "to": "pendingsync", "label": "Network available", "labelAt": [171, 118] },
+    { "id": "picked-up", "from": "pendingsync", "to": "syncing", "label": "Sync engine picks up item", "labelAt": [325, 118] },
+    { "id": "sync-succeeds", "from": "syncing", "to": "synced", "label": "POST /sync/items succeeds", "variant": "emphasis", "labelAt": [479, 118] },
+    { "id": "sync-fails", "from": "syncing", "to": "syncfailed", "label": "Network error or timeout", "variant": "security", "route": "straight", "fromSide": "bottom", "toSide": "top", "labelAt": [402, 202] },
+    { "id": "retry-scheduled", "from": "syncfailed", "to": "pendingsync", "label": "Retry scheduled", "variant": "emphasis" },
+    { "id": "network-lost", "from": "pendingsync", "to": "captured", "label": "Network lost before sync starts", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" }
+  ]
+}

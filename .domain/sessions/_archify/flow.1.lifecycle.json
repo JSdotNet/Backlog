@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "How a Session Reads",
+    "viewBox": [
+      980,
+      700
+    ],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Read from liveness evidence"
+    },
+    {
+      "id": "clock",
+      "label": "The same evidence, a different clock"
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal for a given identity"
+    }
+  ],
+  "states": [
+    {
+      "id": "fresh",
+      "type": "start",
+      "label": "Fresh reading",
+      "sublabel": "evidence available now",
+      "lane": "main",
+      "col": 0
+    },
+    {
+      "id": "running",
+      "type": "active",
+      "label": "Running",
+      "sublabel": "within the stale threshold",
+      "lane": "main",
+      "col": 2
+    },
+    {
+      "id": "stalled",
+      "type": "waiting",
+      "label": "Stalled",
+      "sublabel": "silent past the threshold",
+      "lane": "clock",
+      "col": 1
+    },
+    {
+      "id": "finished",
+      "type": "neutral",
+      "label": "Finished",
+      "sublabel": "no liveness evidence",
+      "lane": "terminal",
+      "col": 2
+    }
+  ],
+  "transitions": [
+    {
+      "id": "read-running",
+      "from": "fresh",
+      "to": "running",
+      "label": "liveness evidence, activity within the stale threshold",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        248,
+        205
+      ]
+    },
+    {
+      "id": "goes-quiet",
+      "from": "running",
+      "to": "stalled",
+      "label": "silence passes the threshold",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          556,
+          157
+        ]
+      ]
+    },
+    {
+      "id": "writes-again",
+      "from": "stalled",
+      "to": "running",
+      "label": "the agent writes again",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          402,
+          307
+        ]
+      ]
+    },
+    {
+      "id": "read-stalled",
+      "from": "fresh",
+      "to": "stalled",
+      "label": "liveness evidence, silent for longer than the threshold",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          94,
+          400
+        ],
+        [
+          556,
+          400
+        ]
+      ]
+    },
+    {
+      "id": "stalled-gone",
+      "from": "stalled",
+      "to": "finished",
+      "label": "liveness evidence gone",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          710,
+          307
+        ]
+      ]
+    },
+    {
+      "id": "running-gone",
+      "from": "running",
+      "to": "finished",
+      "label": "liveness evidence gone",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          402,
+          80
+        ],
+        [
+          830,
+          80
+        ],
+        [
+          830,
+          479
+        ]
+      ]
+    },
+    {
+      "id": "read-finished",
+      "from": "fresh",
+      "to": "finished",
+      "label": "a record, but no liveness evidence",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          18,
+          157
+        ],
+        [
+          18,
+          560
+        ],
+        [
+          710,
+          560
+        ]
+      ],
+      "labelAt": [
+        365,
+        552
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "A reading, not a stored lifecycle",
+      "items": [
+        "Nothing in this context transitions a session",
+        "Every state is reachable directly from a fresh reading",
+        "Edges say what the evidence shows, not what happened"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Running and Stalled",
+      "items": [
+        "The same evidence read against a different clock",
+        "The pair moves back and forth in both directions",
+        "A session quiet for an hour was never anything but running"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Finished",
+      "items": [
+        "Terminal for a given identity",
+        "The liveness record is written per process, so a resumed session is a new process",
+        "There is no Failed: a record that stops says nothing about why"
+      ]
+    }
+  ]
+}

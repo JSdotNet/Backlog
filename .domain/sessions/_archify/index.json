@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "4b3160fbcaf651558b0f683c37f28aa6040659ce581280d10d3ab31d6ba9ac01": {
+      "chapter": "flow.md",
+      "ordinal": 3,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "flow.3.sequence.json",
+      "artifact": "flow.3.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "7b5c8d8a25f0d0b711a2fccf0aee30e7b5fd8c6eae73d57c56bca4bae0a55d66": {
+      "chapter": "flow.md",
+      "ordinal": 1,
+      "type": "lifecycle",
+      "kind": "statediagram-v2",
+      "spec": "flow.1.lifecycle.json",
+      "artifact": "flow.1.lifecycle.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "97d1f409cd787d9a5fb06c4b8656f07af81dc79f39283929e41848524b285716": {
+      "chapter": "flow.md",
+      "ordinal": 2,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "flow.2.sequence.json",
+      "artifact": "flow.2.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "b3530810399612b08e7b8f5374ccd3f78ac95283e8f54add762df2848733c799": {
+      "chapter": "flow.md",
+      "ordinal": 4,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "flow.4.sequence.json",
+      "artifact": "flow.4.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}

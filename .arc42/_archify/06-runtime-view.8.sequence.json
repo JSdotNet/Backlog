@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Remote PC Wake and Status Update",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1400, 830]
+  },
+  "participants": [
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "desktop", "type": "frontend", "label": "Desktop App" },
+    { "id": "devpc", "type": "backend", "label": "Dev PC Management" },
+    { "id": "cloud", "type": "cloud", "label": "Cloud Service" },
+    { "id": "registry", "type": "database", "label": "Machine Registry" },
+    { "id": "target", "type": "external", "label": "Remote Desktop Agent" },
+    { "id": "monitoring", "type": "backend", "label": "Monitoring Service" }
+  ],
+  "segments": [
+    { "from": 150, "to": 292, "label": "Wake request" },
+    { "from": 308, "to": 492, "label": "Registry lookup and WoL relay" },
+    { "from": 508, "to": 736, "label": "Heartbeat and status reconcile" }
+  ],
+  "messages": [
+    { "id": "wake-machine", "from": "me", "to": "desktop", "y": 182, "label": "Wake remote machine", "variant": "default" },
+    { "id": "wake-call", "from": "desktop", "to": "devpc", "y": 226, "label": "wake(machine_id)", "variant": "default" },
+    { "id": "wake-post", "from": "devpc", "to": "cloud", "y": 270, "label": "POST /pc/wake/{machine_id}", "variant": "emphasis" },
+    { "id": "load-registration", "from": "cloud", "to": "registry", "y": 338, "label": "Load machine registration", "variant": "default" },
+    { "id": "registration-data", "from": "registry", "to": "cloud", "y": 382, "label": "MAC address, last status", "variant": "return" },
+    { "id": "relay-wol", "from": "cloud", "to": "target", "y": 426, "label": "Relay WoL packet", "variant": "emphasis" },
+    { "id": "wake-accepted", "from": "cloud", "to": "devpc", "y": 470, "label": "202 Accepted", "variant": "return" },
+    { "id": "heartbeat", "from": "target", "to": "cloud", "y": 538, "label": "POST /pc/heartbeat", "variant": "emphasis", "note": "Machine resumes and heartbeat starts" },
+    { "id": "status-online", "from": "cloud", "to": "registry", "y": 582, "label": "Update status=online", "variant": "default" },
+    { "id": "wake-result", "from": "cloud", "to": "devpc", "y": 626, "label": "pc.wake-result / status update", "variant": "return" },
+    { "id": "emit-online", "from": "devpc", "to": "monitoring", "y": 670, "label": "Emit machine-online signal", "variant": "default" },
+    { "id": "visible-online", "from": "monitoring", "to": "me", "y": 714, "label": "Machine visible as online", "variant": "return" }
+  ]
+}

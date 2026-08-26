@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "How Optional Session Activity Reporting Works",
+    "viewBox": [
+      1010,
+      700
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "Running session",
+      "sublabel": "reaches a milestone"
+    },
+    {
+      "id": "capability",
+      "type": "backend",
+      "label": "Reporting Capability",
+      "sublabel": "enabled / disabled / degraded"
+    },
+    {
+      "id": "publisher",
+      "type": "backend",
+      "label": "Session Activity Publishing",
+      "sublabel": "sanitized updates"
+    },
+    {
+      "id": "mcp",
+      "type": "external",
+      "label": "Collections MCP",
+      "sublabel": "optional"
+    }
+  ],
+  "segments": [
+    {
+      "from": 245,
+      "to": 398,
+      "label": "reporting enabled"
+    },
+    {
+      "from": 435,
+      "to": 478,
+      "label": "reporting disabled"
+    },
+    {
+      "from": 520,
+      "to": 563,
+      "label": "reporting degraded"
+    }
+  ],
+  "messages": [
+    {
+      "id": "ask-capability",
+      "from": "session",
+      "to": "capability",
+      "y": 195,
+      "label": "is reporting configured and reachable?"
+    },
+    {
+      "id": "milestones",
+      "from": "session",
+      "to": "publisher",
+      "y": 270,
+      "label": "started / meaningful activity / finished",
+      "variant": "emphasis"
+    },
+    {
+      "id": "publish",
+      "from": "publisher",
+      "to": "mcp",
+      "y": 330,
+      "label": "append or upsert activity update",
+      "variant": "emphasis",
+      "note": "sanitize, assign event_id and sequence"
+    },
+    {
+      "id": "acknowledged",
+      "from": "mcp",
+      "to": "publisher",
+      "y": 375,
+      "label": "acknowledged",
+      "variant": "return"
+    },
+    {
+      "id": "local-only",
+      "from": "capability",
+      "to": "session",
+      "y": 460,
+      "label": "local-only session",
+      "variant": "return"
+    },
+    {
+      "id": "degraded",
+      "from": "publisher",
+      "to": "session",
+      "y": 545,
+      "label": "reporting marked degraded",
+      "variant": "return",
+      "note": "keep local session work moving"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "session",
+      "from": 190,
+      "to": 552,
+      "type": "backend"
+    },
+    {
+      "participant": "capability",
+      "from": 188,
+      "to": 240,
+      "type": "backend"
+    },
+    {
+      "participant": "capability",
+      "from": 448,
+      "to": 470,
+      "type": "backend"
+    },
+    {
+      "participant": "publisher",
+      "from": 262,
+      "to": 385,
+      "type": "backend"
+    },
+    {
+      "participant": "publisher",
+      "from": 528,
+      "to": 552,
+      "type": "backend"
+    },
+    {
+      "participant": "mcp",
+      "from": 322,
+      "to": 382,
+      "type": "external"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Milestone-based, not transcript-shaped",
+      "items": [
+        "The session emits start, meaningful deltas, and finish",
+        "Those are the facts a later reader can use",
+        "Token streams and tool bodies would bloat the evidence without improving the answer"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Capability is a path state",
+      "items": [
+        "Checked, not guessed from missing events",
+        "No external updates can mean not configured or temporarily unreachable",
+        "The reporting path carries its own reading"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Degrading is not failing",
+      "items": [
+        "A degraded path keeps local session work moving",
+        "The session is told its reporting is marked degraded",
+        "A disabled path is simply a local-only session"
+      ]
+    }
+  ]
+}

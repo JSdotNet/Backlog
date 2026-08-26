@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Machine status lifecycle",
+    "viewBox": [980, 660],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Machine status" },
+    { "id": "unreachable", "label": "Heartbeat lost" }
+  ],
+  "states": [
+    { "id": "registered", "type": "start", "label": "Registered", "lane": "main", "col": 0 },
+    { "id": "online", "type": "active", "label": "Online", "lane": "main", "col": 1 },
+    { "id": "sleeping", "type": "waiting", "label": "Sleeping", "lane": "main", "col": 2 },
+    { "id": "offline", "type": "failure", "label": "Offline", "lane": "unreachable", "col": 1 }
+  ],
+  "transitions": [
+    { "id": "register", "from": "registered", "to": "online", "label": "Registers and sends heartbeat", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [160, 218] },
+    { "id": "sleep", "from": "online", "to": "sleeping", "label": "OS sleeps (heartbeat pauses)", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [370, 260] },
+    { "id": "wake", "from": "sleeping", "to": "online", "label": "WoL received; heartbeat resumes", "fromSide": "top", "toSide": "top", "via": [[402, 86], [248, 86]], "labelAt": [345, 106] },
+    { "id": "online-timeout", "from": "online", "to": "offline", "label": "Heartbeat timeout", "fromSide": "bottom", "toSide": "left", "via": [[248, 307]], "labelAt": [340, 330] },
+    { "id": "sleeping-timeout", "from": "sleeping", "to": "offline", "label": "Heartbeat timeout", "fromSide": "bottom", "toSide": "top", "via": [[402, 233], [556, 233]], "labelAt": [479, 210] },
+    { "id": "restart", "from": "offline", "to": "online", "label": "Component restarts and heartbeats", "fromSide": "right", "toSide": "top", "via": [[760, 307], [760, 60], [248, 60]], "labelAt": [500, 40] }
+  ]
+}

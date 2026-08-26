@@ -27,6 +27,16 @@ namespace Backlog.UI.Components.UnitTests;
 /// <para>The document also holds a mermaid fence, so the id <c>DiagramView</c>
 /// mints per instance and the element reference bUnit writes beside it are
 /// normalised away: both are new on every render and neither is this view's.</para>
+///
+/// <para>The captured header has been moved once since, deliberately: the
+/// language badge is now inside a <c>diagram-view__badges</c> span, because a
+/// diagram drawn from a generated Archify artifact carries a second badge naming
+/// the renderer and the two have to sit together. The badge itself is untouched —
+/// same class, same <c>data-testid</c>, same text — and the wrapper is
+/// unconditional, so a diagram with no artifact renders it holding only the
+/// language. Recorded here because this suite exists to make markup movement
+/// visible, and a test named for what has always rendered should say when the
+/// answer changed and why.</para>
 /// </summary>
 public sealed class MarkdownViewMarkupTests
 {
@@ -57,7 +67,8 @@ public sealed class MarkdownViewMarkupTests
     // <tbody> and in front of a footnote's back-link are part of the rendering.
     private const string ReadMarkup = """
 <div class="md-view"><p class="md-heading md-heading--1" role="heading" aria-level="1">A heading</p><p class="md-p">A paragraph with <strong>bold</strong>, <em>emphasis</em>, <code class="md-inline-code">inline code</code>, a <span class="tag-chip">#tag</span> and a <a class="md-link" href="https://example.com" target="_blank" rel="noopener noreferrer">link</a>, and a footnote<sup class="md-fnref" id="fnref-note"><a href="#fn-note" aria-label="Footnote 1">1</a></sup>.</p><ul class="md-list"><li class=" ">A bullet<ul class="md-list"><li class=" ">Nested under it</li></ul><ol class="md-list"><li>Numbers under a bullet</li></ol></li><li class="md-item--task md-item--done"><span class="md-check md-check--done" data-testid="entry-checkbox" role="img" aria-label="Done">✔</span>A finished task</li><li class="md-item--task "><span class="md-check " data-testid="entry-checkbox" role="img" aria-label="Not done"></span>An unfinished one</li><li class=" ">A plain bullet in the same list</li></ul><ol class="md-list"><li>First ordered item</li><li>Second ordered item</li></ol><blockquote class="md-quote">A quote, which may run over more than one line.</blockquote><div class="md-table-scroll" role="region" tabindex="0" aria-label="Table"><table class="md-table"><thead><tr><th scope="col" class="md-table__cell--left">Left</th><th scope="col" class="md-table__cell--center">Middle</th><th scope="col" class="md-table__cell--right">Right</th></tr></thead>
-                    <tbody><tr><td class="md-table__cell--left">one</td><td class="md-table__cell--center">two</td><td class="md-table__cell--right">three</td></tr><tr><td class="md-table__cell--left">four</td><td class="md-table__cell--center">five</td><td class="md-table__cell--right"></td></tr></tbody></table></div><pre class="md-code"><code>var blocks = MarkdownPreview.ParseDocument(source);</code></pre><figure class="diagram-view" data-testid="diagram-view" aria-label="mermaid diagram source visualization"><figcaption class="diagram-view__header"><span class="diagram-view__title">Backlog diagram</span><span class="language-badge diagram-view__language" data-testid="diagram-view-language">mermaid</span></figcaption>
+                    <tbody><tr><td class="md-table__cell--left">one</td><td class="md-table__cell--center">two</td><td class="md-table__cell--right">three</td></tr><tr><td class="md-table__cell--left">four</td><td class="md-table__cell--center">five</td><td class="md-table__cell--right"></td></tr></tbody></table></div><pre class="md-code"><code>var blocks = MarkdownPreview.ParseDocument(source);</code></pre><figure class="diagram-view" data-testid="diagram-view" aria-label="mermaid diagram source visualization"><figcaption class="diagram-view__header"><span class="diagram-view__title">Backlog diagram</span>
+        <span class="diagram-view__badges"><span class="language-badge diagram-view__language" data-testid="diagram-view-language">mermaid</span></span></figcaption>
     <div class="diagram-view__canvas" role="img" aria-label="mermaid diagram source visualization"><div class="diagram-view__rendered" data-diagram-id="diagram-ID"><p class="diagram-view__status" role="status">Rendering mermaid diagram...</p></div></div><details class="diagram-view__details"><summary>Diagram source</summary>
             <pre class="diagram-view__source"><code>graph TD; a--&gt;b;</code></pre></details></figure><hr class="md-divider" /><aside class="md-footnotes" aria-label="Footnotes"><hr class="md-divider" />
                 <ol class="md-footnotes__list"><li id="fn-note" class="md-footnotes__item">Notes are collected at the bottom.

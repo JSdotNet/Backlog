@@ -77,6 +77,12 @@ public static class AppFeatures
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
         new(
+            KnowledgeFeatures.ArchifyDiagrams,
+            "Archify diagrams",
+            "Draw a knowledge chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",

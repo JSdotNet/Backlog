@@ -22,6 +22,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -126,6 +127,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<BacklogCopilotCli>();
         builder.Services.AddSingleton<KnowledgeCopilotCli>();
+        // The shared diagram component asks for this optionally, so registering it
+        // is what switches Archify artifacts on for the app at all. Everything it
+        // answers — the flag, which clone the chapters came from, whether a CLI is
+        // installed — is the host's to know, which is why the library only asks.
+        builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<BacklogDesktopState>();
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();

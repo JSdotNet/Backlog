@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Mobile Capture and Sync",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [960, 830]
+  },
+  "participants": [
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "app", "type": "frontend", "label": "Phone App" },
+    { "id": "storage", "type": "database", "label": "Local JSON Store" },
+    { "id": "sync", "type": "backend", "label": "Sync Engine" },
+    { "id": "cloud", "type": "cloud", "label": "Cloud Service" }
+  ],
+  "segments": [
+    { "from": 150, "to": 292, "label": "Captured locally" },
+    { "from": 308, "to": 580, "label": "Flush to cloud" },
+    { "from": 596, "to": 740, "label": "Failure and retry" }
+  ],
+  "messages": [
+    { "id": "capture", "from": "me", "to": "app", "y": 182, "label": "Capture item (text or voice)", "variant": "default" },
+    { "id": "insert-item", "from": "app", "to": "storage", "y": 226, "label": "INSERT inbox_item (status=captured)", "variant": "emphasis" },
+    { "id": "stored-locally", "from": "app", "to": "me", "y": 270, "label": "Stored locally", "variant": "return" },
+    { "id": "query-pending", "from": "sync", "to": "storage", "y": 338, "label": "Query pending items", "variant": "default", "note": "When network becomes available" },
+    { "id": "pending-items", "from": "storage", "to": "sync", "y": 382, "label": "inbox_items where status=pending_sync", "variant": "return" },
+    { "id": "batch-upload", "from": "sync", "to": "cloud", "y": 426, "label": "POST /sync/items (batch upload)", "variant": "emphasis" },
+    { "id": "upload-ok", "from": "cloud", "to": "sync", "y": 470, "label": "200 OK (merged_count)", "variant": "return" },
+    { "id": "mark-synced", "from": "sync", "to": "storage", "y": 514, "label": "UPDATE status=synced", "variant": "default" },
+    { "id": "sync-complete", "from": "app", "to": "me", "y": 558, "label": "Sync complete", "variant": "return" },
+    { "id": "retry-upload", "from": "sync", "to": "cloud", "y": 626, "label": "POST /sync/items", "variant": "default", "note": "On sync failure" },
+    { "id": "upload-error", "from": "cloud", "to": "sync", "y": 670, "label": "Error or timeout", "variant": "return" },
+    { "id": "mark-failed", "from": "sync", "to": "storage", "y": 714, "label": "UPDATE status=sync_failed, increment retry", "variant": "default", "note": "Sync Engine then schedules a retry (exponential backoff)" }
+  ],
+  "activations": [
+    { "participant": "cloud", "from": 420, "to": 476, "type": "cloud" },
+    { "participant": "cloud", "from": 620, "to": 676, "type": "cloud" }
+  ]
+}

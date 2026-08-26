@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Mobile Release and Update Delivery",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "pipeline", "label": "Release pipeline" },
+    { "id": "target", "label": "Install target" }
+  ],
+  "mainPath": ["tag", "workflow", "release", "device"],
+  "nodes": [
+    { "id": "tag", "lane": "pipeline", "col": 0, "type": "external", "label": "Tag v1.2.3", "sublabel": "or mobile-v0.1.N nightly", "width": 96 },
+    { "id": "workflow", "lane": "pipeline", "col": 2, "type": "backend", "label": "release-mobile workflow", "width": 165 },
+    { "id": "release", "lane": "pipeline", "col": 4, "type": "cloud", "label": "GitHub Release", "width": 110 },
+    { "id": "device", "lane": "target", "col": 5, "type": "frontend", "label": "Android device", "width": 100 }
+  ],
+  "edges": [
+    { "id": "tag-to-workflow", "from": "tag", "to": "workflow" },
+    { "id": "workflow-to-release", "from": "workflow", "to": "release", "label": "signed + apksigner-verified APK", "variant": "emphasis", "labelAt": [380, 165] },
+    { "id": "first-install", "from": "release", "to": "device", "label": "first install (sideload)", "role": "main", "fromSide": "right", "toSide": "top", "labelAt": [618, 170] },
+    { "id": "manual-reinstall", "from": "release", "to": "device", "label": "manual re-download (no in-app check)", "role": "branch", "variant": "dashed", "fromSide": "bottom", "toSide": "left", "labelAt": [485, 200] }
+  ]
+}
