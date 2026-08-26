@@ -1,0 +1,485 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Backlog Context Map",
+    "quality_profile": "showcase",
+    "viewBox": [
+      2960,
+      1798
+    ]
+  },
+  "components": [
+    {
+      "id": "backlog",
+      "type": "backend",
+      "label": "Backlog Management",
+      "pos": [
+        200,
+        300
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "inbox",
+      "type": "backend",
+      "label": "Inbox",
+      "pos": [
+        760,
+        300
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "brain",
+      "type": "backend",
+      "label": "Second Brain",
+      "pos": [
+        1320,
+        300
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "roadmap",
+      "type": "backend",
+      "label": "Roadmap Planning",
+      "pos": [
+        1880,
+        300
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "repo",
+      "type": "backend",
+      "label": "Repository Management",
+      "pos": [
+        2440,
+        300
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "environment",
+      "type": "backend",
+      "label": "Environment",
+      "pos": [
+        2440,
+        900
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "devpc",
+      "type": "backend",
+      "label": "Dev PC Management",
+      "pos": [
+        2440,
+        1500
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "sessions",
+      "type": "backend",
+      "label": "Sessions",
+      "pos": [
+        1320,
+        1500
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "productivity",
+      "type": "backend",
+      "label": "Productivity",
+      "pos": [
+        200,
+        1500
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "monitor",
+      "type": "backend",
+      "label": "Monitoring & Dashboard",
+      "pos": [
+        1210,
+        880
+      ],
+      "size": [
+        230,
+        58
+      ]
+    },
+    {
+      "id": "tech",
+      "type": "backend",
+      "label": "Technology Stack",
+      "pos": [
+        1900,
+        880
+      ],
+      "size": [
+        200,
+        58
+      ]
+    },
+    {
+      "id": "capture",
+      "type": "backend",
+      "label": "Capture",
+      "pos": [
+        500,
+        620
+      ],
+      "size": [
+        200,
+        58
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "capture",
+      "to": "inbox",
+      "label": "OHS + Published Language — ItemCaptured",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          600,
+          500
+        ],
+        [
+          860,
+          500
+        ]
+      ]
+    },
+    {
+      "from": "inbox",
+      "to": "backlog",
+      "label": "OHS + Published Language — ItemTriaged"
+    },
+    {
+      "from": "inbox",
+      "to": "brain",
+      "label": "OHS + Published Language — ItemTriaged"
+    },
+    {
+      "from": "backlog",
+      "to": "brain",
+      "label": "Partnership — cross-link by id",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          300,
+          240
+        ],
+        [
+          1420,
+          240
+        ]
+      ]
+    },
+    {
+      "from": "backlog",
+      "to": "roadmap",
+      "label": "Partnership — optional cross-link by id",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          300,
+          190
+        ],
+        [
+          1980,
+          190
+        ]
+      ]
+    },
+    {
+      "from": "roadmap",
+      "to": "backlog",
+      "label": "Customer/Supplier — roadmap tag vocabulary",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          1980,
+          140
+        ],
+        [
+          300,
+          140
+        ]
+      ]
+    },
+    {
+      "from": "brain",
+      "to": "roadmap",
+      "label": "Customer/Supplier — chapters by tag/ref + registered effort"
+    },
+    {
+      "from": "roadmap",
+      "to": "monitor",
+      "label": "OHS + Published Language — RoadmapItemScheduled",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1980,
+          700
+        ],
+        [
+          1325,
+          700
+        ]
+      ]
+    },
+    {
+      "from": "backlog",
+      "to": "monitor",
+      "label": "OHS + Published Language — StatusChanged / EntryProjected / EntryCompleted"
+    },
+    {
+      "from": "inbox",
+      "to": "monitor",
+      "label": "Customer/Supplier — queue-health feed"
+    },
+    {
+      "from": "repo",
+      "to": "monitor",
+      "label": "Customer/Supplier — health and scan feed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          2540,
+          500
+        ],
+        [
+          1325,
+          500
+        ]
+      ]
+    },
+    {
+      "from": "devpc",
+      "to": "monitor",
+      "label": "OHS + Published Language — MachineStatusChanged / ComplianceUpdated",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          2540,
+          1280
+        ],
+        [
+          1325,
+          1280
+        ]
+      ]
+    },
+    {
+      "from": "productivity",
+      "to": "monitor",
+      "label": "OHS + Published Language — ProductivityRecorded"
+    },
+    {
+      "from": "environment",
+      "to": "monitor",
+      "label": "Customer/Supplier — environment availability feed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          2540,
+          1060
+        ],
+        [
+          1325,
+          1060
+        ]
+      ]
+    },
+    {
+      "from": "monitor",
+      "to": "inbox",
+      "label": "OHS + Published Language — FollowUpCaptured"
+    },
+    {
+      "from": "tech",
+      "to": "repo",
+      "label": "Customer/Supplier — technology baselines"
+    },
+    {
+      "from": "tech",
+      "to": "devpc",
+      "label": "Customer/Supplier — team tools baseline",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          2000,
+          1529
+        ]
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "tech",
+      "label": "Customer/Supplier — adoption and technology scans"
+    },
+    {
+      "from": "devpc",
+      "to": "tech",
+      "label": "Customer/Supplier — tool-version reports",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          2000,
+          1529
+        ],
+        [
+          2000,
+          1000
+        ]
+      ]
+    },
+    {
+      "from": "backlog",
+      "to": "productivity",
+      "label": "OHS + Published Language — AIWorkLogged",
+      "labelAt": [
+        293,
+        372
+      ]
+    },
+    {
+      "from": "monitor",
+      "to": "productivity",
+      "label": "OHS + Published Language — CopilotSession signal"
+    },
+    {
+      "from": "productivity",
+      "to": "backlog",
+      "label": "Customer/Supplier — productivity summaries"
+    },
+    {
+      "from": "repo",
+      "to": "environment",
+      "label": "Customer/Supplier — repository/environment registry lookup",
+      "labelAt": [
+        2540,
+        372
+      ]
+    },
+    {
+      "from": "environment",
+      "to": "backlog",
+      "label": "Customer/Supplier — launchable environment links",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          2820,
+          929
+        ],
+        [
+          2820,
+          40
+        ],
+        [
+          300,
+          40
+        ]
+      ]
+    },
+    {
+      "from": "environment",
+      "to": "devpc",
+      "label": "Customer/Supplier — environment shortcuts",
+      "labelAt": [
+        2540,
+        972
+      ]
+    },
+    {
+      "from": "devpc",
+      "to": "sessions",
+      "label": "Customer/Supplier (not built) — machine identity for an environment",
+      "variant": "dashed"
+    },
+    {
+      "from": "sessions",
+      "to": "productivity",
+      "label": "Customer/Supplier (not built) — agent session facts",
+      "variant": "dashed"
+    },
+    {
+      "from": "sessions",
+      "to": "monitor",
+      "label": "Customer/Supplier (not built) — stalled-session observation",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "repo",
+      "to": "backlog",
+      "label": "Customer/Supplier — repo registry lookup",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          2540,
+          90
+        ],
+        [
+          300,
+          90
+        ]
+      ]
+    },
+    {
+      "from": "repo",
+      "to": "roadmap",
+      "label": "Customer/Supplier — repo registry lookup by alias"
+    }
+  ]
+}

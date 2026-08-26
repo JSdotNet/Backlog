@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Mobile App — internal structure",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "os",
+      "type": "external",
+      "label": "OS Services",
+      "sublabel": "Camera, Microphone, Share Sheet",
+      "pos": [
+        420,
+        40
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "creds",
+      "type": "security",
+      "label": "Secure Storage",
+      "sublabel": "Keychain / Vault",
+      "pos": [
+        820,
+        40
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "UI Layer",
+      "sublabel": ".NET MAUI / Blazor Hybrid",
+      "pos": [
+        40,
+        440
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "capture",
+      "type": "backend",
+      "label": "Capture Service",
+      "sublabel": "Quick add, Voice, Shortcuts",
+      "pos": [
+        420,
+        300
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Local Storage",
+      "sublabel": "JSON",
+      "pos": [
+        420,
+        520
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "sync",
+      "type": "backend",
+      "label": "Sync Engine",
+      "sublabel": "Conflict resolution",
+      "pos": [
+        420,
+        740
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "api",
+      "type": "cloud",
+      "label": "Cloud Sync API",
+      "sublabel": "REST + Auth",
+      "pos": [
+        820,
+        700
+      ],
+      "size": [
+        250,
+        80
+      ]
+    },
+    {
+      "id": "cloud",
+      "type": "cloud",
+      "label": "Cloud Sync",
+      "sublabel": "OneDrive / GDrive",
+      "pos": [
+        820,
+        900
+      ],
+      "size": [
+        250,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "App Layer",
+      "wraps": [
+        "capture",
+        "storage",
+        "sync"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Platform Layer",
+      "wraps": [
+        "os",
+        "creds"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ui-capture",
+      "from": "ui",
+      "to": "capture",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ui-storage",
+      "from": "ui",
+      "to": "storage",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ui-sync",
+      "from": "ui",
+      "to": "sync",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "capture-os",
+      "from": "capture",
+      "to": "os",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "os-capture",
+      "from": "os",
+      "to": "capture",
+      "label": "Speech-to-text",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        800,
+        220
+      ]
+    },
+    {
+      "id": "capture-creds",
+      "from": "capture",
+      "to": "creds",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "storage-sync",
+      "from": "storage",
+      "to": "sync",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sync-api",
+      "from": "sync",
+      "to": "api",
+      "label": "HTTPS",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "sync-cloud",
+      "from": "sync",
+      "to": "cloud",
+      "label": "Optional",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ]
+}

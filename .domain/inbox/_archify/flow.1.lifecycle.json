@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Inbox item lifecycle",
+    "viewBox": [980, 660],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Triage path" },
+    { "id": "deferral", "label": "Deferral" },
+    { "id": "terminal", "label": "Terminal outcome" }
+  ],
+  "states": [
+    { "id": "captured", "type": "start", "label": "Captured", "lane": "main", "col": 0 },
+    { "id": "unprocessed", "type": "active", "label": "Unprocessed", "lane": "main", "col": 1 },
+    { "id": "triaged", "type": "decision", "label": "Triaged", "lane": "main", "col": 2 },
+    { "id": "routed", "type": "success", "label": "Routed", "lane": "main", "col": 3 },
+    { "id": "deferred", "type": "waiting", "label": "Deferred", "lane": "deferral", "col": 0 },
+    { "id": "archived", "type": "neutral", "label": "Archived", "lane": "terminal", "col": 2 }
+  ],
+  "transitions": [
+    { "id": "capture-delivers", "from": "captured", "to": "unprocessed", "label": "Capture delivers item", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [171, 212] },
+    { "id": "triage-action", "from": "unprocessed", "to": "triaged", "label": "Triage action taken", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [325, 212] },
+    { "id": "route-out", "from": "triaged", "to": "routed", "label": "Route to Backlog or Knowledge", "fromSide": "right", "toSide": "left", "route": "straight", "labelAt": [479, 100] },
+    { "id": "defer", "from": "triaged", "to": "deferred", "label": "Defer for later review", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelAt": [330, 233] },
+    { "id": "review-date", "from": "deferred", "to": "unprocessed", "label": "Review date reached", "fromSide": "left", "toSide": "bottom", "via": [[248, 307]], "labelAt": [175, 307] },
+    { "id": "dismiss", "from": "triaged", "to": "archived", "label": "Dismiss / not actionable", "fromSide": "right", "toSide": "top", "via": [[480, 157], [480, 400], [710, 400]], "labelAt": [560, 385] },
+    { "id": "dismiss-deferred", "from": "deferred", "to": "archived", "label": "Dismissed after deferral", "fromSide": "bottom", "toSide": "top", "via": [[402, 420], [710, 420]], "labelAt": [320, 380] }
+  ]
+}

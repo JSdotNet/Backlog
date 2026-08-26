@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Cloud Deployment (Azure)",
+    "quality_profile": "showcase",
+    "viewBox": [
+      930,
+      700
+    ]
+  },
+  "components": [
+    {
+      "id": "desktop",
+      "type": "frontend",
+      "label": "Desktop App",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "ide",
+      "type": "frontend",
+      "label": "IDE Extensions",
+      "pos": [
+        40,
+        225
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "mobile",
+      "type": "frontend",
+      "label": "Mobile App",
+      "pos": [
+        40,
+        340
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "appservice",
+      "type": "cloud",
+      "label": "Azure App Service",
+      "sublabel": "or Container Apps",
+      "tag": "Compute",
+      "pos": [
+        380,
+        215
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "cosmos",
+      "type": "database",
+      "label": "Azure Cosmos DB",
+      "sublabel": "sync state, webhook events, machine registry",
+      "tag": "Data",
+      "pos": [
+        660,
+        120
+      ],
+      "size": [
+        210,
+        90
+      ]
+    },
+    {
+      "id": "keyvault",
+      "type": "security",
+      "label": "Azure Key Vault",
+      "sublabel": "webhook secrets, OAuth tokens",
+      "tag": "Data",
+      "pos": [
+        660,
+        300
+      ],
+      "size": [
+        210,
+        90
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub",
+      "sublabel": "webhooks in",
+      "pos": [
+        380,
+        490
+      ],
+      "size": [
+        180,
+        70
+      ]
+    },
+    {
+      "id": "fcm",
+      "type": "external",
+      "label": "Firebase Cloud Messaging",
+      "sublabel": "Android push",
+      "pos": [
+        660,
+        490
+      ],
+      "size": [
+        210,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Clients",
+      "wraps": [
+        "desktop",
+        "ide",
+        "mobile"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Azure",
+      "wraps": [
+        "appservice",
+        "cosmos",
+        "keyvault"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "External",
+      "wraps": [
+        "github",
+        "fcm"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "desktop-sync",
+      "from": "desktop",
+      "to": "appservice",
+      "label": "HTTPS — state sync"
+    },
+    {
+      "id": "ide-sync",
+      "from": "ide",
+      "to": "appservice",
+      "label": "HTTPS — state sync",
+      "labelDy": 11
+    },
+    {
+      "id": "mobile-sync",
+      "from": "mobile",
+      "to": "appservice",
+      "label": "HTTPS — sync and offline flush"
+    },
+    {
+      "id": "appservice-cosmos",
+      "from": "appservice",
+      "to": "cosmos"
+    },
+    {
+      "id": "appservice-keyvault",
+      "from": "appservice",
+      "to": "keyvault"
+    },
+    {
+      "id": "webhooks-in",
+      "from": "github",
+      "to": "appservice",
+      "label": "Webhook events"
+    },
+    {
+      "id": "android-push",
+      "from": "appservice",
+      "to": "fcm",
+      "label": "Android push"
+    },
+    {
+      "id": "push-notification",
+      "from": "fcm",
+      "to": "mobile",
+      "label": "Notification",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          765,
+          640
+        ],
+        [
+          115,
+          640
+        ]
+      ],
+      "labelAt": [
+        400,
+        635
+      ]
+    }
+  ]
+}

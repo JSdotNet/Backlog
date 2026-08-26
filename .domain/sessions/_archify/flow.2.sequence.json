@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "How an Environment's Sessions Are Read",
+    "viewBox": [920, 760],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "reader", "type": "external", "label": "Reader", "sublabel": "asks the environment" },
+    { "id": "log", "type": "backend", "label": "Session Log", "sublabel": "one environment" },
+    { "id": "claude", "type": "database", "label": "Claude records", "sublabel": "agent evidence" },
+    { "id": "copilot", "type": "database", "label": "Copilot records", "sublabel": "agent evidence" },
+    { "id": "liveness", "type": "backend", "label": "Liveness Assessment", "sublabel": "one clock per reading" }
+  ],
+  "segments": [
+    { "from": 210, "to": 380, "label": "per agent, independently" },
+    { "from": 392, "to": 428, "label": "collapse duplicate records of one session" },
+    { "from": 436, "to": 508, "label": "for each session with liveness evidence" }
+  ],
+  "messages": [
+    { "id": "ask", "from": "reader", "to": "log", "y": 185, "label": "what has been running here?", "variant": "emphasis" },
+    { "id": "read-claude", "from": "log", "to": "claude", "y": 235, "label": "live records, then recent history" },
+    { "id": "claude-found", "from": "claude", "to": "log", "y": 272, "label": "sessions found + how many exist", "variant": "return" },
+    { "id": "read-copilot", "from": "log", "to": "copilot", "y": 320, "label": "recent records" },
+    { "id": "copilot-found", "from": "copilot", "to": "log", "y": 357, "label": "sessions found + how many exist", "variant": "return" },
+    { "id": "assess", "from": "log", "to": "liveness", "y": 450, "label": "for each session with liveness evidence", "variant": "emphasis" },
+    { "id": "assessed", "from": "liveness", "to": "log", "y": 487, "label": "running or stalled", "variant": "return" },
+    { "id": "catalog", "from": "log", "to": "reader", "y": 560, "label": "Session Catalog — sessions, unreadable sources, discovered count", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "log", "from": 185, "to": 565, "type": "backend" },
+    { "participant": "claude", "from": 230, "to": 277, "type": "database" },
+    { "participant": "copilot", "from": 315, "to": 362, "type": "database" },
+    { "participant": "liveness", "from": 445, "to": 492, "type": "backend" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Asked independently", "items": ["An environment with only one agent installed is the ordinary case", "One unreadable source must not cost the reader the other's sessions", "Each source contributes its sessions or its name to unreadable"] },
+    { "dot": "emerald", "title": "Collapsed, then assessed", "items": ["One session can leave a live marker per process and a transcript", "The most recent evidence wins, because that is the process actually running", "Liveness is assessed last, per session, against one clock"] },
+    { "dot": "slate", "title": "How complete the answer is", "items": ["The reading may stop at the most recent sessions per agent", "How many exist travels back with what was described", "Unreadable sources are named in the catalog, not silently dropped"] }
+  ]
+}

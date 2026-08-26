@@ -1,0 +1,923 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Technology Graph",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1330,
+      2404
+    ]
+  },
+  "components": [
+    {
+      "id": "AspireCli",
+      "type": "backend",
+      "label": "Aspire CLI",
+      "sublabel": "candidate",
+      "tag": "Tooling",
+      "pos": [
+        305,
+        100
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Aspire",
+      "type": "backend",
+      "label": ".NET Aspire",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        570,
+        100
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "MinimalApis",
+      "type": "backend",
+      "label": "ASP.NET Core Minimal APIs",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        835,
+        100
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "ACA",
+      "type": "backend",
+      "label": "Azure Container Apps",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        570,
+        188
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "WPF",
+      "type": "backend",
+      "label": "WPF",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        305,
+        276
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "VSSDK",
+      "type": "backend",
+      "label": "Visual Studio Extensibility",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        570,
+        276
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "CSharp",
+      "type": "backend",
+      "label": "C#",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        835,
+        364
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "DotNet",
+      "type": "backend",
+      "label": ".NET Runtime 10.0",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        1100,
+        364
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "BlazorHybrid",
+      "type": "backend",
+      "label": "Blazor Hybrid",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        40,
+        452
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "MAUI",
+      "type": "backend",
+      "label": ".NET MAUI",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        305,
+        452
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "WinUI",
+      "type": "backend",
+      "label": "WinUI 3",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        570,
+        540
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "WinAppSDK",
+      "type": "backend",
+      "label": "Windows App SDK",
+      "sublabel": "candidate",
+      "tag": "Desktop",
+      "pos": [
+        835,
+        540
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Android",
+      "type": "external",
+      "label": "Android",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        305,
+        628
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Windows",
+      "type": "external",
+      "label": "Windows",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        835,
+        628
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "AppInstaller",
+      "type": "backend",
+      "label": "App Installer (.appinstaller)",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        305,
+        716
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "MSIX",
+      "type": "backend",
+      "label": "MSIX Packaging",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        570,
+        716
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Workers",
+      "type": "backend",
+      "label": "Background Workers",
+      "sublabel": "candidate",
+      "tag": "Desktop",
+      "pos": [
+        835,
+        804
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "NuGet",
+      "type": "backend",
+      "label": "NuGet",
+      "sublabel": "candidate",
+      "tag": "Tooling",
+      "pos": [
+        570,
+        892
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "DotNetSdk",
+      "type": "backend",
+      "label": ".NET SDK",
+      "sublabel": "candidate",
+      "tag": "Tooling",
+      "pos": [
+        835,
+        892
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Webview",
+      "type": "backend",
+      "label": "VS Code Webview UI",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        305,
+        980
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "VSCodeApi",
+      "type": "backend",
+      "label": "VS Code Extension API",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        570,
+        980
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "NodeJS",
+      "type": "backend",
+      "label": "Node.js",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        1100,
+        980
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "TypeScript",
+      "type": "backend",
+      "label": "TypeScript",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        835,
+        1068
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Npm",
+      "type": "backend",
+      "label": "npm",
+      "sublabel": "candidate",
+      "tag": "Tooling",
+      "pos": [
+        835,
+        1156
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "KnowledgePlugin",
+      "type": "backend",
+      "label": "Knowledge Base Plugin",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        570,
+        1244
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Canvas",
+      "type": "backend",
+      "label": "Knowledge Canvas Extension",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        570,
+        1332
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Mermaid",
+      "type": "backend",
+      "label": "Mermaid",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        835,
+        1420
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Markdown",
+      "type": "external",
+      "label": "Markdown",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1100,
+        1420
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "LocalStore",
+      "type": "backend",
+      "label": "Local Markdown + JSON Store",
+      "sublabel": "candidate",
+      "tag": "Desktop",
+      "pos": [
+        835,
+        1508
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "JSON",
+      "type": "external",
+      "label": "JSON",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1100,
+        1508
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "OfflineStore",
+      "type": "backend",
+      "label": "Local Offline Store",
+      "sublabel": "candidate",
+      "tag": "Mobile",
+      "pos": [
+        835,
+        1596
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "CopilotCli",
+      "type": "backend",
+      "label": "GitHub Copilot CLI",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        835,
+        1684
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "MCP",
+      "type": "backend",
+      "label": "Model Context Protocol Servers",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        570,
+        1772
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "GhCli",
+      "type": "backend",
+      "label": "GitHub CLI",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        835,
+        1772
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "GitHubPlatform",
+      "type": "external",
+      "label": "GitHub Platform",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1100,
+        1772
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "CopilotUsage",
+      "type": "backend",
+      "label": "GitHub Copilot Usage APIs",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        835,
+        1860
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "CodeQL",
+      "type": "backend",
+      "label": "CodeQL",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        570,
+        1948
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Actions",
+      "type": "backend",
+      "label": "GitHub Actions",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        835,
+        1948
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Dependabot",
+      "type": "backend",
+      "label": "Dependabot",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        835,
+        2036
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Anthropic",
+      "type": "external",
+      "label": "Anthropic Claude Platform",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        305,
+        2212
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Cosmos",
+      "type": "external",
+      "label": "Azure Cosmos DB",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        570,
+        2212
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "KeyVault",
+      "type": "external",
+      "label": "Azure Key Vault",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        835,
+        2212
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "FCM",
+      "type": "external",
+      "label": "Firebase Cloud Messaging",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        305,
+        2300
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "Git",
+      "type": "external",
+      "label": "Git",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        570,
+        2300
+      ],
+      "size": [
+        190,
+        58
+      ]
+    },
+    {
+      "id": "YAML",
+      "type": "external",
+      "label": "YAML",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        835,
+        2300
+      ],
+      "size": [
+        190,
+        58
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Mermaid",
+      "to": "Markdown"
+    },
+    {
+      "from": "CSharp",
+      "to": "DotNet"
+    },
+    {
+      "from": "TypeScript",
+      "to": "NodeJS"
+    },
+    {
+      "from": "MAUI",
+      "to": "WinUI"
+    },
+    {
+      "from": "MAUI",
+      "to": "Android"
+    },
+    {
+      "from": "MAUI",
+      "to": "CSharp"
+    },
+    {
+      "from": "BlazorHybrid",
+      "to": "MAUI"
+    },
+    {
+      "from": "CopilotUsage",
+      "to": "GitHubPlatform"
+    },
+    {
+      "from": "WinAppSDK",
+      "to": "Windows"
+    },
+    {
+      "from": "WinAppSDK",
+      "to": "DotNet"
+    },
+    {
+      "from": "WinUI",
+      "to": "WinAppSDK"
+    },
+    {
+      "from": "WinUI",
+      "to": "CSharp"
+    },
+    {
+      "from": "LocalStore",
+      "to": "Markdown"
+    },
+    {
+      "from": "LocalStore",
+      "to": "JSON"
+    },
+    {
+      "from": "Workers",
+      "to": "DotNet"
+    },
+    {
+      "from": "GhCli",
+      "to": "GitHubPlatform"
+    },
+    {
+      "from": "MSIX",
+      "to": "WinAppSDK"
+    },
+    {
+      "from": "AppInstaller",
+      "to": "MSIX"
+    },
+    {
+      "from": "OfflineStore",
+      "to": "JSON"
+    },
+    {
+      "from": "VSCodeApi",
+      "to": "TypeScript"
+    },
+    {
+      "from": "VSCodeApi",
+      "to": "NodeJS"
+    },
+    {
+      "from": "Webview",
+      "to": "VSCodeApi"
+    },
+    {
+      "from": "VSSDK",
+      "to": "CSharp"
+    },
+    {
+      "from": "WPF",
+      "to": "VSSDK"
+    },
+    {
+      "from": "WPF",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          270,
+          305
+        ],
+        [
+          270,
+          50
+        ],
+        [
+          1195,
+          50
+        ]
+      ]
+    },
+    {
+      "from": "MinimalApis",
+      "to": "DotNet"
+    },
+    {
+      "from": "MinimalApis",
+      "to": "CSharp"
+    },
+    {
+      "from": "Aspire",
+      "to": "MinimalApis"
+    },
+    {
+      "from": "ACA",
+      "to": "MinimalApis"
+    },
+    {
+      "from": "DotNetSdk",
+      "to": "DotNet"
+    },
+    {
+      "from": "NuGet",
+      "to": "DotNetSdk"
+    },
+    {
+      "from": "Npm",
+      "to": "NodeJS"
+    },
+    {
+      "from": "Actions",
+      "to": "GitHubPlatform"
+    },
+    {
+      "from": "CodeQL",
+      "to": "Actions"
+    },
+    {
+      "from": "Dependabot",
+      "to": "GitHubPlatform"
+    },
+    {
+      "from": "CopilotCli",
+      "to": "GitHubPlatform"
+    },
+    {
+      "from": "MCP",
+      "to": "CopilotCli"
+    },
+    {
+      "from": "KnowledgePlugin",
+      "to": "CopilotCli",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          535,
+          1273
+        ],
+        [
+          535,
+          1713
+        ]
+      ]
+    },
+    {
+      "from": "KnowledgePlugin",
+      "to": "NodeJS"
+    },
+    {
+      "from": "Canvas",
+      "to": "CopilotCli"
+    },
+    {
+      "from": "Canvas",
+      "to": "NodeJS"
+    },
+    {
+      "from": "Canvas",
+      "to": "Mermaid"
+    },
+    {
+      "from": "AspireCli",
+      "to": "Aspire"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Status legend",
+      "items": [
+        "candidate — named as the intended choice, not yet proven by running code",
+        "adopted — in active use and the default choice for its role",
+        "foundation / external — nothing in this project sits below it"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Layers",
+      "items": [
+        "Foundations — platforms, services, and formats the project builds on",
+        "Shared — formats, languages, and runtimes used by more than one channel",
+        "Desktop — the canonical local-first Windows client",
+        "Mobile — the Android capture-and-review client",
+        "IDE — VS Code and Visual Studio extensions",
+        "Cloud — the optional, thin Azure sync service",
+        "Tooling — build, CI/CD, AI, and governance tooling for this repository"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Reading the edges",
+      "items": [
+        "Every edge points from a technology to what it sits on top of.",
+        "Foundations carry no outgoing edge: nothing in this project sits below them."
+      ]
+    }
+  ]
+}

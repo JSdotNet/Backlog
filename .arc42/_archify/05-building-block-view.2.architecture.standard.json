@@ -1,0 +1,1075 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "System-level flow — Prompt Backlog",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "youtube",
+      "type": "external",
+      "label": "YouTube API",
+      "tag": "External Services",
+      "pos": [
+        100,
+        80
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "websites",
+      "type": "external",
+      "label": "Websites / RSS",
+      "tag": "External Services",
+      "pos": [
+        100,
+        220
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "email",
+      "type": "external",
+      "label": "Email (IMAP)",
+      "tag": "External Services",
+      "pos": [
+        100,
+        360
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "mobile",
+      "type": "frontend",
+      "label": "Mobile App",
+      "tag": "Capture Sources",
+      "pos": [
+        100,
+        500
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "packageRegs",
+      "type": "external",
+      "label": "Package Registries",
+      "tag": "External Services",
+      "pos": [
+        100,
+        1250
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "copilotSessions",
+      "type": "external",
+      "label": "Copilot Sessions",
+      "tag": "External Services",
+      "pos": [
+        100,
+        1700
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "pcRegistry",
+      "type": "cloud",
+      "label": "PC Registry & WoL Relay",
+      "tag": "Cloud Service",
+      "pos": [
+        100,
+        2320
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "ytWorker",
+      "type": "backend",
+      "label": "YouTube Fetcher",
+      "tag": "Capture Sources",
+      "pos": [
+        380,
+        80
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "webWorker",
+      "type": "backend",
+      "label": "Website Monitor",
+      "tag": "Capture Sources",
+      "pos": [
+        380,
+        220
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "emailWorker",
+      "type": "backend",
+      "label": "Email Fetcher",
+      "tag": "Capture Sources",
+      "pos": [
+        380,
+        360
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "backlogSvc",
+      "type": "backend",
+      "label": "Backlog",
+      "tag": "Desktop App",
+      "pos": [
+        380,
+        760
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "jsonIndex",
+      "type": "database",
+      "label": "JSON Indexes",
+      "tag": "Local Storage",
+      "pos": [
+        380,
+        1250
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "repoMgmtSvc",
+      "type": "backend",
+      "label": "Repository Management",
+      "tag": "Desktop App",
+      "pos": [
+        380,
+        1400
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "techStackSvc",
+      "type": "backend",
+      "label": "Technology Stack",
+      "tag": "Desktop App",
+      "pos": [
+        380,
+        1550
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "devPcSvc",
+      "type": "backend",
+      "label": "Dev PC Management",
+      "tag": "Desktop App",
+      "pos": [
+        380,
+        1700
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "notifications",
+      "type": "cloud",
+      "label": "Push Notifications",
+      "tag": "Cloud Service",
+      "pos": [
+        380,
+        2150
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "syncApi",
+      "type": "cloud",
+      "label": "Sync API",
+      "tag": "Cloud Service",
+      "pos": [
+        380,
+        2320
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "ideCap",
+      "type": "backend",
+      "label": "IDE Capture",
+      "tag": "Capture Sources",
+      "pos": [
+        660,
+        80
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "manualCap",
+      "type": "frontend",
+      "label": "Manual / Web Clipper",
+      "tag": "Capture Sources",
+      "pos": [
+        660,
+        220
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "inboxQueue",
+      "type": "backend",
+      "label": "Inbox Queue",
+      "tag": "Desktop App",
+      "pos": [
+        660,
+        560
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "localMd",
+      "type": "database",
+      "label": "Local Markdown",
+      "tag": "Local Storage",
+      "pos": [
+        660,
+        940
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub API",
+      "tag": "External Services",
+      "pos": [
+        660,
+        1400
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "roadmapSvc",
+      "type": "backend",
+      "label": "Roadmap Planning",
+      "tag": "Desktop App",
+      "pos": [
+        660,
+        1850
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "sessionsSvc",
+      "type": "backend",
+      "label": "Sessions",
+      "tag": "Desktop App",
+      "pos": [
+        660,
+        2000
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "knowledgeSvc",
+      "type": "backend",
+      "label": "Second Brain",
+      "tag": "Desktop App",
+      "pos": [
+        940,
+        760
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "ideBrowse",
+      "type": "frontend",
+      "label": "Browse Backlog & Knowledge",
+      "tag": "IDE Extensions",
+      "pos": [
+        940,
+        940
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "monitoringSvc",
+      "type": "backend",
+      "label": "Monitoring",
+      "tag": "Desktop App",
+      "pos": [
+        940,
+        1550
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "appInsights",
+      "type": "external",
+      "label": "Application Insights",
+      "tag": "External Services",
+      "pos": [
+        940,
+        1780
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "githubWebhooks",
+      "type": "cloud",
+      "label": "GitHub Webhook Receiver",
+      "tag": "Cloud Service",
+      "pos": [
+        940,
+        2320
+      ],
+      "size": [
+        220,
+        70
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "yt-youtube",
+      "from": "ytWorker",
+      "to": "youtube",
+      "label": "poll",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "web-websites",
+      "from": "webWorker",
+      "to": "websites",
+      "label": "poll",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "email-mailbox",
+      "from": "emailWorker",
+      "to": "email",
+      "label": "IMAP",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "yt-inbox",
+      "from": "ytWorker",
+      "to": "inboxQueue",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          610,
+          115
+        ],
+        [
+          610,
+          595
+        ]
+      ]
+    },
+    {
+      "id": "web-inbox",
+      "from": "webWorker",
+      "to": "inboxQueue",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          625,
+          255
+        ],
+        [
+          625,
+          595
+        ]
+      ]
+    },
+    {
+      "id": "email-inbox",
+      "from": "emailWorker",
+      "to": "inboxQueue",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          640,
+          395
+        ],
+        [
+          640,
+          595
+        ]
+      ]
+    },
+    {
+      "id": "mobile-inbox",
+      "from": "mobile",
+      "to": "inboxQueue",
+      "label": "offline: local",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          590,
+          535
+        ],
+        [
+          590,
+          595
+        ]
+      ],
+      "labelAt": [
+        250,
+        620
+      ]
+    },
+    {
+      "id": "idecap-inbox",
+      "from": "ideCap",
+      "to": "inboxQueue",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          900,
+          115
+        ],
+        [
+          900,
+          595
+        ]
+      ]
+    },
+    {
+      "id": "manual-inbox",
+      "from": "manualCap",
+      "to": "inboxQueue",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          920,
+          255
+        ],
+        [
+          920,
+          595
+        ]
+      ]
+    },
+    {
+      "id": "mobile-sync",
+      "from": "mobile",
+      "to": "syncApi",
+      "label": "sync",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          20,
+          535
+        ],
+        [
+          20,
+          2450
+        ],
+        [
+          490,
+          2450
+        ]
+      ],
+      "labelAt": [
+        230,
+        2480
+      ]
+    },
+    {
+      "id": "notifications-mobile",
+      "from": "notifications",
+      "to": "mobile",
+      "label": "push",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          60,
+          2185
+        ],
+        [
+          60,
+          535
+        ]
+      ],
+      "labelAt": [
+        175,
+        1000
+      ]
+    },
+    {
+      "id": "sync-inbox",
+      "from": "syncApi",
+      "to": "inboxQueue",
+      "label": "deliver",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          490,
+          2450
+        ],
+        [
+          1270,
+          2450
+        ],
+        [
+          1270,
+          595
+        ]
+      ],
+      "labelAt": [
+        1200,
+        900
+      ]
+    },
+    {
+      "id": "sync-notifications",
+      "from": "syncApi",
+      "to": "notifications",
+      "label": "push",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "pcregistry-sync",
+      "from": "pcRegistry",
+      "to": "syncApi",
+      "label": "WoL relay",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "webhooks-sync",
+      "from": "githubWebhooks",
+      "to": "syncApi",
+      "label": "forward",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right",
+      "labelAt": [
+        790,
+        2385
+      ]
+    },
+    {
+      "id": "github-webhooks",
+      "from": "github",
+      "to": "githubWebhooks",
+      "label": "webhooks",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          1200,
+          1435
+        ],
+        [
+          1200,
+          2260
+        ],
+        [
+          1050,
+          2260
+        ]
+      ],
+      "labelAt": [
+        1120,
+        2230
+      ]
+    },
+    {
+      "id": "inbox-backlog",
+      "from": "inboxQueue",
+      "to": "backlogSvc",
+      "label": "route",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          490,
+          595
+        ]
+      ],
+      "labelAt": [
+        560,
+        690
+      ]
+    },
+    {
+      "id": "inbox-knowledge",
+      "from": "inboxQueue",
+      "to": "knowledgeSvc",
+      "label": "route",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          1050,
+          595
+        ]
+      ],
+      "labelAt": [
+        980,
+        690
+      ]
+    },
+    {
+      "id": "inbox-localmd",
+      "from": "inboxQueue",
+      "to": "localMd",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "backlog-knowledge",
+      "from": "backlogSvc",
+      "to": "knowledgeSvc",
+      "label": "embed (both directions)",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          490,
+          1080
+        ],
+        [
+          900,
+          1080
+        ],
+        [
+          900,
+          795
+        ]
+      ],
+      "labelAt": [
+        700,
+        1105
+      ]
+    },
+    {
+      "id": "backlog-localmd",
+      "from": "backlogSvc",
+      "to": "localMd",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          640,
+          795
+        ],
+        [
+          640,
+          975
+        ]
+      ]
+    },
+    {
+      "id": "knowledge-localmd",
+      "from": "knowledgeSvc",
+      "to": "localMd",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          910,
+          795
+        ],
+        [
+          910,
+          975
+        ]
+      ]
+    },
+    {
+      "id": "ide-knowledge",
+      "from": "ideBrowse",
+      "to": "knowledgeSvc",
+      "label": "read",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        1120,
+        890
+      ]
+    },
+    {
+      "id": "ide-backlog",
+      "from": "ideBrowse",
+      "to": "backlogSvc",
+      "label": "read",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          1050,
+          1140
+        ],
+        [
+          490,
+          1140
+        ]
+      ],
+      "labelAt": [
+        1150,
+        1170
+      ]
+    },
+    {
+      "id": "backlog-json",
+      "from": "backlogSvc",
+      "to": "jsonIndex",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "backlog-monitoring",
+      "from": "backlogSvc",
+      "to": "monitoringSvc",
+      "label": "signals",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          490,
+          1140
+        ],
+        [
+          1190,
+          1140
+        ],
+        [
+          1190,
+          1585
+        ]
+      ],
+      "labelAt": [
+        1120,
+        1450
+      ]
+    },
+    {
+      "id": "backlog-github",
+      "from": "backlogSvc",
+      "to": "github",
+      "label": "sync issues",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          620,
+          795
+        ],
+        [
+          620,
+          1345
+        ],
+        [
+          770,
+          1345
+        ]
+      ],
+      "labelAt": [
+        700,
+        1310
+      ]
+    },
+    {
+      "id": "repo-json",
+      "from": "repoMgmtSvc",
+      "to": "jsonIndex",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "devpc-json",
+      "from": "devPcSvc",
+      "to": "jsonIndex",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          340,
+          1735
+        ],
+        [
+          340,
+          1285
+        ]
+      ]
+    },
+    {
+      "id": "repo-packages",
+      "from": "repoMgmtSvc",
+      "to": "packageRegs",
+      "label": "dependency scan",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          360,
+          1435
+        ],
+        [
+          360,
+          1285
+        ]
+      ],
+      "labelAt": [
+        250,
+        1370
+      ]
+    },
+    {
+      "id": "repo-github",
+      "from": "repoMgmtSvc",
+      "to": "github",
+      "label": "repo metadata",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        630,
+        1500
+      ]
+    },
+    {
+      "id": "repo-monitoring",
+      "from": "repoMgmtSvc",
+      "to": "monitoringSvc",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          630,
+          1435
+        ],
+        [
+          630,
+          1520
+        ],
+        [
+          900,
+          1520
+        ],
+        [
+          900,
+          1585
+        ]
+      ]
+    },
+    {
+      "id": "devpc-monitoring",
+      "from": "devPcSvc",
+      "to": "monitoringSvc",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          900,
+          1735
+        ],
+        [
+          900,
+          1585
+        ]
+      ]
+    },
+    {
+      "id": "tech-repo",
+      "from": "techStackSvc",
+      "to": "repoMgmtSvc",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "tech-devpc",
+      "from": "techStackSvc",
+      "to": "devPcSvc",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "copilot-devpc",
+      "from": "copilotSessions",
+      "to": "devPcSvc",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "monitoring-appinsights",
+      "from": "monitoringSvc",
+      "to": "appInsights",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Capture Sources",
+      "items": [
+        "Mobile App — speech, shortcuts",
+        "YouTube Fetcher",
+        "Website Monitor",
+        "Email Fetcher (IMAP)",
+        "IDE Capture (adapter)",
+        "Manual / Web Clipper"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Desktop App (standalone or connected)",
+      "items": [
+        "Inbox Queue — triage, route",
+        "Backlog — refine, prioritize",
+        "Roadmap Planning — plan, sequence, dependencies",
+        "Second Brain — PARA, links",
+        "Monitoring — dashboards, signals",
+        "Technology Stack — baselines, adoption",
+        "Dev PC Management — registry, compliance",
+        "Sessions — agent session record",
+        "Repository Management — repo registry, health"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Cloud Service (optional)",
+      "items": [
+        "Sync API",
+        "GitHub Webhook Receiver",
+        "PC Registry & WoL Relay",
+        "Push Notifications"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Local Storage",
+      "items": [
+        "Local Markdown (Canonical)",
+        "JSON (Indexes, Metadata)"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "External Services",
+      "items": [
+        "GitHub API",
+        "YouTube API",
+        "Websites / RSS",
+        "Email (IMAP)",
+        "Package Registries — npm, NuGet, PyPI",
+        "Copilot Sessions",
+        "Application Insights"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "IDE Extensions",
+      "items": [
+        "Browse Backlog & Knowledge"
+      ]
+    }
+  ]
+}

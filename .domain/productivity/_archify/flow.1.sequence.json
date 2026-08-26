@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "AI-assisted activity recording",
+    "viewBox": [880, 560],
+    "quality_profile": "showcase",
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "backlog", "type": "backend", "label": "Backlog Management" },
+    { "id": "productivity", "type": "backend", "label": "Productivity" },
+    { "id": "monitoring", "type": "backend", "label": "Monitoring & Dashboard" }
+  ],
+  "segments": [
+    { "from": 250, "to": 320, "label": "Append Productivity Entry" },
+    { "from": 330, "to": 400, "label": "Recompute derived summaries" }
+  ],
+  "messages": [
+    { "id": "ai-work-logged", "from": "backlog", "to": "productivity", "y": 210, "label": "AIWorkLogged", "variant": "emphasis" },
+    { "id": "productivity-recorded", "from": "productivity", "to": "monitoring", "y": 430, "label": "ProductivityRecorded", "variant": "dashed" }
+  ],
+  "activations": [
+    { "participant": "productivity", "from": 205, "to": 435, "type": "backend" }
+  ]
+}

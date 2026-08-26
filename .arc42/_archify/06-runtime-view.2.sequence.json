@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "State Sync and Webhook Forwarding",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [960, 790]
+  },
+  "participants": [
+    { "id": "desktop", "type": "frontend", "label": "Desktop App" },
+    { "id": "cloud", "type": "cloud", "label": "Cloud Service" },
+    { "id": "clouddb", "type": "database", "label": "Cloud Database" },
+    { "id": "phone", "type": "frontend", "label": "Phone App" },
+    { "id": "gh", "type": "external", "label": "GitHub" }
+  ],
+  "segments": [
+    { "from": 150, "to": 292, "label": "Desktop push" },
+    { "from": 308, "to": 492, "label": "Phone pull" },
+    { "from": 508, "to": 704, "label": "Webhook validate and forward" }
+  ],
+  "messages": [
+    { "id": "sync-push", "from": "desktop", "to": "cloud", "y": 182, "label": "POST /sync/push (state snapshot)", "variant": "emphasis" },
+    { "id": "store-payload", "from": "cloud", "to": "clouddb", "y": 226, "label": "Store SyncPayload (TTL 7 days)", "variant": "default" },
+    { "id": "push-ok", "from": "cloud", "to": "desktop", "y": 270, "label": "200 OK", "variant": "return" },
+    { "id": "sync-pull", "from": "phone", "to": "cloud", "y": 338, "label": "GET /sync/pull?since=token", "variant": "emphasis", "note": "Phone comes online" },
+    { "id": "query-delta", "from": "cloud", "to": "clouddb", "y": 382, "label": "Query delta for user", "variant": "default" },
+    { "id": "changed-items", "from": "clouddb", "to": "cloud", "y": 426, "label": "Changed items since token", "variant": "return" },
+    { "id": "pull-ok", "from": "cloud", "to": "phone", "y": 470, "label": "200 OK (items, next_sync_token)", "variant": "return" },
+    { "id": "webhook-post", "from": "gh", "to": "cloud", "y": 538, "label": "POST /webhooks/github", "variant": "emphasis", "note": "GitHub webhook received" },
+    { "id": "store-event", "from": "cloud", "to": "clouddb", "y": 590, "label": "Store WebhookEvent (TTL 24h)", "variant": "default", "note": "Cloud Service validates the HMAC signature first" },
+    { "id": "webhook-accepted", "from": "cloud", "to": "gh", "y": 634, "label": "202 Accepted", "variant": "return" },
+    { "id": "sse-forward", "from": "cloud", "to": "desktop", "y": 678, "label": "SSE - github.event forwarded", "variant": "dashed" }
+  ],
+  "activations": [
+    { "participant": "cloud", "from": 176, "to": 276, "type": "cloud" },
+    { "participant": "cloud", "from": 332, "to": 476, "type": "cloud" },
+    { "participant": "cloud", "from": 532, "to": 640, "type": "cloud" }
+  ]
+}

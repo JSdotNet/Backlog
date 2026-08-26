@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "System Context — Prompt Backlog",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "ME",
+      "sublabel": "Personal owner",
+      "pos": [
+        40,
+        520
+      ],
+      "size": [
+        190,
+        80
+      ]
+    },
+    {
+      "id": "promptBacklog",
+      "type": "backend",
+      "label": "Prompt Backlog",
+      "sublabel": "Local-first personal system",
+      "tag": "capture, triage, backlog, knowledge, monitoring",
+      "pos": [
+        370,
+        480
+      ],
+      "size": [
+        280,
+        160
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub",
+      "sublabel": "Issues, repos, webhooks",
+      "pos": [
+        400,
+        60
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "youtube",
+      "type": "external",
+      "label": "YouTube",
+      "sublabel": "Subscription feed",
+      "pos": [
+        760,
+        120
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "email",
+      "type": "external",
+      "label": "Email / IMAP",
+      "sublabel": "Email capture inbox",
+      "pos": [
+        880,
+        400
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "websites",
+      "type": "external",
+      "label": "Websites / RSS",
+      "sublabel": "Web content monitoring",
+      "pos": [
+        880,
+        640
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "appInsights",
+      "type": "external",
+      "label": "Application Insights",
+      "sublabel": "Telemetry",
+      "pos": [
+        760,
+        900
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "pushProvider",
+      "type": "external",
+      "label": "Push Notification Provider",
+      "sublabel": "FCM for Android alerts",
+      "pos": [
+        400,
+        960
+      ],
+      "size": [
+        220,
+        80
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-system",
+      "from": "user",
+      "to": "promptBacklog",
+      "label": "captures, triages, manages backlog and knowledge",
+      "labelAt": [
+        190,
+        700
+      ]
+    },
+    {
+      "id": "system-github",
+      "from": "promptBacklog",
+      "to": "github",
+      "label": "syncs issues; receives webhook events",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        220,
+        300
+      ]
+    },
+    {
+      "id": "system-youtube",
+      "from": "promptBacklog",
+      "to": "youtube",
+      "label": "polls subscription feed",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        880,
+        300
+      ]
+    },
+    {
+      "id": "system-email",
+      "from": "promptBacklog",
+      "to": "email",
+      "label": "ingests via IMAP",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        790,
+        520
+      ]
+    },
+    {
+      "id": "system-websites",
+      "from": "promptBacklog",
+      "to": "websites",
+      "label": "monitors via RSS and DOM diff",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        850,
+        590
+      ]
+    },
+    {
+      "id": "system-appinsights",
+      "from": "promptBacklog",
+      "to": "appInsights",
+      "label": "reads telemetry signals",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        640,
+        820
+      ]
+    },
+    {
+      "id": "system-push",
+      "from": "promptBacklog",
+      "to": "pushProvider",
+      "label": "sends push notifications",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        330,
+        800
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "System",
+      "items": [
+        "Prompt Backlog — local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Owner",
+      "items": [
+        "ME — personal owner of the system across projects and devices"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "External systems",
+      "items": [
+        "GitHub — issue tracking, repository management, and webhook events",
+        "YouTube — subscription feed for content capture",
+        "Email / IMAP — email capture inbox",
+        "Websites / RSS — web content monitoring",
+        "Application Insights — telemetry for monitoring dashboards",
+        "Push Notification Provider — FCM for Android mobile alerts"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Technology Lifecycle",
+    "viewBox": [980, 660],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Adoption states" },
+    { "id": "winddown", "label": "Deprecation" },
+    { "id": "terminal", "label": "End of life" }
+  ],
+  "states": [
+    { "id": "beta", "type": "start", "label": "Beta", "sublabel": "proposed, in the registry", "lane": "main", "col": 0 },
+    { "id": "stable", "type": "active", "label": "Stable", "sublabel": "approved for the portfolio", "lane": "main", "col": 2 },
+    { "id": "deprecated", "type": "neutral", "label": "Deprecated", "sublabel": "EOL date + migration set", "lane": "winddown", "col": 1 },
+    { "id": "unsupported", "type": "failure", "label": "Unsupported", "sublabel": "exceptions flagged", "lane": "terminal", "col": 2 }
+  ],
+  "transitions": [
+    { "id": "approve", "from": "beta", "to": "stable", "label": "Approved for portfolio use", "fromSide": "right", "toSide": "left" },
+    { "id": "deprecate", "from": "stable", "to": "deprecated", "label": "New version; EOL date + migration set", "fromSide": "right", "toSide": "top", "via": [[556, 157]], "labelAt": [556, 217] },
+    { "id": "eol", "from": "deprecated", "to": "unsupported", "label": "EOL reached; exceptions flagged", "fromSide": "right", "toSide": "top", "via": [[710, 307]], "labelAt": [710, 378] },
+    { "id": "revert", "from": "stable", "to": "beta", "label": "Reverted to evaluation (edge case)", "fromSide": "top", "toSide": "top", "via": [[402, 90], [94, 90]], "labelAt": [248, 82] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Entering the registry", "items": ["A technology is proposed and added to the registry as Beta", "It becomes Stable when it is approved for portfolio use", "Reverting Stable to Beta is an edge case, not the normal path"] },
+    { "dot": "amber", "title": "Deprecation", "items": ["A new version moves the technology to Deprecated", "Deprecated requires an EOL date and migration guidance", "The state carries the migration, not just the label"] },
+    { "dot": "rose", "title": "End of life", "items": ["Reaching the EOL date moves the technology to Unsupported", "Remaining users are flagged as exceptions", "Unsupported is where the lifecycle ends"] }
+  ]
+}

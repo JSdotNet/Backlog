@@ -76,6 +76,12 @@ public static class AppFeatures
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell.", Status: AppFeatureStatus.Dev),
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
         new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
+        new(
+            KnowledgeFeatures.ArchifyDiagrams,
+            "Archify diagrams",
+            "Draw a knowledge chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
         new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers.", Status: AppFeatureStatus.Dev),
         new(
             SessionFeatures.Sessions,

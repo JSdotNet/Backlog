@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Copilot App Session Capture",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1440, 700]
+  },
+  "participants": [
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "copilot", "type": "external", "label": "GitHub Copilot App Session" },
+    { "id": "adapter", "type": "backend", "label": "Source Adapter" },
+    { "id": "capture", "type": "backend", "label": "Capture Service" },
+    { "id": "store", "type": "database", "label": "Local Markdown" },
+    { "id": "api", "type": "backend", "label": "Backend API" }
+  ],
+  "segments": [
+    { "from": 150, "to": 248, "label": "Capture from the session" },
+    { "from": 264, "to": 404, "label": "Local markdown first, then inbox" },
+    { "from": 420, "to": 560, "label": "Confirmation" }
+  ],
+  "messages": [
+    { "id": "capture-command", "from": "me", "to": "copilot", "y": 182, "label": "/capture \"follow-up\"", "variant": "default" },
+    { "id": "build-metadata", "from": "copilot", "to": "adapter", "y": 226, "label": "Build source metadata (session_id, worktree_path, branch)", "variant": "default" },
+    { "id": "create-item", "from": "adapter", "to": "capture", "y": 294, "label": "createItem(title, body, source=ide, metadata)", "variant": "emphasis" },
+    { "id": "write-markdown", "from": "capture", "to": "store", "y": 338, "label": "Write to local markdown cache", "variant": "default" },
+    { "id": "post-inbox", "from": "capture", "to": "api", "y": 382, "label": "POST /inbox/items", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "api", "to": "capture", "y": 450, "label": "201 Created (id)", "variant": "return" },
+    { "id": "item-created", "from": "capture", "to": "copilot", "y": 494, "label": "Item created (id, deep_link)", "variant": "return" },
+    { "id": "confirmation", "from": "copilot", "to": "me", "y": 538, "label": "Confirmation + deep-link", "variant": "return", "note": "Local-first path only; no credential forwarding through Cloud Service" }
+  ]
+}

@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Gathering an Item's Work and Totalling Its Effort",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "item",
+      "label": "Roadmap Item"
+    },
+    {
+      "id": "suppliers",
+      "label": "Suppliers"
+    },
+    {
+      "id": "threads",
+      "label": "Gathered two ways"
+    },
+    {
+      "id": "merged",
+      "label": "Merged"
+    },
+    {
+      "id": "totalled",
+      "label": "Totalled"
+    },
+    {
+      "id": "reported",
+      "label": "Reported"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "roadmap-item",
+      "lane": "item",
+      "col": 1,
+      "width": 220,
+      "type": "database",
+      "label": "Roadmap Item",
+      "sublabel": "tag, backlog_entry_id",
+      "tag": "knowledge_refs"
+    },
+    {
+      "id": "backlog",
+      "lane": "suppliers",
+      "col": 3,
+      "width": 120,
+      "type": "external",
+      "label": "Backlog Management",
+      "sublabel": "supplier"
+    },
+    {
+      "id": "second-brain",
+      "lane": "suppliers",
+      "col": 5,
+      "width": 110,
+      "type": "external",
+      "label": "Second Brain",
+      "sublabel": "supplier"
+    },
+    {
+      "id": "by-name",
+      "lane": "threads",
+      "col": 1,
+      "width": 220,
+      "type": "backend",
+      "label": "By name",
+      "sublabel": "the linked entry",
+      "tag": "+ listed knowledge_refs"
+    },
+    {
+      "id": "by-tag",
+      "lane": "threads",
+      "col": 4,
+      "width": 220,
+      "type": "backend",
+      "label": "By tag",
+      "sublabel": "entries filed under the tag",
+      "tag": "+ chapters whose roadmap list names it"
+    },
+    {
+      "id": "merge",
+      "lane": "merged",
+      "col": 2,
+      "width": 200,
+      "type": "backend",
+      "label": "Merge",
+      "sublabel": "reached both ways is counted once",
+      "tag": "recorded as held by both threads"
+    },
+    {
+      "id": "total",
+      "lane": "totalled",
+      "col": 1,
+      "width": 220,
+      "type": "database",
+      "label": "Total registered effort",
+      "sublabel": "sum of registered story points only"
+    },
+    {
+      "id": "unestimated",
+      "lane": "totalled",
+      "col": 4,
+      "width": 240,
+      "type": "database",
+      "label": "Count of gathered things",
+      "sublabel": "that registered no estimate"
+    },
+    {
+      "id": "report",
+      "lane": "reported",
+      "col": 2,
+      "width": 220,
+      "type": "frontend",
+      "label": "Reported together",
+      "sublabel": "side by side"
+    }
+  ],
+  "edges": [
+    {
+      "id": "item-name",
+      "from": "roadmap-item",
+      "to": "by-name",
+      "role": "main",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "item-tag",
+      "from": "roadmap-item",
+      "to": "by-tag",
+      "role": "main",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          500,
+          119
+        ]
+      ]
+    },
+    {
+      "id": "backlog-tag",
+      "from": "backlog",
+      "to": "by-tag",
+      "variant": "dashed",
+      "role": "async",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          350,
+          243
+        ],
+        [
+          350,
+          367
+        ]
+      ]
+    },
+    {
+      "id": "backlog-name",
+      "from": "backlog",
+      "to": "by-name",
+      "variant": "dashed",
+      "role": "async",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          430,
+          314
+        ],
+        [
+          340,
+          314
+        ],
+        [
+          340,
+          367
+        ]
+      ]
+    },
+    {
+      "id": "brain-tag",
+      "from": "second-brain",
+      "to": "by-tag",
+      "variant": "dashed",
+      "role": "async",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          625,
+          367
+        ]
+      ]
+    },
+    {
+      "id": "brain-name",
+      "from": "second-brain",
+      "to": "by-name",
+      "variant": "dashed",
+      "role": "async",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          540,
+          243
+        ],
+        [
+          540,
+          60
+        ],
+        [
+          70,
+          60
+        ],
+        [
+          70,
+          367
+        ]
+      ]
+    },
+    {
+      "id": "name-merge",
+      "from": "by-name",
+      "to": "merge",
+      "role": "main",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          220,
+          440
+        ],
+        [
+          150,
+          440
+        ],
+        [
+          150,
+          491
+        ]
+      ]
+    },
+    {
+      "id": "tag-merge",
+      "from": "by-tag",
+      "to": "merge",
+      "role": "main",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          500,
+          440
+        ],
+        [
+          300,
+          440
+        ]
+      ]
+    },
+    {
+      "id": "merge-total",
+      "from": "merge",
+      "to": "total",
+      "role": "main",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          300,
+          560
+        ],
+        [
+          220,
+          560
+        ]
+      ]
+    },
+    {
+      "id": "merge-unestimated",
+      "from": "merge",
+      "to": "unestimated",
+      "role": "branch",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          450,
+          491
+        ],
+        [
+          450,
+          560
+        ],
+        [
+          500,
+          560
+        ]
+      ]
+    },
+    {
+      "id": "total-report",
+      "from": "total",
+      "to": "report",
+      "role": "main",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          220,
+          680
+        ],
+        [
+          300,
+          680
+        ]
+      ]
+    },
+    {
+      "id": "unestimated-report",
+      "from": "unestimated",
+      "to": "report",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          500,
+          739
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Gathering on the read path",
+      "items": [
+        "Nothing is written back — not to the plan, not to an entry, not to a chapter",
+        "An unreachable supplier shrinks a total rather than corrupting a plan",
+        "Roadmap Item Gathering reads effort it never registers"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Merged, not concatenated",
+      "items": [
+        "A thing linked and tagged is one gathered thing",
+        "The result records that it was reached both ways",
+        "A reader about to remove a link needs to know the tag would still hold the work"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Only registered story points",
+      "items": [
+        "Nothing is inferred for an unestimated thing",
+        "The count of unestimated things rides alongside the total",
+        "A small-looking total is not the same as a total that is small"
+      ]
+    }
+  ]
+}

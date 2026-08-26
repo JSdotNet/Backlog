@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Backlog Entry to GitHub Issue",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [980, 740]
+  },
+  "participants": [
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "ui", "type": "frontend", "label": "Desktop UI" },
+    { "id": "backlog", "type": "backend", "label": "Backlog Service" },
+    { "id": "store", "type": "database", "label": "Local SQLite Store" },
+    { "id": "github", "type": "external", "label": "GitHub API" },
+    { "id": "db", "type": "database", "label": "DB" }
+  ],
+  "segments": [
+    { "from": 150, "to": 340, "label": "Local write" },
+    { "from": 356, "to": 538, "label": "Loop: for each repo_id" },
+    { "from": 554, "to": 650, "label": "Issue links surfaced" }
+  ],
+  "messages": [
+    { "id": "create-task", "from": "me", "to": "ui", "y": 186, "label": "Create task", "variant": "default" },
+    { "id": "create-task-call", "from": "ui", "to": "backlog", "y": 230, "label": "createTask(title, body, repo_ids, tags)", "variant": "emphasis" },
+    { "id": "upsert-row", "from": "backlog", "to": "store", "y": 274, "label": "Upsert task row", "variant": "default" },
+    { "id": "task-created", "from": "backlog", "to": "ui", "y": 318, "label": "Task created (id)", "variant": "return" },
+    { "id": "post-issue", "from": "backlog", "to": "github", "y": 384, "label": "POST /repos/{repo}/issues", "variant": "emphasis", "note": "Async GitHub sync - one issue per repo_id" },
+    { "id": "issue-created", "from": "github", "to": "backlog", "y": 428, "label": "201 Created (issue_number, html_url)", "variant": "return" },
+    { "id": "update-entry", "from": "backlog", "to": "store", "y": 472, "label": "Update entry with github_issue_ids", "variant": "default" },
+    { "id": "update-index", "from": "backlog", "to": "db", "y": 516, "label": "Update index with issue links", "variant": "default" },
+    { "id": "ids-available", "from": "backlog", "to": "ui", "y": 584, "label": "github_issue_ids available", "variant": "return" },
+    { "id": "entry-visible", "from": "ui", "to": "me", "y": 628, "label": "Entry visible with GitHub issue links", "variant": "return" }
+  ]
+}

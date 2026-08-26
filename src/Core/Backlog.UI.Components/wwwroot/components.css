@@ -3792,11 +3792,60 @@ button.task-panel__check:focus-visible {
     gap: var(--spacing-md);
 }
 
+/* The badges sit together on the right of the header. Wrapping rather than
+   shrinking, because in a narrow knowledge pane the title is the thing worth
+   keeping on one line. */
+.diagram-view__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
 /* Everything this needed is now .language-badge. Kept as a hook so a host that
    already targets it keeps working, and so the diagram can differ later without
    the code block having to. */
 .diagram-view__language {
     font-family: var(--font-family-mono);
+}
+
+/* Which renderer drew the picture, next to what the fence is written in. Not
+   mono: it names a tool rather than quoting a language, and the difference in
+   face is what keeps the two badges from reading as one thing. */
+.diagram-view__renderer {
+    font-weight: 700;
+}
+
+/* An Archify artifact is a whole document with its own layout, so it gets height
+   rather than the width-fitting a drawn SVG gets. No frame, matching
+   .diagram-view__rendered: the artifact paints its own background and a border
+   here would draw a box around a box. */
+.diagram-view__artifact {
+    display: block;
+    width: 100%;
+    min-height: 28rem;
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+/* The offers, under the diagram rather than in the header: they are about what
+   is missing, which is not something to read before the picture. */
+.diagram-view__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* An explanation, not a failure — the diagram above is correct and current, and
+   the notice only says why it is the mermaid one. Secondary text rather than the
+   error colouring .app-error-message carries. */
+.diagram-view__notice {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 /* Neither surface draws a frame: it renders straight onto whatever is behind

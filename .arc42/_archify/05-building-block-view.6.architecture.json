@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Cloud Service — thin sync layer",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "desktop",
+      "type": "frontend",
+      "label": "Desktop App",
+      "sublabel": "runs all workers",
+      "pos": [
+        100,
+        180
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "ide",
+      "type": "frontend",
+      "label": "IDE Extensions",
+      "pos": [
+        100,
+        420
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "phone",
+      "type": "frontend",
+      "label": "Phone App",
+      "pos": [
+        100,
+        660
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "API Gateway",
+      "sublabel": "Auth, Rate Limiting",
+      "pos": [
+        420,
+        420
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "syncApi",
+      "type": "backend",
+      "label": "Sync Service",
+      "sublabel": "Device coordination",
+      "pos": [
+        420,
+        660
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Cloud Database",
+      "sublabel": "Sync state only",
+      "pos": [
+        420,
+        880
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "githubWebhooks",
+      "type": "backend",
+      "label": "GitHub Webhook Receiver",
+      "pos": [
+        740,
+        420
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "notificationService",
+      "type": "backend",
+      "label": "Notification Service",
+      "sublabel": "Push to Phone",
+      "pos": [
+        740,
+        660
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub API",
+      "pos": [
+        1060,
+        180
+      ],
+      "size": [
+        230,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Clients",
+      "wraps": [
+        "desktop",
+        "ide",
+        "phone"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "API Layer",
+      "wraps": [
+        "gateway",
+        "syncApi"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Webhook & Notifications",
+      "wraps": [
+        "githubWebhooks",
+        "notificationService"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Data Layer",
+      "wraps": [
+        "db"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Cloud Service (thin sync layer)",
+      "wraps": [
+        "gateway",
+        "syncApi",
+        "db",
+        "githubWebhooks",
+        "notificationService"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "phone-gateway",
+      "from": "phone",
+      "to": "gateway",
+      "label": "Sync captures",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "desktop-gateway",
+      "from": "desktop",
+      "to": "gateway",
+      "label": "Sync state",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ide-gateway",
+      "from": "ide",
+      "to": "gateway",
+      "label": "Sync state",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        430,
+        300
+      ]
+    },
+    {
+      "id": "gateway-sync",
+      "from": "gateway",
+      "to": "syncApi",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sync-db",
+      "from": "syncApi",
+      "to": "db",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "github-webhooks",
+      "from": "github",
+      "to": "githubWebhooks",
+      "label": "Webhooks",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "webhooks-sync",
+      "from": "githubWebhooks",
+      "to": "syncApi",
+      "label": "Forward event",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "sync-notifications",
+      "from": "syncApi",
+      "to": "notificationService",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "notifications-phone",
+      "from": "notificationService",
+      "to": "phone",
+      "label": "Push",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          855,
+          1030
+        ],
+        [
+          20,
+          1030
+        ],
+        [
+          20,
+          700
+        ]
+      ]
+    }
+  ]
+}

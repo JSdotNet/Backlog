@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Reading the Plan by Repository",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "plan", "label": "Roadmap Plan" },
+    { "id": "scope", "label": "Repository Scope" },
+    { "id": "registry", "label": "Repository Registry" },
+    { "id": "bands", "label": "Bands" },
+    { "id": "planning", "label": "Planning lanes" },
+    { "id": "drawn", "label": "Drawn" }
+  ],
+  "nodes": [
+    { "id": "roadmap-plan", "lane": "plan", "col": 1, "width": 190, "type": "database", "label": "Roadmap Plan" },
+    { "id": "items", "lane": "plan", "col": 4, "width": 190, "type": "database", "label": "Items and milestones" },
+    { "id": "scope-aliases", "lane": "scope", "col": 1, "width": 190, "type": "database", "label": "Repository Scope aliases" },
+    { "id": "resolution", "lane": "scope", "col": 4, "width": 190, "type": "backend", "label": "Repository Scope Resolution" },
+    { "id": "repository-registry", "lane": "registry", "col": 1, "width": 190, "type": "external", "label": "Repository Registry", "sublabel": "supplier" },
+    { "id": "known-band", "lane": "bands", "col": 1, "width": 220, "type": "frontend", "label": "Band per configured repository" },
+    { "id": "unfiled-band", "lane": "bands", "col": 4, "width": 220, "type": "frontend", "label": "Unfiled band", "sublabel": "no alias, or alias no longer configured" },
+    { "id": "planning-lanes", "lane": "planning", "col": 1, "width": 220, "type": "frontend", "label": "Planning lanes inside each band" },
+    { "id": "draw", "lane": "drawn", "col": 1, "width": 280, "type": "frontend", "label": "Spans, milestones and dependency arrows", "sublabel": "placed by date" }
+  ],
+  "edges": [
+    { "id": "plan-items", "from": "roadmap-plan", "to": "items", "role": "main" },
+    { "id": "items-scope", "from": "items", "to": "scope-aliases", "role": "main", "fromSide": "bottom", "toSide": "top" },
+    { "id": "scope-resolution", "from": "scope-aliases", "to": "resolution", "role": "main" },
+    { "id": "registry-supplies", "from": "repository-registry", "to": "resolution", "variant": "dashed", "role": "async", "fromSide": "right", "toSide": "left", "via": [[360, 367], [360, 243]] },
+    { "id": "resolved-known", "from": "resolution", "to": "known-band", "role": "main", "fromSide": "bottom", "toSide": "top", "via": [[500, 430], [220, 430]] },
+    { "id": "resolved-unfiled", "from": "resolution", "to": "unfiled-band", "role": "branch", "fromSide": "right", "toSide": "top", "via": [[640, 243], [640, 440], [500, 440]] },
+    { "id": "known-lanes", "from": "known-band", "to": "planning-lanes", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "unfiled-lanes", "from": "unfiled-band", "to": "planning-lanes", "role": "branch", "fromSide": "bottom", "toSide": "right", "via": [[500, 615]] },
+    { "id": "lanes-draw", "from": "planning-lanes", "to": "draw", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Resolution on the read path only",
+      "items": [
+        "Nothing in the plan is rewritten when the registry changes",
+        "A repository removed today and configured again tomorrow leaves the plan as it was",
+        "Aliases are opaque strings until the registry resolves them"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "An item naming several repositories",
+      "items": [
+        "It is drawn once, under the first of its repositories that is configured",
+        "It stays findable under any of them",
+        "The filter is built from what it names rather than from where it was drawn"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Why not draw it in every band",
+      "items": [
+        "One piece of work with one set of dates would appear as several bars",
+        "Dragging one of them would move work the reader was not looking at",
+        "The plan would seem to disagree with itself because of how it was drawn"
+      ]
+    }
+  ]
+}

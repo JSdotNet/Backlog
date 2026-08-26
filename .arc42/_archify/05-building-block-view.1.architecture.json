@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Container Diagram — Prompt Backlog",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "user", "type": "external", "label": "ME", "sublabel": "Personal owner of the system", "pos": [40, 700], "size": [190, 80] },
+    { "id": "mobile", "type": "frontend", "label": "Mobile App", "sublabel": ".NET MAUI / Blazor Hybrid", "tag": "JSON", "pos": [370, 60], "size": [230, 80] },
+    { "id": "cloud", "type": "cloud", "label": "Cloud Service", "sublabel": ".NET / ASP.NET Core", "tag": "optional", "pos": [370, 300], "size": [230, 80] },
+    { "id": "cloudDb", "type": "database", "label": "Cloud Database", "sublabel": "Cosmos DB / PostgreSQL", "pos": [730, 460], "size": [230, 80] },
+    { "id": "desktop", "type": "frontend", "label": "Desktop App", "sublabel": ".NET MAUI Blazor Hybrid", "tag": "Markdown + JSON", "pos": [370, 700], "size": [230, 80] },
+    { "id": "localStore", "type": "database", "label": "Local Storage", "sublabel": "Markdown files, JSON", "pos": [730, 1000], "size": [230, 80] },
+    { "id": "ide", "type": "frontend", "label": "IDE Extensions", "sublabel": "TypeScript / C#", "pos": [370, 1240], "size": [230, 80] },
+    { "id": "pushProvider", "type": "external", "label": "Push Provider", "sublabel": "FCM", "pos": [1090, 60], "size": [190, 80] },
+    { "id": "github", "type": "external", "label": "GitHub", "sublabel": "Issues and webhooks", "pos": [1090, 700], "size": [190, 80] },
+    { "id": "externalSources", "type": "external", "label": "External Sources", "sublabel": "YouTube, Email, Websites / RSS", "pos": [1090, 1240], "size": [190, 80] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Prompt Backlog", "wraps": ["mobile", "cloud", "cloudDb", "desktop", "localStore", "ide"], "pad": 28 }
+  ],
+  "connections": [
+    { "id": "user-desktop", "from": "user", "to": "desktop", "label": "uses — capture, backlog, knowledge, monitoring (local)", "labelAt": [205, 650] },
+    { "id": "user-mobile", "from": "user", "to": "mobile", "label": "captures on mobile (touch / voice)", "fromSide": "top", "toSide": "left", "labelAt": [190, 420] },
+    { "id": "user-ide", "from": "user", "to": "ide", "label": "browses & captures (IDE commands)", "fromSide": "bottom", "toSide": "left", "labelAt": [190, 1000] },
+    { "id": "ide-desktop", "from": "ide", "to": "desktop", "label": "reads backlog & knowledge (local API, files)", "fromSide": "top", "toSide": "bottom", "labelAt": [660, 900] },
+    { "id": "desktop-localstore", "from": "desktop", "to": "localStore", "label": "reads and writes (file system)", "fromSide": "right", "toSide": "top", "labelAt": [660, 820] },
+    { "id": "desktop-github", "from": "desktop", "to": "github", "label": "syncs issues (HTTPS / gh CLI)", "fromSide": "right", "toSide": "left", "labelAt": [960, 700] },
+    { "id": "desktop-sources", "from": "desktop", "to": "externalSources", "label": "polls for new content (HTTPS / IMAP)", "fromSide": "right", "toSide": "left", "labelAt": [880, 1150] },
+    { "id": "desktop-cloud", "from": "desktop", "to": "cloud", "label": "pushes state snapshots (HTTPS, optional)", "variant": "dashed", "fromSide": "top", "toSide": "bottom", "labelAt": [700, 620] },
+    { "id": "cloud-desktop", "from": "cloud", "to": "desktop", "label": "forwards webhook events (SSE / WebSocket)", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [680, 420] },
+    { "id": "mobile-cloud", "from": "mobile", "to": "cloud", "label": "syncs items and pulls state (HTTPS)", "fromSide": "bottom", "toSide": "top", "labelAt": [700, 220] },
+    { "id": "cloud-clouddb", "from": "cloud", "to": "cloudDb", "label": "reads and writes sync state", "fromSide": "right", "toSide": "top", "labelAt": [960, 420] },
+    { "id": "cloud-push", "from": "cloud", "to": "pushProvider", "label": "sends notifications (HTTPS)", "fromSide": "right", "toSide": "left", "labelAt": [960, 200] },
+    { "id": "cloud-github", "from": "cloud", "to": "github", "label": "receives webhooks (HTTPS)", "fromSide": "right", "toSide": "top", "labelAt": [1120, 500] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Clients", "items": ["Desktop App — local-first Windows client; runs all fetch workers and manages all domains", "Mobile App — capture-first client with offline storage", "IDE Extensions — VS Code, Visual Studio, and GitHub Copilot App integrations"] },
+    { "dot": "emerald", "title": "Cloud", "items": ["Cloud Service — thin optional sync layer: device sync, webhook forwarding, push, PC registry", "Cloud Database — sync state, webhook events, machine registry"] },
+    { "dot": "amber", "title": "Storage", "items": ["Local Storage — desktop canonical data store; markdown is source of truth"] },
+    { "dot": "violet", "title": "Actor interactions", "items": ["ME → IDE Extensions — \"Browses backlog and knowledge; captures from IDE and Copilot sessions\", over IDE commands / session prompts"] }
+  ]
+}

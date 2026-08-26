@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "bfa9428a0ea6e35579d272af601df3b1856d07f2c1b24d7d17a451b3086b59e3": {
+      "chapter": "flow.md",
+      "ordinal": 1,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "flow.1.sequence.json",
+      "artifact": "flow.1.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}

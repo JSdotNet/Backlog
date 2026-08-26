@@ -66,6 +66,7 @@ public sealed class AppFeatureSettingsStoreTests
                 RoadmapFeatures.Roadmap,
                 KnowledgeFeatures.KnowledgeSections,
                 KnowledgeFeatures.RepositoryKnowledge,
+                KnowledgeFeatures.ArchifyDiagrams,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,

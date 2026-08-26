@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Health scoring flow",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "scan", "label": "Repository scan" },
+    { "id": "components", "label": "Component scores" },
+    { "id": "health", "label": "Repository health" }
+  ],
+  "nodes": [
+    { "id": "scan", "lane": "scan", "col": 2, "type": "backend", "label": "Repository Scan", "width": 110 },
+    { "id": "coverage", "lane": "components", "col": 0, "type": "backend", "label": "Test coverage", "width": 96 },
+    { "id": "packages", "lane": "components", "col": 1, "type": "backend", "label": "Package freshness", "width": 120 },
+    { "id": "github", "lane": "components", "col": 3, "type": "external", "label": "GitHub metrics", "width": 100 },
+    { "id": "security", "lane": "components", "col": 5, "type": "security", "label": "Security alerts", "width": 106 },
+    { "id": "score", "lane": "health", "col": 2, "type": "backend", "label": "HealthScore", "sublabel": "0-100", "width": 110 },
+    { "id": "action", "lane": "health", "col": 4, "type": "external", "label": "Recommendations", "sublabel": "to Monitoring / Backlog", "width": 150 }
+  ],
+  "edges": [
+    { "id": "scan-coverage", "from": "scan", "to": "coverage", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.3 },
+    { "id": "scan-packages", "from": "scan", "to": "packages", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.6 },
+    { "id": "scan-github", "from": "scan", "to": "github", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.6 },
+    { "id": "scan-security", "from": "scan", "to": "security", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.3 },
+    { "id": "packages-score", "from": "packages", "to": "score", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.3 },
+    { "id": "coverage-score", "from": "coverage", "to": "score", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.6 },
+    { "id": "github-score", "from": "github", "to": "score", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.3 },
+    { "id": "security-score", "from": "security", "to": "score", "fromSide": "bottom", "toSide": "top", "route": "drop", "bias": 0.6 },
+    { "id": "score-action", "from": "score", "to": "action", "fromSide": "right", "toSide": "left", "route": "straight", "variant": "emphasis" }
+  ]
+}

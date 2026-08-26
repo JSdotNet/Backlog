@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "00db947e1c6c304d78a56e674a7fd78baac89ac6d051ba497efeb61b350fc23e": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 6,
+      "type": "architecture",
+      "kind": "flowchart",
+      "spec": "05-building-block-view.6.architecture.json",
+      "artifact": "05-building-block-view.6.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "0952277797eebcd96e552034cec2da3ea61c8b86c4cd3e4f8d1735af697c676a": {
+      "chapter": "03-context-and-scope.md",
+      "ordinal": 1,
+      "type": "architecture",
+      "kind": "c4context",
+      "spec": "03-context-and-scope.1.architecture.json",
+      "artifact": "03-context-and-scope.1.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "0ba3245d476c3f56af06399959bd21bdc884d5085ceedbdd75b2c73057bd1c41": {
+      "ordinal": 1,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.1.sequence.json",
+      "artifact": "06-runtime-view.1.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "14fde07d6298ae8b0e85f91b1cecee5cd2b7c86097a50ee06a5e0bf03d96dc16": {
+      "ordinal": 2,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.2.sequence.json",
+      "artifact": "06-runtime-view.2.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "26bdc1b5a16f8354cddc45e4fb61015e4307501e5afd69dff05f0552ee29a9f6": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 4,
+      "type": "architecture",
+      "kind": "graph",
+      "spec": "05-building-block-view.4.architecture.json",
+      "artifact": "05-building-block-view.4.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "2c13b4b1fec9691d31f6d98bf658dc8574ba02311e5fa2b1b1820d8ecba6514c": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 2,
+      "type": "architecture",
+      "quality": "standard",
+      "kind": "flowchart",
+      "spec": "05-building-block-view.2.architecture.standard.json",
+      "artifact": "05-building-block-view.2.architecture.standard.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "2e06800d5fda4f07e3c5f03d1f6917004623c6c142844919a701c958f0d23a70": {
+      "chapter": "07-deployment-view.md",
+      "ordinal": 3,
+      "type": "architecture",
+      "kind": "flowchart",
+      "spec": "07-deployment-view.3.architecture.json",
+      "artifact": "07-deployment-view.3.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "3177bb923871625f0c4d04fe17f15eb97ea2a2236cb739c7285eb1af574e4efa": {
+      "ordinal": 1,
+      "type": "workflow",
+      "kind": "flowchart",
+      "spec": "07-deployment-view.1.workflow.json",
+      "artifact": "07-deployment-view.1.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "502e5a1ec32012d37e7b55817ef4ffc5a8401ccf6599272b10d06b067762eda7": {
+      "chapter": "06-runtime-view.md",
+      "ordinal": 4,
+      "type": "lifecycle",
+      "quality": "showcase",
+      "kind": "statediagram-v2",
+      "spec": "06-runtime-view.4.lifecycle.json",
+      "artifact": "06-runtime-view.4.lifecycle.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "584b90999719ae84e50a7b28a610030457334a661e821f287c6319545e4f0e16": {
+      "ordinal": 5,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.5.sequence.json",
+      "artifact": "06-runtime-view.5.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "5f6722885c17c26f454d2f0ab46deef7a7a7a958558e59e65c6707cc2c97cbb7": {
+      "ordinal": 7,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.7.sequence.json",
+      "artifact": "06-runtime-view.7.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "651630a6021f6a8e212a677dcb36cd78a2fe022fab89acf26f212f6a7e0cdef4": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 1,
+      "type": "architecture",
+      "quality": "showcase",
+      "kind": "c4container",
+      "spec": "05-building-block-view.1.architecture.json",
+      "artifact": "05-building-block-view.1.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "7a6ef7464d988a1d09027ec3404d3e5356fbae6df67d654b0504508de38a78a6": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 3,
+      "type": "architecture",
+      "quality": "standard",
+      "kind": "graph",
+      "spec": "05-building-block-view.3.architecture.standard.json",
+      "artifact": "05-building-block-view.3.architecture.standard.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "ba441e8f0145ea3f8f9dbe5c816cd71985f6e669a67a92445bc89c8051a152ed": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 5,
+      "type": "architecture",
+      "kind": "graph",
+      "spec": "05-building-block-view.5.architecture.json",
+      "artifact": "05-building-block-view.5.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "ca584c1290d1063ffbc969939df870e976fe58ec7ec7fe33c3bca1cc6b10ff1d": {
+      "ordinal": 2,
+      "type": "workflow",
+      "kind": "flowchart",
+      "spec": "07-deployment-view.2.workflow.json",
+      "artifact": "07-deployment-view.2.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "d33c4dd5ed908008428c4a2cd243c53e343a431240e0661df898921ade8d93d9": {
+      "ordinal": 6,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.6.sequence.json",
+      "artifact": "06-runtime-view.6.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "fc0992c6c7ca9a7cea128d0996c0777fb50142d3f845f8b9e393ec55dad7dd09": {
+      "ordinal": 8,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.8.sequence.json",
+      "artifact": "06-runtime-view.8.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "fc852a79a9869118619b69fa0eac7c6ec0bd5f79a044bba99aae98e677c99786": {
+      "ordinal": 3,
+      "type": "sequence",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.3.sequence.json",
+      "artifact": "06-runtime-view.3.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}

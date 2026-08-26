@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "How External Activity Enriches a Reading",
+    "viewBox": [
+      1085,
+      800
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "reader",
+      "type": "external",
+      "label": "Reader",
+      "sublabel": "asks the environment"
+    },
+    {
+      "id": "log",
+      "type": "backend",
+      "label": "Session Log",
+      "sublabel": "one environment"
+    },
+    {
+      "id": "local",
+      "type": "database",
+      "label": "Local agent records",
+      "sublabel": "authoritative evidence"
+    },
+    {
+      "id": "mcp",
+      "type": "external",
+      "label": "Collections MCP",
+      "sublabel": "optional"
+    },
+    {
+      "id": "merge",
+      "type": "backend",
+      "label": "Activity Enrichment",
+      "sublabel": "orders and de-duplicates"
+    },
+    {
+      "id": "liveness",
+      "type": "backend",
+      "label": "Liveness Assessment",
+      "sublabel": "one clock per reading"
+    }
+  ],
+  "segments": [
+    {
+      "from": 320,
+      "to": 490,
+      "label": "activity reporting available"
+    }
+  ],
+  "messages": [
+    {
+      "id": "ask",
+      "from": "reader",
+      "to": "log",
+      "y": 185,
+      "label": "what have my agents been doing here?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "read-local",
+      "from": "log",
+      "to": "local",
+      "y": 240,
+      "label": "read local session evidence",
+      "variant": "emphasis"
+    },
+    {
+      "id": "local-found",
+      "from": "local",
+      "to": "log",
+      "y": 278,
+      "label": "sessions found",
+      "variant": "return"
+    },
+    {
+      "id": "read-streams",
+      "from": "log",
+      "to": "mcp",
+      "y": 345,
+      "label": "read activity streams for known sessions"
+    },
+    {
+      "id": "activity-entries",
+      "from": "mcp",
+      "to": "merge",
+      "y": 385,
+      "label": "activity entries by session identity",
+      "variant": "return"
+    },
+    {
+      "id": "hand-to-merge",
+      "from": "log",
+      "to": "merge",
+      "y": 425,
+      "label": "local sessions + external activity"
+    },
+    {
+      "id": "enriched",
+      "from": "merge",
+      "to": "log",
+      "y": 465,
+      "label": "enriched sessions + reporting capability",
+      "variant": "return"
+    },
+    {
+      "id": "assess",
+      "from": "log",
+      "to": "liveness",
+      "y": 535,
+      "label": "assess local activity windows",
+      "variant": "emphasis"
+    },
+    {
+      "id": "assessed",
+      "from": "liveness",
+      "to": "log",
+      "y": 575,
+      "label": "running / stalled / finished",
+      "variant": "return"
+    },
+    {
+      "id": "catalog",
+      "from": "log",
+      "to": "reader",
+      "y": 640,
+      "label": "Session Catalog with optional enrichment",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "log",
+      "from": 185,
+      "to": 645,
+      "type": "backend"
+    },
+    {
+      "participant": "local",
+      "from": 235,
+      "to": 283,
+      "type": "database"
+    },
+    {
+      "participant": "mcp",
+      "from": 340,
+      "to": 390,
+      "type": "external"
+    },
+    {
+      "participant": "merge",
+      "from": 380,
+      "to": 470,
+      "type": "backend"
+    },
+    {
+      "participant": "liveness",
+      "from": 530,
+      "to": 580,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Enrichment starts from local sessions",
+      "items": [
+        "The MCP adds depth to a row the log already has",
+        "It does not manufacture a second session list of its own",
+        "Streams are read for known sessions only"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "The merge owns order",
+      "items": [
+        "Ordering and de-duplication belong to the merge, not to the storage",
+        "The Collections MCP is allowed to deliver duplicates or late arrivals",
+        "The Sessions context is what gives them their domain meaning"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Local evidence still decides state",
+      "items": [
+        "Liveness is assessed from local activity windows",
+        "The reading still resolves to running, stalled or finished",
+        "Enrichment is optional: the catalog is returned either way"
+      ]
+    }
+  ]
+}

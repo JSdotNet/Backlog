@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Recurring Entry Occurrences",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "completed", "label": "Completed occurrence" },
+    { "id": "save", "label": "Save" },
+    { "id": "next", "label": "Next occurrence" },
+    { "id": "monitoring", "label": "Monitoring" }
+  ],
+  "mainPath": ["occurrence-n", "save-use-case", "recurrence-check", "spawning-policy", "occurrence-next"],
+  "nodes": [
+    { "id": "occurrence-n", "lane": "completed", "col": 0, "type": "database", "label": "Occurrence N", "sublabel": "due 21 Aug" },
+    { "id": "save-use-case", "lane": "save", "col": 0, "type": "backend", "label": "Save use case" },
+    { "id": "recurrence-check", "lane": "save", "col": 2, "width": 150, "type": "security", "label": "Carries a Recurrence?" },
+    { "id": "end-of-line", "lane": "completed", "col": 2, "width": 110, "type": "database", "label": "Stays Done", "sublabel": "end of the line" },
+    { "id": "spawning-policy", "lane": "save", "col": 4, "width": 130, "type": "backend", "label": "Occurrence Spawning", "sublabel": "policy" },
+    { "id": "stays-done", "lane": "completed", "col": 4, "width": 168, "type": "database", "label": "Occurrence N stays Done", "sublabel": "the record of what was done" },
+    { "id": "occurrence-next", "lane": "next", "col": 4, "width": 210, "type": "database", "label": "Occurrence N+1 created", "sublabel": "ready, due 28 Aug, sub-items pending", "tag": "recurrence_source_id points at N" },
+    { "id": "monitoring-reader", "lane": "monitoring", "col": 4, "width": 130, "type": "external", "label": "Monitoring", "sublabel": "would read the series" }
+  ],
+  "edges": [
+    { "id": "completed-by-save", "from": "occurrence-n", "to": "save-use-case", "label": "completed by a save", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "check", "from": "save-use-case", "to": "recurrence-check", "role": "main" },
+    { "id": "no-recurrence", "from": "recurrence-check", "to": "end-of-line", "label": "no", "role": "branch", "fromSide": "top", "toSide": "bottom" },
+    { "id": "yes-recurrence", "from": "recurrence-check", "to": "spawning-policy", "label": "yes", "role": "main", "variant": "emphasis" },
+    { "id": "keeps-record", "from": "spawning-policy", "to": "stays-done", "role": "branch", "fromSide": "top", "toSide": "bottom" },
+    { "id": "spawns", "from": "spawning-policy", "to": "occurrence-next", "role": "main", "variant": "emphasis", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "would-announce", "from": "occurrence-next", "to": "monitoring-reader", "label": "OccurrenceSpawned — documented, not yet emitted", "role": "async", "variant": "dashed", "route": "drop", "fromSide": "bottom", "toSide": "top", "labelDy": 20 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Completion does not roll forward",
+      "items": [
+        "The finished occurrence stays Done as the record of what was done",
+        "The next occurrence is a separate aggregate with its own lifecycle",
+        "recurrence_source_id is provenance, not ownership"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Synchronous inside the save",
+      "items": [
+        "Occurrence Spawning runs inside the save that completed the entry",
+        "The next due date is calculated from due_on, not from the completion date",
+        "Lateness therefore does not drift a schedule"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "What the new occurrence carries",
+      "items": [
+        "Resets: sub-items to pending, projections, usage history, remind_at, in_my_day_on",
+        "Carries: title, body, type, priority, area, tags, repo_ids and the Recurrence",
+        "OccurrenceSpawned is documented but not emitted, so a series is read by following the link"
+      ]
+    }
+  ]
+}

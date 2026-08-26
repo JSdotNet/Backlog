@@ -1,16 +1,45 @@
 ﻿@implements IAsyncDisposable
 @inject IJSRuntime Js
+@*
+    The artifact source is resolved from the provider rather than injected,
+    because most of the places that render a diagram have never heard of it: the
+    storybook pages, the unit tests, and the mobile harness all construct a
+    DiagramView with nothing registered, and an [Inject] property would make
+    every one of them fail to render rather than fall back to mermaid.
+*@
+@inject IServiceProvider Services
 
 <figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
     <figcaption class="diagram-view__header">
         <span class="diagram-view__title">@DiagramName</span>
-        @if (!string.IsNullOrWhiteSpace(Language))
-        {
-            <span class="language-badge diagram-view__language" data-testid="diagram-view-language">@Language</span>
-        }
+        <span class="diagram-view__badges">
+            @* Said out loud, because the two renderers draw the same diagram
+               differently and a reader comparing a picture against the source
+               below needs to know which one they are looking at. *@
+            @if (ShowingArtifact)
+            {
+                <span class="language-badge diagram-view__renderer" data-testid="diagram-view-renderer">Archify</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Language))
+            {
+                <span class="language-badge diagram-view__language" data-testid="diagram-view-language">@Language</span>
+            }
+        </span>
     </figcaption>
-    <div class="diagram-view__canvas" role="img" aria-label="@AriaLabel">
-        @if (CanRender(Language))
+    @* role="img" is dropped for an artifact: it is a document with its own
+       structure rather than one picture, and labelling it as an image would hide
+       everything inside it from a screen reader. The frame's title carries the
+       label instead. *@
+    <div class="diagram-view__canvas" role="@(ShowingArtifact ? null : "img")" aria-label="@(ShowingArtifact ? null : AriaLabel)">
+        @if (ShowingArtifact)
+        {
+            <iframe @ref="_frame"
+                    class="diagram-view__artifact"
+                    data-testid="diagram-view-artifact"
+                    sandbox="allow-scripts"
+                    title="@AriaLabel"></iframe>
+        }
+        else if (CanRender(Language))
         {
             <div @ref="_canvas" class="diagram-view__rendered" data-diagram-id="@_diagramId">
                 @if (_renderError is { } error)
@@ -33,22 +62,72 @@
        text — a review surface printing the fence beside the picture — turns it off
        and does not get it twice; a render that failed keeps it either way, because
        then the source is the only thing left to read and the fallback line above
-       promises it. *@
-    @if (CanRender(Language) && (ShowSource || _renderError is not null))
+       promises it.
+
+       An artifact overrides ShowSource and keeps the disclosure either way, which
+       is the one case where a host does not get to turn it off. Everywhere else
+       the host's "I already show this text" is true; here it is not, because the
+       artifact is a re-authoring of the fence rather than a rendering of it, and
+       nothing on the screen is the canonical text any more. The knowledge pane is
+       exactly that case — it passes ShowDiagramSource="false", correctly, because
+       a drawn mermaid diagram IS its source rendered. An artifact is not, so
+       leaving it off there would make the fence unreadable in the one place a
+       reader is looking at something that only claims to say the same thing. *@
+    @if ((ShowingArtifact || CanRender(Language)) && (ShowSource || ShowingArtifact || _renderError is not null))
     {
         <details class="diagram-view__details">
             <summary>Diagram source</summary>
             <pre class="diagram-view__source"><code>@Source</code></pre>
         </details>
     }
+    @* The offers, and only where there is an honest one to make. A diagram whose
+       kind Archify has no type for gets nothing at all, because an offer is a
+       promise. *@
+    @if (_artifact is { CanRender: false } artifact && (artifact.SpecPath is not null || CanOfferAuthoring))
+    {
+        <div class="diagram-view__footer" data-testid="diagram-view-footer">
+            @if (artifact.IsOutOfDate)
+            {
+                <Alert Role="note"
+                       BaseClass="diagram-view__notice"
+                       TestId="diagram-view-outdated"
+                       Message="An Archify artifact exists for this diagram, but it was authored from an earlier version of the source. You are looking at the mermaid rendering, which is current." />
+            }
+            @if (artifact.SpecPath is not null)
+            {
+                <AppButton Size="ButtonSize.Small"
+                           Busy="_busy"
+                           BusyLabel="Rendering"
+                           TestId="diagram-view-render"
+                           OnClick="RenderArtifactAsync">Render artifact</AppButton>
+            }
+            else
+            {
+                <AppButton Size="ButtonSize.Small"
+                           Busy="_busy"
+                           BusyLabel="Starting"
+                           TestId="diagram-view-author"
+                           OnClick="AuthorArtifactAsync">Author with agent</AppButton>
+            }
+            <Alert TestId="diagram-view-action-error" Message="@_actionError" />
+        </div>
+    }
 </figure>
 
 @code {
     private readonly string _diagramId = "diagram-" + Guid.NewGuid().ToString("N");
     private ElementReference _canvas;
+    private ElementReference _frame;
+    private IDiagramArtifactSource? _artifacts;
+    private bool _artifactsResolved;
+    private DiagramArtifact? _artifact;
     private string? _renderedSource;
     private string? _renderedLanguage;
+    private string? _renderedArtifact;
+    private int _artifactRevision;
     private string? _renderError;
+    private string? _actionError;
+    private bool _busy;
 
     [Parameter, EditorRequired]
     public string Source { get; set; } = string.Empty;
@@ -67,14 +146,71 @@
     [Parameter]
     public bool ShowSource { get; set; } = true;
 
+    private bool ShowingArtifact => _artifact is { CanRender: true };
+
+    /// <summary>Whether to offer to start an agent. Three things have to be true
+    /// at once — the host knows about artifacts, an agent CLI is available, and
+    /// Archify has a type for this kind of diagram — and the last is asked of the
+    /// source directly rather than of the host, because it is the same answer
+    /// everywhere and the host has no better one to give.</summary>
+    private bool CanOfferAuthoring =>
+        _artifacts is { CanAuthor: true } && ArchifyDiagramTypes.IsSupported(Source);
+
     private string DiagramName => IsDiagram(Language) ? Title : "Code diagram";
 
     private string AriaLabel => string.IsNullOrWhiteSpace(Language)
         ? "Diagram source visualization"
         : $"{Language} diagram source visualization";
 
+    protected override void OnParametersSet()
+    {
+        if (!_artifactsResolved)
+        {
+            _artifacts = Services.GetService<IDiagramArtifactSource>();
+            _artifactsResolved = true;
+        }
+
+        _artifact = _artifacts?.Find(Source, Language);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (ShowingArtifact)
+        {
+            // Keyed on the path and a revision rather than the document itself, so
+            // that re-rendering an artifact in place — same file, new contents — is
+            // noticed, without holding a second copy of 675 KB to compare against.
+            var key = $"{_artifact!.ArtifactPath}#{_artifactRevision}";
+            if (string.Equals(_renderedArtifact, key, StringComparison.Ordinal)) return;
+
+            _renderedArtifact = key;
+            _renderedSource = null;
+            _renderedLanguage = null;
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogDiagrams.renderArtifact", _frame, _diagramId, _artifact.Html);
+            }
+            catch (JSException)
+            {
+                // Fall back to the diagram that is always renderable. Dropping the
+                // document is what makes ShowingArtifact false, so the next pass
+                // takes the mermaid path rather than leaving an empty frame on
+                // screen with nothing to say for itself.
+                _renderedArtifact = null;
+                _artifact = _artifact with { Html = null };
+                StateHasChanged();
+            }
+
+            return;
+        }
+
+        if (_renderedArtifact is not null)
+        {
+            _renderedArtifact = null;
+            await DisposeDiagramAsync();
+        }
+
         if (!CanRender(Language)) return;
         if (string.Equals(_renderedSource, Source, StringComparison.Ordinal)
             && string.Equals(_renderedLanguage, Language, StringComparison.OrdinalIgnoreCase)) return;
@@ -95,7 +231,54 @@
         }
     }
 
-    public async ValueTask DisposeAsync()
+    /// <summary>Runs the pinned generator over a specification somebody already
+    /// authored. The mechanical half of "generate": no agent, no judgement, and
+    /// the same command a person would run at a prompt.</summary>
+    private async Task RenderArtifactAsync()
+    {
+        if (_artifacts is null || _busy) return;
+
+        _busy = true;
+        _actionError = null;
+
+        try
+        {
+            _actionError = await _artifacts.RenderAsync(Source);
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+        if (_actionError is not null) return;
+
+        _artifactRevision++;
+        _artifact = _artifacts.Find(Source, Language);
+    }
+
+    /// <summary>Opens an agent session with a brief. The half no running app can
+    /// do by itself, so it ends here: the artifact appears once the agent has
+    /// written the specification and the generator has run.</summary>
+    private async Task AuthorArtifactAsync()
+    {
+        if (_artifacts is null || _busy) return;
+
+        _busy = true;
+        _actionError = null;
+
+        try
+        {
+            _actionError = await _artifacts.AuthorAsync(Source);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync() => await DisposeDiagramAsync();
+
+    private async Task DisposeDiagramAsync()
     {
         try
         {

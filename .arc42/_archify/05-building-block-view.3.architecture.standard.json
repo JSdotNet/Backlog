@@ -1,0 +1,479 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Desktop App \u00e2\u20ac\u201d internal structure",
+    "quality_profile": "standard"
+  },
+  "components": [
+    {
+      "id": "youtube",
+      "type": "external",
+      "label": "YouTube API",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "websites",
+      "type": "external",
+      "label": "Websites / RSS",
+      "pos": [
+        40,
+        240
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "email",
+      "type": "external",
+      "label": "Email",
+      "sublabel": "IMAP",
+      "pos": [
+        40,
+        420
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub API",
+      "pos": [
+        40,
+        600
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "ytWorker",
+      "type": "backend",
+      "label": "YouTube Fetcher",
+      "sublabel": "poll subscriptions",
+      "pos": [
+        300,
+        60
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "webWorker",
+      "type": "backend",
+      "label": "Website Monitor",
+      "sublabel": "RSS, DOM diff",
+      "pos": [
+        300,
+        240
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "emailWorker",
+      "type": "backend",
+      "label": "Email Fetcher",
+      "sublabel": "IMAP polling",
+      "pos": [
+        300,
+        420
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "githubWorker",
+      "type": "backend",
+      "label": "GitHub Sync",
+      "sublabel": "gh CLI / API",
+      "pos": [
+        300,
+        600
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "staleWorker",
+      "type": "backend",
+      "label": "Stale Detection",
+      "sublabel": "flag old items",
+      "pos": [
+        300,
+        780
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "UI Layer",
+      "sublabel": ".NET MAUI Blazor Hybrid",
+      "pos": [
+        280,
+        980
+      ],
+      "size": [
+        240,
+        80
+      ]
+    },
+    {
+      "id": "inbox",
+      "type": "backend",
+      "label": "Inbox Service",
+      "sublabel": "capture, triage",
+      "pos": [
+        600,
+        60
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "backlog",
+      "type": "backend",
+      "label": "Backlog Service",
+      "sublabel": "browse, edit, route",
+      "pos": [
+        720,
+        240
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "knowledge",
+      "type": "backend",
+      "label": "Knowledge Service",
+      "sublabel": "organize, link",
+      "pos": [
+        840,
+        420
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "monitoring",
+      "type": "backend",
+      "label": "Monitoring Service",
+      "sublabel": "signals, dashboards",
+      "pos": [
+        960,
+        600
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "appInsights",
+      "type": "external",
+      "label": "Application Insights",
+      "pos": [
+        960,
+        880
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "jsonIndex",
+      "type": "database",
+      "label": "JSON Indexes",
+      "sublabel": "metadata, search",
+      "pos": [
+        1280,
+        60
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "localStore",
+      "type": "database",
+      "label": "Local Storage",
+      "sublabel": "Markdown files",
+      "pos": [
+        1420,
+        420
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "syncClient",
+      "type": "backend",
+      "label": "Sync Client",
+      "pos": [
+        1280,
+        880
+      ],
+      "size": [
+        200,
+        80
+      ],
+      "sublabel": "optional"
+    },
+    {
+      "id": "syncApi",
+      "type": "cloud",
+      "label": "Cloud Sync API",
+      "pos": [
+        1280,
+        1160
+      ],
+      "size": [
+        200,
+        80
+      ],
+      "sublabel": "optional"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Local Fetch Workers",
+      "wraps": [
+        "ytWorker",
+        "webWorker",
+        "emailWorker",
+        "githubWorker",
+        "staleWorker"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Core Services",
+      "wraps": [
+        "inbox",
+        "backlog",
+        "knowledge",
+        "monitoring"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Infrastructure",
+      "wraps": [
+        "jsonIndex",
+        "localStore",
+        "syncClient"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "yt-youtube",
+      "from": "ytWorker",
+      "to": "youtube",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "web-websites",
+      "from": "webWorker",
+      "to": "websites",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "email-mailbox",
+      "from": "emailWorker",
+      "to": "email",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "githubworker-github",
+      "from": "githubWorker",
+      "to": "github",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "yt-inbox",
+      "from": "ytWorker",
+      "to": "inbox",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "web-inbox",
+      "from": "webWorker",
+      "to": "inbox",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "email-inbox",
+      "from": "emailWorker",
+      "to": "inbox",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "githubworker-backlog",
+      "from": "githubWorker",
+      "to": "backlog",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ui-inbox",
+      "from": "ui",
+      "to": "inbox",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          20,
+          1020
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          700,
+          20
+        ]
+      ]
+    },
+    {
+      "id": "ui-backlog",
+      "from": "ui",
+      "to": "backlog",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "ui-knowledge",
+      "from": "ui",
+      "to": "knowledge",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "ui-monitoring",
+      "from": "ui",
+      "to": "monitoring",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "inbox-jsonindex",
+      "from": "inbox",
+      "to": "jsonIndex",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "backlog-jsonindex",
+      "from": "backlog",
+      "to": "jsonIndex",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "knowledge-jsonindex",
+      "from": "knowledge",
+      "to": "jsonIndex",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "inbox-localstore",
+      "from": "inbox",
+      "to": "localStore",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "backlog-localstore",
+      "from": "backlog",
+      "to": "localStore",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "knowledge-localstore",
+      "from": "knowledge",
+      "to": "localStore",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "monitoring-localstore",
+      "from": "monitoring",
+      "to": "localStore",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "monitoring-appinsights",
+      "from": "monitoring",
+      "to": "appInsights",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "syncclient-syncapi",
+      "from": "syncClient",
+      "to": "syncApi",
+      "label": "push state",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 110
+    },
+    {
+      "id": "syncapi-syncclient",
+      "from": "syncApi",
+      "to": "syncClient",
+      "label": "webhook events",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "2083fd18461759098755c870081996a38cbb14f7b3fed361ce77ffa10d9149a4": {
+      "chapter": "flow.md",
+      "ordinal": 3,
+      "type": "workflow",
+      "kind": "flowchart",
+      "spec": "flow.3.workflow.json",
+      "artifact": "flow.3.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "ad7f6aa393c1a740a5f227985c3564727f0166f5020f41d46e728078beca22d3": {
+      "chapter": "flow.md",
+      "ordinal": 2,
+      "type": "workflow",
+      "kind": "flowchart",
+      "spec": "flow.2.workflow.json",
+      "artifact": "flow.2.workflow.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "f84919c8f335b7d14c9124a3a92aa130c7c7ad239d48f730c027f6dc9cb0527a": {
+      "ordinal": 1,
+      "type": "lifecycle",
+      "kind": "statediagram-v2",
+      "spec": "flow.1.lifecycle.json",
+      "artifact": "flow.1.lifecycle.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}

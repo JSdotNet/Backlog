@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "IDE Extensions — internal structure",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "Webview UI",
+      "sublabel": "React / Vue",
+      "pos": [
+        40,
+        120
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "commands",
+      "type": "frontend",
+      "label": "Commands & Context",
+      "sublabel": "Menus, Keybindings",
+      "pos": [
+        40,
+        380
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "extApi",
+      "type": "backend",
+      "label": "Extension API",
+      "sublabel": "Repo context, File selection",
+      "pos": [
+        40,
+        640
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "knowBrowser",
+      "type": "backend",
+      "label": "Knowledge Browser",
+      "sublabel": "Search & links",
+      "pos": [
+        460,
+        120
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "browse",
+      "type": "backend",
+      "label": "Backlog Browser",
+      "sublabel": "Repo-scoped queries",
+      "pos": [
+        460,
+        380
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "capture",
+      "type": "backend",
+      "label": "Capture Service",
+      "sublabel": "Selection to Item",
+      "pos": [
+        460,
+        640
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "vsUi",
+      "type": "frontend",
+      "label": "WPF UI",
+      "sublabel": "Tool Windows",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "vsCmd",
+      "type": "frontend",
+      "label": "Commands & Context",
+      "sublabel": "Context Menu",
+      "pos": [
+        760,
+        720
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "vsApi",
+      "type": "backend",
+      "label": "Extension API",
+      "sublabel": "Project context",
+      "pos": [
+        760,
+        940
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Backend API",
+      "sublabel": "REST + Auth",
+      "pos": [
+        1060,
+        380
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "localStore",
+      "type": "database",
+      "label": "Local Markdown",
+      "sublabel": "Cache",
+      "pos": [
+        1060,
+        800
+      ],
+      "size": [
+        200,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "VS Code Extension",
+      "wraps": [
+        "ui",
+        "commands",
+        "extApi"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Shared Services",
+      "wraps": [
+        "knowBrowser",
+        "browse",
+        "capture"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Visual Studio Extension",
+      "wraps": [
+        "vsUi",
+        "vsCmd",
+        "vsApi"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ui-know",
+      "from": "ui",
+      "to": "knowBrowser",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ui-browse",
+      "from": "ui",
+      "to": "browse",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ui-capture",
+      "from": "ui",
+      "to": "capture",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "commands-extapi",
+      "from": "commands",
+      "to": "extApi",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "extapi-capture",
+      "from": "extApi",
+      "to": "capture",
+      "label": "Repo context",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "vsui-capture",
+      "from": "vsUi",
+      "to": "capture",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "vsui-browse",
+      "from": "vsUi",
+      "to": "browse",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "vscmd-vsapi",
+      "from": "vsCmd",
+      "to": "vsApi",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "vsapi-capture",
+      "from": "vsApi",
+      "to": "capture",
+      "label": "Project context",
+      "fromSide": "left",
+      "toSide": "bottom"
+    },
+    {
+      "id": "capture-localstore",
+      "from": "capture",
+      "to": "localStore",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "browse-api",
+      "from": "browse",
+      "to": "api",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "know-api",
+      "from": "knowBrowser",
+      "to": "api",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "capture-api",
+      "from": "capture",
+      "to": "api",
+      "label": "Sync",
+      "fromSide": "right",
+      "toSide": "bottom"
+    }
+  ]
+}

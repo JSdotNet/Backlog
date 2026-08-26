@@ -21,6 +21,7 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Diagrams;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 
@@ -110,6 +111,15 @@ builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLaun
 builder.Services.AddSingleton<KnowledgeFolderOpenService>();
 builder.Services.AddSingleton(_ => BacklogCopilotCli.Unavailable);
 builder.Services.AddSingleton(_ => new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+// The shared diagram component asks for this optionally, so registering it is
+// what switches Archify artifacts on for the harness at all. It takes the same
+// unavailable launcher as its neighbour: this host cannot start a CLI, and
+// pressing the offer says so rather than doing nothing.
+builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(
+    sp.GetRequiredService<IAppFeatureSettings>(),
+    sp.GetRequiredService<IKnowledgeFolderSource>(),
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));

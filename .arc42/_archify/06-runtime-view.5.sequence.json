@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "IDE Context-aware Capture",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1040, 780]
+  },
+  "participants": [
+    { "id": "me", "type": "external", "label": "ME" },
+    { "id": "ide", "type": "frontend", "label": "IDE Extension" },
+    { "id": "ext", "type": "external", "label": "Extension API" },
+    { "id": "capture", "type": "backend", "label": "Capture Service" },
+    { "id": "api", "type": "backend", "label": "Backend API" },
+    { "id": "store", "type": "database", "label": "Local Markdown" }
+  ],
+  "segments": [
+    { "from": 150, "to": 292, "label": "Gather repo context" },
+    { "from": 308, "to": 404, "label": "Confirm in dialog" },
+    { "from": 420, "to": 692, "label": "Create item and return deep link" }
+  ],
+  "messages": [
+    { "id": "select-code", "from": "me", "to": "ide", "y": 182, "label": "Select code -> right-click Capture", "variant": "default" },
+    { "id": "get-context", "from": "ide", "to": "ext", "y": 226, "label": "Get repo context", "variant": "default" },
+    { "id": "context-values", "from": "ext", "to": "ide", "y": 270, "label": "file_path, line, branch, selection", "variant": "return" },
+    { "id": "show-dialog", "from": "ide", "to": "me", "y": 338, "label": "Show capture dialog (pre-filled context)", "variant": "default" },
+    { "id": "confirm", "from": "me", "to": "ide", "y": 382, "label": "Add title and tags -> confirm", "variant": "default" },
+    { "id": "create-item", "from": "ide", "to": "capture", "y": 450, "label": "createItem(title, body, metadata)", "variant": "emphasis" },
+    { "id": "write-markdown", "from": "capture", "to": "store", "y": 494, "label": "Write to local markdown cache", "variant": "default" },
+    { "id": "post-inbox", "from": "capture", "to": "api", "y": 538, "label": "POST /inbox/items (source=ide-vs-code)", "variant": "emphasis" },
+    { "id": "inbox-created", "from": "api", "to": "capture", "y": 582, "label": "201 Created (id)", "variant": "return" },
+    { "id": "item-created", "from": "capture", "to": "ide", "y": 626, "label": "Item created (id, deep_link)", "variant": "return" },
+    { "id": "confirmation", "from": "ide", "to": "me", "y": 670, "label": "Confirmation + deep-link to item", "variant": "return" }
+  ]
+}

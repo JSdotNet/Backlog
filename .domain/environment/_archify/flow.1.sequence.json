@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Shortcut activation",
+    "viewBox": [980, 620],
+    "quality_profile": "showcase",
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "person", "type": "external", "label": "Person" },
+    { "id": "environment", "type": "backend", "label": "Environment" },
+    { "id": "repository", "type": "backend", "label": "Repository Management" },
+    { "id": "monitoring", "type": "backend", "label": "Monitoring & Dashboard" }
+  ],
+  "messages": [
+    { "id": "activate", "from": "person", "to": "environment", "y": 210, "label": "Activate Environment Shortcut", "variant": "emphasis" },
+    { "id": "resolve-target", "from": "environment", "to": "repository", "y": 300, "label": "Resolve repository or workspace target when needed", "variant": "default" },
+    { "id": "read-health", "from": "environment", "to": "monitoring", "y": 390, "label": "Read current health signal when available", "variant": "default" },
+    { "id": "launch", "from": "environment", "to": "person", "y": 480, "label": "Launch action and access hints", "variant": "return" }
+  ]
+}

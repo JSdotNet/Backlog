@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "entries": {
+    "8e719f857efcd4c7e0cba7d23334f7d8422ea6005d0a346850585eb04ffb8cb7": {
+      "chapter": "technology-graph.md",
+      "ordinal": 1,
+      "type": "architecture",
+      "kind": "flowchart",
+      "spec": "technology-graph.1.architecture.json",
+      "artifact": "technology-graph.1.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    }
+  }
+}
