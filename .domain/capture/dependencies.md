@@ -32,3 +32,10 @@ status: draft
   surface beyond what the editor adapters already have.
 - Delivery to Inbox is intentionally one-way and fire-and-forget; Capture never
   reads Inbox state.
+- A proposed possibility, not a current dependency: if
+  [Composable monitors](features.md#composable-monitors) is realized by running
+  an existing self-hosted automation platform — xyOps is the candidate that
+  prompted the idea — rather than by scheduling in-product, that platform sits
+  behind the same `Source Adapter` anti-corruption layer as the other external
+  sources and gains an outbound row above. It is deliberately absent from the
+  table until that choice is made.

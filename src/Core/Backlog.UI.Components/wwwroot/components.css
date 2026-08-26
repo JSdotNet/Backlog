@@ -4433,6 +4433,20 @@ button.tag-chip__label {
     border-width: var(--border-width-2);
 }
 
+/* SelectField's form shape wears field__input, so the border, the padding and
+   the focus ring above are already the ones the inputs beside it use. The only
+   thing written here is what a <select> has and an <input> does not: a list the
+   platform paints itself, which defaults to black on white and so has to be told
+   the theme's colours - the same reason the inline shape carries the rule too. */
+select.field__input {
+    cursor: pointer;
+}
+
+select.field__input option {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
 .field__help {
     margin: 0;
     color: var(--color-text-secondary);

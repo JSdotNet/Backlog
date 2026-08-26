@@ -126,10 +126,9 @@ public sealed record KnowledgeMetadata(
     string? Version,
     IReadOnlyList<string> DependsOn,
     IReadOnlyList<string> Related,
-    IReadOnlyList<string> Alternatives,
-    IReadOnlyList<string> Order)
+    IReadOnlyList<string> Alternatives)
 {
-    public static KnowledgeMetadata Empty { get; } = new(null, null, null, [], [], [], []);
+    public static KnowledgeMetadata Empty { get; } = new(null, null, null, [], [], []);
 }
 
 internal static class TechnologyKnowledgeReader
@@ -148,7 +147,7 @@ internal static class TechnologyKnowledgeReader
         }
 
         var root = TechnologyMarkdownParser.Parse(rootPath, File.ReadAllText(rootPath));
-        var files = OrderedLayerFiles(folderPath, root.Metadata.Order);
+        var files = OrderedLayerFiles(folderPath, KnowledgeReadingOrder.ForFolder(folderPath));
         var documents = files.Select(path => TechnologyMarkdownParser.Parse(path, File.ReadAllText(path))).ToList();
 
         var layers = documents.Select(document => ToLayer(document)).ToList();
@@ -173,10 +172,17 @@ internal static class TechnologyKnowledgeReader
             ReadStats(Path.Combine(folderPath, "_meta", "graph.json")));
     }
 
+    /// <summary>
+    /// The layer files in reading order. <paramref name="order"/> is the folder's
+    /// committed reading order, which leads with <c>technology-graph.md</c> — the
+    /// root document is the graph itself, not a layer of it, so it is dropped here
+    /// exactly as the alphabetical fallback below drops it.
+    /// </summary>
     private static IReadOnlyList<string> OrderedLayerFiles(string folderPath, IReadOnlyList<string> order)
     {
         var ordered = order
             .Where(file => file.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !string.Equals(file, "technology-graph.md", StringComparison.OrdinalIgnoreCase))
             .Select(file => Path.Combine(folderPath, file))
             .Where(File.Exists)
             .ToList();
@@ -447,8 +453,7 @@ internal static class TechnologyMarkdownParser
             ReadString(values, "version"),
             ReadList(values, "depends-on"),
             ReadList(values, "related"),
-            ReadList(values, "alternatives"),
-            ReadList(values, "order"));
+            ReadList(values, "alternatives"));
     }
 
     private static string? ReadString(IReadOnlyDictionary<string, string> values, string key)

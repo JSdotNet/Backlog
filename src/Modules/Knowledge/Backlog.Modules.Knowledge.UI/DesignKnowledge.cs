@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 using Backlog.UI.Components.Markdown;
 
@@ -51,7 +51,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
                 $"No Markdown design knowledge files were found at {folderPath}."));
         }
 
-        files = OrderFiles(files);
+        files = OrderFiles(files, folderPath);
         return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files));
     }
 
@@ -80,7 +80,17 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         return Task.CompletedTask;
     }
 
-    private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files)
+    /// <summary>
+    /// The folder in reading order: the README first, then the siblings in the
+    /// order the folder's committed <c>_meta/index.json</c> records, then anything
+    /// the index does not mention, alphabetically.
+    ///
+    /// <para>The order used to be read off the README's own <c>meta</c> fence. It
+    /// is not metadata about a chapter — it is a directory listing — so it now
+    /// lives in the index that describes the directory, which is also the one
+    /// place the generator and the pane can agree on it.</para>
+    /// </summary>
+    private static List<DesignKnowledgeFile> OrderFiles(List<DesignKnowledgeFile> files, string folderPath)
     {
         var byName = files.ToDictionary(f => f.FileName, StringComparer.OrdinalIgnoreCase);
         var ordered = new List<DesignKnowledgeFile>();
@@ -88,7 +98,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         if (byName.TryGetValue("README.md", out var readme))
         {
             ordered.Add(readme);
-            foreach (var fileName in readme.ReadingOrder)
+            foreach (var fileName in KnowledgeReadingOrder.ForFolder(folderPath))
             {
                 if (byName.TryGetValue(fileName, out var file) && !ordered.Contains(file))
                 {
@@ -168,48 +178,7 @@ public static class DesignKnowledgeParser
             title,
             string.Join(' ', summaryLines).Trim(),
             meta,
-            sections,
-            ReadReadingOrder(lines));
-    }
-
-    /// <summary>
-    /// The sibling file names <c>.design/README.md</c> lists in its own fence, which
-    /// is the order the pane shows the folder in.
-    ///
-    /// <para>Read here rather than off the shared record. It is not metadata about
-    /// the chapter it sits under — it is a directory listing that happens to be
-    /// written in the same fence — so the shared schema does not model it, and a
-    /// folder that wants it reads it itself. <c>DomainKnowledgeStore</c> and
-    /// <c>TechnologyKnowledge</c> already do the same for their own roots.</para>
-    ///
-    /// <para>Only the file-level fence is consulted: the first one in the file, and
-    /// only when it opens before any <c>##</c> heading. A chapter does not get to
-    /// reorder the folder it is in.</para>
-    /// </summary>
-    private static IReadOnlyList<string> ReadReadingOrder(string[] lines)
-    {
-        var index = 0;
-        while (index < lines.Length && !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
-        {
-            // A `##` before the fence means the file states no block of its own.
-            if (lines[index].StartsWith("## ", StringComparison.Ordinal)) return [];
-            index++;
-        }
-
-        for (index++; index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal); index++)
-        {
-            var line = lines[index].Trim();
-            if (!line.StartsWith("order:", StringComparison.OrdinalIgnoreCase)) continue;
-
-            var value = line["order:".Length..].Trim();
-            if (value.StartsWith('[') && value.EndsWith(']')) value = value[1..^1];
-
-            return [.. value.Split(',')
-                .Select(item => item.Trim().Trim('"', '\'').Trim())
-                .Where(item => item.Length > 0)];
-        }
-
-        return [];
+            sections);
     }
 
     private static IReadOnlyList<DesignKnowledgeBlock> ParseBlocks(string[] lines)
@@ -440,9 +409,15 @@ public sealed record DesignKnowledgeFile(
     string Title,
     string Summary,
     MetadataRecord Meta,
-    IReadOnlyList<DesignKnowledgeSection> Sections,
-    IReadOnlyList<string> ReadingOrder)
+    IReadOnlyList<DesignKnowledgeSection> Sections)
 {
+    // ReadingOrder was here, read off this file's own `meta` fence. It existed for
+    // one round: the shared record had dropped `order` and the fences still carried
+    // it, so a folder that wanted its reading order had to parse it itself. `main`
+    // then moved the declaration into the committed `_meta/index.json`, which is a
+    // better home for a directory listing than a chapter's metadata, so the parse
+    // has nothing left to read and `KnowledgeReadingOrder.ForFolder` answers instead.
+
     public IEnumerable<DesignKnowledgeTable> TokenTables =>
         Sections.SelectMany(section => section.Blocks.OfType<DesignKnowledgeTable>()).Where(table => table.IsTokenTable);
 }

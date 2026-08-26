@@ -155,7 +155,13 @@ internal static class StorybookIndex
             new("markdown/tags", "Tags", "The `#tag` inline: what makes one, what it renders as, and why the chip in a body is not the TagChip component even though the two share a class."),
             new("markdown/references", "References", "A path written in a body: what a reference is, and the two places one appears — in prose, through the inline-target hook, and in a metadata record."),
             new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
-            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data."),
+            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data.", Exact: true),
+
+            // Directly under the page that introduces DiagramView, because it puts
+            // DiagramView beside something else and cannot be read before it. Not a
+            // component chapter at all: it is evidence about a rule `.design` has
+            // already settled, kept where the diagrams it compares are.
+            new("diagrams/archify", "Mermaid beside Archify", "The same diagram drawn twice — the live mermaid render next to a generated Archify document — and what the second one adds, loses and costs."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
 
             // Last of the base content items, and one of the places the ordering

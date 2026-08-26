@@ -677,7 +677,7 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
-        context.Services.AddSingleton<ICopilotToolService, UnsupportedCopilotToolService>();
+        context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
 
         // The sessions takeover, with nothing on the machine behind it. A shell test
         // asking whether the takeover replaced the panes should not also be reading

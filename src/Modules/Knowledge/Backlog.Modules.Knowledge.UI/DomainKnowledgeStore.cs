@@ -40,7 +40,7 @@ public sealed class DomainKnowledgeStore
         if (!File.Exists(contextMapPath)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
 
         var contextMap = ReadDocument(contextMapPath, root, DomainKnowledgeDocumentKind.ContextMap);
-        var contexts = ReadContexts(root, ReadOrder(contextMap.Metadata).ToList());
+        var contexts = ReadContexts(root, KnowledgeReadingOrder.ForFolder(root));
         return Task.FromResult(new DomainKnowledgeView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts));
     }
 
@@ -213,12 +213,6 @@ public sealed class DomainKnowledgeStore
     }
 
     private static IReadOnlyList<string> FindLinks(string text) => [.. KnowledgeLink.Matches(text).Select(m => m.Value.TrimEnd('.', ',', ';', ']')).Distinct(StringComparer.OrdinalIgnoreCase)];
-
-    private static IEnumerable<string> ReadOrder(IReadOnlyDictionary<string, string> metadata)
-    {
-        if (!metadata.TryGetValue("order", out var order)) yield break;
-        foreach (var value in order.Trim('[', ']').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) yield return value.Trim('"', '\'');
-    }
 
     private static string Quote(IEnumerable<string> lines) => string.Join(" ", lines.Select(l => l.Trim()).Where(l => l.StartsWith('>')).Select(l => l.TrimStart('>').Trim()).Where(l => l.Length > 0).Take(2));
 

@@ -117,7 +117,7 @@ builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-builder.Services.AddSingleton<ICopilotToolService, LocalDevelopmentCopilotToolService>();
+builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>();
 
 // The session list reads the two agents' own folders in the profile of whoever is
 // signed in, and the harness runs as that person on that machine — so unlike the

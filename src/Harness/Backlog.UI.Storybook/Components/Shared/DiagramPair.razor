@@ -1,0 +1,84 @@
+@*
+    One diagram, drawn twice: the mermaid source rendered live on the left, and the
+    Archify document authored from the same facts on the right.
+
+    Chrome, not a component. It exists only on the comparison page, and the whole
+    point of that page is being able to tell the two renderers apart — so each pane
+    is captioned with the name of the tool that drew it. A pair of unlabelled
+    pictures would leave a reader guessing which half of the comparison they are
+    looking at, which is the one thing the page must not do.
+
+    The grid is `.sb-columns`, the same auto-fit track every other side-by-side on
+    this site uses. It collapses to one column below its minimum, so the pair
+    stacks on a narrow viewport without this component knowing anything about
+    breakpoints.
+
+    The right pane is an iframe because an Archify artifact is not a fragment we
+    can drop into the page: it is a whole HTML document — its own stylesheet, its
+    own theme attribute on `<html>`, its own viewer runtime — and rendering it
+    inline would mean its 675 KB of CSS competing with the storybook's. A document
+    stays a document; the frame is the only honest way to show one.
+
+    `loading="lazy"` is not an optimisation detail, it is what makes three of these
+    on one page tolerable: each artifact is roughly 675 KB, and fetching all of
+    them before the first paint would cost two megabytes to look at the top story.
+
+    On `sandbox`: `allow-scripts` alone puts the frame in an opaque origin, where
+    `localStorage` throws. Archify's theme script guards every access to it, so the
+    viewer survives that and keeps the frame from reaching back into the storybook.
+    Scripts have to stay allowed — without them the artifact's viewer never runs and
+    the frame renders an unstyled skeleton.
+
+    `?theme=dark` is why the pane sits flush with the page instead of being a white
+    card on it. The artifact resolves its own theme before first paint, and with
+    `localStorage` unavailable in that opaque origin it falls back to the reader's
+    `prefers-color-scheme` — so a reader on a light system got Archify's light
+    palette inside a product that `.design/design-principles.md` makes dark-mode-only,
+    and the comparison turned into a lighting difference. The parameter is the
+    document's own published lever, read from the query string, so pinning it is done
+    entirely from out here: nothing in the generated HTML is touched, and a
+    regeneration cannot undo it.
+*@
+
+<div class="sb-columns" data-testid="@TestId">
+    <div class="sb-stack">
+        <p class="sb-label">Mermaid</p>
+        <DiagramView Title="@Title" Language="mermaid" Source="@Mermaid" ShowSource="false" />
+    </div>
+
+    <div class="sb-stack">
+        <p class="sb-label">Archify</p>
+        <iframe class="sb-archify-frame"
+                src="@($"{ArchifyArtifact}?theme=dark")"
+                title="@($"{Title}, drawn by Archify")"
+                loading="lazy"
+                sandbox="allow-scripts"
+                data-testid="@($"{TestId}-archify")"></iframe>
+    </div>
+</div>
+
+@code {
+    /// <summary>The mermaid the left pane draws. The same string goes to the
+    /// story's <c>Source</c>, because a comparison is only worth anything if the
+    /// reader can check what both sides were given.</summary>
+    [Parameter, EditorRequired]
+    public string Mermaid { get; set; } = string.Empty;
+
+    /// <summary>The committed Archify document, as a path under <c>wwwroot</c>.
+    /// A generated artifact rather than a rendering: nothing here converts the
+    /// mermaid above, and the two are kept in step by hand.</summary>
+    [Parameter, EditorRequired]
+    public string ArchifyArtifact { get; set; } = string.Empty;
+
+    /// <summary>What the diagram is called. It captions the mermaid pane and names
+    /// the frame, so it is also the accessible name a screen reader announces for
+    /// the Archify document.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Diagram";
+
+    /// <summary>Addresses the pair from a test. The frame gets the same id with an
+    /// <c>-archify</c> suffix, so a test can assert on the document without having
+    /// to guess at a second identifier.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+}

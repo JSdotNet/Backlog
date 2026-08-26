@@ -164,8 +164,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         // And not one fence is left drawn as the listing it was written as —
         // "never twice" covers the raw fallback, and the raw fallback is what the
         // reader was actually looking at.
-        Assert.Empty(component.FindAll("pre.md-code")
-            .Where(fence => fence.TextContent.TrimStart().StartsWith("status:", StringComparison.Ordinal)));
+        Assert.DoesNotContain(
+            component.FindAll("pre.md-code"),
+            fence => fence.TextContent.TrimStart().StartsWith("status:", StringComparison.Ordinal));
         Assert.DoesNotContain("```", component.Markup, StringComparison.Ordinal);
     }
 
@@ -184,8 +185,9 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         // record would otherwise have fallen back to.
         Assert.Contains("draft", component.Find("[data-testid='design-chapter-file-file-metadata']").TextContent, StringComparison.Ordinal);
         Assert.DoesNotContain("status: draft", body.TextContent, StringComparison.Ordinal);
-        Assert.Empty(body.QuerySelectorAll(".knowledge-record")
-            .Where(record => record.TextContent.Contains("Interaction guidelines", StringComparison.Ordinal)));
+        Assert.DoesNotContain(
+            body.QuerySelectorAll(".knowledge-record"),
+            record => record.TextContent.Contains("Interaction guidelines", StringComparison.Ordinal));
 
         // The title still opens the body — it is the file's first heading and the
         // body is the file. What must not be there is a record around it.
@@ -476,7 +478,6 @@ public sealed class DesignKnowledgeViewTests : IDisposable
         ```meta
         status: active
         related: [".design/interaction-guidelines.md"]
-        order: ["interaction-guidelines.md"]
         ```
 
         The palette and how it is applied.

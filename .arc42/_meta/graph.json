@@ -1007,7 +1007,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "capture",
           "level": 2,
-          "line": 23,
+          "line": 22,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item"
@@ -1024,7 +1024,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "inbox-item",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#capture",
@@ -1042,7 +1042,7 @@
           "path": ".domain/capture/domain.md",
           "slug": "source-adapter",
           "level": 2,
-          "line": 84,
+          "line": 83,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -1061,7 +1061,7 @@
           "path": ".domain/capture/features.md",
           "slug": "copilot-app-session-capture",
           "level": 3,
-          "line": 130,
+          "line": 158,
           "status": "draft",
           "related": [
             ".domain/capture/domain.md#source-adapter"
@@ -1179,7 +1179,7 @@
           "path": ".domain/roadmap/domain.md",
           "slug": "roadmap-item-gathering",
           "level": 2,
-          "line": 365,
+          "line": 364,
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
@@ -1198,7 +1198,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "backlog-entry",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -1216,7 +1216,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "knowledge-note",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1234,7 +1234,7 @@
           "path": ".domain/monitoring/domain.md",
           "slug": "progress-signal",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1253,7 +1253,7 @@
           "path": ".domain/dev-pc-management/domain.md",
           "slug": "machine-registry",
           "level": 2,
-          "line": 30,
+          "line": 29,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
@@ -1272,7 +1272,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-log",
           "level": 2,
-          "line": 41,
+          "line": 40,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -1290,7 +1290,7 @@
           "path": ".domain/repository-management/domain.md",
           "slug": "repository-registry",
           "level": 2,
-          "line": 22,
+          "line": 21,
           "status": "draft",
           "related": [
             ".domain/technology-stack/domain.md#technology-registry",
@@ -1309,7 +1309,7 @@
           "path": ".domain/technology-stack/domain.md",
           "slug": "technology-registry",
           "level": 2,
-          "line": 24,
+          "line": 23,
           "status": "draft",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
