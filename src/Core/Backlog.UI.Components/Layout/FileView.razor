@@ -63,323 +63,103 @@
     What a baseline *is*, though, is the host's: see FileCompareBaseline. Reading
     a committed blob, or remembering what a file said when it was opened, is not
     something a component can do without knowing where the file came from.
+
+    ---
+
+    Two components draw all of that, and this one composes them: FileHeader is the
+    part that stays put, FileContent is the part that moves. The split is the one
+    already described above — the header keeps the identity while the body scrolls,
+    swaps and is re-parsed — made structural, so a change to how a file is shown
+    cannot quietly reach the line that says which file it is.
+
+    What did not move is the deciding. Every reading is here: the frontmatter, the
+    file's own record, the blocks, the alignment of two versions — each cached
+    against the text it came from, because a file open in an editor re-renders on
+    every keystroke and a child that parsed for itself would do the whole file's
+    work per character. So is every mode question: whether a comparison is showing,
+    whose body is on screen, whether pressing Edit would do anything. Those answers
+    have to be the same answer in both halves — a header offering a control the
+    body will not honour is the failure this arrangement exists to make impossible
+    — and the only way to guarantee one answer is for one component to give it.
+
+    Which leaves the children presentational, and each of them usable without this:
+    every parameter they take is a value or a callback. The storybook renders
+    FileHeader on its own for exactly that reason.
+
+    The parameter surface is unchanged by any of it. A host sets what it always
+    set; this routes it through.
 *@
-
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
-    <header class="file-view__header">
-        <div class="@IdentityClass">
-            @if (_fileRecord is { } record)
-            {
-                @* The file's own status, beside the file's own name.
+    @* Two children, and nothing between them.
 
-                   A knowledge file states it in a fence under its title, and read
-                   in the body that fence is at the top of a document — the one
-                   place a reader has already scrolled past by the time they think
-                   to ask whether any of it is still current. The header is the
-                   part of this pane that stays put, and it is where the name it
-                   describes already is, so the record is drawn around the name
-                   rather than beside it: one line, the name and the state of it.
-
-                   The chapters keep theirs. A `##` fence describes the chapter
-                   under it, that heading is in the body, and it stays there. *@
-                <KnowledgeMetaView Metadata="@record.Metadata"
-                                   Folder="@KnowledgeFolder"
-                                   ShowFields="@RenderKnowledgeMetadataFields"
-                                   OnStatusChanged="ReportFileStatusAsync"
-                                   OnNavigate="@OnKnowledgeNavigate"
-                                   HrefFor="@KnowledgeHrefFor"
-                                   AriaLabel="@($"{Name} metadata")"
-                                   CssClass="file-view__record"
-                                   TestId="@Suffix("file-metadata")"
-                                   Heading="@RecordHeading" />
-            }
-            else
-            {
-                @* Exactly the markup this column has always had. A record with
-                   nothing in it draws nothing at all — see KnowledgeMetaView —
-                   and the file's name is not something this pane can afford to
-                   lose to a wrapper that stood down. *@
-                @IdentityLines
-            }
-        </div>
-
-        <div class="file-view__aside">
-            @if (!string.IsNullOrWhiteSpace(Path))
-            {
-                @* Truncated visually when the header is narrow, never in the DOM, so
-                   a screen reader still reads the whole path. *@
-                <p class="file-view__path">@Path</p>
-            }
-
-            @if (AllowCopy || OffersEdit || OffersCompare)
-            {
-                @* Named as a group, because "Edit" and "Compare" on their own say
-                   nothing about which of several files on a page they belong to
-                   (.design/accessibility.md). The file's name is what
-                   distinguishes them, and it is already here. *@
-                <div class="file-view__actions" role="group" aria-label="@($"{Name} actions")">
-                    @if (AllowCopy)
-                    {
-                        @* The file, not the rendering: the source is what round
-                           trips, which is the same call MarkdownView makes. *@
-                        <CopyButton Text="@(Body ?? string.Empty)"
-                                    Label="@($"{CopyLabel} {Name}")"
-                                    ButtonCssClass="file-view__action file-view__action--copy"
-                                    StatusCssClass="file-view__copy-status"
-                                    ButtonTestId="@Suffix("copy")"
-                                    StatusTestId="@Suffix("copy-status")" />
-                    }
-
-                    @if (OffersEdit)
-                    {
-                        @* A mark rather than a word, because the row it is in is
-                           the header of a file and not a toolbar: the file's name
-                           is what a reader is here to read. The word survives
-                           whole on the label and the tooltip, which is where an
-                           icon-only control has to keep it
-                           (.design/accessibility.md). *@
-                        <IconButton CssClass="file-view__action"
-                                    AriaLabel="@EditActionLabel"
-                                    Title="@EditActionLabel"
-                                    OnClick="ToggleEditingAsync"
-                                    TestId="@Suffix(Editing ? "done" : "edit")">@(Editing ? DoneIcon : EditIcon)</IconButton>
-                    }
-
-                    @if (OffersCompare)
-                    {
-                        @* A toggle and not a button whose word flips: comparing is
-                           a state the pane is in, and aria-pressed is how that is
-                           said without renaming the control underneath a reader.
-                           Still a toggle now that the word is a glyph — the state
-                           is the reason for the control, and an icon that changed
-                           nothing a screen reader could hear would only be the
-                           picture of one. *@
-                        <ToggleButton Pressed="Comparing"
-                                      PressedChanged="ToggleComparingAsync"
-                                      CssClass="file-view__action"
-                                      AriaLabel="@CompareLabel"
-                                      Title="@CompareLabel"
-                                      TestId="@Suffix("compare")"><span aria-hidden="true">@CompareIcon</span></ToggleButton>
-                    }
-                </div>
-            }
-
-            @if (Comparing && CompareBaselines.Count > 1)
-            {
-                @* Only while comparing, and only when there is a choice. A picker
-                   for one baseline is a label that looks like a control, and a
-                   picker beside a file nobody is comparing is a question nobody
-                   asked. *@
-                <div class="file-view__baselines" role="group" aria-label="@($"Compare {Name} against")">
-                    @foreach (var baseline in CompareBaselines)
-                    {
-                        <ToggleButton BaseClass="file-view__baseline"
-                                      PressedCssClass="file-view__baseline--current"
-                                      Pressed="@IsSelected(baseline)"
-                                      PressedChanged="() => SelectBaselineAsync(baseline)"
-                                      TestId="@Suffix($"baseline-{baseline.Id}")">@baseline.Label</ToggleButton>
-                    }
-                </div>
-            }
-        </div>
-    </header>
-
-    @if (ShowFrontmatter && !_frontmatter.IsEmpty)
-    {
-        @* The file's own frontmatter, shown as the facts it is.
-
-           Its own strip under the header rather than another row inside it. The
-           header is two columns that already crowd each other when the pane is
-           narrow, and a sentence describing the whole file is not part of the
-           line that identifies it — the name and the path are what a reader
-           checks before trusting the content, and this is the content telling
-           them what it is for.
-
-           Only when asked. A file whose first lines nobody has offered to read
-           renders exactly as it did before this existed, block for block. *@
-        <div class="file-view__frontmatter" data-testid="@Suffix("frontmatter")">
-            @if (!string.IsNullOrWhiteSpace(_frontmatter.Description))
-            {
-                <p class="file-view__frontmatter-description" data-testid="@Suffix("description")">@_frontmatter.Description</p>
-            }
-
-            @if (_frontmatter.ApplyTo.Count > 0)
-            {
-                @* One badge per glob, and a short label in front of them: a row of
-                   paths with nothing naming it reads as a breadcrumb. *@
-                <div class="file-view__frontmatter-row" data-testid="@Suffix("applies-to")">
-                    <span class="file-view__frontmatter-label">Applies to</span>
-                    @foreach (var glob in _frontmatter.ApplyTo)
-                    {
-                        <Badge Kind="glob">@glob</Badge>
-                    }
-                </div>
-            }
-
-            @if (_frontmatter.Tools.Count > 0)
-            {
-                <div class="file-view__frontmatter-row" data-testid="@Suffix("tools")">
-                    <span class="file-view__frontmatter-label">Tools</span>
-                    @foreach (var tool in _frontmatter.Tools)
-                    {
-                        <Badge Kind="tool">@tool</Badge>
-                    }
-                </div>
-            }
-
-            @* Everything else the block states, as its own key and its own words,
-               in the order the file wrote them.
-
-               The alternative is what this used to do: draw the three keys it
-               recognises and take the rest out of the body along with them. A
-               `name` on a skill file and a `mode` on a prompt then left the file
-               without being shown anywhere, and the author of that line had no way
-               to tell whether the file or the viewer had lost it. So the rule is
-               the strip never hides what it does not show — which makes the
-               unrecognised key a row rather than a reason to keep the noise.
-
-               No badge and no second visual language for them: the label is the
-               key as the file spells it and the value is text, in the same row the
-               two lists above use. A badge says "one of a set", and a key nothing
-               here recognises is not known to be one of anything. *@
-            @foreach (var field in _frontmatter.Other)
-            {
-                <div class="file-view__frontmatter-row" data-testid="@Suffix($"field-{field.Key.ToLowerInvariant()}")">
-                    <span class="file-view__frontmatter-label">@field.Label</span>
-                    <span class="file-view__frontmatter-value">@field.Text</span>
-                </div>
-            }
-        </div>
-    }
-
-    @* A scroll container is an interactive element even though it is a div:
-       without tabindex a keyboard user cannot reach the overflow in Chromium at
-       all (.design/accessibility.md, "Non-native controls"). role + name keep it
-       from being an unlabelled tab stop.
-
-       A supplied body drops that tabindex, the way FolderView's body already
-       does and for the same reason. The rule is about elements that become the
-       only way to reach something: the built-in shapes render no controls at
-       all, so the region is how a keyboard gets at the overflow, but a host
-       supplies a body because it has controls to put in it and those are tab
-       stops already. Leaving the stop in would put it in front of the editor,
-       where it announces the pane and then does nothing on the way to typing. A
-       host that supplies a body with nothing focusable in it and lets it
-       overflow owns making that reachable — the same bargain FolderView takes.
-       The role and the name are not conditional either way.
-
-       The class is computed for a second reason, and only while the host's
-       editor is what is on screen: a rendered file is as tall as the file, and a
-       textarea is as tall as its row count. Reading, the body's own content
-       fills the pane; editing, it stops at row fourteen and leaves the rest of
-       the pane empty underneath. So the body says it is holding an editor —
-       see ShowsEditBody — and the stylesheet lets whatever is inside it stretch
-       to the room the pane gave, and gives up the padding and the scrollbar
-       gutter it holds prose off its edges with. An editor pads its own text and
-       scrolls inside its own box; the same inset around it reads as a control
-       floating in the pane rather than the pane being the control. *@
-    <div class="@BodyClass"
-         role="region"
-         tabindex="@BodyTabIndex"
-         aria-label="@BodyLabel"
-         style="@BodyStyle"
-         data-testid="@BodyTestId">
-        @if (ShowsComparison)
-        {
-            @if (SelectedBaseline?.Unavailable is { } unavailable)
-            {
-                <EmptyState Title="Nothing to compare against"
-                            Description="@unavailable"
-                            ActionCssClass="@null"
-                            CssClass="file-view__empty"
-                            TestId="@Suffix("compare-unavailable")" />
-            }
-            else
-            {
-                @* Bare: this pane's header already says which file it is and this
-                   body already scrolls. See CodeView below — same reason, same
-                   bargain. *@
-                <MarkdownCompareView Section="@_comparison"
-                                     Bare="true"
-                                     FileName="@Name"
-                                     BeforeLabel="@(SelectedBaseline?.Label ?? "Before")"
-                                     AfterLabel="@AfterLabel"
-                                     TestId="@Suffix("compare-view")" />
-            }
-        }
-        else if (SuppliedBody is { } supplied)
-        {
-            @supplied
-        }
-        else if (RendersMarkdown)
-        {
-            @* Everything the file says about itself, drawn from the file: a
-               chapter's status where its heading is, a diagram where its fence
-               is, and a copy button for each chapter beside the heading that
-               names it. A host that wants any of those asks for them here rather
-               than parsing the same text a second time to draw them around the
-               outside — which is what the knowledge panes were doing, and why a
-               chapter's diagrams used to appear below the file that contained
-               them. *@
-            <MarkdownView Blocks="_blocks"
-                          Source="@_bodyMarkdown"
-                          AllowChapterCopy="@AllowChapterCopy"
-                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                          RenderFileKnowledgeMetadata="false"
-                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                          ShowDiagramSource="@ShowDiagramSource"
-                          KnowledgeFolder="@KnowledgeFolder"
-                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
-                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
-                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                          KnowledgeHrefFor="@KnowledgeHrefFor"
-                          Comments="@Comments"
-                          Layout="@BodyCommentLayout"
-                          OnAddComment="@OnAddComment"
-                          OnResolveComment="@OnResolveComment"
-                          OnEditComment="@OnEditComment" />
-        }
-        else
-        {
-            @* Numbered because this is a file and not a snippet: the reason to
-               look at source in a pane like this is usually to say where in it
-               something is. *@
-            <CodeView Source="@Body"
-                      Language="@BodyLanguage"
-                      Bare="true"
-                      ShowLineNumbers="true"
-                      CssClass="file-view__code" />
-        }
-    </div>
+       Written with no whitespace between the two tags on purpose. A newline
+       between sibling elements is a text node in the rendered output — Razor
+       trims the whitespace at an element's edges and around a code block, not
+       between two siblings — so a break here would put one in every host's DOM,
+       between the header and the scroll region. Where the lines fall in this file
+       is not something the shipped markup should record. *@
+    <FileHeader Name="@Name"
+                Path="@Path"
+                Source="@Source"
+                Kind="@KindValue"
+                SizeInBytes="@SizeInBytes"
+                Metadata="@_fileRecord?.Metadata"
+                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                ShowMetadataFields="@RenderKnowledgeMetadataFields"
+                OnStatusChanged="ReportFileStatusAsync"
+                OnNavigate="@OnKnowledgeNavigate"
+                HrefFor="@KnowledgeHrefFor"
+                AllowCopy="@AllowCopy"
+                CopyLabel="@CopyLabel"
+                Body="@Body"
+                OffersEdit="@OffersEdit"
+                Editing="@Editing"
+                OnToggleEditing="ToggleEditingAsync"
+                EditLabel="@EditLabel"
+                DoneLabel="@DoneLabel"
+                EditIcon="@EditIcon"
+                DoneIcon="@DoneIcon"
+                OffersCompare="@OffersCompare"
+                Comparing="@Comparing"
+                OnComparingChanged="ToggleComparingAsync"
+                CompareLabel="@CompareLabel"
+                CompareIcon="@CompareIcon"
+                CompareBaselines="@CompareBaselines"
+                SelectedBaselineId="@SelectedBaseline?.Id"
+                OnSelectBaseline="SelectBaselineAsync"
+                TestId="@TestId" /><FileContent Name="@Name"
+                                                TestId="@TestId"
+                                                Frontmatter="@_frontmatter"
+                                                ShowsComparison="@ShowsComparison"
+                                                SelectedBaseline="@SelectedBaseline"
+                                                Comparison="@_comparison"
+                                                AfterLabel="@AfterLabel"
+                                                SuppliedBody="@SuppliedBody"
+                                                ShowsEditBody="@ShowsEditBody"
+                                                RendersMarkdown="@RendersMarkdown"
+                                                Blocks="@_blocks"
+                                                MarkdownSource="@_bodyMarkdown"
+                                                Body="@Body"
+                                                Language="@BodyLanguage"
+                                                AllowChapterCopy="@AllowChapterCopy"
+                                                RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                                                RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                                                ShowDiagramSource="@ShowDiagramSource"
+                                                KnowledgeFolder="@KnowledgeFolder"
+                                                KnowledgeDocumentPath="@KnowledgeDocumentPath"
+                                                OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
+                                                OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                                                KnowledgeHrefFor="@KnowledgeHrefFor"
+                                                Comments="@Comments"
+                                                CommentLayout="@CommentLayout"
+                                                OnAddComment="@OnAddComment"
+                                                OnResolveComment="@OnResolveComment"
+                                                OnEditComment="@OnEditComment"
+                                                Fill="@Fill"
+                                                MaxHeight="@MaxHeight" />
 </article>
 
 @code {
-    /// <summary>The header's left-hand column, as it reads: the file's name and,
-    /// under it, everything else known about the file that is not its path.
-    ///
-    /// <para>One fragment, drawn whether or not there is a record to put it in, so
-    /// the two cannot say the file's name differently.</para></summary>
-    private RenderFragment IdentityLines => __builder =>
-    {
-        <h3 class="file-view__name">@Name</h3>
-        @if (Details.Count > 0)
-        {
-            <p class="file-view__meta">@string.Join(" · ", Details)</p>
-        }
-    };
-
-    /// <summary>The same two lines, as one item of the record's headline.
-    ///
-    /// <para>Wrapped rather than handed over loose, because the headline is a row:
-    /// two items would put the details beside the name and the status after both.
-    /// Wrapped, the row has the name and the status to align, and baseline
-    /// alignment takes this element's first baseline — the name's — so the status
-    /// holds the name's line however far the details run underneath it.</para></summary>
-    private RenderFragment RecordHeading => __builder =>
-    {
-        <div class="file-view__headline">@IdentityLines</div>
-    };
-
     /// <summary>The file's name — the title, and the name of the scroll region.</summary>
     [Parameter, EditorRequired]
     public string Name { get; set; } = string.Empty;
@@ -789,8 +569,14 @@
         // A block that states nothing is not a record. It matters here more than
         // anywhere else this is asked: the identity column is drawn *inside* the
         // record, an empty one renders nothing at all — see
-        // KnowledgeMetaView.RendersAnything — and the header would lose the file's
+        // MetadataView.RendersAnything — and the header would lose the file's
         // name to a wrapper that stood down.
+        //
+        // MetadataFileView asks the same question of what it is handed, so the
+        // header is safe either way. This one stays because the answer is also
+        // what IdentityClass reads: whether the column has a record in it decides
+        // whether it takes the header's free space, and that is a fact about the
+        // layout rather than about what the record draws.
         _fileRecord = MarkdownFileMetadata.Read(text) is { Metadata.IsEmpty: false } read ? read : null;
         _readRecordFrom = text;
         _readRecord = true;
@@ -808,14 +594,6 @@
     /// </summary>
     private Task ReportFileStatusAsync(string status) =>
         OnKnowledgeStatusChanged.InvokeAsync(new KnowledgeStatusChange(0, _fileRecord?.Title, status));
-
-    /// <summary>The identity column, and whether it is holding a record. The
-    /// modifier is what lets the column take the header's free space, so the
-    /// status can hold the right edge of the name's line; without a record there
-    /// is nothing to push over and the column is sized by its content as
-    /// before.</summary>
-    private string IdentityClass =>
-        _fileRecord is null ? "file-view__identity" : "file-view__identity file-view__identity--record";
 
     private void ParseBody()
     {
@@ -926,23 +704,6 @@
         }
     }
 
-    /// <summary>The scroll region's classes. The block first and always — the
-    /// padding, the overflow and the scrollbars hang off it, and a modifier that
-    /// replaced it would take all three with it.</summary>
-    private string BodyClass =>
-        ShowsEditBody ? "file-view__body file-view__body--edit" : "file-view__body";
-
-    private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
-
-    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
-
-    // Null omits the attribute entirely, which is the point: see the comment on
-    // the body itself for why a host-supplied body gives up the tab stop. The
-    // test is what is being drawn and not what was handed over, because a host
-    // that supplies an editor still gets this component's own body while the
-    // reader is comparing — and that one scrolls.
-    private string? BodyTabIndex => ShowsSuppliedBody ? null : "0";
-
     /// <summary>
     /// The body the host is drawing, if it is the host's turn: its editor while
     /// editing, otherwise whatever it supplied for both states.
@@ -956,8 +717,6 @@
         ShowsComparison ? null
         : Editing && EditBodyContent is not null ? EditBodyContent
         : BodyContent;
-
-    private bool ShowsSuppliedBody => SuppliedBody is not null;
 
     /// <summary>
     /// Whether the thing on screen is specifically the host's <em>editing</em>
@@ -993,20 +752,6 @@
     /// </para>
     /// </summary>
     private bool OffersEdit => CanEdit && (EditBodyContent is not null || EditingChanged.HasDelegate);
-
-    /// <summary>
-    /// The layout the remarks actually get.
-    /// <para>
-    /// A margin is only a layout when there is something in it. A host that hands
-    /// in an add handler makes every block a row whether or not anyone has said
-    /// anything, and in margin mode each of those rows reserves the column — so a
-    /// file nobody has remarked on would give up 16rem of its width to hold
-    /// nothing, on the strength of a feature nobody has used yet. The first remark
-    /// opens the column, which is also the moment it starts being worth the room.
-    /// </para>
-    /// </summary>
-    private MarkdownCommentLayout BodyCommentLayout =>
-        Comments.Count == 0 ? MarkdownCommentLayout.Inline : CommentLayout;
 
     /// <summary>Whether the comparison is what the body shows: asked for, and
     /// something to answer with.</summary>
@@ -1069,30 +814,12 @@
     private static string Normalized(string? text) =>
         text is null ? string.Empty : text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
-    /// <summary>What the one button that changes meaning is called right now. Both
-    /// the accessible name and the tooltip read it, because an icon-only control
-    /// has nowhere else to say which of the two it is.</summary>
-    private string EditActionLabel => Editing ? DoneLabel : EditLabel;
-
     /// <summary>The baseline in play: the one named, or the first offered. A named
     /// baseline that is not on the list is treated as none named rather than as an
     /// error — the list is the host's and it may have just changed.</summary>
     private FileCompareBaseline? SelectedBaseline =>
         CompareBaselines.FirstOrDefault(baseline => string.Equals(baseline.Id, CompareBaselineId, StringComparison.Ordinal))
         ?? CompareBaselines.FirstOrDefault();
-
-    private bool IsSelected(FileCompareBaseline baseline) =>
-        SelectedBaseline is { } selected && string.Equals(selected.Id, baseline.Id, StringComparison.Ordinal);
-
-    /// <summary>
-    /// What the scroll region is called. The file, until it is showing two
-    /// versions of the file — then it is named for the relationship, which is the
-    /// wording MarkdownCompareView uses and for the reason recorded there: two
-    /// regions called "domain.md" in one app leave a screen-reader user no way to
-    /// tell the pane from the comparison.
-    /// </summary>
-    private string BodyLabel =>
-        ShowsComparison ? $"{Name}, {SelectedBaseline?.Label ?? "Before"} to {AfterLabel}" : Name;
 
     /// <summary>Aligns the two versions, when there are two to align and either
     /// of them has changed since the last time.</summary>
@@ -1161,20 +888,6 @@
         await CompareBaselineIdChanged.InvokeAsync(baseline.Id);
     }
 
-    // In fill mode the flex box decides the height, so a max-height here would
-    // only fight it.
-    private string? BodyStyle =>
-        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
-
-    /// <summary>The middle line of the header: everything known about the file
-    /// that is not its name or its path, in the order a reader asks for it.</summary>
-    private IReadOnlyList<string> Details =>
-    [
-        .. new[] { Source, KindValue, SizeInBytes is { } bytes ? FormatSize(bytes) : null }
-            .Where(part => !string.IsNullOrWhiteSpace(part))
-            .Select(part => part!)
-    ];
-
     /// <summary>What kind of file this is. A code file that the caller did not
     /// describe says what language it is, because going Bare took away the badge
     /// CodeView would have shown — the header is the only place left that can
@@ -1183,23 +896,4 @@
     /// get from the name.</summary>
     private string? KindValue =>
         Kind ?? (RendersMarkdown ? null : CodeLanguages.Label(BodyLanguage));
-
-    /// <summary>Bytes as the reader would say them. Formatted in the current
-    /// culture, so the decimal separator is the one the rest of the app uses.</summary>
-    internal static string FormatSize(long bytes)
-    {
-        const long Kb = 1024;
-        const long Mb = Kb * 1024;
-        const long Gb = Mb * 1024;
-
-        if (bytes < 0) return string.Empty;
-
-        return bytes switch
-        {
-            < Kb => $"{bytes} B",
-            < Mb => $"{bytes / (double)Kb:0.#} KB",
-            < Gb => $"{bytes / (double)Mb:0.#} MB",
-            _ => $"{bytes / (double)Gb:0.#} GB"
-        };
-    }
 }

@@ -1,0 +1,478 @@
+@page "/file-view/content"
+
+<PageTitle>File content — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="File content"
+           Summary="`FileContent` is the half of a file pane that moves: the file rendered, or shown as code, or set beside an earlier version of itself, or replaced by a body the host brought — in the one scroll region the reader can see. Four things can be in it and only ever one at a time, and which one is never decided here: `ShowsComparison`, `SuppliedBody` and `RendersMarkdown` are answers, because the header's controls and this region have to agree about which mode the pane is in and the way to guarantee that is for neither of them to choose. It reads nothing either — the blocks arrive parsed, the frontmatter arrives read, the comparison arrives aligned. What is genuinely this component's is the region itself: its class, its tab stop, its accessible name, and how tall it may grow before it scrolls. The half that names the file is on *File header*; the pane that composes both is on *File view*."
+           Guidelines="@Rules">
+    <Alert Message="@ReadingNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="Prose, or source"
+           Description="`RendersMarkdown` is the whole of the choice, and it arrives already made: how a file's name decides whether it is read as prose or as source is the pane's, because the pane is what does the reading. Given true the blocks go to `MarkdownView`; given false the text goes to `CodeView`, numbered, because the reason to look at source in a pane like this is usually to say where in it something is.
+
+`CodeView` is given `Bare`. Without it the block would bring its own frame, its own height cap and its own focusable overflow, and a reader would find two scrollbars and two tab stops where they can see one region.
+
+The frame around each is the harness's. This component has no box of its own — in the product it is inside `FileView`, which is where the box comes from."
+           Code="@ModeCode">
+        <div class="sb-stack">
+            <p class="sb-label">Prose — blocks parsed by the pane and handed over</p>
+            <div class="sb-frame">
+                <FileContent Name="shared.md"
+                             RendersMarkdown="true"
+                             Blocks="@SampleBlocks"
+                             MarkdownSource="@Sample"
+                             MaxHeight="14rem"
+                             TestId="file-content-markdown" />
+            </div>
+
+            <p class="sb-label">Source — the same region, numbered lines, one scrollbar</p>
+            <div class="sb-frame">
+                <FileContent Name="Program.cs"
+                             Body="@CodeSample"
+                             Language="csharp"
+                             MaxHeight="14rem"
+                             TestId="file-content-code" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="One scroll region, and one tab stop"
+           Description="A scroll container is an interactive element even though it is a `div`: without `tabindex` a keyboard user cannot reach the overflow in Chromium at all. So the region takes a tab stop, and `role=&quot;region&quot;` with the file's name keeps it from being an unlabelled one.
+
+Tab into the frame below and the arrow keys scroll it. The focus ring is on the region rather than on anything inside, because the region is the control.
+
+Both built-in shapes render nothing focusable, which is what makes the region the only way in — see the story below for the case where that stops being true."
+           Code="@RegionCode">
+        <div class="sb-frame" data-testid="file-content-region-frame">
+            <FileContent Name="context-loading.instructions.md"
+                         RendersMarkdown="true"
+                         Blocks="@LongBlocks"
+                         MarkdownSource="@LongSample"
+                         MaxHeight="10rem"
+                         TestId="file-content-region" />
+        </div>
+    </Story>
+
+    <Story Name="How tall before it scrolls"
+           Description="`MaxHeight` is any CSS length and defaults to `24rem`; null lets the region size to its content and never scroll. `Fill` takes the whole height the host gave the pane instead, and then a cap would only fight the flex box — so it is ignored.
+
+Which of those a file wants is the layout's business rather than the component's, which is why neither is a number carried in here. The two frames below are the same file at two caps; the third has none at all and stops where the file does."
+           Code="@HeightCode">
+        <div class="sb-stack">
+            <p class="sb-label">MaxHeight — 8rem</p>
+            <div class="sb-frame">
+                <FileContent Name="shared.md"
+                             RendersMarkdown="true"
+                             Blocks="@SampleBlocks"
+                             MarkdownSource="@Sample"
+                             MaxHeight="8rem"
+                             TestId="file-content-short-cap" />
+            </div>
+
+            <p class="sb-label">MaxHeight — 18rem</p>
+            <div class="sb-frame">
+                <FileContent Name="shared.md"
+                             RendersMarkdown="true"
+                             Blocks="@SampleBlocks"
+                             MarkdownSource="@Sample"
+                             MaxHeight="18rem"
+                             TestId="file-content-tall-cap" />
+            </div>
+
+            <p class="sb-label">No cap — as tall as the file, and no track</p>
+            <div class="sb-frame">
+                <FileContent Name="notes.md"
+                             RendersMarkdown="true"
+                             Blocks="@ShortBlocks"
+                             MarkdownSource="@ShortSample"
+                             MaxHeight="@null"
+                             TestId="file-content-no-cap" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="What the file says it is for"
+           Description="The frontmatter strip is drawn above the scroll region and outside it, so it does not scroll away — and it is a strip of its own rather than another row in the header, because the header identifies the file and this is the file describing itself.
+
+The description is prose, `applyTo` is one badge per glob, `tools` are badges of their own, and *every other key the block states is a row too* — the key as its label, its words beside it, in the order the file wrote them. That is the rule the strip keeps: it never hides what it does not show. A `name` on a skill file and a `mode` on a prompt used to be taken out of the body along with the block and drawn nowhere, and the author of that line had no way to tell whether the file or the viewer had lost it.
+
+`MarkdownFrontmatter.None` — the default — draws nothing, which is also what a host that never asked for the strip hands in. One value rather than a value and a flag: “read nothing” and “read a block that states nothing” are the same answer here."
+           Code="@FrontmatterCode"
+           Source="@FrontmatterSample"
+           SourceLabel="The file, block and all">
+        <div class="sb-stack">
+            <p class="sb-label">A block with three recognised keys and one that is not</p>
+            <div class="sb-frame">
+                <FileContent Name="csharp.instructions.md"
+                             Frontmatter="@Frontmatter"
+                             RendersMarkdown="true"
+                             Blocks="@FrontmatterBlocks"
+                             MarkdownSource="@Frontmatter.Body"
+                             MaxHeight="12rem"
+                             TestId="file-content-frontmatter" />
+            </div>
+
+            <p class="sb-label">No block, or nobody asked — no strip, and no empty row where it would have been</p>
+            <div class="sb-frame">
+                <FileContent Name="notes.md"
+                             RendersMarkdown="true"
+                             Blocks="@ShortBlocks"
+                             MarkdownSource="@ShortSample"
+                             MaxHeight="12rem"
+                             TestId="file-content-no-frontmatter" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Checklists are state, not controls"
+           Description="Neither built-in shape writes back to disk, so the prose body passes `MarkdownView` no toggle handler and the checkboxes render as state. Tab goes from the region straight past them — a checkbox that silently does nothing is worse than no checkbox.
+
+That is a claim about the two shapes this component draws itself, and not about the pane: a host that needs a writable body brings one, which is the story below. It is documented here rather than on *File view* because there is no parameter for it to arrive as. Not passing a handler down is a decision this file makes, in the call it makes to the read view."
+           Code="@ChecklistCode"
+           Source="@ChecklistSample"
+           SourceLabel="The file on disk">
+        <div class="sb-frame" data-testid="file-content-checklist-frame">
+            <FileContent Name="release-checklist.md"
+                         RendersMarkdown="true"
+                         Blocks="@ChecklistBlocks"
+                         MarkdownSource="@ChecklistSample"
+                         MaxHeight="12rem"
+                         TestId="file-content-checklist" />
+        </div>
+    </Story>
+
+    <Story Name="A body the host brings itself"
+           Description="`SuppliedBody` is one fragment and not two, because which of the host's bodies won — its editor while editing, or the body it supplies for every mode — is a precedence the pane already resolved. Null means it is not the host's turn at all.
+
+It gives up the region's `tabindex`, the way `FolderView`'s body already does and for the same reason: the rule is about elements that become the only way to reach something. The built-in shapes render no controls, so the region is how a keyboard gets at the overflow; a host supplies a body because it has controls to put in it, and those are tab stops already. Leaving the stop in would put it in front of the editor, where it announces the pane and then does nothing on the way to typing.
+
+The role and the name are not conditional either way. Tab through this frame and then the one two stories up."
+           Code="@SuppliedCode">
+        <div class="sb-frame" data-testid="file-content-supplied-frame">
+            <FileContent Name="05-building-block-view.md"
+                         SuppliedBody="@HostBody"
+                         MaxHeight="14rem"
+                         TestId="file-content-supplied" />
+        </div>
+    </Story>
+
+    <Story Name="The host's editor, and the room it is given"
+           Description="`ShowsEditBody` changes the region's class and nothing else. A rendered file is as tall as the file and fills the pane on its own; a textarea is as tall as its row count, so the moment a reader presses Edit the pane would go from full to a short box with dead space under it.
+
+The modifier is what lets the stylesheet stretch whatever is inside to the room the pane gave, and give up the padding and the scrollbar gutter it holds prose off its edges with — an editor pads its own text and scrolls inside its own box, and the same inset around it reads as a control floating in the pane rather than the pane being the control.
+
+Read the two frames as one difference: the same editor, the same height, with and without the flag."
+           Code="@EditCode">
+        <div class="sb-stack">
+            <p class="sb-label">ShowsEditBody — the editor takes the region</p>
+            <div class="sb-frame sb-pane">
+                <FileContent Name="05-building-block-view.md"
+                             SuppliedBody="@EditorBody"
+                             ShowsEditBody="true"
+                             Fill="true"
+                             TestId="file-content-editing" />
+            </div>
+
+            <p class="sb-label">Without it — the region's own padding, and the editor sized by its rows</p>
+            <div class="sb-frame sb-pane">
+                <FileContent Name="05-building-block-view.md"
+                             SuppliedBody="@EditorBody"
+                             Fill="true"
+                             TestId="file-content-not-editing" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Two versions, aligned by heading"
+           Description="`ShowsComparison` overrides both of the others, because a comparison is the pane's own reading of the file and a host's editor has nothing to say about the version that came before.
+
+`MarkdownCompareView` is handed the result `Bare`, so it gives up its own card, header and scroll region — this region is all three already, the same bargain `CodeView` takes above.
+
+The region is renamed while it holds two versions: “domain.md, As opened to Now” rather than “domain.md”, because two regions with the same name in one app leave a screen-reader user no way to tell the pane from the comparison. `SelectedBaseline`'s label is what names the left-hand side, and it arrives resolved out of the pane's list."
+           Code="@CompareCode">
+        <div class="sb-frame" data-testid="file-content-compare-frame">
+            <FileContent Name="domain.md"
+                         ShowsComparison="true"
+                         SelectedBaseline="@Opened"
+                         Comparison="@Comparison"
+                         MaxHeight="18rem"
+                         TestId="file-content-compare" />
+        </div>
+    </Story>
+
+    <Story Name="Nothing to compare against"
+           Description="“There is no committed version of this file yet” is an ordinary answer — a new chapter has never been committed — and it is not the same answer as an empty file. A baseline carrying a reason gets that sentence on the screen instead of a diff claiming every line is new.
+
+It is an `EmptyState` inside the region rather than a message where the comparison would have been, so the pane keeps its shape and the reader keeps the way back out: the compare toggle in the header is still pressed, and pressing it again returns the file."
+           Code="@UnavailableCode">
+        <div class="sb-frame" data-testid="file-content-unavailable-frame">
+            <FileContent Name="domain.md"
+                         ShowsComparison="true"
+                         SelectedBaseline="@NeverCommitted"
+                         MaxHeight="12rem"
+                         TestId="file-content-unavailable" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "Why a region that scrolls is a tab stop."),
+        new("content-editing.md#raw-markdown-escape-hatch", "When a file is shown as source rather than as a rendering."),
+        new("color-scheme.md#syntax-highlighting-tokens", "The colours a file read as code is drawn with."),
+        new("design-principles.md#low-chrome-content-first", "How much of a file pane may be chrome."),
+        new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
+    ];
+
+    private const string ReadingNotice =
+        "Nothing here reads the file. The blocks arrive parsed, the frontmatter arrives read and the "
+        + "comparison arrives aligned, all three cached against the text they came from — and a file open "
+        + "in an editor re-renders on every keystroke, so parsing in this component would throw that "
+        + "caching away and do the whole file's worth of work per character. Which mode is showing is "
+        + "handed down for a different reason: the header's controls and this region have to agree, and "
+        + "two components each deciding for themselves is exactly how they come to disagree.";
+
+    private const string Sample = """
+        # Shared Technologies
+
+        What the whole product is built on, and why each choice was made.
+
+        - The runtime, pinned
+        - The UI framework
+        - What was weighed against both
+
+        ## Hosting
+
+        Where it runs, and what it costs to move.
+
+        ## Storage
+
+        One file per chapter, and the index derived from them.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> SampleBlocks = MarkdownPreview.ParseDocument(Sample);
+
+    private const string ShortSample = """
+        # Notes
+
+        Two lines, and nothing to scroll to.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> ShortBlocks = MarkdownPreview.ParseDocument(ShortSample);
+
+    private const string LongSample = """
+        # Context loading
+
+        Which knowledge folders a workflow may read, and when.
+
+        ## The gate
+
+        Reading, searching and exploring are always allowed first. The gate is on the
+        first write, not the first action, so orienting yourself does not consume it.
+
+        ## Categories
+
+        - A feature, an incremental change, or a small tweak.
+        - A defect, from an ad-hoc report or a triaged issue.
+        - A folder move, or a solution layout correction.
+        - Documentation, which is verified rather than gated.
+
+        ## What a missing specification means
+
+        Nothing. An ad-hoc request with no story and no acceptance criteria still
+        routes the same way; the scope is derived in the first stage instead.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> LongBlocks = MarkdownPreview.ParseDocument(LongSample);
+
+    private const string CodeSample = """
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.AddServiceDefaults();
+        builder.Services.AddKnowledgeReader();
+
+        var app = builder.Build();
+        app.MapDefaultEndpoints();
+        app.Run();
+        """;
+
+    private const string FrontmatterSample = """
+        ---
+        description: How C# is written in this repository.
+        applyTo: "**/*.cs"
+        tools: ['edit', 'search']
+        mode: agent
+        ---
+
+        # C# instructions
+
+        File-scoped namespaces, nullable on, and no sync over async.
+
+        ## Async
+
+        End to end, and never sync over async.
+        """;
+
+    private static readonly MarkdownFrontmatter Frontmatter = MarkdownFrontmatter.Read(FrontmatterSample);
+
+    private static readonly IReadOnlyList<MdBlock> FrontmatterBlocks =
+        MarkdownPreview.ParseDocument(Frontmatter.Body);
+
+    private const string ChecklistSample = """
+        # Before tagging
+
+        - [x] Tests green on main
+        - [x] Storybook reviewed
+        - [ ] Release notes written
+        - [ ] Version bumped
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> ChecklistBlocks =
+        MarkdownPreview.ParseDocument(ChecklistSample);
+
+    /// <summary>The version being compared against, and the one that is not there.
+    /// Both are what a pane would have resolved out of its own list before handing
+    /// one over — see FileCompareBaseline, which is a record rather than a callback
+    /// because reading a version is the host's.</summary>
+    private static readonly FileCompareBaseline Opened = new("opened", "As opened", ComparedBefore);
+
+    private static readonly FileCompareBaseline NeverCommitted =
+        new("commit", "Last commit", Unavailable: "This file has never been committed.");
+
+    private const string ComparedBefore = """
+        # Domain: Backlog Management
+
+        An entry is captured, refined and closed.
+
+        ## Capture
+
+        Anything may be captured. Nothing is refused for being unclear.
+        """;
+
+    private const string ComparedAfter = """
+        # Domain: Backlog Management
+
+        An entry is captured, refined, scheduled and closed.
+
+        ## Capture
+
+        Anything may be captured. Nothing is refused for being unclear.
+
+        ## Scheduling
+
+        An entry is given a date only once somebody has agreed to do it.
+        """;
+
+    private static readonly ComparedSection Comparison =
+        MarkdownCompare.Compare(ComparedBefore, ComparedAfter);
+
+    private string _chapter = """
+        # Building block view
+
+        The whole of the product, one level down.
+        """;
+
+    /// <summary>A host's body that is not an editor: a read-only panel with a
+    /// control in it, which is enough to make the region's tab stop redundant.</summary>
+    private RenderFragment HostBody => __builder =>
+    {
+        <div class="sb-stack">
+            <p>Whatever the host wants here. The frame, the name and the one scroll region stay with the pane.</p>
+            <AppButton Variant="ButtonVariant.Secondary" OnClick="@(() => { })">A control the host brought</AppButton>
+        </div>
+    };
+
+    private RenderFragment EditorBody => __builder =>
+    {
+        <MarkdownEditor Value="@_chapter"
+                        ValueChanged="value => _chapter = value"
+                        AriaLabel="Chapter source"
+                        Rows="4"
+                        Fill="true"
+                        Bare="true"
+                        TestId="file-content-editor" />
+    };
+
+    private const string ModeCode = """
+        @* The pane decides, from the file's own name, and hands the answer down —
+           a `#` in a shell script is a comment, and reading it as a heading is how
+           a file view loses the file. *@
+        <FileContent Name="@Name"
+                     RendersMarkdown="@RendersMarkdown"
+                     Blocks="@_blocks"
+                     MarkdownSource="@_bodyMarkdown"
+                     Body="@Body"
+                     Language="@BodyLanguage" />
+        """;
+
+    private const string RegionCode = """
+        @* Nothing at the call site asks for the tab stop. The region is a div that
+           scrolls, so it carries tabindex, a role and the file's name — without
+           them a keyboard user cannot reach the overflow in Chromium at all. *@
+        <FileContent Name="@Name"
+                     RendersMarkdown="true"
+                     Blocks="@_blocks"
+                     MarkdownSource="@_bodyMarkdown"
+                     MaxHeight="10rem" />
+        """;
+
+    private const string HeightCode = """
+        @* How tall a file gets is the layout's business. Fill takes the pane's
+           height and ignores the cap; null lets the region size to its content. *@
+        <FileContent Name="@Name" Fill="@Fill" MaxHeight="@MaxHeight" ... />
+        """;
+
+    private const string FrontmatterCode = """
+        @* Read once, by the pane, and handed over as the value it is. The body is
+           given the text *without* those lines — safe only because the strip draws
+           every key, including the ones it has no shape for. *@
+        <FileContent Name="@Name"
+                     Frontmatter="@_frontmatter"
+                     RendersMarkdown="true"
+                     Blocks="@_blocks"
+                     MarkdownSource="@_bodyMarkdown" />
+        """;
+
+    private const string ChecklistCode = """
+        @* No handler goes down, so the boxes are state. Nothing at this call site
+           says so, which is the point: it is the call that is not being made. *@
+        <MarkdownView Blocks="@Blocks" Source="@MarkdownSource" />
+        """;
+
+    private const string SuppliedCode = """
+        @* One fragment. Which of the host's bodies won is a precedence the pane
+           already resolved; null means it is not the host's turn at all. *@
+        <FileContent Name="@Name" SuppliedBody="@SuppliedBody" />
+        """;
+
+    private const string EditCode = """
+        @* The flag changes the region's class and nothing else: an editor is as
+           tall as its rows, and this is the pane taking its height back on the
+           reader's behalf. *@
+        <FileContent Name="@Name"
+                     SuppliedBody="@SuppliedBody"
+                     ShowsEditBody="@ShowsEditBody"
+                     Fill="true" />
+        """;
+
+    private const string CompareCode = """
+        @* Aligned upstream and handed over: aligning two documents walks both of
+           them, and a pane re-renders every time a fold in it opens. *@
+        <FileContent Name="@Name"
+                     ShowsComparison="@ShowsComparison"
+                     SelectedBaseline="@SelectedBaseline"
+                     Comparison="@_comparison"
+                     AfterLabel="Now" />
+        """;
+
+    private const string UnavailableCode = """
+        @* No comparison to hand over, and a reason to show instead. The baseline
+           says so; nothing here has to tell an empty file from a missing version. *@
+        <FileContent Name="@Name"
+                     ShowsComparison="true"
+                     SelectedBaseline="@(new FileCompareBaseline(
+                         "commit", "Last commit", Unavailable: "This file has never been committed."))" />
+        """;
+}

@@ -1,35 +1,28 @@
+@*
+    The design section's blocks, drawn as the shared library draws every block.
+
+    This file used to hold a switch of its own — a paragraph, a list, a quote, a
+    code fence, a diagram and a rule, each hand-written in `knowledge-*` clothes
+    beside an identical one in MarkdownView and a third in KnowledgeMarkdownView.
+    They had already drifted: the three paragraphs matched and the three diagrams
+    did not. Now each of those records is mapped onto the shared block record it
+    is a subset of and handed to MarkdownBlockView, which wears this section's
+    class names through its per-part hooks. No stylesheet rule moved and no class
+    changed; the markup is the markup this section has always rendered.
+
+    Two arms stay here, because neither is an MdTable or an MdHeading with other
+    class names. A subheading is a real `h5` carrying plain text rather than the
+    read view's `p` with a heading role, and a design table is a grid of *string*
+    cells with a token modifier on its wrapper. Adopting either would mean
+    changing markup, not renaming a class.
+*@
+
 @foreach (var block in Blocks)
 {
     switch (block)
     {
         case DesignKnowledgeSubheading heading:
             <h5 class="knowledge-subheading">@heading.Text</h5>
-            break;
-        case DesignKnowledgeParagraph paragraph:
-            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content, InlineTarget)</p>
-            break;
-        case DesignKnowledgeList list:
-            if (list.Ordered)
-            {
-                <ol class="knowledge-list">
-                    @foreach (var item in list.Items)
-                    {
-                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
-                    }
-                </ol>
-            }
-            else
-            {
-                <ul class="knowledge-list">
-                    @foreach (var item in list.Items)
-                    {
-                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
-                    }
-                </ul>
-            }
-            break;
-        case DesignKnowledgeQuote quote:
-            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content, InlineTarget)</blockquote>
             break;
         case DesignKnowledgeTable table:
             <div class="knowledge-table-wrap @(table.IsTokenTable ? "knowledge-table-wrap--tokens" : string.Empty)">
@@ -56,14 +49,24 @@
                 </table>
             </div>
             break;
-        case DesignKnowledgeCode codeBlock:
-            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
-            break;
-        case DesignKnowledgeDiagram diagram:
-            <DiagramView Language="@diagram.Language" Source="@diagram.Source" />
-            break;
-        case DesignKnowledgeDivider:
-            <hr class="knowledge-divider" />
+        default:
+            // Everything else is the shared record wearing this section's names.
+            // The mapping is per block, so the diagram question is answered from
+            // the record the parser produced rather than from a language
+            // vocabulary this file would then own a second copy of.
+            if (AsSharedBlock(block) is { } shared)
+            {
+                <MarkdownBlockView Block="@shared"
+                                   InlineTarget="@InlineTarget"
+                                   ParagraphCssClass="knowledge-p"
+                                   QuoteCssClass="knowledge-quote"
+                                   CodeCssClass="knowledge-code"
+                                   DividerCssClass="knowledge-divider"
+                                   ListCssClass="knowledge-list"
+                                   ListItemCssClass="@NoItemClass"
+                                   DiagramTitle="@DiagramName"
+                                   IsDiagram="@(_ => block is DesignKnowledgeDiagram)" />
+            }
             break;
     }
 }
@@ -72,6 +75,13 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<DesignKnowledgeBlock> Blocks { get; set; } = [];
 
+    /// <summary>The name a diagram in this section is captioned with.
+    ///
+    /// <para>Read by nothing, and deliberately still here. It has never reached
+    /// <c>DiagramView</c> — the old switch drew a diagram with no title at all, so
+    /// every design diagram is captioned "Diagram" — and forwarding it now would
+    /// rename every one of them. Renaming them may well be right; it is a visible
+    /// change and not part of moving markup into the library.</para></summary>
     [Parameter]
     public string DiagramTitle { get; set; } = "Diagram";
 
@@ -87,6 +97,35 @@
     /// reference should do.</para></summary>
     [Parameter]
     public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>What a diagram is actually captioned with, which is
+    /// <c>DiagramView</c>'s own default and not <see cref="DiagramTitle"/>. Named
+    /// rather than written inline so the gap between the two is stated once.</summary>
+    private const string DiagramName = "Diagram";
+
+    /// <summary>A list item here carries no class, so the hook is handed null
+    /// rather than left at the read view's default — which is an empty string and
+    /// would put a `class=" "` on every bullet in the section.</summary>
+    private const string? NoItemClass = null;
+
+    /// <summary>
+    /// This section's block as the shared block record it is a subset of.
+    ///
+    /// <para>A mapping rather than a shared type, because the parsers stay as they
+    /// are: <c>DesignKnowledgeList</c> holds bare inline runs where <c>MdList</c>
+    /// holds items that may be tasks and may nest, and collapsing the two is its
+    /// own change with its own risks. Null for a record drawn above, which is why
+    /// an arm that is not mapped draws nothing rather than falling through to a
+    /// paragraph.</para>
+    /// </summary>
+    private static MdBlock? AsSharedBlock(DesignKnowledgeBlock block) => block switch
+    {
+        DesignKnowledgeParagraph paragraph => new MdParagraph(paragraph.Content),
+        DesignKnowledgeList list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
+        DesignKnowledgeQuote quote => new MdQuote(quote.Content),
+        DesignKnowledgeCode code => new MdCode(code.Text, code.Language),
+        DesignKnowledgeDiagram diagram => new MdCode(diagram.Source, diagram.Language),
+        DesignKnowledgeDivider => new MdDivider(),
+        _ => null
+    };
 }
-
-

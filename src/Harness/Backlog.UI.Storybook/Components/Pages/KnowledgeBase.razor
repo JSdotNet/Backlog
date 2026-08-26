@@ -3,7 +3,7 @@
 <PageTitle>Metadata — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Metadata"
-           Summary="This repository keeps its own documentation in five folders — `.arc42`, `.domain`, `.backlog`, `.tech` and `.design` — and every addressable heading in them carries a fenced `meta` block. `KnowledgeMetaView` and `MetadataBadge` read that record and draw it, and each is an addition to a component that was already there. Two parts are separable enough to adopt on their own and have a subpage each: References and State. Where the record sits and what it may say are the rules linked above."
+           Summary="This repository keeps its own documentation in five folders — `.arc42`, `.domain`, `.backlog`, `.tech` and `.design` — and every addressable heading in them carries a fenced `meta` block. `MetadataView` and `MetadataBadge` read that record and draw it, and each is an addition to a component that was already there. Three subpages go below the record: State, Fields — every kind of metadata on its own, drawn by the smallest component for its value — and Chapter and file, where the two shapes a whole record takes are drawn side by side. What an address in `related`, `depends-on` or `implements` actually is has its own page under Markdown → References, because a reference turns up in the prose of a chapter as well as in its record. Where the record sits and what it may say are the rules linked above."
            Guidelines="@Rules">
     <Alert Message="@OptInNotice" Role="note" CssClass="sb-callout" />
 
@@ -24,11 +24,11 @@ The status is a control here because this sample is read as `.tech`, and a folde
     </Story>
 
     <Story Name="One block, every field, drawn"
-           Description="Every shape the record draws, on one screen. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `aliases`, `alternatives` and `order` hold plain strings and never become links, whatever a host wires up. `effort` reads at a glance as a points badge, and `roadmap` holds roadmap item tag slugs drawn as chips — tags, not addresses, so they never become links either.
+           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `kind`, `version` and `effort` draw no visible label, because a classification chip, a `v10.0` and a points badge each say which field they came from — the name stays in the markup for a screen reader. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
 
 A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
 
-No file writes a block like this one; it is assembled so every shape is on screen at once. A block that states nothing draws nothing: `KnowledgeMetaView` renders no element at all, and `related: []` or `issue: null` read back as absent."
+No file writes a block like this one; it is assembled so every shape is on screen at once. A block that states nothing draws nothing: `MetadataView` renders no element at all, and `related: []` or `issue: null` read back as absent."
            Code="@RecordCode">
         <div class="sb-columns" data-testid="knowledge-base-record">
             <div class="sb-stack">
@@ -36,14 +36,57 @@ No file writes a block like this one; it is assembled so every shape is on scree
                 <CodeView Source="@EveryFieldBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-base-record-source" />
             </div>
             <div class="sb-stack">
-                <p class="sb-label">KnowledgeMetaView over the record it parsed to</p>
-                <KnowledgeMetaView Metadata="@EveryFieldMetadata"
-                                   Folder="KnowledgeFolder.Tech"
+                <p class="sb-label">MetadataView over the record it parsed to</p>
+                <MetadataView Metadata="@EveryFieldMetadata"
+                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
                                    AriaLabel="Chapter metadata"
                                    TestId="knowledge-base-record-view" />
                 <p class="sb-state" data-testid="knowledge-base-record-plain">@PlainStringSummary</p>
                 <p class="sb-state" data-testid="knowledge-base-record-extra">@ReferenceAndExtraSummary</p>
             </div>
+        </div>
+    </Story>
+
+    <Story Name="A field is a row, and the row is a component"
+           Description="Every field above is the same three elements — a row, the field&#39;s name, and a cell holding whatever its values draw as — and only the cell differs. `MetadataField` is those three elements, and the record renders one per field it has something to say about.
+
+It was five near-identical fragments inside `MetadataView` before that, which meant the `dt`/`dd` pairing a screen reader depends on was rebuilt once per field and had five chances to be got wrong instead of one. What a host reuses it for is a record of its own: the row takes a `BaseClass`, a label class and a value class, so a settings panel or a spec sheet can lay out label-and-value pairs without a second implementation of the pair.
+
+It never asks whether there is anything to say. That question belongs to the caller, because only the caller knows what empty means for its own field — an absent list, a blank scalar and an estimate of zero are three different answers, and zero is an estimate that still shows. The `dl` belongs to the record too: a row that brought its own list would break the pairing for every other row.
+
+The last row draws no visible name. Some values say which field they came from without help, and in front of one of those the label is a dimmed word restating what the value already said — so `ShowLabel` hides it. What it does not do is remove it: the `dt` stays in the list wearing `sr-only`, because a value read out with no field name is worse to hear than a name nobody needed to see. The row takes a `--bare` modifier off whatever `BaseClass` it was given, which is what lets the stylesheet give the value the column the hidden label is no longer holding.
+
+The bottom pair is the same two rows pointed at names that are not the library&#39;s, which is the whole of what adopting it costs."
+           Code="@FieldCode">
+        <div class="sb-stack" data-testid="knowledge-base-field-rows">
+            <dl class="knowledge-fields">
+                <MetadataField Label="depends-on">
+                    <KnowledgeReferenceLink Reference="@FieldReference" />
+                </MetadataField>
+                <MetadataField Label="kind">
+                    <code class="knowledge-value">framework</code>
+                </MetadataField>
+                <MetadataField Label="effort">
+                    <Badge Kind="effort">5 pts</Badge>
+                </MetadataField>
+                <MetadataField Label="feature-flag" TestId="knowledge-base-field-flag">
+                    <Badge Kind="feature">inbox-pane</Badge>
+                </MetadataField>
+                <MetadataField Label="version" ShowLabel="false" TestId="knowledge-base-field-bare">
+                    <code class="knowledge-value">v10.0</code>
+                </MetadataField>
+            </dl>
+            <p class="sb-label">The same rows under a host&#39;s own names</p>
+            <dl class="sb-stack">
+                <MetadataField Label="kind"
+                                    BaseClass="sb-stack"
+                                    LabelCssClass="sb-label"
+                                    ValueCssClass="sb-state">framework</MetadataField>
+                <MetadataField Label="version"
+                                    BaseClass="sb-stack"
+                                    LabelCssClass="sb-label"
+                                    ValueCssClass="sb-state">10.0</MetadataField>
+            </dl>
         </div>
     </Story>
 
@@ -141,27 +184,27 @@ Two widths, one sample. At full width the heading fits; at a navigation pane's w
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Full width — the heading fits</p>
-                <KnowledgeMetaView Metadata="@TechMetadata"
-                                   Folder="KnowledgeFolder.Tech"
+                <MetadataView Metadata="@TechMetadata"
+                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
                                    CssClass="sb-metadata-panel"
                                    AriaLabel="Chapter metadata"
                                    TestId="knowledge-base-heading-wide">
                     <Heading>
                         <p class="md-heading md-heading--2" role="heading" aria-level="2">@ChapterHeading</p>
                     </Heading>
-                </KnowledgeMetaView>
+                </MetadataView>
             </div>
             <div class="sb-stack sb-narrow">
                 <p class="sb-label">The same record at 28rem — the heading wraps, the status does not move</p>
-                <KnowledgeMetaView Metadata="@TechMetadata"
-                                   Folder="KnowledgeFolder.Tech"
+                <MetadataView Metadata="@TechMetadata"
+                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
                                    CssClass="sb-metadata-panel"
                                    AriaLabel="Chapter metadata"
                                    TestId="knowledge-base-heading-narrow">
                     <Heading>
                         <p class="md-heading md-heading--2" role="heading" aria-level="2">@LongChapterHeading</p>
                     </Heading>
-                </KnowledgeMetaView>
+                </MetadataView>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">The stylesheet rule that holds the line together</p>
@@ -171,7 +214,7 @@ Two widths, one sample. At full width the heading fits; at a navigation pane's w
     </Story>
 
     <Story Name="Parsing a fence"
-           Description="`Parse` takes the text inside the fence — the caller has already stripped the fence lines — and hands back a `KnowledgeMetadata`. `ParseFence` is the same call with the language check in front of it, so a block that was never metadata comes back `Empty` rather than half-read. `IsMetaBlock` is exposed separately for the case where the answer decides what you render rather than what you parse, which is how `MarkdownView` uses it.
+           Description="`Parse` takes the text inside the fence — the caller has already stripped the fence lines — and hands back a `MetadataRecord`. `ParseFence` is the same call with the language check in front of it, so a block that was never metadata comes back `Empty` rather than half-read. `IsMetaBlock` is exposed separately for the case where the answer decides what you render rather than what you parse, which is how `MarkdownView` uses it.
 
 It is hand-rolled rather than handed to a YAML library: this library carries no dependency beyond the Blazor packages, and the block is a flat list of scalars with lists one level deep. It is forgiving — `related: []`, `issue: null`, and inline lists both quoted and bare all read back the same way.
 
@@ -184,7 +227,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
             </div>
             <div class="sb-stack">
                 <p class="sb-label">ParseFence over that language and that body</p>
-                <KnowledgeMetaView Metadata="@KnowledgeMeta.ParseFence(KnowledgeMeta.FenceLanguage, TechBlock)"
+                <MetadataView Metadata="@MetadataReader.ParseFence(MetadataReader.FenceLanguage, TechBlock)"
                                    TestId="knowledge-base-fence-view" />
                 <p class="sb-state" data-testid="knowledge-base-fence-state">@FenceSummary</p>
             </div>
@@ -273,14 +316,13 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
         related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         implements: [.domain/backlog/features.md#feature-roadmap-planning]
-        roadmap: [sync-service, mobile-mvp]
+        feature-flag: [inbox-pane, inbox-filters]
         aliases: [TaskItem, backlog_entry_id, backlog_item_id]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
-        order: [overview.md, backlog, environment]
         owner: platform-team
         """;
 
-    private static readonly KnowledgeMetadata EveryFieldMetadata = KnowledgeMeta.Parse(EveryFieldBlock);
+    private static readonly MetadataRecord EveryFieldMetadata = MetadataReader.Parse(EveryFieldBlock);
 
     /// <summary>The heading the .tech block below sits under, so the heading story
     /// can show what a host gets for handing one in.</summary>
@@ -301,7 +343,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
         """;
 
-    private static readonly KnowledgeMetadata TechMetadata = KnowledgeMeta.Parse(TechBlock);
+    private static readonly MetadataRecord TechMetadata = MetadataReader.Parse(TechBlock);
 
     /// <summary>The block both badges below are given, shown as the source of
     /// each. A backlog entry's own metadata, with an address under two different
@@ -312,7 +354,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         related: [.domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
-    private static readonly KnowledgeMetadata RoadmapMetadata = KnowledgeMeta.Parse(RoadmapBlock);
+    private static readonly MetadataRecord RoadmapMetadata = MetadataReader.Parse(RoadmapBlock);
 
     /// <summary>What a caller passes today: the addresses as the flat list of
     /// strings the two-parameter form takes, with the relation each was written
@@ -325,27 +367,29 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// <summary>The chapter as it is written on disk: the heading, then the block
     /// directly under it. Built from the same two constants the example renders,
     /// so the source cannot describe a chapter the view is not showing.</summary>
-    private static string HowToSource => $"## {ChapterHeading}\n\n```{KnowledgeMeta.FenceLanguage}\n{TechBlock}\n```";
+    private static string HowToSource => $"## {ChapterHeading}\n\n```{MetadataReader.FenceLanguage}\n{TechBlock}\n```";
 
     /// <summary>The same block with its fence lines. The fence story is about the
     /// language on the opening fence as much as the body inside it, so the body
     /// alone would be missing the argument.</summary>
-    private static string FencedTechBlock => $"```{KnowledgeMeta.FenceLanguage}\n{TechBlock}\n```";
+    private static string FencedTechBlock => $"```{MetadataReader.FenceLanguage}\n{TechBlock}\n```";
 
     /// <summary>What the language check answers, and what a non-meta fence parses to.</summary>
     private static string FenceSummary =>
-        $"IsMetaBlock(\"meta\") is {KnowledgeMeta.IsMetaBlock("meta")}; "
-        + $"IsMetaBlock(\"mermaid\") is {KnowledgeMeta.IsMetaBlock("mermaid")}; "
+        $"IsMetaBlock(\"meta\") is {MetadataReader.IsMetaBlock("meta")}; "
+        + $"IsMetaBlock(\"mermaid\") is {MetadataReader.IsMetaBlock("mermaid")}; "
         + $"the same body through ParseFence(\"mermaid\", …) comes back empty: "
-        + $"{KnowledgeMeta.ParseFence("mermaid", TechBlock).IsEmpty}.";
+        + $"{MetadataReader.ParseFence("mermaid", TechBlock).IsEmpty}.";
 
     /// <summary>What came back under the three plain-string fields. Counted off
     /// the parsed record rather than off the block, so the claim is the
     /// component's answer and not a restatement of the source above it.</summary>
     private static string PlainStringSummary =>
-        $"{EveryFieldMetadata.Aliases.Count} plain strings under aliases, "
-        + $"{EveryFieldMetadata.Alternatives.Count} under alternatives, "
-        + $"{EveryFieldMetadata.Order.Count} under order — none parsed, none a link.";
+        $"{EveryFieldMetadata.Aliases.Count} aliases and "
+        + $"{EveryFieldMetadata.Alternatives.Count} strings under alternatives — none parsed, and none a "
+        + "link unless a host can place the term an alias names. "
+        + $"{EveryFieldMetadata.FeatureFlag.Count} feature flags, which are keys rather than words and "
+        + "are never followable at all.";
 
     private static string ReferenceAndExtraSummary =>
         $"{EveryFieldMetadata.References.Count} parsed references across related, depends-on and "
@@ -385,28 +429,35 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
             + "— only the URL form can be followed from here, because the shorthand needs a remote "
             + "this library knows nothing about."),
 
-        new("order", "plain strings", "root documents only",
-            "order: [overview.md, backlog, environment]",
-            "The reading order a folder's root document declares for its directory. Sibling file and "
-            + "directory names, never paths, and never on a chapter."),
+        new("feature-flag", "application keys", ".domain features",
+            "feature-flag: [inbox-pane, inbox-filters]",
+            "The key or keys of the application feature flag that delivers this chapter in the running "
+            + "product. Plain application identifiers and deliberately not references: the flag lives "
+            + "in the application's own catalog, so there is no chapter to address and no graph edge. "
+            + "An identity link and not a status mapping — how settled the written model is and "
+            + "whether the running behaviour can be relied on are different questions."),
 
-        new("aliases", "plain strings", ".domain naming",
+        new("aliases", "qualifiers", ".domain naming",
             "aliases: [TaskItem, backlog_entry_id, backlog_item_id]",
-            "Surface names one canonical term is also known by. Plain strings on purpose: an alias is "
-            + "a word, not a place."),
+            "Surface names one canonical term is also known by. Not addresses — an alias is a word, not "
+            + "a place — but the term one names is modelled somewhere, so a host holding a naming index "
+            + "can make an alias followable where it can place it. Drawn above the baseline of what it "
+            + "qualifies, which is what an alias is doing."),
 
         new("alternatives", "plain strings", ".tech",
             "alternatives: [\"Azure Functions\", \"Controller-based ASP.NET Core\"]",
             "What was weighed against this technology and not adopted. Plain strings because something "
             + "that was rejected has no chapter to point at."),
 
-        new("kind", "scalar", ".tech",
+        new("kind", "classification", ".tech",
             "kind: framework",
-            "What kind of thing the entry is — format, runtime, framework, library."),
+            "What kind of thing the entry is — format, runtime, framework, library. A closed vocabulary, "
+            + "which is why it reads as a chip rather than as a value and why its row needs no label."),
 
         new("version", "scalar", ".tech",
             "version: \"10.0\"",
-            "The pinned version, as authored. A string rather than a number, because 10.0 is not ten.")
+            "The pinned version, as authored. A string rather than a number, because 10.0 is not ten. "
+            + "Drawn with a v in front of it, which is what lets its row drop the visible label.")
     ];
 
     private const string ConventionCode = """
@@ -428,13 +479,13 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
            view's own empty rule decides whether anything appears, so a caller
            that wraps this in its own `if` is duplicating a decision the view
            already makes correctly. *@
-        <KnowledgeMetaView Metadata="@metadata" AriaLabel="Chapter metadata" />
+        <MetadataView Metadata="@metadata" AriaLabel="Chapter metadata" />
 
         @* Take the record, not the fence body: a component that took the text
            would parse on every render, and a status plus a list of strings
            cannot express the other nine fields. *@
         [Parameter]
-        public KnowledgeMetadata Metadata { get; set; } = KnowledgeMetadata.Empty;
+        public MetadataRecord Metadata { get; set; } = MetadataRecord.Empty;
 
         @* Unknown keys survive under their own name, and so does a `related`
            entry that would not parse as an address. *@
@@ -459,9 +510,9 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         @* Inside MarkdownView: three answers where there were two, and the new
            one is gated so the other two are reached exactly as often as before. *@
         case MdCode codeBlock:
-            @if (RenderKnowledgeMetadata && KnowledgeMeta.IsMetaBlock(codeBlock.Language))
+            @if (RenderKnowledgeMetadata && MetadataReader.IsMetaBlock(codeBlock.Language))
             {
-                <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)" Folder="@KnowledgeFolder" />
+                <MetadataView Metadata="@MetadataOf(codeBlock)" Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)" />
             }
             else if (DiagramView.IsDiagram(codeBlock.Language))
             {
@@ -482,7 +533,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         @* Additive. Handing over a parsed block — or a folder, a link resolver,
            or a callback — is what switches the strip to the typed form, and
            OnStatusChanged is how the reader's choice leaves the component. *@
-        <MetadataBadge Metadata="@KnowledgeMeta.Parse(fenceBody)"
+        <MetadataBadge Metadata="@MetadataReader.Parse(fenceBody)"
                        Folder="KnowledgeFolder.Backlog"
                        OnStatusChanged="Persist"
                        AriaLabel="Entry metadata" />
@@ -492,11 +543,11 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         @* ChapterHeader.razor — metadata support, in full. The heading is handed
            to the view rather than placed above it, which is what puts the status
            on its line instead of under it. *@
-        <KnowledgeMetaView Metadata="@Metadata" Folder="@Folder" AriaLabel="Chapter metadata">
+        <MetadataView Metadata="@Metadata" Vocabulary="@KnowledgeStatus.Vocabulary(Folder)" AriaLabel="Chapter metadata">
             <Heading>
                 <h2 class="chapter__title">@Title</h2>
             </Heading>
-        </KnowledgeMetaView>
+        </MetadataView>
         """;
 
     /// <summary>The stylesheet, not a component parameter: nothing about the wrap
@@ -539,30 +590,54 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     private const string ParseFenceCode = """
         @* The text inside the fence; the caller has already stripped the fence
            lines themselves. *@
-        KnowledgeMetadata metadata = KnowledgeMeta.Parse(fenceBody);
+        MetadataRecord metadata = MetadataReader.Parse(fenceBody);
 
         @* Or, when you still hold the language the fence opened with. A block
            that is not metadata comes back Empty rather than half-read. *@
-        KnowledgeMetadata metadata = KnowledgeMeta.ParseFence(codeBlock.Language, codeBlock.Text);
+        MetadataRecord metadata = MetadataReader.ParseFence(codeBlock.Language, codeBlock.Text);
 
         @* And when the language decides the branch rather than the parse. *@
-        @if (KnowledgeMeta.IsMetaBlock(codeBlock.Language))
+        @if (MetadataReader.IsMetaBlock(codeBlock.Language))
         {
-            <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)" />
+            <MetadataView Metadata="@MetadataOf(codeBlock)" />
         }
 
         @code {
             @* Parsed once per block rather than once per render. *@
-            private readonly Dictionary<MdCode, KnowledgeMetadata> _metadata = [];
+            private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
 
-            private KnowledgeMetadata MetadataOf(MdCode block)
+            private MetadataRecord MetadataOf(MdCode block)
             {
                 if (_metadata.TryGetValue(block, out var parsed)) return parsed;
 
-                parsed = KnowledgeMeta.ParseFence(block.Language, block.Text);
+                parsed = MetadataReader.ParseFence(block.Language, block.Text);
                 _metadata[block] = parsed;
                 return parsed;
             }
         }
+        """;
+
+    /// <summary>One reference for the field-row story, so the row that holds a
+    /// reference is drawn with the component that draws references rather than
+    /// with a stand-in.</summary>
+    private static readonly KnowledgeReference FieldReference =
+        KnowledgeReference.Parse(".tech/technology-graph.md#nodes")!;
+
+    private const string FieldCode = """
+        <dl class="knowledge-fields">
+            <MetadataField Label="kind">
+                <code class="knowledge-value">framework</code>
+            </MetadataField>
+            <MetadataField Label="feature-flag" TestId="knowledge-feature-flag-tags">
+                <Badge Kind="feature">inbox-pane</Badge>
+            </MetadataField>
+
+            @* ShowLabel hides the name, it does not remove it: the <dt> stays in
+               the list wearing sr-only, and the row takes a --bare modifier off
+               its own BaseClass so the value can have the column back. *@
+            <MetadataField Label="version" ShowLabel="false">
+                <code class="knowledge-value">v10.0</code>
+            </MetadataField>
+        </dl>
         """;
 }

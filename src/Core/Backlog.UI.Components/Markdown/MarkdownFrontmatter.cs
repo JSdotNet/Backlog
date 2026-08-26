@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Metadata;
 
 namespace Backlog.UI.Components.Markdown;
 
@@ -23,7 +23,7 @@ namespace Backlog.UI.Components.Markdown;
 ///
 /// <para>This is not a YAML parser and is not becoming one: it finds the leading
 /// <c>---</c> line and the next one, and hands what is between them to
-/// <see cref="KnowledgeMeta.ReadFields"/> — the same reader the <c>meta</c> fence
+/// <see cref="MetadataReader.ReadFields"/> — the same reader the <c>meta</c> fence
 /// uses, because frontmatter is written in the same three shapes.</para>
 ///
 /// <para>A file with no frontmatter, an unterminated block, or a block that
@@ -115,7 +115,7 @@ public sealed record MarkdownFrontmatter
         if (close < 0) return None with { Body = text };
 
         var block = string.Join('\n', lines[1..close]);
-        var fields = KnowledgeMeta.ReadFields(block);
+        var fields = MetadataReader.ReadFields(block);
 
         var frontmatter = new MarkdownFrontmatter
         {

@@ -1,4 +1,6 @@
-namespace Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Knowledge;
+
+namespace Backlog.UI.Components.Metadata;
 
 /// <summary>
 /// Reads the fenced <c>meta</c> block a knowledge chapter or file carries under
@@ -15,18 +17,29 @@ namespace Backlog.UI.Components.Knowledge;
 /// read back the same way here; what a file says is not something a viewer gets
 /// to refuse.</para>
 /// </summary>
-public static class KnowledgeMeta
+public static class MetadataReader
 {
     /// <summary>The fence language that marks a metadata block.</summary>
     public const string FenceLanguage = "meta";
 
     private static readonly string[] ReferenceFields = ["related", "depends-on", "implements"];
 
+    /// <summary>
+    /// Every key this reader recognises — which is to say every key that does
+    /// <em>not</em> end up in <see cref="MetadataRecord.Extra"/>.
+    ///
+    /// <para><c>order</c> is in the list and modelled nowhere. It is not metadata
+    /// about a chapter: it is a directory listing a root document happens to keep
+    /// in the same fence, and the schema no longer carries it. Leaving it out of
+    /// this set would not remove it — it would move it into <c>Extra</c> and draw
+    /// it as an unrecognised field, which states the field more loudly than
+    /// modelling it ever did. So it is recognised and dropped.</para>
+    /// </summary>
     private static readonly HashSet<string> KnownFields = new(StringComparer.Ordinal)
     {
         "status", "related", "depends-on", "implements", "issue",
         "order", "aliases", "alternatives", "kind", "version",
-        "effort", "roadmap"
+        "effort", "roadmap", "feature-flag"
     };
 
     /// <summary>Whether a fence opened a metadata block.</summary>
@@ -37,19 +50,19 @@ public static class KnowledgeMeta
     /// The seam a renderer uses: hand it the fence language and the body, and a
     /// block that is not metadata comes back empty rather than half-parsed.
     /// </summary>
-    public static KnowledgeMetadata ParseFence(string? fenceLanguage, string? body) =>
-        IsMetaBlock(fenceLanguage) ? Parse(body) : KnowledgeMetadata.Empty;
+    public static MetadataRecord ParseFence(string? fenceLanguage, string? body) =>
+        IsMetaBlock(fenceLanguage) ? Parse(body) : MetadataRecord.Empty;
 
     /// <summary>
     /// Parses the text <em>inside</em> the fence — the caller has already stripped
     /// the fence lines themselves.
     /// </summary>
-    public static KnowledgeMetadata Parse(string? body)
+    public static MetadataRecord Parse(string? body)
     {
-        if (string.IsNullOrWhiteSpace(body)) return KnowledgeMetadata.Empty;
+        if (string.IsNullOrWhiteSpace(body)) return MetadataRecord.Empty;
 
         var fields = ReadFields(body);
-        if (fields.Count == 0) return KnowledgeMetadata.Empty;
+        if (fields.Count == 0) return MetadataRecord.Empty;
 
         var extra = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
@@ -85,20 +98,20 @@ public static class KnowledgeMeta
             if (rejected.Count > 0) extra[field] = rejected;
         }
 
-        return new KnowledgeMetadata
+        return new MetadataRecord
         {
             Status = Scalar(fields, "status"),
             Related = references.GetValueOrDefault("related", []),
             DependsOn = references.GetValueOrDefault("depends-on", []),
             Implements = references.GetValueOrDefault("implements", []),
             Issue = Scalar(fields, "issue"),
-            Order = fields.GetValueOrDefault("order", []),
             Aliases = fields.GetValueOrDefault("aliases", []),
             Alternatives = fields.GetValueOrDefault("alternatives", []),
             Kind = Scalar(fields, "kind"),
             Version = Scalar(fields, "version"),
             Effort = ParseEffort(Scalar(fields, "effort")),
             Roadmap = fields.GetValueOrDefault("roadmap", []),
+            FeatureFlag = fields.GetValueOrDefault("feature-flag", []),
             Extra = extra
         };
     }

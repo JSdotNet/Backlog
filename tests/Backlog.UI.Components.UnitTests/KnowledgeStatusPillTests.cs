@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The status on its own, which is the whole reason this component exists: a
-/// folder-aware pill used to be reachable only by handing KnowledgeMetaView a
+/// folder-aware pill used to be reachable only by handing MetadataView a
 /// block and taking the description list that came with it, so a row of
 /// statuses read "status draft status proposed status active".
 ///
@@ -141,9 +141,9 @@ public sealed class KnowledgeStatusPillTests
             .Add(p => p.Status, "shipped")
             .Add(p => p.Folder, KnowledgeFolder.Tech));
 
-        var inRecord = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: shipped"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var inRecord = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: shipped"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         Assert.Equal(
             standalone.Find("span").OuterHtml,

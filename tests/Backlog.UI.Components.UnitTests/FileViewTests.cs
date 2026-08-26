@@ -19,7 +19,7 @@ public sealed class FileViewTests
         Assert.Equal("context-loading.instructions.md", view.Find(".file-view__name").TextContent);
         Assert.Equal(@".github\instructions\context-loading.instructions.md", view.Find(".file-view__path").TextContent);
 
-        var expectedSize = FileView.FormatSize(5837);
+        var expectedSize = FileHeader.FormatSize(5837);
         Assert.Equal($"GitHub Copilot · Path-specific instructions · {expectedSize}", view.Find(".file-view__meta").TextContent);
     }
 
@@ -281,7 +281,7 @@ public sealed class FileViewTests
 
         try
         {
-            Assert.Equal(expected, FileView.FormatSize(bytes));
+            Assert.Equal(expected, FileHeader.FormatSize(bytes));
         }
         finally
         {

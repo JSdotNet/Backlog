@@ -74,7 +74,7 @@ public sealed class FileViewBodyTests
         Assert.Equal("domain.md", view.Find(".file-view__name").TextContent);
         Assert.Equal(@".domain\backlog\domain.md", view.Find(".file-view__path").TextContent);
         Assert.Equal(
-            $"Repository · Domain model · {FileView.FormatSize(2048)}",
+            $"Repository · Domain model · {FileHeader.FormatSize(2048)}",
             view.Find(".file-view__meta").TextContent);
     }
 

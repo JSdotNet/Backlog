@@ -3,7 +3,7 @@
 <PageTitle>State in the knowledge base — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="State"
-           Summary="A subpage of Knowledge base: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `KnowledgeStatus` holds the five vocabularies, `KnowledgeStatusTone` is the one scale underneath them, and `KnowledgeFolder` connects a document to its own. Adding state support to a component is one parameter — the folder. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
+           Summary="A subpage of Knowledge base: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `KnowledgeStatus` holds the five vocabularies, `KnowledgeStatusTone` is the one scale underneath them, and `KnowledgeFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is knowledge&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
            Guidelines="@Rules">
     <Alert Message="@FolderNotice" Role="note" CssClass="sb-callout" />
 
@@ -42,8 +42,8 @@ Both forms are here: `KnowledgeStatusPill` for a status that is only being shown
                                             <KnowledgeStatusPill Status="@cell.Value"
                                                                  Folder="@folder"
                                                                  TestId="@($"knowledge-state-pill-{Slug(folder)}-{cell.Value}")" />
-                                            <KnowledgeMetaView Metadata="@cell.Metadata"
-                                                               Folder="@folder"
+                                            <MetadataView Metadata="@cell.Metadata"
+                                                               Vocabulary="@KnowledgeStatus.Vocabulary(folder)"
                                                                AriaLabel="@($"{FolderName(folder)} status")"
                                                                TestId="@($"knowledge-state-select-{Slug(folder)}-{cell.Value}")" />
                                         </div>
@@ -93,14 +93,58 @@ It stays the same badge as every other status here and wears `archived`, the one
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Rendered as a .design chapter</p>
-                <KnowledgeMetaView Metadata="@TypoMetadata"
-                                   Folder="KnowledgeFolder.Design"
+                <MetadataView Metadata="@TypoMetadata"
+                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
                                    TestId="knowledge-state-unrecognised-view" />
                 <p class="sb-label">The same block with no folder given</p>
-                <KnowledgeMetaView Metadata="@TypoMetadata"
+                <MetadataView Metadata="@TypoMetadata"
                                    TestId="knowledge-state-unrecognised-blind" />
             </div>
         </div>
+    </Story>
+
+    <Story Name="A folder is one vocabulary, not the only one"
+           Description="A folder is how *this* product scopes a status. What a record actually needs is narrower: which words are allowed, and what each of them looks like. `MetadataStatusVocabulary` is that pair, and it is what `MetadataView`, `MetadataChapterView` and `MetadataFileView` take now — `KnowledgeStatus.Vocabulary(folder)` for a knowledge surface, and words of its own for anything else.
+
+Which mattered because the field set never was folder-shaped: a field nobody writes is simply absent, and the record already models that. The status was the one thing tying the whole of a record's drawing to five folder names, so a caller outside `.arc42`, `.domain`, `.design`, `.backlog` and `.tech` could not draw a record at all.
+
+`MetadataStatusBadge` is the read-only form of it, and the same badge `KnowledgeStatusPill` renders — the pill is this component with the folder already looked up. The three below are one vocabulary each: a folder's, a set of words that belong to no folder, and none at all."
+           Code="@VocabularyCode">
+        <dl class="sb-grid" data-testid="knowledge-state-vocabulary">
+            <div class="sb-stack">
+                <dt class="sb-label">A folder's, resolved — the same badge the pill draws</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="adopted"
+                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                         TestId="knowledge-state-vocabulary-folder" />
+                    <MetadataStatusBadge Status="retired"
+                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)" />
+                    <MetadataStatusBadge Status="adoptd"
+                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                         TestId="knowledge-state-vocabulary-typo" />
+                </dd>
+            </div>
+            <div class="sb-stack">
+                <dt class="sb-label">A caller's own words, belonging to no folder</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="shipped"
+                                         Vocabulary="@Shipping"
+                                         TestId="knowledge-state-vocabulary-own" />
+                    <MetadataStatusBadge Status="rolled-back"
+                                         Vocabulary="@Shipping" />
+                    <MetadataStatusBadge Status="shiped"
+                                         Vocabulary="@Shipping"
+                                         TestId="knowledge-state-vocabulary-own-typo" />
+                </dd>
+            </div>
+            <div class="sb-stack">
+                <dt class="sb-label">None — shown, and not judged</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="whatever the file said"
+                                         TestId="knowledge-state-vocabulary-none" />
+                </dd>
+            </div>
+        </dl>
     </Story>
 
     <Story Name="Adding state support to a component"
@@ -111,8 +155,8 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         <div class="sb-stack" data-testid="knowledge-state-wiring">
             <p class="sb-label">The path, and the block read out of it</p>
             <CodeView Source="@WiringSource" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-state-wiring-source" />
-            <KnowledgeMetaView Metadata="@BacklogMetadata"
-                               Folder="@KnowledgeFolders.FromPath(BacklogPath)"
+            <MetadataView Metadata="@BacklogMetadata"
+                               Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolders.FromPath(BacklogPath))"
                                TestId="knowledge-state-wiring-view" />
             <p class="sb-state" data-testid="knowledge-state-frompath">@FromPathSummary</p>
             <p class="sb-state" data-testid="knowledge-state-checks">@CheckSummary</p>
@@ -145,7 +189,7 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
     /// once. Parsed here rather than in the loop so the record handed to the view
     /// is the same object on every render — a fresh one each time would reseed the
     /// select and undo a reader mid-click.</summary>
-    private sealed record StatusCell(KnowledgeFolder Folder, string Value, KnowledgeStatusTone Tone, KnowledgeMetadata Metadata);
+    private sealed record StatusCell(KnowledgeFolder Folder, string Value, KnowledgeStatusTone Tone, MetadataRecord Metadata);
 
     /// <summary>One cell of the same-word story. The status is held once and read
     /// twice — as the block on screen and as the badge's parameter — so the source
@@ -189,7 +233,7 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
                 folder,
                 value,
                 KnowledgeStatus.Tone(folder, value),
-                KnowledgeMeta.Parse($"status: {value}"))))
+                MetadataReader.Parse($"status: {value}"))))
     ];
 
     private const string TypoBlock = """
@@ -197,7 +241,7 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         related: [".design/design-principles.md"]
         """;
 
-    private static readonly KnowledgeMetadata TypoMetadata = KnowledgeMeta.Parse(TypoBlock);
+    private static readonly MetadataRecord TypoMetadata = MetadataReader.Parse(TypoBlock);
 
     private const string BacklogPath = ".backlog/domain-backlog.md";
 
@@ -206,7 +250,7 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         implements: [.domain/backlog/features.md#feature-roadmap-planning]
         """;
 
-    private static readonly KnowledgeMetadata BacklogMetadata = KnowledgeMeta.Parse(BacklogBlock);
+    private static readonly MetadataRecord BacklogMetadata = MetadataReader.Parse(BacklogBlock);
 
     /// <summary>The four cells of the same-word story, in the order they read: two
     /// folders that define the word, one that does not, and no folder at all.
@@ -287,14 +331,51 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         """;
 
     private const string FolderCode = """
-        @* One parameter. The vocabulary, the tone and the flag all follow from
-           it, and leaving it off is a supported answer rather than a missing one. *@
+        @* One answer, asked for two ways. The strip takes the folder, because a
+           knowledge strip is what it is; the record takes the vocabulary the
+           folder resolves to, so a surface with words of its own can draw one too.
+           The tone and the flag follow from whichever was given, and leaving it
+           off is a supported answer rather than a missing one. *@
         <MetadataBadge Metadata="@metadata" Folder="KnowledgeFolder.Design" />
 
-        <KnowledgeMetaView Metadata="@metadata" Folder="KnowledgeFolder.Tech" />
+        <MetadataView Metadata="@metadata"
+                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)" />
 
         @* Passing nothing keeps the flat pill this component always drew. *@
         <MetadataBadge Status="@status" Related="@relatedIds" />
+        """;
+
+    /// <summary>A vocabulary that is nobody's folder — the point of the story it
+    /// appears in. Held in a field rather than built in the markup for the reason
+    /// <c>KnowledgeStatus.Vocabulary</c> holds one per folder: a fresh object is a
+    /// changed parameter, and a record would re-render on every pass.</summary>
+    private static readonly MetadataStatusVocabulary Shipping =
+        new(["staged", "shipped", "rolled-back"], status => status switch
+        {
+            "staged" => "ready",
+            "shipped" => "done",
+            _ => "blocked"
+        });
+
+    private const string VocabularyCode = """
+        @* A knowledge surface resolves its folder and hands the answer down. *@
+        <MetadataView Metadata="@metadata"
+                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolders.FromPath(path))" />
+
+        @* Anything else states its own words, and which badge each one wears. The
+           resolver is only ever asked about a value in the list — the flag on a
+           word in neither belongs to the vocabulary, not to the caller. *@
+        @code {
+            private static readonly MetadataStatusVocabulary Shipping =
+                new(["staged", "shipped", "rolled-back"], status => status switch
+                {
+                    "staged" => "ready",
+                    "shipped" => "done",
+                    _ => "blocked"
+                });
+        }
+
+        <MetadataStatusBadge Status="@release.Status" Vocabulary="@Shipping" />
         """;
 
     private const string UnrecognisedCode = """
@@ -311,8 +392,8 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         @* Derive the folder from the path rather than asking a caller for it —
            it is always the first segment, and a parsed reference already carries
            it on Folder. *@
-        <KnowledgeMetaView Metadata="@metadata"
-                           Folder="@KnowledgeFolders.FromPath(documentPath)" />
+        <MetadataView Metadata="@metadata"
+                           Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolders.FromPath(documentPath))" />
 
         @* The same on a whole document, reaching every block in the body. *@
         <MarkdownView Blocks="@blocks"

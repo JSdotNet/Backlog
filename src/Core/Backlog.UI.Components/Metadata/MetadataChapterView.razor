@@ -1,0 +1,104 @@
+@*
+    Chapter metadata: the block under a `##` heading, drawn as part of that
+    heading.
+
+    A chapter's record describes the chapter under it, and the heading is where a
+    reader is looking when they ask what it says — so the two are one thing on the
+    screen. The heading becomes the record's headline and the status takes the
+    right edge of the heading's line; the rest of the block sits underneath,
+    quieter, close enough to be taken in with the same glance. All of that is
+    MetadataView's, and this component is the shape rather than the drawing: a
+    record that has a heading to fold into.
+
+    Which is why the heading is required here and optional there. MetadataView
+    draws a record with a heading, without one, or with nothing but a status,
+    because a record turns up in all three shapes. This is the one where the pair
+    is the point, and a chapter component handed no heading would be the base
+    component under a name that promises otherwise.
+
+    It exists because the pairing was assembled at a call site. MarkdownView
+    decides which fence belongs to which heading — that is the reading, and it
+    stays there — and then had the whole of the chapter shape written out inline,
+    the file shape written out again in FileView's header, and nothing naming
+    either. Two call sites for two shapes is two things to keep in step; MetadataFileView
+    beside this one is the other half of that.
+
+    Nothing here draws markup of its own, and that is deliberate rather than
+    unfinished. A wrapper element would put a div between the heading and the
+    document that contains it, and the record's own layout — one flex row, the
+    status pushed over by an auto margin — is measured against the heading's box.
+    What this file adds is a name, a required heading, and one place for the
+    chapter shape's decisions to be made when there is a next one.
+
+    Empty in, nothing out, exactly as the record behaves: a fence that states
+    nothing renders no element at all. A host that has a heading to draw whether
+    or not there is a record draws it itself in that case — see MarkdownView,
+    which pairs a heading with a fence and renders the heading alone when there is
+    none. That is the difference from MetadataFileView, which takes the heading
+    both ways: a chapter heading is a block in the document either way, and a
+    file's name is only in the header because the record put it there.
+*@
+
+<MetadataView Metadata="@Metadata"
+              Vocabulary="@Vocabulary"
+              ShowFields="@ShowFields"
+              OnStatusChanged="@OnStatusChanged"
+              OnNavigate="@OnNavigate"
+              HrefFor="@HrefFor"
+              AriaLabel="@AriaLabel"
+              CssClass="@CssClass"
+              TestId="@TestId"
+              Heading="@Heading" />
+
+@code {
+    /// <summary>The chapter's record, as the fence under its heading parsed.</summary>
+    [Parameter, EditorRequired]
+    public MetadataRecord Metadata { get; set; } = MetadataRecord.Empty;
+
+    /// <summary>The heading this record belongs to, drawn as the record's
+    /// headline. Required: the pairing is what this component is.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Heading { get; set; }
+
+    /// <summary>The status words this chapter's surface allows, which is what
+    /// turns the status from a word into a value out of a list. See
+    /// <see cref="MetadataView.Vocabulary"/> — without one the status still shows,
+    /// it is just not judged. A knowledge surface passes
+    /// <c>KnowledgeStatus.Vocabulary(folder)</c>.</summary>
+    [Parameter]
+    public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
+
+    /// <summary>Raised with the status a reader picked. A chapter's status is its
+    /// own: a host wires this per chapter, and what it does with it — writing the
+    /// fence back, or nothing — is the host's.</summary>
+    [Parameter]
+    public EventCallback<string> OnStatusChanged { get; set; }
+
+    /// <summary>Raised with the reference a reader activated.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Resolves a reference to a link target; null leaves that reference
+    /// as text rather than a broken link.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
+    /// <summary>Whether everything but the status is drawn. On by default, off for
+    /// a surface showing the file itself, where those fields are the fence read
+    /// back as rows.</summary>
+    [Parameter]
+    public bool ShowFields { get; set; } = true;
+
+    /// <summary>The group's name for a screen reader. Defaulted to the record's own
+    /// default rather than to something this component prefers: a chapter in a
+    /// document has always announced itself this way, and a new word here would
+    /// rename every record in the product.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Knowledge metadata";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

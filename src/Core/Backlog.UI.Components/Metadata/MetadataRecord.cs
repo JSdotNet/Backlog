@@ -1,4 +1,6 @@
-namespace Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Knowledge;
+
+namespace Backlog.UI.Components.Metadata;
 
 /// <summary>
 /// The contents of one fenced <c>meta</c> block: the small, parseable record a
@@ -9,7 +11,7 @@ namespace Backlog.UI.Components.Knowledge;
 /// are omitted rather than spelled out — so an absent field here means "not
 /// stated", never "stated as empty".</para>
 /// </summary>
-public sealed record KnowledgeMetadata
+public sealed record MetadataRecord
 {
     /// <summary>Lifecycle state. The allowed values are folder-specific; see
     /// <see cref="KnowledgeStatus"/>.</summary>
@@ -30,10 +32,6 @@ public sealed record KnowledgeMetadata
     /// shorthand. Stored exactly as authored — the shorthand is not a reference
     /// and resolving it needs a remote this library does not know about.</summary>
     public string? Issue { get; init; }
-
-    /// <summary>The reading order a root document declares for its directory:
-    /// plain sibling file or directory names, never paths.</summary>
-    public IReadOnlyList<string> Order { get; init; } = [];
 
     /// <summary>Surface names a <c>.domain</c> term is also known by. Plain
     /// strings by design — the link to where the term is modelled is carried by
@@ -66,6 +64,22 @@ public sealed record KnowledgeMetadata
     public IReadOnlyList<string> Roadmap { get; init; } = [];
 
     /// <summary>
+    /// The application feature flags that deliver a <c>.domain</c> feature
+    /// chapter in the running product, by key.
+    ///
+    /// <para>Plain strings, and explicitly not references: the flag lives in the
+    /// application's own catalog rather than in a knowledge folder, so there is no
+    /// chapter to address and the key is never validated here. One chapter may
+    /// name several flags, and one flag may appear on several chapters.</para>
+    ///
+    /// <para>An identity link and not a status mapping. How settled the written
+    /// model is and whether the running behaviour can be relied on are different
+    /// questions, so nothing here infers <see cref="Status"/> from a flag or the
+    /// reverse.</para>
+    /// </summary>
+    public IReadOnlyList<string> FeatureFlag { get; init; } = [];
+
+    /// <summary>
     /// Every key the schema does not define, kept verbatim.
     ///
     /// <para>The convention says not to invent fields, but a reader that silently
@@ -78,7 +92,7 @@ public sealed record KnowledgeMetadata
         new Dictionary<string, IReadOnlyList<string>>();
 
     /// <summary>A block that stated nothing.</summary>
-    public static KnowledgeMetadata Empty { get; } = new();
+    public static MetadataRecord Empty { get; } = new();
 
     /// <summary>Whether there is anything at all to show. A chapter with no
     /// metadata should not leave a gap where the strip would have been.</summary>
@@ -88,13 +102,13 @@ public sealed record KnowledgeMetadata
         && DependsOn.Count == 0
         && Implements.Count == 0
         && string.IsNullOrWhiteSpace(Issue)
-        && Order.Count == 0
         && Aliases.Count == 0
         && Alternatives.Count == 0
         && string.IsNullOrWhiteSpace(Kind)
         && string.IsNullOrWhiteSpace(Version)
         && Effort is null
         && Roadmap.Count == 0
+        && FeatureFlag.Count == 0
         && Extra.Count == 0;
 
     /// <summary>

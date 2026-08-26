@@ -1,0 +1,47 @@
+@*
+    A field whose values are addresses: `related`, `depends-on`, `implements`.
+
+    Built on KnowledgeReferenceLink and adding exactly one thing to it — the loop,
+    and with it the decision that every entry of one field is offered the same
+    way. An entry rendered as a link beside one rendered as inert text would read
+    as a claim about the two targets rather than about what the host can resolve,
+    so HrefFor is asked per reference and OnNavigate is handed to all of them.
+
+    What each entry becomes is still the link component's answer: an href makes it
+    a link, a handler makes it a button, neither leaves it inert text. Nothing
+    here second-guesses that, which is why this component draws nothing of its
+    own.
+*@
+
+@foreach (var reference in References)
+{
+    <KnowledgeReferenceLink Reference="@reference"
+                            Href="@HrefFor?.Invoke(reference)"
+                            OnNavigate="@OnNavigate"
+                            ShowFullPath="@ShowFullPath" />
+}
+
+@code {
+    /// <summary>The references, in the order the field listed them. Empty draws
+    /// nothing; whether the row belongs at all is the caller's question.</summary>
+    [Parameter]
+    public IReadOnlyList<KnowledgeReference> References { get; set; } = [];
+
+    /// <summary>Resolves a reference to a link target. The host owns the mapping
+    /// from repository path to route; returning null leaves that one reference as
+    /// text or a button rather than a broken link, which is why this is asked per
+    /// entry instead of once for the field.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
+    /// <summary>Raised with the reference a reader activated. Handed to every
+    /// entry, so no entry is quietly inert while its siblings are controls.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Whether each entry prints its address in full. A metadata field
+    /// holds nothing but the path, so the full form is all it has to say; the hook
+    /// is here for a host with less room than a record has.</summary>
+    [Parameter]
+    public bool ShowFullPath { get; set; } = true;
+}

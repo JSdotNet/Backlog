@@ -179,7 +179,7 @@ public sealed class FolderViewTests
 
         var label = view.FindAll(".folder-tree__label").Single(l => l.TextContent.StartsWith("Index", StringComparison.Ordinal));
 
-        Assert.Contains(FileView.FormatSize(1_204), label.TextContent, StringComparison.Ordinal);
+        Assert.Contains(FileHeader.FormatSize(1_204), label.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]

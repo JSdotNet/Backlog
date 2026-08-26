@@ -1,4 +1,4 @@
-
+﻿
 namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class DesignKnowledgeParserTests
@@ -99,6 +99,16 @@ Markdown remains canonical behind the rich text editor.
         Assert.IsType<DesignKnowledgeParagraph>(Assert.Single(file.Sections[0].Blocks));
         Assert.IsType<DesignKnowledgeList>(Assert.Single(file.Sections[1].Blocks));
     }
+
+    // Two facts were here, both about reading order read off a `meta` fence:
+    // that a root document declares its folder's order, and that a chapter's own
+    // block does not get to. They were added when the shared record dropped
+    // `order` while the files still carried it, so `.design` had to parse its own.
+    // `main` has since moved the declaration into the committed `_meta/index.json`
+    // and stripped every `order:` line from the knowledge folders, so there is no
+    // fence left to read and nothing here to assert. What survived the move is
+    // library-level and lives where it belongs: MetadataReaderTests pins that
+    // `order` is recognised and dropped rather than surfacing as an unknown field.
 
     private sealed class TemporaryFolder : IDisposable
     {
