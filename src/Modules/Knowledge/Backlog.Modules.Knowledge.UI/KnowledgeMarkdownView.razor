@@ -1,3 +1,20 @@
+@*
+    An arc42 document's blocks, drawn as the shared library draws every block.
+
+    The switch that used to be here was the third copy of MarkdownView's: a
+    paragraph, a list, a quote, a code fence, a diagram and a rule, in
+    `knowledge-*` clothes. Each of those records is now mapped onto the shared
+    block record it is a subset of and handed to MarkdownBlockView, which wears
+    this panel's class names through its per-part hooks. No class changed and no
+    stylesheet rule moved.
+
+    Two arms stay. A heading here is a whole section — a real `h2`-`h5`, a title,
+    and a metadata line under it — and folding it into MetadataView would
+    change that markup rather than rename it. An arc42 table is a `div role="table"`
+    of single-cell rows, which is not an MdTable with other names either. Both are
+    worth revisiting; neither is a class rename.
+*@
+
 @foreach (var block in Blocks)
 {
     switch (block)
@@ -28,44 +45,6 @@
                 }
             </section>
             break;
-
-        case KnowledgeParagraphBlock paragraph:
-            <p class="knowledge-p">@MarkdownRender.Inlines(paragraph.Content, InlineTarget)</p>
-            break;
-
-        case KnowledgeListBlock list:
-            @if (list.Ordered)
-            {
-                <ol class="knowledge-list">
-                    @foreach (var item in list.Items)
-                    {
-                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
-                    }
-                </ol>
-            }
-            else
-            {
-                <ul class="knowledge-list">
-                    @foreach (var item in list.Items)
-                    {
-                        <li>@MarkdownRender.Inlines(item, InlineTarget)</li>
-                    }
-                </ul>
-            }
-            break;
-
-        case KnowledgeQuoteBlock quote:
-            <blockquote class="knowledge-quote">@MarkdownRender.Inlines(quote.Content, InlineTarget)</blockquote>
-            break;
-
-        case KnowledgeCodeBlock codeBlock:
-            <pre class="knowledge-code"><code>@codeBlock.Text</code></pre>
-            break;
-
-        case KnowledgeDiagramBlock diagram:
-            <DiagramView Language="@diagram.Language" Source="@diagram.Text" />
-            break;
-
         case KnowledgeTableBlock table:
             <div class="knowledge-table" role="table">
                 @for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
@@ -77,9 +56,25 @@
                 }
             </div>
             break;
-
-        case KnowledgeDividerBlock:
-            <hr class="knowledge-divider" />
+        default:
+            // Everything else is the shared record wearing this panel's names.
+            // The diagram question is answered from the record the parser
+            // produced, not from a language list: this parser reads every `c4*`
+            // fence as a diagram and the library's own vocabulary does not, so a
+            // c4 block asked the library would come back a code listing.
+            if (AsSharedBlock(block) is { } shared)
+            {
+                <MarkdownBlockView Block="@shared"
+                                   InlineTarget="@InlineTarget"
+                                   ParagraphCssClass="knowledge-p"
+                                   QuoteCssClass="knowledge-quote"
+                                   CodeCssClass="knowledge-code"
+                                   DividerCssClass="knowledge-divider"
+                                   ListCssClass="knowledge-list"
+                                   ListItemCssClass="@NoItemClass"
+                                   DiagramTitle="@DiagramName"
+                                   IsDiagram="@(_ => block is KnowledgeDiagramBlock)" />
+            }
             break;
     }
 }
@@ -101,6 +96,39 @@
     /// follow — and the state this view is in on the standalone page.</summary>
     [Parameter]
     public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>What a drawn diagram is captioned with, which is
+    /// <c>DiagramView</c>'s own default. A <c>KnowledgeDiagramBlock</c> carries a
+    /// title of its own — read out of the fence's `title` line — and it has never
+    /// reached the caption. Forwarding it is a visible change to every
+    /// architecture diagram and belongs to whoever decides that, not to moving
+    /// markup into the library.</summary>
+    private const string DiagramName = "Diagram";
+
+    /// <summary>A list item here carries no class, so the hook is handed null
+    /// rather than left at the read view's default — which is an empty string and
+    /// would put a `class=" "` on every bullet in the document.</summary>
+    private const string? NoItemClass = null;
+
+    /// <summary>
+    /// This document's block as the shared block record it is a subset of.
+    ///
+    /// <para>A mapping rather than a shared type: the parsers stay as they are,
+    /// and <c>KnowledgeListBlock</c> holds bare inline runs where <c>MdList</c>
+    /// holds items that may be tasks and may nest. Null for a record drawn above,
+    /// so an arm that is not mapped draws nothing rather than falling through to a
+    /// paragraph.</para>
+    /// </summary>
+    private static MdBlock? AsSharedBlock(KnowledgeBlock block) => block switch
+    {
+        KnowledgeParagraphBlock paragraph => new MdParagraph(paragraph.Content),
+        KnowledgeListBlock list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
+        KnowledgeQuoteBlock quote => new MdQuote(quote.Content),
+        KnowledgeCodeBlock code => new MdCode(code.Text, code.Language),
+        KnowledgeDiagramBlock diagram => new MdCode(diagram.Text, diagram.Language),
+        KnowledgeDividerBlock => new MdDivider(),
+        _ => null
+    };
 
     private RenderFragment RenderHeading(KnowledgeHeadingBlock heading) => builder =>
     {

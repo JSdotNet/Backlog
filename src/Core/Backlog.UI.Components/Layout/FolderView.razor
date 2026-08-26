@@ -202,7 +202,7 @@
     /// distance from every name it belongs to.</summary>
     private static string Label(FolderEntry entry) =>
         entry is { IsFolder: false, SizeInBytes: { } bytes }
-            ? $"{entry.Name} — {FileView.FormatSize(bytes)}"
+            ? $"{entry.Name} — {FileHeader.FormatSize(bytes)}"
             : entry.Name;
 
     private bool IsSelected(TreeNode node) => string.Equals(SelectedPath, node.Id, StringComparison.Ordinal);

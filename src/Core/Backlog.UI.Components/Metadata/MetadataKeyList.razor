@@ -1,0 +1,48 @@
+@*
+    A field whose values are keys in a namespace outside the knowledge folders:
+    `feature-flag`, and `roadmap`.
+
+    Neither names a word this repository uses and neither addresses a chapter. A
+    feature flag is an identifier in the application's own catalog; a roadmap item is
+    a slug the plan holds. Something outside these files answers to the key, which is
+    the fact the treatment has to carry, and it is what separates these from
+    MetadataValueList's plain strings and from MetadataReferenceList's addresses.
+
+    Drawn in the feature-badge family — `.badge--feature`, the rule DEV and BETA
+    already wear. That family is the product's existing visual language for "an
+    application feature is involved here", and a flag key is the most literal case of
+    it there is.
+
+    A key is not a status, so no slug is passed. `FeatureStatusBadge` derives its
+    modifier from the value, which is right for a two-word vocabulary and wrong for an
+    identifier: `feature-flag: inbox-pane` would emit `.badge--feature-inbox-pane`, a
+    class no stylesheet defines and none ever will. The family without the per-value
+    tone is the honest half of it — the shape says which family, and the text says
+    which key.
+
+    Nothing here is clickable. Filtering by a key is a job for a surface that has a
+    list to filter, and a badge that took focus to do nothing would be worse than a
+    label.
+
+    One component for the two fields, so they cannot drift apart. `roadmap` is drawn
+    in this treatment without a story of its own on purpose — the field is out of the
+    storybook for now and no file in this repository writes it, so the alternative was
+    a second component nobody could look at.
+*@
+
+@foreach (var key in Keys)
+{
+    <Badge Kind="feature" CssClass="@KeyCssClass">@key</Badge>
+}
+
+@code {
+    /// <summary>The keys, in the order the field listed them. Empty draws nothing;
+    /// whether the row belongs is the caller's question.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Keys { get; set; } = [];
+
+    /// <summary>A modifier on each badge, on top of the classes Badge carries — for
+    /// a host that draws one of these fields differently from the other.</summary>
+    [Parameter]
+    public string? KeyCssClass { get; set; }
+}

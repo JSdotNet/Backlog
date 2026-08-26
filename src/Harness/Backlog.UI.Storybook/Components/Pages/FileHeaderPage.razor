@@ -1,0 +1,474 @@
+@page "/file-view/header"
+
+<PageTitle>File header — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="File header"
+           Summary="`FileHeader` is the half of a file pane that stays put: which file this is, what is known about it, and the three things a reader does to it. It reads nothing and decides nothing — the record arrives parsed, the detail line arrives as the three facts it is made of, and the mode flags arrive already answered, because a header offering a control the body will not honour is the failure the split exists to make impossible. Everything is a value or a callback, which is what lets it be drawn on its own: every story below is this component and nothing else. The half that holds the file is on *File content*; the pane that composes both is on *File view*."
+           Guidelines="@Rules">
+    <Alert Message="@SplitNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="A name, and nothing else known"
+           Description="The name is the only thing required, and everything else draws nothing when it is absent. So the same component covers a file the host knows a great deal about and a file it knows the name of — there is no sparse variant and no row of chrome where the missing facts would have been.
+
+The frame around it is the harness's, not the component's. A header has a bottom border and no box of its own, because in the product it is inside `FileView`, which is where the box comes from; the dashed edge stands in for that so the header's own bounds are visible."
+           Code="@BareCode">
+        <div class="sb-frame" data-testid="file-header-bare-frame">
+            <FileHeader Name="notes.md" TestId="file-header-bare" />
+        </div>
+    </Story>
+
+    <Story Name="The detail line, in the order a reader asks for it"
+           Description="`Source`, `Kind` and `SizeInBytes` are joined with a middle dot, in that order, under the name. Each is dropped when it is absent rather than filled in — an absent fact is better than a fabricated zero, which is why `SizeInBytes` is nullable and not `0`.
+
+The size is formatted in the current culture, so the decimal separator is the one the rest of the app uses. `FolderView` says a file's size the same way on the row that names it, out of the same formatter: two of them would eventually disagree about where the kilobyte starts."
+           Code="@DetailsCode">
+        <div class="sb-stack">
+            <p class="sb-label">All three</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Source="Repository"
+                            Kind="Technology stack"
+                            SizeInBytes="5837"
+                            TestId="file-header-details-all" />
+            </div>
+
+            <p class="sb-label">One of the three — no separator, and no gap</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Kind="Technology stack"
+                            TestId="file-header-details-one" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Name, path, status — one line"
+           Description="All three sit on the name's own line, in that order: which file, where it is, and whether it is still current. The name takes its natural width, the path takes everything left over and is right-aligned in it, and the status closes the line.
+
+The path is on that line and not opposite it because that is the only way round the status can come last: the status is drawn inside the record, held to the right edge of the row the name is on, so anything that is to precede it has to be an item of that row. In the aside — where the path used to be — it could only ever follow. It also means the path stays where it is whether or not the file carries a record: with no record the identity column is the row instead.
+
+`FileViewHeaderLayoutTests` pins the order, and pins it in both cases."
+           Code="@PathCode">
+        <div class="sb-stack">
+            <p class="sb-label">Name, path, status</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Path=".tech/shared.md"
+                            Kind="Technology stack"
+                            Metadata="@FileRecord"
+                            Vocabulary="@TechVocabulary"
+                            ShowMetadataFields="false"
+                            TestId="file-header-path-status" />
+            </div>
+
+            <p class="sb-label">The same header with no status at all — the path still holds the right edge</p>
+            <div class="sb-frame">
+                <FileHeader Name="notes.md"
+                            Path="docs/notes.md"
+                            Kind="Markdown"
+                            TestId="file-header-path-only" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A path longer than the header"
+           Description="It truncates inside the line rather than growing the header or pushing the status off it. Narrow the window and watch the ellipsis engage.
+
+Cut visually and never in the DOM: the whole string is there, so a screen reader reads what the ellipsis hides, and there is no `title` repeating it either — a native tooltip is not keyboard-reachable and the string is already the element's own text.
+
+Once the line is genuinely short of room both the name and the path give, in proportion to their own widths — so the long name gives the larger share, and it wraps while the path clips. What the truncation depends on is `min-width: 0`, on the identity column and on the path itself: without it a flex item refuses to shrink below a nowrap string and the header grows instead."
+           Code="@LongPathCode">
+        <div class="sb-narrow">
+            <div class="sb-frame" data-testid="file-header-long-path-frame">
+                <FileHeader Name="0002-backlog-module-owns-the-entry-text-language.md"
+                            Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
+                            Source="Repository"
+                            Kind="Architecture decision record"
+                            SizeInBytes="2048"
+                            TestId="file-header-long-path" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The file's own record, around the name it describes"
+           Description="A knowledge file states its status in a fence under its title. Read in the body that fence is at the top of a document — the one place a reader has already scrolled past by the time they think to ask whether any of it is still current — so the record is drawn around the name instead, on the part of the pane that stays put.
+
+`MetadataFileView` is the shape; this header hands it the name and the path as the record's headline and lets the status take the right edge of that line. The identity column takes the header's free space either way — that edge is the far end of the header whether the status is holding it or the path is — so a record changes what is on the line here and not the shape of it.
+
+The chapters keep theirs. A `##` fence describes the chapter under it, that heading is in the body, and it stays there."
+           Code="@RecordCode"
+           Source="@FileBlock"
+           SourceLabel="The fence the record was parsed from">
+        <div class="sb-frame" data-testid="file-header-record-frame">
+            <FileHeader Name="shared.md"
+                        Path=".tech/shared.md"
+                        Source="Repository"
+                        Kind="Technology stack"
+                        SizeInBytes="5837"
+                        Metadata="@FileRecord"
+                        Vocabulary="@TechVocabulary"
+                        TestId="file-header-record" />
+        </div>
+    </Story>
+
+    <Story Name="The record's second tier, on and off"
+           Description="`ShowMetadataFields` is the header's dial over everything that is not the status. Off, the record keeps the status beside the name and drops the rows underneath — which is what a narrow header asks for, and what the knowledge panes ask for: the status is the one part of a `meta` block with a reading behind it, and the rest is the fence again with the fence taken off.
+
+The fields tier keeps the record's own treatment either way — the extra-small type, the dim label column, the tight rows — because a status in the header and a status in the body have to read as one thing."
+           Code="@FieldsCode">
+        <div class="sb-stack">
+            <p class="sb-label">On — the fields under the status</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Path=".tech/shared.md"
+                            Kind="Technology stack"
+                            Metadata="@FileRecord"
+                            Vocabulary="@TechVocabulary"
+                            TestId="file-header-fields-on" />
+            </div>
+
+            <p class="sb-label">Off — the status alone</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Path=".tech/shared.md"
+                            Kind="Technology stack"
+                            Metadata="@FileRecord"
+                            Vocabulary="@TechVocabulary"
+                            ShowMetadataFields="false"
+                            TestId="file-header-fields-off" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A file that says nothing about itself"
+           Description="`null` and a block that states nothing are the same answer — the file said nothing — and the header still has to say which file it is. `MetadataFileView` owns that fallback rather than each host remembering to check: the record renders no element at all when it is empty, so a header that handed it the file's name would lose the name to a wrapper that stood down.
+
+Two heading fragments go down for that reason. Inside a record the headline is a row, so the name and the detail line go in as one wrapped item or the details would sit beside the name; with no record there is no row to be an item of, and the name goes in as this column's own content — exactly the markup it was before any of this existed."
+           Code="@EmptyCode">
+        <div class="sb-frame" data-testid="file-header-record-empty-frame">
+            <FileHeader Name="notes.md"
+                        Path="docs/notes.md"
+                        Source="Repository"
+                        Metadata="@MetadataRecord.Empty"
+                        Vocabulary="@TechVocabulary"
+                        TestId="file-header-record-empty" />
+        </div>
+    </Story>
+
+    <Story Name="Which status a reader picked"
+           Description="The headline offers a select wherever it can honestly be one — when the vocabulary names values and the status is one of them exactly — and the read-only badge everywhere else. Both are the application's status badge out of the same vocabulary, so the word is drawn the same whether or not it happens to be editable.
+
+`OnStatusChanged` hands back the word and nothing else. Which block it belongs to, and whether it is ever written, are the pane's business: the header does not know that the record came from the top of the file and could not write it if it did. The control keeps the choice on screen by itself, so a host wires this up to *persist* the change rather than to make the control work.
+
+Pick a status below — the second header is the same file scoped to no vocabulary at all, where the status is shown and simply not judged."
+           Code="@StatusCode">
+        <div class="sb-stack">
+            <p class="sb-label">A vocabulary the folder names — a select</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Path=".tech/shared.md"
+                            Kind="Technology stack"
+                            Metadata="@FileRecord"
+                            Vocabulary="@TechVocabulary"
+                            ShowMetadataFields="false"
+                            OnStatusChanged="HeardStatus"
+                            TestId="file-header-status-select" />
+            </div>
+
+            <p class="sb-label">No vocabulary — the same word, shown and not judged</p>
+            <div class="sb-frame">
+                <FileHeader Name="shared.md"
+                            Path=".tech/shared.md"
+                            Kind="Technology stack"
+                            Metadata="@FileRecord"
+                            ShowMetadataFields="false"
+                            TestId="file-header-status-blind" />
+            </div>
+
+            <Alert Message="@(_heard is null ? null : $"Reported to the host: {_heard}")" Role="status" />
+        </div>
+    </Story>
+
+    <Story Name="Copying the file, from the header that names it"
+           Description="`AllowCopy` puts a copy button in the action group. It copies `Body` — the file, not the rendering, because the source is what round trips, which is the same call `MarkdownView` makes for a chapter.
+
+Named after the file: “Copy” on its own says nothing about which of several panes on a page it belongs to, and the name is already here. A header handed no text has nothing to copy and should leave this off."
+           Code="@CopyCode">
+        <div class="sb-frame" data-testid="file-header-copy-frame">
+            <FileHeader Name="readme.md"
+                        Path="README.md"
+                        AllowCopy="true"
+                        Body="@Sample"
+                        TestId="file-header-copy" />
+        </div>
+    </Story>
+
+    <Story Name="One button, two meanings"
+           Description="`OffersEdit` is the answer to “would pressing this do anything?”, and that is a question only the pane can answer: editing needs a writable body to switch to, or a host listening for the switch. Permission is not enough, and a button that announced an edit and left the same file on screen would be a lie. So it arrives as a flag rather than being worked out here.
+
+`Editing` is which meaning the one button currently has, and it says so on its accessible name and its tooltip — an icon-only control has nowhere else to put the word. A pencil, then a tick, which is what this product already draws an edit and a done with everywhere else it draws one.
+
+Nothing offered draws no group at all, and no row of chrome where it would have been — the first frame."
+           Code="@EditCode">
+        <div class="sb-stack">
+            <p class="sb-label">Nothing offered</p>
+            <div class="sb-frame">
+                <FileHeader Name="readme.md" Path="README.md" TestId="file-header-no-actions" />
+            </div>
+
+            <p class="sb-label">Reading — the way in</p>
+            <div class="sb-frame">
+                <FileHeader Name="readme.md"
+                            Path="README.md"
+                            AllowCopy="true"
+                            Body="@Sample"
+                            OffersEdit="true"
+                            OnToggleEditing="@(() => Heard("Edit pressed"))"
+                            TestId="file-header-edit" />
+            </div>
+
+            <p class="sb-label">Editing — the same button, the other word</p>
+            <div class="sb-frame">
+                <FileHeader Name="readme.md"
+                            Path="README.md"
+                            AllowCopy="true"
+                            Body="@Sample"
+                            OffersEdit="true"
+                            Editing="true"
+                            OnToggleEditing="@(() => Heard("Done pressed"))"
+                            TestId="file-header-editing" />
+            </div>
+
+            <Alert Message="@(_heard is null ? null : $"Reported to the host: {_heard}")" Role="status" />
+        </div>
+    </Story>
+
+    <Story Name="Comparing is a state, not an act"
+           Description="A toggle rather than a button whose word flips: comparing is a state the pane is in, and `aria-pressed` is how that is said without renaming the control underneath a reader. Still a toggle now the word is a glyph — the state is the reason for the control, and an icon that changed nothing a screen reader could hear would only be the picture of one.
+
+`OffersCompare` is the same “would pressing this do anything?” as `OffersEdit`, and a narrower question: a file whose baselines all match it is a press that shows the reader what they are already looking at.
+
+Press it — the toggle reports the state it is asking for, and the pane is what decides whether to honour it."
+           Code="@CompareCode">
+        <div class="sb-frame" data-testid="file-header-compare-frame">
+            <FileHeader Name="domain.md"
+                        Path=".domain/backlog/domain.md"
+                        AllowCopy="true"
+                        Body="@Sample"
+                        OffersEdit="true"
+                        OffersCompare="true"
+                        Comparing="@_comparing"
+                        OnComparingChanged="HeardCompare"
+                        OnToggleEditing="@(() => Heard("Edit pressed"))"
+                        TestId="file-header-compare" />
+        </div>
+    </Story>
+
+    <Story Name="Which version, while comparing"
+           Description="The baseline picker appears only while `Comparing` and only when there is more than one version to pick. A picker for one baseline is a label that looks like a control, and a picker beside a file nobody is comparing is a question nobody asked — so both frames draw the toggle and only the first draws the row under it.
+
+`SelectedBaselineId` arrives resolved. “The one asked for, or the first offered” is a rule about a list the pane owns and may have just changed, so the pane applies it and the picker highlights what it is told rather than working it out from a list it does not control."
+           Code="@BaselinesCode">
+        <div class="sb-stack">
+            <p class="sb-label">Two versions — the picker, under the actions</p>
+            <div class="sb-frame">
+                <FileHeader Name="domain.md"
+                            Path=".domain/backlog/domain.md"
+                            OffersCompare="true"
+                            Comparing="true"
+                            CompareBaselines="@Baselines"
+                            SelectedBaselineId="@_baselineId"
+                            OnSelectBaseline="baseline => _baselineId = baseline.Id"
+                            TestId="file-header-two-baselines" />
+            </div>
+
+            <p class="sb-label">One version — comparing, and nothing to choose</p>
+            <div class="sb-frame">
+                <FileHeader Name="domain.md"
+                            Path=".domain/backlog/domain.md"
+                            OffersCompare="true"
+                            Comparing="true"
+                            CompareBaselines="@Baselines[..1]"
+                            SelectedBaselineId="opened"
+                            TestId="file-header-one-baseline" />
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#knowledge-metadata-blocks", "Which of a file's metadata blocks is drawn where."),
+        new("design-principles.md#low-chrome-content-first", "How much of a file pane may be header and actions."),
+        new("accessibility.md#iconography-accessibility", "What an icon-only action has to say in words."),
+        new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the content it describes.")
+    ];
+
+    private const string SplitNotice =
+        "This component decides nothing. Every reading is FileView's — the file's own record, the "
+        + "frontmatter, the blocks, the alignment of two versions — and so is every mode question: "
+        + "whether a comparison is showing, whose body is on screen, whether pressing Edit would do "
+        + "anything. Those answers have to be the same answer in the header and in the body, and the "
+        + "only way to guarantee one answer is for one component to give it.";
+
+    private string? _heard;
+    private string? _baselineId = "opened";
+    private bool _comparing;
+
+    private void Heard(string what) => _heard = what;
+
+    private void HeardCompare(bool comparing)
+    {
+        _comparing = comparing;
+        Heard($"Compare asked for {comparing}");
+    }
+
+    private void HeardStatus(string status) => Heard($"status: {status}");
+
+    /// <summary>The `.tech` vocabulary, held rather than resolved in the markup: a
+    /// fresh object is a changed parameter, and the record would re-render on every
+    /// pass. `KnowledgeStatus.Vocabulary` already returns one instance per folder,
+    /// so this is a name for it rather than a second copy.</summary>
+    private static readonly MetadataStatusVocabulary TechVocabulary =
+        KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech);
+
+    /// <summary>The file's own block, as a `.tech` chapter writes one. Parsed here
+    /// rather than hand-built, because what the header is handed is what
+    /// <c>MarkdownFileMetadata</c> read off the top of a real file.</summary>
+    private const string FileBlock = """
+        status: adopted
+        kind: framework
+        version: "10.0"
+        effort: 5
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        depends-on: [".tech/shared.md#c-language"]
+        """;
+
+    private static readonly MetadataRecord FileRecord = MetadataReader.Parse(FileBlock);
+
+    private static readonly FileCompareBaseline[] Baselines =
+    [
+        new("opened", "As opened", "# Backlog\n\nAs it was when the pane opened."),
+        new("commit", "Last commit", "# Backlog\n\nAs the last commit has it.")
+    ];
+
+    private const string Sample = """
+        # Shared Technologies
+
+        What the whole product is built on, and why each choice was made.
+
+        - The runtime, pinned
+        - The UI framework
+        - What was weighed against both
+        """;
+
+    private const string BareCode = """
+        @* The name is the only thing required. Everything else draws nothing when
+           it is absent, so one component covers both ends of what a host knows. *@
+        <FileHeader Name="@file.Name" />
+        """;
+
+    private const string DetailsCode = """
+        @* Joined with a middle dot in this order, each dropped when absent. Size is
+           nullable rather than 0: an absent fact beats a fabricated one. *@
+        <FileHeader Name="@file.Name"
+                    Source="Repository"
+                    Kind="Technology stack"
+                    SizeInBytes="@file.SizeInBytes" />
+        """;
+
+    private const string PathCode = """
+        @* Nothing at the call site says which comes first — the header's own layout
+           does. Name, then the path right-aligned in what is left, then the status
+           closing the line, whether or not there is a record to draw one from. *@
+        <FileHeader Name="@file.Name"
+                    Path="@file.Path"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)" />
+        """;
+
+    private const string LongPathCode = """
+        @* Nothing is shortened on the way in. The whole path goes to the element and
+           the stylesheet decides how much of it is drawn — cutting the string here
+           would make the header look right and tell a screen reader a path that is
+           not the file's. *@
+        <FileHeader Name="@file.Name" Path="@file.Path" />
+        """;
+
+    private const string RecordCode = """
+        @* FileView's header. The record was read from the top of the file, and the
+           body below is told to skip the fence it came from. *@
+        <FileHeader Name="@Name"
+                    Path="@Path"
+                    Kind="@KindValue"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    OnStatusChanged="ReportFileStatusAsync" />
+        """;
+
+    private const string FieldsCode = """
+        @* One dial over everything that is not the status. The knowledge panes set
+           it false: the status is the part of a meta block with a reading behind
+           it, and the rest is the fence read back as rows. *@
+        <FileHeader Name="@Name"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    ShowMetadataFields="@RenderKnowledgeMetadataFields" />
+        """;
+
+    private const string EmptyCode = """
+        @* No branch at the call site. Null and a block that states nothing are the
+           same answer, and MetadataFileView owns it — a header that checked for
+           itself would be one of several hosts remembering to. *@
+        <FileHeader Name="@Name" Path="@Path" Metadata="@_fileRecord?.Metadata" />
+        """;
+
+    private const string StatusCode = """
+        @* The vocabulary is what turns the status from a word into a value out of a
+           list — and what decides whether the headline can offer a select at all.
+           A knowledge surface resolves it from the folder; anything else states its
+           own words. *@
+        <FileHeader Name="@Name"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    OnStatusChanged="ReportFileStatusAsync" />
+        """;
+
+    private const string CopyCode = """
+        @* Copies the file, not the rendering. A header handed no text has nothing
+           to copy and leaves this off. *@
+        <FileHeader Name="@Name" AllowCopy="true" Body="@Body" />
+        """;
+
+    private const string EditCode = """
+        @* OffersEdit is "would pressing this do anything?", and only the pane can
+           answer that — so it arrives decided. The callback asks rather than tells:
+           the modes are exclusive and the pane enforces that. *@
+        <FileHeader Name="@Name"
+                    OffersEdit="@OffersEdit"
+                    Editing="@Editing"
+                    OnToggleEditing="ToggleEditingAsync" />
+        """;
+
+    private const string CompareCode = """
+        @* A toggle, because comparing is a state the pane is in. Not a two-way
+           binding: this asks, and the pane decides. *@
+        <FileHeader Name="@Name"
+                    OffersCompare="@OffersCompare"
+                    Comparing="@Comparing"
+                    OnComparingChanged="ToggleComparingAsync" />
+        """;
+
+    private const string BaselinesCode = """
+        @* Only while comparing, and only when there is a choice. The id arrives
+           resolved: "the one asked for, or the first offered" is a rule about a
+           list the pane owns. *@
+        <FileHeader Name="@Name"
+                    OffersCompare="@OffersCompare"
+                    Comparing="@Comparing"
+                    CompareBaselines="@CompareBaselines"
+                    SelectedBaselineId="@SelectedBaseline?.Id"
+                    OnSelectBaseline="SelectBaselineAsync" />
+        """;
+}

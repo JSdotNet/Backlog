@@ -1,0 +1,208 @@
+@*
+    One block of a document, drawn as whatever that block record says it is.
+
+    This switch used to live inside MarkdownView as a private fragment, which
+    made it unreachable from anywhere else — and the knowledge panels draw the
+    same blocks. Both had grown a copy of it wearing `knowledge-*` classes, and
+    the copies had already drifted apart from each other and from this one: a
+    paragraph was identical in all three, a diagram was not, and a list item was
+    three slightly different `li`s. The per-part class parameters are what make
+    one implementation serve all three — each replaces the class on one element,
+    and null drops that element's class attribute entirely, which is how a host
+    whose elements carry no class adopts this without gaining one.
+
+    What is deliberately not here: the pairing of a heading with the `meta` fence
+    under it, the chapter head's copy button, and the comment and proposal
+    gutter. Every one of those is a fact about a block's neighbours or about the
+    whole document, and a component handed a single block cannot know any of
+    them. They stay in MarkdownView, which does.
+
+    Only the class hooks the library or a host actually needs are here. A table's
+    and a footnote list's inner names are on MarkdownTableView and
+    MarkdownFootnotesView instead: nothing renders a knowledge table through this
+    switch — the knowledge panels' tables are different structures rather than an
+    MdTable with other class names — so forwarding those hooks would be
+    parameters nobody sets on the component every block goes through.
+*@
+
+@switch (Block)
+{
+    case MdHeading heading:
+        @* A heading, in one place. Still a paragraph, so it never joins the host
+           page's own outline, but carrying its level so heading navigation works
+           at all.
+
+           The class is written out rather than composed from a parameter:
+           nothing has asked to rename it, the stylesheet has to state a weight
+           for it because a `p` brings none, and the rule that checks the
+           stylesheet does so finds its premise by reading this markup. *@
+        <p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@Inlines(heading.Content)</p>
+        break;
+
+    case MdParagraph paragraph:
+        <p class="@ParagraphCssClass">@Inlines(paragraph.Content)</p>
+        break;
+
+    case MdList list:
+        <MarkdownListView List="@list"
+                          OnTaskItemToggled="@OnTaskItemToggled"
+                          InlineTarget="@InlineTarget"
+                          ListCssClass="@ListCssClass"
+                          ItemCssClass="@ListItemCssClass" />
+        break;
+
+    case MdQuote quote:
+        <blockquote class="@QuoteCssClass">@Inlines(quote.Content)</blockquote>
+        break;
+
+    case MdCode codeBlock:
+        @* A `meta` fence is a record, not a listing — but only where a host has
+           said it is reading a knowledge document. Everywhere else the fence is
+           still just a fenced block, which is what it has always rendered as. *@
+        @if (RenderKnowledgeMetadata && MetadataReader.IsMetaBlock(codeBlock.Language))
+        {
+            <MetadataView Metadata="@MetadataOf(codeBlock)"
+                               Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                               ShowFields="@RenderKnowledgeMetadataFields"
+                               OnNavigate="@OnKnowledgeNavigate"
+                               HrefFor="@KnowledgeHrefFor" />
+        }
+        else if (DrawsDiagram(codeBlock.Language))
+        {
+            <DiagramView Title="@DiagramTitle"
+                         Source="@codeBlock.Text"
+                         Language="@codeBlock.Language"
+                         ShowSource="@ShowDiagramSource" />
+        }
+        else
+        {
+            <pre class="@CodeCssClass"><code>@codeBlock.Text</code></pre>
+        }
+        break;
+
+    case MdTable table:
+        <MarkdownTableView Table="@table" InlineTarget="@InlineTarget" />
+        break;
+
+    case MdFootnotes footnotes:
+        <MarkdownFootnotesView Footnotes="@footnotes" InlineTarget="@InlineTarget" />
+        break;
+
+    case MdDivider:
+        <hr class="@DividerCssClass" />
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public MdBlock Block { get; set; } = new MdDivider();
+
+    /// <summary>How an inline in this block is read, forwarded verbatim to
+    /// <see cref="MarkdownRender"/> and to the sub-components. Null leaves every
+    /// inline rendering exactly as it always has, which is what keeps a code span
+    /// in an entry's body a code span.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>Raised with the index of the task line a reader toggled, passed
+    /// through to the list. Without it a checklist item is state rather than a
+    /// control.</summary>
+    [Parameter]
+    public EventCallback<int> OnTaskItemToggled { get; set; }
+
+    [Parameter]
+    public string? ParagraphCssClass { get; set; } = "md-p";
+
+    [Parameter]
+    public string? QuoteCssClass { get; set; } = "md-quote";
+
+    /// <summary>The class on the <c>pre</c> a fenced block that is not a diagram
+    /// renders as. The <c>code</c> inside it carries none, here or anywhere.</summary>
+    [Parameter]
+    public string? CodeCssClass { get; set; } = "md-code";
+
+    [Parameter]
+    public string? DividerCssClass { get; set; } = "md-divider";
+
+    /// <summary>The class on a list's <c>ol</c> or <c>ul</c>.</summary>
+    [Parameter]
+    public string? ListCssClass { get; set; } = "md-list";
+
+    /// <summary>The class an unordered list's item carries before its task
+    /// modifiers — see <c>MarkdownListView.ItemCssClass</c>, including what null
+    /// means and why the default is the empty string rather than nothing.</summary>
+    [Parameter]
+    public string? ListItemCssClass { get; set; } = "";
+
+    /// <summary>Whether a fenced <c>meta</c> block is read as the metadata record
+    /// it is. Off by default: most markdown in this product is not a knowledge
+    /// document, and where it is not, a `meta` fence is only a fenced block.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Whether a metadata record draws everything under the status as
+    /// well. Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Which knowledge folder the document was read from, so a status
+    /// can be checked against that folder's vocabulary.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Raised with the reference a reader activated in a metadata
+    /// block.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+
+    /// <summary>Whether a diagram drawn from a fence keeps its own source
+    /// disclosure. Forwarded verbatim to <c>DiagramView.ShowSource</c>.</summary>
+    [Parameter]
+    public bool ShowDiagramSource { get; set; } = true;
+
+    /// <summary>What a drawn diagram is called in its own caption. Forwarded
+    /// verbatim to <c>DiagramView.Title</c>, which shows it only for a language
+    /// it actually draws.</summary>
+    [Parameter]
+    public string DiagramTitle { get; set; } = "Backlog diagram";
+
+    /// <summary>
+    /// Whether a fence's language means "this is a diagram". The library's own
+    /// vocabulary by default.
+    ///
+    /// <para>A hook because a host may have decided already. The arc42 parser
+    /// reads every <c>c4*</c> fence as a diagram and the library draws none of
+    /// them, so a block that panel had already classified as a diagram would
+    /// arrive here and come back out as a code listing — the one place where
+    /// mapping a host's own block record onto <see cref="MdCode"/> loses
+    /// something. Answering the question is the host's; drawing it is still
+    /// DiagramView's, which is why a language it cannot render is still labelled
+    /// as the source it shows.</para>
+    /// </summary>
+    [Parameter]
+    public Func<string?, bool>? IsDiagram { get; set; }
+
+    /// <summary>Parsed metadata, kept per block. A view re-renders far more often
+    /// than its blocks change — every comment edit redraws all of them — and
+    /// re-parsing the same fence each time buys nothing.</summary>
+    private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
+
+    private bool DrawsDiagram(string? language) =>
+        IsDiagram?.Invoke(language) ?? DiagramView.IsDiagram(language);
+
+    private MetadataRecord MetadataOf(MdCode block)
+    {
+        if (_metadata.TryGetValue(block, out var parsed)) return parsed;
+
+        parsed = MetadataReader.Parse(block.Text);
+        _metadata[block] = parsed;
+        return parsed;
+    }
+
+    private RenderFragment Inlines(IReadOnlyList<MdInline> parts) =>
+        MarkdownRender.Inlines(parts, InlineTarget);
+}

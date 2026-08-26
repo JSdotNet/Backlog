@@ -100,6 +100,64 @@ Markdown remains canonical behind the rich text editor.
         Assert.IsType<DesignKnowledgeList>(Assert.Single(file.Sections[1].Blocks));
     }
 
+    [Fact]
+    public void A_root_document_still_declares_the_order_its_folder_is_read_in()
+    {
+        // The shared metadata record does not model `order`, because a directory's
+        // reading order is not metadata about the chapter whose fence it happens to
+        // share. .design still writes it in README.md, and this parser still reads
+        // it — for itself, the way the .domain and .tech readers already read
+        // theirs. Without this the pane would fall back to alphabetical and the
+        // folder would open with accessibility.md.
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "README.md");
+        File.WriteAllText(path, """
+# Design Knowledge
+
+```meta
+status: active
+order: ["design-principles.md", "color-scheme.md", "accessibility.md"]
+related: [".arc42/02-constraints.md"]
+```
+
+> The checked-in record of the design guidelines.
+""");
+
+        var file = DesignKnowledgeParser.ParseFile(folder.Path, path);
+
+        Assert.Equal(["design-principles.md", "color-scheme.md", "accessibility.md"], file.ReadingOrder);
+
+        // Read, and not collected as an unrecognised field: the shared reader knows
+        // the key and drops it, so it never reaches the record as Extra.
+        Assert.Empty(file.Meta.Extra);
+        Assert.Equal("active", file.Meta.Status);
+    }
+
+    [Fact]
+    public void A_chapters_own_block_does_not_get_to_reorder_the_folder_it_is_in()
+    {
+        // Only the file-level fence is consulted. A `##` block claiming an order
+        // would otherwise rearrange the sidebar from inside one section of one file.
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "color-scheme.md");
+        File.WriteAllText(path, """
+# Color scheme
+
+## Tones
+
+```meta
+status: active
+order: ["accessibility.md"]
+```
+
+Tones are folder-gated.
+""");
+
+        var file = DesignKnowledgeParser.ParseFile(folder.Path, path);
+
+        Assert.Empty(file.ReadingOrder);
+    }
+
     private sealed class TemporaryFolder : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));

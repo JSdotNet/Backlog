@@ -149,7 +149,7 @@ public sealed class MetadataBadgeCompatibilityTests
         var chosen = new List<string>();
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
-            .Add(b => b.Metadata, KnowledgeMeta.Parse("status: draft"))
+            .Add(b => b.Metadata, MetadataReader.Parse("status: draft"))
             .Add(b => b.Folder, KnowledgeFolder.Backlog)
             .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string>(this, chosen.Add)));
 
@@ -183,7 +183,7 @@ public sealed class MetadataBadgeCompatibilityTests
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Status, "ready")
             .Add(b => b.Related, ["ignored"])
-            .Add(b => b.Metadata, KnowledgeMeta.Parse("status: adopted\nkind: format")));
+            .Add(b => b.Metadata, MetadataReader.Parse("status: adopted\nkind: format")));
 
         Assert.Equal("adopted", badge.Find(".badge--status").TextContent);
         Assert.DoesNotContain("ignored", badge.Markup, StringComparison.Ordinal);
@@ -226,7 +226,7 @@ public sealed class MetadataBadgeCompatibilityTests
         using var context = new BunitContext();
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
-            .Add(b => b.Metadata, KnowledgeMetadata.Empty)
+            .Add(b => b.Metadata, MetadataRecord.Empty)
             .Add(b => b.Folder, KnowledgeFolder.Tech));
 
         Assert.Equal(string.Empty, badge.Markup.Trim());

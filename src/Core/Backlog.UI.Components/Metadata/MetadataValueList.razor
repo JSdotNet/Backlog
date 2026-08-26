@@ -1,0 +1,38 @@
+@*
+    A field whose values are plain strings and stay plain strings.
+
+    `alternatives` is this shape, and so is every value of a key the schema does not
+    define. A technology that was weighed and rejected was never written up, so
+    there is nothing an address could name — it is never parsed as one and may not
+    be dressed as one, whatever link resolver a host wires up. That is the
+    distinction this component exists to hold: it takes no href and no navigation
+    callback, so there is nothing here for a host to make followable.
+
+    `aliases` used to be drawn through here and is not any more. The difference is
+    that the term an alias names *is* modelled somewhere, so unlike a rejected
+    technology it is a word a host can be asked to place — see MetadataAliasList,
+    which is the same list with that one capability and a treatment to match.
+
+    Each value is a MetadataScalar, so one string looks the same whether it
+    arrived alone under `version` or as the third entry under `alternatives`. The
+    values sit adjacent with no separator between them; the gap is the stylesheet's,
+    so a value copied off the screen does not bring a comma with it.
+*@
+
+@foreach (var value in Values)
+{
+    <MetadataScalar Value="@value" ValueCssClass="@ValueCssClass" />
+}
+
+@code {
+    /// <summary>The values, in the order the file wrote them. An empty list draws
+    /// nothing at all — whether the row should be there is the caller's question,
+    /// not this component's.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Values { get; set; } = [];
+
+    /// <summary>The class each value wears, handed down to every entry so a list
+    /// cannot end up dressed differently from a lone scalar.</summary>
+    [Parameter]
+    public string? ValueCssClass { get; set; } = "knowledge-value";
+}

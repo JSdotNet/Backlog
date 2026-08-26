@@ -1,0 +1,358 @@
+﻿@page "/knowledge-base/chapter-and-file"
+
+<PageTitle>Chapter and file metadata — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Chapter and file"
+           Summary="A subpage of Knowledge base: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. Every story shows the `meta` fence its record was parsed from."
+           Guidelines="@Rules">
+    <Alert Message="@ShapeNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="One record, both shapes"
+           Description="The same parsed block, drawn as a chapter's and as a file's. Nothing about the record decides which: the fields are identical, and the shape is a fact about what the block was written under.
+
+Read the two headlines. On the left the heading *is* the record's first line — a chapter is a part of a document, and its status belongs on the line a reader is already looking at when they wonder whether that part is current. On the right the headline is the file's name and the line of detail under it, because the file's block answers for the whole document and a reader meets it where the document is identified rather than where its prose starts.
+
+Everything below the headline is the same tier in both, drawn by the same components, in the same order. That is the point of there being two components rather than two copies of one: what differs is the headline and where the shape is drawn, and nothing else was allowed to drift. Every field the schema has is in this block, so what you are comparing is the whole of both shapes and not the part a smaller sample happened to reach.
+
+The fence is in the disclosure below rather than beside the two columns, and that is the one story on this page where it belongs there. What is being claimed here is a comparison between two renderings — put a third column of source next to them and the thing to compare stops being obvious. The fence is the evidence you check once you have looked, so it is a click away, labelled, and the same text both shapes were handed."
+           Code="@BothCode"
+           Source="@SharedBlock"
+           SourceLabel="The fence body both shapes were given">
+        <div class="sb-columns" data-testid="knowledge-shapes-both">
+            <div class="sb-stack">
+                <p class="sb-label">Chapter — MetadataChapterView, the heading folded in</p>
+                <MetadataChapterView Metadata="@SharedRecord"
+                                     Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                     AriaLabel="The Runtime metadata"
+                                     TestId="knowledge-shapes-chapter"
+                                     Heading="@ChapterHeading" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">File — MetadataFileView, the name and its details as the headline</p>
+                <MetadataFileView Metadata="@SharedRecord"
+                                  Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                  AriaLabel="shared.md metadata"
+                                  CssClass="file-view__record"
+                                  TestId="knowledge-shapes-file"
+                                  Heading="@FileHeading"
+                                  HeadingAlone="@FileIdentity" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Chapter metadata"
+           Description="Where a reader meets it: reading a knowledge document, under every addressable `##`. `MarkdownView` decides which fence belongs to which heading — the convention is that the block sits directly under the heading it describes, before any prose — and hands the pair here. So the heading is required: a chapter record with no heading to fold into is the base component under a name that promises otherwise.
+
+The status is held to the right edge of the heading's line, and the row never wraps. Wrapping was what used to put a long heading and its status on two rows, which left the answer to “is this current?” underneath the thing it was describing. Now the heading is the item that gives — it shrinks and wraps its own text — and baseline alignment keeps the status on the heading's *first* line rather than drifting down beside its last. The second example is a heading long enough to show it.
+
+`ShowFields` is the reading surface's dial, not a different shape. Off, the record keeps its headline and drops the tier underneath: on a surface that is showing the file itself, those rows are the fence read back as label-and-value pairs, and the status is the part a reader came for.
+
+The source is beside the first example rather than folded away below, because *where the fence sits* is the shape being documented. A `meta` block directly under a `##`, before any prose, is a chapter's block; the same lines three paragraphs down are a record standing on its own. That is two lines of markdown doing the whole of the work, and a reader should not have to open a disclosure to see them."
+           Code="@ChapterCode">
+        <div class="sb-stack" data-testid="knowledge-shapes-chapter-detail">
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">What an author writes</p>
+                    <CodeView Source="@ChapterMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-shapes-chapter-source" />
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">The heading and the record it was paired with</p>
+                    <MetadataChapterView Metadata="@SharedRecord"
+                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                         AriaLabel="The Runtime metadata"
+                                         TestId="knowledge-shapes-chapter-paired"
+                                         Heading="@ChapterHeading" />
+                </div>
+            </div>
+
+            <p class="sb-label">A chapter, whole</p>
+            <MetadataChapterView Metadata="@SharedRecord"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 AriaLabel="The Runtime metadata"
+                                 TestId="knowledge-shapes-chapter-whole"
+                                 Heading="@ChapterHeading" />
+
+            <p class="sb-label">A heading long enough to wrap, with the status still on its first line</p>
+            <MetadataChapterView Metadata="@StatusOnly"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 AriaLabel="Long chapter metadata"
+                                 TestId="knowledge-shapes-chapter-long"
+                                 Heading="@LongChapterHeading" />
+
+            <p class="sb-label">The same chapter with the fields off — the status, and the heading it belongs to</p>
+            <MetadataChapterView Metadata="@SharedRecord"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 ShowFields="false"
+                                 AriaLabel="The Runtime status"
+                                 TestId="knowledge-shapes-chapter-reading"
+                                 Heading="@ChapterHeading" />
+        </div>
+    </Story>
+
+    <Story Name="File metadata"
+           Description="Where a reader meets it: the header of a pane that already says which file this is. Read in the body, the file's block is at the top of a document — the one place a reader has already scrolled past by the time they think to ask whether any of it is still current — so a surface with a header of its own takes the block up there and tells the read view underneath to skip the fence. `FileView` does that; *File view* → **The file's own block, in the header** is the same record inside the whole pane, and the classes on the headline below are that pane's.
+
+The file's status is set independently of its chapters'. A file may be adopted with a chapter in it still a draft, and neither is derived from the other — which is the whole reason this is a shape of its own rather than a chapter with a bigger heading.
+
+Two heading fragments, because the two cases are not the same markup. Inside the record the headline is a row, so the name and its detail line go in wrapped as one item — loose, they would sit beside each other with the status after both. With no record there is no row to be an item of, and the host's own markup goes in exactly as it always was. That fallback is the reason the emptiness question lives in the component: a header that handed the file's name to a record with nothing in it would lose the name to a wrapper that stood down, and every host drawing a file's record would have to remember to check. The fourth example is a file that says nothing about itself.
+
+The first pair is the point of the story and reads left to right. On the left, the fence as an author writes it, under the `#` title — inline rather than folded away, because the whole claim here is that a block written at the top of the body is drawn somewhere else entirely, and a reader cannot check that against a disclosure they have not opened. In the middle, `FileHeader` — the component that actually draws it, with the name, the path and the detail line the record wraps around. On the right, `MetadataFileView` alone: the same record with the header taken away, which is what the rest of this page is about. The bare one is the shape; the header is where a reader meets it."
+           Code="@FileCode">
+        <div class="sb-stack" data-testid="knowledge-shapes-file-detail">
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">What an author writes, under the title</p>
+                    <CodeView Source="@FileMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-shapes-file-source" />
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">Where a reader meets it — FileHeader, the pane's own header</p>
+                    <FileHeader Name="shared.md"
+                                Path=".tech/shared.md"
+                                Source=".tech"
+                                Kind="Technology stack"
+                                Metadata="@SharedRecord"
+                                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                TestId="knowledge-shapes-file-header" />
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">The shape on its own — MetadataFileView, no header around it</p>
+                    <MetadataFileView Metadata="@SharedRecord"
+                                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                      AriaLabel="shared.md metadata"
+                                      CssClass="file-view__record"
+                                      TestId="knowledge-shapes-file-alone"
+                                      Heading="@FileHeading"
+                                      HeadingAlone="@FileIdentity" />
+                </div>
+            </div>
+
+            <p class="sb-label">A file, whole</p>
+            <MetadataFileView Metadata="@SharedRecord"
+                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              AriaLabel="shared.md metadata"
+                              CssClass="file-view__record"
+                              TestId="knowledge-shapes-file-whole"
+                              Heading="@FileHeading"
+                              HeadingAlone="@FileIdentity" />
+
+            <p class="sb-label">The same file with the fields off, which is what a narrow header asks for</p>
+            <MetadataFileView Metadata="@SharedRecord"
+                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              ShowFields="false"
+                              AriaLabel="shared.md status"
+                              CssClass="file-view__record"
+                              TestId="knowledge-shapes-file-reading"
+                              Heading="@FileHeading"
+                              HeadingAlone="@FileIdentity" />
+
+            <p class="sb-label">A file with no block of its own — the name, and no record around it</p>
+            <MetadataFileView Metadata="@MetadataRecord.Empty"
+                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              AriaLabel="notes.md metadata"
+                              CssClass="file-view__record"
+                              TestId="knowledge-shapes-file-bare"
+                              Heading="@BareFileHeading"
+                              HeadingAlone="@BareFileIdentity" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),
+        new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes."),
+        new("design-principles.md#low-chrome-content-first", "How much of a pane a file's own record may take."),
+        new("README.md#status-vocabulary", "The status words either block may carry.")
+    ];
+
+    private const string ShapeNotice =
+        "Neither component draws markup of its own. Both are MetadataView with the headline decided and, "
+        + "for a file, the answer to “what if there is no record?” — so a chapter and a file are the same "
+        + "record, the same rows and the same status control, differing in the one thing that is genuinely "
+        + "different about them. A third case is neither: a `meta` fence with no heading above it is a "
+        + "record standing on its own, and MarkdownBlockView draws that with MetadataView directly.";
+
+    /// <summary>
+    /// One block, read once, drawn by both shapes. Deliberately the same instance
+    /// rather than two parses of the same text: the claim on this page is that the
+    /// shapes differ in their headline and in nothing else, and two records would
+    /// leave room for that not to be true.
+    ///
+    /// <para>Every field the record models, for the same reason the parent page's
+    /// every-field block holds every field: a shape drawn over four of twelve
+    /// fields is a shape nobody has actually seen. It is the one block on these
+    /// pages that no folder would write — the schema is folder-specific and half of
+    /// these fields are meaningless together — and the values are taken from the
+    /// real blocks they belong to rather than invented. <c>roadmap</c> is the one
+    /// field left out, and left out on purpose: it is not drawn in this
+    /// storybook.</para>
+    /// </summary>
+    private const string SharedBlock = """
+        status: adopted
+        kind: runtime
+        version: "10.0"
+        effort: 5
+        issue: JSdotNet/Backlog#118
+        depends-on: [".tech/shared.md#c-language"]
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        feature-flag: [inbox-pane, inbox-filters]
+        aliases: [TaskItem, backlog_entry_id]
+        alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
+        owner: platform-team
+        """;
+
+    private static readonly MetadataRecord SharedRecord = MetadataReader.Parse(SharedBlock);
+
+    /// <summary>
+    /// The same block as an author writes it, under the <c>##</c> it describes.
+    ///
+    /// <para>Interpolated from <see cref="SharedBlock"/> rather than written out a
+    /// second time. The claim these stories make is that the record on screen is
+    /// the record this fence parsed to, and two copies of the fence body is exactly
+    /// how that stops being true.</para>
+    /// </summary>
+    private static readonly string ChapterMarkdown = $"""
+        ## The Runtime
+
+        ```meta
+        {SharedBlock}
+        ```
+
+        What the product runs on, and what it would cost to move off it.
+        """;
+
+    /// <summary>The same block under a <c>#</c> title, which is the whole of what
+    /// makes it the file's rather than a chapter's.</summary>
+    private static readonly string FileMarkdown = $"""
+        # Shared Technologies
+
+        ```meta
+        {SharedBlock}
+        ```
+
+        What the whole product is built on.
+
+        ## The Runtime
+
+        ...
+        """;
+
+    /// <summary>A block that states only its status, for the wrapping example: the
+    /// tier underneath would draw the eye away from the one line being looked
+    /// at.</summary>
+    private static readonly MetadataRecord StatusOnly = MetadataReader.Parse("status: candidate");
+
+    /// <summary>
+    /// A chapter's heading, in the markup a document hands down.
+    ///
+    /// <para>Written out here rather than rendered from markdown, because a heading
+    /// inside a headline is what is being shown and a whole read view around it
+    /// would bring its own wrapper and its own scroll. The real thing — the same
+    /// pairing decided by MarkdownView over a real file — is the parent page's
+    /// first story. What matters for the layout is that the heading arrives as one
+    /// element with block margins of its own, which is exactly what
+    /// <c>.knowledge-record__headline .md-heading</c> exists to flatten.</para>
+    /// </summary>
+    private readonly RenderFragment ChapterHeading =
+        @<p class="md-heading md-heading--2" role="heading" aria-level="2">The Runtime</p>;
+
+    private readonly RenderFragment LongChapterHeading =
+        @<p class="md-heading md-heading--2" role="heading" aria-level="2">A chapter whose heading runs on long enough that the line it is on has to give somewhere</p>;
+
+    /// <summary>The file's name and its detail line, wrapped as one item of the
+    /// record's headline. The classes are FileView's, because that is the host this
+    /// shape was drawn for: the wrapper is what gives the row two items to align
+    /// instead of three, and baseline alignment then takes the name's
+    /// baseline.</summary>
+    private readonly RenderFragment FileHeading =
+        @<div class="file-view__headline">
+            <h3 class="file-view__name">shared.md</h3>
+            <p class="file-view__meta">.tech · Technology stack</p>
+        </div>;
+
+    /// <summary>The same two lines with no record around them. Not wrapped: there
+    /// is no row here to be an item of.</summary>
+    private readonly RenderFragment FileIdentity =
+        @<text>
+            <h3 class="file-view__name">shared.md</h3>
+            <p class="file-view__meta">.tech · Technology stack</p>
+        </text>;
+
+    private readonly RenderFragment BareFileHeading =
+        @<div class="file-view__headline">
+            <h3 class="file-view__name">notes.md</h3>
+        </div>;
+
+    private readonly RenderFragment BareFileIdentity =
+        @<h3 class="file-view__name">notes.md</h3>;
+
+    private const string BothCode = """
+        @* One record, two shapes. Which one a host draws is a fact about where
+           the block was written, not about what it says. *@
+        <MetadataChapterView Metadata="@chapter.Metadata"
+                             Vocabulary="@KnowledgeStatus.Vocabulary(folder)"
+                             Heading="@RenderHeading(chapter)" />
+
+        <MetadataFileView Metadata="@file?.Metadata"
+                          Vocabulary="@KnowledgeStatus.Vocabulary(folder)"
+                          Heading="@NameLine"
+                          HeadingAlone="@NameLine" />
+        """;
+
+    private const string ChapterCode = """
+        @* MarkdownView pairs a heading with the fence directly under it and hands
+           the pair over. The heading is required: the pairing is the shape. *@
+        @if (PairedMetaFence(index) is { } fence)
+        {
+            <MetadataChapterView Metadata="@MetadataOf(fence)"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                                 ShowFields="@RenderKnowledgeMetadataFields"
+                                 OnStatusChanged="status => ReportStatusAsync(index, status)"
+                                 Heading="@RenderChapterHead(heading, index)" />
+        }
+        else
+        {
+            @* No fence, no record — and the heading is a block in the document
+               either way, so the host draws it. *@
+            @RenderChapterHead(heading, index)
+        }
+        """;
+
+    private const string FileCode = """
+        @* Where it comes from. FileView reads the record off the top of the file
+           and tells the read view below to skip the fence it came from. *@
+        <FileHeader Name="@Name"
+                    Path="@Path"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    ShowMetadataFields="@RenderKnowledgeMetadataFields"
+                    OnStatusChanged="ReportFileStatusAsync" />
+
+        @* What the header draws with it — the name and its detail line wrapped as
+           one item, then the path. The same fragment both ways: the header's
+           heading is a row because the path is on it, so with no record the
+           identity column is made the row instead. *@
+        <MetadataFileView Metadata="@Metadata"
+                          Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                          ShowFields="@ShowMetadataFields"
+                          OnStatusChanged="@OnStatusChanged"
+                          AriaLabel="@($"{Name} metadata")"
+                          CssClass="file-view__record"
+                          Heading="@NameLine"
+                          HeadingAlone="@NameLine" />
+
+        @* Inside: null and a block that states nothing are the same answer, and
+           the header still has to say which file this is. *@
+        @if (Metadata is { IsEmpty: false } record)
+        {
+            <MetadataView Metadata="@record" Heading="@Heading" ... />
+        }
+        else
+        {
+            @HeadingAlone
+        }
+        """;
+}

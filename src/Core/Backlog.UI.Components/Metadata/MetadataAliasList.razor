@@ -1,0 +1,70 @@
+@*
+    The surface names a term is also known by, each drawn as the qualifier it is.
+
+    An alias applies to a name. `TaskItem` is not a fact about the chapter in the way
+    a status or a version is — it is another word for the thing the chapter is about
+    — so it is drawn the way a qualifier is drawn: a small badge set above the
+    baseline of the text it belongs to. `.badge--alias` carries that treatment, and
+    it is relative rather than fixed so an alias is a step smaller than whatever it
+    is qualifying, whether that is a term in a domain pane or a row in a metadata
+    record.
+
+    Followable where a host can resolve one, and only then. This is the split against
+    MetadataValueList, which is where an alias used to be drawn: that component takes
+    no href and no handler on purpose, because an `alternatives` entry names something
+    that was rejected and so was never written up. An alias is different — the term it
+    names *is* modelled somewhere, and a host holding a naming index can say where. So
+    the resolver is asked per alias, and the tri-state is Badge's: an address makes it
+    an anchor, a delegate makes it a button, neither leaves it the span every other
+    badge is. Nothing here invents a destination; an alias with no answer stays
+    unfollowable rather than becoming a link to a page nobody wrote.
+
+    Asked per alias rather than once for the field, for MetadataReferenceList's
+    reason inverted: there the whole field is offered the same way because a resolver
+    that answered for one address and not its sibling would be making a claim about
+    the two targets. Here the claim *is* about the individual word — one alias may be
+    the canonical term's own class name and the next a legacy column name — so a host
+    that can place one and not the other is telling the truth by saying so.
+*@
+
+@foreach (var alias in Aliases)
+{
+    <Badge Kind="alias"
+           Title="@($"alias: {alias}")"
+           CssClass="@AliasCssClass"
+           Href="@HrefFor?.Invoke(alias)"
+           OnClick="@Select(alias)">@alias</Badge>
+}
+
+@code {
+    /// <summary>The aliases, in the order the file wrote them. Empty draws nothing;
+    /// whether the row belongs at all is the caller's question.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Aliases { get; set; } = [];
+
+    /// <summary>Resolves one alias to a link target. The host owns the mapping from
+    /// a word to wherever the term is modelled; returning null leaves that alias a
+    /// plain badge rather than a link to nowhere.</summary>
+    [Parameter]
+    public Func<string, string?>? HrefFor { get; set; }
+
+    /// <summary>Raised with the alias a reader activated, for a surface that routes
+    /// in-process and has no address to hand over. Ignored for an alias
+    /// <see cref="HrefFor"/> already answered for: a link navigates, and two ways to
+    /// reach one place is one too many.</summary>
+    [Parameter]
+    public EventCallback<string> OnSelect { get; set; }
+
+    /// <summary>A modifier on each badge, on top of the classes Badge carries.</summary>
+    [Parameter]
+    public string? AliasCssClass { get; set; }
+
+    /// <summary>The click for one alias, or nothing at all. An empty
+    /// <c>EventCallback</c> reports no delegate, which is exactly what Badge reads to
+    /// decide against drawing a button — so an unwired list renders spans rather than
+    /// controls that refuse.</summary>
+    private EventCallback<MouseEventArgs> Select(string alias) =>
+        OnSelect.HasDelegate
+            ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnSelect.InvokeAsync(alias))
+            : default;
+}

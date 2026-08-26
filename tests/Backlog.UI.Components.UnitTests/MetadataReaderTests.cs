@@ -6,12 +6,12 @@ namespace Backlog.UI.Components.UnitTests;
 /// `.arc42` template still writes the empty forms the convention asks authors to
 /// omit. The fixtures here are lifted from real files for exactly that reason.
 /// </summary>
-public sealed class KnowledgeMetaParserTests
+public sealed class MetadataReaderTests
 {
     [Fact]
     public void A_block_with_only_a_status_reads_back_as_that_status()
     {
-        var meta = KnowledgeMeta.Parse("status: active");
+        var meta = MetadataReader.Parse("status: active");
 
         Assert.Equal("active", meta.Status);
         Assert.False(meta.IsEmpty);
@@ -22,7 +22,7 @@ public sealed class KnowledgeMetaParserTests
     public void A_quoted_inline_list_is_read_as_references()
     {
         // Verbatim from .tech/shared.md.
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: candidate
             related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
             """);
@@ -39,7 +39,7 @@ public sealed class KnowledgeMetaParserTests
     public void An_unquoted_inline_list_is_read_the_same_way()
     {
         // Verbatim from .backlog/domain-backlog.md.
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             implements: [.domain/backlog/features.md#feature-roadmap-planning]
             related: [.domain/environment/features.md#feature-environment-aware-work-context]
@@ -53,7 +53,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void A_block_list_under_a_bare_key_is_read_as_references()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: active
             related:
               - .arc42/01-introduction.md
@@ -70,7 +70,7 @@ public sealed class KnowledgeMetaParserTests
     {
         // The convention says to omit these, and this repository's own .arc42
         // template writes them anyway. Both have to mean "nothing stated".
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             related: []
             issue: null
@@ -85,7 +85,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void A_hash_inside_a_reference_is_a_chapter_separator_and_never_a_comment()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: adopted
             depends-on: [".tech/shared.md#markdown"]
             issue: JSdotNet/Backlog#42
@@ -99,7 +99,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void An_issue_url_keeps_its_colon_and_its_hash()
     {
-        var meta = KnowledgeMeta.Parse("issue: https://github.com/JSdotNet/Backlog/issues/42#issuecomment-1");
+        var meta = MetadataReader.Parse("issue: https://github.com/JSdotNet/Backlog/issues/42#issuecomment-1");
 
         Assert.Equal("https://github.com/JSdotNet/Backlog/issues/42#issuecomment-1", meta.Issue);
     }
@@ -109,7 +109,7 @@ public sealed class KnowledgeMetaParserTests
     {
         // A reader that discarded it would make a genuine schema addition look
         // like a file that never said anything.
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: active
             owner: platform-team
             reviewers: [ana, bo]
@@ -122,7 +122,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void A_reference_entry_that_does_not_parse_is_kept_verbatim()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: active
             related: [".arc42/01-introduction.md", "#dangling"]
             """);
@@ -134,7 +134,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void Aliases_are_plain_strings_and_are_never_read_as_references()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: active
             aliases: ["OrderLine", "order_line_id"]
             """);
@@ -147,7 +147,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void Alternatives_are_plain_strings_too()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: adopted
             alternatives: [YamlDotNet, Markdig]
             """);
@@ -158,7 +158,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void An_effort_reads_back_as_the_integer_it_states()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             effort: 5
             """);
@@ -172,7 +172,7 @@ public sealed class KnowledgeMetaParserTests
     public void An_effort_of_zero_is_an_estimate_and_never_read_as_unset()
     {
         // Zero story points is a real answer, distinct from "not estimated".
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             effort: 0
             """);
@@ -184,7 +184,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void An_omitted_effort_is_null()
     {
-        var meta = KnowledgeMeta.Parse("status: draft");
+        var meta = MetadataReader.Parse("status: draft");
 
         Assert.Null(meta.Effort);
     }
@@ -192,7 +192,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void An_effort_of_null_reads_as_no_estimate()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             effort: null
             """);
@@ -209,7 +209,7 @@ public sealed class KnowledgeMetaParserTests
     {
         // This side is a reader: a value it cannot parse surfaces as "no effort"
         // rather than an exception. The generator is what flags it as an error.
-        var meta = KnowledgeMeta.Parse($"""
+        var meta = MetadataReader.Parse($"""
             status: draft
             effort: {value}
             """);
@@ -220,7 +220,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void Roadmap_entries_are_plain_strings_and_are_never_read_as_references()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             roadmap: [sync-service, mobile-mvp]
             """);
@@ -234,7 +234,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void A_roadmap_block_list_is_read_the_same_as_the_inline_form()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             roadmap:
               - sync-service
@@ -247,7 +247,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void An_empty_roadmap_reads_as_absent()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             roadmap: []
             """);
@@ -257,22 +257,80 @@ public sealed class KnowledgeMetaParserTests
     }
 
     [Fact]
-    public void Order_lists_sibling_names_and_stays_as_written()
+    public void Order_is_read_recognised_and_dropped_rather_than_kept_as_unknown()
     {
-        // Verbatim from .tech/technology-graph.md.
-        var meta = KnowledgeMeta.Parse("""
+        // The line is verbatim from .tech/technology-graph.md, which still writes
+        // it: order is not metadata about a chapter, so the schema does not model
+        // it, and a folder that wants a reading order reads it for itself.
+        //
+        // Recognised, not unknown. Taking it out of the reader's known-field set
+        // would move it into Extra and draw it under its own name, which states the
+        // field more loudly than modelling it ever did.
+        var meta = MetadataReader.Parse("""
             status: candidate
             order: ["shared.md", "backend.md", "web.md", "tooling.md"]
             """);
 
-        Assert.Equal(["shared.md", "backend.md", "web.md", "tooling.md"], meta.Order);
+        Assert.Equal("candidate", meta.Status);
+        Assert.Empty(meta.Extra);
+        Assert.False(meta.Extra.ContainsKey("order"));
         Assert.Empty(meta.References);
+    }
+
+    [Fact]
+    public void A_block_stating_only_order_states_nothing_at_all()
+    {
+        // Nothing survives the field, so there is no record left. A block that came
+        // back non-empty would leave every reading surface drawing a frame around a
+        // field it will never show.
+        var meta = MetadataReader.Parse("order: [overview.md, backlog]");
+
+        Assert.True(meta.IsEmpty);
+        Assert.Empty(meta.Extra);
+    }
+
+    [Fact]
+    public void Feature_flag_is_read_as_plain_strings_in_both_shapes()
+    {
+        // Both lines are shapes .domain writes today: one flag on its own, and
+        // several delivering one chapter. Plain application identifiers and
+        // explicitly not references — the flag lives in the application's own
+        // catalog, so there is nothing here to address.
+        var one = MetadataReader.Parse("""
+            status: active
+            feature-flag: inbox-pane
+            """);
+
+        var several = MetadataReader.Parse("""
+            status: active
+            feature-flag: [inbox-pane, inbox-filters]
+            """);
+
+        Assert.Equal(["inbox-pane"], one.FeatureFlag);
+        Assert.Equal(["inbox-pane", "inbox-filters"], several.FeatureFlag);
+
+        // No graph edge, and nothing under Extra: it used to land there, drawn as a
+        // field the schema had never heard of.
+        Assert.Empty(several.References);
+        Assert.Empty(several.Extra);
+    }
+
+    [Fact]
+    public void A_block_stating_only_a_feature_flag_is_not_empty()
+    {
+        // IsEmpty decides whether a record is drawn at all, so a field it does not
+        // count is a field that can be the only thing in a block and still leave the
+        // block invisible.
+        var meta = MetadataReader.Parse("feature-flag: inbox-pane");
+
+        Assert.False(meta.IsEmpty);
+        Assert.Equal(["inbox-pane"], meta.FeatureFlag);
     }
 
     [Fact]
     public void Kind_and_version_are_read_and_a_quoted_version_loses_its_quotes()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: adopted
             kind: framework
             version: "10.0"
@@ -285,7 +343,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void Keys_are_read_case_insensitively_and_stray_whitespace_is_ignored()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
 
               Status:   active
               Kind:  library
@@ -299,7 +357,7 @@ public sealed class KnowledgeMetaParserTests
     [Fact]
     public void References_run_related_then_depends_on_then_implements_without_repeats()
     {
-        var meta = KnowledgeMeta.Parse("""
+        var meta = MetadataReader.Parse("""
             status: draft
             related: [.arc42/01-introduction.md]
             depends-on: [.tech/shared.md#markdown, .arc42/01-introduction.md]
@@ -322,7 +380,7 @@ public sealed class KnowledgeMetaParserTests
     [InlineData("nothing parseable here")]
     public void A_block_that_states_nothing_is_empty(string? body)
     {
-        Assert.True(KnowledgeMeta.Parse(body).IsEmpty);
+        Assert.True(MetadataReader.Parse(body).IsEmpty);
     }
 
     [Theory]
@@ -334,7 +392,7 @@ public sealed class KnowledgeMetaParserTests
     [InlineData(null, false)]
     public void Only_a_meta_fence_opens_a_metadata_block(string? language, bool expected)
     {
-        Assert.Equal(expected, KnowledgeMeta.IsMetaBlock(language));
+        Assert.Equal(expected, MetadataReader.IsMetaBlock(language));
     }
 
     [Fact]
@@ -342,7 +400,7 @@ public sealed class KnowledgeMetaParserTests
     {
         var body = "status: active";
 
-        Assert.True(KnowledgeMeta.ParseFence("yaml", body).IsEmpty);
-        Assert.Equal("active", KnowledgeMeta.ParseFence("meta", body).Status);
+        Assert.True(MetadataReader.ParseFence("yaml", body).IsEmpty);
+        Assert.Equal("active", MetadataReader.ParseFence("meta", body).Status);
     }
 }

@@ -4,14 +4,15 @@ using Backlog.UI.Components.Markdown;
 
 using Backlog.Modules.Knowledge.Abstractions;
 
-// Aliased rather than imported, because both names are already taken in this
-// namespace: the arc42 reader grew a `KnowledgeMeta` of its own and the
-// technology reader a `KnowledgeMetadata`, each predating the shared pair.
-// Design is the first of the three to read a block through the library; moving
-// the other two is their own change, and until then an unqualified name here
-// would silently resolve to the neighbour rather than to the library.
-using KnowledgeRecord = Backlog.UI.Components.Knowledge.KnowledgeMetadata;
-using KnowledgeRecordReader = Backlog.UI.Components.Knowledge.KnowledgeMeta;
+// Imported rather than aliased, which it was until the shared pair was renamed.
+// Both of its old names were taken in this namespace — the arc42 reader grew a
+// `KnowledgeMeta` of its own and the technology reader a `KnowledgeMetadata`,
+// each predating the shared pair — so an unqualified name here would silently
+// have resolved to the neighbour rather than to the library. `MetadataRecord`
+// and `MetadataReader` collide with nothing, so the aliases the collision needed
+// are gone. Design is still the first of the three readers to read a block
+// through the library; moving the other two is their own change.
+using Backlog.UI.Components.Metadata;
 
 namespace Backlog.Desktop.UI.Knowledge;
 
@@ -87,7 +88,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         if (byName.TryGetValue("README.md", out var readme))
         {
             ordered.Add(readme);
-            foreach (var fileName in readme.Meta.Order)
+            foreach (var fileName in readme.ReadingOrder)
             {
                 if (byName.TryGetValue(fileName, out var file) && !ordered.Contains(file))
                 {
@@ -167,7 +168,48 @@ public static class DesignKnowledgeParser
             title,
             string.Join(' ', summaryLines).Trim(),
             meta,
-            sections);
+            sections,
+            ReadReadingOrder(lines));
+    }
+
+    /// <summary>
+    /// The sibling file names <c>.design/README.md</c> lists in its own fence, which
+    /// is the order the pane shows the folder in.
+    ///
+    /// <para>Read here rather than off the shared record. It is not metadata about
+    /// the chapter it sits under — it is a directory listing that happens to be
+    /// written in the same fence — so the shared schema does not model it, and a
+    /// folder that wants it reads it itself. <c>DomainKnowledgeStore</c> and
+    /// <c>TechnologyKnowledge</c> already do the same for their own roots.</para>
+    ///
+    /// <para>Only the file-level fence is consulted: the first one in the file, and
+    /// only when it opens before any <c>##</c> heading. A chapter does not get to
+    /// reorder the folder it is in.</para>
+    /// </summary>
+    private static IReadOnlyList<string> ReadReadingOrder(string[] lines)
+    {
+        var index = 0;
+        while (index < lines.Length && !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
+        {
+            // A `##` before the fence means the file states no block of its own.
+            if (lines[index].StartsWith("## ", StringComparison.Ordinal)) return [];
+            index++;
+        }
+
+        for (index++; index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal); index++)
+        {
+            var line = lines[index].Trim();
+            if (!line.StartsWith("order:", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var value = line["order:".Length..].Trim();
+            if (value.StartsWith('[') && value.EndsWith(']')) value = value[1..^1];
+
+            return [.. value.Split(',')
+                .Select(item => item.Trim().Trim('"', '\'').Trim())
+                .Where(item => item.Length > 0)];
+        }
+
+        return [];
     }
 
     private static IReadOnlyList<DesignKnowledgeBlock> ParseBlocks(string[] lines)
@@ -337,11 +379,11 @@ public static class DesignKnowledgeParser
     /// fields absent.
     /// </para>
     /// </summary>
-    private static KnowledgeRecord TryParseMeta(string[] lines, ref int index)
+    private static MetadataRecord TryParseMeta(string[] lines, ref int index)
     {
         if (index >= lines.Length || !lines[index].Trim().Equals("```meta", StringComparison.OrdinalIgnoreCase))
         {
-            return KnowledgeRecord.Empty;
+            return MetadataRecord.Empty;
         }
 
         index++;
@@ -353,7 +395,7 @@ public static class DesignKnowledgeParser
         }
 
         if (index < lines.Length) index++;
-        return KnowledgeRecordReader.Parse(string.Join('\n', body));
+        return MetadataReader.Parse(string.Join('\n', body));
     }
 
     private static bool TryParseHeading(string line, out ParsedHeading heading)
@@ -397,8 +439,9 @@ public sealed record DesignKnowledgeFile(
     string FileName,
     string Title,
     string Summary,
-    KnowledgeRecord Meta,
-    IReadOnlyList<DesignKnowledgeSection> Sections)
+    MetadataRecord Meta,
+    IReadOnlyList<DesignKnowledgeSection> Sections,
+    IReadOnlyList<string> ReadingOrder)
 {
     public IEnumerable<DesignKnowledgeTable> TokenTables =>
         Sections.SelectMany(section => section.Blocks.OfType<DesignKnowledgeTable>()).Where(table => table.IsTokenTable);
@@ -407,7 +450,7 @@ public sealed record DesignKnowledgeFile(
 public sealed record DesignKnowledgeSection(
     string Heading,
     string Anchor,
-    KnowledgeRecord Meta,
+    MetadataRecord Meta,
     IReadOnlyList<DesignKnowledgeBlock> Blocks);
 
 // DesignKnowledgeMeta was here: a second reader for the `meta` fence, keeping a
@@ -415,7 +458,7 @@ public sealed record DesignKnowledgeSection(
 // stated. Both were visible to the reader — `related` reached the pane as raw
 // paths because nothing had parsed them into references, and a chapter that said
 // nothing was labelled with a word the folder does not define. The shared
-// KnowledgeMetadata is the one record now.
+// MetadataRecord is the one record now.
 
 public abstract record DesignKnowledgeBlock;
 

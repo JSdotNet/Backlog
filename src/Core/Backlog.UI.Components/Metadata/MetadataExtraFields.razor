@@ -1,0 +1,37 @@
+@*
+    Every key the schema does not define, drawn as itself.
+
+    The convention says not to invent fields, and this is what happens when one is
+    invented anyway — or, far more usefully, when the schema genuinely grows and
+    this library has not caught up. A reader that dropped an unknown key would make
+    that addition invisible: the field would be in the file, absent from the view,
+    and nobody could tell which of the two was wrong.
+
+    It is also where a `related` entry that will not parse as an address lands,
+    under the relation it was written on. A typo is only useful once it is visible.
+
+    The values are plain strings and stay plain strings. Nothing here knows what an
+    unrecognised key means, so nothing here may promise a destination for it — the
+    quiet value treatment is the honest one.
+
+    Rows, and not a value cell like the other field components. How many rows there
+    are is a property of the file rather than of the schema, and each row's label is
+    a key nobody knew about, so the record cannot lay them out in advance.
+
+    A key the reader recognises and deliberately drops never arrives here. `order`
+    is the one of those: see MetadataReader.KnownFields for why moving a field out of
+    the schema is not the same as moving it into this list.
+*@
+
+@foreach (var (key, values) in Extra)
+{
+    <MetadataField Label="@key"><MetadataValueList Values="@values" /></MetadataField>
+}
+
+@code {
+    /// <summary>The unrecognised keys and their values, in the order the reader
+    /// collected them. Empty draws nothing at all.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Extra { get; set; } =
+        new Dictionary<string, IReadOnlyList<string>>();
+}

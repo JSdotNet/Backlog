@@ -3,72 +3,67 @@
 <PageTitle>File view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File view"
-           Summary="FileView shows one file: what it is in the header, what it says in the body, and what you can do to it — copy it, edit it, compare it — beside the name in that same header. The body scrolls on its own so the header never leaves the screen. What the body is read as comes from the file's own name: markdown for prose, coloured and numbered source for everything the highlighter has a grammar for. A markdown file is read whole — each chapter's status where its heading is, each diagram where its fence is, a copy button per chapter, and remarks in the margin — so a host never has to parse the same text a second time to draw those around the outside."
+           Summary="`FileView` is the container over the two halves a file pane is made of: `FileHeader`, which says which file this is and stays put, and `FileContent`, which holds the file and scrolls. Its own job is the two things neither half can do — it does the reading, and it arbitrates the modes. Reading is why the mode question is even answerable: the pane parses the file, reads its frontmatter, resolves its language, takes the file's own metadata block out of the body, and aligns two versions of it, each cached against the text it came from. Arbitration is the rest: edit, compare and read are exclusive, the host's body outranks the pane's, and a control is offered only where pressing it would do something. What either half then *draws* is documented on its own page — *File header* and *File content* directly above."
            Guidelines="@Rules">
+    <Alert Message="@ContainerNotice" Role="note" CssClass="sb-callout" />
 
-    <Story Name="The file's name decides how it is read"
-           Description="Same component, same parameters, three files. A name the highlighter knows is shown as source: coloured, numbered, and never run through the markdown parser — a `#` in a shell script is a comment, and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing here had to be told which was which."
-           Code="@KindsCode">
+    <Story Name="What the file is read as"
+           Description="The pane reads, so the pane decides. A name the highlighter knows is shown as source — coloured, numbered, and never run through the markdown parser, because a `#` in a shell script is a comment and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing at the call site says which is which.
+
+`Language` is the override, for the files whose name carries no grammar: a Dockerfile has no extension, and a build script's `.txt` says nothing about what is in it. It works the other way too — `Language=&quot;markdown&quot;` asks for prose back from a file whose extension would have made it code. A language the highlighter has no grammar for still renders as code in one colour; losing the colour is not a reason to lose the line numbers and reflow the file as prose.
+
+Both halves are told the answer rather than asked for one. `FileContent` takes `RendersMarkdown` and a resolved `Language`; `FileHeader` takes the resolved `Kind`. A header naming a file as a stylesheet over a body that had decided to render it as prose is exactly the disagreement this arrangement makes impossible."
+           Code="@ReadingsCode">
         <div class="sb-stack" data-testid="file-view-kinds">
-            <FileView Name="MarkdownPreview.cs"
-                      Path="src\Core\Backlog.UI.Components\Markdown\MarkdownPreview.cs"
-                      SizeInBytes="1204"
-                      Body="@CSharpBody"
-                      MaxHeight="14rem"
-                      TestId="file-view-csharp" />
+            <p class="sb-label">Read from the name — source, source, prose</p>
+            <div class="sb-columns">
+                <FileView Name="MarkdownPreview.cs"
+                          Path="src\Core\Backlog.UI.Components\Markdown\MarkdownPreview.cs"
+                          SizeInBytes="1204"
+                          Body="@CSharpBody"
+                          MaxHeight="12rem"
+                          TestId="file-view-csharp" />
 
-            <FileView Name="appsettings.json"
-                      Path="src\harness\Backlog.UI.Storybook\appsettings.json"
-                      SizeInBytes="286"
-                      Body="@JsonBody"
-                      MaxHeight="14rem"
-                      TestId="file-view-json" />
+                <FileView Name="appsettings.json"
+                          Path="src\harness\Backlog.UI.Storybook\appsettings.json"
+                          SizeInBytes="286"
+                          Body="@JsonBody"
+                          MaxHeight="12rem"
+                          TestId="file-view-json" />
 
-            <FileView Name="README.md"
-                      Path="src\harness\README.md"
-                      SizeInBytes="412"
-                      Body="@ShortBody"
-                      MaxHeight="14rem"
-                      TestId="file-view-markdown" />
+                <FileView Name="README.md"
+                          Path="src\harness\README.md"
+                          SizeInBytes="412"
+                          Body="@ShortBody"
+                          MaxHeight="12rem"
+                          TestId="file-view-markdown" />
+            </div>
+
+            <p class="sb-label">Overridden — a name with no grammar to read, and one whose extension is on the list</p>
+            <div class="sb-columns" data-testid="file-view-language-override">
+                <FileView Name="Dockerfile"
+                          Language="bash"
+                          SizeInBytes="188"
+                          Body="@DockerfileBody"
+                          MaxHeight="12rem"
+                          TestId="file-view-dockerfile" />
+
+                <FileView Name="lifecycle.mmd"
+                          SizeInBytes="240"
+                          Body="@MermaidBody"
+                          MaxHeight="12rem"
+                          TestId="file-view-mermaid" />
+            </div>
         </div>
     </Story>
 
-    <Story Name="One scroll region either way"
-           Description="A code file keeps the promise the markdown one makes: the header stays put, the body scrolls under it, and there is exactly one thing to tab into. CodeView is given Bare here — without it the block would bring its own frame, its own height cap and its own focusable overflow, and the reader would find two scrollbars and two tab stops where they can see one pane. Long lines wrap, as they do everywhere else in the library, so nothing hides off the right edge of a pane this narrow."
-           Code="@BareCode">
-        <div class="sb-narrow" data-testid="file-view-code-scroll">
-            <FileView Name="components.css"
-                      Path="src\Core\Backlog.UI.Components\wwwroot\components.css"
-                      Kind="Stylesheet"
-                      SizeInBytes="61440"
-                      Body="@CssBody"
-                      MaxHeight="14rem"
-                      TestId="file-view-css" />
-        </div>
-    </Story>
+    <Story Name="The header stays, the body takes the rest"
+           Description="The other thing only the container can settle: how much of the pane each half gets. `Fill` takes the whole height the host gave it — here a 32rem example area — and the body takes whatever is left under a header that never moves. So how tall a file gets is the layout's business rather than a number carried inside the component.
 
-    <Story Name="When the name cannot say it"
-           Description="Language is the override, for the files whose name carries no grammar. A Dockerfile has no extension and a build script's `.txt` says nothing about what is in it — naming the language shows it as code anyway. It works the other way too: `Language=&quot;markdown&quot;` asks for prose back from a file whose extension would have made it code. A language with no grammar here still renders as code in one colour; losing the colour is not a reason to lose the line numbers and reflow the file as prose."
-           Code="@LanguageCode">
-        <div class="sb-columns" data-testid="file-view-language-override">
-            <FileView Name="Dockerfile"
-                      Language="bash"
-                      SizeInBytes="188"
-                      Body="@DockerfileBody"
-                      MaxHeight="12rem"
-                      TestId="file-view-dockerfile" />
+`min-height: 0` is what makes it work: without it a flex child refuses to shrink below its content and the body would push the card open instead of scrolling inside it. Editing takes the same bargain, and asks for it unconditionally — a height of `100%` inside a parent with no definite height resolves to `auto`, which is exactly the content-sized box a host using `MaxHeight` already had.
 
-            <FileView Name="lifecycle.mmd"
-                      SizeInBytes="240"
-                      Body="@MermaidBody"
-                      MaxHeight="12rem"
-                      TestId="file-view-mermaid" />
-        </div>
-    </Story>
-
-    <Story Name="A file with more content than fits"
-           Description="Fill takes the whole height the host gives it — here a 32rem example area — and scrolls the body under a header that stays put. How tall a file gets is the layout's business, so a pane or a column decides it rather than the component carrying a number. The track is always reserved, so the text does not jump sideways the moment a file grows past the fold. Tab into the body and the arrow keys scroll it: a scroll container is a control whether or not it looks like one, so it takes focus and shows it."
-           Code="@LongCode">
+Tab into the body and the arrow keys scroll it. That the region is a tab stop at all is `FileContent`'s decision, and it is documented there; what is here is that there is one region and one header, and which of them gives."
+           Code="@FillCode">
         <div class="sb-tall" data-testid="file-view-long">
             <FileView Name="context-loading.instructions.md"
                       Path=".github\instructions\context-loading.instructions.md"
@@ -81,60 +76,10 @@
         </div>
     </Story>
 
-    <Story Name="A file that fits"
-           Description="Same component, short file. The body only scrolls when there is something to scroll to, so a small file gets no track and no empty space under it."
-           Code="@ShortCode"
-           Source="@ShortBody"
-           SourceLabel="The file on disk">
-        <div data-testid="file-view-short">
-            <FileView Name="README.md"
-                      Path="src\harness\README.md"
-                      Kind="Markdown"
-                      SizeInBytes="412"
-                      Body="@ShortBody"
-                      TestId="file-view-readme" />
-        </div>
-    </Story>
-
-    <Story Name="Only what is known"
-           Description="Every part of the header except the name is optional, and an absent fact is left out rather than filled in. A file with no recorded source, kind or size shows a name and nothing else on that line.">
-        <div data-testid="file-view-sparse">
-            <FileView Name="scratch.md" Body="@ShortBody" MaxHeight="10rem" />
-        </div>
-    </Story>
-
-    <Story Name="A path longer than the header"
-           Description="The path gives up room first: the name beside it already says which file this is, and the whole path stays in the DOM, so a screen reader reads what the ellipsis hides. Narrow the window and the header stacks instead."
-           Code="@LongPathCode">
-        <div class="sb-narrow" data-testid="file-view-long-path">
-            <FileView Name="0002-backlog-module-owns-the-entry-text-language.md"
-                      Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
-                      Source="Repository"
-                      Kind="Architecture decision record"
-                      SizeInBytes="2048"
-                      Body="@ShortBody"
-                      MaxHeight="12rem" />
-        </div>
-    </Story>
-
-    <Story Name="Checklists are state, not controls"
-           Description="Neither shape FileView renders itself writes back to disk, so it passes MarkdownView no toggle handler and the checkboxes render as state. Tab goes from the body straight past them — a checkbox that silently does nothing is worse than no checkbox. That is a claim about the two built-in shapes and not about the component: a host that needs a writable body brings one, which is the story below."
-           Source="@ChecklistBody"
-           SourceLabel="The file on disk">
-        <div data-testid="file-view-checklist">
-            <FileView Name="release-checklist.md"
-                      Path="docs\release-checklist.md"
-                      Kind="Markdown"
-                      SizeInBytes="196"
-                      Body="@ChecklistBody"
-                      MaxHeight="12rem" />
-        </div>
-    </Story>
-
-    <Story Name="The file's own block, in the header"
+    <Story Name="The file's own block goes to the header"
            Description="Two `meta` blocks in one file, and they are not the same fact. The one under the `#` title describes the file, so it is drawn in the header beside the name — where it stays while the body scrolls. The one under each `##` describes that chapter, so it stays with the chapter, folded into its heading.
 
-The file's block is drawn once: it is not left in the body as a second record, and it does not fall back to the raw fence either. The title under it is a title again.
+Which of the two a block is, is a reading, and the reading is the container's: the pane parses the file once, hands the first block to the header, and tells the body to leave it out. Drawn once — not left in the body as a second record, and not falling back to the raw fence either. The title under it is a title again.
 
 No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the chapters are read with, and `RenderKnowledgeMetadataFields` governs the header's second tier exactly as it governs a chapter's — the pair of panes below is that one flag, set both ways over the same file. Scroll either of them: the chapters' records leave with their chapters, and the file's does not."
            Code="@FileMetadataCode"
@@ -172,10 +117,40 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
         </div>
     </Story>
 
-    <Story Name="A knowledge chapter, whole"
-           Description="Every capability at once, on the file that prompted them: a `.domain` chapter. `RenderKnowledgeMetadata` and `KnowledgeFolder` draw each chapter's `meta` fence as the record it is; `AllowChapterCopy` puts a copy button on every heading; the mermaid fence renders where it was written; `Comments` sit in the margin and fall back to inline when the pane narrows.
+    <Story Name="The frontmatter is read once, here"
+           Description="`ShowFrontmatter` is another reading: the pane reads the YAML block a markdown file may open with, hands the result to the body as a value, and hands the body the text *without* those lines. Left in, the same four lines come back underneath as the divider and run-together paragraph the markdown parser makes of them, which is the noise this replaces.
 
-`CanEdit` with `@@bind-Editing` swaps the body for the one `EditBodyContent` supplies, and `@@bind-Comparing` with `CompareBaselines` swaps it for two versions aligned by heading. One at a time, and the pane keeps the same header and the same single scroll region through all three."
+Handing the block over as a value rather than a flag is what makes the removal safe: the strip draws every key the block states, including the ones it has no shape for, so nothing leaves the body that the strip does not show. What the strip then looks like — the description as prose, the globs as badges, an unrecognised `mode` as a row of its own — is `FileContent`'s, and it is on that page.
+
+A host that renders its own body names `FrontmatterSource` instead, so the strip is drawn from the file's text while the buffer that host writes back stays whole. A file with no frontmatter, or one nobody asked about, renders exactly as it did before any of this — no strip, and no empty row where it would have been."
+           Code="@FrontmatterCode">
+        <div class="sb-stack" data-testid="file-view-frontmatter">
+            <FileView Name="ui-components.instructions.md"
+                      Source="GitHub Copilot"
+                      Kind="Path-specific instructions"
+                      Path=".github\instructions\ui-components.instructions.md"
+                      Body="@InstructionFile"
+                      ShowFrontmatter="true"
+                      MaxHeight="12rem"
+                      TestId="file-view-instruction-file" />
+
+            <FileView Name="explain-flow.prompt.md"
+                      Source="GitHub Copilot"
+                      Kind="Prompt file"
+                      Path=".github\prompts\explain-flow.prompt.md"
+                      Body="@PromptFile"
+                      ShowFrontmatter="true"
+                      MaxHeight="12rem"
+                      TestId="file-view-prompt" />
+        </div>
+    </Story>
+
+    <Story Name="Edit, compare, read — one at a time"
+           Description="The arbitration, on the file that prompted it. `CanEdit` with `@@bind-Editing` swaps the body for the one `EditBodyContent` supplies; `@@bind-Comparing` with `CompareBaselines` swaps it for two versions aligned by heading. The three modes are exclusive and the pane enforces that, which is why the header's controls ask rather than tell — press Edit while comparing and the comparison closes.
+
+`OffersEdit` and `OffersCompare` fall out of the same arbitration: they answer “would pressing this do anything?”, not “may this file be edited?”. Editing needs a writable body to switch to or a host listening for the switch; comparing needs a baseline that differs from the file. Both are handed to the header already answered, because a header that worked them out for itself could offer a control the body will not honour.
+
+Everything else on this pane is a reading being passed down: each chapter's status where its heading is, the mermaid fence where it was written, a copy button per heading, remarks in the margin falling back to inline when the pane narrows. A host never has to parse the same text a second time to draw those around the outside."
            Code="@ChapterCode">
         <div class="sb-tall" data-testid="file-view-knowledge">
             <FileView Name="Domain: Backlog Management"
@@ -216,10 +191,10 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
         </div>
     </Story>
 
-    <Story Name="The same chapter, read rather than worked on"
-           Description="What the knowledge panes ask for. Turning `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. Turning `ShowDiagramSource` off drops the fold under the picture, because the source is already a copy button and an Edit away. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it.
+    <Story Name="A control nobody would gain anything by pressing"
+           Description="The same arbitration, from the other side. Compare is absent here, and that is the story: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at. The pane knows because the pane holds the baselines and does the aligning; the header is simply told there is nothing to offer.
 
-Compare is absent here, and that is the story too: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at."
+The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. `ShowDiagramSource` off drops the fold under the picture, because the source is already a copy button and an Edit away. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
             <FileView Name="Domain: Backlog Management"
@@ -241,10 +216,12 @@ Compare is absent here, and that is the story too: the only baseline says exactl
         </div>
     </Story>
 
-    <Story Name="Compared against two versions of itself"
-           Description="`MarkdownCompareView` is handed the result `Bare`, so it gives up its own card, header and scroll region — this pane already has all three.
+    <Story Name="Two versions, aligned by the pane"
+           Description="Aligning is the reading the comparison needs, and it happens here: the pane walks both documents once, holds the result, and hands it down — a pane re-renders every time a fold in it opens, so aligning in the body would redo that walk on each pass.
 
-What a baseline *is* stays the host's: this page holds two strings, and the domain panel holds one and asks git for the other. A baseline with nothing to offer says so — press Compare, then pick “Never committed”."
+What a baseline *is* stays the host's. This page holds two strings; the domain panel holds one and asks git for the other, which is why `FileCompareBaseline` is a record rather than a callback — a pane that knew how to fetch one version would have to know how to fetch all of them. A baseline with nothing to offer says why: press Compare, then pick “Never committed”.
+
+The drawing is `MarkdownCompareView`'s, handed the result `Bare` so it gives up its own card, header and scroll region — this pane already has all three. That side of it is on *File content*."
            Code="@CompareCode">
         <div class="sb-tall" data-testid="file-view-compare">
             <FileView Name="context-map.md"
@@ -260,9 +237,11 @@ What a baseline *is* stays the host's: this page holds two strings, and the doma
     </Story>
 
     <Story Name="A body the host brings itself"
-           Description="`BodyContent` hands the body in, so a host that needs a writable one keeps everything that comes with writing while the frame, the identity, the path and the one scroll region stay here. Type in it and watch the size in the header move: what the file now says is the host's to report.
+           Description="`BodyContent` hands the body in, and the precedence is the pane's: a host body outranks both built-in shapes, its *editing* body outranks its ordinary one while a reader is editing, and a comparison outranks all three — because a comparison is the pane's own reading of the file and a host's editor has nothing to say about the version that came before. `FileContent` is handed one fragment, already chosen.
 
-Tab through this one and then the story above it. A supplied body gives up the region's `tabindex`, because the editor inside is a tab stop already; the built-in shapes keep it, because they render nothing focusable."
+What the host keeps is everything the container is: the frame, the identity, the path, the actions and the one scroll region. Type in it and watch the size in the header move — what the file now says is the host's to report, and the pane draws what it is told.
+
+Tab through this one and then the arbitration story above. A supplied body gives up the region's `tabindex` and the built-in shapes keep it; that consequence, and why, is on *File content*."
            Code="@HostedBodyCode">
         <div class="sb-tall" data-testid="file-view-hosted-body">
             <FileView Name="05-building-block-view.md"
@@ -282,33 +261,6 @@ Tab through this one and then the story above it. A supplied body gives up the r
             </FileView>
         </div>
     </Story>
-    <Story Name="What the file says it is for"
-           Description="`ShowFrontmatter` reads the YAML block a markdown file may open with and draws it as its own strip under the header: the description as prose, `applyTo` as one badge per glob, `tools` as badges of their own. The body is then given the text *without* the block — left in, those same four lines come back underneath as the divider and run-together paragraph the markdown parser makes of them, which is the noise this replaces.
-
-Every other key the block states is a row too — the key as its label, its words beside it, in the order the file wrote them. That is the rule the strip keeps: it never hides what it does not show, so `mode` on the prompt below is a row rather than a line quietly taken out of the file with the rest of the block.
-
-Its own strip and not another row in the header: the header identifies the file, and this is the file describing itself. A host that renders its own body names `FrontmatterSource` instead, so the strip is drawn from the file's text while the buffer that host writes back stays whole. A file with no frontmatter, or one nobody asked about, renders exactly as it did before any of this — no strip, and no empty row where it would have been."
-           Code="@FrontmatterCode">
-        <div class="sb-stack" data-testid="file-view-frontmatter">
-            <FileView Name="ui-components.instructions.md"
-                      Source="GitHub Copilot"
-                      Kind="Path-specific instructions"
-                      Path=".github\instructions\ui-components.instructions.md"
-                      Body="@InstructionFile"
-                      ShowFrontmatter="true"
-                      MaxHeight="12rem"
-                      TestId="file-view-instructions" />
-
-            <FileView Name="explain-flow.prompt.md"
-                      Source="GitHub Copilot"
-                      Kind="Prompt file"
-                      Path=".github\prompts\explain-flow.prompt.md"
-                      Body="@PromptFile"
-                      ShowFrontmatter="true"
-                      MaxHeight="12rem"
-                      TestId="file-view-prompt" />
-        </div>
-    </Story>
 
 </StoryPage>
 
@@ -321,6 +273,14 @@ Its own strip and not another row in the header: the header identifies the file,
         new("design-principles.md#low-chrome-content-first", "How much of a file view may be header and actions."),
         new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
     ];
+
+    private const string ContainerNotice =
+        "Two components, one answer each time. Every reading is this component's — the file's own record, "
+        + "the frontmatter, the blocks, the language, the alignment of two versions, each cached against "
+        + "the text it came from — and so is every mode question: whether a comparison is showing, whose "
+        + "body is on screen, whether pressing Edit would do anything. Those answers have to be the same "
+        + "answer in the header and in the body, and the only way to guarantee one answer is for one "
+        + "component to give it. Neither half decides anything, and neither reads the file.";
 
     // What the header's record reported. The file below is a constant, so nothing
     // is written back into it: which file, which fence and what happens when the
@@ -492,24 +452,6 @@ Its own strip and not another row in the header: the header identifies the file,
         }
         """;
 
-    private const string CssBody = """
-        /* Bare: the host frames the code, names it and scrolls it, so the block gives up its own box entirely. */
-        .code-view--bare {
-            margin: 0;
-            padding: 0;
-            border: none;
-            background: none;
-            max-height: none;
-            overflow: visible;
-        }
-
-        .file-view__body {
-            padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
-            overflow: auto;
-            scrollbar-gutter: stable;
-        }
-        """;
-
     private const string DockerfileBody = """
         FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
@@ -538,15 +480,6 @@ Its own strip and not another row in the header: the header identifies the file,
 
         - `Backlog.UI.Storybook` — every shared component, on its own
         - `Backlog.Desktop.WebHarness` — the desktop UI in a browser
-        """;
-
-    private const string ChecklistBody = """
-        # Before tagging
-
-        - [x] Tests green on main
-        - [x] Storybook reviewed
-        - [ ] Release notes written
-        - [ ] Version bumped
         """;
 
     // The file from the request that prompted this component, kept long enough
@@ -599,7 +532,7 @@ Its own strip and not another row in the header: the header identifies the file,
         model overrides live beside those.
         """;
 
-    private const string LongCode = """
+    private const string FillCode = """
         @* Fill needs a container with a height to fill — in a flex or grid
            layout that is whatever track the file lands in. *@
         <div style="height: 32rem">
@@ -613,32 +546,16 @@ Its own strip and not another row in the header: the header identifies the file,
         </div>
         """;
 
-    private const string KindsCode = """
-        @* Nothing says which is which: the name does. *@
-        <FileView Name="MarkdownPreview.cs" Body="@source" MaxHeight="14rem" />
-        <FileView Name="appsettings.json" Body="@config" MaxHeight="14rem" />
-        <FileView Name="README.md" Body="@readme" MaxHeight="14rem" />
-        """;
+    private const string ReadingsCode = """
+        @* Nothing says which is which: the name does, and the pane reads it. *@
+        <FileView Name="MarkdownPreview.cs" Body="@source" MaxHeight="12rem" />
+        <FileView Name="appsettings.json" Body="@config" MaxHeight="12rem" />
+        <FileView Name="README.md" Body="@readme" MaxHeight="12rem" />
 
-    private const string BareCode = """
-        @* One scroll region, one tab stop: FileView passes CodeView Bare, so the
-           block brings the lines and the host keeps the frame. *@
-        <FileView Name="components.css" Path="…\wwwroot\components.css"
-                  Kind="Stylesheet" SizeInBytes="61440"
-                  Body="@css" MaxHeight="14rem" />
-        """;
-
-    private const string LanguageCode = """
-        @* No extension to read, so the caller names the language. *@
+        @* Language is the override, for a name with no grammar to read — and for
+           the other direction, prose out of a file whose extension says code. *@
         <FileView Name="Dockerfile" Language="bash" Body="@dockerfile" MaxHeight="12rem" />
-
-        @* And the other way: prose from a file whose extension says code. *@
         <FileView Name="notes.cs" Language="markdown" Body="@notes" MaxHeight="12rem" />
-        """;
-
-    private const string ShortCode = """
-        <FileView Name="README.md" Path="src\harness\README.md"
-                  Kind="Markdown" SizeInBytes="412" Body="@body" />
         """;
 
     private const string ChapterSource = """
@@ -871,14 +788,6 @@ Its own strip and not another row in the header: the header identifies the file,
             new("commit", "Last commit", committedText),
             new("empty", "Never committed", null, "This chapter has not been committed yet.")
         ];
-        """;
-
-    private const string LongPathCode = """
-        @* MaxHeight takes any CSS length; pass null to let the body grow instead. *@
-        <FileView Name="0002-backlog-module-owns-the-entry-text-language.md"
-                  Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
-                  Body="@body"
-                  MaxHeight="12rem" />
         """;
 
     /// <summary>An instruction file as this repository writes one: several globs

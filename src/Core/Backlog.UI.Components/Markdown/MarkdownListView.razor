@@ -1,0 +1,164 @@
+@*
+    A list, and through its items any list written under it.
+
+    Recursive rather than flat because the nesting is: an indented run belongs to
+    the item above it, and rendering it as a sibling would lose which. The
+    component renders itself for a nested run, so the two are the same markup by
+    construction.
+
+    Its own component rather than a fragment inside MarkdownView because the
+    knowledge panels draw lists too, in their own clothes, and each had grown a
+    copy of this loop. What separates them is class names, which is what the
+    hooks below are for: `ItemCssClass` set to null drops the item's class
+    attribute entirely, which is how a host whose items carry no class adopts
+    this without gaining one.
+
+    Checkboxes belong to `- [ ]` items and only to those, and are only controls
+    when someone is listening for the toggle — otherwise they are state, not
+    buttons, and a control that would take focus and do nothing is worse than a
+    label.
+*@
+
+@if (List.Ordered)
+{
+    @* An ordered item carries no class of its own: the number is the marker, and
+       there is no task state to say anything about. *@
+    <ol class="@ListCssClass">
+        @foreach (var item in List.Items)
+        {
+            <li>@Inlines(item.Content)@Children(item)</li>
+        }
+    </ol>
+}
+else
+{
+    <ul class="@ListCssClass">
+        @foreach (var item in List.Items)
+        {
+            @* The task modifier belongs to the item, not the list: a list can mix
+               tasks and plain bullets, and the plain ones must keep their marker. *@
+            <li class="@ItemClass(item)">
+                @if (item.Done is not null && CanToggle)
+                {
+                    <button type="button"
+                            class="@CheckClass(item)"
+                            data-testid="entry-checkbox"
+                            role="checkbox"
+                            aria-checked="@(item.Done == true ? "true" : "false")"
+                            aria-label="@MarkdownRender.PlainText(item.Content)"
+                            @onmousedown:preventDefault="true"
+                            @onclick:stopPropagation="true"
+                            @onclick="() => ToggleAsync(item.TaskIndex!.Value)">@(item.Done == true ? "✔" : string.Empty)</button>
+                }
+                else if (item.Done is not null)
+                {
+                    @* Nothing to toggle into: show the state without a control
+                       that would take focus and do nothing. *@
+                    <span class="@CheckClass(item)"
+                          data-testid="entry-checkbox"
+                          role="img"
+                          aria-label="@(item.Done == true ? "Done" : "Not done")">@(item.Done == true ? "✔" : string.Empty)</span>
+                }
+                @Inlines(item.Content)@Children(item)
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public MdList List { get; set; } = new(false, []);
+
+    /// <summary>Raised with the index of the task line a reader toggled. Without
+    /// it a checklist item is state rather than a control — see the file
+    /// comment.</summary>
+    [Parameter]
+    public EventCallback<int> OnTaskItemToggled { get; set; }
+
+    /// <summary>How an inline in an item's text is read, forwarded verbatim to
+    /// <see cref="MarkdownRender.Inlines(IReadOnlyList{MdInline}, MarkdownRender.MarkdownInlineTarget?)"/>.
+    /// Null leaves every inline rendering as it always has.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>The class on the <c>ol</c> or <c>ul</c>. Null drops it.</summary>
+    [Parameter]
+    public string? ListCssClass { get; set; } = "md-list";
+
+    /// <summary>
+    /// The class an unordered item carries before its task modifiers. Empty by
+    /// default, which is what the read view has always emitted — including the
+    /// lone space a plain bullet's class attribute is made of, because the two
+    /// modifier slots are always both written.
+    ///
+    /// <para>Null drops the attribute instead, for a host whose items carry no
+    /// class at all. That is the difference between adopting this component and
+    /// keeping a copy of it: a `class=" "` where a knowledge list had no class is
+    /// a change to what the stylesheet sees.</para>
+    /// </summary>
+    [Parameter]
+    public string? ItemCssClass { get; set; } = string.Empty;
+
+    /// <summary>The modifier saying an item is a task at all — written whether or
+    /// not it is done.</summary>
+    [Parameter]
+    public string TaskCssClass { get; set; } = "md-item--task";
+
+    /// <summary>The modifier saying a task is finished.</summary>
+    [Parameter]
+    public string DoneCssClass { get; set; } = "md-item--done";
+
+    /// <summary>The class on the checkbox, control or state alike: the two are
+    /// the same box to a reader and must stay the same box to a stylesheet.</summary>
+    [Parameter]
+    public string CheckCssClass { get; set; } = "md-check";
+
+    /// <summary>The modifier a ticked checkbox adds.</summary>
+    [Parameter]
+    public string CheckDoneCssClass { get; set; } = "md-check--done";
+
+    private bool CanToggle => OnTaskItemToggled.HasDelegate;
+
+    /// <summary>
+    /// The class an item wears, or null for none at all.
+    ///
+    /// <para>Both modifier slots are always written, so a plain bullet's class is
+    /// the single space between two empty ones. That is what the read view has
+    /// emitted since it was written and what its stylesheet and its tests have
+    /// seen; tidying it would be a markup change dressed as a cleanup.</para>
+    /// </summary>
+    private string? ItemClass(MdListItem item)
+    {
+        if (ItemCssClass is null) return null;
+
+        var task = item.Done is not null ? TaskCssClass : string.Empty;
+        var done = item.Done == true ? DoneCssClass : string.Empty;
+
+        return ItemCssClass.Length == 0 ? $"{task} {done}" : $"{ItemCssClass} {task} {done}";
+    }
+
+    private string CheckClass(MdListItem item) =>
+        $"{CheckCssClass} {(item.Done == true ? CheckDoneCssClass : string.Empty)}";
+
+    private RenderFragment Inlines(IReadOnlyList<MdInline> parts) =>
+        MarkdownRender.Inlines(parts, InlineTarget);
+
+    /// <summary>The lists written under an item, each drawn by this same
+    /// component. Every class hook travels down, so a nested run cannot end up
+    /// dressed differently from the one it is nested in.</summary>
+    private RenderFragment Children(MdListItem item) =>
+        @<text>@foreach (var child in item.Nested) { @NestedList(child) }</text>;
+
+    private RenderFragment NestedList(MdList child) =>
+        @<MarkdownListView List="@child"
+                           OnTaskItemToggled="@OnTaskItemToggled"
+                           InlineTarget="@InlineTarget"
+                           ListCssClass="@ListCssClass"
+                           ItemCssClass="@ItemCssClass"
+                           TaskCssClass="@TaskCssClass"
+                           DoneCssClass="@DoneCssClass"
+                           CheckCssClass="@CheckCssClass"
+                           CheckDoneCssClass="@CheckDoneCssClass" />;
+
+    private Task ToggleAsync(int taskIndex) => OnTaskItemToggled.InvokeAsync(taskIndex);
+}

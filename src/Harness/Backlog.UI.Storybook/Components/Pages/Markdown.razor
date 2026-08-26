@@ -3,7 +3,7 @@
 <PageTitle>Markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Markdown"
-           Summary="MarkdownPreview parses the source into blocks, MarkdownView renders them. The base content items only: what each block and each inline is, what makes one, and what element it becomes. Every story shows the rendering beside the source that produced it. A document as a surface — copy, comments, a way into the editor — is the Markdown document chapter under Combined usage; writing markdown is Rich text editing and Entry edit."
+           Summary="MarkdownPreview parses the source into blocks, MarkdownView renders them. The base content items only: what each block and each inline is, what makes one, and what element it becomes. Every story shows the rendering beside the source that produced it. Four subpages go under it: Diagrams, for a fence whose language names one; Rich text editing, for writing the source; and two about single inlines that carry a convention of their own — Tags and References. A document as a surface — copy, comments, a way into the editor — is the Markdown document chapter under Combined usage; writing markdown is Rich text editing and Entry edit."
            Guidelines="@Rules">
 
     <Story Name="Everything the read view renders"
@@ -42,6 +42,45 @@ The set is closed and small on purpose. It covers the markdown people actually w
         </ol>
     </Story>
 
+    <Story Name="One block, reachable on its own"
+           Description="`MarkdownView` draws a document. `MarkdownBlockView` draws one block of it, and it is the same switch — the read view calls it for every block it lays out, so there is one rendering of a paragraph in this product rather than one per surface.
+
+The split is what let the knowledge panels stop hand-rolling that switch. They parse their own records, map each onto the block record it is a subset of, and hand it over wearing `knowledge-*` names. Each class parameter replaces the class on one element and nothing else; passing null drops that attribute entirely, which is the difference between adopting the component and keeping a copy — a knowledge bullet carries no class, and a read view&#39;s carries the single space between two empty modifier slots.
+
+What is deliberately not here is everything one block cannot know: the `meta` fence paired with the heading above it, the chapter&#39;s copy button, the comment gutter. Those are facts about a block&#39;s neighbours, and they stay in `MarkdownView`."
+           Code="@BlockViewCode"
+           Source="@DressSample">
+        <div class="sb-columns" data-testid="markdown-block-view">
+            <div class="sb-stack">
+                <p class="sb-label">Default — what the read view renders</p>
+                @foreach (var block in DressBlocks)
+                {
+                    <MarkdownBlockView Block="@block" />
+                }
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The same blocks in the design section&#39;s clothes</p>
+                @foreach (var block in DressBlocks)
+                {
+                    <MarkdownBlockView Block="@block"
+                                       ParagraphCssClass="knowledge-p"
+                                       QuoteCssClass="knowledge-quote"
+                                       CodeCssClass="knowledge-code"
+                                       DividerCssClass="knowledge-divider"
+                                       ListCssClass="knowledge-list"
+                                       ListItemCssClass="@NoItemClass" />
+                }
+                @* Said here rather than left to be discovered: the column looks
+                   under-styled because it is. `knowledge-*` is the application's
+                   vocabulary and this harness references no application, so the
+                   quote has no rule and the divider is barely a line. What the
+                   column shows is which names the elements carry, not what the
+                   panel looks like — the panel is where that is reviewed. *@
+                <p class="sb-state">Unstyled on purpose: the harness loads no knowledge stylesheet, so this column is the same markup under other names rather than the panel&#39;s own look.</p>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="Headings"
            Description="Six levels, each rendered as a `p.md-heading.md-heading--N` carrying `role=&quot;heading&quot;` and `aria-level`. Not an `h1`–`h6`, on purpose: an entry's body is content inside a page that already has an outline of its own, and real heading elements would splice the body's structure into the host's. The level still reaches a screen reader, so heading navigation works."
            Code="@HeadingCode"
@@ -50,7 +89,9 @@ The set is closed and small on purpose. It covers the markdown people actually w
     </Story>
 
     <Story Name="Inline styling"
-           Description="What the parser finds inside a line, and what each one is wrapped in. Emphasis, strong and strikethrough get the plain elements, because that is what they mean; a code span and a #tag get classes, because they are this product's own vocabulary. MdText is the rest — the run between two matches, emitted as content and nothing more."
+           Description="What the parser finds inside a line, and what each one is wrapped in. Emphasis, strong and strikethrough get the plain elements, because that is what they mean; a code span and a #tag get classes, because they are this product's own vocabulary. MdText is the rest — the run between two matches, emitted as content and nothing more.
+
+Two of them have a subpage of their own, because a class of this product's own comes with a convention attached: the #tag is on Tags, and a link or code span holding a repository path is on References."
            Code="@InlineCode"
            Source="@InlineSample">
         <MarkdownStory Source="@InlineSample" TestId="markdown-inlines" />
@@ -84,6 +125,29 @@ Indentation nests. An indented run belongs to the item above it, as deep as it i
         <MarkdownStory Source="@ListSample" TestId="markdown-lists" />
     </Story>
 
+    <Story Name="The list, on its own"
+           Description="`MarkdownListView` is the arm above, reachable without a document around it — for a surface that draws lists and is not drawing prose. It renders itself for an indented run, so a nested list is the same markup as the list it sits in by construction rather than by a second loop that has to be kept in step.
+
+Two hooks are worth knowing. `ItemCssClass` is the one that makes exact adoption possible: its default is the empty string, which is what produces the modifier-only class every bullet in a read view carries, and null drops the attribute for a host whose items carry none. `CheckCssClass` dresses the checkbox whether it came out as a control or as state — they are the same box to a reader and have to stay the same box to a stylesheet.
+
+Both columns below are handed the same list. Only the left one is listening, so only the left one has buttons in it."
+           Code="@ListViewCode"
+           Source="@ListSample">
+        <div class="sb-columns" data-testid="markdown-list-view">
+            <div class="sb-stack">
+                <p class="sb-label">Listening — the checkboxes are controls</p>
+                <MarkdownListView List="@HookList" OnTaskItemToggled="NoteToggle" />
+                <p class="sb-state" data-testid="markdown-list-view-toggle">@ToggleHeard</p>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Dressed as a knowledge list — no item class, so no `class=&quot; &quot;`</p>
+                <MarkdownListView List="@HookList"
+                                  ListCssClass="knowledge-list"
+                                  ItemCssClass="@NoItemClass" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="Tables"
            Description="A header, a row of dashes, and rows. The dashes are what make it a table — a sentence with a pipe in it is still a sentence. Colons on the delimiter set the column: `:---` left, `:---:` centre, `---:` right. Outer pipes are optional, and a short row is padded rather than dropped.
 
@@ -91,6 +155,23 @@ The table is wrapped in `div.md-table-scroll`, and the wrapper — not the table
            Code="@TableCode"
            Source="@TableSample">
         <MarkdownStory Source="@TableSample" TestId="markdown-tables" />
+    </Story>
+
+    <Story Name="The table, on its own"
+           Description="`MarkdownTableView` is the block above without a document around it. It exists as a component for the same reason the list does — a surface may draw one table and no prose — and it keeps the one structural decision a table needs: the wrapper is the labelled, focusable scroll region and the table inside it stays a plain table, so a keyboard reaches the overflow without a screen reader losing the grid.
+
+The alignment modifiers come off one hook rather than three. A host renaming `md-table__cell--right` is renaming all of them, and three separate parameters is three chances to name them inconsistently. A column the delimiter row never described still emits an empty class rather than dropping the attribute — a body row is allowed to be longer than the header, and this is what it has always rendered."
+           Code="@TableViewCode"
+           Source="@TableSample">
+        <div class="sb-stack" data-testid="markdown-table-view">
+            <MarkdownTableView Table="@HookTable" />
+            <p class="sb-label">The same table under a host&#39;s own names</p>
+            <MarkdownTableView Table="@HookTable"
+                               ScrollCssClass="md-table-scroll"
+                               TableCssClass="md-table"
+                               CellCssClass="md-table__cell"
+                               AriaLabel="Component sizes" />
+        </div>
     </Story>
 
     <Story Name="Footnotes"
@@ -102,6 +183,19 @@ Each mark is a real anchor into the note, and each note carries a link back."
            Code="@FootnoteCode"
            Source="@FootnoteSample">
         <MarkdownStory Source="@FootnoteSample" TestId="markdown-footnotes" />
+    </Story>
+
+    <Story Name="The notes, on their own"
+           Description="`MarkdownFootnotesView` draws the collected notes and, on each one, the link back up. Only half of the pair lives in it: the `id` here answers the `fnref-` a mark in the prose carries, and that mark is emitted by the inline renderer in a different file. Neither end can be renamed alone, which is the reason each end is pinned by a test of its own.
+
+The rule above the notes is the same `md-divider` a `---` draws, on purpose — the notes are the end of the document and it is the same end. The list is ordered because the numbers are the point: a reader who lost their place should be able to count.
+
+Reached directly, as below, the marks are not on the page, so the back-links point at anchors that are not there. That is the honest state of the component on its own; in a document they resolve."
+           Code="@FootnotesViewCode"
+           Source="@FootnoteSample">
+        <div class="sb-stack" data-testid="markdown-footnotes-view">
+            <MarkdownFootnotesView Footnotes="@HookNotes" />
+        </div>
     </Story>
 
     <Story Name="Quotes over more than one line"
@@ -344,8 +438,8 @@ Each mark is a real anchor into the note, and each note carries a link back."
         new("MdEm", "*emphasis*", "em"),
         new("MdStrike", "~~struck out~~", "s"),
         new("MdCodeSpan", "`inline code`", "code.md-inline-code"),
-        new("MdTag", "#tag", "span.tag-chip — the same chip the Badges chapter shows"),
-        new("MdLink", "[a link](https://example.com)", "a.md-link, target=_blank, rel=noopener noreferrer"),
+        new("MdTag", "#tag", "span.tag-chip carrying the literal #tag — the same class TagChip wears, and not the same markup. See Tags"),
+        new("MdLink", "[a link](https://example.com)", "a.md-link, target=_blank, rel=noopener noreferrer — or a followable chapter, where the host said this is a knowledge document. See References"),
         // A URL that resolves: this row renders live, and a placeholder would
         // 404 and show the reader a broken image instead of an image.
         new("MdImage", "![alt text](sample-image.svg)", "img.md-image, loading=lazy — or its alt text, when the URL is one we will not fetch"),
@@ -395,5 +489,70 @@ Each mark is a real anchor into the note, and each note carries a link back."
 
     private const string ImageCode = """
         ![Alt text, which is what a screen reader gets](diagram.png)
+        """;
+
+    /// <summary>The blocks the dressing story draws twice. Parsed rather than
+    /// built, so what is on screen is what the parser actually hands a host.</summary>
+    private static readonly IReadOnlyList<MdBlock> DressBlocks = MarkdownPreview.ParseDocument(DressSample);
+
+    /// <summary>The list, table and note set the sub-component stories draw,
+    /// taken out of the samples the stories above them already show.</summary>
+    private static readonly MdList HookList = MarkdownPreview.ParseDocument(ListSample).OfType<MdList>().First();
+
+    private static readonly MdTable HookTable = MarkdownPreview.ParseDocument(TableSample).OfType<MdTable>().First();
+
+    private static readonly MdFootnotes HookNotes = MarkdownPreview.ParseDocument(FootnoteSample).OfType<MdFootnotes>().First();
+
+    /// <summary>Null, named. A knowledge list item carries no class, and the hook
+    /// has to be handed null rather than left at its default — which is an empty
+    /// string and would put a `class=" "` on every bullet.</summary>
+    private const string? NoItemClass = null;
+
+    /// <summary>The last task index this page was told about, which is all a host
+    /// gets: the component reports the line and applies nothing.</summary>
+    private int? _toggled;
+
+    private string ToggleHeard =>
+        _toggled is { } index ? $"Last toggle reported task line {index}." : "Nothing toggled yet.";
+
+    private void NoteToggle(int index) => _toggled = index;
+
+    private const string DressSample = """
+        A paragraph with **bold**, `inline code` and a #tag.
+
+        - A bullet
+        - Another one
+
+        > A quote.
+
+        ```csharp
+        var x = 1;
+        ```
+
+        ---
+        """;
+
+    private const string BlockViewCode = """
+        @* One block, dressed in the host's own names. Null drops an
+           attribute the read view always writes. *@
+        <MarkdownBlockView Block="@block"
+                           ParagraphCssClass="knowledge-p"
+                           QuoteCssClass="knowledge-quote"
+                           CodeCssClass="knowledge-code"
+                           DividerCssClass="knowledge-divider"
+                           ListCssClass="knowledge-list"
+                           ListItemCssClass="@null" />
+        """;
+
+    private const string ListViewCode = """
+        <MarkdownListView List="@list" OnTaskItemToggled="Toggle" />
+        """;
+
+    private const string TableViewCode = """
+        <MarkdownTableView Table="@table" AriaLabel="Component sizes" />
+        """;
+
+    private const string FootnotesViewCode = """
+        <MarkdownFootnotesView Footnotes="@notes" />
         """;
 }

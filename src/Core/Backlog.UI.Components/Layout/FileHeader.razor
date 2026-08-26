@@ -1,0 +1,453 @@
+@*
+    The part of a file pane that stays put: which file this is, and the three
+    things a reader does to it.
+
+    A component of its own because it is the half of FileView that does not move.
+    The body scrolls, swaps between a rendering, a comparison and a host's editor,
+    and is re-parsed on the way; none of that changes the line that says which
+    file the reader is looking at. Two components make that separation something
+    the compiler holds rather than something a comment claims — and they let a
+    surface that is not FileView draw the same header, which is what the storybook
+    does on its own page for this.
+
+    Nothing here reads the file. The record arrives parsed, the detail line arrives
+    as the three facts it is made of, and the mode flags arrive already decided.
+    That is deliberate: the header's buttons and the body's content have to agree
+    about which mode the pane is in, and two components each deciding for
+    themselves is exactly how they come to disagree. FileView decides once and
+    tells both — see OffersEdit and OffersCompare, which are the answer to "would
+    pressing this do anything?" rather than to "may this file be edited?".
+
+    Which leaves this free to be used on its own. Every parameter is a value or a
+    callback, there is no ambient state and no cascading value, and everything
+    optional draws nothing when it is absent: no record, no path, no actions, no
+    baselines. A header with nothing but a name renders the name.
+
+    The layout is two columns, and both of them are here for reasons recorded
+    where they are drawn — the record around the name, the path right-aligned on
+    the name's line just before the status the record closes it with, the action
+    group named for the file opposite, and the baseline picker that only appears
+    while a comparison is running and there is more than one version to run it
+    against.
+
+    ---
+
+    The markup below is indented as though it were still inside FileView's
+    `<article>`, and it has to stay that way. A newline between two sibling
+    elements is a text node in the rendered output, indentation included — Razor
+    only trims the whitespace at an element's edges and around a code block — so
+    re-indenting this file would change the bytes every host ships between the
+    identity column and the aside. There is no visual difference either way; there
+    is a diff, and a diff in shipped markup should mean somebody changed the
+    markup.
+*@
+
+    <header class="file-view__header">
+        <div class="@IdentityClass">
+            @* The file's own status, beside the file's own name.
+
+               A knowledge file states it in a fence under its title, and read in
+               the body that fence is at the top of a document — the one place a
+               reader has already scrolled past by the time they think to ask
+               whether any of it is still current. The header is the part of this
+               pane that stays put, and it is where the name it describes already
+               is, so the record is drawn around the name rather than beside it:
+               one line, the name and the state of it.
+
+               The chapters keep theirs. A `##` fence describes the chapter under
+               it, that heading is in the body, and it stays there — drawn by
+               MetadataChapterView, which is the other shape a record takes.
+
+               MetadataFileView owns the fallback this branch used to make here:
+               a file that says nothing about itself still has to be named, and a
+               record with nothing in it draws no element at all.
+
+               The same fragment goes into both parameters, and that is not an
+               oversight. The two used to be different markup — an item of the
+               record's headline row, or this column's own content — and the path
+               joining the name's line collapsed the difference: whatever holds
+               the name now has to be a row, so with no record the column is the
+               row and the items are the same two either way. The parameters stay
+               two because MetadataFileView is not only this header's, and a
+               caller whose heading is not a row still needs the other one. *@
+            <MetadataFileView Metadata="@Metadata"
+                              Vocabulary="@Vocabulary"
+                              ShowFields="@ShowMetadataFields"
+                              OnStatusChanged="@OnStatusChanged"
+                              OnNavigate="@OnNavigate"
+                              HrefFor="@HrefFor"
+                              AriaLabel="@($"{Name} metadata")"
+                              CssClass="file-view__record"
+                              TestId="@Suffix("file-metadata")"
+                              Heading="@NameLine"
+                              HeadingAlone="@NameLine" />
+        </div>
+
+        <div class="file-view__aside">
+            @if (AllowCopy || OffersEdit || OffersCompare)
+            {
+                @* Named as a group, because "Edit" and "Compare" on their own say
+                   nothing about which of several files on a page they belong to
+                   (.design/accessibility.md). The file's name is what
+                   distinguishes them, and it is already here. *@
+                <div class="file-view__actions" role="group" aria-label="@($"{Name} actions")">
+                    @if (AllowCopy)
+                    {
+                        @* The file, not the rendering: the source is what round
+                           trips, which is the same call MarkdownView makes. *@
+                        <CopyButton Text="@(Body ?? string.Empty)"
+                                    Label="@($"{CopyLabel} {Name}")"
+                                    ButtonCssClass="file-view__action file-view__action--copy"
+                                    StatusCssClass="file-view__copy-status"
+                                    ButtonTestId="@Suffix("copy")"
+                                    StatusTestId="@Suffix("copy-status")" />
+                    }
+
+                    @if (OffersEdit)
+                    {
+                        @* A mark rather than a word, because the row it is in is
+                           the header of a file and not a toolbar: the file's name
+                           is what a reader is here to read. The word survives
+                           whole on the label and the tooltip, which is where an
+                           icon-only control has to keep it
+                           (.design/accessibility.md). *@
+                        <IconButton CssClass="file-view__action"
+                                    AriaLabel="@EditActionLabel"
+                                    Title="@EditActionLabel"
+                                    OnClick="() => OnToggleEditing.InvokeAsync()"
+                                    TestId="@Suffix(Editing ? "done" : "edit")">@(Editing ? DoneIcon : EditIcon)</IconButton>
+                    }
+
+                    @if (OffersCompare)
+                    {
+                        @* A toggle and not a button whose word flips: comparing is
+                           a state the pane is in, and aria-pressed is how that is
+                           said without renaming the control underneath a reader.
+                           Still a toggle now that the word is a glyph — the state
+                           is the reason for the control, and an icon that changed
+                           nothing a screen reader could hear would only be the
+                           picture of one. *@
+                        <ToggleButton Pressed="Comparing"
+                                      PressedChanged="@OnComparingChanged"
+                                      CssClass="file-view__action"
+                                      AriaLabel="@CompareLabel"
+                                      Title="@CompareLabel"
+                                      TestId="@Suffix("compare")"><span aria-hidden="true">@CompareIcon</span></ToggleButton>
+                    }
+                </div>
+            }
+
+            @if (Comparing && CompareBaselines.Count > 1)
+            {
+                @* Only while comparing, and only when there is a choice. A picker
+                   for one baseline is a label that looks like a control, and a
+                   picker beside a file nobody is comparing is a question nobody
+                   asked. *@
+                <div class="file-view__baselines" role="group" aria-label="@($"Compare {Name} against")">
+                    @foreach (var baseline in CompareBaselines)
+                    {
+                        <ToggleButton BaseClass="file-view__baseline"
+                                      PressedCssClass="file-view__baseline--current"
+                                      Pressed="@IsSelected(baseline)"
+                                      PressedChanged="() => OnSelectBaseline.InvokeAsync(baseline)"
+                                      TestId="@Suffix($"baseline-{baseline.Id}")">@baseline.Label</ToggleButton>
+                    }
+                </div>
+            }
+        </div>
+    </header>
+@code {
+    /// <summary>The header's left-hand column, as it reads: the file's name and,
+    /// under it, everything else known about the file that is not its path.
+    ///
+    /// <para>One fragment, drawn whether or not there is a record to put it in, so
+    /// the two cannot say the file's name differently.</para></summary>
+    private RenderFragment IdentityLines => __builder =>
+    {
+        <h3 class="file-view__name">@Name</h3>
+        @if (Details.Count > 0)
+        {
+            <p class="file-view__meta">@string.Join(" · ", Details)</p>
+        }
+    };
+
+    /// <summary>The name's line: the name, the path right-aligned in whatever is
+    /// left of it, and — when there is a record — the status closing it.
+    ///
+    /// <para>The row itself belongs to whatever is holding this. With a record that
+    /// is <c>.knowledge-record__headline</c>, which appends the status after these
+    /// two items; without one it is the identity column, which has nothing else in
+    /// it. So the items are the same either way and one fragment serves both,
+    /// which is why <see cref="MetadataFileView.Heading"/> and
+    /// <see cref="MetadataFileView.HeadingAlone"/> are given the same value.</para>
+    ///
+    /// <para>The name and the details are wrapped rather than handed over loose,
+    /// because loose they would be two items of the row and the details would sit
+    /// beside the name with the path after both. Wrapped, the row has the name, the
+    /// path and the status to align, and baseline alignment takes this element's
+    /// first baseline — the name's — so both hold the name's line however far the
+    /// details run underneath it.</para></summary>
+    private RenderFragment NameLine => __builder =>
+    {
+        <div class="file-view__headline">@IdentityLines</div>
+
+        @if (!string.IsNullOrWhiteSpace(Path))
+        {
+            @* After the name and before the status, which is the order a reader
+               asks for them in: which file, where it is, and whether it is still
+               current. The status is what fixes it — the record draws the status
+               at the right edge of the row the name is on, so anything that is
+               to precede it has to be an item of that row too. In the aside,
+               which is where this used to be, the path could only ever follow.
+
+               The row's one growing item, so it takes the space between the name
+               and the status and its right alignment lands it against the status
+               rather than against the name. Truncated visually when the header is
+               narrow, never in the DOM, so a screen reader still reads the whole
+               path. *@
+            <p class="file-view__path">@Path</p>
+        }
+    };
+
+    /// <summary>The file's name — the title, and what every control here is named
+    /// for.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The full path, right-aligned on the name's own line and just
+    /// before the status. Absent draws no element.</summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    /// <summary>Who or what the file comes from, e.g. "GitHub Copilot". The first
+    /// of the three facts the detail line is made of.</summary>
+    [Parameter]
+    public string? Source { get; set; }
+
+    /// <summary>What kind of file it is, e.g. "Path-specific instructions".
+    ///
+    /// <para>Whatever the host means by kind, printed as given. FileView resolves
+    /// a code file's language into this when its caller named no kind, because
+    /// choosing what a file is read as is the pane's decision and not the
+    /// header's.</para></summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    /// <summary>Size on disk. Null when the caller does not know it — better an
+    /// absent fact than a fabricated zero.</summary>
+    [Parameter]
+    public long? SizeInBytes { get; set; }
+
+    /// <summary>The file's own metadata record — the block under the title that
+    /// opens it — or nothing.
+    ///
+    /// <para>Already parsed. Reading it is the pane's job: the text the record
+    /// comes from is the text the body is showing, and a header that read it a
+    /// second time could describe a different file than the one on screen. A
+    /// record that states nothing draws as none: see
+    /// <see cref="MetadataFileView"/>, which owns that fallback.</para></summary>
+    [Parameter]
+    public MetadataRecord? Metadata { get; set; }
+
+    /// <summary>The status words the file's own record may state, and how each is
+    /// drawn. Without one the status is still shown, just not judged.
+    ///
+    /// <para>A vocabulary and not a <c>KnowledgeFolder</c>, which is what this took
+    /// before. The folder had exactly one reader here — resolving it to a
+    /// vocabulary on the way to <see cref="MetadataFileView"/> — so it was a
+    /// knowledge concept in a Layout component's public surface for one field's
+    /// sake, which is the coupling the record views had just been relieved of.
+    /// FileView keeps the folder, because a knowledge pane genuinely has one, and
+    /// resolves it here.</para></summary>
+    [Parameter]
+    public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
+
+    /// <summary>Whether the record draws the fields under the status too. On by
+    /// default; a header with room for one line turns it off and keeps the
+    /// status.</summary>
+    [Parameter]
+    public bool ShowMetadataFields { get; set; } = true;
+
+    /// <summary>Raised with the status a reader picked for the file. Nothing here
+    /// writes it, and nothing here knows which block it came from — the pane does,
+    /// and reports it as the change it is.</summary>
+    [Parameter]
+    public EventCallback<string> OnStatusChanged { get; set; }
+
+    /// <summary>Raised with the reference a reader activated in the record.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target; null leaves that
+    /// reference as text rather than a broken link.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
+    /// <summary>Whether the file's own copy button is offered. Copies
+    /// <see cref="Body"/>, so a header handed no text has nothing to copy and
+    /// should leave this off.</summary>
+    [Parameter]
+    public bool AllowCopy { get; set; }
+
+    /// <summary>What the copy button is called to a screen reader, before the
+    /// file's name: "Copy file context-map.md".</summary>
+    [Parameter]
+    public string CopyLabel { get; set; } = "Copy file";
+
+    /// <summary>The file's contents, verbatim — what the copy button copies. Read
+    /// for nothing else: the header never renders the file.</summary>
+    [Parameter]
+    public string? Body { get; set; }
+
+    /// <summary>Whether a way into editing is offered at all.
+    ///
+    /// <para>"Would pressing this do anything?", and not "may this file be
+    /// edited?". Permission is the pane's question and it takes more than
+    /// permission to answer — there has to be a writable body to switch to, or a
+    /// host listening for the switch. A button that announced an edit and left the
+    /// same file on screen would be a lie, and the pane is the only thing that
+    /// knows.</para></summary>
+    [Parameter]
+    public bool OffersEdit { get; set; }
+
+    /// <summary>Which mode the body is in, so the one button that changes meaning
+    /// can say which of the two it is right now.</summary>
+    [Parameter]
+    public bool Editing { get; set; }
+
+    /// <summary>Raised when the edit control was pressed. Not a two-way binding:
+    /// the modes are exclusive and the pane enforces that, so this asks rather
+    /// than tells.</summary>
+    [Parameter]
+    public EventCallback OnToggleEditing { get; set; }
+
+    [Parameter]
+    public string EditLabel { get; set; } = "Edit";
+
+    [Parameter]
+    public string DoneLabel { get; set; } = "Done";
+
+    /// <summary>The mark the way into editing wears. A pencil, which is what this
+    /// product already draws an edit with everywhere else it draws one — a
+    /// vocabulary is only a vocabulary if it is the same word each time.</summary>
+    [Parameter]
+    public string EditIcon { get; set; } = "✎";
+
+    /// <summary>And the mark for leaving. A tick, for the same reason.</summary>
+    [Parameter]
+    public string DoneIcon { get; set; } = "✓";
+
+    /// <summary>Whether a comparison is worth offering — which is the pane's
+    /// question for the reason <see cref="OffersEdit"/> is, and a narrower one: a
+    /// file whose baselines all match it is a press that shows the reader what
+    /// they are already looking at.</summary>
+    [Parameter]
+    public bool OffersCompare { get; set; }
+
+    /// <summary>Whether the comparison is showing, which is what the toggle
+    /// reports as its pressed state.</summary>
+    [Parameter]
+    public bool Comparing { get; set; }
+
+    /// <summary>Raised when the compare toggle was pressed, with the state asked
+    /// for. Not a two-way binding, for the reason
+    /// <see cref="OnToggleEditing"/> is not.</summary>
+    [Parameter]
+    public EventCallback<bool> OnComparingChanged { get; set; }
+
+    [Parameter]
+    public string CompareLabel { get; set; } = "Compare";
+
+    /// <summary>The mark comparing wears. Two arrows facing each other, which is
+    /// as close as this product's glyph vocabulary gets to a diff — nothing here
+    /// already meant "these two texts, side by side". A parameter so a host with
+    /// a better one is not stuck with this.</summary>
+    [Parameter]
+    public string CompareIcon { get; set; } = "⇄";
+
+    /// <summary>The versions worth comparing the file against, in the order a
+    /// reader would reach for them. The picker is drawn only while
+    /// <see cref="Comparing"/> and only when there is more than one.</summary>
+    [Parameter]
+    public IReadOnlyList<FileCompareBaseline> CompareBaselines { get; set; } = [];
+
+    /// <summary>Which baseline is being compared against, already resolved.
+    ///
+    /// <para>The id and not the index, and resolved rather than named: "the one
+    /// asked for, or the first offered" is a rule about a list the pane owns and
+    /// may have just changed, so the pane applies it and the picker highlights
+    /// what it is told.</para></summary>
+    [Parameter]
+    public string? SelectedBaselineId { get; set; }
+
+    /// <summary>Raised with the baseline a reader picked.</summary>
+    [Parameter]
+    public EventCallback<FileCompareBaseline> OnSelectBaseline { get; set; }
+
+    /// <summary>The pane's test id, which every control here derives its own
+    /// from. Null leaves them all off.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The identity column, and whether it is holding a record.
+    ///
+    /// <para>The column takes the header's free space either way — that is what
+    /// puts the far end of the name's line at the far end of the header, which is
+    /// where the path and the status are both aligned to. What the modifier says is
+    /// which of the two shapes the column is in: holding a record, whose headline
+    /// is the row, or holding the name's line directly, in which case the column
+    /// <em>is</em> the row and the stylesheet makes it one.</para>
+    ///
+    /// <para>A record that states nothing is not one, which is the same question
+    /// MetadataFileView asks of what it is handed — asking it the same way here
+    /// keeps the column and its content from disagreeing about whether there is a
+    /// record.</para></summary>
+    private string IdentityClass =>
+        Metadata is { IsEmpty: false }
+            ? "file-view__identity file-view__identity--record"
+            : "file-view__identity";
+
+    /// <summary>What the one button that changes meaning is called right now. Both
+    /// the accessible name and the tooltip read it, because an icon-only control
+    /// has nowhere else to say which of the two it is.</summary>
+    private string EditActionLabel => Editing ? DoneLabel : EditLabel;
+
+    private bool IsSelected(FileCompareBaseline baseline) =>
+        SelectedBaselineId is not null
+        && string.Equals(baseline.Id, SelectedBaselineId, StringComparison.Ordinal);
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>The middle line of the header: everything known about the file
+    /// that is not its name or its path, in the order a reader asks for it.</summary>
+    private IReadOnlyList<string> Details =>
+    [
+        .. new[] { Source, Kind, SizeInBytes is { } bytes ? FormatSize(bytes) : null }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!)
+    ];
+
+    /// <summary>Bytes as the reader would say them. Formatted in the current
+    /// culture, so the decimal separator is the one the rest of the app uses.
+    ///
+    /// <para>Static and internal because it is not only this header's: FolderView
+    /// says a file's size the same way on the row that names it, and two
+    /// formatters would eventually disagree about where the kilobyte
+    /// starts.</para></summary>
+    internal static string FormatSize(long bytes)
+    {
+        const long Kb = 1024;
+        const long Mb = Kb * 1024;
+        const long Gb = Mb * 1024;
+
+        if (bytes < 0) return string.Empty;
+
+        return bytes switch
+        {
+            < Kb => $"{bytes} B",
+            < Mb => $"{bytes / (double)Kb:0.#} KB",
+            < Gb => $"{bytes / (double)Mb:0.#} MB",
+            _ => $"{bytes / (double)Gb:0.#} GB"
+        };
+    }
+}

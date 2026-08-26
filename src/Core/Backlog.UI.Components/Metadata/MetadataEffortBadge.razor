@@ -1,0 +1,51 @@
+@*
+    A story-point estimate, drawn as a badge rather than as a value.
+
+    Effort reads at a glance the way a status does — it is the number a reader
+    scans a list of items for — so it wears the application's badge instead of
+    sitting quietly among the authored scalars. Its own tone, because an estimate
+    is not a state: `effort` is the badge kind, and nothing about it says whether
+    the work has started.
+
+    The unit is spelled out. "5" on its own does not say what it counts, and the
+    one thing a reader must not do with a story-point count is read it as days.
+
+    Absent when there is no estimate, and present when the estimate is zero. Those
+    are different answers — nobody has sized this, against sized and found to be
+    nothing — and a component that collapsed them would lose the sizing.
+
+    The unit is also why the row this sits in needs no visible label: "5 pts" names
+    its own field, which a bare "5" never could. The tooltip says the field name for
+    a pointer user, since the `dt` is hidden there.
+*@
+
+@if (Effort is int effort)
+{
+    <Badge Kind="effort" Title="@TitleValue" TestId="@TestId" CssClass="@CssClass">@effort pts</Badge>
+}
+
+@code {
+    /// <summary>The estimate. Null is "not estimated" and draws nothing; 0 is an
+    /// estimate and draws its badge.</summary>
+    [Parameter]
+    public int? Effort { get; set; }
+
+    /// <summary>The tooltip. Defaulted to the field name and the unit spelled out,
+    /// because the row this is drawn in hides its label and the one thing a reader
+    /// must not do with a story-point count is read it as days.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>The test id on the badge. Defaulted rather than left to the
+    /// caller: the estimate is drawn as a badge and not as text, so a test looking
+    /// for the number has nothing else to find it by.</summary>
+    [Parameter]
+    public string? TestId { get; set; } = "knowledge-effort-badge";
+
+    /// <summary>A modifier on top of the badge's own classes.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    private string TitleValue =>
+        string.IsNullOrWhiteSpace(Title) ? $"effort: {Effort} story points" : Title;
+}

@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Metadata;
+
 namespace Backlog.UI.Components.Knowledge;
 
 /// <summary>
@@ -46,6 +48,68 @@ public static class KnowledgeStatus
     private static readonly string[] DesignValues = ["draft", "active", "deprecated"];
     private static readonly string[] BacklogValues = ["draft", "ready", "in-progress", "done", "blocked"];
     private static readonly string[] TechValues = ["candidate", "trial", "adopted", "hold", "retired"];
+
+    /// <summary>
+    /// A folder's vocabulary as the record views take it — the small adapter
+    /// between "which knowledge folder is this" and "which status words are
+    /// allowed, and what does each look like".
+    ///
+    /// <para><see cref="Metadata.MetadataView"/> used to take the folder itself and
+    /// ask this class both questions. That was the one thing genuinely stopping a
+    /// caller outside these five folders from drawing a record, so the views take
+    /// the vocabulary now and this is where a knowledge surface gets one. Every
+    /// knowledge caller behaves exactly as it did: the values are the same list in
+    /// the same order, and the modifier is the same tone mapping.</para>
+    ///
+    /// <para>Held per folder rather than built per call, and that is not only
+    /// thrift: a fresh object is a changed parameter to Blazor, so building one in
+    /// a render expression would re-render every record on every pass.</para>
+    /// </summary>
+    public static MetadataStatusVocabulary Vocabulary(KnowledgeFolder folder) => folder switch
+    {
+        KnowledgeFolder.Arc42 => Arc42Vocabulary,
+        KnowledgeFolder.Domain => DomainVocabulary,
+        KnowledgeFolder.Design => DesignVocabulary,
+        KnowledgeFolder.Backlog => BacklogVocabulary,
+        KnowledgeFolder.Tech => TechVocabulary,
+        _ => MetadataStatusVocabulary.None
+    };
+
+    // One per folder and not one per value list: .arc42 and .domain share a list
+    // and do not share a tone mapping — `proposed` is Planned in both, but the
+    // switch that says so is keyed on the folder — so a vocabulary built from the
+    // list alone would answer for the wrong folder.
+    private static readonly MetadataStatusVocabulary Arc42Vocabulary = For(KnowledgeFolder.Arc42);
+    private static readonly MetadataStatusVocabulary DomainVocabulary = For(KnowledgeFolder.Domain);
+    private static readonly MetadataStatusVocabulary DesignVocabulary = For(KnowledgeFolder.Design);
+    private static readonly MetadataStatusVocabulary BacklogVocabulary = For(KnowledgeFolder.Backlog);
+    private static readonly MetadataStatusVocabulary TechVocabulary = For(KnowledgeFolder.Tech);
+
+    /// <summary>The folder's values, with the tone-to-badge mapping as the
+    /// resolver. The resolver is only ever asked about a value the vocabulary
+    /// recognises — the unrecognised case belongs to
+    /// <see cref="MetadataStatusVocabulary"/> — so this is the tone mapping and
+    /// nothing else.</summary>
+    private static MetadataStatusVocabulary For(KnowledgeFolder folder) =>
+        new(Values(folder), status => Modifier(Tone(folder, status)));
+
+    /// <summary>Which of the application's status badges a tone wears.
+    ///
+    /// <para>The answer is a modifier the stylesheet already defines, not a scale
+    /// of this folder's own. Every tone has an exact counterpart in the
+    /// application's status badge, so a knowledge status is drawn by the same rule
+    /// as a backlog entry's rather than by a second set of rules that has to be
+    /// kept in step with it by hand.</para></summary>
+    private static string Modifier(KnowledgeStatusTone tone) => tone switch
+    {
+        KnowledgeStatusTone.Provisional => "draft",
+        KnowledgeStatusTone.Planned => "ready",
+        KnowledgeStatusTone.Active => "active",
+        KnowledgeStatusTone.Complete => "done",
+        KnowledgeStatusTone.Attention => "blocked",
+        KnowledgeStatusTone.Retired => "archived",
+        _ => string.Empty
+    };
 
     /// <summary>The values a folder allows, in the order its own instructions
     /// list them.</summary>

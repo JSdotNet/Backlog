@@ -1,0 +1,441 @@
+@*
+    The other half of a file pane: the file itself, in the one scroll region the
+    reader can see.
+
+    Four things can be in it and only ever one at a time — the file rendered as
+    markdown, the file shown as code, two versions of it aligned by heading, or a
+    body the host brought itself. Which one is the pane's decision, arriving here
+    already made: ShowsComparison, SuppliedBody and RendersMarkdown are answers and
+    not questions. The header's controls and this region have to agree about which
+    mode the pane is in, and the way to guarantee that is for neither of them to
+    decide it.
+
+    Nothing here reads the file either. The blocks arrive parsed, the frontmatter
+    arrives read, the comparison arrives aligned — all three are cached against the
+    text they came from, and a file open in an editor re-renders on every
+    keystroke. Parsing in a child would throw that caching away and do the whole
+    file's worth of work per character.
+
+    What is genuinely this component's is the region itself: its class, its tab
+    stop, its accessible name and how tall it may grow before it scrolls. Those
+    four are one decision made four ways — see the comment on the element — and
+    they belong wherever the element does.
+
+    The frontmatter strip is here rather than in the header for the reason recorded
+    against it: it is the content saying what it is for, not the line that
+    identifies the file. It sits above the scroll region and outside it, so it does
+    not scroll away either.
+
+    ---
+
+    The markup below is indented as though it were still inside FileView's
+    `<article>`, and it has to stay that way — see FileHeader for the argument.
+    Indentation between two sibling elements is a text node in the rendered
+    output, so re-indenting this file would change the bytes every host ships.
+*@
+
+    @if (!Frontmatter.IsEmpty)
+    {
+        @* The file's own frontmatter, shown as the facts it is.
+
+           Its own strip under the header rather than another row inside it. The
+           header is two columns that already crowd each other when the pane is
+           narrow, and a sentence describing the whole file is not part of the
+           line that identifies it — the name and the path are what a reader
+           checks before trusting the content, and this is the content telling
+           them what it is for.
+
+           Only when asked. A file whose first lines nobody has offered to read
+           renders exactly as it did before this existed, block for block. *@
+        <div class="file-view__frontmatter" data-testid="@Suffix("frontmatter")">
+            @if (!string.IsNullOrWhiteSpace(Frontmatter.Description))
+            {
+                <p class="file-view__frontmatter-description" data-testid="@Suffix("description")">@Frontmatter.Description</p>
+            }
+
+            @if (Frontmatter.ApplyTo.Count > 0)
+            {
+                @* One badge per glob, and a short label in front of them: a row of
+                   paths with nothing naming it reads as a breadcrumb. *@
+                <div class="file-view__frontmatter-row" data-testid="@Suffix("applies-to")">
+                    <span class="file-view__frontmatter-label">Applies to</span>
+                    @foreach (var glob in Frontmatter.ApplyTo)
+                    {
+                        <Badge Kind="glob">@glob</Badge>
+                    }
+                </div>
+            }
+
+            @if (Frontmatter.Tools.Count > 0)
+            {
+                <div class="file-view__frontmatter-row" data-testid="@Suffix("tools")">
+                    <span class="file-view__frontmatter-label">Tools</span>
+                    @foreach (var tool in Frontmatter.Tools)
+                    {
+                        <Badge Kind="tool">@tool</Badge>
+                    }
+                </div>
+            }
+
+            @* Everything else the block states, as its own key and its own words,
+               in the order the file wrote them.
+
+               The alternative is what this used to do: draw the three keys it
+               recognises and take the rest out of the body along with them. A
+               `name` on a skill file and a `mode` on a prompt then left the file
+               without being shown anywhere, and the author of that line had no way
+               to tell whether the file or the viewer had lost it. So the rule is
+               the strip never hides what it does not show — which makes the
+               unrecognised key a row rather than a reason to keep the noise.
+
+               No badge and no second visual language for them: the label is the
+               key as the file spells it and the value is text, in the same row the
+               two lists above use. A badge says "one of a set", and a key nothing
+               here recognises is not known to be one of anything. *@
+            @foreach (var field in Frontmatter.Other)
+            {
+                <div class="file-view__frontmatter-row" data-testid="@Suffix($"field-{field.Key.ToLowerInvariant()}")">
+                    <span class="file-view__frontmatter-label">@field.Label</span>
+                    <span class="file-view__frontmatter-value">@field.Text</span>
+                </div>
+            }
+        </div>
+    }
+
+    @* A scroll container is an interactive element even though it is a div:
+       without tabindex a keyboard user cannot reach the overflow in Chromium at
+       all (.design/accessibility.md, "Non-native controls"). role + name keep it
+       from being an unlabelled tab stop.
+
+       A supplied body drops that tabindex, the way FolderView's body already
+       does and for the same reason. The rule is about elements that become the
+       only way to reach something: the built-in shapes render no controls at
+       all, so the region is how a keyboard gets at the overflow, but a host
+       supplies a body because it has controls to put in it and those are tab
+       stops already. Leaving the stop in would put it in front of the editor,
+       where it announces the pane and then does nothing on the way to typing. A
+       host that supplies a body with nothing focusable in it and lets it
+       overflow owns making that reachable — the same bargain FolderView takes.
+       The role and the name are not conditional either way.
+
+       The class is computed for a second reason, and only while the host's
+       editor is what is on screen: a rendered file is as tall as the file, and a
+       textarea is as tall as its row count. Reading, the body's own content
+       fills the pane; editing, it stops at row fourteen and leaves the rest of
+       the pane empty underneath. So the body says it is holding an editor —
+       see ShowsEditBody — and the stylesheet lets whatever is inside it stretch
+       to the room the pane gave, and gives up the padding and the scrollbar
+       gutter it holds prose off its edges with. An editor pads its own text and
+       scrolls inside its own box; the same inset around it reads as a control
+       floating in the pane rather than the pane being the control. *@
+    <div class="@BodyClass"
+         role="region"
+         tabindex="@BodyTabIndex"
+         aria-label="@BodyLabel"
+         style="@BodyStyle"
+         data-testid="@BodyTestId">
+        @if (ShowsComparison)
+        {
+            @if (SelectedBaseline?.Unavailable is { } unavailable)
+            {
+                <EmptyState Title="Nothing to compare against"
+                            Description="@unavailable"
+                            ActionCssClass="@null"
+                            CssClass="file-view__empty"
+                            TestId="@Suffix("compare-unavailable")" />
+            }
+            else
+            {
+                @* Bare: this pane's header already says which file it is and this
+                   body already scrolls. See CodeView below — same reason, same
+                   bargain. *@
+                <MarkdownCompareView Section="@Comparison"
+                                     Bare="true"
+                                     FileName="@Name"
+                                     BeforeLabel="@(SelectedBaseline?.Label ?? "Before")"
+                                     AfterLabel="@AfterLabel"
+                                     TestId="@Suffix("compare-view")" />
+            }
+        }
+        else if (SuppliedBody is { } supplied)
+        {
+            @supplied
+        }
+        else if (RendersMarkdown)
+        {
+            @* Everything the file says about itself, drawn from the file: a
+               chapter's status where its heading is, a diagram where its fence
+               is, and a copy button for each chapter beside the heading that
+               names it. A host that wants any of those asks for them here rather
+               than parsing the same text a second time to draw them around the
+               outside — which is what the knowledge panes were doing, and why a
+               chapter's diagrams used to appear below the file that contained
+               them. *@
+            <MarkdownView Blocks="@Blocks"
+                          Source="@MarkdownSource"
+                          AllowChapterCopy="@AllowChapterCopy"
+                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          RenderFileKnowledgeMetadata="false"
+                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                          ShowDiagramSource="@ShowDiagramSource"
+                          KnowledgeFolder="@KnowledgeFolder"
+                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
+                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
+                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                          KnowledgeHrefFor="@KnowledgeHrefFor"
+                          Comments="@Comments"
+                          Layout="@BodyCommentLayout"
+                          OnAddComment="@OnAddComment"
+                          OnResolveComment="@OnResolveComment"
+                          OnEditComment="@OnEditComment" />
+        }
+        else
+        {
+            @* Numbered because this is a file and not a snippet: the reason to
+               look at source in a pane like this is usually to say where in it
+               something is. *@
+            <CodeView Source="@Body"
+                      Language="@Language"
+                      Bare="true"
+                      ShowLineNumbers="true"
+                      CssClass="file-view__code" />
+        }
+    </div>
+@code {
+    /// <summary>The file's name — the name of the scroll region, and half of what
+    /// it is called while two versions are in it.</summary>
+    [Parameter, EditorRequired]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The pane's test id. The region takes <c>-body</c> and everything
+    /// inside derives its own; null leaves them all off.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>
+    /// The file's leading YAML frontmatter, already read, drawn as a strip above
+    /// the scroll region: what the file says it is about, the globs and tools it
+    /// names, and every other key it states as a plain row.
+    /// <para>
+    /// <see cref="MarkdownFrontmatter.None"/> — the default — draws nothing, and
+    /// that is also what a host that never asked for the strip hands in. One value
+    /// rather than a value and a flag: "read nothing" and "read a block that
+    /// states nothing" are the same answer here, and the pane has already made
+    /// them the same answer upstream.
+    /// </para>
+    /// <para>
+    /// Every key is drawn, which is what makes it safe for the pane to hand
+    /// <see cref="MarkdownSource"/> in without those lines: nothing leaves the body
+    /// that the strip does not show.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public MarkdownFrontmatter Frontmatter { get; set; } = MarkdownFrontmatter.None;
+
+    /// <summary>Whether the comparison is what the region shows: asked for, and
+    /// something to answer with. The pane's answer — it takes precedence over both
+    /// of the other two, and only the pane can see all three.</summary>
+    [Parameter]
+    public bool ShowsComparison { get; set; }
+
+    /// <summary>The version being compared against — its label names the left-hand
+    /// side, and its reason, when it has one, is drawn in place of the comparison.
+    /// Already resolved out of the pane's list.</summary>
+    [Parameter]
+    public FileCompareBaseline? SelectedBaseline { get; set; }
+
+    /// <summary>The two versions, already aligned by heading. Held and handed down
+    /// rather than derived here: aligning two documents walks both of them, and a
+    /// pane re-renders every time a fold in it opens.</summary>
+    [Parameter]
+    public ComparedSection? Comparison { get; set; }
+
+    /// <summary>What the version on screen is called in the comparison. The file
+    /// as it is now, which is the reader's own copy of it.</summary>
+    [Parameter]
+    public string AfterLabel { get; set; } = "Now";
+
+    /// <summary>
+    /// The body the host is drawing, if it is the host's turn.
+    /// <para>
+    /// One fragment and not two, because which of the host's two bodies won —
+    /// its editor while editing, or the body it supplies for every mode — is a
+    /// precedence the pane already resolved. Null means it is not the host's turn
+    /// at all, and this renders the file itself.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? SuppliedBody { get; set; }
+
+    /// <summary>
+    /// Whether what is on screen is specifically the host's <em>editing</em> body —
+    /// the one a reader got to by pressing Edit.
+    /// <para>
+    /// It changes the region's class and nothing else. A rendered file is as tall
+    /// as the file and a textarea is as tall as its row count, so the editing
+    /// modifier is what lets the stylesheet stretch whatever is inside to the room
+    /// the pane gave, and give up the padding and scrollbar gutter it holds prose
+    /// off its edges with.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool ShowsEditBody { get; set; }
+
+    /// <summary>Whether the file is read as prose or as code. The pane's decision,
+    /// made from the file's own name — see <c>FileView.RendersMarkdown</c>, which
+    /// records why markdown is the fallback rather than an entry on a
+    /// list.</summary>
+    [Parameter]
+    public bool RendersMarkdown { get; set; }
+
+    /// <summary>The file's blocks, already parsed. Empty whenever the pane is not
+    /// rendering markdown, which is also when nothing here reads them.</summary>
+    [Parameter]
+    public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
+
+    /// <summary>The text <see cref="Blocks"/> were parsed from, handed over beside
+    /// them because it is what a chapter copy slices: the copies address this
+    /// string by the offsets those blocks carry, so the other text would copy the
+    /// wrong lines. It is the file without the lines the frontmatter strip is
+    /// showing, when it is showing any.</summary>
+    [Parameter]
+    public string? MarkdownSource { get; set; }
+
+    /// <summary>The file's contents, verbatim — what a code file is shown as. Not
+    /// read when the body is markdown or the host's.</summary>
+    [Parameter]
+    public string? Body { get; set; }
+
+    /// <summary>What <see cref="Body"/> is written in, already resolved from the
+    /// caller's answer or the file's name. A language the highlighter has no
+    /// grammar for still renders as code, in one colour.</summary>
+    [Parameter]
+    public string? Language { get; set; }
+
+    /// <summary>Whether a chapter's heading offers to copy that chapter. Passed
+    /// straight to the read view, which explains what it costs to get
+    /// wrong.</summary>
+    [Parameter]
+    public bool AllowChapterCopy { get; set; }
+
+    /// <summary>Whether a fenced <c>meta</c> block is read as the knowledge record
+    /// it is, putting each chapter's status beside its heading. Passed to the read
+    /// view. The file's own block is not among them: the pane has taken it into
+    /// the header and tells the read view to leave it out.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Whether a chapter's record draws the fields under the status too.
+    /// Passed straight to the read view.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Whether a diagram drawn from a fence keeps its own source
+    /// disclosure. Passed straight to the read view and on to
+    /// <c>DiagramView.ShowSource</c>.</summary>
+    [Parameter]
+    public bool ShowDiagramSource { get; set; } = true;
+
+    /// <summary>Which knowledge folder the file was read from, so a chapter's
+    /// status can be checked against that folder's vocabulary.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>The repository-relative path of the knowledge document being
+    /// shown, which is what a relative link in the body resolves against.</summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
+
+    /// <summary>Raised when a reader picked a different status beside a chapter's
+    /// heading. Nothing here writes it.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+
+    /// <summary>Raised with the reference a reader activated in a chapter's
+    /// record.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a metadata reference to a link target.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+
+    /// <summary>Remarks against the file's blocks. Empty — the default — renders
+    /// the file exactly as it did before comments existed.</summary>
+    [Parameter]
+    public IReadOnlyList<MarkdownComment> Comments { get; set; } = [];
+
+    /// <summary>Where the remarks are drawn when there are any. The margin is the
+    /// default here because a file view is a reading surface wide enough for a
+    /// column beside the prose; it falls back to inline on its own below the
+    /// narrow breakpoint.</summary>
+    [Parameter]
+    public MarkdownCommentLayout CommentLayout { get; set; } = MarkdownCommentLayout.Margin;
+
+    [Parameter]
+    public EventCallback<int> OnAddComment { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnResolveComment { get; set; }
+
+    [Parameter]
+    public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
+    /// <summary>Take the full height the host gives the pane, and scroll inside
+    /// it. For a file that lives in a pane or a column, where how tall it gets is
+    /// the layout's business.</summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    /// <summary>How tall the region may grow before it scrolls. Any CSS length;
+    /// null lets it size to its content and never scroll. Ignored when
+    /// <see cref="Fill"/> is set.</summary>
+    [Parameter]
+    public string? MaxHeight { get; set; } = "24rem";
+
+    /// <summary>The scroll region's classes. The block first and always — the
+    /// padding, the overflow and the scrollbars hang off it, and a modifier that
+    /// replaced it would take all three with it.</summary>
+    private string BodyClass =>
+        ShowsEditBody ? "file-view__body file-view__body--edit" : "file-view__body";
+
+    private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    // Null omits the attribute entirely, which is the point: see the comment on
+    // the region itself for why a host-supplied body gives up the tab stop. The
+    // test is what is being drawn and not what was handed over, because a host
+    // that supplies an editor still gets the pane's own body while the reader is
+    // comparing — and that one scrolls.
+    private string? BodyTabIndex => SuppliedBody is not null ? null : "0";
+
+    /// <summary>
+    /// What the scroll region is called. The file, until it is showing two
+    /// versions of the file — then it is named for the relationship, which is the
+    /// wording MarkdownCompareView uses and for the reason recorded there: two
+    /// regions called "domain.md" in one app leave a screen-reader user no way to
+    /// tell the pane from the comparison.
+    /// </summary>
+    private string BodyLabel =>
+        ShowsComparison ? $"{Name}, {SelectedBaseline?.Label ?? "Before"} to {AfterLabel}" : Name;
+
+    // In fill mode the flex box decides the height, so a max-height here would
+    // only fight it.
+    private string? BodyStyle =>
+        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
+
+    /// <summary>
+    /// The layout the remarks actually get.
+    /// <para>
+    /// A margin is only a layout when there is something in it. A host that hands
+    /// in an add handler makes every block a row whether or not anyone has said
+    /// anything, and in margin mode each of those rows reserves the column — so a
+    /// file nobody has remarked on would give up 16rem of its width to hold
+    /// nothing, on the strength of a feature nobody has used yet. The first remark
+    /// opens the column, which is also the moment it starts being worth the room.
+    /// </para>
+    /// </summary>
+    private MarkdownCommentLayout BodyCommentLayout =>
+        Comments.Count == 0 ? MarkdownCommentLayout.Inline : CommentLayout;
+}

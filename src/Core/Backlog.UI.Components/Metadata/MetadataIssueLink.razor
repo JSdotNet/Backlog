@@ -1,0 +1,120 @@
+@using System.Text.RegularExpressions
+
+@*
+    The tracking issue a chapter names, drawn as the GitHub reference it is.
+
+    It draws nothing of its own. `IntegrationLink` is this library's component for a
+    reference to something that lives outside the product — the provider mark, the
+    label, the repository it belongs to — and an issue named in a `meta` fence is one
+    of those. What is left here is the one job that is genuinely knowledge's: turning
+    the two forms a knowledge file writes into the reference record that family takes.
+
+    Three application screens still hand-roll `.badge--gh` for the same shape.
+    Migrating them is separate work; what this settles is that a knowledge field is
+    not a fourth copy of it.
+
+    Two authored forms, and which one it is decides whether it can be followed. A URL
+    is an address a browser can be handed. The `owner/repo#number` shorthand is not:
+    resolving it needs a remote this library knows nothing about, and guessing one
+    would produce a link to somewhere the issue is not. So the shorthand arrives with
+    no URL and `IntegrationLink` renders it as the inert span its tri-state already
+    has for exactly that case — a reference nobody can follow should not invite a
+    click or take a tab stop to refuse one.
+
+    Only `http` and `https` become links. Any other scheme in a knowledge file is
+    either a mistake or an attack, and neither is something to offer a reader a click
+    on; both still show, because the value is the thing worth seeing.
+
+    No state chip. `IntegrationLink` draws one when the reference carries a state, and
+    a metadata block carries none — a fence says which issue, never whether it is
+    open. `IntegrationArtifactState.Unknown` exists and is deliberately not used here:
+    it means "we looked and could not tell", and nobody looked. Inventing it would put
+    a dashed chip reading "Not checked" on every chapter in the repository.
+
+    The label is the number where either form gives one, with the repository beside it
+    — `#118`, `JSdotNet/Backlog` — because that is how the product already writes a
+    GitHub reference everywhere else. A value neither form parses is drawn whole
+    instead: a malformed issue is a typo, and a typo is only useful once it is
+    visible. The authored string stays on the title in every case, so nothing a file
+    said is lost to the shortening.
+*@
+
+@if (Reference is { } reference)
+{
+    <IntegrationLink Link="@reference"
+                     ShowRepository="true"
+                     ShowTitle="false"
+                     TestId="@TestId"
+                     MarkTestId="@MarkTestId"
+                     LabelTestId="@LabelTestId" />
+}
+
+@code {
+    /// <summary>The issue, as the file wrote it: a URL, or the
+    /// <c>owner/repo#number</c> shorthand. Blank draws nothing.</summary>
+    [Parameter]
+    public string? Issue { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>The provider mark, addressed separately so a test can prove the
+    /// GitHub mark is there rather than assert on the whole reference's markup.</summary>
+    [Parameter]
+    public string? MarkTestId { get; set; }
+
+    [Parameter]
+    public string? LabelTestId { get; set; }
+
+    /// <summary>An issue in the shorthand form: two path segments and a number.
+    /// Anchored at both ends, because a value that merely contains one is not one.</summary>
+    private static readonly Regex Shorthand = new(
+        @"^(?<repository>[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)#(?<number>[0-9]+)$",
+        RegexOptions.Compiled);
+
+    /// <summary>An issue as a GitHub URL. The host is not checked: this library does
+    /// not know which GitHub a repository lives on, and an enterprise install is the
+    /// same shape at a different address. What is checked is the shape — owner,
+    /// repository, <c>issues</c>, number — so a URL that is not an issue address
+    /// falls through and is drawn whole rather than relabelled as a number it does
+    /// not have.</summary>
+    private static readonly Regex IssueUrl = new(
+        @"^https?://[^/]+/(?<repository>[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)/issues/(?<number>[0-9]+)(?:[/?#].*)?$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private IntegrationLinkRef? Reference => Build(Issue);
+
+    /// <summary>
+    /// The authored value as the reference record the integrations family takes.
+    ///
+    /// <para>Static and taking the value as an argument so the mapping can be read —
+    /// and reasoned about — without a component around it. It is the whole of what
+    /// this file adds.</para>
+    /// </summary>
+    private static IntegrationLinkRef? Build(string? issue)
+    {
+        if (string.IsNullOrWhiteSpace(issue)) return null;
+
+        var raw = issue.Trim();
+        var parsed = IssueUrl.Match(raw) is { Success: true } url ? url : Shorthand.Match(raw);
+
+        var repository = parsed.Success ? parsed.Groups["repository"].Value : null;
+
+        return new IntegrationLinkRef(
+            Id: raw,
+            Provider: IntegrationProvider.GitHub,
+            Kind: IntegrationLinkKind.Issue,
+            Label: parsed.Success ? $"#{parsed.Groups["number"].Value}" : raw,
+            // Carried so it reaches the title on every shape, and not shown as a
+            // line of its own: the authored string is what a reader checks the
+            // shortened label against, not a second thing to read.
+            Title: raw,
+            Url: IsFollowable(raw) ? raw : null,
+            Repository: repository is null ? null : new IntegrationRepositoryRef(repository, repository));
+    }
+
+    /// <summary>Whether the value is an address a browser can be handed.</summary>
+    private static bool IsFollowable(string issue) =>
+        Uri.TryCreate(issue, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+}

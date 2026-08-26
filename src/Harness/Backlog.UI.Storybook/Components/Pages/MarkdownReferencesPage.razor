@@ -1,15 +1,17 @@
-﻿@page "/knowledge-base/references"
+﻿@page "/markdown/references"
 
-<PageTitle>References in the knowledge base — Backlog UI Storybook</PageTitle>
+<PageTitle>References in markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="References"
-           Summary="A subpage of Knowledge base: the entries under related, depends-on and implements are addresses rather than labels, and that is what makes them followable. KnowledgeReference parses one; KnowledgeReferenceLink draws it as a link, a button or inert text depending on what the host can actually do with it. Which fields hold references at all is on the parent page; what a status word means is the State subpage."
+           Summary="A subpage of Markdown: what a reference is, and the two places one appears. A reference is an address — a path, optionally a heading in it — and being an address is what makes it followable. `KnowledgeReference` parses one and `KnowledgeReferenceLink` draws it, as a link, a button or inert text depending on what the host can actually do with it. It turns up in the prose of a body, where the author wrote a path in a sentence, and in a metadata record, under `related`, `depends-on` or `implements`. This page is both. Which record fields hold references is the Knowledge base chapter; what a status word means is its State subpage."
            Guidelines="@Rules">
 
-    <Story Name="An address is a path, and optionally a heading"
+    <Story Name="A reference is an address: a path, and optionally a heading"
            Description="Two forms, and one character tells them apart: a bare path addresses a whole file, and a path followed by `#` and a heading slug addresses one chapter of it. The split is on the first hash, so a heading whose own slug carries a second one still resolves to a single chapter; a trailing hash addresses no chapter.
 
-`Folder` falls out of the path — always its first segment. `Label` is the short display form and `Raw` is what was authored, and `Raw` stays on the `title` either way."
+`Folder` falls out of the path — always its first segment. `Label` is the short display form and `Raw` is what was authored, and `Raw` stays on the `title` either way. Everything below is this record, drawn in one of the two places one is written.
+
+The entries here are shown as `related` lines because that is the terser form to read, but nothing about the parse is about metadata: the same string in a sentence parses to the same reference."
            Code="@ParseCode">
         <dl class="sb-grid sb-grid--addresses" data-testid="knowledge-references-parsed">
             @foreach (var sample in Samples)
@@ -30,7 +32,9 @@
     <Story Name="Three shapes, and the host decides which"
            Description="`KnowledgeReferenceLink` renders what the host can do with a reference: an `Href` makes an anchor, an `OnActivate` callback makes a button, neither makes a `code` element carrying the address and making no offer.
 
-An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot. When both are given the anchor wins and the callback is ignored."
+An anchor can be middle-clicked, copied, opened in a new window and read out as a link; a button cannot. When both are given the anchor wins and the callback is ignored.
+
+One component for both places a reference appears, which is the point of it being one: whether the address was written in a sentence or under `related`, what the reader gets is this."
            Code="@ShapesCode">
         <div class="sb-stack">
             <div class="sb-stack">
@@ -92,16 +96,39 @@ An anchor can be middle-clicked, copied, opened in a new window and read out as 
         </div>
     </Story>
 
-    <Story Name="The same block, as links"
-           Description="`KnowledgeHrefFor` maps a reference to a route; the host owns that mapping because only it knows what it serves. Returning null leaves that one reference inert while its siblings stay links, which is the ordinary case for a block pointing at one chapter the host can show and one it cannot.
+    <Story Name="In prose: a path written in a sentence"
+           Description="The first of the two places. An author writing a knowledge chapter mentions another one the way they would anywhere — a code span holding a path, or an ordinary markdown link — and what comes out is the same reference the record fields carry, drawn by the same component.
+
+`KnowledgeInlineTargets.For` is the mechanism: a hook handed to the inline renderer, which offers it every code span and every link before drawing one itself. It lives outside `MarkdownView` because that view is not the only thing rendering a chapter — the arc42 fallback and the design sections render their own block trees straight through `MarkdownRender`, and while they passed no hook their links were browser anchors on repository paths.
+
+The two inlines are read differently, on purpose. A **code span** is read in rooted form only: a span is a command or a type name far more often than it is a path, and `domain.md` resolved against the chapter around it would put a destination on the most quotable file name in the repository. A **link** is read against the document, because the author wrote the syntax of a thing to be followed — so `backlog/features.md#feature-roadmap-planning` resolves the way every other markdown viewer would resolve it.
+
+What it declines divides in two. A target naming a scheme was never this to place, so an `https` link stays the anchor `MarkdownRender` already writes. A relative one that reaches no chapter — an image, a typo, a path that climbs out of the repository — keeps its words and loses its destination, wearing the same inert class as a scheme the renderer will not navigate to."
+           Code="@ProseCode"
+           Source="@ProseSample">
+        <div class="sb-stack" data-testid="markdown-references-prose">
+            <MarkdownStory Source="@ProseSample"
+                           KnowledgeDocumentPath="@ProsePath"
+                           KnowledgeFolder="KnowledgeFolder.Domain"
+                           KnowledgeHrefFor="@ResolveDomainOnly"
+                           OnKnowledgeNavigate="FollowInProse"
+                           TestId="markdown-references-prose-body" />
+            <p class="sb-state" data-testid="markdown-references-prose-followed">@ProseFollowedSummary</p>
+        </div>
+    </Story>
+
+    <Story Name="In a record: the whole block, as links"
+           Description="The second place, and the one the convention is written for: the entries under `related`, `depends-on` and `implements` are addresses rather than labels, which is what makes a record something to navigate by rather than something to read.
+
+`KnowledgeHrefFor` maps a reference to a route; the host owns that mapping because only it knows what it serves. Returning null leaves that one reference inert while its siblings stay links, which is the ordinary case for a block pointing at one chapter the host can show and one it cannot.
 
 The block below names one target twice under two fields, which is why the line under it counts fewer references than there are links: `References` is the whole block's addresses in field order, de-duplicated on the form they were authored in."
            Code="@HrefCode">
         <div class="sb-stack" data-testid="knowledge-references-hrefs">
             <p class="sb-label">The block, as written in .domain</p>
             <CodeView Source="@DuplicateBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-references-hrefs-source" />
-            <KnowledgeMetaView Metadata="@DuplicateMetadata"
-                               Folder="KnowledgeFolder.Domain"
+            <MetadataView Metadata="@DuplicateMetadata"
+                               Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain)"
                                HrefFor="@ResolveHref"
                                TestId="knowledge-references-hrefs-view" />
             <p class="sb-state" data-testid="knowledge-references-dedupe-state">@DuplicateSummary</p>
@@ -111,15 +138,18 @@ The block below names one target twice under two fields, which is why the line u
         </div>
     </Story>
 
-    <Story Name="Inside a rendered document"
-           Description="The same two parameters exist on MarkdownView, and they travel down to every metadata block in the body. A knowledge document read out of a folder therefore gets followable references throughout without the page walking the blocks itself.
+    <Story Name="Both places, in one document"
+           Description="A real body has references in its prose and references in its records, and one call covers both: `MarkdownView` takes the resolver and the callback once and they reach every metadata block and every inline in the body. Nothing walks the blocks itself.
 
-The resolver here answers only for `.domain` and returns null for everything else, so the file-level block's `.arc42` reference stays inert text while the chapter's `.domain` targets become links. That is the mixed case from the story above, in a real body."
+Which of the two signals is set decides how much is live. `RenderKnowledgeMetadata` makes a `meta` fence a record; `KnowledgeDocumentPath` says which document this is, and a relative link in the prose has nothing to resolve against without it. Either one on its own is a host saying the prose here is convention-written prose, so either turns the inline hook on — but only the path makes the relative spellings work, which is the form the folders are actually authored in.
+
+The resolver answers only for `.domain`, so the mixed case is visible throughout: the file-level block's `.arc42` reference and the `.arc42` span in the prose stay inert, while every `.domain` target — in a record or in a sentence — becomes a link."
            Code="@MarkdownCode"
            Source="@BacklogSample">
         <MarkdownStory Source="@BacklogSample"
                        RenderKnowledgeMetadata="true"
                        KnowledgeFolder="KnowledgeFolder.Backlog"
+                       KnowledgeDocumentPath=".backlog/domain-backlog.md"
                        KnowledgeHrefFor="@ResolveDomainOnly"
                        TestId="knowledge-references-document" />
     </Story>
@@ -145,13 +175,37 @@ The resolver here answers only for `.domain` and returns null for everything els
 
     private KnowledgeReference? _followed;
 
+    private KnowledgeReference? _followedInProse;
+
+    /// <summary>Where the prose sample is pretending to be. A link in a body is
+    /// resolved against the document holding it, so this is not decoration: without
+    /// it every relative spelling in the sample below stays the words the author
+    /// wrote.</summary>
+    private const string ProsePath = ".domain/context-map.md";
+
+    /// <summary>One paragraph of each kind the hook has an answer for: a rooted
+    /// code span, a relative link, a link that already opens with a folder, a span
+    /// that is plainly not a path, a scheme, and a relative target that reaches no
+    /// chapter.</summary>
+    private const string ProseSample = """
+        The `.domain/backlog/domain.md` chapter owns the entry aggregate, and
+        [the roadmap feature](backlog/features.md#feature-roadmap-planning) is
+        planned against it. The convention itself is written down in
+        [the crosscutting concepts](.arc42/08-crosscutting-concepts.md#storage-and-sync).
+
+        A `Guid` is not a path and neither is `MarkdownPreview.ParseInlines`, so both
+        stay code spans. An [ordinary web link](https://learn.microsoft.com/aspnet/core/blazor)
+        stays an ordinary web link, and [a picture](assets/diagram.png) reaches no
+        chapter — its words stay, its destination does not.
+        """;
+
     /// <summary>The one entry the shapes story renders four ways.</summary>
     private const string ChapterBlock = "related: [\".arc42/08-crosscutting-concepts.md#storage-and-sync\"]";
 
     /// <summary>Read out of the block above rather than parsed from a second copy
     /// of the same string, so the source shown beside the four shapes is the source
     /// they were actually built from.</summary>
-    private static readonly KnowledgeReference ChapterReference = KnowledgeMeta.Parse(ChapterBlock).Related[0];
+    private static readonly KnowledgeReference ChapterReference = MetadataReader.Parse(ChapterBlock).Related[0];
 
     /// <summary>Where the anchor shape points, for the shapes story.</summary>
     private const string TargetHref = "#knowledge-reference-target";
@@ -162,7 +216,7 @@ The resolver here answers only for `.domain` and returns null for everything els
         related: [.domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
-    private static readonly KnowledgeMetadata RoadmapMetadata = KnowledgeMeta.Parse(RoadmapBlock);
+    private static readonly MetadataRecord RoadmapMetadata = MetadataReader.Parse(RoadmapBlock);
 
     /// <summary>A block naming one target under two different fields, so the
     /// links on screen and the de-duplicated References list can be counted
@@ -173,7 +227,7 @@ The resolver here answers only for `.domain` and returns null for everything els
         depends-on: [.domain/backlog/domain.md#aggregate-backlog-entry, .tech/shared.md#markdown]
         """;
 
-    private static readonly KnowledgeMetadata DuplicateMetadata = KnowledgeMeta.Parse(DuplicateBlock);
+    private static readonly MetadataRecord DuplicateMetadata = MetadataReader.Parse(DuplicateBlock);
 
     /// <summary>The top of this repository's own .backlog/domain-backlog.md.</summary>
     private const string BacklogSample = """
@@ -193,7 +247,11 @@ The resolver here answers only for `.domain` and returns null for everything els
         ```
 
         A roadmap view over selected backlog entries, organised by planning horizon
-        while the entries stay the source of truth for status and priority.
+        while the entries stay the source of truth for status and priority. The
+        feature is specified in `.domain/backlog/features.md`, and the decision it
+        rests on is `.arc42/09-architecture-decisions.md` — the same two addresses
+        the records above carry, written the way an author writes them in a
+        sentence.
         """;
 
     private static readonly IReadOnlyList<ReferenceSample> Samples =
@@ -213,6 +271,11 @@ The resolver here answers only for `.domain` and returns null for everything els
         new("Outside the folders", "docs/handbook.md", "outside",
             "Addressable, but in no knowledge folder — Folder comes back Unknown and everything else still works.")
     ];
+
+    private string ProseFollowedSummary => _followedInProse is null
+        ? "Nothing followed yet. Click a path in the paragraph above."
+        : $"Followed out of the prose: {_followedInProse.Raw} · path {_followedInProse.Path} "
+        + $"· chapter {_followedInProse.Slug ?? "(none — a file)"} · folder {_followedInProse.Folder}";
 
     private string FollowedSummary => _followed is null
         ? "Nothing followed yet. Click a reference above."
@@ -235,6 +298,10 @@ The resolver here answers only for `.domain` and returns null for everything els
     }
 
     private void Follow(KnowledgeReference reference) => _followed = reference;
+
+    /// <summary>The same callback, on the prose story, kept separate so the two
+    /// state lines do not answer for each other.</summary>
+    private void FollowInProse(KnowledgeReference reference) => _followedInProse = reference;
 
     /// <summary>The storybook has no route for a repository path, so every
     /// reference resolves to one line on this page. A host returns its own.</summary>
@@ -269,7 +336,7 @@ The resolver here answers only for `.domain` and returns null for everything els
         <KnowledgeReferenceLink Reference="@reference" OnNavigate="Follow" />
 
         @* Wired once on the block instead: every reference in it forwards to
-           this. Both MetadataBadge and KnowledgeMetaView take the parameter. *@
+           this. Both MetadataBadge and MetadataView take the parameter. *@
         <MetadataBadge Metadata="@metadata"
                        Folder="KnowledgeFolder.Backlog"
                        OnNavigate="Follow" />
@@ -283,7 +350,7 @@ The resolver here answers only for `.domain` and returns null for everything els
         """;
 
     private const string HrefCode = """
-        <KnowledgeMetaView Metadata="@metadata" Folder="@folder" HrefFor="@Route" />
+        <MetadataView Metadata="@metadata" Vocabulary="@KnowledgeStatus.Vocabulary(folder)" HrefFor="@Route" />
 
         @code {
             @* The host owns the mapping from repository path to route. Null
@@ -303,12 +370,37 @@ The resolver here answers only for `.domain` and returns null for everything els
         }
         """;
 
+    private const string ProseCode = """
+        @* The document's own path is what a relative link resolves against, so a
+           view that cannot say where it is leaves those links as words. *@
+        <MarkdownView Blocks="@blocks"
+                      KnowledgeDocumentPath="@path"
+                      KnowledgeHrefFor="@Route"
+                      OnKnowledgeNavigate="Follow" />
+
+        @* Inside: what the view hands the inline renderer. A hook, offered every
+           code span and every link before the renderer draws one itself — and
+           null when neither knowledge signal was given, which is what keeps a
+           path in an entry's body a path being quoted. *@
+        private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
+            RenderKnowledgeMetadata || !string.IsNullOrWhiteSpace(KnowledgeDocumentPath)
+                ? KnowledgeInlineTargets.For(KnowledgeDocumentPath, KnowledgeHrefFor, OnKnowledgeNavigate)
+                : null;
+
+        @* A surface that renders its own block tree passes the same hook rather
+           than writing the rule again — the arc42 fallback and the design
+           sections both do. *@
+        @MarkdownRender.Inlines(parts, KnowledgeInlineTargets.For(path, Route, Follow))
+        """;
+
     private const string MarkdownCode = """
-        @* The same two parameters on MarkdownView, reaching every metadata block
-           in the body at once. *@
+        @* One call for both places. The resolver and the callback reach every
+           metadata block and every inline in the body; the path is what the
+           relative links in the prose resolve against. *@
         <MarkdownView Blocks="@blocks"
                       RenderKnowledgeMetadata="true"
                       KnowledgeFolder="@KnowledgeFolders.FromPath(path)"
+                      KnowledgeDocumentPath="@path"
                       KnowledgeHrefFor="@Route"
                       OnKnowledgeNavigate="Follow" />
         """;
