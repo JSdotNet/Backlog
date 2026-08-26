@@ -148,7 +148,10 @@ public sealed class KnowledgePaneSectionReferenceTests : IDisposable
         // The root document. The layer list itself comes from the folder's
         // committed `_meta/index.json`; with none written here the reader falls
         // back to filename order, which is what this fixture wants anyway.
-        // `KnowledgeReadingOrderTests` covers the declared path.
+        // The declared path is covered where the readers live:
+        // `TechnologyKnowledgeTests`, `TechnologyKnowledgePanelTests` and
+        // `Arc42KnowledgeTests` each write an index fixture and assert the order
+        // it puts the files in.
         File.WriteAllText(Path.Combine(root, ".tech", "technology-graph.md"), """
             # Technology graph
 
