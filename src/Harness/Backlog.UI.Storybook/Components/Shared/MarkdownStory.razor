@@ -22,6 +22,7 @@
                   ShowDiagramSource="@ShowDiagramSource"
                   RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                   KnowledgeFolder="@KnowledgeFolder"
+                  KnowledgeDocumentPath="@KnowledgeDocumentPath"
                   OnKnowledgeNavigate="@OnKnowledgeNavigate"
                   KnowledgeHrefFor="@KnowledgeHrefFor" />
 </div>
@@ -51,6 +52,14 @@
     /// <summary>Which knowledge folder the sample is pretending to come from.</summary>
     [Parameter]
     public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
+    /// <summary>Where the sample is pretending to be, which is what a link in its
+    /// prose resolves against. Forwarded for the same reason the folder is: it is
+    /// one of the two things that tell <c>MarkdownView</c> this is a knowledge
+    /// document, and the story about references in prose has nothing to show without
+    /// it.</summary>
+    [Parameter]
+    public string? KnowledgeDocumentPath { get; set; }
 
     /// <summary>Raised with the reference a reader activated in a metadata block.</summary>
     [Parameter]

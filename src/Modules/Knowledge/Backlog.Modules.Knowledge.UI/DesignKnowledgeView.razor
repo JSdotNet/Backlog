@@ -87,7 +87,7 @@
                        it is current, and the fields printed back as rows are the
                        fence again with the fence taken off.
 
-                       An empty block draws nothing at all — KnowledgeMetaView
+                       An empty block draws nothing at all — MetadataView
                        renders nothing for one — so the heading has to be drawn
                        on its own in that case rather than handed to a record
                        that is going to stand down and take it off the page. *@
@@ -101,8 +101,8 @@
                             }
                             else
                             {
-                                <KnowledgeMetaView Metadata="@file.Meta"
-                                                   Folder="KnowledgeFolder.Design"
+                                <MetadataView Metadata="@file.Meta"
+                                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
                                                    ShowFields="false"
                                                    AriaLabel="@($"{file.Title} metadata")"
                                                    CssClass="design-document__record"
@@ -243,8 +243,8 @@
                                 }
                                 else
                                 {
-                                    <KnowledgeMetaView Metadata="@section.Meta"
-                                                       Folder="KnowledgeFolder.Design"
+                                    <MetadataView Metadata="@section.Meta"
+                                                       Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
                                                        ShowFields="false"
                                                        AriaLabel="@($"{section.Heading} metadata")"
                                                        CssClass="design-section__record"

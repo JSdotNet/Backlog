@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Metadata;
 
 namespace Backlog.UI.Components.Markdown;
 
@@ -28,7 +28,7 @@ public static class MarkdownFileMetadata
     /// the heading.</summary>
     /// <param name="Title">The heading's text, as the file spells it.</param>
     /// <param name="Metadata">The block under it, read.</param>
-    public sealed record FileRecord(string Title, KnowledgeMetadata Metadata);
+    public sealed record FileRecord(string Title, MetadataRecord Metadata);
 
     /// <summary>
     /// Whether parsed blocks open with a level-one heading and its metadata fence.
@@ -42,7 +42,7 @@ public static class MarkdownFileMetadata
         blocks.Count > 1
         && blocks[0] is MdHeading { Level: 1 }
         && blocks[1] is MdCode fence
-        && KnowledgeMeta.IsMetaBlock(fence.Language);
+        && MetadataReader.IsMetaBlock(fence.Language);
 
     /// <summary>
     /// The same reading, off the markdown itself, for the caller that has no
@@ -84,7 +84,7 @@ public static class MarkdownFileMetadata
             body.Add(lines[index]);
         }
 
-        return new FileRecord(title, KnowledgeMeta.Parse(string.Join('\n', body)));
+        return new FileRecord(title, MetadataReader.Parse(string.Join('\n', body)));
     }
 
     /// <summary>The next line with something on it. Blank lines are the file
@@ -125,7 +125,7 @@ public static class MarkdownFileMetadata
 
         if (marker is null) return null;
 
-        return KnowledgeMeta.IsMetaBlock(text[marker.Length..]) ? marker : null;
+        return MetadataReader.IsMetaBlock(text[marker.Length..]) ? marker : null;
     }
 
     /// <summary>Whether this line closes the block: the marker it was opened with,

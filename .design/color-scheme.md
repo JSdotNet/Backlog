@@ -452,10 +452,16 @@ still twenty colours, and there is no new value for this file to disagree with.
 ### Badge and chip tones
 
 A badge is a value with a class on it, and the class is what says which family
-the value belongs to. Three families ship — `status`, `priority` and `type` — and
-each maps its own vocabulary onto **one shared tone scale**, so a reader learns
-the scale once and reads it in every family. The vocabulary is always the
-caller's; the tone is always this file's.
+the value belongs to. Each family maps its own vocabulary onto **one shared tone
+scale**, so a reader learns the scale once and reads it in every family. The
+vocabulary is always the caller's; the tone is always this file's.
+
+The families the stylesheet ships are `status`, `priority`, `type`, `area`,
+`kind`, `alias`, `feature`, `progress`, `source`, `tool`, `glob`, `gh` and
+`integration`. This paragraph named three of them for a long time while the
+stylesheet grew to thirteen, so read the list as a count that has drifted before
+and may drift again — `components.css` is the authority on which families exist,
+and this file is the authority on what any of them may look like.
 
 | Tone | What it means | Palette derivation |
 |---|---|---|
@@ -494,6 +500,15 @@ Rules:
 - A status that can be changed MUST be drawn as the same badge as one that cannot.
   A reader must never learn from a colour or a shape that an editable status is a
   different kind of status.
+- **A badge that can be followed MUST say so at rest.** Where a family draws the
+  same value as a link in one place and as plain text in another — an alias a host
+  can resolve beside one it cannot — the followable one takes the `live` ink and
+  edge, and the other keeps its quiet treatment. Hover and focus are not enough:
+  a reader who does not already suspect there is something to click never finds
+  out. The fill stays out of it, because filled still means the product acts on
+  it, and following a link is the reader acting. `gh` is exempt and is the reason
+  the rule is written this way: those badges are already anchors, and their state
+  colours are the cue.
 
 Knowledge chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways, and `README.md#status-vocabulary` maps each

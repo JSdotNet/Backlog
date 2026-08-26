@@ -7,15 +7,15 @@ namespace Backlog.UI.Components.UnitTests;
 /// something is listening, and a status is only judged when the folder that
 /// defines it is known.
 /// </summary>
-public sealed class KnowledgeMetaViewTests
+public sealed class MetadataViewTests
 {
     [Fact]
     public void A_block_that_states_nothing_renders_nothing()
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMetadata.Empty));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataRecord.Empty));
 
         Assert.Equal(string.Empty, view.Markup.Trim());
     }
@@ -25,8 +25,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: adopted
                 kind: format
                 version: "10.0"
@@ -49,8 +49,8 @@ public sealed class KnowledgeMetaViewTests
         // shown and not judged: the plain badge, with no state modifier on it.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted")));
 
         Assert.Equal("badge badge--status", view.Find(".badge--status").GetAttribute("class"));
         Assert.Equal("adopted", view.Find(".badge--status").TextContent);
@@ -63,9 +63,9 @@ public sealed class KnowledgeMetaViewTests
         // status can be offered rather than only reported.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         var select = view.Find(".knowledge-record__headline .status-editor select");
         Assert.Equal(
@@ -112,9 +112,9 @@ public sealed class KnowledgeMetaViewTests
                     .Add(p => p.Status, status)
                     .Add(p => p.Folder, folder));
 
-                var view = context.Render<KnowledgeMetaView>(parameters => parameters
-                    .Add(v => v.Metadata, KnowledgeMeta.Parse($"status: {status}"))
-                    .Add(v => v.Folder, folder));
+                var view = context.Render<MetadataView>(parameters => parameters
+                    .Add(v => v.Metadata, MetadataReader.Parse($"status: {status}"))
+                    .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(folder)));
 
                 // Every value in the list is one the headline offers, so this is
                 // the select every time — the premise of the comparison, and
@@ -147,8 +147,8 @@ public sealed class KnowledgeMetaViewTests
         // folder allows. A folder-blind block has no list at all.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted")));
 
         Assert.Empty(view.FindAll("select"));
         Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
@@ -163,9 +163,9 @@ public sealed class KnowledgeMetaViewTests
         // first one and quietly report `candidate` as if the file said so.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: shipped"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: shipped"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         var status = view.Find(".badge--status");
         Assert.Contains("knowledge-status--unrecognised", status.ClassList);
@@ -191,9 +191,9 @@ public sealed class KnowledgeMetaViewTests
         // showing `candidate`. The pill prints the word as it was written.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: Adopted"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: Adopted"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         Assert.Empty(view.FindAll("select"));
 
@@ -213,9 +213,9 @@ public sealed class KnowledgeMetaViewTests
         // be inventing a state the file never stated.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("kind: format"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("kind: format"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         Assert.Empty(view.FindAll("select"));
         Assert.Empty(view.FindAll(".badge--status"));
@@ -230,9 +230,9 @@ public sealed class KnowledgeMetaViewTests
         // them — and with no host wired up, nothing would have happened at all.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
 
         view.Find(".status-editor select").Change("retired");
 
@@ -251,9 +251,9 @@ public sealed class KnowledgeMetaViewTests
         using var context = new BunitContext();
         var chosen = new List<string>();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft"))
-            .Add(v => v.Folder, KnowledgeFolder.Backlog)
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: draft"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog))
             .Add(v => v.OnStatusChanged, EventCallback.Factory.Create<string>(this, chosen.Add)));
 
         view.Find(".status-editor select").Change("in-progress");
@@ -269,15 +269,15 @@ public sealed class KnowledgeMetaViewTests
         // next chapter would open claiming a state nobody gave it.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft"))
-            .Add(v => v.Folder, KnowledgeFolder.Backlog));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: draft"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog)));
 
         view.Find(".status-editor select").Change("done");
         Assert.Equal("done", view.Find(".status-editor select").GetAttribute("value"));
 
         view.Render(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: blocked")));
+            .Add(v => v.Metadata, MetadataReader.Parse("status: blocked")));
 
         Assert.Equal("blocked", view.Find(".status-editor select").GetAttribute("value"));
     }
@@ -289,11 +289,11 @@ public sealed class KnowledgeMetaViewTests
         // a host that re-renders for its own reasons should not keep snatching
         // the reader's choice back.
         using var context = new BunitContext();
-        var block = KnowledgeMeta.Parse("status: draft");
+        var block = MetadataReader.Parse("status: draft");
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
+        var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, block)
-            .Add(v => v.Folder, KnowledgeFolder.Backlog));
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog)));
 
         view.Find(".status-editor select").Change("ready");
 
@@ -309,8 +309,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("related: [\".tech/shared.md#markdown\"]")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md#markdown\"]")));
 
         Assert.Equal("knowledge-ref knowledge-ref--inert", view.Find(".knowledge-fields__value code").GetAttribute("class"));
         Assert.Empty(view.FindAll("a"));
@@ -322,8 +322,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("related: [\".tech/shared.md#markdown\"]"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md#markdown\"]"))
             .Add(v => v.HrefFor, reference => $"/knowledge/{reference.Path}"));
 
         var link = view.Find("a.knowledge-ref--link");
@@ -338,8 +338,8 @@ public sealed class KnowledgeMetaViewTests
         using var context = new BunitContext();
         var followed = new List<KnowledgeReference>();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 related: [".arc42/01-introduction.md"]
                 depends-on: [".tech/shared.md#markdown"]
                 """))
@@ -358,8 +358,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("related: [\".tech/shared.md\"]"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md\"]"))
             .Add(v => v.HrefFor, _ => "/knowledge/tech")
             .Add(v => v.OnNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, _ => { })));
 
@@ -370,33 +370,57 @@ public sealed class KnowledgeMetaViewTests
     [Fact]
     public void An_issue_url_is_followable_and_the_shorthand_is_not()
     {
+        // Both forms are drawn through the integrations family — the GitHub mark, the
+        // number, the repository beside it — and which of the two it is decides only
+        // whether there is an address behind it.
         using var context = new BunitContext();
 
-        var url = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("issue: https://github.com/JSdotNet/Backlog/issues/42")));
+        var url = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("issue: https://github.com/JSdotNet/Backlog/issues/42")));
 
-        Assert.Equal("https://github.com/JSdotNet/Backlog/issues/42", url.Find("a.knowledge-ref--link").GetAttribute("href"));
+        Assert.Equal(
+            "https://github.com/JSdotNet/Backlog/issues/42",
+            url.Find("a.integration-link--link").GetAttribute("href"));
+        Assert.Equal("#42", url.Find(".integration-link__label").TextContent);
 
-        var shorthand = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("issue: JSdotNet/Backlog#42")));
+        var shorthand = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("issue: JSdotNet/Backlog#42")));
 
         Assert.Empty(shorthand.FindAll("a"));
-        Assert.Equal("JSdotNet/Backlog#42", shorthand.Find("code.knowledge-value").TextContent);
+        Assert.Equal("#42", shorthand.Find("span.integration-link--inert .integration-link__label").TextContent);
+        Assert.Equal("JSdotNet/Backlog", shorthand.Find(".integration-link__repository").TextContent);
+    }
+
+    [Fact]
+    public void An_issue_named_in_a_fence_carries_no_state_so_no_state_chip_is_drawn()
+    {
+        // A meta fence says which issue, never whether it is open. Drawing the
+        // Unknown chip would put a dashed "Not checked" on every chapter that names
+        // one, which is a claim about a read nobody performed.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("issue: JSdotNet/Backlog#42")));
+
+        Assert.Empty(view.FindAll(".badge--integration"));
+        Assert.DoesNotContain("Not checked", view.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Plain_string_fields_never_become_links_even_when_a_href_is_offered()
     {
-        // An alias names a class or an id field, not a chapter. Turning it into
-        // a link would promise a destination that does not exist.
+        // An alternative was weighed and rejected, so it was never written up and
+        // there is nothing an address could name. HrefFor answers for a
+        // KnowledgeReference and neither of these fields holds one, so offering it
+        // changes nothing — which is the point being pinned.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("aliases: [\"OrderLine\"]"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("alternatives: [\"Azure Functions\"]"))
             .Add(v => v.HrefFor, _ => "/knowledge/anything"));
 
         Assert.Empty(view.FindAll("a"));
-        Assert.Equal("OrderLine", view.Find("code.knowledge-value").TextContent);
+        Assert.Equal("Azure Functions", view.Find("code.knowledge-value").TextContent);
 
         // And not dressed as one either: the pill and the link treatment are
         // both promises this value cannot keep.
@@ -405,12 +429,67 @@ public sealed class KnowledgeMetaViewTests
     }
 
     [Fact]
+    public void An_alias_is_a_badge_and_the_record_wires_no_resolver_for_it()
+    {
+        // An alias applies to a name, so it is drawn as a qualifier rather than as a
+        // value. The capability to follow one lives on MetadataAliasList; the record
+        // hands it nothing, because what an alias resolves *to* is a question no file
+        // in this repository answers yet and HrefFor answers for a reference.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("aliases: [\"OrderLine\", \"order_line_id\"]"))
+            .Add(v => v.HrefFor, _ => "/knowledge/anything"));
+
+        Assert.Equal(
+            ["OrderLine", "order_line_id"],
+            view.FindAll("span.badge--alias").Select(badge => badge.TextContent));
+
+        Assert.Empty(view.FindAll("a"));
+        Assert.Empty(view.FindAll("button"));
+        Assert.Contains("aliases", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void Kind_version_and_effort_keep_their_names_for_a_screen_reader_and_hide_them_on_screen()
+    {
+        // The value says which field it is — a classification chip, a v-prefixed
+        // version, a points badge — so the visible label was restating it. Hidden and
+        // not dropped: a value read out with no field name is worse to hear than a
+        // name nobody needed to see.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
+                related: [".tech/shared.md"]
+                kind: framework
+                version: "10.0"
+                effort: 5
+                """))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+
+        Assert.Equal(
+            ["kind", "version", "effort"],
+            view.FindAll("dt.sr-only").Select(label => label.TextContent));
+
+        // Every other row keeps the name, because every other row still needs it.
+        Assert.Equal(["related"], view.FindAll("dt:not(.sr-only)").Select(label => label.TextContent));
+
+        // The modifier is what lets the stylesheet give the value the column back.
+        Assert.Equal(3, view.FindAll("div.knowledge-fields__row--bare").Count);
+
+        Assert.Equal("framework", view.Find(".badge--kind").TextContent);
+        Assert.Equal("v10.0", view.Find("code.knowledge-value").TextContent);
+        Assert.Equal("5 pts", view.Find(".badge--effort").TextContent);
+    }
+
+    [Fact]
     public void A_field_the_schema_does_not_define_is_shown_as_itself()
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: active\nowner: platform-team")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active\nowner: platform-team")));
 
         Assert.Contains("owner", view.FindAll("dt").Select(label => label.TextContent));
         Assert.Contains("platform-team", view.Markup, StringComparison.Ordinal);
@@ -421,8 +500,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: active"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active"))
             .Add(v => v.CssClass, "entry-doc__meta")
             .Add(v => v.TestId, "entry-meta"));
 
@@ -441,8 +520,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("kind: format")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("kind: format")));
 
         var fields = view.Find("dl");
         Assert.Equal("knowledge-fields", fields.GetAttribute("class"));
@@ -457,8 +536,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: adopted
                 kind: format
                 """)));
@@ -478,8 +557,8 @@ public sealed class KnowledgeMetaViewTests
         // An empty <dl> is a gap with a gap's spacing around it.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: active")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active")));
 
         Assert.Empty(view.FindAll("dl"));
         Assert.NotNull(view.Find(".knowledge-record__headline .badge--status"));
@@ -492,9 +571,9 @@ public sealed class KnowledgeMetaViewTests
         // comes apart the moment the heading wraps.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted"))
-            .Add(v => v.Folder, KnowledgeFolder.Tech)
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
             .Add(v => v.Heading, (RenderFragment)(builder =>
             {
                 builder.OpenElement(0, "p");
@@ -520,8 +599,8 @@ public sealed class KnowledgeMetaViewTests
         // right-aligns both forms of the status.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: adopted"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
             .Add(v => v.Heading, (RenderFragment)(builder =>
             {
                 builder.OpenElement(0, "p");
@@ -540,8 +619,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: active")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active")));
 
         var headline = view.Find(".knowledge-record__headline");
         Assert.Single(headline.Children);
@@ -556,10 +635,10 @@ public sealed class KnowledgeMetaViewTests
         // file is not on screen and is the file again where it is.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: adopted
-                order: ["inbox", "capture"]
+                aliases: ["inbox", "capture"]
                 related: [".tech/technology-graph.md"]
                 """))
             .Add(v => v.ShowFields, false));
@@ -574,10 +653,10 @@ public sealed class KnowledgeMetaViewTests
         // The default has to be the record every existing host already renders.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: adopted
-                order: ["inbox"]
+                aliases: ["inbox"]
                 """)));
 
         Assert.NotNull(view.Find("dl.knowledge-fields"));
@@ -591,8 +670,8 @@ public sealed class KnowledgeMetaViewTests
         // component already kept for a block that stated nothing at all.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("order: [\"inbox\"]"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("aliases: [\"inbox\"]"))
             .Add(v => v.ShowFields, false));
 
         Assert.Equal(string.Empty, view.Markup.Trim());
@@ -606,8 +685,8 @@ public sealed class KnowledgeMetaViewTests
         // off the page with it.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("order: [\"inbox\"]"))
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("aliases: [\"inbox\"]"))
             .Add(v => v.ShowFields, false)
             .Add(v => v.Heading, (RenderFragment)(builder =>
             {
@@ -627,8 +706,8 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: draft
                 effort: 5
                 """)));
@@ -647,8 +726,8 @@ public sealed class KnowledgeMetaViewTests
         // Zero is an estimate, not the absence of one, so it shows.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: draft
                 effort: 0
                 """)));
@@ -661,31 +740,35 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft\nkind: framework")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
 
         Assert.Empty(view.FindAll("[data-testid=\"knowledge-effort-badge\"]"));
         Assert.DoesNotContain("effort", view.FindAll("dt").Select(label => label.TextContent));
     }
 
     [Fact]
-    public void Roadmap_tags_draw_one_chip_each_inside_the_labelled_container()
+    public void Roadmap_keys_draw_one_badge_each_inside_the_labelled_container()
     {
+        // Drawn in the same treatment as feature-flag by the same component, because
+        // the two fields are the same shape: a key something outside these files
+        // answers to. The field is out of the storybook for now and no file in this
+        // repository writes it, so a second component nobody could look at was the
+        // alternative.
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("""
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
                 status: draft
                 roadmap: [sync-service, mobile-mvp]
                 """)));
 
         var container = view.Find("[data-testid=\"knowledge-roadmap-tags\"]");
-        var chips = container.QuerySelectorAll(".tag-chip");
         Assert.Equal(
             ["sync-service", "mobile-mvp"],
-            chips.Select(chip => chip.TextContent.Trim()));
+            container.QuerySelectorAll(".badge--feature").Select(badge => badge.TextContent.Trim()));
 
-        // A tag names a roadmap item, it does not address a chapter, so it is
+        // A key names a roadmap item, it does not address a chapter, so it is
         // never dressed as a link.
         Assert.Empty(container.QuerySelectorAll("a"));
         Assert.Contains("roadmap", view.FindAll("dt").Select(label => label.TextContent));
@@ -696,10 +779,93 @@ public sealed class KnowledgeMetaViewTests
     {
         using var context = new BunitContext();
 
-        var view = context.Render<KnowledgeMetaView>(parameters => parameters
-            .Add(v => v.Metadata, KnowledgeMeta.Parse("status: draft\nkind: framework")));
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
 
         Assert.Empty(view.FindAll("[data-testid=\"knowledge-roadmap-tags\"]"));
         Assert.DoesNotContain("roadmap", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void Order_is_not_drawn_and_does_not_reappear_as_an_unrecognised_field()
+    {
+        // The field is read, recognised and dropped. The second half is the part
+        // worth pinning: a key the reader does not recognise is drawn under its own
+        // name, so a field taken out of the schema without being taken out of the
+        // reader would come back louder than it went in.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
+                status: candidate
+                order: ["shared.md", "backend.md"]
+                kind: framework
+                """))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+
+        Assert.Equal(["kind"], view.FindAll("dt").Select(label => label.TextContent));
+        Assert.DoesNotContain("shared.md", view.Markup);
+    }
+
+    [Fact]
+    public void A_block_stating_only_order_draws_no_record_at_all()
+    {
+        // Nothing survived the field, so there is nothing to frame. A bordered,
+        // labelled group around an empty line is what a reader would have got if
+        // the field were merely hidden rather than dropped.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("order: [overview.md, backlog]")));
+
+        Assert.Equal(string.Empty, view.Markup.Trim());
+    }
+
+    [Fact]
+    public void Feature_flags_draw_one_badge_each_inside_their_own_labelled_container()
+    {
+        // Twelve .domain chapters write this field, and until it was modelled every
+        // one of them drew it as a key the schema had never heard of. The
+        // feature-badge family rather than references: the flag lives in the
+        // application's own catalog, so there is no chapter to address and nothing to
+        // follow.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("""
+                status: active
+                feature-flag: [inbox-pane, inbox-filters]
+                """))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain))
+            .Add(v => v.HrefFor, reference => "/anywhere"));
+
+        var container = view.Find("[data-testid=\"knowledge-feature-flag-tags\"]");
+        Assert.Equal(
+            ["inbox-pane", "inbox-filters"],
+            container.QuerySelectorAll(".badge--feature").Select(badge => badge.TextContent.Trim()));
+
+        // No slug on any of them: a per-value modifier would emit
+        // `.badge--feature-inbox-pane`, a class no stylesheet defines.
+        Assert.All(
+            container.QuerySelectorAll(".badge"),
+            badge => Assert.Equal("badge badge--feature", badge.GetAttribute("class")));
+
+        // A resolver is offered and changes nothing, which is the whole difference
+        // between this field and related: there is no reference here to resolve.
+        Assert.Empty(container.QuerySelectorAll("a"));
+        Assert.Empty(view.FindAll("dt").Where(label => label.TextContent == "feature-flag").Skip(1));
+        Assert.Contains("feature-flag", view.FindAll("dt").Select(label => label.TextContent));
+    }
+
+    [Fact]
+    public void An_absent_feature_flag_draws_no_chips_and_no_row()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active\nkind: framework")));
+
+        Assert.Empty(view.FindAll("[data-testid=\"knowledge-feature-flag-tags\"]"));
+        Assert.DoesNotContain("feature-flag", view.FindAll("dt").Select(label => label.TextContent));
     }
 }

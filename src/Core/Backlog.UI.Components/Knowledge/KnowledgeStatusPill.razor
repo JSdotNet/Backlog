@@ -3,7 +3,7 @@
 
     It lives on its own because the answer is wanted next to the heading, not
     three rows down a description list. Before this existed the only way to draw
-    a folder-aware status was to hand KnowledgeMetaView a whole block and take
+    a folder-aware status was to hand MetadataView a whole block and take
     the <dl> that came with it, so a row of statuses read "status draft status
     proposed status active" — the label repeated before every pill because every
     pill brought its own list with it.
@@ -12,27 +12,24 @@
     status means different things in different folders, so a tone or a warning
     guessed without the folder would be wrong as often as right.
 
-    What it wears is the application's status badge, and it is composed from
-    Badge rather than assembled here so there is one implementation of what a
-    badge's classes are. KnowledgeStatusBadge says which modifier the folder's
-    word maps onto, and the record's headline dresses its StatusSelector out of
-    the same call: this is the read-only form of the status, not a second opinion
-    about what the status looks like.
+    What is left here is the folder, and only the folder. Everything about how a
+    status is drawn moved to MetadataStatusBadge — the badge, the modifier, the
+    flag on a word the vocabulary has never heard of — because the record's own
+    headline needs all three and could not have them while they lived behind a
+    knowledge folder. So this is that component with `KnowledgeStatus.Vocabulary`
+    already applied: one line of mapping, and no second opinion about what a
+    status looks like.
 
     The name is now the one thing about this component that is wrong — it renders
     a badge, not a pill — but renaming it ripples through the storybook coverage
     rule and several test files, so it is left for its own change.
 *@
 
-@if (!string.IsNullOrWhiteSpace(Status))
-{
-    <Badge Kind="status"
-           Slug="@KnowledgeStatusBadge.Slug(Folder, Status)"
-           Title="@StatusTitle"
-           CssClass="@ExtraClasses"
-           TestId="@TestId"
-           @attributes="AdditionalAttributes">@Status</Badge>
-}
+<MetadataStatusBadge Status="@Status"
+                     Vocabulary="@KnowledgeStatus.Vocabulary(Folder)"
+                     CssClass="@CssClass"
+                     TestId="@TestId"
+                     @attributes="AdditionalAttributes" />
 
 @code {
     /// <summary>The status word, exactly as it was authored. Nothing in,
@@ -54,29 +51,4 @@
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
-
-    private bool Unrecognised => KnowledgeStatusBadge.IsUnrecognised(Folder, Status);
-
-    /// <summary>The flag, then the caller's own class. Badge appends this whole
-    /// string after the badge classes, and the caller's part goes last within it,
-    /// so nothing a caller passes displaces a class the stylesheet or a test
-    /// matches on by exact position.</summary>
-    private string? ExtraClasses
-    {
-        get
-        {
-            var flag = Unrecognised ? "knowledge-status--unrecognised" : string.Empty;
-
-            if (string.IsNullOrWhiteSpace(CssClass)) return flag.Length == 0 ? null : flag;
-
-            return flag.Length == 0 ? CssClass : $"{flag} {CssClass}";
-        }
-    }
-
-    /// <summary>Naming the values that were expected is the whole point of
-    /// knowing the vocabulary: a status nobody recognises is nearly always a
-    /// typo, and a typo is only useful once it is visible.</summary>
-    private string? StatusTitle => Unrecognised
-        ? $"Unexpected status. Expected one of: {string.Join(", ", KnowledgeStatus.Values(Folder))}."
-        : null;
 }

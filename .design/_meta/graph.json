@@ -457,7 +457,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 578,
+          "line": 593,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -473,7 +473,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 605,
+          "line": 620,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -489,7 +489,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 632,
+          "line": 647,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -506,7 +506,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 668,
+          "line": 683,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1483,7 +1483,7 @@
           "path": ".design/color-scheme.md",
           "slug": "chart-roles",
           "level": 3,
-          "line": 503
+          "line": 518
         }
       },
       {

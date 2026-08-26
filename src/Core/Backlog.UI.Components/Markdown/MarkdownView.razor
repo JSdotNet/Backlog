@@ -120,17 +120,6 @@
 }
 
 @code {
-    /// <summary>A heading, in one place. Still a paragraph, so it never joins
-    /// the host page's own outline, but carrying its level so heading
-    /// navigation works at all.
-    ///
-    /// <para>It is emitted both as a block of its own and as the headline of a
-    /// metadata record, and the two have to be the same markup: navigation
-    /// matches on this element, so a second hand-written copy would silently
-    /// drift out of reach.</para></summary>
-    private RenderFragment RenderHeading(MdHeading heading) =>
-        @<p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@RenderInlines(heading.Content)</p>;
-
     /// <summary>
     /// One block as it appears in the document, wherever it appears: annotated in
     /// a row of its own, or plain in the flow.
@@ -146,16 +135,19 @@
         if (block is MdHeading heading)
         {
             @* Not a heading's job to know it is a record's headline; the fence
-               under it is what decides that. *@
+               under it is what decides that. What the pair then looks like is
+               MetadataChapterView's — the shape has a name, so the header of a
+               file that draws the same record differently can be told apart from
+               it rather than being a second copy of this call. *@
             if (PairedMetaFence(index) is { } fence)
             {
-                <KnowledgeMetaView Metadata="@MetadataOf(fence)"
-                                   Folder="@KnowledgeFolder"
-                                   ShowFields="@RenderKnowledgeMetadataFields"
-                                   OnStatusChanged="status => ReportStatusAsync(index, status)"
-                                   OnNavigate="@OnKnowledgeNavigate"
-                                   HrefFor="@KnowledgeHrefFor"
-                                   Heading="@RenderChapterHead(heading, index)" />
+                <MetadataChapterView Metadata="@MetadataOf(fence)"
+                                     Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                                     ShowFields="@RenderKnowledgeMetadataFields"
+                                     OnStatusChanged="status => ReportStatusAsync(index, status)"
+                                     OnNavigate="@OnKnowledgeNavigate"
+                                     HrefFor="@KnowledgeHrefFor"
+                                     Heading="@RenderChapterHead(heading, index)" />
             }
             else
             {
@@ -185,12 +177,12 @@
     {
         if (ChapterAt(index) is not { } chapter)
         {
-            @RenderHeading(heading)
+            @RenderBlock(heading)
             return;
         }
 
         <div class="md-chapter-head">
-            @RenderHeading(heading)
+            @RenderBlock(heading)
             @* The markdown, not the rendering, for the reason the file-level copy
                gives: the source is what round trips. *@
             <CopyButton Text="@chapter.Text"
@@ -203,108 +195,32 @@
         </div>
     };
 
-    private RenderFragment RenderBlock(MdBlock block) => __builder =>
-    {
-    switch (block)
-    {
-        case MdHeading heading:
-            @RenderHeading(heading)
-            break;
-
-        case MdParagraph paragraph:
-            <p class="md-p">@RenderInlines(paragraph.Content)</p>
-            break;
-
-        case MdList list:
-            @RenderList(list)
-            break;
-
-        case MdQuote quote:
-            <blockquote class="md-quote">@RenderInlines(quote.Content)</blockquote>
-            break;
-        case MdCode codeBlock:
-            @* A `meta` fence is a record, not a listing — but only where a host
-               has said it is reading a knowledge document. Everywhere else the
-               fence is still just a fenced block, which is what it has always
-               rendered as. *@
-            @if (RenderKnowledgeMetadata && KnowledgeMeta.IsMetaBlock(codeBlock.Language))
-            {
-                <KnowledgeMetaView Metadata="@MetadataOf(codeBlock)"
-                                   Folder="@KnowledgeFolder"
-                                   ShowFields="@RenderKnowledgeMetadataFields"
-                                   OnNavigate="@OnKnowledgeNavigate"
-                                   HrefFor="@KnowledgeHrefFor" />
-            }
-            else if (DiagramView.IsDiagram(codeBlock.Language))
-            {
-                <DiagramView Title="Backlog diagram"
-                             Source="@codeBlock.Text"
-                             Language="@codeBlock.Language"
-                             ShowSource="@ShowDiagramSource" />
-            }
-            else
-            {
-                <pre class="md-code"><code>@codeBlock.Text</code></pre>
-            }
-            break;
-
-        case MdTable table:
-            @* Wrapped, and the wrapper is what scrolls: a table is the one block
-               here that has a width of its own and cannot be reflowed to fit.
-               Making the wrapper a labelled, focusable region rather than the
-               table keeps the table a table to a screen reader while still
-               letting a keyboard reach the overflow. *@
-            <div class="md-table-scroll" role="region" tabindex="0" aria-label="Table">
-                <table class="md-table">
-                    <thead>
-                        <tr>
-                            @foreach (var (cell, column) in table.Header.Cells.Select((cell, column) => (cell, column)))
-                            {
-                                <th scope="col" class="@AlignClass(table, column)">@RenderInlines(cell.Content)</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in table.Rows)
-                        {
-                            <tr>
-                                @foreach (var (cell, column) in row.Cells.Select((cell, column) => (cell, column)))
-                                {
-                                    <td class="@AlignClass(table, column)">@RenderInlines(cell.Content)</td>
-                                }
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            break;
-
-        case MdFootnotes footnotes:
-            @* An ordered list, because the numbers are the point and a reader
-               who lost their place should be able to count. The back-link is
-               what makes a footnote usable on a screen: following the mark down
-               is only half of it if there is no way back up. *@
-            <aside class="md-footnotes" aria-label="Footnotes">
-                <hr class="md-divider" />
-                <ol class="md-footnotes__list">
-                    @foreach (var note in footnotes.Notes)
-                    {
-                        <li id="@($"fn-{note.Label}")" class="md-footnotes__item">
-                            @RenderInlines(note.Content)
-                            <a class="md-footnotes__back"
-                               href="@($"#fnref-{note.Label}")"
-                               aria-label="@($"Back to reference {note.Number}")">↩</a>
-                        </li>
-                    }
-                </ol>
-            </aside>
-            break;
-
-        case MdDivider:
-            <hr class="md-divider" />
-            break;
-    }
-    };
+    /// <summary>
+    /// One block, drawn by the component that owns every block's markup.
+    ///
+    /// <para>Everything this view knows that a single block cannot — the fence
+    /// paired with the heading above it, the chapter's own copy button, the
+    /// gutter beside it — is decided before the call and none of it travels
+    /// down. What does travel down is the reading: whether a <c>meta</c> fence is
+    /// a record, which folder it was read from, and the inline hook. So a block
+    /// drawn here and the same block drawn by a knowledge panel differ in the
+    /// classes they wear and in nothing else.</para>
+    ///
+    /// <para>Headings come through here too, including the one a chapter head
+    /// wraps. Heading navigation matches on that element, so a second
+    /// hand-written copy of it would silently drift out of reach — which is the
+    /// reason this was one fragment before it was one component.</para>
+    /// </summary>
+    private RenderFragment RenderBlock(MdBlock block) =>
+        @<MarkdownBlockView Block="@block"
+                            OnTaskItemToggled="@OnTaskItemToggled"
+                            InlineTarget="@InlineTarget"
+                            RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                            RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                            KnowledgeFolder="@KnowledgeFolder"
+                            OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                            KnowledgeHrefFor="@KnowledgeHrefFor"
+                            ShowDiagramSource="@ShowDiagramSource" />;
 
     private string? _editingId;
     private string _draft = string.Empty;
@@ -334,7 +250,7 @@
     /// margin of nothing.</para></summary>
     private bool DrawsKnowledgeStatus =>
         RenderKnowledgeMetadata
-        && Blocks.Any(block => block is MdCode fence && KnowledgeMeta.IsMetaBlock(fence.Language));
+        && Blocks.Any(block => block is MdCode fence && MetadataReader.IsMetaBlock(fence.Language));
 
     /// <summary>What the block reserves on its right, said as a class so the
     /// stylesheet does not have to guess.
@@ -541,61 +457,7 @@
         </text>;
 }
 
-@* A list renders itself and, through its items, any list written under it. It is
-   recursive rather than flat because the nesting is: an indented run belongs to
-   the item above it, and rendering it as a sibling would lose which. *@
 @code {
-    private RenderFragment RenderList(MdList list) =>
-        @<text>
-            @if (list.Ordered)
-            {
-                <ol class="md-list">
-                    @foreach (var item in list.Items)
-                    {
-                        <li>@RenderInlines(item.Content)@RenderChildren(item)</li>
-                    }
-                </ol>
-            }
-            else
-            {
-                <ul class="md-list">
-                    @foreach (var item in list.Items)
-                    {
-                        @* The task modifier belongs to the item, not the list: a
-                           list can mix tasks and plain bullets, and the plain
-                           ones must keep their marker. *@
-                        <li class="@(item.Done is not null ? "md-item--task" : string.Empty) @(item.Done == true ? "md-item--done" : string.Empty)">
-                            @if (item.Done is not null && CanToggle)
-                            {
-                                <button type="button"
-                                        class="md-check @(item.Done == true ? "md-check--done" : string.Empty)"
-                                        data-testid="entry-checkbox"
-                                        role="checkbox"
-                                        aria-checked="@(item.Done == true ? "true" : "false")"
-                                        aria-label="@MarkdownRender.PlainText(item.Content)"
-                                        @onmousedown:preventDefault="true"
-                                        @onclick:stopPropagation="true"
-                                        @onclick="() => ToggleTaskItemAsync(item.TaskIndex!.Value)">@(item.Done == true ? "✔" : string.Empty)</button>
-                            }
-                            else if (item.Done is not null)
-                            {
-                                @* Nothing to toggle into: show the state without
-                                   a control that would take focus and do nothing. *@
-                                <span class="md-check @(item.Done == true ? "md-check--done" : string.Empty)"
-                                      data-testid="entry-checkbox"
-                                      role="img"
-                                      aria-label="@(item.Done == true ? "Done" : "Not done")">@(item.Done == true ? "✔" : string.Empty)</span>
-                            }
-                            @RenderInlines(item.Content)@RenderChildren(item)
-                        </li>
-                    }
-                </ul>
-            }
-        </text>;
-
-    private RenderFragment RenderChildren(MdListItem item) =>
-        @<text>@foreach (var child in item.Nested) { @RenderList(child) }</text>;
-
     [Parameter, EditorRequired]
     public IReadOnlyList<MdBlock> Blocks { get; set; } = [];
 
@@ -730,7 +592,7 @@
     /// that is already showing the file itself turns it off: `order`, `aliases`
     /// and `version` have no visualization a reader gains anything from, so
     /// printing them as rows is the fence again with the fence taken off.
-    /// Forwarded verbatim to <c>KnowledgeMetaView.ShowFields</c>.</summary>
+    /// Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
 
@@ -779,7 +641,7 @@
     /// <summary>Parsed metadata blocks, kept per block. A view re-renders far
     /// more often than its blocks change — every comment edit redraws all of
     /// them — and re-parsing the same fence each time buys nothing.</summary>
-    private readonly Dictionary<MdCode, KnowledgeMetadata> _metadata = [];
+    private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
 
     /// <summary>Which chapter of the source each heading block is the top of.
     /// Empty when the source was not given, or when what it splits into does not
@@ -855,11 +717,11 @@
         OnKnowledgeStatusChanged.InvokeAsync(
             new KnowledgeStatusChange(index, _chapters.TryGetValue(index, out var chapter) ? chapter.Title : null, status));
 
-    private KnowledgeMetadata MetadataOf(MdCode block)
+    private MetadataRecord MetadataOf(MdCode block)
     {
         if (_metadata.TryGetValue(block, out var parsed)) return parsed;
 
-        parsed = KnowledgeMeta.Parse(block.Text);
+        parsed = MetadataReader.Parse(block.Text);
         _metadata[block] = parsed;
         return parsed;
     }
@@ -884,7 +746,7 @@
         && index + 1 < Blocks.Count
         && Blocks[index] is MdHeading
         && Blocks[index + 1] is MdCode fence
-        && KnowledgeMeta.IsMetaBlock(fence.Language)
+        && MetadataReader.IsMetaBlock(fence.Language)
             ? fence
             : null;
 
@@ -940,14 +802,9 @@
             ? [.. ProposalsOn(index), .. ProposalsOn(index + 1)]
             : ProposalsOn(index);
 
-    private bool CanToggle => OnTaskItemToggled.HasDelegate;
-
     private bool CanComment => OnAddComment.HasDelegate;
 
     private bool CanRewrite => OnRewriteBlock.HasDelegate;
-
-    private RenderFragment RenderInlines(IReadOnlyList<MdInline> parts) =>
-        MarkdownRender.Inlines(parts, InlineTarget);
 
     /// <summary>
     /// The hook handed to the inline renderer, and null where a host has said
@@ -973,20 +830,4 @@
         RenderKnowledgeMetadata || !string.IsNullOrWhiteSpace(KnowledgeDocumentPath)
             ? KnowledgeInlineTargets.For(KnowledgeDocumentPath, KnowledgeHrefFor, OnKnowledgeNavigate)
             : null;
-
-    /// <summary>The alignment class for a column, read defensively: a body row
-    /// may have more cells than the delimiter row described, and a column nobody
-    /// aligned takes the default rather than throwing.</summary>
-    private static string AlignClass(MdTable table, int column) =>
-        column < table.Alignment.Count
-            ? table.Alignment[column] switch
-            {
-                MdAlign.Left => "md-table__cell--left",
-                MdAlign.Center => "md-table__cell--center",
-                MdAlign.Right => "md-table__cell--right",
-                _ => string.Empty
-            }
-            : string.Empty;
-
-    private Task ToggleTaskItemAsync(int taskIndex) => OnTaskItemToggled.InvokeAsync(taskIndex);
 }

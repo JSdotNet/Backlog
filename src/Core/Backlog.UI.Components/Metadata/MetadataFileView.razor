@@ -1,0 +1,118 @@
+@*
+    File metadata: the block under the `#` heading, describing the document as a
+    whole.
+
+    The same record as a chapter's and a different fact. A `##` block says whether
+    that chapter is current; the block under the title says whether the file is,
+    and the two are set independently — a file may be adopted with a chapter in it
+    still a draft. Which is the whole reason this is a shape of its own rather than
+    a chapter with a bigger heading.
+
+    Where a reader meets it is the other half. Read in the body, the file's block
+    is at the top of a document — the one place a reader has already scrolled past
+    by the time they think to ask whether any of it is still current. So a surface
+    with a header of its own draws it up there instead, around the name it
+    describes, on the part of the pane that stays put: FileView does exactly that,
+    and tells the read view underneath it to skip the fence it has taken over.
+    Nothing here knows about a header; what it knows is that the heading it is
+    handed is the file's name rather than a block in the document, and that
+    changes what happens when there is no record.
+
+    Two heading fragments, because the two cases need not be the same element.
+    Inside a record the headline is a row — the name and the status align on it —
+    so the host's name and detail lines go in as one wrapped item, or the details
+    would sit beside the name and the status after both. With no record there is no
+    row to be an item of, and the host's own markup goes in as it always was. One
+    parameter would force a wrapper into the case that has nothing to wrap.
+
+    A host is free to pass the same fragment to both, and FileView's header does:
+    its heading carries the file's path as a second item, so it has to be a row in
+    both cases, and with no record its own column is made the row instead. What
+    stays true is that this component does not decide that for a caller — the
+    wrapper is the host's, because what shares the row with the status is.
+
+    Which is why an absent record is a parameter value here and not a caller's
+    branch. `null`, and a block that states nothing, are the same answer — the
+    file said nothing about itself — and the header still has to say which file it
+    is. MetadataView renders no element at all for an empty record, by design, so a
+    header that handed it the file's name would lose the name to a wrapper that
+    stood down. Asking the question here means every host that draws a file's
+    record gets that answer, rather than each of them remembering to check.
+*@
+
+@if (Metadata is { IsEmpty: false } record)
+{
+    <MetadataView Metadata="@record"
+                  Vocabulary="@Vocabulary"
+                  ShowFields="@ShowFields"
+                  OnStatusChanged="@OnStatusChanged"
+                  OnNavigate="@OnNavigate"
+                  HrefFor="@HrefFor"
+                  AriaLabel="@AriaLabel"
+                  CssClass="@CssClass"
+                  TestId="@TestId"
+                  Heading="@Heading" />
+}
+else
+{
+    @HeadingAlone
+}
+
+@code {
+    /// <summary>The file's own record, or nothing. Null and a block that states
+    /// nothing are the same answer, and both draw <see cref="HeadingAlone"/>.</summary>
+    [Parameter]
+    public MetadataRecord? Metadata { get; set; }
+
+    /// <summary>The file's name, as one item of the record's headline. Wrapped by
+    /// the host: the headline is a row, and what shares that row with the status is
+    /// the host's business.</summary>
+    [Parameter]
+    public RenderFragment? Heading { get; set; }
+
+    /// <summary>The same name with no record around it, for a file that says
+    /// nothing about itself. Separate from <see cref="Heading"/> because it is not
+    /// in a row and needs no wrapper — and required in practice, since a header
+    /// that drew nothing here would stop naming the file.</summary>
+    [Parameter]
+    public RenderFragment? HeadingAlone { get; set; }
+
+    /// <summary>The status words this file's surface allows, which is what turns
+    /// the status from a word into a value out of a list. See
+    /// <see cref="MetadataView.Vocabulary"/>. A knowledge surface passes
+    /// <c>KnowledgeStatus.Vocabulary(folder)</c>.</summary>
+    [Parameter]
+    public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
+
+    /// <summary>Raised with the status a reader picked for the file. The file's
+    /// own, and never a chapter's: a host that persists this writes the block under
+    /// the title.</summary>
+    [Parameter]
+    public EventCallback<string> OnStatusChanged { get; set; }
+
+    /// <summary>Raised with the reference a reader activated.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Resolves a reference to a link target; null leaves that reference
+    /// as text rather than a broken link.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
+    /// <summary>Whether everything but the status is drawn. On by default; a header
+    /// with room for one line turns it off and keeps the status.</summary>
+    [Parameter]
+    public bool ShowFields { get; set; } = true;
+
+    /// <summary>The group's name for a screen reader. A file's record is worth
+    /// naming for the file — several panes may be open at once — so a host passes
+    /// the file's name in; the default is the record's own.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Knowledge metadata";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

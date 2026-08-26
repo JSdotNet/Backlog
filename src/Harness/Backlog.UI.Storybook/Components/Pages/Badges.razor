@@ -23,6 +23,26 @@
         </div>
     </Story>
 
+    <Story Name="A badge that leads somewhere"
+           Description="Three shapes, one badge. What it renders depends on what the host can do with the value rather than on what the value is: given a URL it is an anchor, given a callback it is a button, given neither it is the span every badge in this library has always been. An anchor can be middle-clicked, copied and opened in a new window and a button cannot, and a value nobody can follow should not invite a click or take a tab stop to refuse one.
+
+The same tri-state `KnowledgeReferenceLink` and `IntegrationLink` already draw, copied here rather than re-derived. A badge earns it because some badges name something a reader wants to go to — a knowledge alias is the case that forced it, since a host holding a naming index knows where the term it names is modelled. A second badge implementation with an href on it would be a parallel tone scale nobody would keep in step with this one.
+
+Nothing changes for a caller that passes neither parameter, down to the attribute order."
+           Code="@LinkedCode">
+        <div class="sb-row" data-testid="badges-tri-state">
+            <span class="sb-label">span</span>
+            <Badge Kind="alias" Title="alias: TaskItem">TaskItem</Badge>
+
+            <span class="sb-label">anchor</span>
+            <Badge Kind="alias" Title="alias: TaskItem" Href="#badges-tri-state">TaskItem</Badge>
+
+            <span class="sb-label">button</span>
+            <Badge Kind="alias" Title="alias: TaskItem" OnClick="@(() => _pressed = "TaskItem")">TaskItem</Badge>
+        </div>
+        <p class="sb-state" data-testid="badges-tri-state-pressed">@Pressed</p>
+    </Story>
+
     <Story Name="StatusBadge"
            Description="The status vocabulary is the caller's, not the library's — the badge only slugifies whatever string arrives."
            Code="@StatusCode">
@@ -139,8 +159,27 @@
 
     private void ResetTags() => _tags = ["ui", "markdown", "sync", "aspire", "docs"];
 
+    private string? _pressed;
+
+    private string Pressed => _pressed is null
+        ? "Nothing pressed yet. The button above is the only one of the three that reports."
+        : $"OnClick last reported: {_pressed}.";
+
     private const string BadgeCode = """
         <Badge Kind="status" Slug="ready">Ready</Badge>
+        """;
+
+    private const string LinkedCode = """
+        @* An address makes it an anchor. *@
+        <Badge Kind="alias" Href="@HrefFor(alias)">@alias</Badge>
+
+        @* A delegate and no address makes it a button, for a surface that routes
+           in-process and has nothing to hand a browser. *@
+        <Badge Kind="alias" OnClick="@Select">@alias</Badge>
+
+        @* Neither leaves it the span it has always been — and an address wins over
+           a delegate, because two ways to reach one place is one too many. *@
+        <Badge Kind="alias">@alias</Badge>
         """;
 
     private const string StatusCode = """

@@ -1,0 +1,62 @@
+@*
+    One authored scalar, drawn as the value it is.
+
+    `version`, an `alternatives` entry and every value of a key the schema does not
+    define are this shape: a single word or number the author typed, with nothing
+    behind it to follow. `knowledge-value` is the quiet treatment that says "this is
+    the value" and promises no destination — a scalar dressed as a link would invite
+    a click nothing is waiting for.
+
+    A `code` element rather than a `span`, because these values are read
+    literally: `10.0` is a version string and not the number ten, and the
+    monospace face is what stops a reader rounding it.
+
+    Prefix is how a value says which field it came from without a label in front of
+    it. `v10.0` is a version anywhere it appears, and that is the whole of what the
+    parameter is for: it is drawn as part of the value rather than beside it, so a
+    reader who has the value and no row heading still knows what they are looking
+    at. It is not a place to put a word — a prefix long enough to read as a label
+    is a label, and belongs in the `dt`.
+
+    Nothing in, nothing out. A blank scalar is a field the file did not state, and
+    an empty value element would be a row asserting emptiness — which is a
+    different claim from silence. A prefix alone is not a value: it is drawn only
+    where there is something to prefix.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Value))
+{
+    <code class="@ValueCssClass" title="@Title" data-testid="@TestId" @attributes="AdditionalAttributes">@Prefix@Value</code>
+}
+
+@code {
+    /// <summary>The value, exactly as authored. Never trimmed or reformatted: a
+    /// stray capital in a <c>kind</c> is the author's, and normalising it here
+    /// would hide the typo rather than its cause.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>A sigil in front of the value, inside the same element — the
+    /// <c>v</c> of <c>v10.0</c>. Part of the value on screen and part of the string
+    /// a reader copies, which is the point: the prefix is what makes the value
+    /// legible on its own.</summary>
+    [Parameter]
+    public string? Prefix { get; set; }
+
+    /// <summary>The field this value came from, for a pointer user, where the row's
+    /// own label is not on screen. Never the only place the field is named — the
+    /// <c>dt</c> is, hidden or not — because a title is not reliably announced.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>The class the value wears. Null drops the attribute, for a host
+    /// laying values out under names of its own.</summary>
+    [Parameter]
+    public string? ValueCssClass { get; set; } = "knowledge-value";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+}

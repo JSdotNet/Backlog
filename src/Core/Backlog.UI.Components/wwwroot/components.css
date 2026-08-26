@@ -434,7 +434,90 @@
     padding: 1px var(--spacing-sm);
     border-radius: var(--border-radius-sm);
     background: var(--color-background-raised);
+    /* Declared rather than left to inherit, and it matters only for the two shapes
+       below: a <button> arrives from the user agent with a face and a weight of its
+       own, so without these a badge that leads somewhere would be set in Arial
+       beside an identical one that does not. A span inherits both already, so this
+       changes nothing for every badge that ships. Any kind that states its own face
+       still wins — `.badge--alias` is monospace. */
+    font-family: inherit;
+    font-weight: inherit;
     color: var(--color-text-secondary);
+}
+
+/* A badge that leads somewhere, in the two shapes Badge draws when a host hands it
+   a destination or a delegate. Element-qualified rather than a modifier class,
+   because the difference is which element was rendered and not which family the
+   value belongs to — the same reason `.tag-chip__label` splits this way. */
+a.badge,
+button.badge {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* The one thing a class cannot out-rank: a native control's own appearance can
+   repaint the surface and the border underneath the rule that set them. */
+button.badge {
+    appearance: none;
+}
+
+/*
+   And a badge that leads somewhere says so at rest, not only under a pointer.
+
+   Until this rule the two shapes computed identically — same ink, same edge, same
+   size — and only `:hover` and `:focus-visible` told them apart. So an alias a
+   host can place looked exactly like one it cannot, and neither a reader skimming
+   nor anyone with a keyboard had any way to know which of a row of them would do
+   something. Cueing the interactive one is the direction, and not dimming the
+   inert one: the quiet treatment is already what a plain badge wears, and a value
+   nobody can follow is information rather than a failure.
+
+   The stronger border and the primary ink, which is `.badge--gh-open`'s pair and
+   `.badge--priority-high`'s — the idiom this library already spends on "this one,
+   out of the row". The fill is deliberately untouched:
+   `.design/color-scheme.md#badge-and-chip-tones` reserves a filled surface for
+   something the product acts on, and following a link is the reader acting.
+
+   `border-color` and not `border`, so no followable badge is a different size from
+   the badge beside it. A kind that draws an edge — `.badge--alias`, which is the
+   case that forced all of this — gets both halves of the cue; a kind that draws
+   none still gets the ink, and gains no border it would have to make room for.
+   Which is also why `a.badge:hover`'s `border-color` was doing nothing on a
+   borderless badge before: the hover state has always been written this way.
+
+   Three families are held out, and one rule covers all three: a kind that already
+   paints per value keeps its own scale. These selectors out-rank a single class,
+   so without the exclusion they would flatten one.
+
+   `.badge--status` and `.badge--feature` are the filled pair. Both set
+   `color: var(--color-text-primary)` for legibility against a semantic surface, so
+   a status badge that ever became a link would take amber ink onto the error red
+   underneath it — the fill rule again from the other side: a filled badge is
+   already saying "the product acts on this" and has no room left to say "and you
+   can follow it".
+
+   `.badge--gh` is the one that is already an anchor. Three application screens
+   draw `<a class="badge badge--gh badge--gh-{state}">`, and those state colours
+   *are* the cue — open takes this exact pair, merged the strong edge, closed and
+   draft the disabled ink. Repainting them all amber would say "followable" about a
+   row where every badge is, and lose the only thing the row was distinguishing.
+*/
+a.badge:not(.badge--status, .badge--feature, .badge--gh),
+button.badge:not(.badge--status, .badge--feature, .badge--gh) {
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+a.badge:focus-visible,
+button.badge:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+a.badge:hover,
+button.badge:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
 }
 
 /* Status is the one piece of metadata that carries color. */
@@ -542,6 +625,48 @@
 .badge--feature-dev { background: var(--color-error); }
 .badge--feature-beta { background: var(--color-warning); }
 
+/*
+  An alias, drawn as the qualifier it is.
+
+  An alias applies to a name rather than standing on its own — `TaskItem` is
+  another word for the term a chapter is about — so it is set above the baseline of
+  the text it qualifies and a step smaller than it, which is what a reader already
+  reads as "this belongs to the word in front of it". Two properties for the two
+  contexts: `vertical-align` raises it in prose, where an alias sits beside a term,
+  and `align-self` tops it inside a metadata record's value cell, which is a flex
+  line and ignores vertical-align.
+
+  The size is relative rather than a step off the scale. A fixed `--font-size-xs`
+  would be smaller than the body face in a domain pane and exactly the same size as
+  everything around it inside a metadata row, which is where the field is reviewed,
+  so it would read as superscript in one place and as an ordinary chip in the other.
+  The floor is what keeps it legible: 0.8em of a 12px cell is 9.6px, which is below
+  anything else this stylesheet sets.
+
+  Outlined and never filled. An alias is information rather than something the
+  product acts on, and `.design/color-scheme.md#badge-and-chip-tones` reserves a
+  filled surface for the latter.
+
+  The padding and the minimum height are here for the shapes that take a click.
+  A superscript badge cannot reach the 44px target `accessibility.md#target-sizes-and-text`
+  asks for without pushing the line it rides on apart, so it takes the largest
+  target the treatment allows and no more — recorded here rather than discovered
+  later.
+*/
+.badge--alias {
+    align-self: flex-start;
+    vertical-align: super;
+    min-height: 1rem;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: max(0.6875rem, 0.8em);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 /* Type is quiet: it labels, it does not compete. */
 .badge--type {
     background: transparent;
@@ -614,8 +739,17 @@
     min-width: 2.25rem;
 }
 
-/* The area an entry is filed under — a quiet counterpart to the tag chips. */
-.badge--area {
+/* The area an entry is filed under, and what kind of thing a knowledge chapter
+   describes — a quiet counterpart to the tag chips.
+
+   One rule for the two because they are the same fact about different things: the
+   drawer something is filed in, out of a closed vocabulary somebody else owns. A
+   `kind` is `format`, `runtime`, `framework` or `library`, which is why it reads as
+   a classification rather than as a value and why it carries no per-value modifier
+   — the vocabulary is the folder's and this library does not colour it. Outlined
+   and unfilled, because neither is something the product acts on. */
+.badge--area,
+.badge--kind {
     background: transparent;
     color: var(--color-text-secondary);
     border: var(--border-width) solid var(--color-border);
@@ -1690,10 +1824,47 @@ button.md-check {
     gap: var(--spacing-2xs) var(--spacing-sm);
     margin: 0;
     font-size: var(--font-size-xs);
+    /* Positioned because the rows below carry an `.sr-only` label. `.sr-only` is
+       absolutely positioned, so without a positioned ancestor its containing block
+       is the page: the hidden word then lands at page coordinates and can drag a
+       scrolled container's width out with it, invisibly. `.status-editor` carries
+       the same note for the same reason. Nothing moves — the label has no offsets
+       to resolve against. */
+    position: relative;
 }
 
 .knowledge-fields__row {
     display: contents;
+}
+
+/*
+   A field whose value says which field it is, drawn without a visible label.
+
+   `kind`, `version` and `effort` are self-describing once they are drawn as what
+   they are — a classification chip, a `v` prefix on a version string, a points
+   badge — and a dimmed word in front of them was scaffolding holding up something
+   that now stands on its own.
+
+   The label is hidden, not dropped. It stays in the description list so the pair a
+   screen reader depends on is still a pair, and so the field still has a name to
+   announce: a value with no name is worse to hear than a name nobody needed to
+   read.
+
+   The value spans both columns because an absolutely positioned label is not a
+   grid item at all. Left to auto-placement the value would take the label's own
+   column, which is sized to the widest label in the list and would squeeze it.
+*/
+.knowledge-fields__row--bare .knowledge-fields__value {
+    grid-column: 1 / -1;
+}
+
+/* The feature badge carries a left margin of its own, for the app chrome where it
+   rides beside a button's label and needs air between the two. Inside a value cell
+   the cell's own gap already provides that, and the margin does one thing only:
+   pushes the first key a step right of every other row's value, out of the column
+   they all share. */
+.knowledge-fields__value .badge--feature {
+    margin-left: 0;
 }
 
 /* The dimmest thing in the record. A field name is scaffolding for the value
@@ -5093,23 +5264,55 @@ select.field__input option {
    chapters wear; these rules only say how it sits in a header that already has
    a right-hand column.
 
-   The identity column grows for it, and only for it. Unfilled, the column is as
-   wide as its content and the status would sit against the name's last word;
-   the right edge is the whole point of that alignment (see
-   .knowledge-record__headline), and the aside keeps its own content width, so
-   growing here takes the header's free space and nothing the path or the
-   actions were using. Without a record there is nothing to push over, and the
-   column stays sized as it always was.
+   The identity column takes the header's free space. Unfilled, the column is as
+   wide as its content: the status would sit against the name's last word and the
+   path would sit against the status, and the right edge is the whole point of
+   both alignments (see .knowledge-record__headline). The aside keeps its own
+   content width, so growing here takes free space and nothing the actions were
+   using.
 
-   The name and the details line go into that row as one item — .file-view__
-   headline — rather than two: loose, they would sit side by side with the status
-   after both. Wrapped, the row has two items to align, and baseline alignment
-   takes the wrapper's first baseline, which is the name's. It needs no rule of
-   its own: the headline already gives every child but the status min-width: 0,
-   which is what lets the name wrap instead of pushing the status out of the row.
+   It grows whether or not there is a record, which is the one thing that changed
+   when the path joined the name's line: with no record there is no status to hold
+   that edge, and the path holds it instead. The modifier still says which of the
+   two shapes the column is in — see the row rule below, which is the case where
+   the column is the row.
+
+   The name and the details line go into the row as one item — .file-view__
+   headline — rather than two: loose, they would sit side by side with the path
+   after both. Wrapped, the row has the name, the path and the status to align,
+   and baseline alignment takes the wrapper's first baseline, which is the name's.
 */
-.file-view__identity--record {
+.file-view__identity {
     flex: 1 1 auto;
+}
+
+/*
+   The name's line, when there is no record to be the row.
+
+   With a record, MetadataView draws .knowledge-record__headline and the row is
+   that: the wrapped name, the path, the status. Without one, MetadataFileView
+   draws the heading and nothing around it, and the column holds those same two
+   items directly — so the column is the row. One arrangement, two elements
+   providing it, which is why the path can be a single fragment either way rather
+   than one shape per case (see FileHeader's NameLine).
+
+   `nowrap` and `align-items: baseline` for the reasons the record's headline
+   gives for the same two declarations: the path never drops under the name, and
+   it sits on the name's first line however many lines the name has wrapped to.
+*/
+.file-view__identity:not(.file-view__identity--record) {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+/* The name and its detail line, as one item of whichever row is holding them.
+   Below its own content when it has to be: the name is what gives when the line
+   is short of room, and a flex item that refuses to go under its min-content
+   would push the path — and with it the status — out of the row instead. */
+.file-view__headline {
+    min-width: 0;
 }
 
 /* The fields tier keeps the record's own treatment — the extra-small type, the
@@ -5126,9 +5329,9 @@ select.field__input option {
 }
 
 /* The path earns the monospace: it is a machine string, and the reader is
-   usually checking one segment of it rather than reading it as prose. It is the
-   first thing to give up room when the header is narrow — the name beside it
-   still identifies the file, and the text stays whole in the DOM. */
+   usually checking one segment of it rather than reading it as prose. It gives up
+   room when the header is narrow — the name beside it still identifies the file,
+   and the text stays whole in the DOM. */
 .file-view__path,
 .folder-view__path,
 .md-compare__path {
@@ -5142,6 +5345,38 @@ select.field__input option {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/*
+   The file pane's path, which is the flexible middle of the name's line rather
+   than a stacked item of the aside.
+
+   The line reads name, path, status: which file, where it is, and whether it is
+   still current. The status is what fixes the order. It is drawn inside the
+   record, held to the right edge of the row the name is on, so anything that is
+   to come before it has to be in that row too — opposite it, in the aside, the
+   path could only ever follow.
+
+   So the path is the one item in the row that grows. The name takes its natural
+   width, this takes everything left over, and the status closes the line: with the
+   free space already spent the status's own `margin-inline-start: auto` resolves
+   to nothing and the two end up adjacent, separated by the row's gap alone.
+   `text-align: right` in the shared rule above is then doing exactly what it says
+   — the path sits at the far end of the space it was given, against the status.
+
+   Overflowing, both give. Shrinking is distributed in proportion to the two
+   items' own widths, so a long name gives the larger share of it and does so
+   first; both declare `min-width: 0`, so neither can refuse. The name wraps
+   (`overflow-wrap: anywhere`) and the path clips to an ellipsis, and the status
+   never moves either way.
+
+   FolderView and the comparison header still keep their path in the aside, which
+   is why the growth is scoped to the two rows the file pane's path can be in —
+   the record's headline, and the identity column itself when there is no record.
+*/
+.file-view__identity > .file-view__path,
+.knowledge-record__headline > .file-view__path {
+    flex: 1 1 auto;
 }
 
 /* Scrollbars are chrome, not content. app.css says the same thing globally for
@@ -5240,9 +5475,14 @@ select.field__input option {
     min-height: 0;
 }
 
-/* The path and the file's own actions share the right-hand side of the header:
-   the path says which file, the buttons act on it, and stacking them keeps both
-   out of the name's way when the header is narrow. */
+/* The right-hand side of the header, and what is left in it: the file's own
+   actions, and the baseline picker while a comparison is running. Stacked, so a
+   header narrow enough that both are showing keeps them out of the name's way.
+
+   The path used to share this column, which is what the two rules below were
+   written for; it is an item of the name's line now, and both rules stayed
+   because a row of buttons reaches past its column the same way a nowrap string
+   did. */
 .file-view__aside {
     display: flex;
     flex-direction: column;
@@ -5395,7 +5635,9 @@ select.field__input option {
         justify-content: flex-start;
     }
 
-    .file-view__path,
+    /* The stacked paths only. The file pane's is an item of the name's line at
+       every width — the header stacks, that row does not — and left-aligning it
+       there would pull it off the right edge it is holding. */
     .folder-view__path,
     .md-compare__path {
         text-align: left;

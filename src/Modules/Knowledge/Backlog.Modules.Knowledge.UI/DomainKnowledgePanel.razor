@@ -582,7 +582,7 @@
                 if (line.Length == 0) continue;
 
                 if ((line.StartsWith("```", StringComparison.Ordinal) || line.StartsWith("~~~", StringComparison.Ordinal))
-                    && Backlog.UI.Components.Knowledge.KnowledgeMeta.IsMetaBlock(line[3..]))
+                    && MetadataReader.IsMetaBlock(line[3..]))
                 {
                     headings.Add(chapter.Title);
                 }

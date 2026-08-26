@@ -1,0 +1,436 @@
+﻿@page "/knowledge-base/fields"
+
+<PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Fields"
+           Summary="A subpage of Knowledge base: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
+           Guidelines="@Rules">
+    <Alert Message="@ShapeNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="kind"
+           Description="What kind of thing the entry is, out of a closed vocabulary — `format`, `runtime`, `framework`, `library`. That closedness is the fact worth drawing, so it is a classification chip rather than a value: a bare `framework` in a code span could have come from any field in the block, and an outlined chip says “this entry has been filed as one of a small number of things”.
+
+Which is what lets the row lose its visible label. The chip says which field it came from; a dimmed `kind` in front of it was holding up something that stands on its own. The label is hidden, not dropped — the `dt` is still in the description list wearing `sr-only`, so a screen reader still hears the field name, and the tooltip carries it for a pointer user.
+
+`.badge--kind` shares its rule with `.badge--area`, because the two are the same fact about different things: the drawer something is filed in, out of a vocabulary somebody else owns. No per-value tone, and no slug — the vocabulary belongs to the folder, and a `Slug` would put an authored word into a class name."
+           Code="@KindCode">
+        @Field("kind", "kind: framework", ".tech entries.", "MetadataKindBadge",
+            @<MetadataKindBadge Kind="framework" />, showLabel: false)
+    </Story>
+
+    <Story Name="version"
+           Description="The pinned version, as authored — and the reason the shape is a `code` element: `10.0` is a version string and not the number ten. A file writes it quoted for exactly that reason, and the reader drops the quotes and keeps the text.
+
+The `v` is what makes it legible without a label. `v10.0` is a version anywhere it appears, which is the whole of what `Prefix` is for: the sigil is drawn inside the value rather than beside it, so a reader who has the value and no row heading still knows what they are looking at. It travels with the string a reader copies, which is the honest place for it. A prefix long enough to read as a word would be a label, and belongs in the `dt`.
+
+Nothing here compares versions or knows what a newer one would be. The pinned version is a fact the file states, and stating it back is the whole job."
+           Code="@VersionCode">
+        @Field("version", "version: \"10.0\"", ".tech entries.", "MetadataScalar",
+            @<MetadataScalar Value="10.0" Prefix="v" Title="version: 10.0" />, showLabel: false)
+    </Story>
+
+    <Story Name="effort"
+           Description="A story-point count, drawn as a badge rather than as a value. It reads at a glance the way a status does — it is the number somebody scans a list of items for — so it wears the application's badge, in its own tone because an estimate is not a state.
+
+The unit is spelled out, and that is also why this row needs no visible label: “5 pts” names its own field and “5” never could. The one thing a reader must not do with a story-point count is read it as days.
+
+Zero is an estimate and draws its badge; absent draws nothing. Nobody has sized this and sized and found to be nothing are different answers.
+
+**This field is not defined by knowledge-base 0.4.0, and no file in this repository writes it.** It is this repository's own extension to the schema, not plugin convention."
+           Code="@EffortCode">
+        @Field("effort", "effort: 5", "This repository's own addition. No folder writes it today.", "MetadataEffortBadge",
+            @<MetadataEffortBadge Effort="5" />, showLabel: false)
+        <div class="sb-stack" data-testid="knowledge-fields-effort-zero">
+            <p class="sb-label">An estimate of zero, which is not the same as no estimate</p>
+            <dl class="knowledge-fields">
+                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="0" TestId="knowledge-fields-effort-zero-badge" /></MetadataField>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="issue"
+           Description="A GitHub issue, drawn through the family the product already draws GitHub references with. `MetadataIssueLink` renders nothing of its own now: it maps the two forms a knowledge file writes onto an `IntegrationLinkRef` and hands it to `IntegrationLink`, which is where the provider mark, the label and the repository beside it come from. Three application screens still hand-roll `.badge--gh` for this shape; what this settles is that a knowledge field is not a fourth copy of it.
+
+Only one of the two forms can be followed. A URL is an address a browser can be handed; the `owner/repo#number` shorthand needs a remote this library knows nothing about, and guessing one would produce a link to somewhere the issue is not. So the shorthand arrives with no URL and gets the inert span `IntegrationLink`'s tri-state already has for that case — not link-coloured and not reachable by tab, because a reference nobody can follow should not invite a click or take a tab stop to refuse one.
+
+No state chip. A `meta` fence says *which* issue, never whether it is open, and `IntegrationArtifactState.Unknown` is deliberately not used: that member means “we looked and could not tell”, and nobody looked. Inventing it would put a dashed “Not checked” chip on every chapter in the repository.
+
+Only `http` and `https` become links. Any other scheme in a knowledge file is either a mistake or an attack, and neither is something to offer a reader a click on."
+           Code="@IssueCode">
+        @Field("issue", "issue: JSdotNet/Backlog#118", ".backlog items, .arc42 decisions.", "MetadataIssueLink",
+            @<MetadataIssueLink Issue="JSdotNet/Backlog#118" />)
+        <div class="sb-stack" data-testid="knowledge-fields-issue-url">
+            <p class="sb-label">The same issue as a URL — the same label, and now followable</p>
+            <CodeView Source="issue: https://github.com/JSdotNet/Backlog/issues/118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-issue-url-source" />
+            <dl class="knowledge-fields">
+                <MetadataField Label="issue"><MetadataIssueLink Issue="https://github.com/JSdotNet/Backlog/issues/118" TestId="knowledge-fields-issue-url-link" /></MetadataField>
+            </dl>
+        </div>
+        <div class="sb-stack" data-testid="knowledge-fields-issue-malformed">
+            <p class="sb-label">A value neither form parses is drawn whole — a malformed issue is a typo, and a typo is only useful once it is visible</p>
+            <CodeView Source="issue: backlog-118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-issue-malformed-source" />
+            <dl class="knowledge-fields">
+                <MetadataField Label="issue"><MetadataIssueLink Issue="backlog-118" TestId="knowledge-fields-issue-malformed-link" /></MetadataField>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="related"
+           Description="The general-purpose relation, available in every folder: what this chapter points at for context, with no claim about order. Entries are addresses, which is what makes them followable — `MetadataReferenceList` loops over them and `KnowledgeReferenceLink` draws each one as whatever the host can actually do with it. What an address is, and the other place one is written, is Markdown → References.
+
+Both entries resolve here, because that is what a reading surface with a route table looks like: a field of two addresses is two links. `HrefFor` is still asked once per reference rather than once per field — only the host knows which of them it can route to — and the case where it cannot is a state worth seeing, so it gets its own example below rather than one dead entry sitting in a list of two.
+
+An entry that will not parse as an address does not vanish either — it lands under Extra, on the relation it was written on."
+           Code="@ReferenceCode">
+        @Field("related", "related: [\".tech/shared.md#markdown\", \".arc42/02-constraints.md\"]",
+            "Every folder.", "MetadataReferenceList",
+            @<MetadataReferenceList References="@RelatedReferences" HrefFor="@ResolveAll" />)
+        <div class="sb-stack" data-testid="knowledge-fields-related-unresolved">
+            <p class="sb-label">The same field on a host that could not resolve either address — inert text, not a link to nowhere</p>
+            <dl class="knowledge-fields">
+                <MetadataField Label="related" TestId="knowledge-fields-related-unresolved-value"><MetadataReferenceList References="@RelatedReferences" /></MetadataField>
+            </dl>
+        </div>
+        <div class="sb-stack" data-testid="knowledge-fields-related-action">
+            <p class="sb-label">And on a host that routes in-process instead of by address: a button, doing the same job</p>
+            <dl class="knowledge-fields">
+                <MetadataField Label="related" TestId="knowledge-fields-related-action-value"><MetadataReferenceList References="@RelatedReferences" OnNavigate="@Follow" /></MetadataField>
+            </dl>
+            <p class="sb-state" data-testid="knowledge-fields-related-followed">@Followed</p>
+        </div>
+    </Story>
+
+    <Story Name="depends-on"
+           Description="The same value shape as `related` and a stronger statement: what has to land first. A `.tech` chapter uses it to point at the shared runtime it sits on, and a `.domain` feature uses it for a feature that has to be delivered before this one.
+
+Nothing in the library orders anything by it. It is drawn as the addresses it holds, and what to do with the ordering is the reading surface's question."
+           Code="@ReferenceCode">
+        @Field("depends-on", "depends-on: [\".tech/shared.md#net-runtime\", \".tech/shared.md#c-language\"]",
+            ".domain features, .backlog items, .tech entries.", "MetadataReferenceList",
+            @<MetadataReferenceList References="@DependsOnReferences" HrefFor="@ResolveAll" />)
+    </Story>
+
+    <Story Name="implements"
+           Description="How a backlog item says what it delivers, addressed into `.domain`. The field that ties a work item to the feature it exists for, and the only one of the three relations that is folder-specific in one direction: it is written in `.backlog` and it points into `.domain`.
+
+Same value shape as the other two relations, drawn by the same component. Where the addresses may point is the convention's rule, not the component's — nothing here refuses an `implements` entry that names something else."
+           Code="@ReferenceCode">
+        @Field("implements", "implements: [.domain/backlog/features.md#feature-roadmap-planning]",
+            ".backlog items.", "MetadataReferenceList",
+            @<MetadataReferenceList References="@ImplementsReferences" HrefFor="@ResolveAll" />)
+    </Story>
+
+    <Story Name="aliases"
+           Description="Surface names one canonical term is also known by, each drawn as the qualifier it is. An alias applies to a *name*: `TaskItem` is not a fact about the chapter the way a status or a version is, it is another word for the thing the chapter is about. So it is set above the baseline of the text it belongs to and a step smaller than it, which is what a reader already reads as “this belongs to the word in front of it”.
+
+The size is relative rather than a step off the type scale. A fixed one would be smaller than the body face in a domain pane and exactly the same size as everything around it inside a metadata row — superscript in one place and an ordinary chip in the other. There is a floor, because 0.8em of a 12px row is 9.6px and that is below anything else this stylesheet sets.
+
+Followable where a host can resolve one, and only then — which is the split against `alternatives` below. The term an alias names *is* modelled somewhere, so unlike a rejected technology it is a word a host holding a naming index can place. The tri-state is `Badge`'s, newly: an address makes it an anchor, a delegate makes it a button, neither leaves it the span every other badge is. All three are below. Nothing invents a destination — an alias with no answer stays unfollowable rather than becoming a link to a page nobody wrote.
+
+`MetadataView` wires no resolver today. What a host would resolve an alias *to* is a question no file in this repository answers, and a parameter for it on the record would be the record claiming to know."
+           Code="@AliasCode">
+        @Field("aliases", "aliases: [TaskItem, backlog_entry_id, backlog_item_id]",
+            ".domain naming — the one file per context that names terms. 90 uses across the folder.", "MetadataAliasList",
+            @<MetadataAliasList Aliases="@Aliases" />)
+        <div class="sb-stack" data-testid="knowledge-fields-aliases-linked">
+            <p class="sb-label">On a host with a naming index: an anchor per alias it can place, and the one it cannot left alone</p>
+            <dl class="knowledge-fields">
+                <MetadataField Label="aliases" TestId="knowledge-fields-aliases-linked-value"><MetadataAliasList Aliases="@Aliases" HrefFor="@ResolveKnownAlias" /></MetadataField>
+            </dl>
+        </div>
+        <div class="sb-stack" data-testid="knowledge-fields-aliases-inline">
+            <p class="sb-label">Against the term it qualifies, which is where the top alignment is for</p>
+            <p>The canonical term is <strong>Backlog Entry</strong><MetadataAliasList Aliases="@InlineAlias" HrefFor="@ResolveKnownAlias" />, and the badge rides above the word rather than beside it.</p>
+        </div>
+    </Story>
+
+    <Story Name="alternatives"
+           Description="What was weighed against a technology and not adopted. Plain strings for a blunter reason than `aliases`: something that was rejected has no chapter to point at, so there is nothing an address could name and nothing a host could resolve.
+
+`MetadataValueList` is the component that cannot make them followable — it takes no href and no navigation callback, so there is nothing here for a host to change its mind with. That is a difference in the type rather than in a parameter somebody has to remember not to pass, and it is the whole distinction between this field and the one above it.
+
+Each entry is a `MetadataScalar`, so one string looks the same whether it arrived alone under `version` or third under `alternatives`. The gap between them is the stylesheet's, so a value copied off the screen does not bring a comma with it."
+           Code="@ValueListCode">
+        @Field("alternatives", "alternatives: [\"Azure Functions\", \"Controller-based ASP.NET Core\"]",
+            ".tech entries.", "MetadataValueList",
+            @<MetadataValueList Values="@Alternatives" />)
+    </Story>
+
+    <Story Name="feature-flag"
+           Description="The key or keys of the application feature flag that delivers a `.domain` feature chapter in the running product. One chapter may name several flags, and one flag may appear on several chapters.
+
+Drawn in the feature-badge family — `.badge--feature`, the rule `DEV` and `BETA` already wear. That family is the product's existing visual language for “an application feature is involved here”, and a flag key is the most literal case of it there is.
+
+A key is not a status, so no slug is passed. `FeatureStatusBadge` derives its modifier from the value, which is right for a two-word vocabulary and wrong for an identifier: `feature-flag: inbox-pane` would emit `.badge--feature-inbox-pane`, a class no stylesheet defines and none ever will. The family without the per-value tone is the honest half — the shape says which family, the text says which key.
+
+Explicitly not references: the flag lives in the application's own catalog rather than in a knowledge folder, so there is no chapter to address, no graph edge, and no key this library could validate. And an identity link rather than a status mapping — `status` says how settled the written model is, a flag's own maturity says whether the running behaviour can be relied on, and nothing here infers one from the other.
+
+Until it was modelled it was drawn as an unrecognised field: twelve `.domain` chapters write it today, and every one of them showed up under Extra, which is the story below."
+           Code="@KeyCode">
+        @Field("feature-flag", "feature-flag: [inbox-pane, inbox-filters]",
+            ".domain features.md Feature and Sub-feature chapters. Twelve write it today.", "MetadataKeyList",
+            @<MetadataKeyList Keys="@FeatureFlags" />)
+        <div class="sb-stack" data-testid="knowledge-fields-feature-flag-single">
+            <p class="sb-label">One flag, which is how most of the twelve write it</p>
+            <CodeView Source="feature-flag: inbox-pane" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-feature-flag-single-source" />
+            <dl class="knowledge-fields">
+                <MetadataField Label="feature-flag" TestId="knowledge-fields-feature-flag-single-keys"><MetadataKeyList Keys="@SingleFeatureFlag" /></MetadataField>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="Keys the schema does not define"
+           Description="The convention says not to invent fields, and this is what happens when one is invented anyway — or, far more usefully, when the schema genuinely grows and this library has not caught up. A reader that dropped an unknown key would make that addition invisible: the field in the file, absent from the view, and nobody able to say which of the two was wrong.
+
+`MetadataExtraFields` draws rows rather than a value cell, because how many rows there are is a property of the file rather than of the schema and each label is a key nobody knew about. The values are plain strings and stay plain strings: nothing here knows what an unrecognised key means, so nothing here may promise a destination for it.
+
+It is also where a `related` entry that will not parse as an address lands, under the relation it was written on — the second row below.
+
+A key the reader recognises and deliberately drops never arrives here. `order` is the one of those: it is read, recognised and dropped, because a directory's reading order is not metadata about the chapter whose fence it happens to share. Leaving it out of the reader's known-field set would not remove it, it would move it into this list."
+           Code="@ExtraCode">
+        <div class="sb-stack" data-testid="knowledge-fields-extra">
+            <p class="sb-label">The lines an author writes</p>
+            <CodeView Source="@ExtraBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-extra-source" />
+            <p class="sb-state">No folder. Anything the reader does not recognise, under whatever name it was written.</p>
+            <p class="sb-state">Drawn by <code>MetadataExtraFields</code> over what that block parsed to</p>
+            <dl class="knowledge-fields">
+                <MetadataExtraFields Extra="@ExtraMetadata.Extra" />
+            </dl>
+            <p class="sb-state" data-testid="knowledge-fields-extra-state">@ExtraSummary</p>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar these fields are written in."),
+        new("typography-and-layout.md#metadata-lines", "How a field and its value sit above the prose they describe."),
+        new("color-scheme.md#badge-and-chip-tones", "The tone a classification, an estimate, an alias and a flag key are drawn in.")
+    ];
+
+    private const string ShapeNotice =
+        "One component per value shape, not one per field. Eleven stories share nine shapes: a scalar, "
+        + "a list of plain strings, a list of addresses, a list of aliases, a list of application keys, "
+        + "a classification, an estimate, a GitHub reference, and the keys nobody modelled. Which shape a "
+        + "field has is the thing worth knowing about it — two fields with the same shape are drawn by the "
+        + "same component and cannot drift apart. Three fields draw no visible label, because their value "
+        + "already says which field it is; the name stays in the markup for anyone listening rather than "
+        + "looking.";
+
+    /// <summary>
+    /// The frame every story on this page shares: the line an author writes, which
+    /// folders write it, the component that draws the value, and the value inside
+    /// the row component the record wraps it in.
+    ///
+    /// <para>A helper rather than a copy per field, for the reason the components
+    /// themselves exist: the frame was the same four elements every time and only
+    /// the value differed, so a copy per field was a chance per field to label one of
+    /// them wrongly. What is not shared is the prose — that is the story's, because
+    /// what is worth saying about a field is not a template.</para>
+    ///
+    /// <para><paramref name="showLabel"/> is passed through rather than inferred from
+    /// the field name, so a story showing a labelless row is showing the same
+    /// parameter the record sets and not a second way of hiding a label.</para>
+    /// </summary>
+    private RenderFragment Field(
+        string label,
+        string line,
+        string folders,
+        string component,
+        RenderFragment value,
+        bool showLabel = true) =>
+        @<div class="sb-stack" data-testid="@($"knowledge-fields-{label}")">
+            <p class="sb-label">The line an author writes</p>
+            <CodeView Source="@line" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
+                      TestId="@($"knowledge-fields-{label}-source")" />
+            <p class="sb-state">@folders</p>
+            @* `sb-label` uppercases, and a component name put through that comes
+               out as KNOWLEDGEKEYLIST — the word boundaries a reader needs to
+               recognise the type are exactly what the transform destroys. So the
+               name is a code span in a state line instead, which is also what it
+               is: a fact about the rendering rather than a heading over it. *@
+            <p class="sb-state">Drawn by <code>@component</code>, inside the row the record wraps every field in@(showLabel ? "" : " — with the label hidden, not dropped")</p>
+            <dl class="knowledge-fields">
+                <MetadataField Label="@label" ShowLabel="@showLabel" TestId="@($"knowledge-fields-{label}-value")">@value</MetadataField>
+            </dl>
+        </div>;
+
+    private static readonly IReadOnlyList<KnowledgeReference> RelatedReferences =
+    [
+        KnowledgeReference.Parse(".tech/shared.md#markdown")!,
+        KnowledgeReference.Parse(".arc42/02-constraints.md")!
+    ];
+
+    private static readonly IReadOnlyList<KnowledgeReference> DependsOnReferences =
+    [
+        KnowledgeReference.Parse(".tech/shared.md#net-runtime")!,
+        KnowledgeReference.Parse(".tech/shared.md#c-language")!
+    ];
+
+    private static readonly IReadOnlyList<KnowledgeReference> ImplementsReferences =
+        [KnowledgeReference.Parse(".domain/backlog/features.md#feature-roadmap-planning")!];
+
+    /// <summary>Answers for every reference it is asked about, which is what a
+    /// reading surface with a route table does. The earlier version of this resolved
+    /// `.tech` and nothing else so one story could show a link and an inert entry
+    /// side by side — it read as a bug rather than as a demonstration, because a
+    /// reader has no way to tell a deliberately unanswered address from a broken
+    /// one. The unresolved state has its own example under `related` instead.</summary>
+    private static string? ResolveAll(KnowledgeReference reference) => "#knowledge-fields-target";
+
+    /// <summary>Answers for the alias a naming index would hold and not for the two
+    /// column names beside it, which is the honest shape of this resolver: the claim
+    /// is about the individual word. One alias may be the canonical term's own class
+    /// name and the next a legacy database column, and a host that can place one and
+    /// not the other tells the truth by saying so.</summary>
+    private static string? ResolveKnownAlias(string alias) =>
+        alias is "TaskItem" ? "#knowledge-fields-target" : null;
+
+    private static readonly IReadOnlyList<string> Aliases = ["TaskItem", "backlog_entry_id", "backlog_item_id"];
+
+    private static readonly IReadOnlyList<string> InlineAlias = ["TaskItem"];
+
+    private static readonly IReadOnlyList<string> Alternatives = ["Azure Functions", "Controller-based ASP.NET Core"];
+
+    /// <summary>Both flags are real: they are the keys `.domain/capture` and
+    /// `.domain/backlog` chapters name, so the story is showing a line this
+    /// repository contains rather than filler.</summary>
+    private static readonly IReadOnlyList<string> FeatureFlags = ["inbox-pane", "inbox-filters"];
+
+    private static readonly IReadOnlyList<string> SingleFeatureFlag = ["inbox-pane"];
+
+    private KnowledgeReference? _followed;
+
+    private string Followed => _followed is null
+        ? "Nothing followed yet. Press one of the buttons above."
+        : $"OnNavigate last reported: {_followed.Raw}.";
+
+    private void Follow(KnowledgeReference reference) => _followed = reference;
+
+    /// <summary>Two unrecognised keys of the two kinds that reach Extra: one the
+    /// schema has never heard of, and one entry of a field it does define that will
+    /// not parse as an address.</summary>
+    private const string ExtraBlock = """
+        status: adopted
+        owner: platform-team
+        related: [not an address]
+        """;
+
+    private static readonly MetadataRecord ExtraMetadata = MetadataReader.Parse(ExtraBlock);
+
+    /// <summary>Counted off the parsed record rather than off the block, so the
+    /// claim is the reader's answer and not a restatement of the source above it.
+    /// The `order` line is parsed here too, and states nothing.</summary>
+    private static string ExtraSummary =>
+        $"Kept under Extra: {string.Join(", ", ExtraMetadata.Extra.Keys)}. "
+        + $"{ExtraMetadata.References.Count} references parsed from that related field. "
+        + $"The same block with order: [overview.md] added keeps "
+        + $"{MetadataReader.Parse(ExtraBlock + "\norder: [overview.md]").Extra.Count} Extra keys — order is "
+        + "recognised and dropped, not collected here.";
+
+    private const string KindCode = """
+        @* A closed vocabulary drawn as a classification. No Slug: the vocabulary
+           belongs to the folder, and an authored word in a class name is how
+           `.badge--kind-framework` becomes a rule nobody wrote. *@
+        <MetadataKindBadge Kind="@metadata.Kind" />
+
+        @* The row hides the name rather than dropping it. The chip says which
+           field it is to somebody looking, and nothing at all to somebody
+           listening, so the <dt> stays and wears sr-only. *@
+        <MetadataField Label="kind" ShowLabel="false">
+        """;
+
+    private const string VersionCode = """
+        @* The prefix is drawn inside the value, so it travels with the string a
+           reader copies. Blank in, nothing out — a prefix alone is not a value. *@
+        <MetadataScalar Value="@metadata.Version" Prefix="v" Title="version" />
+        """;
+
+    private const string EffortCode = """
+        @* Null draws nothing; 0 draws its badge. The row's own presence is the
+           record's question, because it is the row that must not appear. *@
+        <MetadataEffortBadge Effort="@metadata.Effort" />
+
+        @* The unit is the component's, not the caller's: "5" on its own does not
+           say what it counts — which is also why the row needs no label. *@
+        <Badge Kind="effort" Title="effort: 5 story points">@effort pts</Badge>
+        """;
+
+    private const string IssueCode = """
+        @* No markup of its own. The two authored forms become the reference
+           record the integrations family takes, and IntegrationLink draws it. *@
+        <MetadataIssueLink Issue="@metadata.Issue" />
+
+        @* Inside: no Url means IntegrationLink's inert span, which is exactly
+           what the shorthand is. No state either — a fence says which issue,
+           never whether it is open. *@
+        new IntegrationLinkRef(
+            Id: raw,
+            Provider: IntegrationProvider.GitHub,
+            Kind: IntegrationLinkKind.Issue,
+            Label: $"#{number}",
+            Url: IsFollowable(raw) ? raw : null,
+            Repository: new IntegrationRepositoryRef(repository, repository));
+        """;
+
+    private const string ReferenceCode = """
+        @* One field's addresses, offered the same way as each other. HrefFor is
+           asked per reference because only the host knows which it can route
+           to; returning null leaves that one inert beside its siblings. *@
+        <MetadataReferenceList References="@metadata.DependsOn"
+                                HrefFor="@ResolveHref"
+                                OnNavigate="@Follow" />
+
+        @* What each entry becomes is still the link component's answer: an href
+           makes it a link, a handler makes it a button, neither leaves it text. *@
+        <KnowledgeReferenceLink Reference="@reference" Href="@href" OnNavigate="@Follow" />
+        """;
+
+    private const string AliasCode = """
+        @* Asked per alias, because the claim is about the individual word: one
+           may be the canonical term's class name and the next a legacy column. *@
+        <MetadataAliasList Aliases="@metadata.Aliases" HrefFor="@ResolveAlias" />
+
+        @* The tri-state is Badge's now. An empty EventCallback reports no
+           delegate, which is what Badge reads to decide against a button — so an
+           unwired list renders spans rather than controls that refuse. *@
+        <Badge Kind="alias" Href="@HrefFor?.Invoke(alias)" OnClick="@Select(alias)">@alias</Badge>
+        """;
+
+    private const string ValueListCode = """
+        @* Plain strings that stay plain strings. The guarantee is the type: this
+           component takes no href and no navigation callback, so there is
+           nothing here for a host to make followable. *@
+        <MetadataValueList Values="@metadata.Alternatives" />
+        """;
+
+    private const string KeyCode = """
+        @* Keys something outside these files answers to, drawn in the feature
+           badge family. Nothing is clickable: filtering by a key needs a list to
+           filter, and a badge that took focus to do nothing would be worse than
+           a label. *@
+        <MetadataKeyList Keys="@metadata.FeatureFlag" />
+
+        @* No Slug, and that is the whole of it. FeatureStatusBadge derives its
+           modifier from the value, which would emit .badge--feature-inbox-pane —
+           a class no stylesheet defines. *@
+        <Badge Kind="feature">@key</Badge>
+        """;
+
+    private const string ExtraCode = """
+        @* Every key the reader did not recognise, under the name it was written.
+           Rows rather than a value cell: how many there are is a property of the
+           file, not of the schema. *@
+        <MetadataExtraFields Extra="@metadata.Extra" />
+
+        @* A key the reader recognises and deliberately drops never gets here.
+           MetadataReader.KnownFields is why `order` is one of those. *@
+        foreach (var (key, values) in fields)
+        {
+            if (KnownFields.Contains(key)) continue;
+            extra[key] = values;
+        }
+        """;
+}

@@ -6,9 +6,39 @@
     A host with its own badge naming replaces `badge` through `BaseClass`; with
     no kind the modifier collapses to `<base>--<slug>`, which is what a plain
     one-dimensional badge looks like.
+
+    What element it renders depends on what the host can do with the value, not on
+    what the value is — the tri-state KnowledgeReferenceLink and IntegrationLink
+    already draw, and the third copy of it rather than a fourth shape. Given a URL
+    it is an anchor, given a callback it is a button, given neither it is the span
+    every badge in this library has always been. The argument is the one recorded
+    on those two: an anchor can be middle-clicked, copied and opened in a new
+    window and a button cannot, and a value nobody can follow should not invite a
+    click or take a tab stop to refuse one.
+
+    A badge earns it because some badges name something a reader wants to go to. An
+    alias is the case that forced it: it applies to a term, and a host that knows
+    where that term is modelled should be able to say so. A second badge
+    implementation with an href on it — which is the alternative — would be a
+    parallel tone scale nobody would keep in step with this one.
+
+    The span is written last and unchanged. Every existing caller passes neither
+    parameter and so renders exactly the markup it always did, down to the
+    attribute order.
 *@
 
-<span class="@ClassValue" data-testid="@TestId" title="@Title" @attributes="AdditionalAttributes">@ChildContent</span>
+@if (!string.IsNullOrWhiteSpace(Href))
+{
+    <a class="@ClassValue" href="@Href" data-testid="@TestId" title="@Title" @attributes="AdditionalAttributes">@ChildContent</a>
+}
+else if (OnClick.HasDelegate)
+{
+    <button type="button" class="@ClassValue" data-testid="@TestId" title="@Title" @onclick="OnClick" @attributes="AdditionalAttributes">@ChildContent</button>
+}
+else
+{
+    <span class="@ClassValue" data-testid="@TestId" title="@Title" @attributes="AdditionalAttributes">@ChildContent</span>
+}
 
 @code {
     [Parameter]
@@ -19,6 +49,18 @@
 
     [Parameter]
     public string? Title { get; set; }
+
+    /// <summary>Where the value leads. Only the host knows whether a badge's value
+    /// has an address, so it hands one in rather than this component deriving one
+    /// from the text.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    /// <summary>Raised when the badge is activated. Ignored while
+    /// <see cref="Href"/> is set: a link already navigates, and two ways to reach
+    /// one place is one too many.</summary>
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }

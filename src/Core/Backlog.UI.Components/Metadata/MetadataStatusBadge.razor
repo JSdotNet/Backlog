@@ -1,0 +1,82 @@
+@*
+    One status word, read against the vocabulary the surface allows.
+
+    The read-only half of a record's status: the word, the tone the vocabulary
+    gives it, and a flag when the vocabulary has never heard of it. The select the
+    headline offers instead is the other half, and both take their modifier from
+    the same MetadataStatusVocabulary — built twice they drifted, which is the
+    reason there is one answer here rather than two callers each working it out.
+
+    Composed from Badge rather than assembled here, so there is one implementation
+    of what a badge's classes are. This adds exactly three things Badge cannot
+    know: which modifier the word maps onto, whether the word is one the surface
+    allows, and what to say when it is not.
+
+    Nothing here judges a word without a vocabulary. MetadataStatusVocabulary.None
+    is the default and flags nothing: a surface that named no vocabulary has not
+    claimed that anything is wrong, and the same word means different things in
+    different places, so a verdict guessed without one would be wrong as often as
+    right.
+
+    Nothing in, nothing out: a block that states no status should not leave an
+    empty badge on the line.
+
+    KnowledgeStatusPill is this component with a knowledge folder's vocabulary
+    already looked up. It was the only shape of this that existed, and it carried
+    the folder lookup inside it, which is what kept MetadataView tied to
+    KnowledgeFolder. The pill stays — the folder is a real thing a knowledge
+    surface has — and delegates here.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Status))
+{
+    <Badge Kind="status"
+           Slug="@Vocabulary.SlugFor(Status)"
+           Title="@Vocabulary.Expectation(Status)"
+           CssClass="@ExtraClasses"
+           TestId="@TestId"
+           @attributes="AdditionalAttributes">@Status</Badge>
+}
+
+@code {
+    /// <summary>The status word, exactly as it was authored. Never normalised:
+    /// the flag exists to make a typo visible, and a badge that tidied the word
+    /// up would hide the thing it is flagging.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>The words the surface allows, and how each is drawn. The default
+    /// shows the status and judges nothing.</summary>
+    [Parameter]
+    public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>The flag, then the caller's own class. Badge appends this whole
+    /// string after the badge classes, and the caller's part goes last within it,
+    /// so nothing a caller passes displaces a class the stylesheet or a test
+    /// matches on by exact position.
+    ///
+    /// <para>The flag's name is still <c>knowledge-status--unrecognised</c>. It is
+    /// the hook the stylesheet already has and the one every test matches on, and
+    /// renaming a CSS class is a change of its own rather than part of taking the
+    /// folder out of the record.</para></summary>
+    private string? ExtraClasses
+    {
+        get
+        {
+            var flag = Vocabulary.IsUnrecognised(Status) ? "knowledge-status--unrecognised" : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(CssClass)) return flag.Length == 0 ? null : flag;
+
+            return flag.Length == 0 ? CssClass : $"{flag} {CssClass}";
+        }
+    }
+}

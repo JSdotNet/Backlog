@@ -1,0 +1,90 @@
+@*
+    A table, wrapped in the region that scrolls it.
+
+    The wrapper is what scrolls: a table is the one block in a body that has a
+    width of its own and cannot be reflowed to fit. Making the wrapper the
+    labelled, focusable region rather than the table keeps the table a table to a
+    screen reader while still letting a keyboard reach the overflow.
+
+    Alignment is read defensively. A body row is allowed to be shorter or longer
+    than the delimiter row described, so a column nobody aligned takes the
+    default rather than throwing — and the default is an empty class attribute,
+    not an absent one, because that is what this table has always emitted.
+
+    The indentation in front of <tbody> is load-bearing. Razor emits the
+    whitespace between two sibling elements as content, so those twenty columns
+    are part of the markup this table has always rendered, and
+    MarkdownGoldenMarkupTests pins them. Reflowing the line is a markup change,
+    not a formatting one.
+*@
+
+<div class="@ScrollCssClass" role="region" tabindex="0" aria-label="@AriaLabel">
+    <table class="@TableCssClass">
+        <thead>
+            <tr>
+                @foreach (var (cell, column) in Table.Header.Cells.Select((cell, column) => (cell, column)))
+                {
+                    <th scope="col" class="@AlignClass(column)">@Inlines(cell.Content)</th>
+                }
+            </tr>
+        </thead>
+                    <tbody>
+            @foreach (var row in Table.Rows)
+            {
+                <tr>
+                    @foreach (var (cell, column) in row.Cells.Select((cell, column) => (cell, column)))
+                    {
+                        <td class="@AlignClass(column)">@Inlines(cell.Content)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public MdTable Table { get; set; } = new(new MdTableRow([]), [], []);
+
+    /// <summary>How an inline in a cell is read, forwarded verbatim to
+    /// <see cref="MarkdownRender"/>.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>The class on the scrolling region, which is the wrapper and not
+    /// the table.</summary>
+    [Parameter]
+    public string? ScrollCssClass { get; set; } = "md-table-scroll";
+
+    [Parameter]
+    public string? TableCssClass { get; set; } = "md-table";
+
+    /// <summary>The stem the alignment modifiers are built on:
+    /// <c>md-table__cell</c> yields <c>md-table__cell--right</c>. One hook rather
+    /// than three, because a host renaming one of them renames all three.</summary>
+    [Parameter]
+    public string CellCssClass { get; set; } = "md-table__cell";
+
+    /// <summary>What the scroll region is called to a screen reader. It is the
+    /// region that is labelled, so this is the only name a keyboard user hears
+    /// arriving at the table.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Table";
+
+    private RenderFragment Inlines(IReadOnlyList<MdInline> parts) =>
+        MarkdownRender.Inlines(parts, InlineTarget);
+
+    /// <summary>The alignment class for a column, read defensively: a body row
+    /// may have more cells than the delimiter row described, and a column nobody
+    /// aligned takes the default rather than throwing.</summary>
+    private string AlignClass(int column) =>
+        column < Table.Alignment.Count
+            ? Table.Alignment[column] switch
+            {
+                MdAlign.Left => $"{CellCssClass}--left",
+                MdAlign.Center => $"{CellCssClass}--center",
+                MdAlign.Right => $"{CellCssClass}--right",
+                _ => string.Empty
+            }
+            : string.Empty;
+}

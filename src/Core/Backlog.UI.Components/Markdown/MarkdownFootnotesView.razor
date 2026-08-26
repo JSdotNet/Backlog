@@ -1,0 +1,68 @@
+@*
+    The notes collected at the end of a body, and the way back up out of each
+    one.
+
+    An ordered list, because the numbers are the point and a reader who lost
+    their place should be able to count. The back-link is what makes a footnote
+    usable on a screen: following the mark down is only half of it if there is no
+    way back up.
+
+    The ids are the other half of that pair — `fn-{label}` here answers the
+    `fnref-{label}` the inline mark carries, and the two are written in different
+    files, so neither can be renamed alone.
+
+    As in MarkdownTableView, the indentation in front of <ol> and in front of the
+    back-link is emitted as content and is part of the markup this block has
+    always rendered. MarkdownGoldenMarkupTests pins it.
+*@
+
+<aside class="@BaseCssClass" aria-label="@AriaLabel">
+    <hr class="@DividerCssClass" />
+                <ol class="@ListCssClass">
+        @foreach (var note in Footnotes.Notes)
+        {
+            <li id="@($"fn-{note.Label}")" class="@ItemCssClass">
+                @Inlines(note.Content)
+                            <a class="@BackCssClass"
+                               href="@($"#fnref-{note.Label}")"
+                               aria-label="@($"Back to reference {note.Number}")">↩</a>
+            </li>
+        }
+    </ol>
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public MdFootnotes Footnotes { get; set; } = new([]);
+
+    /// <summary>How an inline in a note is read, forwarded verbatim to
+    /// <see cref="MarkdownRender"/>.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    [Parameter]
+    public string? BaseCssClass { get; set; } = "md-footnotes";
+
+    [Parameter]
+    public string? ListCssClass { get; set; } = "md-footnotes__list";
+
+    [Parameter]
+    public string? ItemCssClass { get; set; } = "md-footnotes__item";
+
+    [Parameter]
+    public string? BackCssClass { get; set; } = "md-footnotes__back";
+
+    /// <summary>The rule above the notes. It is the same divider a `---` draws,
+    /// on purpose: the notes are the end of the document and it is the same
+    /// end.</summary>
+    [Parameter]
+    public string? DividerCssClass { get; set; } = "md-divider";
+
+    /// <summary>What the region is called to a screen reader. An aside with no
+    /// name is an aside a reader cannot decide to skip.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Footnotes";
+
+    private RenderFragment Inlines(IReadOnlyList<MdInline> parts) =>
+        MarkdownRender.Inlines(parts, InlineTarget);
+}

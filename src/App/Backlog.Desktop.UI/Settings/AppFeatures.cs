@@ -82,7 +82,11 @@ public static class AppFeatures
             "Draw a knowledge chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
-        new(DevPcFeatures.SystemTools, "System tools", "Check, update, enable, and disable configured Copilot plugins, repository tools, and MCP servers.", Status: AppFeatureStatus.Dev),
+        new(
+            DevPcFeatures.SystemTools,
+            "System tools",
+            "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",
+            Status: AppFeatureStatus.Dev),
         new(
             SessionFeatures.Sessions,
             "Sessions",

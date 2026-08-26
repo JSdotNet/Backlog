@@ -336,3 +336,111 @@ Announce when planned work is scheduled or moved, so
 [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) can
 compare intent against delivery. Roadmap publishes and does not subscribe: nothing
 observed downstream reaches back in and edits the plan.
+
+## Sequencing work into tracks
+
+```meta
+type: feature
+status: proposed
+depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
+related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#planning-lane, .domain/backlog/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
+```
+
+**An idea, written down to be argued with — not an agreed model.** This folder's
+status vocabulary has no `idea`, so `proposed` carries it here: nothing below is
+settled, and the open questions are as much the point of the chapter as the
+description is.
+
+Plan a repository's work as **tracks** rather than as dates. A track is an *area
+within one repository* holding a chain of work that has to be done in order — each
+piece written against the one before it, the way one feature depends on another.
+What the plan then answers is not *when does this run*, but **what can be picked
+up right now, and what would collide if two workers picked up at once**.
+
+The goal is parallel work without conflicting changes. Two tracks are, by
+construction, different areas, so the head of each can be worked at the same time;
+two pieces inside one track cannot, because the later one is written against the
+earlier. That makes the plan a statement about **safe concurrency** rather than a
+forecast, and it is the thing a dated plan cannot say: a
+[Planned Window](domain.md#planned-window) tells you two items overlap in *time*,
+never whether they overlap in *code*.
+
+It would be built on what this context already has, not beside it. The chain is
+the existing [Dependency](domain.md#dependency) — acyclicity, and
+[Plan Sequencing](domain.md#plan-sequencing)'s reachability answers, are exactly
+what an ordered chain needs. The work a track holds is reached the way an item
+already reaches it: by named link and by tag, across Backlog Management and Second
+Brain. And **the repository line stays as it is** — a track sits inside a
+repository band exactly as lanes and items do today, so a portfolio still reads
+one project at a time.
+
+**Open questions.** Each of these changes what the idea is, not merely how it is
+built:
+
+- **Replacement or addition?** If dated planning goes, the Planned Window, the
+  timeline reading, and [RoadmapItemScheduled](domain.md#roadmapitemscheduled) go
+  with it — and that event is the one contract
+  [Monitoring](../monitoring/domain.md#progress-signal) consumes, so comparing
+  intent against delivery would need a new answer or a different question. If both
+  are kept, one plan carries two ways of ordering the same work, and something has
+  to say which one a reader is looking at.
+- **Is a track a [Planning Lane](domain.md#planning-lane) with an order and a size,
+  or a new node?** A lane today is a free-form label the person owns and nothing
+  depends on. A track is ordered and depended upon. Making the lane ordered would
+  change what every label already written means, so this is a rename with
+  consequences rather than a small extension.
+- **What is an "area", and who decides that two areas cannot collide?** The safety
+  claim rests entirely on this. If an area is the person's own word — as a lane is —
+  the guarantee is their judgement, and the plan should say so rather than imply
+  otherwise. If the product derives it from paths the repository actually has,
+  Roadmap starts holding repository facts it has deliberately never owned:
+  [Repository Scope](domain.md#repository-scope) keeps opaque aliases for exactly
+  that reason, and resolving them is a supplier's job.
+- **Does a track hold work, or gather it?** If the chain runs between plan nodes it
+  is the existing Dependency and nothing moves. If it runs between Backlog Entries,
+  the dependency leaves this context — and Backlog Management models no dependency
+  today, which is why Roadmap is described as the only context that holds one
+  between two pieces of planned work.
+- **Do milestones survive?** A [Milestone](domain.md#milestone) is a day, and a plan
+  with no dates has nowhere to put one. Either it stays as the plan's single
+  remaining tie to a calendar, or the commitments it records need somewhere else to
+  live.
+
+### Sizing a track by the effort it gathers
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/features.md#effort-registration]
+```
+
+Read how big a track is from the **total registered effort** of the work it
+gathers — story points, a relative size — instead of from a span of days. This is
+what takes the calendar's place: "this track is twice the one beside it" is a
+judgement the person can actually make, where "this track ends on the 14th" is one
+they mostly cannot.
+
+The arithmetic is the one already described in
+[gathering work under an item](#gathering-work-under-an-item-and-totalling-its-effort),
+unchanged and for the same reasons: the points are registered on the entries and
+the chapters, Roadmap only adds them, something reached both by link and by tag
+counts once, and the count of gathered things that registered no estimate is
+reported next to the total rather than folded into it. A track whose size hid its
+unestimated work would read as small precisely when it is least understood.
+
+### Picking work that cannot collide
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/roadmap/domain.md#plan-sequencing]
+```
+
+Ask the plan what is safe to start now: the head of every track whose predecessor
+has landed, with the tracks sharing an area held back rather than offered. One
+question, answered from the chain and the areas, in place of comparing two spans
+on a timeline by eye.
+
+Whether the plan may state this as a **guarantee** or only as advice is the
+unresolved part, and it decides how much the idea is worth — see the open question
+about what an area is.

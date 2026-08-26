@@ -1,0 +1,106 @@
+@*
+    One row of a metadata record: a field's name, and whatever the field's values
+    draw as.
+
+    A component rather than a near-identical fragment per field inside
+    MetadataView. Every field is the same three elements and differs only in
+    what goes in the value cell — references become links, plain strings become
+    quiet code spans, an estimate becomes a badge, an alias becomes a superscript
+    badge, an application key becomes a feature badge — so the row was rebuilt once
+    per field and the description-list pairing had a chance per field to be got
+    wrong instead of one.
+
+    It always draws the row it is given. Whether there is anything to say is the
+    caller's question, because only the caller knows what empty means for its own
+    field: an absent list, a blank scalar, and an estimate of zero are three
+    different answers, and zero is an estimate that still shows.
+
+    The `dl` around these rows belongs to the record, not here. That is what makes
+    a screen reader pair the label with its value, and a row that carried its own
+    list would break the pairing for every other row.
+
+    ShowLabel hides the name and does not remove it. Some values say which field
+    they came from without help — a points badge, a classification chip, a version
+    string with a `v` in front of it — and in front of one of those the label is a
+    dimmed word restating what the value already said. What it is not is redundant
+    to a screen reader: a value read out with no field name is worse to hear than a
+    name nobody needed to see. So the `dt` stays, wearing `sr-only`, and the row
+    takes a `--bare` modifier off whatever `BaseClass` it was given so the
+    stylesheet can give the value the room the hidden label is no longer holding.
+
+    The indentation in front of <dd> is load-bearing: Razor emits the whitespace
+    between two sibling elements as content, so those twenty columns are part of
+    the markup every knowledge record has always rendered. Reflowing the line is a
+    markup change, not a formatting one.
+*@
+
+<div class="@RowClass">
+    <dt class="@LabelClass">@Label</dt>
+                    <dd class="@ValueCssClass" data-testid="@TestId">@ChildContent</dd>
+</div>
+
+@code {
+    /// <summary>The field's name, drawn as written. A knowledge field's name is
+    /// already the reader's own word for it — <c>depends-on</c> is what the file
+    /// says — so there is nothing to translate.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>The value cell's contents. A fragment rather than a string
+    /// because what a value looks like is the whole difference between the
+    /// fields: a link, a code span, a badge, a chip.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The class on the row. Null drops it, for a host laying the pair
+    /// out with its own grid.</summary>
+    [Parameter]
+    public string? BaseClass { get; set; } = "knowledge-fields__row";
+
+    /// <summary>A modifier on top of <see cref="BaseClass"/>, for a row that is
+    /// drawn differently from its siblings.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? LabelCssClass { get; set; } = "knowledge-fields__label";
+
+    [Parameter]
+    public string? ValueCssClass { get; set; } = "knowledge-fields__value";
+
+    /// <summary>A test id on the value cell, where the values are. Absent on most
+    /// rows: a row is found by its label, and only the fields whose values are
+    /// drawn as something other than text — the key badges — have needed one of
+    /// their own.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Whether the field's name is drawn where a reader can see it. Off
+    /// for a value that names its own field; the name is still in the markup and
+    /// still announced either way.</summary>
+    [Parameter]
+    public bool ShowLabel { get; set; } = true;
+
+    /// <summary>The class on the row: the base, the <c>--bare</c> modifier when the
+    /// label is hidden, then the caller's own. The modifier is derived from
+    /// <see cref="BaseClass"/> rather than hard-coded, so a host laying these out
+    /// under its own names gets a modifier in its own namespace instead of one of
+    /// ours.</summary>
+    private string? RowClass
+    {
+        get
+        {
+            var bare = ShowLabel || string.IsNullOrWhiteSpace(BaseClass) ? null : $"{BaseClass}--bare";
+
+            return string.Join(' ', new[] { BaseClass, bare, CssClass }
+                .Where(part => !string.IsNullOrWhiteSpace(part))) is { Length: > 0 } value
+                ? value
+                : null;
+        }
+    }
+
+    private string? LabelClass =>
+        ShowLabel ? LabelCssClass
+        : string.IsNullOrWhiteSpace(LabelCssClass) ? "sr-only"
+        : $"{LabelCssClass} sr-only";
+}

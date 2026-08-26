@@ -1,0 +1,51 @@
+@*
+    What kind of thing a chapter describes, drawn as a classification.
+
+    `kind` is a closed vocabulary — `format`, `runtime`, `framework`, `library` —
+    and that is the fact worth drawing. A bare `framework` in a code span is a value
+    that could have come from any field in the block; an outlined chip says "this
+    entry has been filed as one of a small number of things", which is what the
+    field means and what lets the row lose its label.
+
+    `.badge--kind` shares its rule with `.badge--area` because the two are the same
+    fact about different things: the drawer something is filed in, out of a
+    vocabulary somebody else owns. Outlined and unfilled, since a classification is
+    not something the product acts on.
+
+    No slug, and deliberately no per-value tone. The vocabulary belongs to the
+    folder rather than to this library, so a colour per value would be this
+    component asserting which kinds matter — and a `Slug` would put an authored word
+    into a class name, which is how `.badge--kind-framework` becomes a rule nobody
+    wrote.
+
+    The value is drawn as authored. A stray capital in a `kind` is the author's, and
+    the vocabulary is not checked here: a word the folder does not define is a typo
+    worth seeing, not one worth silently normalising.
+*@
+
+@if (!string.IsNullOrWhiteSpace(Kind))
+{
+    <Badge Kind="kind" Title="@TitleValue" CssClass="@CssClass" TestId="@TestId">@Kind</Badge>
+}
+
+@code {
+    /// <summary>The kind, exactly as the file wrote it. Blank draws nothing — a
+    /// field the file did not state, rather than a chip asserting emptiness.</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    /// <summary>The tooltip. Defaulted to the field name and the value, because the
+    /// row this is drawn in hides its label: a pointer user has nothing else on
+    /// screen telling them which field the chip came from.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>A modifier on top of the badge's own classes.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TitleValue => string.IsNullOrWhiteSpace(Title) ? $"kind: {Kind}" : Title;
+}

@@ -600,6 +600,38 @@ html, body {
     font-size: var(--font-size-sm);
 }
 
+/*
+   A frame around a component that is normally only half of one.
+
+   FileHeader and FileContent are the two halves of a file pane. Drawn on the page
+   loose, neither has an outline of its own — the header states a bottom border and
+   the body states none at all, because in the product they are inside
+   `.file-view`, which is where the box comes from. So a reader looking at a header
+   story could not see where the component ended, which is most of what there is to
+   review about a header: how far the identity column reaches, where the actions
+   sit, what the path has left to truncate into.
+
+   It borrows `.file-view`'s own box — the same radius, the same deep surface, the
+   same clipped corners and the same flex column — so what is inside sits exactly
+   as it would in a pane. The edge is dashed rather than solid, which is the one
+   deliberate difference: `.sb-surface` already says "harness, not component" that
+   way, and a solid border here would be a fourth thing on screen a reader might
+   take for the component's own.
+
+   Harness chrome, so it lives here. The library owns no rule for "one half of a
+   pane, on its own", and adding one would be the storybook's page layout leaking
+   into a component.
+*/
+.sb-frame {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    overflow: hidden;
+}
+
 /* A surface a demo can be dropped on when the component needs somewhere with
    size — the context menu target and the split pane, for example. */
 .sb-surface {
@@ -779,7 +811,7 @@ html, body {
 }
 
 /* A pretend host panel for the knowledge stories, so a CssClass handed to
-   KnowledgeMetaView is visibly landing somewhere. Deliberately unlike anything
+   MetadataView is visibly landing somewhere. Deliberately unlike anything
    the library owns: a class that failed to reach the element should be
    noticeable rather than merely untested. */
 .sb-metadata-panel {
