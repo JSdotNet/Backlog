@@ -309,6 +309,28 @@ public sealed class EntryScheduleControlsTests
         Assert.Contains($"`after:{first.Id!.Value}`", second.RawText, StringComparison.Ordinal);
     }
 
+    /// <summary>A finished entry is not offered as something to wait on. Waiting on
+    /// work that is already done is not a dependency anyone can have — the picker
+    /// would be offering a predecessor that can never block.</summary>
+    [Fact]
+    public async Task The_dependency_picker_excludes_completed_entries()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var done = await host.WriteEntryAsync("# Provision the box\n`task` `!done`\n\nAlready shipped.\n");
+        var open = await host.WriteEntryAsync(ExpandedEntry);
+
+        var pane = host.Render();
+
+        await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-depends-select'] input").FocusAsync(new());
+
+        var options = pane.FindAll("[data-testid='entry-depends-select'] [role='option']");
+
+        Assert.DoesNotContain(options, option => option.TextContent == "Provision the box");
+        Assert.Equal(EntryStatus.Done, done.PreviewStatus);
+        Assert.NotNull(open);
+    }
+
     /// <summary>What it is waiting for, said by title rather than by id. An entry
     /// that only reported "blocked" would leave the reader to go and find out by
     /// what.</summary>
