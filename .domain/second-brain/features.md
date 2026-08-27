@@ -120,6 +120,30 @@ cross-reference may name a chapter in the repository's backlog folder even thoug
 that folder is not a browsable area, and it is read with that folder's own status
 vocabulary rather than as an unknown one.
 
+### Knowledge that stays current
+
+```meta
+type: sub-feature
+status: draft
+related: [.arc42/08-crosscutting-concepts.md#knowledge-index]
+```
+
+Show what a repository's folders actually say, including when a chapter was
+edited outside the app — by another tool, by a pull request, or by hand in an
+editor. The folders are the source of truth and are never owned by the app; a
+prepared view over them is a convenience that has to prove itself current before
+it is shown, and has to give way to reading the folder directly when it cannot.
+
+A repository where nothing has been prepared is a normal state, not an error: its
+knowledge is still browsable, only slower. Preparing it is never a precondition
+for reading it.
+
+Preparation happens without being asked for and without being waited on — never
+at the cost of opening the app, and never at the cost of drawing a pane that is
+ready to show something. A chapter edited moments ago is shown from the folder
+itself rather than held back until the prepared view catches up, so what is on
+screen is never older than what is on disk.
+
 ## Instruction optimization
 
 ```meta
@@ -259,3 +283,28 @@ State how every claimed reduction was obtained — read from this machine's own 
 activity, or measured in a controlled before-and-after — and express it as a
 reduction in what agents load rather than as money. A figure with no stated basis
 is not shown.
+
+## Knowledge retrieval
+
+```meta
+type: feature
+status: draft
+related: [.domain/second-brain/features.md#topic-and-tag-grouping, .domain/second-brain/features.md#repository-knowledge-areas, .domain/backlog/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
+```
+
+Find the chapter that answers a question across every area and every note at
+once, both by the words a chapter uses and by what it means, so a recollection
+that does not share the author's vocabulary still lands. Results name the chapter
+they came from rather than returning loose text, because a chapter address is
+what every other part of this context already links by.
+
+This is the same surface that knowledge-backed AI assistance reads, so an answer
+can always cite the chapters behind it. Retrieval by meaning is additive: when it
+is unavailable, retrieval by words alone still answers, and neither is a
+precondition for browsing an area.
+
+Retrieval is the one capability that a repository nothing has prepared cannot
+offer, because answering a question by reading every chapter each time is not a
+slower answer but no answer. Where browsing quietly falls back to the folder,
+search says plainly that it has nothing to search yet, and what would make it
+available.

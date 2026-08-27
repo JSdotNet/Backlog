@@ -20,6 +20,11 @@ The desktop app is installed on Windows machines and is the canonical deployment
 - **Local Storage** — one SQLite database (`backlog.db`) under a user-owned root is
   the source of truth for tasks; JSON files hold the workspace settings and feature
   flags. A task's content is markdown text inside the database.
+- **Repository Knowledge** — knowledge folders are not deployed with the app. They
+  live in each registered repository's own working copy, wherever the user cloned it,
+  and are read in place; the generated index over them (`_meta/knowledge.db`) is
+  built beside the folders in that repository rather than under the workspace root.
+  See `.arc42/08-crosscutting-concepts.md#knowledge-index`.
 - **Local Fetch Workers** — YouTube, website, email, GitHub-sync, and stale-detection
   workers run in-process/background on the desktop.
 - **IDE Extensions** — installed in VS Code / Visual Studio on the same machine; read

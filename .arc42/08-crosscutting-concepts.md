@@ -19,6 +19,11 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   workspace root, with a task's content held as markdown text; JSON files hold the
   workspace settings and feature flags. Markdown is the content of a task, not the
   storage format. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+- **Knowledge is the other way round** — a repository's knowledge folders stay
+  markdown-canonical, and only the layer derived from them is a database. The two
+  decisions are not in tension: a task is owned by the app, a knowledge chapter is
+  owned by the repository and edited outside it. See
+  `.arc42/08-crosscutting-concepts.md#knowledge-index`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
@@ -33,6 +38,62 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Copilot capture vs. Copilot session tracking** — capture uses session context to
   create Inbox/Backlog/Knowledge items, while Dev PC Management tracking is a
   separate compliance/monitoring concern.
+
+## Knowledge Index
+
+```meta
+status: proposed
+related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/second-brain/features.md#repository-knowledge-areas"]
+```
+
+How every channel reads the knowledge a repository carries alongside its code.
+
+- **Markdown is canonical and the layer over it is generated** — the graph between
+  chapters, the resolved reading outline, the retrieval indexes and the diagram
+  artifact index are all derived. Nothing that is derived is authoritative, and
+  nothing that is authored lives only in the derived layer.
+- **One generated SQLite database per knowledge repository**, at `_meta/knowledge.db`
+  beside the folders it describes rather than in the workspace root, because an area
+  is resolved per registered repository and the app reads repositories it did not
+  build.
+- **Generated, not committed.** The database is a build output and is ignored by
+  git, which is what keeps two branches editing different chapters from conflicting
+  on a file neither of them authored.
+- **The authored half stays text** — each directory's reading order and root
+  document, and the hand-written Archify specifications, are committed and reviewed
+  in diffs. Only what a generator produces goes into the database.
+- **Structural first, semantic optional** — the structural tier is deterministic and
+  builds offline; embeddings are keyed by chapter content hash, need a model, and
+  are versioned by it. A reader must work correctly with the semantic tier absent,
+  falling back to full-text search.
+- **The generator is the only writer.** The app reads and never writes, so the
+  markdown parse has exactly one implementation. A chapter the app has just edited
+  is treated as drifted and served from its markdown, rather than re-indexed by a
+  second parser in C#.
+- **Refresh is an optimisation, never a precondition** — nothing on the app's own
+  write, a stat-per-file check when an area is opened, a debounced watcher while a
+  folder is in view, and a cancellable idle-time background pass for repositories
+  nobody has opened and for embeddings. **Not on startup**: startup only stats each
+  registered repository to learn whether an index exists, and schedules rather than
+  performs the work.
+- **A reader degrades in defined steps** rather than on or off: current row →
+  drifted file read from its markdown → unrecognised schema version ignored
+  entirely → absent, locked or unreadable database → markdown, which is the path
+  the panels take today. Browsing therefore always works. Search is the one
+  exception — without an index it is unavailable and says so, because scanning the
+  corpus per query is a hang, not a fallback.
+- **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
+  MCP server read the same schema rather than each carrying its own markdown parser.
+
+> Partly implemented. The derived layer is currently twelve committed JSON files
+> under `_meta/`, and the reading rules above are already how the panels treat
+> them: `KnowledgeIndexReader` lists a folder without opening a markdown file,
+> re-reads any entry whose file is newer than the index, rejects a `schemaVersion`
+> it does not recognise, and falls back to scanning a folder that has no index.
+> What is not implemented is the container — the database, the retrieval tiers,
+> and dropping the artifacts from version control. See
+> `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` for the
+> reasoning and the questions it leaves open.
 
 ## Feature Enablement
 
