@@ -107,11 +107,32 @@ already exists — rather than hand-rolling a second implementation.
 documented exceptions. See `.github/instructions/ui-components.instructions.md` for the full
 rule, including what the test cannot see.
 
+## Authoritative guidance
+
+Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidelines` and
+`jsdotnet-project-design` MCP servers were retired on 2026-08-27 and their relevant content
+lives in the repository:
+
+- `.arc42/guidelines/` — the inherited organization architecture decisions that govern this
+  repository's .NET code (framework, package management, Aspire, Result objects, module and
+  feature-slice structure, CQRS, Minimal APIs, observability, styling tokens, identity,
+  authorization, persistence, resilience, error contract, configuration). Read the single
+  document that governs the change you are making; `README.md` indexes them, and each one
+  ends with a **Deviations and gaps** section recording where Backlog actually stands.
+- `.arc42/adr/` — the decisions Backlog took for itself. Both sequences start at 0001, so
+  name the folder when citing one.
+- `.design/` — design and UX guidance, tokens, and the color scheme.
+
+An `orch-*` skill that instructs you to consult `jsdotnet-guidelines-mcpserver` is served
+from `.arc42/guidelines/` instead; the absent server is not a blocked precondition. The MCP
+servers still in use are runtime and tooling servers — Aspire, Playwright, and the
+orchestration dashboard.
+
 ## Further guidance
 
 - `.github/instructions/context-loading.instructions.md` — the full gate and the policy on
   which knowledge folders a workflow may load.
 - `.github/instructions/ui-components.instructions.md` — shared component adoption in the
   application screens.
-- `.github/instructions/mcp-usage.instructions.md` — MCP server authority order.
+- `.github/instructions/mcp-usage.instructions.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.

@@ -6,7 +6,17 @@ Backlog is being organized as a multi-part, AI-first work management product wit
 
 ## Authoritative guidance order
 
-See `.github/instructions/mcp-usage.instructions.md` for MCP server usage and authority order.
+Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidelines` and
+`jsdotnet-project-design` MCP servers were retired on 2026-08-27:
+
+- `.arc42/guidelines/` — the inherited organization architecture decisions that govern this
+  repository's .NET code, indexed by its `README.md`. Read the one that governs the change.
+- `.arc42/adr/` — the decisions Backlog took for itself.
+- `.design/` — design and UX guidance, tokens, and the color scheme.
+
+See `.github/instructions/mcp-usage.instructions.md` for the full authority order and for
+which MCP servers are still in use. When a plugin-provided skill tells you to query a
+guidelines MCP server, read `.arc42/guidelines/` instead.
 
 ## Agent usage
 
@@ -61,9 +71,9 @@ See `.github/instructions/naming.instructions.md` for repository-wide file and f
 
 ## Guardrails
 
-- Keep repository instruction files policy-focused; do not duplicate long-form MCP guidance into them.
+- Keep repository instruction files policy-focused. Long-form architecture guidance belongs in `.arc42/guidelines/`, design guidance in `.design/` — link to them rather than restating them.
 - Do not invent permanent project structure before architecture and domain decisions make the boundaries clear.
-- Ground governance and coding decisions in repository guidance instead of memory.
+- Ground governance and coding decisions in the checked-in decision records instead of memory. `.arc42/guidelines/` is a fork of the organization's corpus, not a mirror: change it here when Backlog diverges, and record the divergence in that document's **Deviations and gaps** section.
 - Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
 - Never hand-edit anything under an `_meta/` folder; it is generated. Re-run the generator instead.
 - Honor the standing product UX rules recorded in `.design/`: dark mode only, no save buttons (everything auto-saves), Markdown stays canonical behind the rich text editor, and every drag-and-drop reorder has a keyboard equivalent.

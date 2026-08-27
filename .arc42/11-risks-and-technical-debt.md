@@ -41,10 +41,21 @@ related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 ```meta
 status: draft
+related: [".arc42/guidelines/README.md"]
 ```
 
-No implementation debt exists yet — the system is at the architecture-setup stage.
-As code lands, record concrete debt items as TDRs and link them from this section.
+Debt against an inherited decision is recorded in that decision's own
+**Deviations and gaps** section under `.arc42/guidelines/`, next to the rule it
+falls short of, rather than being copied here. Read those sections before
+planning work on the sync service, persistence, or observability.
+
+Debt that belongs to no single decision:
+
+| # | Debt | Consequence |
+|---|---|---|
+| D1 | The organization's **coding and testing conventions** — C# style, unit/integration/e2e/architecture testing, object calisthenics, validation strategy, logging and audit logging — were left behind when the ADRs were imported on 2026-08-27. They are listed in `.arc42/guidelines/README.md`. | Agents and contributors have no checked-in statement of those conventions now that the guidelines MCP is no longer consulted. They belong in `.github/instructions/`, where they load while code is being edited. |
+
+As further concrete debt lands, record it as a TDR and link it from this section.
 
 
 

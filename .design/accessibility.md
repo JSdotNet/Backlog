@@ -10,9 +10,9 @@ related: [".design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".design/int
 > mobile — .NET MAUI native, VS Code / Visual Studio webviews). Because the
 > product is dark-mode-only, keyboard-first, and has no save buttons,
 > accessibility here focuses heavily on keyboard operation, save-
-> state and reorder announcements, focus visibility, and reduced motion. Grounded
-> in the `jsdotnet-project-design` MCP guides `04-motion-and-interaction`,
-> `06-component-patterns`, `07-iconography`, and `09-interaction-patterns`.
+> state and reorder announcements, focus visibility, and reduced motion. Adapted
+> from the JSdotNet design style guide (`04-motion-and-interaction`,
+> `06-component-patterns`, `07-iconography`, `09-interaction-patterns`).
 
 ## Target and Scope
 

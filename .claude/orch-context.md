@@ -89,16 +89,15 @@ requests are created through the `pr-jsdotnet` skill.
 ## MCP Servers
 
 Authority order and fallbacks are defined in
-`.github/instructions/mcp-usage.instructions.md`; that file and the repository's own MCP
-configuration remain the source of truth. This section only names how those authorities are
-surfaced to Claude Code, whose server IDs differ from the Copilot ones:
+`.github/instructions/mcp-usage.instructions.md`, which remains the source of truth.
 
-| Authority | Copilot server ID | Claude Code server ID |
-| --- | --- | --- |
-| Repository guidance and conventions | `jsdotnet-project-guidelines` | `jsdotnet-coding-guidelines` |
-| Design and UX guidance, tokens, color scheme | `jsdotnet-project-design` | `jsdotnet-design-ux-guidelines` |
+**Guidance no longer comes from an MCP server.** The `jsdotnet-project-guidelines` and
+`jsdotnet-project-design` servers were retired on 2026-08-27; read `.arc42/guidelines/` for
+inherited architecture decisions, `.arc42/adr/` for local ones, and `.design/` for design and
+UX guidance. A plugin skill that tells you to query `jsdotnet-guidelines-mcpserver` should be
+served from `.arc42/guidelines/` instead — its absence is not a blocked precondition.
 
-Also available to orchestration runs in Claude Code:
+Available to orchestration runs in Claude Code:
 
 - `plugin_qa_aspire` — Aspire resource state, console logs, structured logs, and traces.
 - `plugin_qa_playwright` — browser automation for QA validation.
@@ -106,8 +105,9 @@ Also available to orchestration runs in Claude Code:
   namespaced `mcp__plugin_claude-desktop_orch-dashboard__*`, **not** `mcp__orch-dashboard__*`.
 - `jsdotnet-publish-results` — publishing orchestration reports and artifacts.
 
-If an authoritative MCP source is unavailable, read the checked-in instruction files
-directly and state that authoritative guidance could not be verified.
+If a runtime MCP server is unavailable, say so plainly rather than substituting a guess —
+and for guidance, there is nothing to fall back from: the checked-in documents are the
+authority.
 
 ## Healthy Startup
 

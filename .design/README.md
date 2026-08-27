@@ -9,10 +9,10 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/04-solution-
 > guidelines for the Backlog product. It is the authoritative local guide for
 > *how the product should look and behave* across every channel (desktop,
 > mobile, IDE extensions), complementary to `.arc42` (architecture) and
-> `.domain` (domain model). Design tokens and UX guidance are grounded in the
-> organization's `jsdotnet-project-design` MCP style guide; this folder
-> materializes the relevant, product-specific rules so they are reviewable and
-> version-controlled in the repository.
+> `.domain` (domain model). Design tokens and UX guidance were adapted from the
+> JSdotNet design style guide; this folder holds the relevant, product-specific
+> rules and **is the authoritative source for them** — nothing is fetched from
+> elsewhere at read time.
 
 This folder holds **guidelines only** — no wireframes, no user flows, no
 implementation code.
@@ -64,8 +64,8 @@ status: active
   never by raw hex value, in product code. `color-scheme.md` and
   `typography-and-layout.md` are the only files that declare token values;
   every other file references token names.
-- Any decision that could not be sourced from the design MCP is marked
-  `[TODO: clarify]` and must be resolved before that area ships.
+- Any decision the style guide did not settle is marked `[TODO: clarify]` and
+  must be resolved before that area ships.
 
 ## Living Reference: The UI Storybook
 
@@ -159,12 +159,14 @@ status: active
 status: active
 ```
 
-The visual design tokens and UX patterns in this folder are sourced from the
-organization's `jsdotnet-project-design` MCP server (server identity
-`JSdotNet.MCP.Design`). The specific guides consumed are listed per file. The
-org palette **includes a defined dark mode**, so the "dark mode only"
-requirement is satisfied by selecting the dark column of the org tokens — no
-draft palette was invented.
+The visual design tokens and UX patterns in this folder were adapted from the
+JSdotNet design style guide (`JSdotNet/Project-Guidelines-MCP`, `design/`) and
+imported into this repository on **2026-08-27**, from which date this folder is
+authoritative. The specific upstream guides each file drew on are named in that
+file. The org palette **includes a defined dark mode**, so the "dark mode only"
+requirement was satisfied by selecting the dark column of the org tokens — no
+draft palette was invented. There is no sync back to the upstream guide: a
+change here is a change to the product's design language.
 
 ## Status Vocabulary
 

@@ -122,6 +122,134 @@
     },
     {
       "type": "directory",
+      "name": "guidelines",
+      "path": ".arc42/guidelines",
+      "title": "Adopted Organization Guidelines",
+      "children": [
+        {
+          "type": "file",
+          "name": "README.md",
+          "path": ".arc42/guidelines/README.md",
+          "title": "Adopted Organization Guidelines",
+          "status": "active",
+          "root": true
+        },
+        {
+          "type": "file",
+          "name": "0001-adopt-dotnet-10.md",
+          "path": ".arc42/guidelines/0001-adopt-dotnet-10.md",
+          "title": "ADR 0001: .NET 10 as the target framework",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0002-central-package-management.md",
+          "path": ".arc42/guidelines/0002-central-package-management.md",
+          "title": "ADR 0002: Central Package Management",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0003-aspire-for-web-services.md",
+          "path": ".arc42/guidelines/0003-aspire-for-web-services.md",
+          "title": "ADR 0003: .NET Aspire for orchestration",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0004-result-objects-for-expected-failures.md",
+          "path": ".arc42/guidelines/0004-result-objects-for-expected-failures.md",
+          "title": "ADR 0004: Result objects for expected failures",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0005-modular-monolith-structure.md",
+          "path": ".arc42/guidelines/0005-modular-monolith-structure.md",
+          "title": "ADR 0005: Modular monolith structure",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0006-cqrs-for-api-projects.md",
+          "path": ".arc42/guidelines/0006-cqrs-for-api-projects.md",
+          "title": "ADR 0006: Lightweight CQRS, no mediator",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0007-minimal-apis-over-controllers.md",
+          "path": ".arc42/guidelines/0007-minimal-apis-over-controllers.md",
+          "title": "ADR 0007: Minimal APIs over controllers",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0009-feature-slices-module-structure.md",
+          "path": ".arc42/guidelines/0009-feature-slices-module-structure.md",
+          "title": "ADR 0009: Feature slices inside a module",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0010-opentelemetry-observability.md",
+          "path": ".arc42/guidelines/0010-opentelemetry-observability.md",
+          "title": "ADR 0010: OpenTelemetry for observability",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0011-centralized-frontend-styling-variables.md",
+          "path": ".arc42/guidelines/0011-centralized-frontend-styling-variables.md",
+          "title": "ADR 0011: Centralized frontend styling variables",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0012-authentication-external-identity-providers.md",
+          "path": ".arc42/guidelines/0012-authentication-external-identity-providers.md",
+          "title": "ADR 0012: Authentication with external identity providers",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0013-authorization-zero-trust.md",
+          "path": ".arc42/guidelines/0013-authorization-zero-trust.md",
+          "title": "ADR 0013: Authorization and the Zero Trust model",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0014-persistence-and-repository-boundaries.md",
+          "path": ".arc42/guidelines/0014-persistence-and-repository-boundaries.md",
+          "title": "ADR 0014: Persistence and repository boundaries",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0015-resilience-for-outbound-dependencies.md",
+          "path": ".arc42/guidelines/0015-resilience-for-outbound-dependencies.md",
+          "title": "ADR 0015: Resilience for outbound dependencies",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0017-http-error-contract-and-problem-details.md",
+          "path": ".arc42/guidelines/0017-http-error-contract-and-problem-details.md",
+          "title": "ADR 0017: HTTP error contract and Problem Details",
+          "status": "active"
+        },
+        {
+          "type": "file",
+          "name": "0018-configuration-and-options-binding.md",
+          "path": ".arc42/guidelines/0018-configuration-and-options-binding.md",
+          "title": "ADR 0018: Configuration and options binding",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "type": "directory",
       "name": "tdr",
       "path": ".arc42/tdr",
       "title": "tdr",

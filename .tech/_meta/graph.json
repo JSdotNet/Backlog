@@ -984,7 +984,7 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-base-plugin",
           "level": 2,
-          "line": 140,
+          "line": 145,
           "status": "adopted",
           "kind": "tool",
           "depends-on": [
@@ -1005,7 +1005,7 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-canvas-extension",
           "level": 2,
-          "line": 160,
+          "line": 165,
           "status": "adopted",
           "kind": "tool",
           "depends-on": [
@@ -1027,7 +1027,7 @@
           "path": ".tech/tooling.md",
           "slug": "aspire-cli",
           "level": 2,
-          "line": 178,
+          "line": 183,
           "status": "candidate",
           "kind": "tool",
           "depends-on": [

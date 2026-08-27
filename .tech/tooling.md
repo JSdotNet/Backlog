@@ -131,11 +131,16 @@ depends-on: [".tech/tooling.md#github-copilot-cli"]
 related: [".tech/tooling.md#knowledge-canvas-extension"]
 ```
 
-The authoritative guidance channel for agents working in this repository.
+The runtime and tooling channel agents use while working in this repository.
 
-- **Used for** — `jsdotnet-project-guidelines` (repository conventions) and
-  `jsdotnet-project-design` (design and UX guidance).
-- **Why** — keeps governance out of prompt memory and in a queryable source.
+- **Used for** — Aspire (resource state, console and structured logs, traces),
+  Playwright (browser automation for QA validation), and the orchestration
+  dashboard.
+- **Why** — these expose live state an agent cannot read from the repository.
+- **Not used for guidance.** The `jsdotnet-project-guidelines` and
+  `jsdotnet-project-design` servers were retired on 2026-08-27; their content was
+  imported into `.arc42/guidelines/` and `.design/`, which are authoritative and
+  need no server to read.
 
 ## Knowledge Base Plugin
 

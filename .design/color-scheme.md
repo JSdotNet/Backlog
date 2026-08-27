@@ -6,9 +6,9 @@ related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.
 ```
 
 > The materialized dark-mode color palette and semantic design tokens for the
-> Backlog product. Values are sourced from the organization's
-> `jsdotnet-project-design` MCP guide `01-color-palette` ("Style Guide: Color
-> Palette"). Because the product is **dark mode only**, only the dark-mode column
+> Backlog product. Values were adapted from the JSdotNet design style guide
+> `01-color-palette` ("Style Guide: Color Palette"), imported 2026-08-27.
+> Because the product is **dark mode only**, only the dark-mode column
 > of the org palette is adopted here; the light column is intentionally dropped.
 > Brand, semantic and text tokens are the guide's values unchanged. **Surface and
 > border tokens are a deliberate project deviation** — see
@@ -22,8 +22,8 @@ related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.
 status: active
 ```
 
-- **Source:** `jsdotnet-project-design` MCP server (`JSdotNet.MCP.Design`),
-  tool `get_guide`, document id `01-color-palette`.
+- **Source:** the JSdotNet design style guide, document `01-color-palette`,
+  imported 2026-08-27. This file is authoritative from that date.
 - **Selection:** dark-mode values only (the product has no light theme).
 - **Deviation:** the surface and border ramps are project values, not the
   guide's. Recorded in [Surface and Border Deviation](#surface-and-border-deviation)
