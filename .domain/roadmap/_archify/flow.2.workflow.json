@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Dependency Validation Flow",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

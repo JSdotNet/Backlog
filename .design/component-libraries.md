@@ -178,7 +178,7 @@ status: active
 
 ```meta
 status: active
-related: [".tech/technology-graph.md", ".tech/shared.md#archify", ".design/content-editing.md", ".design/accessibility.md"]
+related: [".tech/technology-graph.md", ".tech/tooling.md#archify", ".design/content-editing.md", ".design/accessibility.md"]
 ```
 
 Backlog should solve diagrams in layers instead of relying on one component suite:
@@ -198,7 +198,7 @@ All diagram libraries must follow the product defaults: dark mode only, local/of
 
 ```meta
 status: active
-related: [".tech/shared.md#archify", ".design/design-principles.md", ".design/accessibility.md"]
+related: [".tech/tooling.md#archify", ".design/design-principles.md", ".design/accessibility.md"]
 ```
 
 An Archify artifact is a whole generated document rather than a picture, and the

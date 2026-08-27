@@ -19,6 +19,7 @@
     </Story>
 
     <Story Name="Long lines wrap, or scroll if you ask"
+           Code="@WrapCode"
            Description="A long line wraps by default. Every surface this library renders on is narrower than the code written for it, and a line that runs off the right edge is a line nobody reads — a horizontal scrollbar hides content behind a gesture, and the reader has to find it first. Indentation survives the fold, so the shape of the code is still legible. Wrap=&quot;false&quot; keeps the line as one line for a snippet where that shape carries meaning and folding it would lie about it.">
         <div class="sb-columns">
             <div class="sb-stack">
@@ -39,6 +40,7 @@
     </Story>
 
     <Story Name="Every language it colours"
+           Code="@LanguagesCode"
            Description="The list is deliberately the set this product is written in and its entries are pasted from. It is not an IDE: a grammar nobody reads here is a grammar nobody maintains. Mermaid is on it for the source rather than the picture — a mermaid fence inside an entry is drawn by DiagramView, and this is the same text while it is still being written.">
         <div class="sb-stack" data-testid="code-languages">
             @* TryGetValue, not an indexer. The list comes from the library and the
@@ -283,5 +285,18 @@
 
     private const string UnknownCode = """
         <CodeView Source="@source" Language="clojure" />
+        """;
+
+    private const string WrapCode = """
+        <CodeView Source="@sample" Language="csharp" AllowCopy="false" />
+
+        <CodeView Source="@sample" Language="csharp" Wrap="false" AllowCopy="false" />
+        """;
+
+    private const string LanguagesCode = """
+        @foreach (var language in CodeLanguages.All)
+        {
+            <CodeView Source="@SampleFor(language)" Language="@language.Id" />
+        }
         """;
 }

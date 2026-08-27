@@ -25,6 +25,7 @@
     </Story>
 
     <Story Name="Mermaid sequence diagram"
+           Code="@SequenceCode"
            Description="Same component, different mermaid dialect — the language attribute is all that decides whether it renders."
            Source="@Sequence"
            SourceLanguage="mermaid"
@@ -33,11 +34,13 @@
     </Story>
 
     <Story Name="A language that cannot be rendered"
+           Code="@PlantUmlCode"
            Description="CanRender is false for plantuml, so the component shows the source instead of pretending it failed. Nothing is lost and nothing is loaded.">
         <DiagramView Title="Component overview" Language="plantuml" Source="@PlantUml" />
     </Story>
 
     <Story Name="Broken mermaid source"
+           Code="@BrokenCode"
            Description="Mermaid rejects the source, and the fallback says so while keeping the text readable — a half-typed diagram in an entry must not blank the page.">
         <DiagramView Title="Broken on purpose" Language="mermaid" Source="@BrokenMermaid" />
     </Story>
@@ -143,5 +146,19 @@
 
     private const string GraphCode = """
         <GraphView Title="Component library" Data="new { nodes = ..., edges = ... }" />
+        """;
+
+    private const string SequenceCode = """
+        <DiagramView Title="Auto-save" Language="mermaid" Source="@source" ShowSource="false" />
+        """;
+
+    private const string PlantUmlCode = """
+        @* No ShowSource="false": CanRender is false for plantuml, so the source is
+           all there is to show and the component falls back to it on its own. *@
+        <DiagramView Title="Component overview" Language="plantuml" Source="@source" />
+        """;
+
+    private const string BrokenCode = """
+        <DiagramView Title="Broken on purpose" Language="mermaid" Source="@source" />
         """;
 }

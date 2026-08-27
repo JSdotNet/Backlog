@@ -5,6 +5,7 @@
       "chapter": "flow.md",
       "ordinal": 1,
       "type": "sequence",
+      "quality": "showcase",
       "kind": "sequencediagram",
       "spec": "flow.1.sequence.json",
       "artifact": "flow.1.sequence.html",

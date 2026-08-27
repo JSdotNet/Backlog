@@ -24,8 +24,7 @@
       "none": 7,
       "draft": 5,
       "accepted": 1,
-      "candidate": 1,
-      "adopted": 1,
+      "adopted": 2,
       "proposed": 5
     },
     "edgesByType": {
@@ -117,7 +116,7 @@
           "path": ".design/README.md",
           "slug": "table-of-contents",
           "level": 2,
-          "line": 140,
+          "line": 164,
           "status": "active"
         }
       },
@@ -130,7 +129,7 @@
           "path": ".design/README.md",
           "slug": "provenance",
           "level": 2,
-          "line": 156,
+          "line": 180,
           "status": "active"
         }
       },
@@ -143,7 +142,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 169,
+          "line": 193,
           "status": "active"
         }
       },
@@ -631,7 +630,7 @@
           "status": "active",
           "related": [
             ".tech/technology-graph.md",
-            ".tech/shared.md#archify",
+            ".tech/tooling.md#archify",
             ".design/content-editing.md",
             ".design/accessibility.md"
           ]
@@ -649,7 +648,7 @@
           "line": 197,
           "status": "active",
           "related": [
-            ".tech/shared.md#archify",
+            ".tech/tooling.md#archify",
             ".design/design-principles.md",
             ".design/accessibility.md"
           ]
@@ -1616,7 +1615,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/technology-graph.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
             ".arc42/07-deployment-view.md",
@@ -1627,23 +1626,23 @@
       },
       {
         "data": {
-          "id": ".tech/shared.md#archify",
+          "id": ".tech/tooling.md#archify",
           "label": "Archify",
           "type": "chapter",
           "folder": "tech",
-          "path": ".tech/shared.md",
+          "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 70,
+          "line": 272,
           "status": "adopted",
-          "kind": "format",
+          "version": "2.15.0",
           "depends-on": [
-            ".tech/shared.md#markdown",
-            ".tech/shared.md#mermaid",
-            ".tech/shared.md#nodejs"
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#mermaid"
           ],
           "related": [
-            ".design/component-libraries.md#diagram-and-graph-strategy"
+            ".tech/tooling.md#ajv",
+            ".tech/tooling.md#simple-icons"
           ],
           "outOfScope": true
         }
@@ -2917,9 +2916,9 @@
       },
       {
         "data": {
-          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/shared.md#archify",
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/tooling.md#archify",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
-          "target": ".tech/shared.md#archify",
+          "target": ".tech/tooling.md#archify",
           "type": "related"
         }
       },
@@ -2941,9 +2940,9 @@
       },
       {
         "data": {
-          "id": "related:.design/component-libraries.md#archify-artifacts->.tech/shared.md#archify",
+          "id": "related:.design/component-libraries.md#archify-artifacts->.tech/tooling.md#archify",
           "source": ".design/component-libraries.md#archify-artifacts",
-          "target": ".tech/shared.md#archify",
+          "target": ".tech/tooling.md#archify",
           "type": "related"
         }
       },

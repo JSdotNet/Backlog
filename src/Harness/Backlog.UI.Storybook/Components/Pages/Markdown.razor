@@ -98,6 +98,7 @@ Two of them have a subpage of their own, because a class of this product's own c
     </Story>
 
     <Story Name="Every inline, one at a time"
+           Code="@InlineViewCode"
            Description="The same set as a reference, each on its own so the styling can be compared without a sentence around it.">
         <dl class="sb-grid" data-testid="markdown-inline-kinds">
             @foreach (var inline in InlineKinds)
@@ -213,12 +214,14 @@ Reached directly, as below, the marks are not on the page, so the back-links poi
     </Story>
 
     <Story Name="Links we will not follow"
+           Code="@LinkViewCode"
            Description="A link is only rendered as one when its scheme is http, https, mailto, or a relative path. Anything else — `javascript:`, `data:` — keeps its text and loses its href, styled `md-link--inert` so it is visibly not a link. Escaping keeps typed markup out of the document; an href is the second door, because these bodies render in a WebView and can arrive from a repository file nobody here wrote. So the scheme is an allow-list: anything unrecognised is text."
            Source="@LinkSample">
         <MarkdownStory Source="@LinkSample" TestId="markdown-links" />
     </Story>
 
     <Story Name="Anything it does not know is still readable"
+           Code="@UnknownViewCode"
            Description="The parser is partial on purpose, and this is what that buys. Setext headings, reference-style links, raw HTML, definition lists, a quote inside a list item — none of them are handled, and every one comes back with its text intact. The failure mode of a body being written one character at a time is prose that looks slightly wrong, never a line that vanishes and never an exception."
            Source="@UnknownSample">
         <MarkdownStory Source="@UnknownSample" TestId="markdown-unknown" />
@@ -554,5 +557,24 @@ Reached directly, as below, the marks are not on the page, so the back-links poi
 
     private const string FootnotesViewCode = """
         <MarkdownFootnotesView Footnotes="@notes" />
+        """;
+
+    private const string LinkViewCode = """
+        @* The same call every read view makes. MarkdownStory is the storybook's frame
+           around it, so a page does not repeat the parse in each story. *@
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(source)" />
+        """;
+
+    private const string UnknownViewCode = """
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(source)" />
+        """;
+
+    private const string InlineViewCode = """
+        @* Parsed as a document, so a line of prose with one inline in it is a paragraph
+           holding that inline rather than the inline on its own. *@
+        @foreach (var inline in InlineKinds)
+        {
+            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(inline.Source)" />
+        }
         """;
 }

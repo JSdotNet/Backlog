@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Gathering an Item's Work and Totalling Its Effort",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

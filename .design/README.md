@@ -130,6 +130,30 @@ Rules:
 - Every component page MUST carry at least one link back into this folder, so a
   rule with no review surface and a component with no governing rule are both
   visible as omissions.
+- A storybook page MUST show the one subject it is named for. A sample that is
+  really about another page's subject belongs on that page, linked rather than
+  drawn a second time; a page demonstrating five other chapters to make its own
+  point buries the component a reviewer opened it for, and keeps five copies that
+  can drift. Where the reading order forces a borrow, the borrow is recorded
+  against that page in `StorybookIndex`, so a bent rule reads as a bend rather
+  than as the convention.
+- A subject that carries a convention of its own MUST get its own page rather
+  than a row in a larger group — how a task row states what it is waiting on, how
+  a bar states which quarter it lands in. A convention read as one of nine
+  sibling links is a convention nobody reads.
+- Every sample MUST be its own section, with its own name, anchor and test id.
+  Fifty-odd samples is well past the point where "the third one down on the
+  layout page" is a way to point at one in review, and a page that runs its
+  examples together leaves a reviewer nothing to link to and a test nothing to
+  address.
+- A sample's explanation is collapsed once it runs past two lines — 220
+  characters at this measure — and left open below that: a fold trigger costs
+  more to read than the sentence or two it would hide.
+- Every sample MUST carry the text behind it in one collapsed disclosure: the
+  usage that produced the sample, and, when the sample draws content, the content
+  it was handed, beside it. One disclosure and not two — a call and the text it
+  was given are one thing to read, and two triggers make two clicks out of one
+  question. Both folds start closed; the sample between them does not.
 - `components.css` is the single declaration of tokens in code — the desktop's
   `app.css` links it and declares only app-specific values on top. A token value
   changed in one place MUST be changed in the other and here.

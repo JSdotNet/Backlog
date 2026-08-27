@@ -4,6 +4,7 @@
   "meta": {
     "title": "Signal flow",
     "viewBox": [1240, 780],
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread"
   },

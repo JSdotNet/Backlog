@@ -5,6 +5,7 @@
       "chapter": "flow.md",
       "ordinal": 1,
       "type": "workflow",
+      "quality": "showcase",
       "kind": "flowchart",
       "spec": "flow.1.workflow.json",
       "artifact": "flow.1.workflow.html",

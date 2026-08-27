@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Recurring Entry Occurrences",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

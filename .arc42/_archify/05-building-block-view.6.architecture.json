@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Cloud Service — thin sync layer",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [

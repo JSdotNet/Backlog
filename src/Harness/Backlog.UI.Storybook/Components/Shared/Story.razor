@@ -104,8 +104,21 @@
     [Parameter]
     public string? Description { get; set; }
 
-    /// <summary>The usage shown under the example. Optional: a story that is only
-    /// about behaviour does not need one.</summary>
+    /// <summary>The usage shown under the example — the call that produced what is
+    /// on screen.
+    ///
+    /// <para>Required of a story that renders a component from the library, which
+    /// is the rule in
+    /// <c>.design/README.md#living-reference-the-ui-storybook</c>. It reads as
+    /// optional here only because the parameter is also how a <em>reference
+    /// section</em> declines it: a story whose body is a token table, a field
+    /// grid or a paragraph of prose renders no component, so there is no call to
+    /// show and a snippet of the storybook's own scaffolding would tell a reviewer
+    /// nothing. Those pass neither this nor <see cref="Source"/> and get no
+    /// disclosure at all.</para>
+    ///
+    /// <para>Nothing enforces the split yet. Rendering a component and passing no
+    /// <c>Code</c> is a review finding, not a build failure.</para></summary>
     [Parameter]
     public string? Code { get; set; }
 

@@ -1,8 +1,14 @@
 name: Knowledge metadata
 
 # Enforces the knowledge-folder convention: every metadata reference must
-# resolve, and the committed _meta indexes must match the Markdown they derive
-# from. Installed by the `knowledge-base-init` skill.
+# resolve and every `meta` block must match the schema. Installed by the
+# `knowledge-base-init` skill.
+#
+# Staleness of the committed _meta indexes is reported but does not fail the
+# run — forcing every knowledge pull request to carry a regenerated index is
+# what makes those files conflict on merge. Refresh is deliberate instead:
+# ./build/Update-KnowledgeIndex.ps1 on demand, knowledge-meta-nightly.yml on a
+# schedule. See knowledge-derived-artifacts.instructions.md.
 #
 # Trim the path filters to the knowledge folders this repository actually
 # adopted; extra entries are harmless but noisy.
@@ -47,14 +53,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check references and reading order
+      - name: Check references and metadata blocks
         run: node .github/tools/knowledge-meta/build.mjs --check
 
-      - name: Check committed indexes are up to date
+      # Advisory only. A stale index is not a defect in this pull request; the
+      # nightly job reconciles it, and consumers re-read sources newer than the
+      # index they read. Broken references above are the hard failure.
+      - name: Report drift in the committed indexes
         run: |
           node .github/tools/knowledge-meta/build.mjs
           if ! git diff --quiet -- '*_meta/*.json'; then
-            echo "::error::Derived _meta indexes are stale. Run: node .github/tools/knowledge-meta/build.mjs"
+            echo "::warning::Derived _meta indexes have drifted. This does not block the merge — the nightly refresh reconciles it. To refresh this branch now: ./build/Update-KnowledgeIndex.ps1"
             git --no-pager diff --stat -- '*_meta/*.json'
-            exit 1
           fi

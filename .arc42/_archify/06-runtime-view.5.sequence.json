@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "IDE Context-aware Capture",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [1040, 780]

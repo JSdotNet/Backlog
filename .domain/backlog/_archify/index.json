@@ -5,6 +5,7 @@
       "chapter": "flow.md",
       "ordinal": 3,
       "type": "workflow",
+      "quality": "showcase",
       "kind": "flowchart",
       "spec": "flow.3.workflow.json",
       "artifact": "flow.3.workflow.html",
@@ -15,6 +16,7 @@
       "chapter": "flow.md",
       "ordinal": 2,
       "type": "workflow",
+      "quality": "showcase",
       "kind": "flowchart",
       "spec": "flow.2.workflow.json",
       "artifact": "flow.2.workflow.html",
@@ -22,8 +24,10 @@
       "checkCount": 9
     },
     "f84919c8f335b7d14c9124a3a92aa130c7c7ad239d48f730c027f6dc9cb0527a": {
+      "chapter": "flow.md",
       "ordinal": 1,
       "type": "lifecycle",
+      "quality": "showcase",
       "kind": "statediagram-v2",
       "spec": "flow.1.lifecycle.json",
       "artifact": "flow.1.lifecycle.html",

@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Reading the Plan by Repository",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [
