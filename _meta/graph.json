@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 750,
-    "edges": 1480,
+    "edges": 1481,
     "nodesByFolder": {
       "arc42": 63,
       "domain": 489,
@@ -39,7 +39,7 @@
     },
     "edgesByType": {
       "contains": 645,
-      "related": 694,
+      "related": 695,
       "depends-on": 139,
       "implements": 2
     }
@@ -10884,7 +10884,8 @@
             ".arc42/04-solution-strategy.md#technology-choices",
             ".design/color-scheme.md#per-stack-token-mapping",
             ".design/content-editing.md",
-            ".design/interaction-guidelines.md#drag-and-drop-reordering"
+            ".design/interaction-guidelines.md#drag-and-drop-reordering",
+            ".design/accessibility.md#keyboard-navigation"
           ]
         }
       },
@@ -11004,7 +11005,7 @@
           "path": ".design/component-libraries.md",
           "slug": "archify-artifacts",
           "level": 3,
-          "line": 197,
+          "line": 212,
           "status": "active",
           "related": [
             ".tech/tooling.md#archify",
@@ -11022,7 +11023,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 221,
+          "line": 236,
           "status": "active"
         }
       },
@@ -11035,7 +11036,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 243,
+          "line": 260,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -11813,7 +11814,7 @@
           "path": ".tech/technology-graph.md",
           "slug": "ai-development-vocabulary",
           "level": 2,
-          "line": 308
+          "line": 314
         }
       },
       {
@@ -22971,6 +22972,14 @@
           "id": "related:.design/component-libraries.md->.design/interaction-guidelines.md#drag-and-drop-reordering",
           "source": ".design/component-libraries.md",
           "target": ".design/interaction-guidelines.md#drag-and-drop-reordering",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md->.design/accessibility.md#keyboard-navigation",
+          "source": ".design/component-libraries.md",
+          "target": ".design/accessibility.md#keyboard-navigation",
           "type": "related"
         }
       },

@@ -73,14 +73,17 @@
            the first. *@
         <Tabs AriaLabel="Technology views" TestId="technology-tabs">
             <TabPanel Id="graph"
-                      Title="Graph"
+                      Title="Atlas"
                       Element="section"
                       TestId="technology-graph-panel"
                       TabTestId="technology-graph-tab"
-                      aria-label="Technology graph">
+                      aria-label="Technology atlas">
                 @if (_view.Graph.Nodes.Count > 0)
                 {
-                    <TechnologyGraphView Graph="@_view.Graph" />
+                    <TechnologyGraphView View="@_view"
+                                         OnNavigateToChapter="OnNavigateToChapter"
+                                         OnStatusChanged="ChangeTechnologyStatusAsync"
+                                         StatusError="@_atlasStatusError" />
                 }
             </TabPanel>
 
@@ -183,14 +186,13 @@
 </aside>
 
 @code {
-    private static readonly string[] KnowledgeStatuses = ["draft", "candidate", "accepted", "active", "adopted"];
-
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyKnowledgeView? _view;
     private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
     private bool _openingTechnologyFolder;
     private string? _technologyFolderOpenError;
+    private string? _atlasStatusError;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -298,6 +300,25 @@
         }
     }
 
+    /// <summary>The atlas's own status write. Same path as the layer grid's — the
+    /// folder is written in one place — with its own error field, because the
+    /// message has to appear beside the control that caused it and the two
+    /// controls are on different tabs.</summary>
+    private async Task ChangeTechnologyStatusAsync(TechnologyStatusChange change)
+    {
+        _atlasStatusError = null;
+
+        try
+        {
+            await TechnologyKnowledge.UpdateStatusAsync(RepositoryAlias, change.ItemPath, change.Status);
+            await LoadAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _atlasStatusError = ex.Message;
+        }
+    }
+
     private async Task ChangeKnowledgeStatusAsync(string itemPath, string currentStatus, string? status)
     {
         if (string.IsNullOrWhiteSpace(status) || string.Equals(status, currentStatus, StringComparison.OrdinalIgnoreCase)) return;
@@ -314,11 +335,17 @@
         }
     }
 
+    /// <summary>The folder's own ladder, from <c>KnowledgeStatus</c>, rather than a
+    /// list kept here. The two had drifted: this offered <c>draft</c>,
+    /// <c>accepted</c> and <c>active</c>, none of which `.tech` defines, and
+    /// omitted <c>trial</c>, <c>hold</c> and <c>retired</c>, all of which it does.
+    /// A status the file already holds is kept in the list even when the
+    /// vocabulary does not name it, so opening the select never silently offers to
+    /// correct a word somebody meant.</summary>
     private static IReadOnlyList<SelectorOption> StatusOptions(string status)
     {
-        var statuses = KnowledgeStatuses.Contains(status, StringComparer.OrdinalIgnoreCase)
-            ? KnowledgeStatuses
-            : [.. KnowledgeStatuses, status];
+        var values = KnowledgeStatus.Values(KnowledgeFolder.Tech);
+        var statuses = values.Contains(status, StringComparer.OrdinalIgnoreCase) ? values : [.. values, status];
         return [.. statuses.Select(value => new SelectorOption(value, value))];
     }
 

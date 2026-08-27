@@ -6,67 +6,23 @@
 // component that starts the drag rather than in whichever app happens to render
 // it.
 
-// The technology visualizer itself lives in the component library, as
-// `backlogGraphExplorer` in components.js: tabs, zoom, panning, cards and the
-// three layouts are drawing, not knowledge about technologies.
+// The technology atlas itself lives in the component library, as
+// `backlogGraphAtlas` in components.js: the projection, the clustering, the
+// camera and the picking are drawing, not knowledge about technologies.
 //
-// What is left here is the only part that is about technologies: which lanes
-// exist, what a status means, and which cluster a technology belongs to. That
-// is turned into the explorer's model below and handed over.
+// What is left here is the only part that is about technologies: which statuses
+// this project's ladder has, and which of them mean the same thing. That is
+// turned into the atlas's model below and handed over.
+//
+// No colours. They used to be here, four raw hex values that matched nothing in
+// the palette and that `DesignTokenTests` could not see because they were in
+// JavaScript. A node's colour now comes from its tone — which C# reads off the
+// same `KnowledgeStatus` vocabulary the badges use — and the renderer resolves a
+// tone to a token. Neither this file nor that one holds a colour any more.
 
-const BACKLOG_TECHNOLOGY_STATUS_COLORS = {
-    adopted: '#22c55e',
-    accepted: '#22c55e',
-    active: '#22c55e',
-    trial: '#38bdf8',
-    hold: '#f59e0b',
-    candidate: '#f59e0b',
-    proposed: '#f59e0b',
-    draft: '#f59e0b',
-    retired: '#ef4444',
-    deprecated: '#ef4444'
-};
-
-// Lane order is the lifecycle order, and every lane is drawn even when empty:
-// an empty "Trial" column is information about the portfolio.
-const BACKLOG_TECHNOLOGY_STATUS_DEFINITIONS = [
-    { key: 'candidate', label: 'Candidate' },
-    { key: 'trial', label: 'Trial' },
-    { key: 'adopted', label: 'Adopted' },
-    { key: 'hold', label: 'Hold' },
-    { key: 'retired', label: 'Retired' }
-];
-
-const BACKLOG_TECHNOLOGY_CLOUD_ORDER = [
-    'Cloud platform',
-    'Delivery',
-    'Observability',
-    'Data and storage',
-    'Application surfaces',
-    'Shared foundations'
-];
-
-function backlogGroupTechnologyBy(nodes, keySelector, labelSelector) {
-    const groups = [];
-    const byKey = new Map();
-    for (const node of nodes) {
-        const key = keySelector(node);
-        if (!byKey.has(key)) {
-            const group = { key, label: labelSelector?.(node, key) ?? key, nodes: [] };
-            byKey.set(key, group);
-            groups.push(group);
-        }
-
-        byKey.get(key).nodes.push(node);
-    }
-
-    return groups;
-}
-
-function backlogGroupTechnologyLayers(nodes) {
-    return backlogGroupTechnologyBy(nodes, (node) => String(node.layer || 'Unassigned'));
-}
-
+// `.tech` writes one word and `.arc42` sometimes writes another for the same
+// state. Normalising once, here, is what keeps the renderer from having to know
+// that "accepted" and "adopted" are the same thing.
 function backlogNormalizeTechnologyStatus(status) {
     const normalized = String(status ?? 'unknown').trim().toLowerCase();
     if (normalized === 'accepted' || normalized === 'active') return 'adopted';
@@ -75,53 +31,10 @@ function backlogNormalizeTechnologyStatus(status) {
     return normalized || 'unknown';
 }
 
-function backlogTechnologyStatusGroups(nodes) {
-    const groups = BACKLOG_TECHNOLOGY_STATUS_DEFINITIONS.map((status) => ({ ...status, nodes: [] }));
-    const byKey = new Map(groups.map((group) => [group.key, group]));
-
-    for (const node of nodes) {
-        const key = backlogNormalizeTechnologyStatus(node.status);
-        if (!byKey.has(key)) {
-            const label = key ? key.replace(/(^|[-_\s])\w/g, (match) => match.toUpperCase()) : 'Unknown';
-            const group = { key, label, nodes: [] };
-            byKey.set(key, group);
-            groups.push(group);
-        }
-
-        byKey.get(key).nodes.push(node);
-    }
-
-    return groups;
-}
-
-function backlogTechnologyCloudCluster(node) {
-    const haystack = `${node.label ?? ''} ${node.layer ?? ''} ${node.kind ?? ''} ${node.description ?? ''}`.toLowerCase();
-    if (/azure|aws|cloud|container|docker|kubernetes|hosting|foundry|service bus|cosmos|storage/.test(haystack)) return 'Cloud platform';
-    if (/github|actions|repository|source|git|devops|deployment|ci|cd/.test(haystack)) return 'Delivery';
-    if (/telemetry|monitor|observability|logging|otel|application insights|metrics|traces/.test(haystack)) return 'Observability';
-    if (/database|data|sqlite|sql|markdown|file|storage/.test(haystack)) return 'Data and storage';
-    if (/desktop|maui|blazor|razor|webview|mobile|ide|ui|app/.test(haystack)) return 'Application surfaces';
-    return 'Shared foundations';
-}
-
-function backlogTechnologyCloudGroups(nodes) {
-    const groups = backlogGroupTechnologyBy(nodes, backlogTechnologyCloudCluster);
-    groups.sort((left, right) => BACKLOG_TECHNOLOGY_CLOUD_ORDER.indexOf(left.key) - BACKLOG_TECHNOLOGY_CLOUD_ORDER.indexOf(right.key));
-    return groups;
-}
-
-function backlogTechnologyExplorerGroups(groups) {
-    return groups.map((group) => ({
-        key: group.key,
-        label: group.label,
-        nodeIds: group.nodes.map((node) => node.id)
-    }));
-}
-
-// The graph as .tech metadata describes it, translated into the shape the
-// explorer draws: statuses normalized once here, so the library never has to
-// know that "accepted" and "adopted" are the same thing.
-function backlogTechnologyExplorerModel(graph) {
+// The graph as `.tech` describes it, in the shape the atlas draws. Everything
+// here is a rename or a pass-through: the degrees, the ordinals and the tone are
+// computed in C#, where they can be tested against the Markdown they came from.
+function backlogTechnologyAtlasModel(graph) {
     const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     const edges = Array.isArray(graph?.edges) ? graph.edges : [];
 
@@ -131,59 +44,38 @@ function backlogTechnologyExplorerModel(graph) {
             label: node.label,
             kind: node.kind || 'technology',
             status: backlogNormalizeTechnologyStatus(node.status),
-            description: node.description
+            toneSlug: node.toneSlug || '',
+            group: node.layer || 'Unassigned',
+            groupIndex: typeof node.layerIndex === 'number' ? node.layerIndex : 0,
+            ordinal: typeof node.ordinalInLayer === 'number' ? node.ordinalInLayer : 0,
+            inDegree: node.inDegree || 0,
+            outDegree: node.outDegree || 0,
+            isFoundation: node.isFoundation === true,
+            isBoundary: node.isBoundary === true
         })),
         edges: edges.map((edge) => ({ source: edge.source, target: edge.target })),
-        views: [
-            {
-                id: 'board',
-                label: 'Board',
-                hint: 'Lifecycle board: lanes are technology states from candidate to retired.',
-                layout: 'lanes',
-                groups: backlogTechnologyExplorerGroups(backlogTechnologyStatusGroups(nodes))
-            },
-            {
-                id: 'roadmap',
-                label: 'Roadmap',
-                hint: 'Area spine: technology areas form the central vertical line, with technologies branching around each area.',
-                layout: 'spine',
-                groups: backlogTechnologyExplorerGroups(backlogGroupTechnologyLayers(nodes))
-            },
-            {
-                id: 'cloud',
-                label: 'Cloud',
-                hint: 'Cloud view: clusters technologies by platform, delivery, observability, data, and application surface concerns.',
-                layout: 'cluster',
-                ariaLabel: 'Clustered technology cloud map with dependency links. Drag the map to pan, or focus it and use arrow keys.',
-                groups: backlogTechnologyExplorerGroups(backlogTechnologyCloudGroups(nodes))
-            }
-        ],
-        defaultViewId: 'cloud',
-        legend: [
-            { key: 'candidate', label: 'candidate', color: '#f59e0b' },
-            { key: 'trial', label: 'trial', color: '#38bdf8' },
-            { key: 'adopted', label: 'adopted', color: '#22c55e' },
-            { key: 'hold', label: 'hold', color: '#f59e0b' },
-            { key: 'retired', label: 'retired', color: '#ef4444' }
-        ],
-        statusColors: BACKLOG_TECHNOLOGY_STATUS_COLORS,
-        defaultStatusColor: '#38bdf8',
-        itemNoun: 'technologies',
-        emptyMessage: 'No technology graph nodes are available.',
-        viewsLabel: 'Technology visualizer views',
-        zoomLabel: 'Zoom technology visualizer',
-        selectionHint: 'Select a card to spotlight direct dependencies and dependents.'
+        emptyMessage: 'No technology graph nodes are available.'
     };
 }
 
-// components.js owns the diagram host. The technology graph is this app's own
+// components.js owns the renderers. The technology atlas is this app's own
 // reading of the data, so it is attached to the shared object rather than
 // replacing it. The guard means app.js still parses if it is ever loaded alone.
 window.backlogDiagrams = window.backlogDiagrams || {};
 
-window.backlogDiagrams.renderTechnologyGraph = async (element, id, graph) => {
-    window.backlogGraphExplorer.render(element, id, backlogTechnologyExplorerModel(graph));
+window.backlogDiagrams.renderTechnologyAtlas = async (element, id, graph, dotnet) => {
+    window.backlogGraphAtlas.render(element, id, backlogTechnologyAtlasModel(graph), dotnet);
 };
+
+// The knowledge atlas hands over a model that is already in the renderer's shape:
+// the folders' own graphs carry groups, degrees and tones, and C# reads them. So
+// there is nothing for this app to translate — it passes the model through and is
+// here only so the knowledge atlas has a renderer name of its own, which is what
+// lets the two atlases be told apart in a test and in a trace.
+window.backlogDiagrams.renderKnowledgeAtlas = async (element, id, graph, dotnet) => {
+    window.backlogGraphAtlas.render(element, id, graph, dotnet);
+};
+
 
 window.backlogCaptureScreenshot = async () => {
     if (!navigator.mediaDevices?.getDisplayMedia) {

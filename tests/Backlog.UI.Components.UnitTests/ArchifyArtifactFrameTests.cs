@@ -307,7 +307,10 @@ public sealed class ArchifyArtifactFrameTests
     /// <summary>The receiving half, which lives outside <c>backlogDiagrams</c>
     /// because it is the parent's side of the exchange.</summary>
     private static string ArtifactHeightWatcher() =>
-        Region("    const backlogWatchArtifactHeight = (element, id) => {", "    window.backlogDiagrams = {");
+        // Anchored on the assignment rather than on the object literal that used
+        // to follow it: `window.backlogDiagrams` is merged into now, not replaced,
+        // so the next character after this is no longer a brace.
+        Region("    const backlogWatchArtifactHeight = (element, id) => {", "    window.backlogDiagrams = ");
 
     private static string Region(string from, string to)
     {

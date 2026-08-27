@@ -1,0 +1,237 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A panel that slides in beside a surface to say more about the thing just
+    picked on it.
+
+    Not a Modal. Modal renders nothing while closed, which is right for a dialog
+    that should leave nothing behind and wrong for a sheet that has to animate
+    out — a thing removed from the tree cannot transition. So this one is always
+    in the tree and `inert` while closed, which keeps its contents out of the tab
+    order and off the accessibility tree just as firmly as not rendering them.
+
+    It traps focus and gives it back, both of which Modal omits and both of which
+    the interaction rules require of a drawer. Giving it back is the half that
+    gets forgotten: a reader sent into a sheet by pressing Enter on a row has to
+    land back on that row when they leave, or the list they were working has lost
+    their place.
+
+    The header is fixed and the body scrolls, because the title of the thing you
+    are reading about should not scroll away from the thing you are reading.
+*@
+
+<div class="@BackdropClassValue"
+     data-testid="@BackdropTestId"
+     data-open="@(Open ? "true" : "false")"
+     aria-hidden="true"
+     @onclick="BackdropClickedAsync"></div>
+
+<aside id="@_id"
+       class="@ClassValue"
+       data-testid="@TestId"
+       data-open="@(Open ? "true" : "false")"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="@(HasTitle ? TitleId : null)"
+       aria-label="@(HasTitle ? null : AriaLabel)"
+       inert="@(!Open)"
+       tabindex="-1"
+       @onkeydown="OnKeyDownAsync"
+       @attributes="AdditionalAttributes">
+    <header class="@HeaderClassValue">
+        <div class="detail-sheet__heading">
+            @if (!string.IsNullOrWhiteSpace(Kicker))
+            {
+                <p class="detail-sheet__kicker">@Kicker</p>
+            }
+            @if (HasTitle)
+            {
+                <h2 class="detail-sheet__title" id="@TitleId">@Title</h2>
+            }
+            @if (!string.IsNullOrWhiteSpace(Lede))
+            {
+                <p class="detail-sheet__lede">@Lede</p>
+            }
+        </div>
+
+        <IconButton BaseClass="detail-sheet__close"
+                    AriaLabel="@CloseLabel"
+                    TestId="@CloseTestId"
+                    OnClick="CloseAsync">&#215;</IconButton>
+    </header>
+
+    <div class="@BodyClassValue">
+        @ChildContent
+    </div>
+
+    @if (Footer is not null)
+    {
+        <footer class="@FooterClassValue">
+            @Footer
+        </footer>
+    }
+</aside>
+
+@code {
+    private readonly string _id = "detail-sheet-" + Guid.NewGuid().ToString("N");
+    private bool _trapped;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The eyebrow above the title — which section, folder or group the
+    /// subject belongs to.</summary>
+    [Parameter]
+    public string? Kicker { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>One line saying what the subject is, under the title.</summary>
+    [Parameter]
+    public string? Lede { get; set; }
+
+    /// <summary>Names the sheet when there is no title to name it.</summary>
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Details";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public bool CloseOnEscape { get; set; } = true;
+
+    [Parameter]
+    public bool CloseOnBackdropClick { get; set; } = true;
+
+    [Parameter]
+    public string CloseLabel { get; set; } = "Close details";
+
+    [Parameter]
+    public EventCallback OnClosed { get; set; }
+
+    /// <summary>The id of the element focus returns to on close. Named rather than
+    /// captured so it survives the opener being re-rendered while the sheet is up;
+    /// without it, focus goes back to whatever held it when the sheet opened.</summary>
+    [Parameter]
+    public string? RestoreFocusToId { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>detail-sheet</c> on the panel.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "detail-sheet";
+
+    [Parameter]
+    public string? BackdropCssClass { get; set; }
+
+    [Parameter]
+    public string? HeaderCssClass { get; set; }
+
+    [Parameter]
+    public string? BodyCssClass { get; set; }
+
+    [Parameter]
+    public string? FooterCssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter]
+    public string? BackdropTestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private bool HasTitle => !string.IsNullOrWhiteSpace(Title);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private string BackdropClassValue =>
+        string.IsNullOrWhiteSpace(BackdropCssClass) ? "detail-sheet-backdrop" : BackdropCssClass;
+
+    private string HeaderClassValue => string.IsNullOrWhiteSpace(HeaderCssClass) ? "detail-sheet__header" : HeaderCssClass;
+
+    private string BodyClassValue => string.IsNullOrWhiteSpace(BodyCssClass) ? "detail-sheet__body" : BodyCssClass;
+
+    private string FooterClassValue => string.IsNullOrWhiteSpace(FooterCssClass) ? "detail-sheet__footer" : FooterCssClass;
+
+    private string? CloseTestId => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-close";
+
+    private Task BackdropClickedAsync() => CloseOnBackdropClick ? CloseAsync() : Task.CompletedTask;
+
+    private Task OnKeyDownAsync(KeyboardEventArgs args) =>
+        CloseOnEscape && args.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+
+    private async Task CloseAsync()
+    {
+        if (!Open) return;
+
+        Open = false;
+        await OpenChanged.InvokeAsync(false);
+        await OnClosed.InvokeAsync();
+    }
+
+    /// <summary>Arms and releases the trap as the sheet opens and closes. Driven
+    /// from render rather than from the setter because the panel has to exist in
+    /// the DOM before anything can be focused inside it.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open == _trapped) return;
+
+        _trapped = Open;
+
+        try
+        {
+            if (Open)
+            {
+                await Js.InvokeVoidAsync("backlogFocusTrap", _id, RestoreFocusToId);
+            }
+            else
+            {
+                await Js.InvokeVoidAsync("backlogReleaseFocusTrap", _id);
+            }
+        }
+        catch (JSException)
+        {
+            _trapped = false;
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: no DOM to trap focus in yet.
+            _trapped = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_trapped) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogReleaseFocusTrap", _id);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}
