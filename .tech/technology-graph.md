@@ -33,11 +33,17 @@ The table is in reading order, which `_meta/index.json` pins.
 
 ## Graph
 
-The application renders this metadata as an embedded interactive roadmap with
-layer lanes, status styling, and selectable dependency highlighting. The source
-Mermaid graph below remains the portable fallback and keeps edges pointing from a
-technology to what it sits on top of, mirroring each chapter's `depends-on`
-field.
+The application renders this metadata as an interactive atlas: the technologies
+laid out in depth, one cluster per layer file, each node sized by how many other
+technologies depend on it and marked with where its status sits on the ladder
+below. Selecting one lights its dependencies and opens its chapter beside the
+map. The nodes are also listed beside the picture, in this folder's reading
+order, which is the surface a keyboard operates — the canvas is a pointer
+shortcut onto the same selection.
+
+The source Mermaid graph below remains the portable fallback, for reading this
+file anywhere the application is not. It keeps edges pointing from a technology
+to what it sits on top of, mirroring each chapter's `depends-on` field.
 
 <details>
 <summary>Mermaid source graph</summary>
@@ -404,8 +410,9 @@ Terms below are the dictionary's; the right-hand column is this repository.
   it with `related` instead of restating it.
 - When a node or edge changes, update the Mermaid source graph in the same
   change and regenerate the derived index
-  (`node .github/tools/knowledge-meta/build.mjs`); the embedded roadmap is
-  generated from `.tech` metadata.
+  (`node .github/tools/knowledge-meta/build.mjs`); the atlas is generated from
+  `.tech` metadata and needs no editing of its own, but it is drawn from that
+  index rather than from the Markdown, so a stale index draws a stale map.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
 `knowledge-base` plugin.

@@ -1,0 +1,185 @@
+@*
+    The atlas's node list, and the surface that actually answers for it.
+
+    A canvas has no accessibility tree, and a node drawn at seventeen pixels
+    across cannot be a 44px target however it is styled — so the picture is not
+    the interactive surface and pretending otherwise would fail both rules at
+    once. This list is where selection lives: it is focusable, it is ordered, it
+    prints every fact the marks encode, and the canvas is a pointer shortcut onto
+    the same model.
+
+    That is why it is visible rather than screen-reader-only. A hidden mirror is a
+    second implementation nobody looks at, and it rots the first time the picture
+    changes and the mirror does not.
+
+    Roving tabindex: one row is tabbable and the arrows move between them, so the
+    list is one stop on the page rather than one stop per technology.
+*@
+
+<div class="@ClassValue"
+     data-testid="@TestId"
+     role="listbox"
+     aria-label="@AriaLabel"
+     aria-activedescendant="@ActiveDescendantId"
+     @onkeydown="OnKeyDownAsync">
+    @foreach (var node in Nodes)
+    {
+        var selected = IsSelected(node);
+
+        <div class="@RowClass(node)"
+             id="@RowId(node)"
+             data-testid="graph-atlas-index-option"
+             data-node-id="@node.Id"
+             role="option"
+             aria-selected="@(selected ? "true" : "false")"
+             tabindex="@(IsRovingStop(node) ? 0 : -1)"
+             @ref="_rows[node.Id]"
+             @onclick="() => SelectAsync(node.Id)">
+            <span class="graph-atlas-index__mark" data-tone="@ToneValue(node)" aria-hidden="true"></span>
+
+            <span class="graph-atlas-index__body">
+                <span class="graph-atlas-index__label">@node.Label</span>
+
+                <span class="graph-atlas-index__meta">
+                    @if (!string.IsNullOrWhiteSpace(node.Group))
+                    {
+                        <span class="graph-atlas-index__group">@node.Group</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(node.Kind))
+                    {
+                        <span class="graph-atlas-index__kind">@node.Kind</span>
+                    }
+                    @* The status is written out, never left to the mark alone. *@
+                    @if (!string.IsNullOrWhiteSpace(node.Status))
+                    {
+                        <span class="graph-atlas-index__status">@node.Status</span>
+                    }
+                </span>
+            </span>
+
+            @* Degree is the one thing the picture says loudest — it is what sizes a
+               node — so it is the one thing the list must not leave to the picture. *@
+            <span class="graph-atlas-index__degree">
+                <span class="graph-atlas-index__degree-value">@node.InDegree</span>
+                <span class="sr-only">@DegreeDescription(node)</span>
+            </span>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly string _id = "graph-atlas-index-" + Guid.NewGuid().ToString("N");
+    private readonly Dictionary<string, ElementReference> _rows = [];
+    private string? _focusRequestId;
+
+    [Parameter]
+    public IReadOnlyList<GraphAtlasNode> Nodes { get; set; } = [];
+
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedIdChanged { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Nodes";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>graph-atlas-index</c> on the listbox.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "graph-atlas-index";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private int SelectedIndex => Nodes.ToList().FindIndex(node => IsSelected(node));
+
+    private bool IsSelected(GraphAtlasNode node) => string.Equals(node.Id, SelectedId, StringComparison.Ordinal);
+
+    /// <summary>The one tabbable row. The selected one when there is a selection,
+    /// so tabbing back into the list lands where the reader left it; the first row
+    /// otherwise, so the list is always reachable.</summary>
+    private bool IsRovingStop(GraphAtlasNode node) =>
+        SelectedIndex >= 0 ? IsSelected(node) : ReferenceEquals(node, Nodes.FirstOrDefault());
+
+    private string RowId(GraphAtlasNode node) => $"{_id}-{Math.Abs(node.Id.GetHashCode())}";
+
+    private string? ActiveDescendantId => Nodes.FirstOrDefault(IsSelected) is { } node ? RowId(node) : null;
+
+    private string RowClass(GraphAtlasNode node)
+    {
+        var value = "graph-atlas-index__option";
+        if (IsSelected(node)) value += " graph-atlas-index__option--selected";
+        return value;
+    }
+
+    /// <summary>An empty tone is the unknown mark rather than no mark: a node whose
+    /// status is in no vocabulary is flagged, not silently undressed.</summary>
+    private static string ToneValue(GraphAtlasNode node) =>
+        string.IsNullOrWhiteSpace(node.ToneSlug) ? "unknown" : node.ToneSlug;
+
+    private static string DegreeDescription(GraphAtlasNode node) =>
+        $"{node.InDegree} {(node.InDegree == 1 ? "dependent" : "dependents")}, {node.OutDegree} {(node.OutDegree == 1 ? "dependency" : "dependencies")}";
+
+    private async Task SelectAsync(string? id)
+    {
+        if (string.Equals(id, SelectedId, StringComparison.Ordinal)) return;
+
+        SelectedId = id;
+        await SelectedIdChanged.InvokeAsync(id);
+    }
+
+    /// <summary>Moves the selection and asks for focus to follow it. Focus moves in
+    /// <c>OnAfterRender</c> rather than here because the row that should receive it
+    /// may not have been rendered as the roving stop yet.</summary>
+    private async Task MoveAsync(int index)
+    {
+        if (Nodes.Count == 0) return;
+
+        var clamped = Math.Clamp(index, 0, Nodes.Count - 1);
+        var target = Nodes[clamped];
+        _focusRequestId = target.Id;
+        await SelectAsync(target.Id);
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        var current = SelectedIndex;
+
+        return args.Key switch
+        {
+            "ArrowDown" or "ArrowRight" => MoveAsync(current < 0 ? 0 : current + 1),
+            "ArrowUp" or "ArrowLeft" => MoveAsync(current < 0 ? 0 : current - 1),
+            "Home" => MoveAsync(0),
+            "End" => MoveAsync(Nodes.Count - 1),
+            _ => Task.CompletedTask
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusRequestId is not { } id) return;
+
+        _focusRequestId = null;
+
+        if (_rows.TryGetValue(id, out var row))
+        {
+            try
+            {
+                await row.FocusAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went away between the key press and the render.
+            }
+            catch (InvalidOperationException)
+            {
+                // Prerendering: there is no element to focus yet.
+            }
+        }
+    }
+}

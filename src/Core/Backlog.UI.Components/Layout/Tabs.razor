@@ -15,13 +15,13 @@
         @* The host already owns the surrounding layout, so wrappers here would
            only push its spacing around. CascadingValue renders no DOM of its
            own, so the strip and the panels come out as plain siblings. *@
-        @RenderTabList()
+        @RenderStrip()
         @ChildContent
     }
     else
     {
         <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
-            @RenderTabList()
+            @RenderStrip()
             <div class="@PanelsClassValue">
                 @ChildContent
             </div>
@@ -45,6 +45,24 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Rendered on the same line as the tab strip, after it.
+    ///
+    /// <para>For the action that belongs beside a set of tabs rather than inside
+    /// them — a strip-level toggle, a count, a link out. It cannot go inside the
+    /// list: that element is the <c>tablist</c>, and a tablist's children are
+    /// tabs, so a button in there is a lie to a screen reader.</para>
+    ///
+    /// <para>Supplying this is the one thing that makes <c>Bare</c> emit a wrapper,
+    /// because two elements cannot share a line without one. A host that passes
+    /// nothing gets exactly the DOM it got before this existed.</para></summary>
+    [Parameter]
+    public RenderFragment? ListTrailing { get; set; }
+
+    /// <summary>Replaces <c>tabs__strip</c> on the row holding the list and
+    /// <see cref="ListTrailing"/>. Only rendered when there is trailing content.</summary>
+    [Parameter]
+    public string? StripCssClass { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -104,6 +122,16 @@
     private string TabClass(string id) => IsActive(id)
         ? (string.IsNullOrWhiteSpace(ActiveTabCssClass) ? "tabs__tab tabs__tab--active" : ActiveTabCssClass)
         : (string.IsNullOrWhiteSpace(TabCssClass) ? "tabs__tab" : TabCssClass);
+
+    private string StripClassValue => string.IsNullOrWhiteSpace(StripCssClass) ? "tabs__strip" : StripCssClass;
+
+    /// <summary>The list, or the list and whatever the host put beside it.</summary>
+    private RenderFragment RenderStrip() => ListTrailing is null
+        ? RenderTabList()
+        : @<div class="@StripClassValue">
+              @RenderTabList()
+              @ListTrailing
+          </div>;
 
     private RenderFragment RenderTabList() =>
         string.Equals(ListElement, "nav", StringComparison.OrdinalIgnoreCase) ? NavTabList : DivTabList;

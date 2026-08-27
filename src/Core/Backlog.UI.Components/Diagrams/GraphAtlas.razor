@@ -1,0 +1,266 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    A graph drawn as a map you look into rather than a chart you read across:
+    nodes clustered by group, sized by how much leans on them, laid out in depth
+    so the things everything else sits on read as sitting behind it.
+
+    Three surfaces, one selection.
+
+    The canvas is the picture and nothing else — `aria-hidden`, untabbable, a
+    pointer shortcut. It has to be: a canvas has no accessibility tree, and a node
+    is drawn far below the minimum target size, so a canvas that claimed to be the
+    control would be claiming something untrue twice over.
+
+    The index beside it is the control. It is a real listbox over the same nodes
+    in the same order, it prints every fact the marks encode, and it is where the
+    keyboard lives.
+
+    The sheet is what a selection opens, and it is the host's — this component
+    knows a node has been picked and nothing about what that means.
+
+    Selection is C#'s, once. JS reports a pick and is told what happened; it never
+    decides. Two selection models either side of the interop boundary is the bug
+    this shape exists to prevent, and the reason `select` is pushed rather than
+    the model being re-handed is that re-handing the model would repaint the
+    scene every time a reader arrowed down a list.
+*@
+
+<section class="@ClassValue"
+         data-testid="@TestId"
+         aria-labelledby="@(HasHeader ? _headingId : null)"
+         aria-label="@(HasHeader ? null : AriaLabel)">
+    @if (HasHeader)
+    {
+        <header class="graph-atlas__header">
+            <div>
+                <h3 id="@_headingId">@Title</h3>
+                @if (!string.IsNullOrWhiteSpace(Description))
+                {
+                    <p>@Description</p>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(BadgeText))
+            {
+                <span class="badge">@BadgeText</span>
+            }
+        </header>
+    }
+
+    <div class="graph-atlas__stage">
+        <div @ref="_container"
+             class="graph-atlas__canvas"
+             data-tone="@SelectedTone"
+             role="region"
+             aria-label="@AriaLabel">
+            <p class="graph-atlas__status" role="status">@StatusText</p>
+        </div>
+
+        <GraphAtlasIndex Nodes="@Nodes"
+                         SelectedId="@SelectedId"
+                         SelectedIdChanged="SelectAsync"
+                         AriaLabel="@IndexLabel"
+                         TestId="@IndexTestId" />
+    </div>
+
+    @* One polite region for the whole atlas. The sentence is the host's: this
+       component would have to know what a technology is to write one. *@
+    <p class="sr-only" role="status" aria-live="polite">@Announcement</p>
+
+    @* Rendered whether or not anything is selected. A sheet that is only in the
+       tree while it is open cannot animate out, and the host owns the selection
+       anyway — it knows perfectly well when to open one. *@
+    @Detail
+</section>
+
+@code {
+    private readonly string _headingId = "graph-atlas-title-" + Guid.NewGuid().ToString("N");
+    private readonly string _atlasId = "graph-atlas-" + Guid.NewGuid().ToString("N");
+    private DotNetObjectReference<GraphAtlas>? _self;
+    private ElementReference _container;
+    private object? _renderedData;
+    private string? _syncedSelection;
+
+    /// <summary>The picture's own model, handed to the renderer untouched. Opaque
+    /// here for the same reason it is opaque on the other diagram hosts: what a
+    /// node means belongs to the caller.</summary>
+    [Parameter, EditorRequired]
+    public object Data { get; set; } = new();
+
+    /// <summary>The nodes as the parts drawn in Blazor read them. Typed, unlike
+    /// <see cref="Data"/>, because these are rendered as elements rather than
+    /// forwarded to a renderer.</summary>
+    [Parameter]
+    public IReadOnlyList<GraphAtlasNode> Nodes { get; set; } = [];
+
+    [Parameter]
+    public string JsFunction { get; set; } = "backlogGraphAtlas.render";
+
+    /// <summary>The heading above the atlas. Empty drops the header and the
+    /// section takes <see cref="AriaLabel"/> as its name instead.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Atlas";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string? BadgeText { get; set; }
+
+    [Parameter]
+    public string StatusText { get; set; } = "Rendering atlas...";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Knowledge atlas";
+
+    [Parameter]
+    public string IndexLabel { get; set; } = "Atlas nodes";
+
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedIdChanged { get; set; }
+
+    /// <summary>What the live region says when the selection changes. The host
+    /// composes it, because only the host knows what its nodes are.</summary>
+    [Parameter]
+    public string? Announcement { get; set; }
+
+    /// <summary>Rendered below the stage, always. This is where a host puts its
+    /// detail sheet; what opens it is the host's own reading of
+    /// <see cref="SelectedId"/>.</summary>
+    [Parameter]
+    public RenderFragment? Detail { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>graph-atlas</c> on the section.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "graph-atlas";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool HasHeader => !string.IsNullOrWhiteSpace(Title);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private string? IndexTestId => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-index";
+
+    /// <summary>The selected node's tone, on the stage, so the surface can take
+    /// its cast from what is selected. Empty when nothing is.</summary>
+    private string SelectedTone =>
+        Nodes.FirstOrDefault(node => string.Equals(node.Id, SelectedId, StringComparison.Ordinal)) is { } node
+            ? (string.IsNullOrWhiteSpace(node.ToneSlug) ? "unknown" : node.ToneSlug)
+            : string.Empty;
+
+    /// <summary>Reported by the canvas when a node is picked with the pointer. The
+    /// canvas says what happened; this decides what it means.
+    ///
+    /// <para>Through <c>InvokeAsync</c>, because a call arriving from JS is not on
+    /// the renderer's dispatcher and touching component state off it throws — which
+    /// a reader would see as the picture going dead to clicks.</para></summary>
+    [JSInvokable]
+    public Task NodePicked(string? nodeId) => InvokeAsync(() => SelectAsync(nodeId));
+
+    /// <summary>Reported when the drawing context goes away — WebView2 drops one on
+    /// resume and on a display change, silently. Forgetting the rendered model is
+    /// what makes the next render hand it over again.</summary>
+    [JSInvokable]
+    public Task RendererLost() => InvokeAsync(() =>
+    {
+        _renderedData = null;
+        StateHasChanged();
+    });
+
+    private async Task SelectAsync(string? nodeId)
+    {
+        if (string.Equals(SelectedId, nodeId, StringComparison.Ordinal)) return;
+
+        SelectedId = nodeId;
+        await SelectedIdChanged.InvokeAsync(nodeId);
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (ReferenceEquals(_renderedData, Data))
+        {
+            await SyncSelectionAsync();
+            return;
+        }
+
+        _renderedData = Data;
+        _self ??= DotNetObjectReference.Create(this);
+        _syncedSelection = null;
+
+        try
+        {
+            await Js.InvokeVoidAsync(JsFunction, _container, _atlasId, Data, _self);
+            await SyncSelectionAsync();
+        }
+        catch (JSException)
+        {
+            _renderedData = null;
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: interop is not available yet, so nothing was rendered.
+            _renderedData = null;
+        }
+    }
+
+    /// <summary>Pushes the selection to the picture as a camera move. Never a
+    /// re-render: the scene did not change, only what is spotlit in it.</summary>
+    private async Task SyncSelectionAsync()
+    {
+        if (string.Equals(_syncedSelection, SelectedId, StringComparison.Ordinal)) return;
+
+        _syncedSelection = SelectedId;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogGraphAtlas.select", _atlasId, SelectedId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.dispose", _atlasId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Disposed from a prerender, where interop is not available yet.
+        }
+        finally
+        {
+            // After the teardown, never before: a callback landing on a disposed
+            // reference is an exception the reader sees as the picture freezing.
+            _self?.Dispose();
+            _self = null;
+        }
+    }
+}

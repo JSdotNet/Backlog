@@ -124,9 +124,64 @@
                        OnCancel="CancelDelete" />
     </Story>
 
+    @*
+        The sheet is the third thing here and the one that is not a takeover. A
+        modal stops the page to ask something; a sheet sits beside a surface and
+        says more about what was just picked on it, and the reader is expected to
+        keep working the surface underneath.
+
+        It is still a dialog, though — it traps focus and gives it back, which is
+        what the interaction rules ask of a drawer and what Modal above does not
+        actually do. Give it `RestoreFocusToId` and focus returns to the control
+        that opened it even if that control was re-rendered while the sheet was up.
+    *@
+    <Story Name="Detail sheet"
+           Description="Slides in from the right over whatever it is describing. Closed by the backdrop, Escape or the close button; focus moves in on open and returns to the opener on close. Always in the tree, `inert` while closed, so it can animate out."
+           Code="@SheetCode">
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Primary" OnClick="OpenSheet" TestId="open-sheet" id="open-sheet-button">
+                Open the sheet
+            </AppButton>
+        </div>
+
+        <DetailSheet Open="_sheetOpen"
+                     OpenChanged="value => _sheetOpen = value"
+                     Kicker="Pantry"
+                     Title="Butter"
+                     Lede="A staple three preparations lean on."
+                     RestoreFocusToId="open-sheet-button"
+                     TestId="story-detail-sheet">
+            <ChildContent>
+                <p>The body scrolls and the header does not, so the name of the thing being read about never scrolls away from what is being read.</p>
+                <p>Anything can go in here. This one holds prose; the technology atlas puts a status select, three reference lists and a fact strip in the same space.</p>
+            </ChildContent>
+            <Footer>
+                <RecordPager Index="1" Total="5" AriaLabel="Ingredients" TestId="story-sheet-pager" />
+            </Footer>
+        </DetailSheet>
+    </Story>
+
 </StoryPage>
 
 @code {
+    private bool _sheetOpen;
+
+    private void OpenSheet() => _sheetOpen = true;
+
+    private const string SheetCode = """
+        <DetailSheet Open="_sheetOpen"
+                     OpenChanged="value => _sheetOpen = value"
+                     Kicker="Pantry"
+                     Title="Butter"
+                     Lede="A staple three preparations lean on."
+                     RestoreFocusToId="open-sheet-button">
+            <ChildContent>...</ChildContent>
+            <Footer>
+                <RecordPager Index="1" Total="5" AriaLabel="Ingredients" />
+            </Footer>
+        </DetailSheet>
+        """;
+
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#focus-and-selection", "Where focus goes when a dialog opens and closes."),

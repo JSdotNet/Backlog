@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".arc42/04-solution-strategy.md#technology-choices", ".design/color-scheme.md#per-stack-token-mapping", ".design/content-editing.md", ".design/interaction-guidelines.md#drag-and-drop-reordering"]
+related: [".arc42/04-solution-strategy.md#technology-choices", ".design/color-scheme.md#per-stack-token-mapping", ".design/content-editing.md", ".design/interaction-guidelines.md#drag-and-drop-reordering", ".design/accessibility.md#keyboard-navigation"]
 ```
 
 > Research and recommendation of component libraries covering the **full**
@@ -148,7 +148,7 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 | **dnd-kit (+ sortable/tree)** | Reorder (web) | — | — | — | ✔ (keyboard + live regions) | ✔ | ✔ MIT |
 | **SortableJS** | Reorder (web) | — | — | — | ◑ (weak built-in keyboard a11y) | ◑ | ✔ MIT |
 | **Mermaid** | Knowledge Markdown diagrams | ✔ | ◑ (theme variables and CSS) | — | — | ◑ (SVG semantics need labels) | ✔ MIT / active |
-| **AntV G6** | Technology / knowledge graphs | ✔ | ✔ (CSS/container styling + node palettes) | — | ◑ (canvas interactions; keyboard companion list required) | ◑ | ✔ MIT / active |
+| **AntV G6** | (evaluated, not adopted — see `#diagram-and-graph-strategy`) | ✔ | ✔ (CSS/container styling + node palettes) | — | ◑ (canvas interactions; keyboard companion list required) | ◑ | ✔ MIT / active |
 | **AntV X6** | Future editable flow editor | ✔ | ✔ | — | ◑ | ◑ | ✔ MIT / active |
 | **Apache ECharts** | Charts and dashboards | ✔ | ✔ | — | — | ◑ | ✔ Apache-2.0 / active |
 | **diagrams.net / draw.io** | Optional full GUI diagram editor | ✔ | ◑ | — | ◑ | ◑ | ✔ Apache-2.0 / active |
@@ -169,8 +169,8 @@ status: active
 | Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in the desktop's and VS's WebView2, in VS Code's webview, and in mobile MAUI's `BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
 | Drag-and-drop reorder (web surfaces) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies C4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. |
 | Knowledge Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in knowledge folders without a binary diagram format. |
-| Technology and knowledge graphs | **AntV G6** for interactive `.tech` and repository knowledge graph visualizations. | Graph navigation, force layouts, zoom/pan, and animated exploration fit technology maps better than component-suite diagrams. |
-| Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Keeps read-only knowledge rendering simple now while leaving a professional editing path for later. |
+| Technology and knowledge graphs | **A first-party canvas renderer** in `Backlog.UI.Components`, drawing a 3D-projected, layer-clustered atlas over the `.tech` graph. | The graph is 66 nodes of checked-in Markdown on a local-first desktop. A general-purpose graph library is sized for data this product does not have, and the only way it was ever going to arrive here was over a CDN — which `#risks-and-gaps` forbids in production. Writing the projection is smaller than vendoring the alternative. |
+| Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Still true, and still future. Both are editing tools, and nothing in the product edits a diagram yet — the atlas reads the graph and writes one field of it back. Either would arrive vendored, not from a CDN. |
 | Charts and dashboards | **Apache ECharts**. | Broad chart coverage, active maintenance, permissive license, dark theme support, and strong dashboard fit. |
 
 
@@ -186,12 +186,27 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | Need | Choice | Guidance |
 |---|---|---|
 | Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-base Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
-| Technology graph / knowledge graph exploration | **AntV G6** | Use G6 for interactive node-link graphs with zoom, pan, drag, force/layout animations, and status/layer coloring. Keep list/card views as keyboard-accessible alternatives. |
-| Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than G6. |
+| Technology graph / knowledge graph exploration | **A first-party canvas renderer** | Draw the `.tech` graph as a 3D-projected atlas: one cluster per layer, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles` — the palette carries one saturated hue, so an ordinal status reads as a position on that hue's ramp and never as a hue of its own, with shape carrying what the ramp cannot. The keyboard companion below is part of the renderer, not an addition to it. |
+| Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than a read-and-select atlas is. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
 | Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor is more valuable than Markdown-first diagrams. Bundle assets locally if embedded. |
 
-All diagram libraries must follow the product defaults: dark mode only, local/offline asset bundling for production, no save buttons, Markdown remains canonical for knowledge documents, and every pointer interaction needs a keyboard-accessible companion surface with announced state changes.
+All diagram and graph rendering must follow the product defaults: dark mode only,
+local/offline asset bundling for production, no save buttons, Markdown remains
+canonical for knowledge documents, and every pointer interaction needs a
+keyboard-accessible companion surface with announced state changes.
+
+For a canvas the last of those is not a caveat, it is the design. A `canvas`
+element publishes nothing to the accessibility tree, and a node drawn at the size
+a readable layout allows is roughly a third of the 44px target
+`accessibility.md#target-sizes-and-text` requires — so the pointer surface cannot
+be the primary one however carefully it is labelled. The canvas is therefore
+`aria-hidden`, and the graph is **also** rendered as a focusable list of its
+nodes: on screen rather than visually hidden, ordered as the folder reads, and
+carrying each node's status and relation counts as text. Selection is one model
+behind both, announced once through a polite live region as position, status and
+counts. A reviewer should be able to unplug the mouse and lose nothing but the
+picture.
 
 ## Risks and Gaps
 
@@ -205,8 +220,10 @@ status: active
 | Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1 (also flagged in `color-scheme.md#per-stack-token-mapping`). |
 | Native controls lack accessible keyboard reorder out of the box | C4 gap on mobile MAUI/WPF (desktop's web-rendered surface reuses the webview reorder story) | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Web editor hosted in WebView2/BlazorWebView | Startup cost, bridge complexity, offline asset bundling | Bundle editor assets locally (local-first); measure cold-start; keep a native raw-text fallback. |
-| Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, G6, X6, and ECharts in production; remote loading is acceptable only as a development fallback with source-visible fallback rendering. |
-| Canvas graph libraries have weaker native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | Preserve the layer cards, relationship chips, and source Markdown as keyboard/screen-reader alternatives; announce graph selection state before adding editable graph interactions. |
+| Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, X6, and ECharts in production; remote loading is acceptable only as a development fallback with source-visible fallback rendering. This is what took the graph renderer first-party — see `#materialization`. |
+| Canvas graphics have no native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | The focusable node list in `#diagram-and-graph-strategy` is the answer, and it is the primary surface rather than an alternative to one. Preserve the layer cards, relationship chips and source Markdown alongside it; announce selection state before adding editable graph interactions. |
+| A first-party renderer inherits every semantic a library would have brought | Keyboard operability, focus order, announcements and reduced motion are all the product's own work | Pin them: a test that fails when the node list stops matching the model is cheaper than the gap it prevents. |
+| A hand-written projection has no upstream to inherit fixes from | Layout bugs, depth-sorting artefacts and performance regressions are found here or not at all | Keep the renderer data-driven and free of domain knowledge, as `components.js` already is, so it can be exercised from the storybook against models the app never produces. |
 | Round-trip Markdown fidelity | Editor could rewrite/lose untouched content | Enforce `content-editing.md#round-trip-fidelity`; prefer Markdown-native editors (Milkdown/ProseMirror with a strict serializer); add round-trip tests. |
 | TipTap "Pro" modules / SortableJS keyboard a11y | Cost or accessibility shortfall | Prefer TipTap/ProseMirror OSS core or Milkdown; prefer dnd-kit over SortableJS for accessible reorder. |
 | Fluent/Mud default palettes are light-oriented | Fighting built-in light themes (C1) | Override with product dark tokens; verify no light defaults leak; test high-contrast. |
@@ -231,7 +248,7 @@ What the product actually uses today, against the recommendations above:
 | Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None. A text area over the source with a live read view beside it — see `content-editing.md#materialization` |
 | Reorder | dnd-kit | Hand-written HTML5 drag-and-drop with arrow-key equivalents, in the desktop app rather than in the library — see `interaction-guidelines.md#materialization` |
 | Diagrams | Mermaid | **Mermaid**, as recommended — `DiagramView`, storybook *Diagrams* |
-| Graphs | AntV G6 | **AntV G6**, as recommended — `GraphView` and `GraphExplorer`, storybook *Graph explorer* |
+| Graphs | A first-party canvas renderer | **A first-party canvas renderer**, as recommended — `GraphAtlas` over the technology graph, with `GraphView` and `GraphExplorer` still drawing the list, lane, spine and cluster layouts beside it; storybook *Graph atlas* and *Graph explorer* |
 | Charts | Apache ECharts | None yet |
 
 Notes:
@@ -242,11 +259,17 @@ Notes:
   in one place. The cost is that everything — a11y semantics, keyboard support,
   reorder — is the product's own work rather than inherited. The gaps listed in
   `accessibility.md#materialization` are that cost.
-- **Mermaid and G6 are fetched from a CDN on first use** (`jsdelivr`, `unpkg`),
-  with the diagram source shown as the fallback when the fetch fails. That
-  matches the development-fallback allowance in `#risks-and-gaps` and violates
-  the local-first rule for production: both MUST be vendored into the library's
-  own `wwwroot` before the desktop app ships. On a machine with no egress today,
-  the storybook's *Diagrams* and *Graph explorer* pages show source instead of a
-  picture — which is the fallback behaving correctly.
+- **Mermaid is fetched from a CDN on first use** (`jsdelivr`), with the diagram
+  source shown as the fallback when the fetch fails. That matches the
+  development-fallback allowance in `#risks-and-gaps` and violates the
+  local-first rule for production: it MUST be vendored into the library's own
+  `wwwroot` before the desktop app ships. On a machine with no egress today, the
+  storybook's *Diagrams* page shows source instead of a picture — which is the
+  fallback behaving correctly.
+- **G6 was never actually loaded.** The loader existed, pointed at `unpkg`, and
+  nothing ever called it; no `.tech` chapter recorded G6 either, so the library
+  was a recommendation the product had written a hook for and never taken.
+  Recording that plainly is better than leaving a dead CDN reference in the
+  library and a recommendation above it that reads as though it shipped. The hook
+  is gone with the recommendation.
 
