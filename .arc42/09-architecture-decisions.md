@@ -7,7 +7,7 @@ status: active
 This chapter links to the decision records rather than restating them. There are
 two sets, and they are numbered independently:
 
-- **Inherited decisions** live in `.arc42/guidelines/` — the organization's ADRs,
+- **Inherited decisions** live in `.arc42/adr/guidelines/` — the organization's ADRs,
   imported into this repository on 2026-08-27 and authoritative here since. They
   were previously read from the `jsdotnet-project-guidelines` MCP server; nothing
   is fetched at read time any more.
@@ -27,43 +27,47 @@ the .NET decision set.
 
 ```meta
 status: active
-related: [".arc42/guidelines/README.md", ".arc42/05-building-block-view.md#cloud-service", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
+related: [".arc42/adr/guidelines/README.md", ".arc42/05-building-block-view.md#cloud-service", ".arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
 The *alignment* column is a reading of intent per decision, not a compliance
 audit of implemented code. Each linked document carries its own **Deviations and
 gaps** section, which is the accurate account.
 
+An inherited decision marked `proposed` rather than `active` is one no shipped
+code applies yet — 0012, 0013, 0017, and 0018 are all in that state. It still
+binds the first work that reaches its ground.
+
 | Decision | Current alignment for the sync service |
 |---|---|
-| **[0001 — .NET 10](guidelines/0001-adopt-dotnet-10.md)** | Target framework of `Backlog.Modules.Sync.Api`. |
-| **[0003 — .NET Aspire](guidelines/0003-aspire-for-web-services.md)** | Followed: the service is an Aspire resource (`sync`) and calls `AddServiceDefaults()`. |
-| **[0005 — Modular monolith structure](guidelines/0005-modular-monolith-structure.md)** | Followed: the service is the `Sync` module's own `.Api` project under `src/Modules/Sync/`. |
-| **[0006 — CQRS](guidelines/0006-cqrs-for-api-projects.md)** | Already followed elsewhere: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator. Applies to the sync service when its endpoints grow past the current in-memory store. |
-| **[0007 — Minimal APIs](guidelines/0007-minimal-apis-over-controllers.md)** | Followed in style: `MapGroup` plus `Results` helpers, no controllers. OpenAPI and Scalar are not wired up. |
-| **[0010 — OpenTelemetry](guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults; no service-specific activities or metrics. |
-| **[0012 — External identity (OIDC)](guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
-| **[0013 — Authorization & Zero Trust](guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
-| **[0014 — Persistence & repository boundaries](guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
-| **[0015 — Resilience](guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
-| **[0017 — Problem Details](guidelines/0017-http-error-contract-and-problem-details.md)** | The expected error contract for the sync API surface. Not implemented. |
-| **[0018 — Configuration & options](guidelines/0018-configuration-and-options-binding.md)** | Relevant for strongly typed settings and externalized secrets. |
+| **[0001 — .NET 10](adr/guidelines/0001-adopt-dotnet-10.md)** | Target framework of `Backlog.Modules.Sync.Api`. |
+| **[0003 — .NET Aspire](adr/guidelines/0003-aspire-for-web-services.md)** | Followed: the service is an Aspire resource (`sync`) and calls `AddServiceDefaults()`. |
+| **[0005 — Modular monolith structure](adr/guidelines/0005-modular-monolith-structure.md)** | Followed: the service is the `Sync` module's own `.Api` project under `src/Modules/Sync/`. |
+| **[0006 — CQRS](adr/guidelines/0006-cqrs-for-api-projects.md)** | Already followed elsewhere: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator. Applies to the sync service when its endpoints grow past the current in-memory store. |
+| **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed in style: `MapGroup` plus `Results` helpers, no controllers. OpenAPI and Scalar are not wired up. |
+| **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults; no service-specific activities or metrics. |
+| **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
+| **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
+| **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
+| **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
+| **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | The expected error contract for the sync API surface. Not implemented. |
+| **[0018 — Configuration & options](adr/guidelines/0018-configuration-and-options-binding.md)** | Relevant for strongly typed settings and externalized secrets. |
 
 ## Beyond the sync service
 
 ```meta
 status: active
-related: [".arc42/guidelines/README.md", ".arc42/05-building-block-view.md#container-view"]
+related: [".arc42/adr/guidelines/README.md", ".arc42/05-building-block-view.md#container-view"]
 ```
 
 Inherited decisions that govern shipped code outside the sync service.
 
 | Decision | Where it lands |
 |---|---|
-| **[0002 — Central Package Management](guidelines/0002-central-package-management.md)** | Adopted. `Directory.Packages.props` is the version catalog; transitive pinning is deliberately off, for the reason recorded in that file. |
-| **[0004 — Result objects](guidelines/0004-result-objects-for-expected-failures.md)** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and module handlers return them. |
-| **[0009 — Feature slices](guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Backlog` and `Backlog.Modules.Roadmap` use the prescribed layout: `DomainModels/`, `Features/`, the repository port at the module root, `Services/`, `Extensions/`. |
-| **[0011 — Centralized styling variables](guidelines/0011-centralized-frontend-styling-variables.md)** | Design tokens live in one file, `src/Core/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. |
+| **[0002 — Central Package Management](adr/guidelines/0002-central-package-management.md)** | Adopted. `Directory.Packages.props` is the version catalog; transitive pinning is deliberately off, for the reason recorded in that file. |
+| **[0004 — Result objects](adr/guidelines/0004-result-objects-for-expected-failures.md)** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and module handlers return them. |
+| **[0009 — Feature slices](adr/guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Backlog` and `Backlog.Modules.Roadmap` use the prescribed layout: `DomainModels/`, `Features/`, the repository port at the module root, `Services/`, `Extensions/`. |
+| **[0011 — Centralized styling variables](adr/guidelines/0011-centralized-frontend-styling-variables.md)** | Design tokens live in one file, `src/Core/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. |
 
 ## Local system decisions
 

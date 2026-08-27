@@ -1,13 +1,18 @@
 # ADR 0013: Authorization and the Zero Trust model
 
 ```meta
-status: active
+status: proposed
 related: [".arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".arc42/09-architecture-decisions.md"]
 issue: null
 ```
 
 Inherited from the organization's ADR 0013 (decided 2026-06-04,
 `guide/adrs/0013-authorization-zero-trust.md`), imported 2026-08-27.
+
+**Status: proposed.** The decision is accepted upstream and binds any work that
+reaches this ground. No authorization policy, resource-based check, or audit
+log exists — the architecture baseline is explicitly single-user — so nothing
+in the code applies this decision yet.
 
 ## Decision
 

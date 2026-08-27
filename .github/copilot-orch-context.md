@@ -97,14 +97,14 @@ Authority order and fallbacks are defined in
 `jsdotnet-project-design` servers were retired on 2026-08-27, and their relevant content now
 lives in the repository:
 
-- **`.arc42/guidelines/`** — the inherited organization architecture decisions that govern
+- **`.arc42/adr/guidelines/`** — the inherited organization architecture decisions that govern
   this repository's .NET code. Read the one that governs the change before making it; the
   folder's `README.md` indexes them.
 - **`.arc42/adr/`** — the decisions Backlog took for itself.
 - **`.design/`** — design and UX guidance, including the color scheme and design tokens.
 
 A plugin-provided skill that instructs you to query `jsdotnet-guidelines-mcpserver` should be
-served from `.arc42/guidelines/` instead; the absent server is not a blocked precondition.
+served from `.arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
 The MCP servers still in use are runtime and tooling servers — Aspire, Playwright, and the
 orchestration dashboard.
 

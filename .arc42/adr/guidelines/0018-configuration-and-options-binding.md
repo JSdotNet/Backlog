@@ -1,13 +1,17 @@
 # ADR 0018: Configuration and options binding
 
 ```meta
-status: active
+status: proposed
 related: [".arc42/07-deployment-view.md", ".arc42/09-architecture-decisions.md"]
 issue: null
 ```
 
 Inherited from the organization's ADR 0018 (decided 2026-06-04,
 `guide/adrs/0018-configuration-and-options-binding.md`), imported 2026-08-27.
+
+**Status: proposed.** The decision is accepted upstream and binds any work that
+reaches this ground. No typed options class exists and nothing calls
+`ValidateOnStart()`, so nothing in the code applies this decision yet.
 
 ## Decision
 

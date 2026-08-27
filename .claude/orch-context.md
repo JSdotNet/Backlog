@@ -92,10 +92,10 @@ Authority order and fallbacks are defined in
 `.github/instructions/mcp-usage.instructions.md`, which remains the source of truth.
 
 **Guidance no longer comes from an MCP server.** The `jsdotnet-project-guidelines` and
-`jsdotnet-project-design` servers were retired on 2026-08-27; read `.arc42/guidelines/` for
+`jsdotnet-project-design` servers were retired on 2026-08-27; read `.arc42/adr/guidelines/` for
 inherited architecture decisions, `.arc42/adr/` for local ones, and `.design/` for design and
 UX guidance. A plugin skill that tells you to query `jsdotnet-guidelines-mcpserver` should be
-served from `.arc42/guidelines/` instead — its absence is not a blocked precondition.
+served from `.arc42/adr/guidelines/` instead — its absence is not a blocked precondition.
 
 Available to orchestration runs in Claude Code:
 

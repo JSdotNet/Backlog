@@ -30,41 +30,61 @@ The *Deviations and gaps* section is descriptive, not an alignment claim: it
 records what is true on the date of the import. A gap is a gap until a change
 closes it, not a violation to be argued away.
 
-## Relationship to the other decision records
+### What `status` means here
 
-- **`.arc42/guidelines/`** (here) — decisions Backlog **inherited**. They apply to
-  more repositories than this one; the numbering is the organization's.
-- **`.arc42/adr/`** — decisions Backlog **took for itself**, in its own 0001-…
-  sequence. A local ADR may deliberately override an inherited decision; it says
-  so explicitly when it does (see `adr/0002-backlog-module-owns-the-entry-text-language.md`,
-  which takes a position between inherited ADRs 0005 and 0009).
+Every one of these decisions is **accepted upstream**. The `status` in the
+metadata block answers a narrower question: *does this decision govern code that
+exists in Backlog today?*
+
+- **`active`** — code in this repository applies the decision, and a change in
+  that area has to keep applying it.
+- **`proposed`** — nothing here applies it yet. The decision still binds the
+  first work that reaches its ground; it just has no shipped code to govern. Each
+  such document says which absent code that would be.
+
+A `proposed` decision is not optional and not up for reconsideration — moving it
+to `active` is a matter of writing the code it describes.
+
+## Relationship to the local ADRs
+
+These are architecture decision records like any other — they sit under
+`.arc42/adr/` for that reason. What separates them from their siblings is
+**authorship, not kind**:
+
+- **`.arc42/adr/guidelines/`** (here) — decisions Backlog **inherited**. They
+  apply to more repositories than this one; the numbering is the organization's.
+- **`.arc42/adr/*.md`** — decisions Backlog **took for itself**, in its own
+  0001-… sequence. A local ADR may deliberately override an inherited one; it
+  says so explicitly when it does (see
+  `../0002-backlog-module-owns-the-entry-text-language.md`, which takes a
+  position between inherited ADRs 0005 and 0009).
 - **`.arc42/09-architecture-decisions.md`** — the chapter that links to both and
   says which decision governs which part of the system.
 
 The two numbering sequences are independent. **Inherited ADR 0003** (Aspire) and
 **local ADR 0003** (SQLite as the canonical store) are different decisions;
-always name the folder when citing one.
+always say which set you mean.
 
 ## Index
 
-| # | Decision | Governs |
-|---|---|---|
-| [0001](0001-adopt-dotnet-10.md) | .NET 10 as target framework | every .NET project |
-| [0002](0002-central-package-management.md) | Central Package Management | `Directory.Packages.props` |
-| [0003](0003-aspire-for-web-services.md) | .NET Aspire orchestration | `src/Aspire/`, every host |
-| [0004](0004-result-objects-for-expected-failures.md) | Result objects for expected failures | `Backlog.SharedKernel`, module handlers |
-| [0005](0005-modular-monolith-structure.md) | Modular monolith structure | the whole `src/` layout |
-| [0006](0006-cqrs-for-api-projects.md) | Lightweight CQRS, no mediator | module feature slices |
-| [0007](0007-minimal-apis-over-controllers.md) | Minimal APIs over controllers | the sync service |
-| [0009](0009-feature-slices-module-structure.md) | Feature slices inside a module | module project layout |
-| [0010](0010-opentelemetry-observability.md) | OpenTelemetry for observability | `ServiceDefaults`, modules |
-| [0011](0011-centralized-frontend-styling-variables.md) | Centralized styling variables | `Backlog.UI.Components` |
-| [0012](0012-authentication-external-identity-providers.md) | OIDC for external identity | GitHub OAuth, cloud auth |
-| [0013](0013-authorization-zero-trust.md) | Zero Trust authorization | sync service, module calls |
-| [0014](0014-persistence-and-repository-boundaries.md) | Persistence and repository boundaries | `Backlog.Infrastructure.Sqlite` |
-| [0015](0015-resilience-for-outbound-dependencies.md) | Resilience at adapter boundaries | GitHub, Claude, FCM calls |
-| [0017](0017-http-error-contract-and-problem-details.md) | Problem Details error contract | the sync API surface |
-| [0018](0018-configuration-and-options-binding.md) | Typed options, validated at startup | every host |
+| # | Decision | Status | Governs |
+|---|---|---|---|
+| [0001](0001-adopt-dotnet-10.md) | .NET 10 as target framework | `active` | every .NET project |
+| [0002](0002-central-package-management.md) | Central Package Management | `active` | `Directory.Packages.props` |
+| [0003](0003-aspire-for-web-services.md) | .NET Aspire orchestration | `active` | `src/Aspire/`, every host |
+| [0004](0004-result-objects-for-expected-failures.md) | Result objects for expected failures | `active` | `Backlog.SharedKernel`, module handlers |
+| [0005](0005-modular-monolith-structure.md) | Modular monolith structure | `active` | the whole `src/` layout |
+| [0006](0006-cqrs-for-api-projects.md) | Lightweight CQRS, no mediator | `active` | module feature slices |
+| [0007](0007-minimal-apis-over-controllers.md) | Minimal APIs over controllers | `active` | the sync service |
+| [0009](0009-feature-slices-module-structure.md) | Feature slices inside a module | `active` | module project layout |
+| [0010](0010-opentelemetry-observability.md) | OpenTelemetry for observability | `active` | `ServiceDefaults`, modules |
+| [0011](0011-centralized-frontend-styling-variables.md) | Centralized styling variables | `active` | `Backlog.UI.Components` |
+| [0012](0012-authentication-external-identity-providers.md) | OIDC for external identity | `proposed` | GitHub OAuth, cloud auth |
+| [0013](0013-authorization-zero-trust.md) | Zero Trust authorization | `proposed` | sync service, module calls |
+| [0014](0014-persistence-and-repository-boundaries.md) | Persistence and repository boundaries | `active` | `Backlog.Infrastructure.Sqlite` |
+| [0015](0015-resilience-for-outbound-dependencies.md) | Resilience at adapter boundaries | `active` | GitHub, Claude, Foundry calls |
+| [0017](0017-http-error-contract-and-problem-details.md) | Problem Details error contract | `proposed` | the sync API surface |
+| [0018](0018-configuration-and-options-binding.md) | Typed options, validated at startup | `proposed` | every host |
 
 Numbers are the organization's and are kept as they were, so **0008** and
 **0016** are absent by intent rather than by mistake — see below.

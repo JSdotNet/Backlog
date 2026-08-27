@@ -164,7 +164,7 @@
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
       "skillsPath": "plugins\\guidelines\\skills",
       "hosts": [ "copilot" ],
-      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/guidelines/ and .design/.",
+      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/adr/guidelines/ and .design/.",
       "enabled": false,
       "installedVersion": "1.0.0",
       "availableVersion": "1.1.0"
@@ -176,7 +176,7 @@
       "repoPath": "%USERPROFILE%\\.copilot\\repos\\project-guidelines-mcp",
       "skillsPath": "plugins\\design\\skills",
       "hosts": [ "copilot" ],
-      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/guidelines/ and .design/.",
+      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/adr/guidelines/ and .design/.",
       "enabled": false,
       "installedVersion": "1.0.0",
       "availableVersion": "1.1.0"
@@ -190,7 +190,7 @@
         "name": "jsdotnet-coding-guidelines",
         "command": "jsdotnet-guidelines-mcpserver"
       },
-      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/guidelines/ and .design/.",
+      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/adr/guidelines/ and .design/.",
       "enabled": false,
       "installedVersion": "0.9.0",
       "availableVersion": "1.1.0"
@@ -202,7 +202,7 @@
         "name": "jsdotnet-design-ux-guidelines",
         "command": "jsdotnet-design-mcpserver"
       },
-      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/guidelines/ and .design/.",
+      "disabledReason": "Retired 2026-08-27; guidance imported into .arc42/adr/guidelines/ and .design/.",
       "enabled": false,
       "installedVersion": "0.9.0",
       "availableVersion": "1.1.0"

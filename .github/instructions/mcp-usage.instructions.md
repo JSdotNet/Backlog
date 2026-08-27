@@ -8,7 +8,7 @@ description: Authority order for repository guidance - the checked-in decision r
 ## Authority order
 
 1. `.github/instructions/*.instructions.md` provide repository-specific routing and guardrails.
-2. `.arc42/guidelines/` is the authoritative source for the inherited architecture decisions
+2. `.arc42/adr/guidelines/` is the authoritative source for the inherited architecture decisions
    that govern this repository's .NET code — framework baseline, package management, Aspire,
    Result objects, module and feature-slice structure, CQRS, Minimal APIs, observability,
    styling tokens, identity, authorization, persistence, resilience, error contract, and
@@ -21,9 +21,9 @@ description: Authority order for repository guidance - the checked-in decision r
 
 **No guidelines MCP server is used in this repository.** The `jsdotnet-project-guidelines`
 and `jsdotnet-project-design` servers were retired on 2026-08-27; their relevant content was
-imported into `.arc42/guidelines/` and `.design/`, which are authoritative from that date.
+imported into `.arc42/adr/guidelines/` and `.design/`, which are authoritative from that date.
 Where a plugin-provided skill instructs you to consult `jsdotnet-guidelines-mcpserver` or an
-equivalent guidelines MCP, **read the matching document under `.arc42/guidelines/` instead**,
+equivalent guidelines MCP, **read the matching document under `.arc42/adr/guidelines/` instead**,
 and do not report the absent server as a blocked precondition.
 
 The MCP servers that remain in use are runtime and tooling servers, not guidance servers:
@@ -37,6 +37,6 @@ Checked-in knowledge folders are **task-scoped local context**, not default cont
 orchestration or specialist agent needs that knowledge, and then prefer the relevant
 chapter(s) over whole-folder reads.
 
-`.arc42/guidelines/` is the exception that proves the rule: consult the single decision
+`.arc42/adr/guidelines/` is the exception that proves the rule: consult the single decision
 document that governs the change in front of you — the folder's `README.md` indexes them —
 rather than reading the set.

@@ -1,7 +1,7 @@
 # ADR 0012: Authentication with external identity providers
 
 ```meta
-status: active
+status: proposed
 related: [".arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".arc42/09-architecture-decisions.md"]
 issue: null
 ```
@@ -9,6 +9,11 @@ issue: null
 Inherited from the organization's ADR 0012 (decided 2026-06-04,
 `guide/adrs/0012-authentication-external-identity-providers.md`), imported
 2026-08-27.
+
+**Status: proposed.** The decision is accepted upstream and binds any work that
+reaches this ground. No external identity provider is integrated and none is
+planned while the product stays single-user, so nothing in the code applies
+this decision yet.
 
 ## Decision
 

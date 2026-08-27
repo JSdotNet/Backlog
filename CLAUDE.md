@@ -113,7 +113,7 @@ Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidel
 `jsdotnet-project-design` MCP servers were retired on 2026-08-27 and their relevant content
 lives in the repository:
 
-- `.arc42/guidelines/` — the inherited organization architecture decisions that govern this
+- `.arc42/adr/guidelines/` — the inherited organization architecture decisions that govern this
   repository's .NET code (framework, package management, Aspire, Result objects, module and
   feature-slice structure, CQRS, Minimal APIs, observability, styling tokens, identity,
   authorization, persistence, resilience, error contract, configuration). Read the single
@@ -124,7 +124,7 @@ lives in the repository:
 - `.design/` — design and UX guidance, tokens, and the color scheme.
 
 An `orch-*` skill that instructs you to consult `jsdotnet-guidelines-mcpserver` is served
-from `.arc42/guidelines/` instead; the absent server is not a blocked precondition. The MCP
+from `.arc42/adr/guidelines/` instead; the absent server is not a blocked precondition. The MCP
 servers still in use are runtime and tooling servers — Aspire, Playwright, and the
 orchestration dashboard.
 

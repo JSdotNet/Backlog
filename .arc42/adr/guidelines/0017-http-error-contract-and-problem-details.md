@@ -1,7 +1,7 @@
 # ADR 0017: HTTP error contract and Problem Details
 
 ```meta
-status: active
+status: proposed
 related: [".arc42/05-building-block-view.md#cloud-service", ".arc42/09-architecture-decisions.md"]
 issue: null
 ```
@@ -9,6 +9,11 @@ issue: null
 Inherited from the organization's ADR 0017 (decided 2026-06-04,
 `guide/adrs/0017-http-error-contract-and-problem-details.md`), imported
 2026-08-27.
+
+**Status: proposed.** The decision is accepted upstream and binds any work that
+reaches this ground. The sync API returns bare status codes with no Problem
+Details body and no exception-handling middleware, so nothing in the code
+applies this decision yet.
 
 ## Decision
 

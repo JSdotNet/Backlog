@@ -139,7 +139,7 @@ The runtime and tooling channel agents use while working in this repository.
 - **Why** — these expose live state an agent cannot read from the repository.
 - **Not used for guidance.** The `jsdotnet-project-guidelines` and
   `jsdotnet-project-design` servers were retired on 2026-08-27; their content was
-  imported into `.arc42/guidelines/` and `.design/`, which are authoritative and
+  imported into `.arc42/adr/guidelines/` and `.design/`, which are authoritative and
   need no server to read.
 
 ## Knowledge Base Plugin
