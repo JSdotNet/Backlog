@@ -9279,3 +9279,445 @@ select.field__input option {
     text-overflow: ellipsis;
     vertical-align: bottom;
 }
+
+/* ==========================================================================
+   Graph atlas
+   --------------------------------------------------------------------------
+   A graph drawn as a place: a canvas you look into, a list you operate it
+   with, and a sheet that opens on whatever is picked.
+
+   Its own container class rather than `.graph-explorer`'s, deliberately. That
+   one is height-locked to `min(72vh, 46rem)` with a `30rem` floor, which is
+   right for three scrolling card layouts and wrong for a map that has a list
+   beside it and a sheet over it. The explorer still uses it, so it is left
+   alone and the atlas fills whatever its host gives it instead.
+
+   The tint is an attribute swap, not an animated custom property. Six discrete
+   stops do not need `@property` interpolation to cross-fade between them, and a
+   transition on the resolved colour gets the same result without introducing a
+   CSS feature this stylesheet uses nowhere else.
+   ========================================================================== */
+
+.graph-atlas {
+    /* Flex rather than a two-row grid, because the header is optional: a grid with
+       a named header row still reserves the row and its gap when the host drops
+       the header, which left a band of nothing above the map. Flex only spaces
+       children that are actually there. */
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    /* Fills whatever it is given and never asks for more. The atlas is a map: it
+       is meant to be looked at whole, so it fits its area rather than becoming a
+       thing you scroll past. What scrolls is the list inside it. */
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+
+    /* The stage reflows on the space the atlas is given, not on the window: this
+       sits inside a resizable pane, and the viewport says nothing useful about
+       how wide that pane currently is. */
+    container-type: inline-size;
+}
+
+.graph-atlas__header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.graph-atlas__header h3 {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+}
+
+.graph-atlas__header p {
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The map takes the room and the list takes a column. Below the breakpoint the
+   list goes underneath rather than away: it is the interactive surface, so it is
+   the one thing that must never be the part that gets dropped. */
+.graph-atlas__stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem);
+    gap: var(--spacing-md);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.graph-atlas__canvas {
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+
+    /* The surface takes a wash of whatever is selected. Barely — this is the
+       cast a coloured thing throws on the table it sits on, not a second
+       background. At 7% the ramp's own steps are still the loudest colour on
+       screen and the text contrast underneath is untouched. */
+    --atlas-tint: var(--chart-track);
+    background:
+        radial-gradient(120% 100% at 50% 0%,
+            color-mix(in srgb, var(--atlas-tint, var(--chart-track)) 7%, transparent),
+            transparent 70%),
+        var(--color-background-alt);
+    transition: background var(--transition-slow);
+}
+
+.graph-atlas__canvas[data-tone="ready"] { --atlas-tint: var(--chart-ramp-1); }
+.graph-atlas__canvas[data-tone="draft"] { --atlas-tint: var(--chart-ramp-2); }
+.graph-atlas__canvas[data-tone="blocked"] { --atlas-tint: var(--chart-ramp-3); }
+.graph-atlas__canvas[data-tone="active"] { --atlas-tint: var(--chart-ramp-4); }
+.graph-atlas__canvas[data-tone="done"] { --atlas-tint: var(--chart-ramp-4); }
+.graph-atlas__canvas[data-tone="archived"] { --atlas-tint: var(--chart-track); }
+.graph-atlas__canvas[data-tone="unknown"] { --atlas-tint: var(--chart-track); }
+
+.graph-atlas__surface {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+}
+
+.graph-atlas__surface--dragging {
+    cursor: grabbing;
+}
+
+.graph-atlas__status {
+    margin: 0;
+    padding: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Atlas index — the surface that actually answers for the picture
+   -------------------------------------------------------------------------- */
+
+.graph-atlas-index {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* Bounded by the stage, never by its own content: the list is a column beside
+       the map, and a column that grew to forty-six rows would decide the height of
+       the map next to it. */
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.graph-atlas-index__option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    /* 44px, because this is the target the canvas cannot be. */
+    min-height: 2.75rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.graph-atlas-index__option:last-child {
+    border-bottom: 0;
+}
+
+.graph-atlas-index__option:hover {
+    background: var(--color-background-raised);
+}
+
+.graph-atlas-index__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: calc(var(--border-width-2) * -1);
+}
+
+.graph-atlas-index__option--selected {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+}
+
+/* The same shape vocabulary the canvas paints, so a reader who learned the
+   marks on the map reads them unchanged in the list: filled for a live status,
+   square for hold, hollow for retired or unrecognised. */
+.graph-atlas-index__mark {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.graph-atlas-index__mark[data-tone="ready"] { background: var(--chart-ramp-1); }
+.graph-atlas-index__mark[data-tone="draft"] { background: var(--chart-ramp-2); }
+.graph-atlas-index__mark[data-tone="active"] { background: var(--chart-ramp-4); }
+.graph-atlas-index__mark[data-tone="done"] { background: var(--chart-ramp-4); }
+
+.graph-atlas-index__mark[data-tone="blocked"] {
+    border-radius: var(--border-radius-none);
+    background: var(--chart-ramp-3);
+}
+
+.graph-atlas-index__mark[data-tone="archived"],
+.graph-atlas-index__mark[data-tone="unknown"] {
+    background: transparent;
+    border: var(--border-width-2) solid var(--chart-track);
+}
+
+.graph-atlas-index__body {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.graph-atlas-index__label {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.graph-atlas-index__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.graph-atlas-index__group,
+.graph-atlas-index__kind,
+.graph-atlas-index__status {
+    white-space: nowrap;
+}
+
+.graph-atlas-index__status {
+    color: var(--color-text-primary);
+}
+
+.graph-atlas-index__degree {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+@container (max-width: 52rem) {
+    /* Too narrow for a column beside the map, so the list goes under it — and
+       keeps a real share of the height rather than a fixed cap, because it is the
+       half you operate. */
+    .graph-atlas__stage {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(8rem, 0.9fr);
+    }
+}
+
+/* ==========================================================================
+   Detail sheet
+   --------------------------------------------------------------------------
+   Always in the tree so it can animate out, `inert` while closed so nothing in
+   it is reachable while it is not there.
+
+   Width is clamped rather than a share of the viewport: a drawer belongs
+   between about 320 and 480px, and a third of a wide monitor is well past that.
+   ========================================================================== */
+
+.detail-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--color-background-overlay);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+}
+
+.detail-sheet-backdrop[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.detail-sheet {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 41;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: clamp(22rem, 33vw, 30rem);
+    max-width: 100vw;
+    height: 100dvh;
+    background: var(--color-background-alt);
+    border-left: var(--border-width) solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform var(--transition-slow), visibility var(--transition-slow);
+}
+
+.detail-sheet[data-open="true"] {
+    transform: translateX(0);
+    visibility: visible;
+}
+
+/* Fixed header, scrolling body: the name of the thing being read about should
+   not scroll away from what is being read. */
+.detail-sheet__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.detail-sheet__heading {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.detail-sheet__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.detail-sheet__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.detail-sheet__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.detail-sheet__body {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.detail-sheet__footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* ==========================================================================
+   Record pager
+   ========================================================================== */
+
+.record-pager {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.record-pager__step {
+    display: inline-grid;
+    place-items: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.record-pager__step:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+}
+
+.record-pager__step:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.record-pager__step:disabled {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.record-pager__count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.record-pager__index,
+.record-pager__total {
+    color: var(--color-text-primary);
+}
+
+.record-pager__hints {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.record-pager__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.record-pager__keys {
+    padding: 0 var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* The colour transition is what survives here, on purpose. Reduced motion drops
+   the slide and the camera easing; the tint stays, because state still has to
+   be legible as having changed. */
+@media (prefers-reduced-motion: reduce) {
+    .detail-sheet {
+        transition: visibility var(--transition-base);
+        transform: none;
+        opacity: 0;
+    }
+
+    .detail-sheet[data-open="true"] {
+        opacity: 1;
+    }
+}

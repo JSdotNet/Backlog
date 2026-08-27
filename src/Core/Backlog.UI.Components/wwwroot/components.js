@@ -80,6 +80,135 @@
     };
 
     /*
+        Hold the focus inside a region while it is open, and give it back when it
+        closes.
+
+        Both halves are one primitive because they are one promise: a reader sent
+        into a drawer has to be able to get out of it the way they came, and a trap
+        that forgets where the focus was is a trap in the unkind sense. The element
+        that had focus when the trap arms is the element it is returned to, unless
+        the caller names one — a host that knows the row a sheet was opened from can
+        say so, and that survives the row being re-rendered underneath.
+
+        Tab cycles rather than being merely blocked. `backlogGuardTab` above stops a
+        Tab from leaving a field; this one wraps it to the other end of the region,
+        which is what a dialog does and what a guard cannot express.
+
+        Tabbables are read at keydown, not at arm time. The sheet's contents change
+        as the reader pages through records, and a list captured on open would send
+        Tab to an element that is no longer there.
+    */
+    const backlogFocusTrapListeners = new Map();
+    const backlogFocusTrapReturns = new Map();
+
+    const backlogFocusTrapSelector = [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled]):not([type="hidden"])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(',');
+
+    function backlogTabbablesIn(element) {
+        return [...element.querySelectorAll(backlogFocusTrapSelector)].filter((candidate) => {
+            if (candidate.hasAttribute('inert') || candidate.closest('[inert]')) return false;
+            if (candidate.getAttribute('aria-hidden') === 'true') return false;
+
+            // `visibility: hidden` still has boxes, so the rect test below cannot see
+            // it — and focus() on one does nothing. Ask directly.
+            if (getComputedStyle(candidate).visibility === 'hidden') return false;
+
+            // offsetParent is null for display:none, and for position:fixed — which a
+            // sheet is — so fall back to the box before believing it.
+            return candidate.offsetParent !== null || candidate.getClientRects().length > 0;
+        });
+    }
+
+    window.backlogFocusTrap = (id, restoreToId) => {
+        const element = document.getElementById(id);
+        if (!element) return;
+        if (element.dataset.backlogFocusTrap !== undefined) return;
+
+        element.dataset.backlogFocusTrap = 'armed';
+        element.dataset.backlogFocusReturn = restoreToId ?? '';
+
+        const previous = document.activeElement;
+        if (previous instanceof HTMLElement) {
+            backlogFocusTrapReturns.set(id, previous);
+        }
+
+        const onKeyDown = (event) => {
+            if (event.key !== 'Tab') return;
+
+            const tabbables = backlogTabbablesIn(element);
+            if (tabbables.length === 0) {
+                event.preventDefault();
+                element.focus();
+                return;
+            }
+
+            const first = tabbables[0];
+            const last = tabbables[tabbables.length - 1];
+            const active = document.activeElement;
+
+            // Focus sitting on the region itself counts as before the first: that is
+            // where it lands when the sheet opens, and Tab from there must go in.
+            if (event.shiftKey && (active === first || active === element)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        element.addEventListener('keydown', onKeyDown);
+        backlogFocusTrapListeners.set(id, () => element.removeEventListener('keydown', onKeyDown));
+
+        // Move the focus in only if it is not already inside — a host that focused
+        // its own control first should keep it.
+        //
+        // Two frames late, and that is not superstition. A sheet is `visibility:
+        // hidden` until the render that opens it, and `focus()` on a hidden element
+        // does nothing at all — silently, with no error. Arming happens in the same
+        // tick as the class flip, so focusing immediately lands nowhere and the
+        // reader is left outside a dialog that has already trapped the Tab key.
+        // One frame gets the style recalculated; the second is the paint.
+        if (!element.contains(document.activeElement)) {
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                if (element.dataset.backlogFocusTrap === undefined) return;
+                if (element.contains(document.activeElement)) return;
+
+                const tabbables = backlogTabbablesIn(element);
+                (tabbables[0] ?? element).focus();
+            }));
+        }
+    };
+
+    window.backlogReleaseFocusTrap = (id) => {
+        const element = document.getElementById(id);
+        if (element) {
+            delete element.dataset.backlogFocusTrap;
+            delete element.dataset.backlogFocusReturn;
+        }
+
+        backlogFocusTrapListeners.get(id)?.();
+        backlogFocusTrapListeners.delete(id);
+
+        const named = element?.dataset?.backlogFocusReturn;
+        const target = (named && document.getElementById(named)) || backlogFocusTrapReturns.get(id);
+        backlogFocusTrapReturns.delete(id);
+
+        // Only take the focus back if the region still holds it. The reader may have
+        // clicked somewhere else entirely, and yanking them back would be the trap
+        // outliving the thing it was trapping for.
+        if (target && target.isConnected && (!element || element.contains(document.activeElement) || document.activeElement === document.body)) {
+            target.focus();
+        }
+    };
+
+    /*
         Whether the focus has landed on something outside a named region.
 
         The question a `focusout` handler actually has is "did the reader leave
@@ -569,12 +698,10 @@
     // The hook is now opt-in and silent when unused.
     const backlogDiagramLibrarySources = {
         mermaid: ['https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'],
-        g6: ['https://unpkg.com/@antv/g6@5/dist/g6.min.js'],
         ...(window.backlogDiagramLibrarySources ?? {})
     };
 
     let backlogMermaidPromise;
-    let backlogG6Promise;
 
     function backlogEscapeHtml(value) {
         return String(value ?? '')
@@ -701,26 +828,6 @@
         }
 
         return backlogMermaidPromise;
-    }
-
-    async function backlogLoadG6() {
-        if (window.G6?.Graph) return window.G6;
-        if (!backlogG6Promise) {
-            backlogG6Promise = (async () => {
-                for (const source of backlogDiagramLibrarySources.g6) {
-                    try {
-                        await backlogLoadScript(source);
-                        if (window.G6?.Graph) return window.G6;
-                    } catch {
-                        // Try the next source; SVG fallback keeps the graph usable offline.
-                    }
-                }
-
-                throw new Error('AntV G6 renderer unavailable.');
-            })();
-        }
-
-        return backlogG6Promise;
     }
 
     // `sourceShown` is whether the component kept its source disclosure. A host that
@@ -1226,6 +1333,693 @@
         renderActiveView();
     }
 
+
+    /*
+        The knowledge atlas: a graph drawn as a place rather than a chart.
+
+        Nodes sit in three dimensions, clustered by group, and the picture is a
+        perspective projection of that onto a canvas. Depth is the point — it is
+        what lets sixty-odd nodes and a hundred and forty edges read as a shape
+        instead of a hairball, and it is why the layout is 3D even though the
+        surface is 2D.
+
+        No WebGL and no graph library. Sixty nodes painted with gradients and
+        quadratic curves is nothing for a 2D context, and a local-first desktop app
+        should not need a CDN or a bundled engine to draw its own technology stack.
+        The trade is real — no shaders, so the glow is a radial gradient — and it
+        buys a renderer that cannot fail to load.
+
+        The layout is deterministic. Every position comes from the node's ordinal
+        and its group's index through a Fibonacci distribution, never from a random
+        number, so the same graph draws the same picture twice. That is what makes
+        a screenshot of it worth comparing.
+
+        Selection is not decided here. A pick is reported to .NET and the highlight
+        is set when .NET says so, because the sheet, the list and this canvas have
+        to agree and only one of them can be the one that knows.
+    */
+
+    // Reference geometry. The radius curve is log so that the difference between
+    // one dependent and four is visible, which is where most of the graph lives —
+    // a linear scale spends its whole range on the two or three hubs.
+    const BACKLOG_ATLAS_FOV = 50;
+    const BACKLOG_ATLAS_MIN_RADIUS = 2.2;
+    const BACKLOG_ATLAS_RADIUS_SPAN = 6.5;
+    const BACKLOG_ATLAS_WORLD = 150;
+    const BACKLOG_ATLAS_MIN_DISTANCE = 180;
+    const BACKLOG_ATLAS_MAX_DISTANCE = 620;
+    const BACKLOG_ATLAS_GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
+    // Every colour is read off the root at render time rather than written here.
+    // The fallbacks are the token values as `.design/color-scheme.md` states them,
+    // and exist only for a context with no stylesheet attached yet.
+    const BACKLOG_ATLAS_TOKENS = {
+        ready: ['--chart-ramp-1', '#6B5A2B'],
+        draft: ['--chart-ramp-2', '#8C7433'],
+        blocked: ['--chart-ramp-3', '#C39B3F'],
+        active: ['--chart-ramp-4', '#F2C14E'],
+        done: ['--chart-ramp-4', '#F2C14E'],
+        archived: ['--chart-track', '#3A3527'],
+        unknown: ['--chart-track', '#3A3527'],
+        edge: ['--chart-grid', '#545459'],
+        ink: ['--chart-ink', '#F8F9FA'],
+        inkMuted: ['--chart-ink-muted', '#CED4DA'],
+        surface: ['--chart-surface', '#202023'],
+        focus: ['--color-border-focus', '#F2C14E']
+    };
+
+    function backlogAtlasPalette() {
+        const styles = getComputedStyle(document.documentElement);
+        const palette = {};
+
+        for (const [name, pair] of Object.entries(BACKLOG_ATLAS_TOKENS)) {
+            palette[name] = (styles.getPropertyValue(pair[0]) || '').trim() || pair[1];
+        }
+
+        return palette;
+    }
+
+    function backlogAtlasTone(palette, node) {
+        return palette[node.toneSlug] ?? palette.unknown;
+    }
+
+    /*
+        Points spread evenly over a sphere, by index.
+
+        The golden angle is what makes this even without being regular: a lattice
+        would put nodes in visible rows that mean nothing, and a random scatter
+        would clump and would not survive a reload. Deterministic and even is
+        exactly what a layout wants.
+    */
+    function backlogAtlasSpherePoint(index, count, radius) {
+        if (count <= 1) return { x: 0, y: 0, z: 0 };
+
+        const y = 1 - (index / (count - 1)) * 2;
+        const ring = Math.sqrt(Math.max(0, 1 - y * y));
+        const theta = BACKLOG_ATLAS_GOLDEN * index;
+
+        return {
+            x: Math.cos(theta) * ring * radius,
+            y: y * radius,
+            z: Math.sin(theta) * ring * radius
+        };
+    }
+
+    /*
+        Where each group sits, and how big a ball its members fill.
+
+        Groups are placed on a sphere of their own so no cluster hides behind
+        another, and a cluster's radius grows with the square root of its size so a
+        layer with thirty technologies is denser than one with four rather than
+        swallowing the map.
+
+        Boundary nodes — chapters in other knowledge folders — go to the middle and
+        to the back. They are not part of the stack; they are what it leans on from
+        outside, and putting them behind everything says that without a legend.
+    */
+    function backlogAtlasClusters(model) {
+        const groups = new Map();
+
+        for (const node of model.nodes) {
+            const key = node.group || 'Unassigned';
+            if (!groups.has(key)) {
+                groups.set(key, { key, label: key, index: node.groupIndex ?? groups.size, nodes: [] });
+            }
+
+            groups.get(key).nodes.push(node);
+        }
+
+        const ordered = [...groups.values()].sort((left, right) => left.index - right.index);
+        const placed = ordered.filter((group) => group.index >= 0);
+
+        for (const group of ordered) {
+            group.radius = 26 + Math.sqrt(group.nodes.length) * 13;
+
+            if (group.index < 0) {
+                group.center = { x: 0, y: 0, z: -BACKLOG_ATLAS_WORLD * 1.15 };
+                continue;
+            }
+
+            const seat = placed.indexOf(group);
+            group.center = backlogAtlasSpherePoint(seat, Math.max(placed.length, 2), BACKLOG_ATLAS_WORLD);
+        }
+
+        return ordered;
+    }
+
+    function backlogAtlasLayout(model) {
+        const clusters = backlogAtlasClusters(model);
+        const maxInDegree = model.nodes.reduce((most, node) => Math.max(most, node.inDegree || 0), 0);
+        const scale = Math.log1p(Math.max(maxInDegree, 1));
+        const points = [];
+
+        for (const cluster of clusters) {
+            // Ordinal, not array position: document order is a fact about the
+            // knowledge and survives a node being added above this one.
+            const members = [...cluster.nodes].sort((left, right) => (left.ordinal ?? 0) - (right.ordinal ?? 0));
+
+            members.forEach((node, seat) => {
+                const offset = backlogAtlasSpherePoint(seat, Math.max(members.length, 2), cluster.radius);
+                const radius = BACKLOG_ATLAS_MIN_RADIUS
+                    + (scale > 0 ? Math.log1p(node.inDegree || 0) / scale : 0) * BACKLOG_ATLAS_RADIUS_SPAN;
+
+                points.push({
+                    node,
+                    cluster,
+                    radius,
+                    x: cluster.center.x + offset.x,
+                    y: cluster.center.y + offset.y,
+                    z: cluster.center.z + offset.z
+                });
+            });
+        }
+
+        const byId = new Map(points.map((point) => [point.node.id, point]));
+        const links = [];
+
+        for (const edge of model.edges ?? []) {
+            const from = byId.get(edge.source);
+            const to = byId.get(edge.target);
+            if (!from || !to) continue;
+
+            // A curve, not a chord. Straight lines between sixty points in a ball
+            // all cross the middle and the middle becomes a smear; bowing each one
+            // outward keeps them readable as separate edges. The bow is derived
+            // from the endpoints, so it never moves on its own.
+            const midX = (from.x + to.x) / 2;
+            const midY = (from.y + to.y) / 2;
+            const midZ = (from.z + to.z) / 2;
+            const span = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+            const lift = 1 + (span / (BACKLOG_ATLAS_WORLD * 5));
+
+            links.push({
+                from,
+                to,
+                control: { x: midX * lift, y: midY * lift, z: midZ * lift }
+            });
+        }
+
+        return { clusters, points, byId, links };
+    }
+
+    function backlogAtlasProject(point, view) {
+        const cosYaw = Math.cos(view.yaw);
+        const sinYaw = Math.sin(view.yaw);
+        const cosPitch = Math.cos(view.pitch);
+        const sinPitch = Math.sin(view.pitch);
+
+        const dx = point.x - view.target.x;
+        const dy = point.y - view.target.y;
+        const dz = point.z - view.target.z;
+
+        const rx = dx * cosYaw - dz * sinYaw;
+        const rz = dx * sinYaw + dz * cosYaw;
+        const ry = dy * cosPitch - rz * sinPitch;
+        const depth = dy * sinPitch + rz * cosPitch + view.distance;
+
+        // Behind the eye, or on it. Reported rather than clamped: a caller that
+        // drew it anyway would get a point mirrored through the origin.
+        if (depth <= 1) return null;
+
+        const k = view.focal / depth;
+        return { x: view.width / 2 + rx * k, y: view.height / 2 - ry * k, depth, scale: k };
+    }
+
+    function backlogAtlasRender(element, id, model, dotnet) {
+        backlogDiagramInstances.get(id)?.destroy?.();
+        element.replaceChildren();
+
+        const nodes = Array.isArray(model?.nodes) ? model.nodes : [];
+        if (nodes.length === 0) {
+            const empty = backlogGraphElement('p', 'graph-atlas__status', model?.emptyMessage ?? 'No atlas nodes are available.');
+            empty.setAttribute('role', 'status');
+            element.append(empty);
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'graph-atlas__surface';
+        // The picture is not the control. The list beside it is, so this is kept
+        // off the accessibility tree entirely rather than given a label that would
+        // announce sixty technologies as one unnavigable blob.
+        canvas.setAttribute('aria-hidden', 'true');
+        canvas.tabIndex = -1;
+        element.append(canvas);
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+            const failed = backlogGraphElement('p', 'graph-atlas__status', 'The atlas could not be drawn here.');
+            failed.setAttribute('role', 'status');
+            element.append(failed);
+            return;
+        }
+
+        const layout = backlogAtlasLayout(model);
+        let palette = backlogAtlasPalette();
+        const reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+        const view = {
+            yaw: 0.6,
+            pitch: 0.25,
+            distance: 420,
+            target: { x: 0, y: 0, z: 0 },
+            desired: { x: 0, y: 0, z: 0 },
+            width: 0,
+            height: 0,
+            focal: 0
+        };
+
+        let selectedId = null;
+        let hoveredId = null;
+        let neighbours = new Set();
+        let frame = 0;
+        let painted = [];
+
+        const adjacency = new Map();
+        for (const link of layout.links) {
+            if (!adjacency.has(link.from.node.id)) adjacency.set(link.from.node.id, new Set());
+            if (!adjacency.has(link.to.node.id)) adjacency.set(link.to.node.id, new Set());
+            adjacency.get(link.from.node.id).add(link.to.node.id);
+            adjacency.get(link.to.node.id).add(link.from.node.id);
+        }
+
+        function resize() {
+            const ratio = window.devicePixelRatio || 1;
+            const box = canvas.getBoundingClientRect();
+            const width = Math.max(1, Math.round(box.width));
+            const height = Math.max(1, Math.round(box.height));
+
+            // The backing store is sized in device pixels and the context scaled to
+            // match, or the whole atlas is soft at the 125% and 150% Windows uses by
+            // default — which is most of the machines this runs on.
+            canvas.width = Math.round(width * ratio);
+            canvas.height = Math.round(height * ratio);
+            context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+            view.width = width;
+            view.height = height;
+            view.focal = (height / 2) / Math.tan((BACKLOG_ATLAS_FOV * Math.PI / 180) / 2);
+            schedule();
+        }
+
+        function schedule() {
+            if (frame) return;
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                draw();
+            });
+        }
+
+        function settleTarget() {
+            const dx = view.desired.x - view.target.x;
+            const dy = view.desired.y - view.target.y;
+            const dz = view.desired.z - view.target.z;
+
+            if (Math.hypot(dx, dy, dz) < 0.35) {
+                view.target.x = view.desired.x;
+                view.target.y = view.desired.y;
+                view.target.z = view.desired.z;
+                return false;
+            }
+
+            // Reduced motion moves the camera without animating it. The rule is that
+            // the motion goes, not that the function does — the reader still arrives.
+            if (reduceMotion && reduceMotion.matches) {
+                view.target.x = view.desired.x;
+                view.target.y = view.desired.y;
+                view.target.z = view.desired.z;
+                return false;
+            }
+
+            view.target.x += dx * 0.14;
+            view.target.y += dy * 0.14;
+            view.target.z += dz * 0.14;
+            return true;
+        }
+
+        // A node's radius is a world quantity, so it is projected like every other
+        // world quantity — scale already carries the perspective divide. Applying a
+        // second constant factor on top of it, as an early draft did, paints every
+        // node hundreds of pixels across and the map is one flat blob.
+        function nodeSize(point) {
+            return Math.max(1.6, point.radius * point.projected.scale);
+        }
+
+        function draw() {
+            const moving = settleTarget();
+            context.clearRect(0, 0, view.width, view.height);
+
+            for (const point of layout.points) {
+                point.projected = backlogAtlasProject(point, view);
+            }
+
+            drawLinks();
+
+            painted = layout.points
+                .filter((point) => point.projected)
+                .sort((left, right) => right.projected.depth - left.projected.depth);
+
+            for (const point of painted) {
+                drawNode(point);
+            }
+
+            drawLabels();
+
+            if (moving) schedule();
+        }
+
+        function emphasis(nodeId) {
+            if (!selectedId) return 1;
+            if (nodeId === selectedId) return 1;
+            return neighbours.has(nodeId) ? 0.72 : 0.16;
+        }
+
+        function drawLinks() {
+            context.lineCap = 'round';
+
+            for (const link of layout.links) {
+                const from = link.from.projected;
+                const to = link.to.projected;
+                if (!from || !to) continue;
+
+                const control = backlogAtlasProject(link.control, view);
+                if (!control) continue;
+
+                const lit = selectedId
+                    && (link.from.node.id === selectedId || link.to.node.id === selectedId);
+                const strength = selectedId ? (lit ? 0.85 : 0.07) : 0.26;
+
+                context.globalAlpha = strength;
+                context.strokeStyle = lit ? palette.focus : palette.edge;
+                context.lineWidth = Math.max(0.5, (lit ? 2.2 : 1.2) * ((from.scale + to.scale) / 2));
+                context.beginPath();
+                context.moveTo(from.x, from.y);
+                context.quadraticCurveTo(control.x, control.y, to.x, to.y);
+                context.stroke();
+            }
+
+            context.globalAlpha = 1;
+        }
+
+        function drawNode(point) {
+            const projected = point.projected;
+            const size = nodeSize(point);
+            const tone = backlogAtlasTone(palette, point.node);
+            const alpha = emphasis(point.node.id);
+            const selected = point.node.id === selectedId;
+            const hovered = point.node.id === hoveredId;
+
+            // The glow is what gives a flat context depth: a node near the eye
+            // spills further than one behind it, so the eye reads the order before
+            // it reads the sizes.
+            const halo = context.createRadialGradient(projected.x, projected.y, size * 0.2, projected.x, projected.y, size * 2.6);
+            halo.addColorStop(0, tone);
+            halo.addColorStop(1, 'transparent');
+            // Hover lifts the glow and nothing else — enough to say "this is the one
+            // under the pointer", not enough to be mistaken for a state.
+            context.globalAlpha = alpha * (selected ? 0.5 : hovered ? 0.34 : 0.22);
+            context.fillStyle = halo;
+            context.beginPath();
+            context.arc(projected.x, projected.y, size * 2.6, 0, Math.PI * 2);
+            context.fill();
+
+            context.globalAlpha = alpha;
+
+            // Shape carries what one hue cannot. `hold` is a square and a retired or
+            // unrecognised status is a hollow ring, so the ladder stays legible
+            // without relying on where a tone sits on the ramp.
+            const slug = point.node.toneSlug;
+            context.fillStyle = tone;
+            context.strokeStyle = tone;
+            context.lineWidth = Math.max(1, size * 0.34);
+            context.beginPath();
+
+            if (slug === 'blocked') {
+                context.rect(projected.x - size, projected.y - size, size * 2, size * 2);
+                context.fill();
+            } else if (slug === 'archived' || !slug) {
+                context.arc(projected.x, projected.y, size, 0, Math.PI * 2);
+                context.stroke();
+            } else {
+                context.arc(projected.x, projected.y, size, 0, Math.PI * 2);
+                context.fill();
+            }
+
+            // The ring is what selection looks like, and only selection. Hover wore
+            // the same ring, so moving the pointer across the map read as picking
+            // everything it passed over — and the one node that actually was
+            // selected stopped standing out.
+            if (selected) {
+                context.globalAlpha = 1;
+                context.strokeStyle = palette.focus;
+                context.lineWidth = Math.max(1.2, size * 0.24);
+                context.beginPath();
+                context.arc(projected.x, projected.y, size * 1.9, 0, Math.PI * 2);
+                context.stroke();
+            }
+
+            context.globalAlpha = 1;
+        }
+
+        /*
+            Labels for the few nodes big enough to earn one, plus whatever is
+            selected or hovered.
+
+            Labelling everything is how a graph becomes unreadable — sixty
+            overlapping words say less than none. The threshold is on the projected
+            size, so what is named changes as the reader moves closer, which is the
+            behaviour a map has.
+        */
+        function drawLabels() {
+            const font = (getComputedStyle(document.documentElement).getPropertyValue('--font-family-base') || '').trim()
+                || 'system-ui, sans-serif';
+            const drawn = [];
+
+            for (let index = painted.length - 1; index >= 0; index--) {
+                const point = painted[index];
+                const projected = point.projected;
+                const size = nodeSize(point);
+                const selected = point.node.id === selectedId;
+                const hovered = point.node.id === hoveredId;
+
+                if (!selected && !hovered && size < 7) continue;
+                if (selectedId && !selected && !neighbours.has(point.node.id)) continue;
+
+                const y = projected.y - size - 7;
+                let clash = false;
+
+                for (const seat of drawn) {
+                    if (Math.abs(seat.y - y) < 13 && Math.abs(seat.x - projected.x) < 78) {
+                        clash = true;
+                        break;
+                    }
+                }
+
+                if (clash) continue;
+                drawn.push({ x: projected.x, y });
+
+                context.font = (selected ? '600 13px ' : '400 12px ') + font;
+                context.textAlign = 'center';
+                context.textBaseline = 'bottom';
+
+                // A pill behind the word rather than a stroke around it: a wash of
+                // the surface colour reads as the label sitting on the map, and an
+                // outline reads as a mistake.
+                const width = context.measureText(point.node.label).width;
+                context.fillStyle = palette.surface;
+                context.globalAlpha = selected ? 0.92 : 0.72;
+                context.beginPath();
+                context.roundRect(projected.x - width / 2 - 6, y - 15, width + 12, 18, 4);
+                context.fill();
+
+                context.globalAlpha = 1;
+                context.fillStyle = selected ? palette.ink : palette.inkMuted;
+                context.fillText(point.node.label, projected.x, y);
+            }
+
+            context.globalAlpha = 1;
+        }
+
+        function pick(clientX, clientY) {
+            const box = canvas.getBoundingClientRect();
+            const x = clientX - box.left;
+            const y = clientY - box.top;
+
+            // `painted` runs far to near, so the last match is the one nearest the
+            // eye — which is the one the reader believes they clicked.
+            let hit = null;
+
+            for (const point of painted) {
+                if (!point.projected) continue;
+
+                // Generously: the drawn node is small, and a pointer target that
+                // matches the ink exactly is one nobody can hit.
+                const reach = Math.max(nodeSize(point) * 1.8, 11);
+                if (Math.hypot(point.projected.x - x, point.projected.y - y) <= reach) hit = point;
+            }
+
+            return hit;
+        }
+
+        function applySelection(nodeId) {
+            selectedId = nodeId || null;
+            neighbours = selectedId ? (adjacency.get(selectedId) ?? new Set()) : new Set();
+
+            const point = selectedId ? layout.byId.get(selectedId) : null;
+            view.desired = point ? { x: point.x, y: point.y, z: point.z } : { x: 0, y: 0, z: 0 };
+            schedule();
+        }
+
+        const listeners = [];
+
+        function on(target, type, handler, options) {
+            target.addEventListener(type, handler, options);
+            listeners.push(() => target.removeEventListener(type, handler, options));
+        }
+
+        let dragging = false;
+        let dragged = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        on(canvas, 'pointerdown', (event) => {
+            if (event.button !== 0) return;
+            dragging = true;
+            dragged = false;
+            lastX = event.clientX;
+            lastY = event.clientY;
+            canvas.setPointerCapture(event.pointerId);
+            canvas.classList.add('graph-atlas__surface--dragging');
+        });
+
+        on(canvas, 'pointermove', (event) => {
+            if (!dragging) {
+                const hit = pick(event.clientX, event.clientY);
+                const next = hit ? hit.node.id : null;
+
+                // Only on an actual change. Repainting per pointermove is how a
+                // cheap scene becomes an expensive one.
+                if (next !== hoveredId) {
+                    hoveredId = next;
+                    canvas.style.cursor = next ? 'pointer' : '';
+                    schedule();
+                }
+
+                return;
+            }
+
+            const dx = event.clientX - lastX;
+            const dy = event.clientY - lastY;
+            if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
+            lastX = event.clientX;
+            lastY = event.clientY;
+
+            view.yaw += dx * 0.006;
+            // Stopped short of the poles, where the projection degenerates and the
+            // map appears to flip.
+            view.pitch = Math.max(-1.35, Math.min(1.35, view.pitch + dy * 0.006));
+            schedule();
+        });
+
+        function endDrag(event) {
+            if (!dragging) return;
+            dragging = false;
+            canvas.classList.remove('graph-atlas__surface--dragging');
+            if (canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
+                canvas.releasePointerCapture(event.pointerId);
+            }
+        }
+
+        on(canvas, 'pointerup', (event) => {
+            const wasDragging = dragging;
+            const moved = dragged;
+            endDrag(event);
+
+            if (!wasDragging || moved) return;
+
+            const hit = pick(event.clientX, event.clientY);
+            // Clicking the selected node clears it, which is how a reader closes the
+            // sheet without going looking for the button.
+            const next = hit ? (hit.node.id === selectedId ? null : hit.node.id) : null;
+
+            if (dotnet && dotnet.invokeMethodAsync) dotnet.invokeMethodAsync('NodePicked', next);
+        });
+
+        on(canvas, 'pointercancel', endDrag);
+
+        /*
+            Zoom is a ratio, not a subtraction.
+
+            A fixed step in world units moves the camera by a constant distance,
+            which is a huge jump when you are already close and barely anything when
+            you are far out — so the same notch of the wheel does two different
+            things depending on where you happen to be. Multiplying keeps every
+            notch the same *apparent* amount of movement.
+
+            The delta is normalised first because a wheel reports in three different
+            units: pixels, lines and pages. Trusting deltaY raw makes a mouse that
+            reports lines zoom about forty times slower than a trackpad.
+        */
+        on(canvas, 'wheel', (event) => {
+            event.preventDefault();
+
+            const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? view.height : 1;
+            // Clamped so one flick of a high-resolution trackpad cannot cross the
+            // whole range in a single event.
+            const notches = Math.max(-4, Math.min(4, (event.deltaY * unit) / 100));
+
+            view.distance = Math.max(
+                BACKLOG_ATLAS_MIN_DISTANCE,
+                Math.min(BACKLOG_ATLAS_MAX_DISTANCE, view.distance * Math.pow(1.18, notches)));
+            schedule();
+        }, { passive: false });
+
+        // WebView2 drops the drawing context on resume and on a display change, with
+        // no error anywhere. Telling .NET is what gets the model handed over again.
+        on(canvas, 'contextlost', (event) => {
+            event.preventDefault();
+            if (dotnet && dotnet.invokeMethodAsync) dotnet.invokeMethodAsync('RendererLost');
+        });
+
+        const observer = new ResizeObserver(() => resize());
+        observer.observe(canvas);
+        listeners.push(() => observer.disconnect());
+
+        // The palette is read off the root, so a stylesheet arriving late would
+        // otherwise leave the picture painted in the fallbacks until something asked
+        // it to look again.
+        const repaint = () => {
+            palette = backlogAtlasPalette();
+            schedule();
+        };
+
+        on(window, 'focus', repaint);
+
+        backlogDiagramInstances.set(id, {
+            select(nodeId) {
+                applySelection(nodeId);
+            },
+            destroy() {
+                if (frame) cancelAnimationFrame(frame);
+                frame = 0;
+                for (const remove of listeners) remove();
+                listeners.length = 0;
+            }
+        });
+
+        resize();
+    }
+
+    window.backlogGraphAtlas = {
+        render(element, id, model, dotnet) {
+            backlogAtlasRender(element, id, model, dotnet);
+        },
+        select(id, nodeId) {
+            const instance = backlogDiagramInstances.get(id);
+            if (instance && instance.select) instance.select(nodeId || null);
+        }
+    };
+
     window.backlogGraphExplorer = {
         render(element, id, model) {
             backlogRenderGraphExplorer(element, id, model);
@@ -1238,11 +2032,12 @@
         }
     };
 
-    window.backlogDiagrams = {
+    // Merged, not assigned. app.js attaches its own renderers to this object, and
+    // an outright assignment here would drop them if the load order ever flipped.
+    window.backlogDiagrams = Object.assign(window.backlogDiagrams ?? {}, {
         // Exposed so a host's own renderer can register a teardown against the
         // same id `dispose` is called with, and reuse the loaders and escaping.
         instances: backlogDiagramInstances,
-        loadG6: backlogLoadG6,
         escapeHtml: backlogEscapeHtml,
         renderError: backlogRenderDiagramError,
 
@@ -1375,7 +2170,7 @@
             instance?.destroy?.();
             backlogDiagramInstances.delete(id);
         }
-    };
+    });
     /*
         Roadmap timeline drag.
 

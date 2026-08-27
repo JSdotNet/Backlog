@@ -1,0 +1,351 @@
+@page "/graph-atlas"
+
+<PageTitle>Graph atlas — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Graph atlas"
+           Summary="GraphAtlas draws a node/edge model as a place: clustered in three dimensions, projected onto a canvas, with a list beside it that is the surface the keyboard actually operates. Every word on screen arrives in the model, so the stories below are a kitchen rather than anything the app happens to show."
+           Guidelines="@Rules">
+    @*
+        A kitchen, not a technology stack. The app's atlas draws `.tech`, and a
+        story that drew the same thing would be indistinguishable from a
+        screenshot of the app — which makes it useless for spotting the moment
+        the component starts assuming what it is drawing.
+
+        The tones are the point of the second story. `.tech` holds only two of
+        the five ladder values today, so `trial`, `hold` and `retired` are
+        unreviewable against real data and the mid-ramp steps and the square and
+        hollow marks would ship unseen. Here all six are on screen at once.
+    *@
+
+    <Story Name="Atlas"
+           Description="Clusters by group, node size by how many things depend on it, curved edges between them. Drag the map to turn it, scroll to move closer, click a node to select it — or ignore all of that and use the list, which does the same job and is the one a keyboard can reach."
+           Code="@AtlasCode">
+        <GraphAtlas Title="Kitchen — what leans on what"
+                    Description="Ingredients and the dishes that need them."
+                    BadgeText="atlas"
+                    Data="KitchenModel"
+                    Nodes="KitchenNodes"
+                    AriaLabel="Kitchen dependency atlas"
+                    IndexLabel="Kitchen, in reading order" />
+    </Story>
+
+    <Story Name="Every tone"
+           Description="The six marks the ladder can produce, side by side. Colour walks one ramp because the palette carries one saturated hue; shape carries what the ramp cannot, so hold is a square and retired or unrecognised is a hollow ring."
+           Code="@ToneCode">
+        <GraphAtlas Title="Tones"
+                    Description="One node per tone, so every mark is on screen at once."
+                    Data="ToneModel"
+                    Nodes="ToneNodes"
+                    AriaLabel="Every atlas tone"
+                    IndexLabel="Tones" />
+    </Story>
+
+    <Story Name="Nothing to draw"
+           Description="An empty model is a sentence, not a blank canvas. The message is the caller's, because only the caller knows what is missing.">
+        <GraphAtlas Title="Empty atlas"
+                    Description="No nodes were handed over."
+                    Data="EmptyModel"
+                    AriaLabel="Empty atlas"
+                    IndexLabel="Nothing" />
+    </Story>
+
+    @*
+        The index on its own, because it is the half that carries the promise. The
+        canvas above is `aria-hidden` and untabbable by design — a canvas has no
+        accessibility tree and a node is drawn far below the minimum target size —
+        so this is where selection actually lives, and it is worth reviewing as a
+        control rather than only as a column beside a picture.
+    *@
+    <Story Name="Index on its own"
+           Description="A listbox with a roving tabindex: one row is tabbable, arrows move between them, Home and End jump to the ends. Every fact the marks encode is written out here as text, including the degree that sizes a node on the map."
+           Code="@IndexCode">
+        <div class="sb-stack">
+            <GraphAtlasIndex Nodes="KitchenNodes"
+                             SelectedId="@_selectedId"
+                             SelectedIdChanged="value => _selectedId = value"
+                             AriaLabel="Kitchen, in reading order"
+                             TestId="story-atlas-index" />
+        </div>
+    </Story>
+
+    @*
+        The other shape the atlas is asked to draw. The kitchen above is fourteen
+        nodes in three clusters; a knowledge folder is hundreds across a dozen, and
+        the two stress different things — label collision, cluster overlap, how
+        much of the edge set is legible at once. Drawing both here is the point.
+
+        And the reveal, because that is how every area except Technology offers
+        it: a map is the second way of looking at a set of documents rather than
+        the way you read them, so it is behind a button and the button is quiet.
+    *@
+    <Story Name="Opened on request"
+           Description="A knowledge-shaped model — many small clusters, mostly `related` links — behind the quiet toggle the knowledge pane uses. Press it to draw the map; press it again to put it away."
+           Code="@RevealCode">
+        <div class="sb-stack">
+            <ToggleButton BaseClass="sb-atlas-toggle"
+                          PressedCssClass="sb-atlas-toggle sb-atlas-toggle--on"
+                          Pressed="@_atlasShown"
+                          PressedChanged="value => _atlasShown = value"
+                          TestId="story-atlas-reveal">
+                @(_atlasShown ? "Hide atlas" : "Atlas")
+            </ToggleButton>
+
+            @if (_atlasShown)
+            {
+                <GraphAtlas Title=""
+                            Data="LibraryModel"
+                            Nodes="LibraryNodes"
+                            AriaLabel="Library knowledge atlas"
+                            IndexLabel="Library, grouped" />
+            }
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private string? _selectedId;
+    private bool _atlasShown;
+
+    private const string RevealCode = """
+        <ToggleButton Pressed="@_atlasShown" PressedChanged="value => _atlasShown = value">
+            @(_atlasShown ? "Hide atlas" : "Atlas")
+        </ToggleButton>
+
+        @if (_atlasShown)
+        {
+            <GraphAtlas Data="LibraryModel" Nodes="LibraryNodes" AriaLabel="Library knowledge atlas" />
+        }
+        """;
+
+    private const string IndexCode = """
+        <GraphAtlasIndex Nodes="KitchenNodes"
+                         SelectedId="@_selectedId"
+                         SelectedIdChanged="value => _selectedId = value"
+                         AriaLabel="Kitchen, in reading order" />
+        """;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#diagram-and-graph-strategy", "Why the atlas is drawn this way and not with a graph engine."),
+        new("color-scheme.md#chart-roles", "The one ramp a status ladder walks."),
+        new("accessibility.md#keyboard-navigation", "Why the list beside the canvas is the control and the canvas is not.")
+    ];
+
+    private sealed record Ingredient(string Id, string Label, string Kind, string Status, string Tone, string Group, int Order);
+
+    // Reading order is the group order, and it is deliberate rather than
+    // alphabetical — the same way a knowledge folder's index.json is.
+    private static readonly IReadOnlyList<Ingredient> Kitchen =
+    [
+        new("flour", "Flour", "staple", "adopted", "active", "Pantry", 0),
+        new("butter", "Butter", "staple", "adopted", "active", "Pantry", 1),
+        new("eggs", "Eggs", "staple", "adopted", "active", "Pantry", 2),
+        new("sugar", "Sugar", "staple", "trial", "draft", "Pantry", 3),
+        new("stock", "Stock", "staple", "candidate", "ready", "Pantry", 4),
+
+        new("pastry", "Pastry", "preparation", "adopted", "active", "Preparations", 0),
+        new("custard", "Custard", "preparation", "adopted", "active", "Preparations", 1),
+        new("roux", "Roux", "preparation", "hold", "blocked", "Preparations", 2),
+        new("caramel", "Caramel", "preparation", "candidate", "ready", "Preparations", 3),
+
+        new("tart", "Tart", "dish", "adopted", "active", "Dishes", 0),
+        new("pie", "Pie", "dish", "candidate", "ready", "Dishes", 1),
+        new("souffle", "Souffle", "dish", "trial", "draft", "Dishes", 2),
+        new("gratin", "Gratin", "dish", "retired", "archived", "Dishes", 3),
+        new("brulee", "Creme brulee", "dish", "candidate", "ready", "Dishes", 4)
+    ];
+
+    private static readonly (string Source, string Target)[] Needs =
+    [
+        ("pastry", "flour"), ("pastry", "butter"),
+        ("custard", "eggs"), ("custard", "sugar"),
+        ("roux", "flour"), ("roux", "butter"),
+        ("caramel", "sugar"),
+        ("tart", "pastry"), ("tart", "custard"),
+        ("pie", "pastry"), ("pie", "butter"),
+        ("souffle", "eggs"), ("souffle", "custard"),
+        ("gratin", "roux"), ("gratin", "stock"),
+        ("brulee", "custard"), ("brulee", "caramel")
+    ];
+
+    private static readonly string[] Groups = ["Pantry", "Preparations", "Dishes"];
+
+    private static int InDegree(string id) => Needs.Count(edge => edge.Target == id);
+
+    private static int OutDegree(string id) => Needs.Count(edge => edge.Source == id);
+
+    private static readonly object KitchenModel = new
+    {
+        nodes = Kitchen.Select(item => new
+        {
+            id = item.Id,
+            label = item.Label,
+            kind = item.Kind,
+            status = item.Status,
+            toneSlug = item.Tone,
+            group = item.Group,
+            groupIndex = Array.IndexOf(Groups, item.Group),
+            ordinal = item.Order,
+            inDegree = InDegree(item.Id),
+            outDegree = OutDegree(item.Id)
+        }).ToArray(),
+        edges = Needs.Select(edge => new { source = edge.Source, target = edge.Target }).ToArray(),
+        emptyMessage = "No ingredients were handed over."
+    };
+
+    private static readonly IReadOnlyList<GraphAtlasNode> KitchenNodes =
+    [
+        .. Kitchen.Select(item => new GraphAtlasNode(
+            item.Id,
+            item.Label,
+            item.Kind,
+            item.Status,
+            item.Tone,
+            item.Group,
+            InDegree(item.Id),
+            OutDegree(item.Id)))
+    ];
+
+    // The sixth is the empty tone: a status in no vocabulary is flagged rather
+    // than styled, and it draws the same hollow ring a retired one does.
+    private sealed record Tone(string Id, string Label, string Status, string Slug);
+
+    private static readonly IReadOnlyList<Tone> Tones =
+    [
+        new("candidate", "Candidate", "candidate", "ready"),
+        new("trial", "Trial", "trial", "draft"),
+        new("adopted", "Adopted", "adopted", "active"),
+        new("hold", "Hold", "hold", "blocked"),
+        new("retired", "Retired", "retired", "archived"),
+        new("mystery", "Mystery", "yolo", "")
+    ];
+
+    private static readonly object ToneModel = new
+    {
+        nodes = Tones.Select((tone, index) => new
+        {
+            id = tone.Id,
+            label = tone.Label,
+            kind = "tone",
+            status = tone.Status,
+            toneSlug = tone.Slug,
+            group = "Ladder",
+            groupIndex = 0,
+            ordinal = index,
+            inDegree = 3,
+            outDegree = 0
+        }).ToArray(),
+        edges = Array.Empty<object>(),
+        emptyMessage = "No tones were handed over."
+    };
+
+    private static readonly IReadOnlyList<GraphAtlasNode> ToneNodes =
+    [
+        .. Tones.Select(tone => new GraphAtlasNode(tone.Id, tone.Label, "tone", tone.Status, tone.Slug, "Ladder", 3, 0))
+    ];
+
+    // A library rather than a knowledge folder, for the same reason the kitchen is
+    // not a technology stack: a story that drew `.domain` would be a screenshot of
+    // the app, and would stop being able to catch the component assuming what it
+    // is drawing. Generated rather than typed out, because what is being reviewed
+    // here is the shape — a dozen clusters, a long tail of small ones — and not
+    // any particular title.
+    private static readonly string[] Shelves =
+        ["Astronomy", "Botany", "Cartography", "Etymology", "Geology", "Horology", "Mycology", "Zoology"];
+
+    private static readonly string[] ShelfTones = ["active", "draft", "ready", "blocked", "archived", ""];
+
+    private static readonly string[] Statuses = ["active", "draft", "proposed", "blocked", "deprecated", "unfiled"];
+
+    private sealed record Volume(string Id, string Label, string Shelf, int ShelfIndex, int Ordinal, string Status, string Tone);
+
+    private static readonly IReadOnlyList<Volume> Library =
+    [
+        .. Shelves.SelectMany((shelf, shelfIndex) =>
+            Enumerable.Range(0, 4 + (shelfIndex % 4)).Select(ordinal =>
+            {
+                var seat = (shelfIndex * 7) + ordinal;
+                return new Volume(
+                    $"{shelf.ToLowerInvariant()}-{ordinal}",
+                    $"{shelf} vol. {ordinal + 1}",
+                    shelf,
+                    shelfIndex,
+                    ordinal,
+                    Statuses[seat % Statuses.Length],
+                    ShelfTones[seat % ShelfTones.Length]);
+            }))
+    ];
+
+    // Deterministic cross-references: each volume points a few shelves along, so
+    // the clusters are linked without the edge set becoming a solid mat.
+    private static readonly (string Source, string Target)[] References =
+    [
+        .. Library.Select((volume, index) => (volume.Id, Library[(index * 5 + 3) % Library.Count].Id))
+            .Where(pair => pair.Item1 != pair.Item2)
+    ];
+
+    private static int LibraryInDegree(string id) => References.Count(edge => edge.Target == id);
+
+    private static int LibraryOutDegree(string id) => References.Count(edge => edge.Source == id);
+
+    private static readonly object LibraryModel = new
+    {
+        nodes = Library.Select(volume => new
+        {
+            id = volume.Id,
+            label = volume.Label,
+            kind = "chapter",
+            status = volume.Status,
+            toneSlug = volume.Tone,
+            group = volume.Shelf,
+            groupIndex = volume.ShelfIndex,
+            ordinal = volume.Ordinal,
+            inDegree = LibraryInDegree(volume.Id),
+            outDegree = LibraryOutDegree(volume.Id)
+        }).ToArray(),
+        edges = References.Select(edge => new { source = edge.Source, target = edge.Target }).ToArray(),
+        emptyMessage = "Nothing on the shelves yet."
+    };
+
+    private static readonly IReadOnlyList<GraphAtlasNode> LibraryNodes =
+    [
+        .. Library.Select(volume => new GraphAtlasNode(
+            volume.Id,
+            volume.Label,
+            "chapter",
+            volume.Status,
+            volume.Tone,
+            volume.Shelf,
+            LibraryInDegree(volume.Id),
+            LibraryOutDegree(volume.Id)))
+    ];
+
+    private static readonly object EmptyModel = new
+    {
+        nodes = Array.Empty<object>(),
+        edges = Array.Empty<object>(),
+        emptyMessage = "Nothing has been mapped yet."
+    };
+
+    private const string AtlasCode = """
+        <GraphAtlas Title="Kitchen — what leans on what"
+                    Data="KitchenModel"
+                    Nodes="KitchenNodes"
+                    SelectedId="@_selectedId"
+                    SelectedIdChanged="OnSelected"
+                    AriaLabel="Kitchen dependency atlas"
+                    IndexLabel="Kitchen, in reading order">
+            <Detail>
+                <DetailSheet Open="@(_selectedId is not null)" ... />
+            </Detail>
+        </GraphAtlas>
+        """;
+
+    private const string ToneCode = """
+        // The slug is the badge modifier the stylesheet already defines; the
+        // status is the caller's own word and is printed unchanged. An empty
+        // slug draws the unknown mark rather than no mark at all.
+        new GraphAtlasNode("hold", "Hold", "tone", "hold", "blocked", "Ladder", 3, 0)
+        """;
+}

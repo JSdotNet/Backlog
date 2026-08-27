@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
+using Backlog.UI.Components.Knowledge;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -202,6 +203,212 @@ public sealed class TechnologyKnowledgeReaderTests
     /// lives here now rather than in the root document's fence, so a fixture that
     /// cares about order writes the index the reader actually consults.
     /// </summary>
+    /// <summary>
+    /// Everything the atlas needs beyond what a lane view did: how much leans on a
+    /// node, where it sits in the reading order, which tone its status wears, and
+    /// which nodes are foundations.
+    /// </summary>
+    [Fact]
+    public void The_graph_carries_degree_reading_order_tone_and_which_nodes_are_foundations()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath);
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        var dotnet = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net");
+        var blazor = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#blazor");
+        var winui = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#winui");
+
+        // Two things depend on .NET and .NET depends on nothing, which is exactly
+        // what makes it a foundation.
+        Assert.Equal(2, dotnet.InDegree);
+        Assert.Equal(0, dotnet.OutDegree);
+        Assert.True(dotnet.IsFoundation);
+
+        Assert.Equal(0, blazor.InDegree);
+        Assert.Equal(1, blazor.OutDegree);
+        Assert.False(blazor.IsFoundation);
+        Assert.Equal(1, winui.OutDegree);
+
+        // Reading order is the committed one — shared before desktop — not
+        // alphabetical, which would put desktop first.
+        Assert.Equal(0, dotnet.LayerIndex);
+        Assert.Equal("shared.md", dotnet.LayerFileName);
+        Assert.Equal(1, blazor.LayerIndex);
+        Assert.Equal(0, blazor.OrdinalInLayer);
+        Assert.Equal(1, winui.OrdinalInLayer);
+    }
+
+    /// <summary>Pinned as a theory against <c>KnowledgeStatus</c> so a change to
+    /// one folder's tone mapping fails here rather than quietly repainting the
+    /// atlas.</summary>
+    [Theory]
+    [InlineData("candidate", "ready")]
+    [InlineData("trial", "draft")]
+    [InlineData("adopted", "active")]
+    [InlineData("hold", "blocked")]
+    [InlineData("retired", "archived")]
+    public void Every_rung_of_the_ladder_wears_the_tone_the_vocabulary_gives_it(string status, string tone)
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, sharedStatus: status);
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        var dotnet = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net");
+
+        Assert.Equal(status, dotnet.Status);
+        Assert.Equal(tone, dotnet.ToneSlug);
+        Assert.Equal(KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech).SlugFor(status), dotnet.ToneSlug);
+    }
+
+    /// <summary>A `depends-on` target outside `.tech` is a real chapter documented
+    /// elsewhere. The derived index already knows its name, its folder and its
+    /// status, so those are read rather than reverse-engineered from the slug.</summary>
+    [Fact]
+    public void A_reference_out_of_the_folder_is_named_from_the_index_rather_than_its_slug()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, dependsOnOutside: true);
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        var outside = Assert.Single(view.Graph.Nodes, node => node.IsBoundary);
+
+        Assert.Equal(".arc42/04-solution-strategy.md#technology-choices", outside.Id);
+        Assert.Equal("Technology Choices", outside.Label);
+        Assert.Equal("Architecture", outside.Layer);
+        Assert.Equal("external", outside.Kind);
+        Assert.Equal(-1, outside.LayerIndex);
+        Assert.Equal(1, outside.InDegree);
+
+        // Its status answers to .arc42's vocabulary, where `active` is Active — not
+        // to this folder's, which does not define the word at all.
+        Assert.Equal("active", outside.Status);
+        Assert.Equal("active", outside.ToneSlug);
+
+        // Not a foundation. A foundation is a technology this project chose to sit
+        // on; this is a chapter somewhere else that happens to be referenced.
+        Assert.False(outside.IsFoundation);
+    }
+
+    /// <summary>The index is generated, so a checkout that has not run the
+    /// generator is a normal state. The graph still reads, with the boundary node
+    /// named from its slug the way it always was.</summary>
+    [Fact]
+    public void A_reference_the_index_does_not_name_falls_back_to_its_slug()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, dependsOnOutside: true, indexNamesOutside: false);
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        var outside = Assert.Single(view.Graph.Nodes, node => node.IsBoundary);
+
+        Assert.Equal("technology choices", outside.Label);
+        Assert.Equal("External reference", outside.Layer);
+        Assert.Equal("unknown", outside.Status);
+        Assert.Equal(string.Empty, outside.ToneSlug);
+    }
+
+    [Fact]
+    public void A_missing_index_does_not_stop_the_graph_being_read()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, dependsOnOutside: true, writeGraphIndex: false);
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        Assert.True(view.Available);
+        Assert.Equal(0, view.Stats.Nodes);
+        Assert.Contains(view.Graph.Nodes, node => node.IsBoundary);
+    }
+
+    /// <summary>
+    /// A heading with punctuation in it anchors the way GitHub anchors it, because
+    /// that is what every <c>depends-on</c> in the repository and every id in
+    /// <c>_meta</c> was written against.
+    ///
+    /// <para>This is a regression test with a scar. The reader used to map every
+    /// non-alphanumeric to a hyphen and collapse the runs, so
+    /// <c>## ASP.NET Core Minimal APIs</c> became <c>asp-net-core-minimal-apis</c>
+    /// while the repository said <c>aspnet-core-minimal-apis</c>. Nothing failed
+    /// loudly: the two <c>depends-on</c> edges naming it simply missed, and the
+    /// graph synthesised an external placeholder for a chapter sitting in the very
+    /// same file. Punctuation is dropped; only whitespace becomes a hyphen.</para>
+    /// </summary>
+    [Fact]
+    public void A_heading_with_punctuation_anchors_the_way_the_repository_writes_it()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        WriteTechIndex(techPath, "cloud.md");
+
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "cloud.md"),
+            "# Cloud Stack\n\n"
+            + "## ASP.NET Core Minimal APIs\n```meta\nstatus: candidate\nkind: framework\n```\n\nThe HTTP surface.\n\n"
+            + "## Azure Container Apps\n```meta\nstatus: candidate\nkind: hosting\ndepends-on: [\".tech/cloud.md#aspnet-core-minimal-apis\"]\n```\n\nWhere it runs.\n");
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        Assert.Contains(view.Graph.Nodes, node => node.Id == ".tech/cloud.md#aspnet-core-minimal-apis");
+
+        // The edge resolves inside the folder, so nothing is synthesised for it.
+        Assert.DoesNotContain(view.Graph.Nodes, node => node.IsBoundary);
+        Assert.Equal(2, view.Graph.Nodes.Count);
+
+        var target = Assert.Single(view.Graph.Nodes, node => node.Label == "ASP.NET Core Minimal APIs");
+        Assert.Equal(1, target.InDegree);
+        Assert.True(target.IsFoundation);
+    }
+
+    /// <summary>A folder with two layers, one dependency inside it and optionally
+    /// one out of it. Enough shape to answer every question above without each
+    /// test writing its own Markdown.</summary>
+    private static string WriteAtlasFolder(
+        string repositoryPath,
+        string sharedStatus = "adopted",
+        bool dependsOnOutside = false,
+        bool indexNamesOutside = true,
+        bool writeGraphIndex = true)
+    {
+        var techPath = Path.Combine(repositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        WriteTechIndex(techPath, "shared.md", "desktop.md");
+
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+
+        var outside = dependsOnOutside ? ", \".arc42/04-solution-strategy.md#technology-choices\"" : string.Empty;
+
+        File.WriteAllText(Path.Combine(techPath, "shared.md"),
+            "# Shared Technologies\n\n## .NET\n```meta\nstatus: " + sharedStatus + "\nkind: runtime\n```\n\nCross-platform runtime.\n");
+
+        File.WriteAllText(Path.Combine(techPath, "desktop.md"),
+            "# Desktop Stack\n\n"
+            + "## Blazor\n```meta\nstatus: candidate\nkind: ui-framework\ndepends-on: [\".tech/shared.md#net\"" + outside + "]\n```\n\nComponent model.\n\n"
+            + "## WinUI\n```meta\nstatus: adopted\nkind: ui-framework\ndepends-on: [\".tech/shared.md#net\"]\n```\n\nThe window it all sits in.\n");
+
+        if (writeGraphIndex)
+        {
+            var boundary = dependsOnOutside && indexNamesOutside
+                ? ", { \"data\": { \"id\": \".arc42/04-solution-strategy.md#technology-choices\", \"label\": \"Technology Choices\","
+                  + " \"type\": \"chapter\", \"folder\": \"arc42\", \"path\": \".arc42/04-solution-strategy.md\","
+                  + " \"status\": \"active\", \"outOfScope\": true } }"
+                : string.Empty;
+
+            File.WriteAllText(Path.Combine(techPath, "_meta", "graph.json"),
+                "{ \"stats\": { \"nodes\": 3, \"edges\": 3, \"nodesByStatus\": { \"adopted\": 2 } },"
+                + " \"elements\": { \"nodes\": [ { \"data\": { \"id\": \".tech/shared.md#net\", \"label\": \".NET\", \"folder\": \"tech\" } }"
+                + boundary
+                + " ], \"edges\": [] } }");
+        }
+
+        return techPath;
+    }
+
     private static void WriteTechIndex(string techPath, params string[] layers)
     {
         Directory.CreateDirectory(Path.Combine(techPath, "_meta"));

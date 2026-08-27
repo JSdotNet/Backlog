@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Knowledge;
 
 using Bunit;
 
@@ -174,6 +175,124 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
 
         return new Harness(context, tech, folders);
+    }
+
+    /// <summary>
+    /// The atlas is what the pane opens with, and the list beside it is the part
+    /// that has to be there — the canvas is drawn by JS that bUnit never runs, so
+    /// if the list were not rendered in Blazor there would be nothing on screen at
+    /// all under test, and nothing reachable by keyboard in the app.
+    /// </summary>
+    [Fact]
+    public async Task The_atlas_lists_every_technology_beside_the_picture()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        var labels = component.FindAll(".graph-atlas-index__label").Select(row => row.TextContent.Trim()).ToArray();
+
+        // Reading order: shared before desktop, as the index commits it.
+        Assert.Equal([".NET", "Blazor"], labels);
+    }
+
+    [Fact]
+    public async Task Selecting_a_technology_opens_the_sheet_on_it()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        // Closed to begin with: nothing has been picked.
+        Assert.Equal("false", component.Find("[data-testid='technology-atlas-sheet']").GetAttribute("data-open"));
+
+        component.FindAll("[data-testid='graph-atlas-index-option']")[1].Click();
+
+        var sheet = component.Find("[data-testid='technology-atlas-sheet']");
+
+        Assert.Equal("true", sheet.GetAttribute("data-open"));
+        Assert.Equal("Blazor", sheet.QuerySelector(".detail-sheet__title")!.TextContent.Trim());
+
+        // The kicker is the layer, which is the only place the atlas says which
+        // layer a technology came from.
+        Assert.Equal("Desktop Stack", sheet.QuerySelector(".detail-sheet__kicker")!.TextContent.Trim());
+    }
+
+    /// <summary>The status select in the sheet writes to the same file the layer
+    /// grid's does, and offers this folder's own ladder rather than a list of the
+    /// panel's own.</summary>
+    [Fact]
+    public async Task The_sheet_offers_the_folders_own_ladder_and_writes_it_back()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
+
+        var select = component.Find("[data-testid='technology-atlas-state-select'] select");
+        var offered = select.QuerySelectorAll("option").Select(option => option.TextContent.Trim()).ToArray();
+
+        Assert.Equal(KnowledgeStatus.Values(KnowledgeFolder.Tech), offered.Take(5));
+
+        select.Change("hold");
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("status: hold", File.ReadAllText(Path.Combine(harness.TechFolder, "shared.md"))));
+    }
+
+    /// <summary>The pager says where in the sequence the reader is, which is the
+    /// only counter the atlas has — the list itself does not number its rows.</summary>
+    [Fact]
+    public async Task The_pager_counts_the_sequence_and_steps_through_it()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
+
+        Assert.Equal("1", component.Find(".record-pager__index").TextContent.Trim());
+        Assert.Equal("2", component.Find(".record-pager__total").TextContent.Trim());
+
+        component.Find("[data-testid='technology-atlas-pager-next']").Click();
+
+        Assert.Equal("Blazor", component.Find(".detail-sheet__title").TextContent.Trim());
+        Assert.Equal("2", component.Find(".record-pager__index").TextContent.Trim());
+    }
+
+    /// <summary>Closing the sheet is the same state as nothing being selected. Two
+    /// ways to say it would drift the first time one was used and the other was
+    /// not.</summary>
+    [Fact]
+    public async Task Closing_the_sheet_clears_the_selection()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
+        Assert.Equal("true", component.Find("[data-testid='technology-atlas-sheet']").GetAttribute("data-open"));
+
+        component.Find("[data-testid='technology-atlas-sheet-close']").Click();
+
+        Assert.Equal("false", component.Find("[data-testid='technology-atlas-sheet']").GetAttribute("data-open"));
+        Assert.Empty(component.FindAll("[role='option'][aria-selected='true']"));
     }
 
     private const string TechnologyGraph = """

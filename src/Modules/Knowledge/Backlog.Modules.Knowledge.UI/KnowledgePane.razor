@@ -28,10 +28,31 @@
           TabCssClass="knowledge-stack__nav-item"
           ActiveTabCssClass="knowledge-stack__nav-item knowledge-stack__nav-item--active"
           ActiveId="@EffectiveSection"
-          ActiveIdChanged="SelectSection">
+          ActiveIdChanged="SelectSection"
+          StripCssClass="knowledge-stack__strip">
 
-        <div class="knowledge-stack__body @(SectionUsesMenu ? string.Empty : "knowledge-stack__body--without-menu")">
-            @if (SectionUsesMenu)
+    @* One quiet button, on the same line as the section tabs rather than on a row
+       of its own below them — that row cost height and gave nothing back. The map
+       is a second way of looking at a set of documents rather than the way you
+       read them, so it is offered and not imposed; Technology is the exception,
+       and it has a tab of its own because a technology stack *is* a graph. *@
+    <ListTrailing>
+        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech"))
+        {
+            <AppButton BaseClass="knowledge-stack__atlas-toggle"
+                       Variant="ButtonVariant.None"
+                       TestId="knowledge-atlas-toggle"
+                       title="@(_atlasOpen ? "Close the atlas" : "See how this knowledge links together")"
+                       aria-expanded="@(_atlasOpen ? "true" : "false")"
+                       OnClick="ToggleAtlasAsync">
+                @(_atlasOpen ? "Hide atlas" : "Atlas")
+            </AppButton>
+        }
+    </ListTrailing>
+
+    <ChildContent>
+        <div class="knowledge-stack__body @(SectionUsesMenu && !_atlasOpen ? string.Empty : "knowledge-stack__body--without-menu")">
+            @if (SectionUsesMenu && !_atlasOpen)
             {
                 <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
                                        RootFolder="ActiveMenuRoot"
@@ -58,13 +79,32 @@
             {
                 @foreach (var area in VisibleAreas)
                 {
-                    <TabPanel Id="@area.Key" Title="@area.Label" BaseClass="knowledge-stack__section">
-                        @RenderSection(area.Key)
+                    @* The panel always renders: Tabs builds the section strip from
+                       the panels that register with it, so swapping the panels out
+                       for the map took the strip away with them and left the reader
+                       no way back to a section. What the map replaces is the panel's
+                       contents. *@
+                    <TabPanel Id="@area.Key"
+                              Title="@area.Label"
+                              BaseClass="@(_atlasOpen ? "knowledge-stack__section knowledge-stack__section--atlas" : "knowledge-stack__section")">
+                        @if (_atlasOpen)
+                        {
+                            <KnowledgeAtlasView Scope="@AtlasScope"
+                                                Scopes="@AtlasScopes"
+                                                ScopeChanged="scope => _atlasScopeKey = scope.Key"
+                                                RepositoryAlias="@ActiveRepositoryAlias"
+                                                OnNavigateToChapter="OpenChapterFromAtlas" />
+                        }
+                        else
+                        {
+                            @RenderSection(area.Key)
+                        }
                     </TabPanel>
                 }
             }
         </div>
-    </Tabs>
+    </ChildContent>
+</Tabs>
 </section>
 
 @code {
@@ -75,6 +115,8 @@
     private string? _folderOpenError;
     private bool _menuLoading;
     private string _selectedSection = "instructions";
+    private string _atlasScopeKey = "all";
+    private bool _atlasOpen;
     private string? _loadedMenuRepositoryAlias;
     private string _loadedMenuVisibleKeyFingerprint = string.Empty;
 
@@ -122,8 +164,23 @@
     private string? SelectedChapterPath =>
         SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
 
+    /// <summary>Keeps the map on the section the strip is showing. With the atlas
+    /// open the tabs are still live, and a reader pressing Domain while looking at
+    /// the Design map plainly means "show me Domain" — leaving the map where it was
+    /// would make the strip and the scope picker disagree about what is on
+    /// screen.</summary>
+    private void FollowSectionWithAtlas(string key)
+    {
+        if (!_atlasOpen) return;
+
+        _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, key, StringComparison.Ordinal))
+            ? key
+            : KnowledgeAtlasScope.All.Key;
+    }
+
     private void SelectSection(string key)
     {
+        FollowSectionWithAtlas(key);
         _selectedSection = key;
         _folderOpenError = null;
         if (SectionUsesMenu)
@@ -169,6 +226,52 @@
     /// reference having broken the pane rather than as the reference being stale.
     /// </para>
     /// </summary>
+    /// <summary>The scopes the atlas offers: whichever sections this repository
+    /// has turned on, and all of them together. Built from the same list the
+    /// section strip is built from, so a folder switched off disappears from both
+    /// at once.</summary>
+    private IReadOnlyList<KnowledgeAtlasScope> AtlasScopes =>
+    [
+        KnowledgeAtlasScope.All,
+        .. VisibleAreas
+            .Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))
+            .Select(KnowledgeAtlasScope.ForArea)
+    ];
+
+    private KnowledgeAtlasScope AtlasScope =>
+        AtlasScopes.FirstOrDefault(scope => string.Equals(scope.Key, _atlasScopeKey, StringComparison.Ordinal))
+            ?? KnowledgeAtlasScope.All;
+
+    /// <summary>Opens the map on the section the reader is in, so the button means
+    /// "show me this" rather than "show me everything" — widening to the whole
+    /// base is then one control away, inside the map.</summary>
+    private Task ToggleAtlasAsync()
+    {
+        if (_atlasOpen)
+        {
+            CloseAtlas();
+            return Task.CompletedTask;
+        }
+
+        _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, EffectiveSection, StringComparison.Ordinal))
+            ? EffectiveSection
+            : KnowledgeAtlasScope.All.Key;
+
+        _atlasOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private void CloseAtlas() => _atlasOpen = false;
+
+    /// <summary>Following a document out of the map closes the map. The reader
+    /// asked to go and read it, and leaving the atlas up over the thing they asked
+    /// for would be answering a different question.</summary>
+    private void OpenChapterFromAtlas(KnowledgeChapterLink target)
+    {
+        SelectChapter(target);
+        _atlasOpen = false;
+    }
+
     private void SelectChapter(KnowledgeChapterLink target)
     {
         if (target is null) return;

@@ -1883,7 +1883,7 @@
           "path": ".tech/technology-graph.md",
           "slug": "ai-development-vocabulary",
           "level": 2,
-          "line": 308
+          "line": 314
         }
       },
       {
@@ -2100,7 +2100,8 @@
             ".arc42/04-solution-strategy.md#technology-choices",
             ".design/color-scheme.md#per-stack-token-mapping",
             ".design/content-editing.md",
-            ".design/interaction-guidelines.md#drag-and-drop-reordering"
+            ".design/interaction-guidelines.md#drag-and-drop-reordering",
+            ".design/accessibility.md#keyboard-navigation"
           ],
           "outOfScope": true
         }

@@ -163,6 +163,7 @@ internal static class StorybookIndex
             // already settled, kept where the diagrams it compares are.
             new("diagrams/archify", "Mermaid beside Archify", "The same diagram drawn twice — the live mermaid render next to a generated Archify document — and what the second one adds, loses and costs."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
+            new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
 
             // Last of the base content items, and one of the places the ordering
             // rule is bent rather than followed: a DataTable cell is a template the caller
