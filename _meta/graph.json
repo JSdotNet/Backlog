@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 750,
-    "edges": 1481,
+    "nodes": 768,
+    "edges": 1524,
     "nodesByFolder": {
-      "arc42": 63,
+      "arc42": 81,
       "domain": 489,
       "backlog": 4,
       "tech": 98,
       "design": 96
     },
     "nodesByType": {
-      "file": 105,
+      "file": 123,
       "chapter": 636,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 185,
-      "proposed": 33,
-      "draft": 416,
+      "active": 200,
+      "proposed": 37,
+      "draft": 415,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -39,7 +39,7 @@
     },
     "edgesByType": {
       "contains": 645,
-      "related": 695,
+      "related": 738,
       "depends-on": 139,
       "implements": 2
     }
@@ -724,7 +724,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 100,
+          "line": 101,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -740,7 +740,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 111,
+          "line": 113,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -768,16 +768,17 @@
       },
       {
         "data": {
-          "id": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
-          "label": "Sync-service ADR alignments",
+          "id": ".arc42/09-architecture-decisions.md#sync-service-alignments",
+          "label": "Sync-service alignments",
           "type": "chapter",
           "folder": "arc42",
           "path": ".arc42/09-architecture-decisions.md",
-          "slug": "sync-service-adr-alignments",
+          "slug": "sync-service-alignments",
           "level": 2,
-          "line": 15,
+          "line": 26,
           "status": "active",
           "related": [
+            ".arc42/adr/guidelines/README.md",
             ".arc42/05-building-block-view.md#cloud-service",
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
           ]
@@ -792,9 +793,10 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "beyond-the-sync-service",
           "level": 2,
-          "line": 42,
-          "status": "draft",
+          "line": 56,
+          "status": "active",
           "related": [
+            ".arc42/adr/guidelines/README.md",
             ".arc42/05-building-block-view.md#container-view"
           ]
         }
@@ -808,7 +810,7 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "local-system-decisions",
           "level": 2,
-          "line": 59,
+          "line": 72,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md"
@@ -824,7 +826,7 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "local-adrs",
           "level": 2,
-          "line": 77,
+          "line": 90,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md"
@@ -909,7 +911,10 @@
           "slug": "technical-debt",
           "level": 2,
           "line": 40,
-          "status": "draft"
+          "status": "draft",
+          "related": [
+            ".arc42/adr/guidelines/README.md"
+          ]
         }
       },
       {
@@ -999,6 +1004,262 @@
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
             ".domain/backlog/domain.md#backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/README.md",
+          "label": "Architecture Decision Records",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/README.md",
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md",
+            ".arc42/adr/guidelines/README.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0001-adopt-dotnet-10.md",
+          "label": "ADR 0001: .NET 10 as the target framework",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0001-adopt-dotnet-10.md",
+          "status": "active",
+          "related": [
+            ".tech/shared.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0002-central-package-management.md",
+          "label": "ADR 0002: Central Package Management",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0002-central-package-management.md",
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
+          "label": "ADR 0003: .NET Aspire for orchestration",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md",
+            ".tech/tooling.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0004-result-objects-for-expected-failures.md",
+          "label": "ADR 0004: Result objects for expected failures",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0004-result-objects-for-expected-failures.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0005-modular-monolith-structure.md",
+          "label": "ADR 0005: Modular monolith structure",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0005-modular-monolith-structure.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md",
+            ".domain/context-map.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0006-cqrs-for-api-projects.md",
+          "label": "ADR 0006: Lightweight CQRS, no mediator",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0006-cqrs-for-api-projects.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0007-minimal-apis-over-controllers.md",
+          "label": "ADR 0007: Minimal APIs over controllers",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0007-minimal-apis-over-controllers.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0009-feature-slices-module-structure.md",
+          "label": "ADR 0009: Feature slices inside a module",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0009-feature-slices-module-structure.md",
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md",
+            ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0010-opentelemetry-observability.md",
+          "label": "ADR 0010: OpenTelemetry for observability",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0010-opentelemetry-observability.md",
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#observability",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md",
+          "label": "ADR 0011: Centralized frontend styling variables",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md",
+          "status": "active",
+          "related": [
+            ".design/color-scheme.md",
+            ".design/typography-and-layout.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "label": "ADR 0012: Authentication with external identity providers",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+          "label": "ADR 0013: Authorization and the Zero Trust model",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "label": "ADR 0014: Persistence and repository boundaries",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "status": "active",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md",
+          "label": "ADR 0015: Resilience for outbound dependencies",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md",
+          "status": "active",
+          "related": [
+            ".arc42/06-runtime-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md",
+          "label": "ADR 0017: HTTP error contract and Problem Details",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0018-configuration-and-options-binding.md",
+          "label": "ADR 0018: Configuration and options binding",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0018-configuration-and-options-binding.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/07-deployment-view.md",
+            ".arc42/09-architecture-decisions.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/README.md",
+          "label": "Adopted Organization Guidelines",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/README.md",
+          "status": "active",
+          "related": [
+            ".arc42/09-architecture-decisions.md",
+            ".arc42/02-constraints.md#technical-constraints"
           ]
         }
       },
@@ -8699,7 +8960,7 @@
           "path": ".tech/ai-development.md",
           "slug": "orchestration-dashboard",
           "level": 2,
-          "line": 140,
+          "line": 143,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#model-context-protocol-servers"
@@ -8718,7 +8979,7 @@
           "path": ".tech/ai-development.md",
           "slug": "repository-instruction-files",
           "level": 2,
-          "line": 159,
+          "line": 162,
           "status": "adopted",
           "alternatives": [
             "AGENTS.md",
@@ -8743,7 +9004,7 @@
           "path": ".tech/ai-development.md",
           "slug": "claude-code-hooks",
           "level": 2,
-          "line": 184,
+          "line": 187,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code",
@@ -8763,7 +9024,7 @@
           "path": ".tech/ai-development.md",
           "slug": "knowledge-base-plugin",
           "level": 2,
-          "line": 202,
+          "line": 205,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code-plugins",
@@ -8784,7 +9045,7 @@
           "path": ".tech/ai-development.md",
           "slug": "knowledge-canvas-extension",
           "level": 2,
-          "line": 221,
+          "line": 224,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code-plugins",
@@ -8805,7 +9066,7 @@
           "path": ".tech/ai-development.md",
           "slug": "git-worktree-sessions",
           "level": 2,
-          "line": 240,
+          "line": 243,
           "status": "adopted",
           "depends-on": [
             ".tech/tooling.md#git"
@@ -10501,7 +10762,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 193,
+          "line": 195,
           "status": "active"
         }
       },
@@ -12209,9 +12470,9 @@
       },
       {
         "data": {
-          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "id": "contains:.arc42/09-architecture-decisions.md->.arc42/09-architecture-decisions.md#sync-service-alignments",
           "source": ".arc42/09-architecture-decisions.md",
-          "target": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "target": ".arc42/09-architecture-decisions.md#sync-service-alignments",
           "type": "contains"
         }
       },
@@ -17513,17 +17774,33 @@
       },
       {
         "data": {
-          "id": "related:.arc42/09-architecture-decisions.md#sync-service-adr-alignments->.arc42/05-building-block-view.md#cloud-service",
-          "source": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "id": "related:.arc42/09-architecture-decisions.md#sync-service-alignments->.arc42/adr/guidelines/README.md",
+          "source": ".arc42/09-architecture-decisions.md#sync-service-alignments",
+          "target": ".arc42/adr/guidelines/README.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#sync-service-alignments->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/09-architecture-decisions.md#sync-service-alignments",
           "target": ".arc42/05-building-block-view.md#cloud-service",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/09-architecture-decisions.md#sync-service-adr-alignments->.arc42/07-deployment-view.md#cloud-deployment-azure",
-          "source": ".arc42/09-architecture-decisions.md#sync-service-adr-alignments",
+          "id": "related:.arc42/09-architecture-decisions.md#sync-service-alignments->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/09-architecture-decisions.md#sync-service-alignments",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/09-architecture-decisions.md#beyond-the-sync-service->.arc42/adr/guidelines/README.md",
+          "source": ".arc42/09-architecture-decisions.md#beyond-the-sync-service",
+          "target": ".arc42/adr/guidelines/README.md",
           "type": "related"
         }
       },
@@ -17572,6 +17849,14 @@
           "id": "related:.arc42/11-risks-and-technical-debt.md#architectural-risks->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".arc42/11-risks-and-technical-debt.md#architectural-risks",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/11-risks-and-technical-debt.md#technical-debt->.arc42/adr/guidelines/README.md",
+          "source": ".arc42/11-risks-and-technical-debt.md#technical-debt",
+          "target": ".arc42/adr/guidelines/README.md",
           "type": "related"
         }
       },
@@ -17684,6 +17969,326 @@
           "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#backlog-entry",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/README.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/README.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/README.md->.arc42/adr/guidelines/README.md",
+          "source": ".arc42/adr/README.md",
+          "target": ".arc42/adr/guidelines/README.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0001-adopt-dotnet-10.md->.tech/shared.md",
+          "source": ".arc42/adr/guidelines/0001-adopt-dotnet-10.md",
+          "target": ".tech/shared.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0001-adopt-dotnet-10.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0001-adopt-dotnet-10.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0002-central-package-management.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0002-central-package-management.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0003-aspire-for-web-services.md->.arc42/07-deployment-view.md",
+          "source": ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
+          "target": ".arc42/07-deployment-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0003-aspire-for-web-services.md->.tech/tooling.md",
+          "source": ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
+          "target": ".tech/tooling.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0003-aspire-for-web-services.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0004-result-objects-for-expected-failures.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/guidelines/0004-result-objects-for-expected-failures.md",
+          "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0004-result-objects-for-expected-failures.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0004-result-objects-for-expected-failures.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0005-modular-monolith-structure.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/guidelines/0005-modular-monolith-structure.md",
+          "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0005-modular-monolith-structure.md->.domain/context-map.md",
+          "source": ".arc42/adr/guidelines/0005-modular-monolith-structure.md",
+          "target": ".domain/context-map.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0005-modular-monolith-structure.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0005-modular-monolith-structure.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0006-cqrs-for-api-projects.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/guidelines/0006-cqrs-for-api-projects.md",
+          "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0006-cqrs-for-api-projects.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0006-cqrs-for-api-projects.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0007-minimal-apis-over-controllers.md->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/adr/guidelines/0007-minimal-apis-over-controllers.md",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0007-minimal-apis-over-controllers.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0007-minimal-apis-over-controllers.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0009-feature-slices-module-structure.md->.arc42/05-building-block-view.md",
+          "source": ".arc42/adr/guidelines/0009-feature-slices-module-structure.md",
+          "target": ".arc42/05-building-block-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0009-feature-slices-module-structure.md->.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "source": ".arc42/adr/guidelines/0009-feature-slices-module-structure.md",
+          "target": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0009-feature-slices-module-structure.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0009-feature-slices-module-structure.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0010-opentelemetry-observability.md->.arc42/08-crosscutting-concepts.md#observability",
+          "source": ".arc42/adr/guidelines/0010-opentelemetry-observability.md",
+          "target": ".arc42/08-crosscutting-concepts.md#observability",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0010-opentelemetry-observability.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0010-opentelemetry-observability.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md->.design/color-scheme.md",
+          "source": ".arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md",
+          "target": ".design/color-scheme.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md->.design/typography-and-layout.md",
+          "source": ".arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md",
+          "target": ".design/typography-and-layout.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0012-authentication-external-identity-providers.md->.arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "source": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "target": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0012-authentication-external-identity-providers.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0013-authorization-zero-trust.md->.arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "source": ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+          "target": ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0013-authorization-zero-trust.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md->.arc42/06-runtime-view.md",
+          "source": ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md",
+          "target": ".arc42/06-runtime-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md->.arc42/05-building-block-view.md#cloud-service",
+          "source": ".arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md",
+          "target": ".arc42/05-building-block-view.md#cloud-service",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0017-http-error-contract-and-problem-details.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0018-configuration-and-options-binding.md->.arc42/07-deployment-view.md",
+          "source": ".arc42/adr/guidelines/0018-configuration-and-options-binding.md",
+          "target": ".arc42/07-deployment-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/0018-configuration-and-options-binding.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/0018-configuration-and-options-binding.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/README.md->.arc42/09-architecture-decisions.md",
+          "source": ".arc42/adr/guidelines/README.md",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/guidelines/README.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/adr/guidelines/README.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
           "type": "related"
         }
       },

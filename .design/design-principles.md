@@ -7,9 +7,9 @@ related: [".arc42/04-solution-strategy.md#local-first-architecture", ".arc42/02-
 
 > Product-level UX principles for the Backlog product. These are the high-level
 > rules every screen and channel must honor; the other `.design` files turn them
-> into concrete tokens and interaction specs. Grounded in the
-> `jsdotnet-project-design` MCP style guide (`04-motion-and-interaction`,
-> `09-interaction-patterns`) and the local-first architecture in
+> into concrete tokens and interaction specs. Adapted from the JSdotNet design
+> style guide (`04-motion-and-interaction`, `09-interaction-patterns`) and the
+> local-first architecture in
 > `.arc42/04-solution-strategy.md`.
 
 Each principle lists **testable rules**. Treat MUST / MUST NOT items as design

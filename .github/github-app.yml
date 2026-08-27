@@ -6,17 +6,15 @@ automation:
 instructions: |
   Use the repository account for GitHub operations in this repository.
   Follow .github/copilot-instructions.md and .github/instructions/*.instructions.md for MCP server usage and agent routing.
+  Repository guidance is checked in, not fetched: read .arc42/adr/guidelines/ and .arc42/adr/ for decisions and .design/ for design guidance.
   For any orch-* workflow, run the matching skill through the copilot-app:orchestrator agent,
   open or reattach the orch-dashboard when available, and keep QA Validation in the shared
   phase sequence for code-modifying work. Do not mark orchestration complete until Personal
   Validation is explicitly approved by the user.
+# The jsdotnet-project-guidelines and jsdotnet-project-design servers were removed on
+# 2026-08-27. Their guidance is checked in: .arc42/adr/guidelines/ (inherited architecture
+# decisions), .arc42/adr/ (local ones), and .design/ (design and UX).
 mcp_servers:
-  - name: jsdotnet-project-guidelines
-    command: jsdotnet-guidelines-mcpserver
-    tools: ["*"]
-  - name: jsdotnet-project-design
-    command: jsdotnet-design-mcpserver
-    tools: ["*"]
   - name: aspire
     command: aspire
     args: ["agent", "mcp"]
