@@ -10,19 +10,19 @@
     ".design"
   ],
   "stats": {
-    "nodes": 707,
-    "edges": 1316,
+    "nodes": 752,
+    "edges": 1486,
     "nodesByFolder": {
       "arc42": 81,
       "domain": 474,
       "backlog": 4,
-      "tech": 53,
+      "tech": 98,
       "design": 95
     },
     "nodesByType": {
-      "file": 121,
-      "chapter": 578,
-      "heading": 8
+      "file": 123,
+      "chapter": 620,
+      "heading": 9
     },
     "nodesByStatus": {
       "active": 199,
@@ -32,14 +32,15 @@
       "deprecated": 3,
       "idea": 1,
       "done": 3,
-      "candidate": 32,
-      "adopted": 21,
-      "none": 8
+      "adopted": 83,
+      "candidate": 13,
+      "hold": 1,
+      "none": 9
     },
     "edgesByType": {
-      "contains": 586,
-      "related": 648,
-      "depends-on": 80,
+      "contains": 629,
+      "related": 717,
+      "depends-on": 138,
       "implements": 2
     }
   },
@@ -8556,6 +8557,265 @@
       },
       {
         "data": {
+          "id": ".tech/ai-development.md",
+          "label": "AI-Assisted Development Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "status": "adopted",
+          "related": [
+            ".tech/technology-graph.md",
+            ".tech/technology-graph.md#ai-development-vocabulary",
+            ".arc42/02-constraints.md#organizational--process-constraints"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#claude-code",
+          "label": "Claude Code",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "claude-code",
+          "level": 2,
+          "line": 20,
+          "status": "adopted",
+          "alternatives": [
+            "GitHub Copilot CLI alone"
+          ],
+          "related": [
+            ".tech/shared.md#anthropic-claude-platform",
+            ".tech/ai-development.md#github-copilot-cli"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#github-copilot-cli",
+          "label": "GitHub Copilot CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "github-copilot-cli",
+          "level": 2,
+          "line": 41,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#github-platform"
+          ],
+          "related": [
+            ".tech/ai-development.md#claude-code"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#claude-code-plugins",
+          "label": "Claude Code Plugins",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "claude-code-plugins",
+          "level": 2,
+          "line": 59,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code",
+            ".tech/ai-development.md#github-copilot-cli"
+          ],
+          "related": [
+            ".tech/ai-development.md#agent-skills",
+            ".tech/ai-development.md#knowledge-base-plugin"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#agent-skills",
+          "label": "Agent Skills",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "agent-skills",
+          "level": 2,
+          "line": 82,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code-plugins",
+            ".tech/shared.md#markdown",
+            ".tech/shared.md#yaml"
+          ],
+          "related": [
+            ".tech/ai-development.md#repository-instruction-files"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#subagents",
+          "label": "Subagents",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "subagents",
+          "level": 2,
+          "line": 102,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code-plugins"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#model-context-protocol-servers",
+          "label": "Model Context Protocol Servers",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "model-context-protocol-servers",
+          "level": 2,
+          "line": 121,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code",
+            ".tech/ai-development.md#github-copilot-cli"
+          ],
+          "related": [
+            ".tech/ai-development.md#orchestration-dashboard",
+            ".tech/testing.md#playwright"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#orchestration-dashboard",
+          "label": "Orchestration Dashboard",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "orchestration-dashboard",
+          "level": 2,
+          "line": 143,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#model-context-protocol-servers"
+          ],
+          "related": [
+            ".tech/ai-development.md#repository-instruction-files"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#repository-instruction-files",
+          "label": "Repository Instruction Files",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "repository-instruction-files",
+          "level": 2,
+          "line": 162,
+          "status": "adopted",
+          "alternatives": [
+            "AGENTS.md",
+            "prompt-only conventions"
+          ],
+          "depends-on": [
+            ".tech/shared.md#markdown"
+          ],
+          "related": [
+            ".tech/ai-development.md#claude-code",
+            ".tech/ai-development.md#github-copilot-cli",
+            ".tech/ai-development.md#agent-skills"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#claude-code-hooks",
+          "label": "Claude Code Hooks",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "claude-code-hooks",
+          "level": 2,
+          "line": 187,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code",
+            ".tech/tooling.md#powershell"
+          ],
+          "related": [
+            ".tech/shared.md#github-platform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#knowledge-base-plugin",
+          "label": "Knowledge Base Plugin",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "knowledge-base-plugin",
+          "level": 2,
+          "line": 205,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code-plugins",
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".tech/ai-development.md#knowledge-canvas-extension",
+            ".tech/tooling.md#knowledge-meta-generator"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#knowledge-canvas-extension",
+          "label": "Knowledge Canvas Extension",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "knowledge-canvas-extension",
+          "level": 2,
+          "line": 224,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/ai-development.md#claude-code-plugins",
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#mermaid"
+          ],
+          "related": [
+            ".tech/ai-development.md#knowledge-base-plugin"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/ai-development.md#git-worktree-sessions",
+          "label": "Git Worktree Sessions",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/ai-development.md",
+          "slug": "git-worktree-sessions",
+          "level": 2,
+          "line": 243,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/tooling.md#git"
+          ],
+          "related": [
+            ".tech/shared.md#net-aspire",
+            ".tech/ai-development.md#claude-code"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/cloud.md",
           "label": "Cloud Stack",
           "type": "file",
@@ -8577,41 +8837,19 @@
           "path": ".tech/cloud.md",
           "slug": "aspnet-core-minimal-apis",
           "level": 2,
-          "line": 12,
-          "status": "candidate",
-          "kind": "framework",
+          "line": 16,
+          "status": "adopted",
           "alternatives": [
             "Azure Functions",
             "Controller-based ASP.NET Core"
           ],
           "depends-on": [
-            ".tech/shared.md#net-runtime",
+            ".tech/shared.md#aspnet-core",
             ".tech/shared.md#c-language"
           ],
           "related": [
             ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
             ".arc42/09-architecture-decisions.md"
-          ]
-        }
-      },
-      {
-        "data": {
-          "id": ".tech/cloud.md#net-aspire",
-          "label": ".NET Aspire",
-          "type": "chapter",
-          "folder": "tech",
-          "path": ".tech/cloud.md",
-          "slug": "net-aspire",
-          "level": 2,
-          "line": 29,
-          "status": "candidate",
-          "kind": "framework",
-          "alternatives": [
-            "Docker Compose only",
-            "no orchestration"
-          ],
-          "depends-on": [
-            ".tech/cloud.md#aspnet-core-minimal-apis"
           ]
         }
       },
@@ -8624,9 +8862,8 @@
           "path": ".tech/cloud.md",
           "slug": "azure-container-apps",
           "level": 2,
-          "line": 45,
+          "line": 35,
           "status": "candidate",
-          "kind": "platform",
           "alternatives": [
             "Azure App Service"
           ],
@@ -8640,6 +8877,28 @@
       },
       {
         "data": {
+          "id": ".tech/cloud.md#azure-ai-foundry",
+          "label": "Azure AI Foundry",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "azure-ai-foundry",
+          "level": 2,
+          "line": 52,
+          "status": "adopted",
+          "alternatives": [
+            "Anthropic API directly",
+            "local models"
+          ],
+          "related": [
+            ".tech/tooling.md#bicep",
+            ".tech/tooling.md#azure-cli",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/cloud.md#azure-cosmos-db",
           "label": "Azure Cosmos DB",
           "type": "chapter",
@@ -8647,9 +8906,8 @@
           "path": ".tech/cloud.md",
           "slug": "azure-cosmos-db",
           "level": 2,
-          "line": 62,
+          "line": 77,
           "status": "candidate",
-          "kind": "service",
           "alternatives": [
             "Azure PostgreSQL",
             "Azure Table Storage"
@@ -8668,9 +8926,8 @@
           "path": ".tech/cloud.md",
           "slug": "azure-key-vault",
           "level": 2,
-          "line": 78,
+          "line": 95,
           "status": "candidate",
-          "kind": "service",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
           ]
@@ -8685,9 +8942,8 @@
           "path": ".tech/cloud.md",
           "slug": "firebase-cloud-messaging",
           "level": 2,
-          "line": 92,
+          "line": 109,
           "status": "candidate",
-          "kind": "service",
           "alternatives": [
             "Azure Notification Hubs"
           ],
@@ -8704,7 +8960,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/desktop.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".tech/technology-graph.md",
             ".arc42/07-deployment-view.md#local-deployment-desktop"
@@ -8721,8 +8977,7 @@
           "slug": "windows",
           "level": 2,
           "line": 11,
-          "status": "candidate",
-          "kind": "platform",
+          "status": "adopted",
           "related": [
             ".arc42/07-deployment-view.md#local-deployment-desktop"
           ]
@@ -8738,8 +8993,7 @@
           "slug": "windows-app-sdk",
           "level": 2,
           "line": 26,
-          "status": "candidate",
-          "kind": "framework",
+          "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#windows",
             ".tech/shared.md#net-runtime"
@@ -8757,7 +9011,6 @@
           "level": 2,
           "line": 39,
           "status": "adopted",
-          "kind": "framework",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk",
             ".tech/shared.md#c-language"
@@ -8770,25 +9023,47 @@
       },
       {
         "data": {
-          "id": ".tech/desktop.md#local-markdown-and-json-store",
-          "label": "Local Markdown and JSON Store",
+          "id": ".tech/desktop.md#webview2",
+          "label": "WebView2",
           "type": "chapter",
           "folder": "tech",
           "path": ".tech/desktop.md",
-          "slug": "local-markdown-and-json-store",
+          "slug": "webview2",
           "level": 2,
           "line": 58,
-          "status": "candidate",
-          "kind": "library",
+          "status": "adopted",
+          "depends-on": [
+            ".tech/desktop.md#windows-app-sdk"
+          ],
+          "related": [
+            ".tech/shared.md#blazor-hybrid",
+            ".tech/testing.md#playwright",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/desktop.md#local-task-store",
+          "label": "Local Task Store",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "local-task-store",
+          "level": 2,
+          "line": 76,
+          "status": "adopted",
           "alternatives": [
-            "SQLite",
+            "Markdown files with YAML frontmatter",
             "LiteDB"
           ],
           "depends-on": [
-            ".tech/shared.md#markdown",
+            ".tech/shared.md#sqlite",
+            ".tech/shared.md#microsoftdatasqlite",
             ".tech/shared.md#json"
           ],
           "related": [
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
           ]
         }
@@ -8802,9 +9077,8 @@
           "path": ".tech/desktop.md",
           "slug": "background-workers",
           "level": 2,
-          "line": 75,
+          "line": 97,
           "status": "candidate",
-          "kind": "library",
           "depends-on": [
             ".tech/shared.md#net-runtime"
           ],
@@ -8822,9 +9096,8 @@
           "path": ".tech/desktop.md",
           "slug": "github-cli",
           "level": 2,
-          "line": 91,
+          "line": 114,
           "status": "adopted",
-          "kind": "tool",
           "alternatives": [
             "Octokit.NET",
             "raw REST calls"
@@ -8846,14 +9119,14 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 108,
+          "line": 133,
           "status": "adopted",
-          "kind": "tool",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
           ],
           "related": [
-            ".arc42/07-deployment-view.md#installation-and-updates"
+            ".arc42/07-deployment-view.md#installation-and-updates",
+            ".tech/tooling.md#powershell"
           ]
         }
       },
@@ -8866,9 +9139,8 @@
           "path": ".tech/desktop.md",
           "slug": "app-installer-appinstaller",
           "level": 2,
-          "line": 132,
+          "line": 157,
           "status": "adopted",
-          "kind": "format",
           "depends-on": [
             ".tech/desktop.md#msix-packaging"
           ],
@@ -8900,15 +9172,16 @@
           "path": ".tech/ide.md",
           "slug": "vs-code-extension-api",
           "level": 2,
-          "line": 11,
-          "status": "candidate",
-          "kind": "framework",
+          "line": 12,
+          "status": "adopted",
+          "version": "^1.90.0",
           "depends-on": [
             ".tech/shared.md#typescript",
             ".tech/shared.md#nodejs"
           ],
           "related": [
-            ".arc42/04-solution-strategy.md#technology-choices"
+            ".arc42/04-solution-strategy.md#technology-choices",
+            ".tech/shared.md#net-aspire"
           ]
         }
       },
@@ -8921,9 +9194,8 @@
           "path": ".tech/ide.md",
           "slug": "vs-code-webview-ui",
           "level": 2,
-          "line": 27,
+          "line": 34,
           "status": "candidate",
-          "kind": "framework",
           "alternatives": [
             "Native tree/quick-pick UI only"
           ],
@@ -8941,9 +9213,8 @@
           "path": ".tech/ide.md",
           "slug": "visual-studio-extensibility",
           "level": 2,
-          "line": 42,
+          "line": 50,
           "status": "candidate",
-          "kind": "framework",
           "depends-on": [
             ".tech/shared.md#c-language"
           ],
@@ -8961,9 +9232,8 @@
           "path": ".tech/ide.md",
           "slug": "wpf",
           "level": 2,
-          "line": 58,
+          "line": 66,
           "status": "candidate",
-          "kind": "framework",
           "depends-on": [
             ".tech/ide.md#visual-studio-extensibility",
             ".tech/shared.md#net-runtime"
@@ -8977,7 +9247,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/mobile.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".tech/technology-graph.md",
             ".arc42/04-solution-strategy.md#technology-choices"
@@ -8994,8 +9264,7 @@
           "slug": "android",
           "level": 2,
           "line": 11,
-          "status": "candidate",
-          "kind": "platform",
+          "status": "adopted",
           "related": [
             ".tech/cloud.md#firebase-cloud-messaging",
             ".tech/shared.md#net-maui"
@@ -9013,7 +9282,6 @@
           "level": 2,
           "line": 32,
           "status": "candidate",
-          "kind": "library",
           "alternatives": [
             "SQLite"
           ],
@@ -9021,8 +9289,42 @@
             ".tech/shared.md#json"
           ],
           "related": [
-            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".tech/desktop.md#local-task-store"
           ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#android-sdk-build-tools",
+          "label": "Android SDK Build Tools",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "android-sdk-build-tools",
+          "level": 2,
+          "line": 51,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/mobile.md#android",
+            ".tech/mobile.md#java-jdk"
+          ],
+          "related": [
+            ".tech/mobile.md#apk-packaging"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/mobile.md#java-jdk",
+          "label": "Java JDK",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/mobile.md",
+          "slug": "java-jdk",
+          "level": 2,
+          "line": 69,
+          "status": "adopted"
         }
       },
       {
@@ -9034,11 +9336,11 @@
           "path": ".tech/mobile.md",
           "slug": "apk-packaging",
           "level": 2,
-          "line": 48,
+          "line": 83,
           "status": "adopted",
-          "kind": "tool",
           "depends-on": [
-            ".tech/mobile.md#android"
+            ".tech/mobile.md#android",
+            ".tech/mobile.md#android-sdk-build-tools"
           ],
           "related": [
             ".arc42/07-deployment-view.md#installation-and-updates-mobile"
@@ -9052,7 +9354,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/shared.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".tech/technology-graph.md",
             ".arc42/02-constraints.md#technical-constraints"
@@ -9070,10 +9372,10 @@
           "level": 2,
           "line": 11,
           "status": "adopted",
-          "kind": "format",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
-            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"
           ]
         }
       },
@@ -9086,9 +9388,8 @@
           "path": ".tech/shared.md",
           "slug": "json",
           "level": 2,
-          "line": 27,
+          "line": 30,
           "status": "adopted",
-          "kind": "format",
           "related": [
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
           ]
@@ -9103,9 +9404,8 @@
           "path": ".tech/shared.md",
           "slug": "yaml",
           "level": 2,
-          "line": 42,
-          "status": "adopted",
-          "kind": "format"
+          "line": 47,
+          "status": "adopted"
         }
       },
       {
@@ -9117,11 +9417,13 @@
           "path": ".tech/shared.md",
           "slug": "mermaid",
           "level": 2,
-          "line": 55,
+          "line": 61,
           "status": "adopted",
-          "kind": "format",
           "depends-on": [
             ".tech/shared.md#markdown"
+          ],
+          "related": [
+            ".tech/tooling.md#archify"
           ]
         }
       },
@@ -9134,9 +9436,8 @@
           "path": ".tech/shared.md",
           "slug": "net-runtime",
           "level": 2,
-          "line": 70,
-          "status": "candidate",
-          "kind": "runtime",
+          "line": 79,
+          "status": "adopted",
           "version": "10.0",
           "alternatives": [
             "Node.js only",
@@ -9157,9 +9458,9 @@
           "path": ".tech/shared.md",
           "slug": "c-language",
           "level": 2,
-          "line": 87,
-          "status": "candidate",
-          "kind": "language",
+          "line": 98,
+          "status": "adopted",
+          "version": "latest",
           "depends-on": [
             ".tech/shared.md#net-runtime"
           ],
@@ -9177,9 +9478,9 @@
           "path": ".tech/shared.md",
           "slug": "nodejs",
           "level": 2,
-          "line": 102,
-          "status": "candidate",
-          "kind": "runtime",
+          "line": 116,
+          "status": "adopted",
+          "version": ">=18",
           "related": [
             ".tech/ide.md#vs-code-extension-api"
           ]
@@ -9194,9 +9495,9 @@
           "path": ".tech/shared.md",
           "slug": "typescript",
           "level": 2,
-          "line": 118,
-          "status": "candidate",
-          "kind": "language",
+          "line": 134,
+          "status": "adopted",
+          "version": "^7.0.0",
           "depends-on": [
             ".tech/shared.md#nodejs"
           ],
@@ -9214,9 +9515,9 @@
           "path": ".tech/shared.md",
           "slug": "net-maui",
           "level": 2,
-          "line": 133,
+          "line": 153,
           "status": "adopted",
-          "kind": "framework",
+          "version": "10.0.100",
           "alternatives": [
             "Plain WinUI 3",
             "Blazor WebAssembly PWA",
@@ -9242,19 +9543,284 @@
           "path": ".tech/shared.md",
           "slug": "blazor-hybrid",
           "level": 2,
-          "line": 155,
+          "line": 179,
           "status": "adopted",
-          "kind": "framework",
           "alternatives": [
             "XAML-only MAUI UI",
             "Plain WinUI 3",
             "Blazor WebAssembly PWA"
           ],
           "depends-on": [
-            ".tech/shared.md#net-maui"
+            ".tech/shared.md#net-maui",
+            ".tech/shared.md#razor-components"
           ],
           "related": [
-            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+            ".tech/desktop.md#webview2"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#razor-components",
+          "label": "Razor Components",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "razor-components",
+          "level": 2,
+          "line": 200,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#aspnet-core",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".tech/testing.md#bunit",
+            ".design/component-libraries.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#blazor-server",
+          "label": "Blazor Server",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "blazor-server",
+          "level": 2,
+          "line": 220,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#razor-components",
+            ".tech/shared.md#aspnet-core"
+          ],
+          "related": [
+            ".tech/testing.md#playwright",
+            ".tech/shared.md#net-aspire"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#aspnet-core",
+          "label": "ASP.NET Core",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "aspnet-core",
+          "level": 2,
+          "line": 241,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#net-runtime",
+            ".tech/shared.md#c-language"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#net-aspire",
+          "label": ".NET Aspire",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "net-aspire",
+          "level": 2,
+          "line": 257,
+          "status": "adopted",
+          "version": "13.5.2",
+          "alternatives": [
+            "Docker Compose only",
+            "no orchestration"
+          ],
+          "depends-on": [
+            ".tech/shared.md#aspnet-core",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".tech/tooling.md#aspire-cli",
+            ".tech/shared.md#opentelemetry",
+            ".arc42/07-deployment-view.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#opentelemetry",
+          "label": "OpenTelemetry",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "opentelemetry",
+          "level": 2,
+          "line": 285,
+          "status": "adopted",
+          "version": "1.18.0",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/08-crosscutting-concepts.md",
+            ".arc42/09-architecture-decisions.md",
+            ".tech/shared.md#net-aspire"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#sqlite",
+          "label": "SQLite",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "sqlite",
+          "level": 2,
+          "line": 304,
+          "status": "adopted",
+          "alternatives": [
+            "Markdown files with YAML frontmatter",
+            "LiteDB",
+            "Azure Cosmos DB"
+          ],
+          "depends-on": [
+            ".tech/shared.md#markdown"
+          ],
+          "related": [
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftdatasqlite",
+          "label": "Microsoft.Data.Sqlite",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftdatasqlite",
+          "level": 2,
+          "line": 325,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#sqlite",
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftextensionsdependencyinjection",
+          "label": "Microsoft.Extensions.DependencyInjection",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftextensionsdependencyinjection",
+          "level": 2,
+          "line": 341,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftextensionshttp",
+          "label": "Microsoft.Extensions.Http",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftextensionshttp",
+          "level": 2,
+          "line": 358,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftextensionshttpresilience",
+          "label": "Microsoft.Extensions.Http.Resilience",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftextensionshttpresilience",
+          "level": 2,
+          "line": 373,
+          "status": "adopted",
+          "version": "10.9.0",
+          "depends-on": [
+            ".tech/shared.md#microsoftextensionshttp"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftextensionsservicediscovery",
+          "label": "Microsoft.Extensions.ServiceDiscovery",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftextensionsservicediscovery",
+          "level": 2,
+          "line": 389,
+          "status": "adopted",
+          "version": "10.9.0",
+          "depends-on": [
+            ".tech/shared.md#net-aspire"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#microsoftextensionslogging",
+          "label": "Microsoft.Extensions.Logging",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "microsoftextensionslogging",
+          "level": 2,
+          "line": 405,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".tech/shared.md#opentelemetry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#yamldotnet",
+          "label": "YamlDotNet",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "yamldotnet",
+          "level": 2,
+          "line": 422,
+          "status": "hold",
+          "version": "18.1.0",
+          "alternatives": [
+            "Markdig",
+            "hand-written meta-block parser"
+          ],
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md"
           ]
         }
       },
@@ -9267,9 +9833,8 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 176,
+          "line": 443,
           "status": "adopted",
-          "kind": "service",
           "related": [
             ".arc42/02-constraints.md#organizational--process-constraints"
           ]
@@ -9284,14 +9849,14 @@
           "path": ".tech/shared.md",
           "slug": "anthropic-claude-platform",
           "level": 2,
-          "line": 191,
+          "line": 458,
           "status": "candidate",
-          "kind": "service",
           "alternatives": [
             "Local accumulation of per-response token counts"
           ],
           "related": [
-            ".domain/productivity/features.md#ai-vendor-usage-import"
+            ".domain/productivity/features.md#ai-vendor-usage-import",
+            ".tech/ai-development.md#claude-code"
           ]
         }
       },
@@ -9304,9 +9869,8 @@
           "path": ".tech/shared.md",
           "slug": "github-copilot-usage-apis",
           "level": 2,
-          "line": 211,
+          "line": 479,
           "status": "candidate",
-          "kind": "service",
           "depends-on": [
             ".tech/shared.md#github-platform"
           ],
@@ -9322,7 +9886,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/technology-graph.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
             ".arc42/07-deployment-view.md",
@@ -9332,14 +9896,183 @@
       },
       {
         "data": {
+          "id": ".tech/testing.md",
+          "label": "Testing Stack",
+          "type": "file",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "status": "adopted",
+          "related": [
+            ".tech/technology-graph.md",
+            ".arc42/10-quality-requirements.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#xunit-v3",
+          "label": "xUnit v3",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "xunit-v3",
+          "level": 2,
+          "line": 12,
+          "status": "adopted",
+          "version": "4.0.0",
+          "depends-on": [
+            ".tech/shared.md#net-runtime",
+            ".tech/shared.md#c-language"
+          ],
+          "related": [
+            ".tech/testing.md#microsofttestingplatform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#microsofttestingplatform",
+          "label": "Microsoft.Testing.Platform",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "microsofttestingplatform",
+          "level": 2,
+          "line": 36,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/testing.md#xunit-v3"
+          ],
+          "related": [
+            ".tech/tooling.md#net-sdk"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#microsoftnettestsdk",
+          "label": "Microsoft.NET.Test.Sdk",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "microsoftnettestsdk",
+          "level": 2,
+          "line": 54,
+          "status": "adopted",
+          "version": "18.9.0",
+          "depends-on": [
+            ".tech/testing.md#microsofttestingplatform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#xunitrunnervisualstudio",
+          "label": "xunit.runner.visualstudio",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "xunitrunnervisualstudio",
+          "level": 2,
+          "line": 69,
+          "status": "adopted",
+          "version": "4.0.0",
+          "depends-on": [
+            ".tech/testing.md#xunit-v3"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#microsofttestingextensionstrxreport",
+          "label": "Microsoft.Testing.Extensions.TrxReport",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "microsofttestingextensionstrxreport",
+          "level": 2,
+          "line": 84,
+          "status": "adopted",
+          "version": "2.3.3",
+          "depends-on": [
+            ".tech/testing.md#microsofttestingplatform"
+          ],
+          "related": [
+            ".tech/tooling.md#github-actions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#bunit",
+          "label": "bUnit",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "bunit",
+          "level": 2,
+          "line": 101,
+          "status": "adopted",
+          "version": "2.9.0",
+          "depends-on": [
+            ".tech/shared.md#razor-components",
+            ".tech/testing.md#xunit-v3"
+          ],
+          "related": [
+            ".design/component-libraries.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#coverlet",
+          "label": "coverlet",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "coverlet",
+          "level": 2,
+          "line": 120,
+          "status": "adopted",
+          "version": "10.0.1",
+          "depends-on": [
+            ".tech/testing.md#microsoftnettestsdk"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/testing.md#playwright",
+          "label": "Playwright",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/testing.md",
+          "slug": "playwright",
+          "level": 2,
+          "line": 136,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#blazor-server",
+            ".tech/desktop.md#webview2"
+          ],
+          "related": [
+            ".tech/ai-development.md#model-context-protocol-servers",
+            ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+            ".tech/shared.md#net-aspire"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/tooling.md",
-          "label": "Development and Governance Tooling",
+          "label": "Build and Governance Tooling",
           "type": "file",
           "folder": "tech",
           "path": ".tech/tooling.md",
           "status": "adopted",
           "related": [
-            ".tech/technology-graph.md"
+            ".tech/technology-graph.md",
+            ".tech/ai-development.md"
           ]
         }
       },
@@ -9352,9 +10085,30 @@
           "path": ".tech/tooling.md",
           "slug": "git",
           "level": 2,
-          "line": 12,
+          "line": 13,
           "status": "adopted",
-          "kind": "tool"
+          "related": [
+            ".tech/ai-development.md#git-worktree-sessions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#msbuild",
+          "label": "MSBuild",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "msbuild",
+          "level": 2,
+          "line": 29,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/tooling.md#net-sdk"
+          ],
+          "related": [
+            ".tech/tooling.md#central-package-management"
+          ]
         }
       },
       {
@@ -9366,11 +10120,30 @@
           "path": ".tech/tooling.md",
           "slug": "net-sdk",
           "level": 2,
-          "line": 26,
-          "status": "candidate",
-          "kind": "tool",
+          "line": 50,
+          "status": "adopted",
           "depends-on": [
             ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".tech/testing.md#microsofttestingplatform"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#net-maui-workloads",
+          "label": ".NET MAUI Workloads",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "net-maui-workloads",
+          "level": 2,
+          "line": 67,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/tooling.md#net-sdk",
+            ".tech/shared.md#net-maui"
           ]
         }
       },
@@ -9383,11 +10156,29 @@
           "path": ".tech/tooling.md",
           "slug": "nuget",
           "level": 2,
-          "line": 40,
-          "status": "candidate",
-          "kind": "tool",
+          "line": 83,
+          "status": "adopted",
           "depends-on": [
             ".tech/tooling.md#net-sdk"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#central-package-management",
+          "label": "Central Package Management",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "central-package-management",
+          "level": 2,
+          "line": 97,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/tooling.md#nuget"
+          ],
+          "related": [
+            ".tech/shared.md#yamldotnet"
           ]
         }
       },
@@ -9400,11 +10191,75 @@
           "path": ".tech/tooling.md",
           "slug": "npm",
           "level": 2,
-          "line": 54,
-          "status": "candidate",
-          "kind": "tool",
+          "line": 120,
+          "status": "adopted",
           "depends-on": [
             ".tech/shared.md#nodejs"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#powershell",
+          "label": "PowerShell",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "powershell",
+          "level": 2,
+          "line": 138,
+          "status": "adopted"
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#bicep",
+          "label": "Bicep",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "bicep",
+          "level": 2,
+          "line": 154,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/tooling.md#azure-cli"
+          ],
+          "related": [
+            ".tech/cloud.md#azure-ai-foundry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#azure-cli",
+          "label": "Azure CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "azure-cli",
+          "level": 2,
+          "line": 170,
+          "status": "adopted",
+          "related": [
+            ".tech/cloud.md#azure-ai-foundry",
+            ".tech/tooling.md#github-actions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#aspire-cli",
+          "label": "Aspire CLI",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "aspire-cli",
+          "level": 2,
+          "line": 187,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#net-aspire"
           ]
         }
       },
@@ -9417,9 +10272,8 @@
           "path": ".tech/tooling.md",
           "slug": "github-actions",
           "level": 2,
-          "line": 68,
+          "line": 204,
           "status": "adopted",
-          "kind": "service",
           "depends-on": [
             ".tech/shared.md#github-platform"
           ]
@@ -9434,9 +10288,8 @@
           "path": ".tech/tooling.md",
           "slug": "codeql",
           "level": 2,
-          "line": 82,
+          "line": 221,
           "status": "adopted",
-          "kind": "tool",
           "depends-on": [
             ".tech/tooling.md#github-actions"
           ]
@@ -9451,108 +10304,91 @@
           "path": ".tech/tooling.md",
           "slug": "dependabot",
           "level": 2,
-          "line": 96,
+          "line": 235,
           "status": "adopted",
-          "kind": "service",
           "depends-on": [
             ".tech/shared.md#github-platform"
-          ]
-        }
-      },
-      {
-        "data": {
-          "id": ".tech/tooling.md#github-copilot-cli",
-          "label": "GitHub Copilot CLI",
-          "type": "chapter",
-          "folder": "tech",
-          "path": ".tech/tooling.md",
-          "slug": "github-copilot-cli",
-          "level": 2,
-          "line": 110,
-          "status": "adopted",
-          "kind": "tool",
-          "depends-on": [
-            ".tech/shared.md#github-platform"
-          ]
-        }
-      },
-      {
-        "data": {
-          "id": ".tech/tooling.md#model-context-protocol-servers",
-          "label": "Model Context Protocol Servers",
-          "type": "chapter",
-          "folder": "tech",
-          "path": ".tech/tooling.md",
-          "slug": "model-context-protocol-servers",
-          "level": 2,
-          "line": 125,
-          "status": "adopted",
-          "kind": "protocol",
-          "depends-on": [
-            ".tech/tooling.md#github-copilot-cli"
           ],
           "related": [
-            ".tech/tooling.md#knowledge-canvas-extension"
+            ".tech/tooling.md#central-package-management"
           ]
         }
       },
       {
         "data": {
-          "id": ".tech/tooling.md#knowledge-base-plugin",
-          "label": "Knowledge Base Plugin",
+          "id": ".tech/tooling.md#knowledge-meta-generator",
+          "label": "knowledge-meta Generator",
           "type": "chapter",
           "folder": "tech",
           "path": ".tech/tooling.md",
-          "slug": "knowledge-base-plugin",
+          "slug": "knowledge-meta-generator",
           "level": 2,
-          "line": 145,
+          "line": 250,
           "status": "adopted",
-          "kind": "tool",
           "depends-on": [
-            ".tech/tooling.md#github-copilot-cli",
-            ".tech/shared.md#nodejs"
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#json"
           ],
           "related": [
-            ".tech/tooling.md#knowledge-canvas-extension"
+            ".tech/ai-development.md#knowledge-base-plugin",
+            ".tech/tooling.md#github-actions"
           ]
         }
       },
       {
         "data": {
-          "id": ".tech/tooling.md#knowledge-canvas-extension",
-          "label": "Knowledge Canvas Extension",
+          "id": ".tech/tooling.md#archify",
+          "label": "Archify",
           "type": "chapter",
           "folder": "tech",
           "path": ".tech/tooling.md",
-          "slug": "knowledge-canvas-extension",
+          "slug": "archify",
           "level": 2,
-          "line": 165,
+          "line": 272,
           "status": "adopted",
-          "kind": "tool",
+          "version": "2.15.0",
           "depends-on": [
-            ".tech/tooling.md#github-copilot-cli",
             ".tech/shared.md#nodejs",
             ".tech/shared.md#mermaid"
           ],
           "related": [
-            ".tech/tooling.md#knowledge-base-plugin"
+            ".tech/tooling.md#ajv",
+            ".tech/tooling.md#simple-icons"
           ]
         }
       },
       {
         "data": {
-          "id": ".tech/tooling.md#aspire-cli",
-          "label": "Aspire CLI",
+          "id": ".tech/tooling.md#ajv",
+          "label": "Ajv",
           "type": "chapter",
           "folder": "tech",
           "path": ".tech/tooling.md",
-          "slug": "aspire-cli",
+          "slug": "ajv",
           "level": 2,
-          "line": 183,
-          "status": "candidate",
-          "kind": "tool",
+          "line": 299,
+          "status": "adopted",
+          "version": "^8.17.1",
           "depends-on": [
-            ".tech/cloud.md#net-aspire"
+            ".tech/tooling.md#archify",
+            ".tech/shared.md#json"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/tooling.md#simple-icons",
+          "label": "simple-icons",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "simple-icons",
+          "level": 2,
+          "line": 316,
+          "status": "adopted",
+          "version": "16.28.0",
+          "depends-on": [
+            ".tech/tooling.md#archify"
           ]
         }
       },
@@ -10945,6 +11781,18 @@
           "slug": "outbound-dependencies",
           "level": 2,
           "line": 12
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/technology-graph.md#ai-development-vocabulary",
+          "label": "AI development vocabulary",
+          "type": "heading",
+          "folder": "tech",
+          "path": ".tech/technology-graph.md",
+          "slug": "ai-development-vocabulary",
+          "level": 2,
+          "line": 308
         }
       },
       {
@@ -14651,6 +15499,102 @@
       },
       {
         "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#github-copilot-cli",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#github-copilot-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#claude-code-plugins",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#claude-code-plugins",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#agent-skills",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#agent-skills",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#subagents",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#subagents",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#model-context-protocol-servers",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#model-context-protocol-servers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#orchestration-dashboard",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#orchestration-dashboard",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#repository-instruction-files",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#repository-instruction-files",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#claude-code-hooks",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#claude-code-hooks",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#knowledge-base-plugin",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#knowledge-base-plugin",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#knowledge-canvas-extension",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#knowledge-canvas-extension",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/ai-development.md->.tech/ai-development.md#git-worktree-sessions",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/ai-development.md#git-worktree-sessions",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/cloud.md->.tech/cloud.md#aspnet-core-minimal-apis",
           "source": ".tech/cloud.md",
           "target": ".tech/cloud.md#aspnet-core-minimal-apis",
@@ -14659,17 +15603,17 @@
       },
       {
         "data": {
-          "id": "contains:.tech/cloud.md->.tech/cloud.md#net-aspire",
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-container-apps",
           "source": ".tech/cloud.md",
-          "target": ".tech/cloud.md#net-aspire",
+          "target": ".tech/cloud.md#azure-container-apps",
           "type": "contains"
         }
       },
       {
         "data": {
-          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-container-apps",
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-ai-foundry",
           "source": ".tech/cloud.md",
-          "target": ".tech/cloud.md#azure-container-apps",
+          "target": ".tech/cloud.md#azure-ai-foundry",
           "type": "contains"
         }
       },
@@ -14723,9 +15667,17 @@
       },
       {
         "data": {
-          "id": "contains:.tech/desktop.md->.tech/desktop.md#local-markdown-and-json-store",
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#webview2",
           "source": ".tech/desktop.md",
-          "target": ".tech/desktop.md#local-markdown-and-json-store",
+          "target": ".tech/desktop.md#webview2",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#local-task-store",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#local-task-store",
           "type": "contains"
         }
       },
@@ -14806,6 +15758,22 @@
           "id": "contains:.tech/mobile.md->.tech/mobile.md#local-offline-store",
           "source": ".tech/mobile.md",
           "target": ".tech/mobile.md#local-offline-store",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#android-sdk-build-tools",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#android-sdk-build-tools",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/mobile.md->.tech/mobile.md#java-jdk",
+          "source": ".tech/mobile.md",
+          "target": ".tech/mobile.md#java-jdk",
           "type": "contains"
         }
       },
@@ -14899,6 +15867,110 @@
       },
       {
         "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#razor-components",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#razor-components",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#blazor-server",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#blazor-server",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#aspnet-core",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#aspnet-core",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#net-aspire",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#opentelemetry",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#opentelemetry",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#sqlite",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#sqlite",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftdatasqlite",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftdatasqlite",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftextensionsdependencyinjection",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftextensionsdependencyinjection",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftextensionshttp",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftextensionshttp",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftextensionshttpresilience",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftextensionshttpresilience",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftextensionsservicediscovery",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftextensionsservicediscovery",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#microsoftextensionslogging",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#microsoftextensionslogging",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#yamldotnet",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#yamldotnet",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/shared.md->.tech/shared.md#github-platform",
           "source": ".tech/shared.md",
           "target": ".tech/shared.md#github-platform",
@@ -14923,9 +15995,81 @@
       },
       {
         "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#xunit-v3",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#xunit-v3",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#microsofttestingplatform",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#microsofttestingplatform",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#microsoftnettestsdk",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#microsoftnettestsdk",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#xunitrunnervisualstudio",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#xunitrunnervisualstudio",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#microsofttestingextensionstrxreport",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#microsofttestingextensionstrxreport",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#bunit",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#bunit",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#coverlet",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#coverlet",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/testing.md->.tech/testing.md#playwright",
+          "source": ".tech/testing.md",
+          "target": ".tech/testing.md#playwright",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/tooling.md->.tech/tooling.md#git",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#git",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#msbuild",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#msbuild",
           "type": "contains"
         }
       },
@@ -14939,6 +16083,14 @@
       },
       {
         "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#net-maui-workloads",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#net-maui-workloads",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/tooling.md->.tech/tooling.md#nuget",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#nuget",
@@ -14947,9 +16099,49 @@
       },
       {
         "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#central-package-management",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#central-package-management",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/tooling.md->.tech/tooling.md#npm",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#npm",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#powershell",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#powershell",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#bicep",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#bicep",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#azure-cli",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#azure-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#aspire-cli",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#aspire-cli",
           "type": "contains"
         }
       },
@@ -14979,41 +16171,33 @@
       },
       {
         "data": {
-          "id": "contains:.tech/tooling.md->.tech/tooling.md#github-copilot-cli",
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#knowledge-meta-generator",
           "source": ".tech/tooling.md",
-          "target": ".tech/tooling.md#github-copilot-cli",
+          "target": ".tech/tooling.md#knowledge-meta-generator",
           "type": "contains"
         }
       },
       {
         "data": {
-          "id": "contains:.tech/tooling.md->.tech/tooling.md#model-context-protocol-servers",
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#archify",
           "source": ".tech/tooling.md",
-          "target": ".tech/tooling.md#model-context-protocol-servers",
+          "target": ".tech/tooling.md#archify",
           "type": "contains"
         }
       },
       {
         "data": {
-          "id": "contains:.tech/tooling.md->.tech/tooling.md#knowledge-base-plugin",
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#ajv",
           "source": ".tech/tooling.md",
-          "target": ".tech/tooling.md#knowledge-base-plugin",
+          "target": ".tech/tooling.md#ajv",
           "type": "contains"
         }
       },
       {
         "data": {
-          "id": "contains:.tech/tooling.md->.tech/tooling.md#knowledge-canvas-extension",
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#simple-icons",
           "source": ".tech/tooling.md",
-          "target": ".tech/tooling.md#knowledge-canvas-extension",
-          "type": "contains"
-        }
-      },
-      {
-        "data": {
-          "id": "contains:.tech/tooling.md->.tech/tooling.md#aspire-cli",
-          "source": ".tech/tooling.md",
-          "target": ".tech/tooling.md#aspire-cli",
+          "target": ".tech/tooling.md#simple-icons",
           "type": "contains"
         }
       },
@@ -19691,6 +20875,334 @@
       },
       {
         "data": {
+          "id": "related:.tech/ai-development.md->.tech/technology-graph.md",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/technology-graph.md->.tech/technology-graph.md#ai-development-vocabulary",
+          "source": ".tech/technology-graph.md",
+          "target": ".tech/technology-graph.md#ai-development-vocabulary",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md->.tech/technology-graph.md#ai-development-vocabulary",
+          "source": ".tech/ai-development.md",
+          "target": ".tech/technology-graph.md#ai-development-vocabulary",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md->.arc42/02-constraints.md#organizational--process-constraints",
+          "source": ".tech/ai-development.md",
+          "target": ".arc42/02-constraints.md#organizational--process-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#claude-code->.tech/shared.md#anthropic-claude-platform",
+          "source": ".tech/ai-development.md#claude-code",
+          "target": ".tech/shared.md#anthropic-claude-platform",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#claude-code->.tech/ai-development.md#github-copilot-cli",
+          "source": ".tech/ai-development.md#claude-code",
+          "target": ".tech/ai-development.md#github-copilot-cli",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#github-copilot-cli->.tech/shared.md#github-platform",
+          "source": ".tech/ai-development.md#github-copilot-cli",
+          "target": ".tech/shared.md#github-platform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#github-copilot-cli->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#github-copilot-cli",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#claude-code-plugins->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#claude-code-plugins",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#claude-code-plugins->.tech/ai-development.md#github-copilot-cli",
+          "source": ".tech/ai-development.md#claude-code-plugins",
+          "target": ".tech/ai-development.md#github-copilot-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#claude-code-plugins->.tech/ai-development.md#agent-skills",
+          "source": ".tech/ai-development.md#claude-code-plugins",
+          "target": ".tech/ai-development.md#agent-skills",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#claude-code-plugins->.tech/ai-development.md#knowledge-base-plugin",
+          "source": ".tech/ai-development.md#claude-code-plugins",
+          "target": ".tech/ai-development.md#knowledge-base-plugin",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#agent-skills->.tech/ai-development.md#claude-code-plugins",
+          "source": ".tech/ai-development.md#agent-skills",
+          "target": ".tech/ai-development.md#claude-code-plugins",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#agent-skills->.tech/shared.md#markdown",
+          "source": ".tech/ai-development.md#agent-skills",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#agent-skills->.tech/shared.md#yaml",
+          "source": ".tech/ai-development.md#agent-skills",
+          "target": ".tech/shared.md#yaml",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#agent-skills->.tech/ai-development.md#repository-instruction-files",
+          "source": ".tech/ai-development.md#agent-skills",
+          "target": ".tech/ai-development.md#repository-instruction-files",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#subagents->.tech/ai-development.md#claude-code-plugins",
+          "source": ".tech/ai-development.md#subagents",
+          "target": ".tech/ai-development.md#claude-code-plugins",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#model-context-protocol-servers->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#model-context-protocol-servers",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#model-context-protocol-servers->.tech/ai-development.md#github-copilot-cli",
+          "source": ".tech/ai-development.md#model-context-protocol-servers",
+          "target": ".tech/ai-development.md#github-copilot-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#model-context-protocol-servers->.tech/ai-development.md#orchestration-dashboard",
+          "source": ".tech/ai-development.md#model-context-protocol-servers",
+          "target": ".tech/ai-development.md#orchestration-dashboard",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#model-context-protocol-servers->.tech/testing.md#playwright",
+          "source": ".tech/ai-development.md#model-context-protocol-servers",
+          "target": ".tech/testing.md#playwright",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#orchestration-dashboard->.tech/ai-development.md#model-context-protocol-servers",
+          "source": ".tech/ai-development.md#orchestration-dashboard",
+          "target": ".tech/ai-development.md#model-context-protocol-servers",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#orchestration-dashboard->.tech/ai-development.md#repository-instruction-files",
+          "source": ".tech/ai-development.md#orchestration-dashboard",
+          "target": ".tech/ai-development.md#repository-instruction-files",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#repository-instruction-files->.tech/shared.md#markdown",
+          "source": ".tech/ai-development.md#repository-instruction-files",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#repository-instruction-files->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#repository-instruction-files",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#repository-instruction-files->.tech/ai-development.md#github-copilot-cli",
+          "source": ".tech/ai-development.md#repository-instruction-files",
+          "target": ".tech/ai-development.md#github-copilot-cli",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#repository-instruction-files->.tech/ai-development.md#agent-skills",
+          "source": ".tech/ai-development.md#repository-instruction-files",
+          "target": ".tech/ai-development.md#agent-skills",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#claude-code-hooks->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#claude-code-hooks",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#claude-code-hooks->.tech/tooling.md#powershell",
+          "source": ".tech/ai-development.md#claude-code-hooks",
+          "target": ".tech/tooling.md#powershell",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#claude-code-hooks->.tech/shared.md#github-platform",
+          "source": ".tech/ai-development.md#claude-code-hooks",
+          "target": ".tech/shared.md#github-platform",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#knowledge-base-plugin->.tech/ai-development.md#claude-code-plugins",
+          "source": ".tech/ai-development.md#knowledge-base-plugin",
+          "target": ".tech/ai-development.md#claude-code-plugins",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#knowledge-base-plugin->.tech/shared.md#nodejs",
+          "source": ".tech/ai-development.md#knowledge-base-plugin",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#knowledge-base-plugin->.tech/ai-development.md#knowledge-canvas-extension",
+          "source": ".tech/ai-development.md#knowledge-base-plugin",
+          "target": ".tech/ai-development.md#knowledge-canvas-extension",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#knowledge-base-plugin->.tech/tooling.md#knowledge-meta-generator",
+          "source": ".tech/ai-development.md#knowledge-base-plugin",
+          "target": ".tech/tooling.md#knowledge-meta-generator",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#knowledge-canvas-extension->.tech/ai-development.md#claude-code-plugins",
+          "source": ".tech/ai-development.md#knowledge-canvas-extension",
+          "target": ".tech/ai-development.md#claude-code-plugins",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#knowledge-canvas-extension->.tech/shared.md#nodejs",
+          "source": ".tech/ai-development.md#knowledge-canvas-extension",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#knowledge-canvas-extension->.tech/shared.md#mermaid",
+          "source": ".tech/ai-development.md#knowledge-canvas-extension",
+          "target": ".tech/shared.md#mermaid",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#knowledge-canvas-extension->.tech/ai-development.md#knowledge-base-plugin",
+          "source": ".tech/ai-development.md#knowledge-canvas-extension",
+          "target": ".tech/ai-development.md#knowledge-base-plugin",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/ai-development.md#git-worktree-sessions->.tech/tooling.md#git",
+          "source": ".tech/ai-development.md#git-worktree-sessions",
+          "target": ".tech/tooling.md#git",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#git-worktree-sessions->.tech/shared.md#net-aspire",
+          "source": ".tech/ai-development.md#git-worktree-sessions",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ai-development.md#git-worktree-sessions->.tech/ai-development.md#claude-code",
+          "source": ".tech/ai-development.md#git-worktree-sessions",
+          "target": ".tech/ai-development.md#claude-code",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.tech/cloud.md->.tech/technology-graph.md",
           "source": ".tech/cloud.md",
           "target": ".tech/technology-graph.md",
@@ -19707,9 +21219,9 @@
       },
       {
         "data": {
-          "id": "depends-on:.tech/cloud.md#aspnet-core-minimal-apis->.tech/shared.md#net-runtime",
+          "id": "depends-on:.tech/cloud.md#aspnet-core-minimal-apis->.tech/shared.md#aspnet-core",
           "source": ".tech/cloud.md#aspnet-core-minimal-apis",
-          "target": ".tech/shared.md#net-runtime",
+          "target": ".tech/shared.md#aspnet-core",
           "type": "depends-on"
         }
       },
@@ -19739,14 +21251,6 @@
       },
       {
         "data": {
-          "id": "depends-on:.tech/cloud.md#net-aspire->.tech/cloud.md#aspnet-core-minimal-apis",
-          "source": ".tech/cloud.md#net-aspire",
-          "target": ".tech/cloud.md#aspnet-core-minimal-apis",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
           "id": "depends-on:.tech/cloud.md#azure-container-apps->.tech/cloud.md#aspnet-core-minimal-apis",
           "source": ".tech/cloud.md#azure-container-apps",
           "target": ".tech/cloud.md#aspnet-core-minimal-apis",
@@ -19757,6 +21261,30 @@
         "data": {
           "id": "related:.tech/cloud.md#azure-container-apps->.arc42/07-deployment-view.md#cloud-deployment-azure",
           "source": ".tech/cloud.md#azure-container-apps",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-ai-foundry->.tech/tooling.md#bicep",
+          "source": ".tech/cloud.md#azure-ai-foundry",
+          "target": ".tech/tooling.md#bicep",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-ai-foundry->.tech/tooling.md#azure-cli",
+          "source": ".tech/cloud.md#azure-ai-foundry",
+          "target": ".tech/tooling.md#azure-cli",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-ai-foundry->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".tech/cloud.md#azure-ai-foundry",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
           "type": "related"
         }
@@ -19867,24 +21395,72 @@
       },
       {
         "data": {
-          "id": "depends-on:.tech/desktop.md#local-markdown-and-json-store->.tech/shared.md#markdown",
-          "source": ".tech/desktop.md#local-markdown-and-json-store",
-          "target": ".tech/shared.md#markdown",
+          "id": "depends-on:.tech/desktop.md#webview2->.tech/desktop.md#windows-app-sdk",
+          "source": ".tech/desktop.md#webview2",
+          "target": ".tech/desktop.md#windows-app-sdk",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "depends-on:.tech/desktop.md#local-markdown-and-json-store->.tech/shared.md#json",
-          "source": ".tech/desktop.md#local-markdown-and-json-store",
+          "id": "related:.tech/desktop.md#webview2->.tech/shared.md#blazor-hybrid",
+          "source": ".tech/desktop.md#webview2",
+          "target": ".tech/shared.md#blazor-hybrid",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#webview2->.tech/testing.md#playwright",
+          "source": ".tech/desktop.md#webview2",
+          "target": ".tech/testing.md#playwright",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#webview2->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".tech/desktop.md#webview2",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#local-task-store->.tech/shared.md#sqlite",
+          "source": ".tech/desktop.md#local-task-store",
+          "target": ".tech/shared.md#sqlite",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#local-task-store->.tech/shared.md#microsoftdatasqlite",
+          "source": ".tech/desktop.md#local-task-store",
+          "target": ".tech/shared.md#microsoftdatasqlite",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#local-task-store->.tech/shared.md#json",
+          "source": ".tech/desktop.md#local-task-store",
           "target": ".tech/shared.md#json",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "related:.tech/desktop.md#local-markdown-and-json-store->.arc42/08-crosscutting-concepts.md#storage-and-sync",
-          "source": ".tech/desktop.md#local-markdown-and-json-store",
+          "id": "related:.tech/desktop.md#local-task-store->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".tech/desktop.md#local-task-store",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#local-task-store->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/desktop.md#local-task-store",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
           "type": "related"
         }
@@ -19934,6 +21510,14 @@
           "id": "related:.tech/desktop.md#msix-packaging->.arc42/07-deployment-view.md#installation-and-updates",
           "source": ".tech/desktop.md#msix-packaging",
           "target": ".arc42/07-deployment-view.md#installation-and-updates",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#msix-packaging->.tech/tooling.md#powershell",
+          "source": ".tech/desktop.md#msix-packaging",
+          "target": ".tech/tooling.md#powershell",
           "type": "related"
         }
       },
@@ -19990,6 +21574,14 @@
           "id": "related:.tech/ide.md#vs-code-extension-api->.arc42/04-solution-strategy.md#technology-choices",
           "source": ".tech/ide.md#vs-code-extension-api",
           "target": ".arc42/04-solution-strategy.md#technology-choices",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/ide.md#vs-code-extension-api->.tech/shared.md#net-aspire",
+          "source": ".tech/ide.md#vs-code-extension-api",
+          "target": ".tech/shared.md#net-aspire",
           "type": "related"
         }
       },
@@ -20083,9 +21675,49 @@
       },
       {
         "data": {
+          "id": "related:.tech/mobile.md#local-offline-store->.tech/desktop.md#local-task-store",
+          "source": ".tech/mobile.md#local-offline-store",
+          "target": ".tech/desktop.md#local-task-store",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#android-sdk-build-tools->.tech/mobile.md#android",
+          "source": ".tech/mobile.md#android-sdk-build-tools",
+          "target": ".tech/mobile.md#android",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#android-sdk-build-tools->.tech/mobile.md#java-jdk",
+          "source": ".tech/mobile.md#android-sdk-build-tools",
+          "target": ".tech/mobile.md#java-jdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/mobile.md#android-sdk-build-tools->.tech/mobile.md#apk-packaging",
+          "source": ".tech/mobile.md#android-sdk-build-tools",
+          "target": ".tech/mobile.md#apk-packaging",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/mobile.md#apk-packaging->.tech/mobile.md#android",
           "source": ".tech/mobile.md#apk-packaging",
           "target": ".tech/mobile.md#android",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/mobile.md#apk-packaging->.tech/mobile.md#android-sdk-build-tools",
+          "source": ".tech/mobile.md#apk-packaging",
+          "target": ".tech/mobile.md#android-sdk-build-tools",
           "type": "depends-on"
         }
       },
@@ -20131,6 +21763,14 @@
       },
       {
         "data": {
+          "id": "related:.tech/shared.md#markdown->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".tech/shared.md#markdown",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.tech/shared.md#json->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".tech/shared.md#json",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
@@ -20143,6 +21783,14 @@
           "source": ".tech/shared.md#mermaid",
           "target": ".tech/shared.md#markdown",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#mermaid->.tech/tooling.md#archify",
+          "source": ".tech/shared.md#mermaid",
+          "target": ".tech/tooling.md#archify",
+          "type": "related"
         }
       },
       {
@@ -20251,9 +21899,281 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/shared.md#blazor-hybrid->.tech/shared.md#razor-components",
+          "source": ".tech/shared.md#blazor-hybrid",
+          "target": ".tech/shared.md#razor-components",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
           "id": "related:.tech/shared.md#blazor-hybrid->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "source": ".tech/shared.md#blazor-hybrid",
           "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#blazor-hybrid->.tech/desktop.md#webview2",
+          "source": ".tech/shared.md#blazor-hybrid",
+          "target": ".tech/desktop.md#webview2",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#razor-components->.tech/shared.md#aspnet-core",
+          "source": ".tech/shared.md#razor-components",
+          "target": ".tech/shared.md#aspnet-core",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#razor-components->.tech/shared.md#c-language",
+          "source": ".tech/shared.md#razor-components",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#razor-components->.tech/testing.md#bunit",
+          "source": ".tech/shared.md#razor-components",
+          "target": ".tech/testing.md#bunit",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#razor-components->.design/component-libraries.md",
+          "source": ".tech/shared.md#razor-components",
+          "target": ".design/component-libraries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#blazor-server->.tech/shared.md#razor-components",
+          "source": ".tech/shared.md#blazor-server",
+          "target": ".tech/shared.md#razor-components",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#blazor-server->.tech/shared.md#aspnet-core",
+          "source": ".tech/shared.md#blazor-server",
+          "target": ".tech/shared.md#aspnet-core",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#blazor-server->.tech/testing.md#playwright",
+          "source": ".tech/shared.md#blazor-server",
+          "target": ".tech/testing.md#playwright",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#blazor-server->.tech/shared.md#net-aspire",
+          "source": ".tech/shared.md#blazor-server",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#aspnet-core->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#aspnet-core",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#aspnet-core->.tech/shared.md#c-language",
+          "source": ".tech/shared.md#aspnet-core",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#net-aspire->.tech/shared.md#aspnet-core",
+          "source": ".tech/shared.md#net-aspire",
+          "target": ".tech/shared.md#aspnet-core",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#net-aspire->.tech/shared.md#c-language",
+          "source": ".tech/shared.md#net-aspire",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-aspire->.tech/tooling.md#aspire-cli",
+          "source": ".tech/shared.md#net-aspire",
+          "target": ".tech/tooling.md#aspire-cli",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-aspire->.tech/shared.md#opentelemetry",
+          "source": ".tech/shared.md#net-aspire",
+          "target": ".tech/shared.md#opentelemetry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#net-aspire->.arc42/07-deployment-view.md",
+          "source": ".tech/shared.md#net-aspire",
+          "target": ".arc42/07-deployment-view.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#opentelemetry->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#opentelemetry",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#opentelemetry->.arc42/08-crosscutting-concepts.md",
+          "source": ".tech/shared.md#opentelemetry",
+          "target": ".arc42/08-crosscutting-concepts.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#opentelemetry->.arc42/09-architecture-decisions.md",
+          "source": ".tech/shared.md#opentelemetry",
+          "target": ".arc42/09-architecture-decisions.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#opentelemetry->.tech/shared.md#net-aspire",
+          "source": ".tech/shared.md#opentelemetry",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#sqlite->.tech/shared.md#markdown",
+          "source": ".tech/shared.md#sqlite",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#sqlite->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".tech/shared.md#sqlite",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#sqlite->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/shared.md#sqlite",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftdatasqlite->.tech/shared.md#sqlite",
+          "source": ".tech/shared.md#microsoftdatasqlite",
+          "target": ".tech/shared.md#sqlite",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftdatasqlite->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#microsoftdatasqlite",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftextensionsdependencyinjection->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#microsoftextensionsdependencyinjection",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftextensionshttp->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#microsoftextensionshttp",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftextensionshttpresilience->.tech/shared.md#microsoftextensionshttp",
+          "source": ".tech/shared.md#microsoftextensionshttpresilience",
+          "target": ".tech/shared.md#microsoftextensionshttp",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftextensionsservicediscovery->.tech/shared.md#net-aspire",
+          "source": ".tech/shared.md#microsoftextensionsservicediscovery",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#microsoftextensionslogging->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#microsoftextensionslogging",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#microsoftextensionslogging->.tech/shared.md#opentelemetry",
+          "source": ".tech/shared.md#microsoftextensionslogging",
+          "target": ".tech/shared.md#opentelemetry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#yamldotnet->.tech/shared.md#net-runtime",
+          "source": ".tech/shared.md#yamldotnet",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#yamldotnet->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".tech/shared.md#yamldotnet",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "type": "related"
         }
       },
@@ -20270,6 +22190,14 @@
           "id": "related:.tech/shared.md#anthropic-claude-platform->.domain/productivity/features.md#ai-vendor-usage-import",
           "source": ".tech/shared.md#anthropic-claude-platform",
           "target": ".domain/productivity/features.md#ai-vendor-usage-import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#anthropic-claude-platform->.tech/ai-development.md#claude-code",
+          "source": ".tech/shared.md#anthropic-claude-platform",
+          "target": ".tech/ai-development.md#claude-code",
           "type": "related"
         }
       },
@@ -20315,9 +22243,201 @@
       },
       {
         "data": {
+          "id": "related:.tech/testing.md->.tech/technology-graph.md",
+          "source": ".tech/testing.md",
+          "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md->.arc42/10-quality-requirements.md",
+          "source": ".tech/testing.md",
+          "target": ".arc42/10-quality-requirements.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#xunit-v3->.tech/shared.md#net-runtime",
+          "source": ".tech/testing.md#xunit-v3",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#xunit-v3->.tech/shared.md#c-language",
+          "source": ".tech/testing.md#xunit-v3",
+          "target": ".tech/shared.md#c-language",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#xunit-v3->.tech/testing.md#microsofttestingplatform",
+          "source": ".tech/testing.md#xunit-v3",
+          "target": ".tech/testing.md#microsofttestingplatform",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#microsofttestingplatform->.tech/testing.md#xunit-v3",
+          "source": ".tech/testing.md#microsofttestingplatform",
+          "target": ".tech/testing.md#xunit-v3",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#microsofttestingplatform->.tech/tooling.md#net-sdk",
+          "source": ".tech/testing.md#microsofttestingplatform",
+          "target": ".tech/tooling.md#net-sdk",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#microsoftnettestsdk->.tech/testing.md#microsofttestingplatform",
+          "source": ".tech/testing.md#microsoftnettestsdk",
+          "target": ".tech/testing.md#microsofttestingplatform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#xunitrunnervisualstudio->.tech/testing.md#xunit-v3",
+          "source": ".tech/testing.md#xunitrunnervisualstudio",
+          "target": ".tech/testing.md#xunit-v3",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#microsofttestingextensionstrxreport->.tech/testing.md#microsofttestingplatform",
+          "source": ".tech/testing.md#microsofttestingextensionstrxreport",
+          "target": ".tech/testing.md#microsofttestingplatform",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#microsofttestingextensionstrxreport->.tech/tooling.md#github-actions",
+          "source": ".tech/testing.md#microsofttestingextensionstrxreport",
+          "target": ".tech/tooling.md#github-actions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#bunit->.tech/shared.md#razor-components",
+          "source": ".tech/testing.md#bunit",
+          "target": ".tech/shared.md#razor-components",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#bunit->.tech/testing.md#xunit-v3",
+          "source": ".tech/testing.md#bunit",
+          "target": ".tech/testing.md#xunit-v3",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#bunit->.design/component-libraries.md",
+          "source": ".tech/testing.md#bunit",
+          "target": ".design/component-libraries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#coverlet->.tech/testing.md#microsoftnettestsdk",
+          "source": ".tech/testing.md#coverlet",
+          "target": ".tech/testing.md#microsoftnettestsdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#playwright->.tech/shared.md#blazor-server",
+          "source": ".tech/testing.md#playwright",
+          "target": ".tech/shared.md#blazor-server",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/testing.md#playwright->.tech/desktop.md#webview2",
+          "source": ".tech/testing.md#playwright",
+          "target": ".tech/desktop.md#webview2",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#playwright->.tech/ai-development.md#model-context-protocol-servers",
+          "source": ".tech/testing.md#playwright",
+          "target": ".tech/ai-development.md#model-context-protocol-servers",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#playwright->.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "source": ".tech/testing.md#playwright",
+          "target": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/testing.md#playwright->.tech/shared.md#net-aspire",
+          "source": ".tech/testing.md#playwright",
+          "target": ".tech/shared.md#net-aspire",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.tech/tooling.md->.tech/technology-graph.md",
           "source": ".tech/tooling.md",
           "target": ".tech/technology-graph.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md->.tech/ai-development.md",
+          "source": ".tech/tooling.md",
+          "target": ".tech/ai-development.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#git->.tech/ai-development.md#git-worktree-sessions",
+          "source": ".tech/tooling.md#git",
+          "target": ".tech/ai-development.md#git-worktree-sessions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#msbuild->.tech/tooling.md#net-sdk",
+          "source": ".tech/tooling.md#msbuild",
+          "target": ".tech/tooling.md#net-sdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#msbuild->.tech/tooling.md#central-package-management",
+          "source": ".tech/tooling.md#msbuild",
+          "target": ".tech/tooling.md#central-package-management",
           "type": "related"
         }
       },
@@ -20331,6 +22451,30 @@
       },
       {
         "data": {
+          "id": "related:.tech/tooling.md#net-sdk->.tech/testing.md#microsofttestingplatform",
+          "source": ".tech/tooling.md#net-sdk",
+          "target": ".tech/testing.md#microsofttestingplatform",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#net-maui-workloads->.tech/tooling.md#net-sdk",
+          "source": ".tech/tooling.md#net-maui-workloads",
+          "target": ".tech/tooling.md#net-sdk",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#net-maui-workloads->.tech/shared.md#net-maui",
+          "source": ".tech/tooling.md#net-maui-workloads",
+          "target": ".tech/shared.md#net-maui",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/tooling.md#nuget->.tech/tooling.md#net-sdk",
           "source": ".tech/tooling.md#nuget",
           "target": ".tech/tooling.md#net-sdk",
@@ -20339,9 +22483,65 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/tooling.md#central-package-management->.tech/tooling.md#nuget",
+          "source": ".tech/tooling.md#central-package-management",
+          "target": ".tech/tooling.md#nuget",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#central-package-management->.tech/shared.md#yamldotnet",
+          "source": ".tech/tooling.md#central-package-management",
+          "target": ".tech/shared.md#yamldotnet",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/tooling.md#npm->.tech/shared.md#nodejs",
           "source": ".tech/tooling.md#npm",
           "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#bicep->.tech/tooling.md#azure-cli",
+          "source": ".tech/tooling.md#bicep",
+          "target": ".tech/tooling.md#azure-cli",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#bicep->.tech/cloud.md#azure-ai-foundry",
+          "source": ".tech/tooling.md#bicep",
+          "target": ".tech/cloud.md#azure-ai-foundry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#azure-cli->.tech/cloud.md#azure-ai-foundry",
+          "source": ".tech/tooling.md#azure-cli",
+          "target": ".tech/cloud.md#azure-ai-foundry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#azure-cli->.tech/tooling.md#github-actions",
+          "source": ".tech/tooling.md#azure-cli",
+          "target": ".tech/tooling.md#github-actions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#aspire-cli->.tech/shared.md#net-aspire",
+          "source": ".tech/tooling.md#aspire-cli",
+          "target": ".tech/shared.md#net-aspire",
           "type": "depends-on"
         }
       },
@@ -20371,89 +22571,97 @@
       },
       {
         "data": {
-          "id": "depends-on:.tech/tooling.md#github-copilot-cli->.tech/shared.md#github-platform",
-          "source": ".tech/tooling.md#github-copilot-cli",
-          "target": ".tech/shared.md#github-platform",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
-          "id": "depends-on:.tech/tooling.md#model-context-protocol-servers->.tech/tooling.md#github-copilot-cli",
-          "source": ".tech/tooling.md#model-context-protocol-servers",
-          "target": ".tech/tooling.md#github-copilot-cli",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.tech/tooling.md#model-context-protocol-servers->.tech/tooling.md#knowledge-canvas-extension",
-          "source": ".tech/tooling.md#model-context-protocol-servers",
-          "target": ".tech/tooling.md#knowledge-canvas-extension",
+          "id": "related:.tech/tooling.md#dependabot->.tech/tooling.md#central-package-management",
+          "source": ".tech/tooling.md#dependabot",
+          "target": ".tech/tooling.md#central-package-management",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "depends-on:.tech/tooling.md#knowledge-base-plugin->.tech/tooling.md#github-copilot-cli",
-          "source": ".tech/tooling.md#knowledge-base-plugin",
-          "target": ".tech/tooling.md#github-copilot-cli",
-          "type": "depends-on"
-        }
-      },
-      {
-        "data": {
-          "id": "depends-on:.tech/tooling.md#knowledge-base-plugin->.tech/shared.md#nodejs",
-          "source": ".tech/tooling.md#knowledge-base-plugin",
+          "id": "depends-on:.tech/tooling.md#knowledge-meta-generator->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#knowledge-meta-generator",
           "target": ".tech/shared.md#nodejs",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "related:.tech/tooling.md#knowledge-base-plugin->.tech/tooling.md#knowledge-canvas-extension",
-          "source": ".tech/tooling.md#knowledge-base-plugin",
-          "target": ".tech/tooling.md#knowledge-canvas-extension",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/tooling.md#github-copilot-cli",
-          "source": ".tech/tooling.md#knowledge-canvas-extension",
-          "target": ".tech/tooling.md#github-copilot-cli",
+          "id": "depends-on:.tech/tooling.md#knowledge-meta-generator->.tech/shared.md#json",
+          "source": ".tech/tooling.md#knowledge-meta-generator",
+          "target": ".tech/shared.md#json",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/shared.md#nodejs",
-          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "id": "related:.tech/tooling.md#knowledge-meta-generator->.tech/ai-development.md#knowledge-base-plugin",
+          "source": ".tech/tooling.md#knowledge-meta-generator",
+          "target": ".tech/ai-development.md#knowledge-base-plugin",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#knowledge-meta-generator->.tech/tooling.md#github-actions",
+          "source": ".tech/tooling.md#knowledge-meta-generator",
+          "target": ".tech/tooling.md#github-actions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#archify->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#archify",
           "target": ".tech/shared.md#nodejs",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "depends-on:.tech/tooling.md#knowledge-canvas-extension->.tech/shared.md#mermaid",
-          "source": ".tech/tooling.md#knowledge-canvas-extension",
+          "id": "depends-on:.tech/tooling.md#archify->.tech/shared.md#mermaid",
+          "source": ".tech/tooling.md#archify",
           "target": ".tech/shared.md#mermaid",
           "type": "depends-on"
         }
       },
       {
         "data": {
-          "id": "related:.tech/tooling.md#knowledge-canvas-extension->.tech/tooling.md#knowledge-base-plugin",
-          "source": ".tech/tooling.md#knowledge-canvas-extension",
-          "target": ".tech/tooling.md#knowledge-base-plugin",
+          "id": "related:.tech/tooling.md#archify->.tech/tooling.md#ajv",
+          "source": ".tech/tooling.md#archify",
+          "target": ".tech/tooling.md#ajv",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "depends-on:.tech/tooling.md#aspire-cli->.tech/cloud.md#net-aspire",
-          "source": ".tech/tooling.md#aspire-cli",
-          "target": ".tech/cloud.md#net-aspire",
+          "id": "related:.tech/tooling.md#archify->.tech/tooling.md#simple-icons",
+          "source": ".tech/tooling.md#archify",
+          "target": ".tech/tooling.md#simple-icons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#ajv->.tech/tooling.md#archify",
+          "source": ".tech/tooling.md#ajv",
+          "target": ".tech/tooling.md#archify",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#ajv->.tech/shared.md#json",
+          "source": ".tech/tooling.md#ajv",
+          "target": ".tech/shared.md#json",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#simple-icons->.tech/tooling.md#archify",
+          "source": ".tech/tooling.md#simple-icons",
+          "target": ".tech/tooling.md#archify",
           "type": "depends-on"
         }
       },

@@ -39,8 +39,20 @@ public sealed class DomainKnowledgeStore
         var contextMapPath = Path.Combine(root, "context-map.md");
         if (!File.Exists(contextMapPath)) return Task.FromResult(DomainKnowledgeView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
 
+        // The context map is what the panel opens on, so it is the one document
+        // worth reading up front. Everything else waits until a context is
+        // selected — see ReadContextsFromIndex.
         var contextMap = ReadDocument(contextMapPath, root, DomainKnowledgeDocumentKind.ContextMap);
-        var contexts = ReadContexts(root, KnowledgeReadingOrder.ForFolder(root));
+        // Two readers of the same index, deliberately: KnowledgeReadingOrder
+        // answers "in what order?" for a scan that still opens every file, and
+        // is what .tech and .design also ask. This asks the fuller question —
+        // what is in the folder, and what does the index already know about it —
+        // so the files behind the answer never have to be opened at all. The
+        // scan is the fallback for a folder with no readable index.
+        var index = KnowledgeIndexDocument.TryRead(root);
+        var contexts = index is null
+            ? ReadContexts(root, KnowledgeReadingOrder.ForFolder(root))
+            : ReadContextsFromIndex(index, root);
         return Task.FromResult(new DomainKnowledgeView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts));
     }
 
@@ -57,6 +69,57 @@ public sealed class DomainKnowledgeStore
         KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".domain/", status);
         return Task.CompletedTask;
     }
+    /// <summary>
+    /// Builds the bounded contexts from the generated <c>_meta/index.json</c>:
+    /// the slug, the display name, and the status of each come from the index,
+    /// and the documents inside one are not read until that context is opened.
+    /// <para>
+    /// This is the whole point of the index. <c>.domain</c> is over seventy
+    /// Markdown files, and the panel draws a row of context tabs and the context
+    /// map before the reader has chosen any of them. The directory scan below
+    /// parsed all seventy to answer a question the index already answers.
+    /// </para>
+    /// <para>
+    /// A context whose root document has been edited since the index was written
+    /// is read for its own name and status, so an edit made between refreshes is
+    /// never shown stale. That is one file per context at worst, and only for the
+    /// ones actually touched.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<DomainKnowledgeContext> ReadContextsFromIndex(KnowledgeIndexDocument index, string root)
+    {
+        var contexts = new List<DomainKnowledgeContext>();
+
+        foreach (var directory in index.Directories)
+        {
+            var slug = directory.Name;
+            if (string.IsNullOrWhiteSpace(slug)) continue;
+
+            var rootEntry = directory.RootDocument;
+            var fresh = rootEntry is not null && index.IsStale(rootEntry)
+                ? ReadDocument(index.FullPath(rootEntry), root, KindFromFile(rootEntry.Name))
+                : null;
+
+            var title = fresh?.Title ?? FirstNonEmpty(rootEntry?.Title, directory.Title);
+            var displayName = string.IsNullOrWhiteSpace(title)
+                ? Humanize(slug)
+                : title.Replace("Domain: ", string.Empty, StringComparison.OrdinalIgnoreCase);
+            var status = fresh?.Status ?? rootEntry?.StatusOrNone ?? "none";
+
+            var files = directory.Children?.Where(child => child.IsFile).ToList() ?? [];
+            contexts.Add(new DomainKnowledgeContext(slug, displayName, status,
+                new LazyKnowledgeList<DomainKnowledgeDocument>(() => ReadIndexedDocuments(index, root, files))));
+        }
+
+        return contexts;
+    }
+
+    private static IReadOnlyList<DomainKnowledgeDocument> ReadIndexedDocuments(KnowledgeIndexDocument index, string root, IReadOnlyList<KnowledgeIndexEntry> files) =>
+        [.. files.Where(index.Exists).Select(file => ReadDocument(index.FullPath(file), root, KindFromFile(file.Name)))];
+
+    private static string FirstNonEmpty(params string?[] candidates) =>
+        candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)) ?? string.Empty;
+
     private static IReadOnlyList<DomainKnowledgeContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
     {
         var dirs = Directory.EnumerateDirectories(root)

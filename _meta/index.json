@@ -933,7 +933,7 @@
           "name": "technology-graph.md",
           "path": ".tech/technology-graph.md",
           "title": "Technology Graph",
-          "status": "candidate",
+          "status": "adopted",
           "root": true
         },
         {
@@ -941,14 +941,14 @@
           "name": "shared.md",
           "path": ".tech/shared.md",
           "title": "Shared Technologies",
-          "status": "candidate"
+          "status": "adopted"
         },
         {
           "type": "file",
           "name": "desktop.md",
           "path": ".tech/desktop.md",
           "title": "Desktop Stack",
-          "status": "candidate"
+          "status": "adopted"
         },
         {
           "type": "file",
@@ -962,7 +962,7 @@
           "name": "mobile.md",
           "path": ".tech/mobile.md",
           "title": "Mobile Stack",
-          "status": "candidate"
+          "status": "adopted"
         },
         {
           "type": "file",
@@ -973,9 +973,23 @@
         },
         {
           "type": "file",
+          "name": "testing.md",
+          "path": ".tech/testing.md",
+          "title": "Testing Stack",
+          "status": "adopted"
+        },
+        {
+          "type": "file",
+          "name": "ai-development.md",
+          "path": ".tech/ai-development.md",
+          "title": "AI-Assisted Development Stack",
+          "status": "adopted"
+        },
+        {
+          "type": "file",
           "name": "tooling.md",
           "path": ".tech/tooling.md",
-          "title": "Development and Governance Tooling",
+          "title": "Build and Governance Tooling",
           "status": "adopted"
         }
       ]

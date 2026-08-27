@@ -59,7 +59,11 @@ without explicit user approval.
 
 The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — chapter structure, `meta` blocks, derived `_meta/` indexes, the knowledge graph canvas, and the `orch-arc42-content` / `orch-domain` / `orch-backlog` / `orch-tech` / `orch-design` orchestrations — is provided by the `knowledge-base` plugin (`JSdotNet/Copilot:plugins/knowledge-base`). Do not restate those authoring rules in this repository. Repository-specific policy that the plugin deliberately does not ship lives in `.github/instructions/context-loading.instructions.md`.
 
-The generator at `.github/tools/knowledge-meta/` and the `knowledge-meta` workflow are installed copies of the plugin's tooling; re-sync them from the plugin rather than editing them locally.
+The generator at `.github/tools/knowledge-meta/`, the `knowledge-meta` and `knowledge-meta-nightly` workflows, and `build/Update-KnowledgeIndex.ps1` are installed copies of the plugin's tooling; re-sync them from the plugin rather than editing them locally.
+
+Refresh the indexes with `./build/Update-KnowledgeIndex.ps1`. When and why is the plugin's `knowledge-derived-artifacts.instructions.md`, not restated here.
+
+What is Backlog's own: the derived `_meta/index.json` is **load-bearing at runtime**. The desktop Knowledge panels read it — `DomainKnowledgeStore` lists all twelve bounded contexts from the index and opens a context's Markdown only when that context is opened, rather than parsing all seventy-two `.domain` files up front. `KnowledgeIndexReader` implements the convention's consumer rules (one `stat` per entry, re-read only what is strictly newer, fall back to the scan on a missing or unrecognised index), so any change to it is a change against that contract.
 
 ## UI components
 
@@ -75,7 +79,7 @@ See `.github/instructions/naming.instructions.md` for repository-wide file and f
 - Do not invent permanent project structure before architecture and domain decisions make the boundaries clear.
 - Ground governance and coding decisions in the checked-in decision records instead of memory. `.arc42/adr/guidelines/` is a fork of the organization's corpus, not a mirror: change it here when Backlog diverges, and record the divergence in that document's **Deviations and gaps** section.
 - Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
-- Never hand-edit anything under an `_meta/` folder; it is generated. Re-run the generator instead.
+- Never hand-edit anything under an `_meta/` folder; it is generated. Run `pwsh build/Update-KnowledgeIndex.ps1` instead — and only when you actually want the indexes current in your branch, since the nightly refresh reconciles `main` anyway.
 - Honor the standing product UX rules recorded in `.design/`: dark mode only, no save buttons (everything auto-saves), Markdown stays canonical behind the rich text editor, and every drag-and-drop reorder has a keyboard equivalent.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.

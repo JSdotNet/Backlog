@@ -94,6 +94,30 @@ dotnet test Backlog.sln
 `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
 `WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
 
+## Knowledge indexes
+
+Each knowledge folder carries a generated `_meta/index.json` and `_meta/graph.json`.
+The desktop Knowledge panels **load from them at runtime** — `DomainKnowledgeStore`
+lists every bounded context out of the index and reads a context's Markdown only
+when that context is opened, rather than parsing all seventy-two `.domain` files up
+front. `KnowledgeIndexReader` is the consumer side of that contract.
+
+Refresh them on demand:
+
+```powershell
+./build/Update-KnowledgeIndex.ps1
+```
+
+`-Scope .domain` limits it to one folder; `-Check` validates without writing.
+`/update-knowledge-index` is the same thing as a slash command.
+
+The policy around all of this — why refresh is deliberate rather than automatic,
+why the pull-request check only warns, and what a consumer owes the index it reads —
+is the `knowledge-base` plugin's `knowledge-derived-artifacts.instructions.md`, and
+is not restated here. The generator, both `knowledge-meta*` workflows, and the script
+above are installed copies of that plugin's tooling: re-sync them, never edit them
+here, and never hand-edit anything under `_meta/`.
+
 ## UI components
 
 A screen under `src/App/` or `src/Modules/` renders the shared library's component

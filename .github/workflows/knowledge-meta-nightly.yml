@@ -1,0 +1,116 @@
+name: Knowledge metadata nightly refresh
+
+# Reconciles the committed _meta indexes with the Markdown on the default
+# branch. Installed by the `knowledge-base-init` skill.
+#
+# The pull-request check (knowledge-meta.yml) only *warns* when an index has
+# drifted, because forcing every knowledge pull request to regenerate the
+# indexes is what makes those files conflict on merge. This job is the other
+# half of that trade: refresh happens here, once, on a schedule, in a single
+# pull request nobody has to rebase.
+#
+# When the regenerated output matches what is committed, this job does nothing
+# and says so. It only opens a pull request when something actually drifted.
+#
+# Two things an adopting repository tunes:
+#
+#   1. `schedule.cron` below. Pick a quiet hour, and put it *ahead* of any
+#      release or publish job that reads the indexes, so a release never ships
+#      against a stale index. Times are UTC and GitHub runs scheduled jobs on a
+#      best-effort basis, so leave slack rather than scheduling back to back.
+#   2. `REFRESH_BRANCH`. It is force-pushed on every run, which is what keeps
+#      re-runs updating the one open pull request instead of stacking
+#      superseded ones. Nothing else may use this branch name, and it should be
+#      excluded from any branch protection that requires linear history.
+#
+# Note: pushes made with GITHUB_TOKEN deliberately do not trigger other
+# workflows, so the refresh pull request will not run knowledge-meta.yml. That
+# is fine — its inputs already passed on the default branch, and this job only
+# rewrites generated output.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: knowledge-meta-nightly
+  cancel-in-progress: false
+
+env:
+  REFRESH_BRANCH: automation/knowledge-meta-refresh
+
+jobs:
+  refresh:
+    name: Refresh derived indexes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The generator writes every artifact before it exits, so a non-zero exit
+      # still leaves a complete refresh on disk. Record it and keep going: a
+      # broken reference on the default branch is worth reporting, but it is a
+      # separate problem from the indexes being out of date.
+      - name: Regenerate the indexes
+        id: generate
+        run: |
+          set +e
+          node .github/tools/knowledge-meta/build.mjs
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Detect drift
+        id: drift
+        run: |
+          if git diff --quiet -- '*_meta/*.json'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Derived indexes are current. Nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- '*_meta/*.json'
+          fi
+
+      - name: Push the refresh branch
+        if: steps.drift.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch --force-create "$REFRESH_BRANCH"
+          git add -- '*_meta/*.json'
+          git commit -m 'chore(knowledge): refresh derived _meta indexes'
+          git push --force origin "$REFRESH_BRANCH"
+
+      # One pull request, reused. `gh pr create` fails when the head branch
+      # already has an open pull request, so check first; the force-push above
+      # has already updated the diff of an existing one.
+      - name: Open or update the pull request
+        if: steps.drift.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_TITLE: 'chore(knowledge): refresh derived _meta indexes'
+          PR_BODY: |
+            Scheduled refresh of the generated `_meta/graph.json` and
+            `_meta/index.json` artifacts, so knowledge pull requests do not have
+            to carry them and conflict on merge.
+
+            Generated output only — no authored Markdown is touched. Regenerate
+            locally with `./build/Update-KnowledgeIndex.ps1`.
+        run: |
+          existing=$(gh pr list --head "$REFRESH_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Updated existing pull request #$existing."
+          else
+            gh pr create --head "$REFRESH_BRANCH" \
+              --base "${{ github.event.repository.default_branch }}" \
+              --title "$PR_TITLE" --body "$PR_BODY"
+          fi
+
+      - name: Fail if the generator reported errors
+        if: steps.generate.outputs.status != '0'
+        run: |
+          echo "::error::build.mjs exited ${{ steps.generate.outputs.status }} — the default branch has knowledge metadata errors. The index refresh above still ran."
+          exit 1

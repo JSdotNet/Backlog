@@ -24,7 +24,7 @@
       "none": 7,
       "draft": 5,
       "accepted": 1,
-      "candidate": 1,
+      "adopted": 1,
       "proposed": 5
     },
     "edgesByType": {
@@ -1596,7 +1596,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/technology-graph.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
             ".arc42/07-deployment-view.md",

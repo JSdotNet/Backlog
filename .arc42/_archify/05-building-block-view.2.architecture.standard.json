@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "System-level flow — Prompt Backlog",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [

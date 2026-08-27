@@ -172,11 +172,39 @@
 
     private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
 
-    private DomainKnowledgeDocument? SelectedDocument => string.IsNullOrWhiteSpace(SelectedPath) || _view is null
-        ? null
-        : new[] { _view.ContextMap }
-            .Concat(_view.Contexts.SelectMany(context => context.Documents))
-            .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
+    private DomainKnowledgeDocument? SelectedDocument
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SelectedPath) || _view is null) return null;
+            if (PathMatches(_view.ContextMap.Path, SelectedPath)) return _view.ContextMap;
+
+            return CandidateContexts(_view, SelectedPath)
+                .SelectMany(context => context.Documents)
+                .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
+        }
+    }
+
+    /// <summary>
+    /// The contexts a selected path could be in: the one whose slug the path
+    /// names, or all of them when it names none.
+    /// <para>
+    /// This used to be a flat <c>SelectMany</c> over every context. Since the
+    /// store started building contexts from <c>_meta/index.json</c> and reading a
+    /// context's documents only when they are asked for, that flat search would
+    /// have parsed all seventy <c>.domain</c> files to find the one the link
+    /// points at — which is exactly the load the index was adopted to avoid.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<DomainKnowledgeContext> CandidateContexts(DomainKnowledgeView view, string selectedPath)
+    {
+        var owning = view.Contexts.Where(context => OwnsPath(context.Slug, selectedPath)).ToList();
+        return owning.Count > 0 ? owning : view.Contexts;
+    }
+
+    private static bool OwnsPath(string slug, string selectedPath) =>
+        !string.IsNullOrWhiteSpace(slug)
+        && $"/{NormalizePath(selectedPath)}/".Contains($"/{slug}/", StringComparison.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
     {

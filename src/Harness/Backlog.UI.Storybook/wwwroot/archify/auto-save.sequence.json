@@ -5,6 +5,7 @@
     "title": "Auto-save",
     "output": "auto-save.sequence.html",
     "viewBox": [1000, 560],
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread"
   },

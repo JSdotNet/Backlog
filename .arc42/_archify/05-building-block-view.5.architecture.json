@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "IDE Extensions — internal structure",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [

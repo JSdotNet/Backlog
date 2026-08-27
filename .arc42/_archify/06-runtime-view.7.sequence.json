@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "Repository Baseline Scan and Health Signal",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [1400, 700]
