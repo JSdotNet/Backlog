@@ -23,6 +23,29 @@ Node 18+. Verified on Node 24.18.0.
 
 `test/` (1.2 MB): upstream's own test suite, which this repository does not run.
 
+## `bin/` needs a .gitignore negation
+
+`.gitignore` carries `[Bb]in/` for .NET build output. That rule matches
+`tools/archify/bin/`, and when this folder was first vendored it silently took
+all four entrypoints with it — including the `archify.mjs` that
+`tools/diagrams/archify-artifacts.mjs` spawns. Every `render` failed with
+`MODULE_NOT_FOUND` on a fresh clone, which is precisely when somebody would be
+trying to fix an artifact, while `scan` and `verify` — neither of which shells
+out — both reported green.
+
+The negation at the end of `.gitignore` is what keeps it:
+
+```gitignore
+!tools/archify/bin/
+```
+
+It names the directory rather than its contents on purpose. Git does not look
+inside an excluded directory, so `!tools/archify/bin/**` alone would leave the
+folder invisible. When re-copying at a newer revision, check `git status` shows
+`bin/` — a copy that is on disk but untracked passes locally and fails for
+everyone else. `ArchifyArtifactMotionTests.The_vendored_archify_cli_is_committed`
+fails if it goes missing again.
+
 `examples/` is **kept** even though it is 3.5 MB of the 5.4 MB total. `SKILL.md` step 2
 requires reading a matching example before authoring a specification, so removing it
 would break the documented authoring path — the one thing this vendoring exists to

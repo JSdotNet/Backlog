@@ -4,6 +4,7 @@
   "meta": {
     "title": "Slice flow",
     "output": "slice-flow.architecture.html",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "components": [

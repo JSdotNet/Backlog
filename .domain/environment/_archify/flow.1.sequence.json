@@ -4,6 +4,7 @@
   "meta": {
     "title": "Shortcut activation",
     "viewBox": [980, 620],
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread"
   },

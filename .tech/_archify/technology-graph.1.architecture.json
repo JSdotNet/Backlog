@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Technology Graph",
+    "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
       1330,

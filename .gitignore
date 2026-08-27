@@ -77,3 +77,13 @@ nunit-*.xml
 # Local Android developer signing material created by build/Install-AndroidApp.ps1.
 # Never commit a keystore or its password; release signing comes from repo secrets.
 build/.local/
+
+# The vendored Archify CLI. `[Bb]in/` above is a .NET build-output rule and it
+# swallowed `tools/archify/bin/` when Archify was vendored, so the four
+# entrypoints it holds were never committed — including the `archify.mjs` that
+# `tools/diagrams/archify-artifacts.mjs` spawns to render every diagram artifact.
+# Regeneration failed with MODULE_NOT_FOUND on any fresh clone while `scan` and
+# `verify`, which never shell out, both reported green. The negation names the
+# directory rather than its contents because git does not look inside an excluded
+# directory, so `!tools/archify/bin/**` on its own would keep it invisible.
+!tools/archify/bin/

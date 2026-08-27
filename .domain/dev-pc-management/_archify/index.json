@@ -5,6 +5,7 @@
       "chapter": "flow.md",
       "ordinal": 1,
       "type": "lifecycle",
+      "quality": "showcase",
       "kind": "statediagram-v2",
       "spec": "flow.1.lifecycle.json",
       "artifact": "flow.1.lifecycle.html",
