@@ -44,6 +44,7 @@
     </Story>
 
     <Story Name="Nothing to draw"
+           Code="@EmptyGraphCode"
            Description="An empty model is a sentence, not a blank frame. The message is the caller's, because only the caller knows what is missing.">
         <GraphExplorer Title="Empty explorer"
                        Description="No nodes were handed over."
@@ -223,5 +224,10 @@
         defaultViewId = "disciplines"
         """;
 
-
+    private const string EmptyGraphCode = """
+        <GraphExplorer Title="Empty explorer"
+                       Description="No nodes were handed over."
+                       Data="EmptyModel"
+                       AriaLabel="Empty explorer" />
+        """;
 }

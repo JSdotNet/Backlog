@@ -22,6 +22,7 @@ Counts come for free and stand in for Kind when the caller gave none: how much i
     </Story>
 
     <Story Name="It is set like a menu, because it is one"
+           Code="@SurfacesCode"
            Description="This is the one place FolderView parts company with FileView. A file is the thing being read, so it sits on the deep surface and lets the chrome around it come forward; a folder is the way to the thing, so it sits on the raised one — the same inversion this storybook's own sidebar makes against its content, and the same one the desktop shell makes.
 
 Put the two side by side and it is visible: the folder reads as somewhere you go, the file reads as somewhere you arrived. Getting that the wrong way round is how a navigation pane starts competing with the document beside it.">
@@ -133,6 +134,7 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
     </Story>
 
     <Story Name="A folder with nothing in it"
+           Code="@EmptyFolderCode"
            Description="Empty is a state, not an error. No count on the header — there is nothing to count — and a line in the body saying so, which the caller can replace with something its own reader would find more useful.">
         <div class="sb-columns" data-testid="folder-view-empty">
             <FolderView CssClass="sb-menu" Name="drafts" Source="Repository" Entries="@(Array.Empty<FolderEntry>())" MaxHeight="10rem" />
@@ -145,6 +147,7 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
     </Story>
 
     <Story Name="How deep it opens"
+           Code="@DepthCode"
            Description="InitiallyExpandedDepth decides how much is showing the first time and nothing after that — once a reader has opened or closed something, it is theirs. Zero folds everything, leaving the top row of each branch. One is the default and opens the folders at the top level, so what is directly inside them is visible without a click. A deep tree in a narrow pane usually wants zero.">
         <div class="sb-columns" data-testid="folder-view-depth">
             <div class="sb-stack">
@@ -308,5 +311,31 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
         new FolderEntry("keys", "Keys", FolderEntryKind.Folder,
             Available: false,
             Message: "Access to this folder was denied.")
+        """;
+
+    private const string SurfacesCode = """
+        @* The one place FolderView parts company with FileView: a folder is raised
+           chrome, a file is the deep surface the reader arrived at. *@
+        <FolderView CssClass="sb-menu" Name=".design" Source="Repository" Entries="@entries" MaxHeight="14rem" />
+
+        <FileView Name="accessibility.md" Kind="Markdown" Body="@body" MaxHeight="14rem" />
+        """;
+
+    private const string EmptyFolderCode = """
+        <FolderView CssClass="sb-menu" Name="drafts" Source="Repository"
+                    Entries="@(Array.Empty<FolderEntry>())" MaxHeight="10rem" />
+
+        <FolderView CssClass="sb-menu" Name="drafts" Source="Repository"
+                    Entries="@(Array.Empty<FolderEntry>())"
+                    EmptyMessage="Nothing has been captured here yet."
+                    MaxHeight="10rem" />
+        """;
+
+    private const string DepthCode = """
+        @* The first render only. Once a reader has opened or closed anything, the tree
+           is theirs and this stops applying. *@
+        <FolderView CssClass="sb-menu" Name="src" Entries="@entries" InitiallyExpandedDepth="0" MaxHeight="16rem" />
+
+        <FolderView CssClass="sb-menu" Name="src" Entries="@entries" InitiallyExpandedDepth="2" MaxHeight="16rem" />
         """;
 }

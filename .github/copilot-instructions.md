@@ -69,6 +69,8 @@ What is Backlog's own: the derived `_meta/index.json` is **load-bearing at runti
 
 See `.github/instructions/ui-components.instructions.md`: a screen under `src/App/` or `src/Modules/` renders the shared library's component (`src/Core/Backlog.UI.Components`) rather than growing its own copy, and a component that cannot wear the screen's classes gets the hook rather than a second implementation. `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces it and holds the documented exceptions.
 
+See `.github/instructions/storybook.instructions.md` for authoring the review surface itself — which chrome component to use, which parameters to pass, and where a new page goes in `StorybookIndex`. The rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook` and are not restated in either file.
+
 ## Naming
 
 See `.github/instructions/naming.instructions.md` for repository-wide file and folder naming. Naming inside the knowledge folders is governed by the plugin's `knowledge-naming.instructions.md`.

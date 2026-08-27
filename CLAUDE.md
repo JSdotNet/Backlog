@@ -158,5 +158,7 @@ orchestration dashboard.
   which knowledge folders a workflow may load.
 - `.github/instructions/ui-components.instructions.md` — shared component adoption in the
   application screens.
+- `.github/instructions/storybook.instructions.md` — authoring a storybook page and a
+  story; the rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook`.
 - `.github/instructions/mcp-usage.instructions.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.

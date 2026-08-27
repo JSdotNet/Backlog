@@ -23,12 +23,18 @@
     optional draws nothing when it is absent: no record, no path, no actions, no
     baselines. A header with nothing but a name renders the name.
 
-    The layout is two columns, and both of them are here for reasons recorded
-    where they are drawn — the record around the name, the path right-aligned on
-    the name's line just before the status the record closes it with, the action
-    group named for the file opposite, and the baseline picker that only appears
-    while a comparison is running and there is more than one version to run it
-    against.
+    The layout is two lines, and everything in them is here for reasons recorded
+    where it is drawn — the record around the name, the path right-aligned on the
+    name's line just before the status the record closes it with, then the action
+    group named for the file on a line of its own beneath, right-aligned, with the
+    baseline picker under it while a comparison is running and there is more than
+    one version to run it against.
+
+    Two lines and not two columns because the first one grows: a path is a machine
+    string as long as the tree it sits in, and buttons opposite it were taking the
+    room it needed and crowding the status at the same time. What the file is holds
+    the width; what you may do to it sits under. The stylesheet carries the rest of
+    that argument, on .file-view__header.
 
     ---
 
@@ -83,6 +89,12 @@
                               HeadingAlone="@NameLine" />
         </div>
 
+        @* Drawn only when it has something in it. As a column beside the identity
+           an empty aside was a zero-width neighbour and cost nothing; as a line
+           under it, an empty one still takes the header's gap, and a file pane
+           offering no acts would carry a strip of space saying so. *@
+        @if (HasAside)
+        {
         <div class="file-view__aside">
             @if (AllowCopy || OffersEdit || OffersCompare)
             {
@@ -155,6 +167,7 @@
                 </div>
             }
         </div>
+        }
     </header>
 @code {
     /// <summary>The header's left-hand column, as it reads: the file's name and,
@@ -406,6 +419,13 @@
         Metadata is { IsEmpty: false }
             ? "file-view__identity file-view__identity--record"
             : "file-view__identity";
+
+    /// <summary>Whether the second line has anything to put on it: an act, or a
+    /// baseline picker that is showing. The same two conditions the line's own
+    /// children ask, asked once above them so the line itself can be absent rather
+    /// than empty.</summary>
+    private bool HasAside =>
+        AllowCopy || OffersEdit || OffersCompare || (Comparing && CompareBaselines.Count > 1);
 
     /// <summary>What the one button that changes meaning is called right now. Both
     /// the accessible name and the tooltip read it, because an icon-only control
