@@ -1,0 +1,314 @@
+@implements IDisposable
+@inject KnowledgeAtlasService KnowledgeAtlas
+
+@*
+    The knowledge base as a map, for any one folder or for all of it at once.
+
+    This is the generic sibling of the technology atlas. Technology earns a tab of
+    its own because a stack of choices *is* a graph — that is what `.tech` is for.
+    Every other area is a set of documents you read, so the map is the second way
+    of looking at them rather than the first, and it is opened on request.
+
+    Nothing here parses Markdown. The generator already writes a graph per folder
+    and one for the repository, so this reads those and arranges them; see
+    KnowledgeAtlasService for why that is the only honest source.
+*@
+
+<section class="knowledge-atlas" data-testid="knowledge-atlas" aria-label="@($"{Scope.Label} atlas")">
+    <header class="knowledge-atlas__header">
+        <div class="knowledge-atlas__heading">
+            <p class="knowledge-atlas__kicker">Atlas</p>
+            <h3>@Scope.Label</h3>
+            @if (_view is { Available: true })
+            {
+                <p class="knowledge-atlas__summary">
+                    @_view.Nodes.Count documents and chapters, @_view.Edges.Count links, @_view.GroupCount groups.
+                </p>
+            }
+        </div>
+
+        @* The scope picker, and only that. Closing belongs to the control that
+           opened this — the toggle in the section strip, which reads "Hide atlas"
+           while the map is up. A second close button beside it was two ways to do
+           one thing, and the reader had to work out whether they differed. *@
+        <div class="knowledge-atlas__actions">
+            <SelectField Id="knowledge-atlas-scope"
+                         Label="Atlas scope"
+                         CurrentValue="@Scope.Key"
+                         OnChanged="ChangeScopeAsync"
+                         Options="@ScopeOptions"
+                         TestId="knowledge-atlas-scope" />
+        </div>
+    </header>
+
+    @if (_view is null)
+    {
+        <Alert Message="@($"Reading the {Scope.Label} atlas...")" Role="status" />
+    }
+    else if (!_view.Available)
+    {
+        <EmptyState Title="@_view.Message" role="status" />
+    }
+    else
+    {
+        <GraphAtlas Title=""
+                    Data="@_model"
+                    Nodes="@AtlasNodes"
+                    JsFunction="backlogDiagrams.renderKnowledgeAtlas"
+                    StatusText="@($"Rendering the {Scope.Label} atlas...")"
+                    AriaLabel="@($"{Scope.Label} knowledge atlas")"
+                    IndexLabel="@($"{Scope.Label}, grouped")"
+                    SelectedId="@_selectedId"
+                    SelectedIdChanged="SelectAsync"
+                    Announcement="@Announcement"
+                    TestId="knowledge-atlas-graph">
+            <Detail>
+                <DetailSheet Open="@(Selected is not null)"
+                             OpenChanged="OnSheetOpenChangedAsync"
+                             Kicker="@Selected?.Group"
+                             Title="@Selected?.Label"
+                             Lede="@SelectedPath"
+                             TestId="knowledge-atlas-sheet"
+                             CloseLabel="Close document details">
+                    <ChildContent>
+                        @if (Selected is { } node)
+                        {
+                            <div class="knowledge-atlas-facts">
+                                <Badge Kind="">@node.Folder</Badge>
+                                <Badge Kind="">@node.Kind</Badge>
+                                @if (!string.IsNullOrWhiteSpace(node.Status))
+                                {
+                                    <Badge Kind="">@node.Status</Badge>
+                                }
+                                <Badge Kind="">@DegreeSummary(node)</Badge>
+                            </div>
+
+                            @* A node the index flagged as out of scope belongs to a
+                               folder this reading does not cover. Saying so is the
+                               difference between a dead end and a signpost. *@
+                            @if (node.OutOfScope)
+                            {
+                                <p class="knowledge-atlas-note">
+                                    Documented in @node.Folder. This atlas shows it because
+                                    @(node.InDegree == 1 ? "one document" : $"{node.InDegree} documents")
+                                    in scope @(node.InDegree == 1 ? "links" : "link") to it.
+                                </p>
+                            }
+
+                            @if (KnowledgeReference.Parse(node.Id) is { } reference)
+                            {
+                                <div class="knowledge-atlas-open">
+                                    <KnowledgeReferenceLink Reference="@reference"
+                                                            Text="@($"Open {node.Label}")"
+                                                            OnNavigate="NavigateAsync" />
+                                </div>
+                            }
+
+                            @if (Neighbours(node) is { Count: > 0 } neighbours)
+                            {
+                                <div class="knowledge-atlas-relations">
+                                    <span class="knowledge-atlas-relations__label">Links to and from</span>
+                                    <div>
+                                        @foreach (var neighbour in neighbours)
+                                        {
+                                            <AppButton BaseClass="knowledge-atlas-relations__link"
+                                                       Variant="ButtonVariant.None"
+                                                       OnClick="() => SelectAsync(neighbour.Id)">
+                                                @neighbour.Label
+                                            </AppButton>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </ChildContent>
+
+                    <Footer>
+                        <RecordPager Index="@SelectedIndex"
+                                     Total="@AtlasNodes.Count"
+                                     AriaLabel="Documents"
+                                     PreviousLabel="Previous document"
+                                     NextLabel="Next document"
+                                     TestId="knowledge-atlas-pager"
+                                     Hints="@PagerHints"
+                                     OnPrevious="() => StepAsync(-1)"
+                                     OnNext="() => StepAsync(1)" />
+                    </Footer>
+                </DetailSheet>
+            </Detail>
+        </GraphAtlas>
+    }
+</section>
+
+@code {
+    private static readonly IReadOnlyList<RecordPagerHint> PagerHints =
+    [
+        new("Esc", "close"),
+        new("↑ ↓", "move")
+    ];
+
+    private KnowledgeAtlasGraph? _view;
+    private object _model = new();
+    private IReadOnlyList<GraphAtlasNode> _atlasNodes = [];
+    private string? _selectedId;
+    private string? _loadedKey;
+
+    [Parameter, EditorRequired]
+    public KnowledgeAtlasScope Scope { get; set; } = KnowledgeAtlasScope.All;
+
+    [Parameter]
+    public EventCallback<KnowledgeAtlasScope> ScopeChanged { get; set; }
+
+    /// <summary>The scopes this atlas can be widened or narrowed to — the sections
+    /// the pane is showing, plus all of them. The host owns the list, because the
+    /// host knows which areas this repository has turned on.</summary>
+    [Parameter]
+    public IReadOnlyList<KnowledgeAtlasScope> Scopes { get; set; } = [];
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
+
+    private IReadOnlyList<GraphAtlasNode> AtlasNodes => _atlasNodes;
+
+    private KnowledgeAtlasNode? Selected =>
+        _view?.Nodes.FirstOrDefault(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
+
+    private int SelectedIndex => _atlasNodes.ToList().FindIndex(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
+
+    /// <summary>The path under the title. A document's path is the one fact that
+    /// says which of two identically-named chapters this is.</summary>
+    private string? SelectedPath => Selected is { Path.Length: > 0 } node ? node.Path : null;
+
+    private string? Announcement => Selected is { } node
+        ? $"{node.Label}, {node.Group}, {node.Folder}. {SelectedIndex + 1} of {_atlasNodes.Count}. {DegreeSummary(node)}."
+        : null;
+
+    private IReadOnlyList<SelectorOption> ScopeOptions =>
+        [.. (Scopes.Count > 0 ? Scopes : [Scope]).Select(scope => new SelectorOption(scope.Key, scope.Label))];
+
+    private static string DegreeSummary(KnowledgeAtlasNode node) =>
+        $"{node.InDegree} inbound, {node.OutDegree} outbound";
+
+    /// <summary>The nodes on the other end of this one's links, named. Capped,
+    /// because a hub in <c>.domain</c> has dozens and a list that long stops being
+    /// a list of somewhere to go next.</summary>
+    private IReadOnlyList<KnowledgeAtlasNode> Neighbours(KnowledgeAtlasNode node)
+    {
+        if (_view is null) return [];
+
+        var ids = _view.Edges
+            .Where(edge => string.Equals(edge.Source, node.Id, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(edge.Target, node.Id, StringComparison.OrdinalIgnoreCase))
+            .Select(edge => string.Equals(edge.Source, node.Id, StringComparison.OrdinalIgnoreCase) ? edge.Target : edge.Source)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(12)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return [.. _view.Nodes.Where(candidate => ids.Contains(candidate.Id))];
+    }
+
+    protected override void OnInitialized() => KnowledgeAtlas.Changed += OnKnowledgeChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Scope.Key}|{RepositoryAlias}";
+        if (string.Equals(_loadedKey, key, StringComparison.Ordinal)) return;
+
+        _loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _view = await KnowledgeAtlas.ReadAsync(Scope, RepositoryAlias);
+        _selectedId = null;
+        Project();
+    }
+
+    /// <summary>Builds both shapes the atlas takes — the renderer's opaque model
+    /// and the typed list the index draws — once per read rather than per render.
+    /// A fresh object is a changed parameter to Blazor, so building either in a
+    /// property would repaint the scene on every keystroke.</summary>
+    private void Project()
+    {
+        if (_view is not { Available: true })
+        {
+            _model = new();
+            _atlasNodes = [];
+            return;
+        }
+
+        _atlasNodes =
+        [
+            .. _view.Nodes.Select(node => new GraphAtlasNode(
+                node.Id,
+                node.Label,
+                node.Kind,
+                node.Status,
+                node.ToneSlug,
+                node.Group,
+                node.InDegree,
+                node.OutDegree))
+        ];
+
+        _model = new
+        {
+            nodes = _view.Nodes.Select(node => new
+            {
+                id = node.Id,
+                label = node.Label,
+                kind = node.Kind,
+                status = node.Status,
+                toneSlug = node.ToneSlug,
+                group = node.Group,
+                groupIndex = node.GroupIndex,
+                ordinal = node.Ordinal,
+                inDegree = node.InDegree,
+                outDegree = node.OutDegree,
+                isBoundary = node.OutOfScope
+            }).ToArray(),
+            edges = _view.Edges.Select(edge => new { source = edge.Source, target = edge.Target }).ToArray(),
+            emptyMessage = "This part of the knowledge base has nothing linked yet."
+        };
+    }
+
+    private Task SelectAsync(string? nodeId)
+    {
+        _selectedId = nodeId;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSheetOpenChangedAsync(bool open) => open ? Task.CompletedTask : SelectAsync(null);
+
+    private Task StepAsync(int delta)
+    {
+        if (_atlasNodes.Count == 0) return Task.CompletedTask;
+
+        var next = Math.Clamp(SelectedIndex + delta, 0, _atlasNodes.Count - 1);
+        return SelectAsync(_atlasNodes[next].Id);
+    }
+
+    private async Task ChangeScopeAsync(string? key)
+    {
+        var next = Scopes.FirstOrDefault(scope => string.Equals(scope.Key, key, StringComparison.Ordinal));
+        if (next is null || string.Equals(next.Key, Scope.Key, StringComparison.Ordinal)) return;
+
+        Scope = next;
+        await ScopeChanged.InvokeAsync(next);
+        await LoadAsync();
+    }
+
+    private Task NavigateAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+
+    private async void OnKnowledgeChanged()
+    {
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => KnowledgeAtlas.Changed -= OnKnowledgeChanged;
+}

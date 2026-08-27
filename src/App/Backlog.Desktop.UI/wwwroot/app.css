@@ -3483,6 +3483,22 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* The section tabs and the atlas toggle on one line. The tabs take the room and
+   the toggle takes what it needs at the end; `align-items: center` is what stops
+   the pill stretching to the height of the tab row. */
+.knowledge-stack__strip {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.knowledge-stack__strip > .knowledge-stack__nav {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .knowledge-stack__repositories,
 .knowledge-stack__nav {
     flex: 0 0 auto;
@@ -3503,13 +3519,73 @@ h1, h2, h3 {
     max-height: none;
 }
 
+/*
+    The Technology pane holds a map, and a map does not scroll — you look at the
+    whole of it and move about inside it. So the pane itself clips instead of
+    scrolling, the header and the stat tiles keep their own height, and the tab
+    strip takes everything that is left.
+
+    Which tab scrolls is then the tab's own business, and the two want opposite
+    things: the atlas fits its area exactly, and the layer detail is a document
+    that runs past the bottom. The scroll moved off the pane and onto the Layers
+    panel below for exactly that reason — a scrollbar on the pane scrolled the
+    atlas out of the frame it had just been fitted to.
+*/
 .tech-knowledge-pane {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-md);
+    height: 100%;
     max-height: 100%;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
+}
+
+/* The pane clips at its own height, so the section around it has nothing left to
+   scroll — this only stops it reserving a gutter for a scrollbar that never
+   comes. */
+.knowledge-stack__section:has(> .tech-knowledge-pane) {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+}
+
+.knowledge-stack__section > .tech-knowledge-pane {
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.tech-knowledge-pane > .tabs {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.tech-knowledge-pane .tabs__panels {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tech-knowledge-pane .tabs__panel {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The atlas fits. */
+.tech-knowledge-pane [data-testid="technology-graph-panel"] {
+    overflow: hidden;
+}
+
+/* The layer detail scrolls. */
+.tech-knowledge-pane [data-testid="technology-layers-panel"] {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-md);
+    overflow-y: auto;
     scrollbar-gutter: stable;
+    padding-right: var(--spacing-2xs);
 }
 
 /* The Technology header holds a title and one action and nothing else, so it is
@@ -3525,6 +3601,11 @@ h1, h2, h3 {
 
 .tech-knowledge-pane .knowledge-pane__header .knowledge-folder-open-error {
     grid-column: 1 / -1;
+}
+
+.tech-knowledge-pane > .knowledge-pane__header,
+.tech-knowledge-pane > .tech-stats {
+    flex: 0 0 auto;
 }
 
 .tech-stats {
@@ -4523,4 +4604,219 @@ h1, h2, h3 {
         grid-template-rows: minmax(0, 1fr);
         row-gap: 0;
     }
+}
+
+/* --------------------------------------------------------------------------
+   Technology atlas sheet
+   --------------------------------------------------------------------------
+   The parts of the atlas's detail sheet that are about technologies rather than
+   about sheets: the fact strip, the boundary-node note, and the three reference
+   lists. The sheet itself, its motion and its focus behaviour are the library's.
+   -------------------------------------------------------------------------- */
+
+.tech-atlas-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+.tech-atlas-status {
+    display: grid;
+    gap: var(--spacing-2xs);
+    justify-items: start;
+}
+
+.tech-atlas-prose,
+.tech-atlas-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+/* A boundary node is a chapter this folder does not own, and the note saying so
+   is the one piece of prose in the sheet that explains rather than reports. */
+.tech-atlas-note {
+    padding: var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-border-strong);
+    background: var(--color-background-raised);
+    border-radius: var(--border-radius-sm);
+}
+
+.tech-atlas-relations {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-atlas-relations__label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tech-atlas-relations > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Knowledge atlas
+   --------------------------------------------------------------------------
+   The map over a knowledge folder, or over all of them. It takes the section
+   body when it is open, so it is a column that fills the room and clips: the
+   map fits and the list inside it scrolls, exactly as the technology atlas
+   does.
+   -------------------------------------------------------------------------- */
+
+.knowledge-atlas {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.knowledge-stack__section--atlas {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+}
+
+.knowledge-atlas__header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.knowledge-atlas__heading {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.knowledge-atlas__heading h3 {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+}
+
+.knowledge-atlas__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.knowledge-atlas__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.knowledge-atlas__actions {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.knowledge-atlas > .graph-atlas {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* The toggle sits at the end of the section strip and is deliberately quiet:
+   text and a hairline, no fill. The map is offered, not advertised. */
+.knowledge-stack__atlas-toggle {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.knowledge-stack__atlas-toggle:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+}
+
+.knowledge-stack__atlas-toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.knowledge-stack__atlas-toggle[aria-expanded="true"] {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-focus);
+}
+
+.knowledge-atlas-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+.knowledge-atlas-note {
+    margin: 0;
+    padding: var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-border-strong);
+    background: var(--color-background-raised);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.knowledge-atlas-relations {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.knowledge-atlas-relations__label {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.knowledge-atlas-relations > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+/* A neighbour is somewhere to go next inside the map, so it reads as a link and
+   moves the selection rather than leaving for the document. */
+.knowledge-atlas-relations__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.knowledge-atlas-relations__link:hover {
+    color: var(--color-primary-light);
+}
+
+.knowledge-atlas-relations__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
 }

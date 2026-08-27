@@ -109,7 +109,7 @@ Page map — each file here and the storybook pages that show it:
 | `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner); *Overlays*; *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*; `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#timelines-and-roadmaps` → *Roadmap* |
 | `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
 | `accessibility.md` | every page — components carry their own roles, labels and focus styles; *Foundations* reports contrast |
-| `component-libraries.md` | *Diagrams*, *Diagrams in markdown* and *Graph explorer* (Mermaid, AntV G6), plus the library itself |
+| `component-libraries.md` | *Diagrams*, *Diagrams in markdown*, *Graph explorer* and *Graph atlas* (Mermaid, the first-party canvas renderer), plus the library itself |
 
 The storybook's own order is a rule of its own: **nothing is shown before its
 parts.** Its groups run parts (input and action, structure, feedback, content,

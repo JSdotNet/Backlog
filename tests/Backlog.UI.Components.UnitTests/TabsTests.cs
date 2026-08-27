@@ -174,4 +174,82 @@ public sealed class TabsTests
         Assert.Equal("section", element.NodeName.ToLowerInvariant());
         Assert.Equal("host-panel", element.GetAttribute("class"));
     }
+
+    /// <summary>A host that puts nothing beside the strip gets exactly the DOM it
+    /// got before the slot existed. That is the whole promise of <c>Bare</c>, and a
+    /// wrapper appearing unasked-for would push every host's spacing around.</summary>
+    [Fact]
+    public void Nothing_beside_the_strip_means_no_row_around_it()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        Assert.Empty(tabs.FindAll(".tabs__strip"));
+    }
+
+    /// <summary>And a host that does put something there gets one row holding both.</summary>
+    [Fact]
+    public void Trailing_content_shares_a_row_with_the_strip()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.ListTrailing, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<button type=\"button\" data-testid=\"beside\">Atlas</button>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        var row = tabs.Find(".tabs__strip");
+
+        Assert.NotNull(row.QuerySelector("[role='tablist']"));
+        Assert.NotNull(row.QuerySelector("[data-testid='beside']"));
+    }
+
+    /// <summary>The part that matters: it goes *beside* the tablist, never inside
+    /// it. A tablist's children are tabs, so a button in there tells a screen
+    /// reader there is a fourth tab that does not exist.</summary>
+    [Fact]
+    public void Trailing_content_is_never_placed_inside_the_tablist()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.ListTrailing, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<button type=\"button\" data-testid=\"beside\">Atlas</button>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        Assert.Null(tabs.Find("[role='tablist']").QuerySelector("[data-testid='beside']"));
+        Assert.Single(tabs.FindAll("[role='tab']"));
+    }
+
+    [Fact]
+    public void A_host_can_name_the_row_itself()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.StripCssClass, "host-strip")
+            .Add(t => t.ListTrailing, (RenderFragment)(builder => builder.AddMarkupContent(0, "<span>beside</span>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        Assert.Empty(tabs.FindAll(".tabs__strip"));
+        Assert.NotNull(tabs.Find(".host-strip"));
+    }
 }

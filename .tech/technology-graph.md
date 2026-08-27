@@ -26,11 +26,17 @@ layer is the exception: it is already in daily use.
 
 ## Graph
 
-The application renders this metadata as an embedded interactive roadmap with
-layer lanes, status styling, and selectable dependency highlighting. The source
-Mermaid graph below remains the portable fallback and keeps edges pointing from a
-technology to what it sits on top of, mirroring each chapter's `depends-on`
-field.
+The application renders this metadata as an interactive atlas: the technologies
+laid out in depth, one cluster per layer file, each node sized by how many other
+technologies depend on it and marked with where its status sits on the ladder
+below. Selecting one lights its dependencies and opens its chapter beside the
+map. The nodes are also listed beside the picture, in this folder's reading
+order, which is the surface a keyboard operates — the canvas is a pointer
+shortcut onto the same selection.
+
+The source Mermaid graph below remains the portable fallback, for reading this
+file anywhere the application is not. It keeps edges pointing from a technology
+to what it sits on top of, mirroring each chapter's `depends-on` field.
 
 <details>
 <summary>Mermaid source graph</summary>
@@ -191,7 +197,7 @@ this project sits below them.
   by two or more channels moves to `shared.md`.
 - Rationale lives in `.arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
-- When a node or edge changes, update the Mermaid source graph in the same change; the embedded roadmap is generated from `.tech` metadata.
+- When a node or edge changes, update the Mermaid source graph in the same change; the atlas is generated from `.tech` metadata and needs no editing.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
 `knowledge-base` plugin.

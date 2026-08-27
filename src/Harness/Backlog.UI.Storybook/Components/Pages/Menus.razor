@@ -76,9 +76,44 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
         <p class="sb-state" data-testid="menu-last-action">@(_lastAction ?? "(nothing yet)")</p>
     </Story>
 
+    @*
+        The pager is here rather than with the buttons because stepping through a
+        sequence is navigation, and because the counter is the part that matters:
+        two arrows on their own say there is more without saying how much more.
+    *@
+    <Story Name="Record pager"
+           Description="Previous and next over a sequence, with the position in it. The ends disable rather than wrap, so reaching the last record tells you it is the last. A total of zero renders nothing — a counter reporting on a sequence that does not exist is worse than no counter."
+           Code="@PagerCode">
+        <div class="sb-stack">
+            <RecordPager Index="0" Total="7" AriaLabel="Chapters" TestId="pager-first" />
+            <RecordPager Index="3" Total="7" AriaLabel="Chapters" TestId="pager-middle"
+                         Hints="@PagerHints" />
+            <RecordPager Index="6" Total="7" AriaLabel="Chapters" TestId="pager-last" />
+            <RecordPager Index="0" Total="0" AriaLabel="Nothing" TestId="pager-empty" />
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
+    // The hints belong to whatever binds the keys, not to the pager: the same
+    // control reached by arrows on one surface and by brackets on another would
+    // be lying to one of them if the keys were baked in.
+    private static readonly IReadOnlyList<RecordPagerHint> PagerHints =
+    [
+        new("↑ ↓", "move"),
+        new("Esc", "close")
+    ];
+
+    private const string PagerCode = """
+        <RecordPager Index="3"
+                     Total="7"
+                     AriaLabel="Chapters"
+                     Hints="@PagerHints"
+                     OnPrevious="() => Step(-1)"
+                     OnNext="() => Step(1)" />
+        """;
+
     private static readonly DesignGuideline[] Rules =
     [
         new("accessibility.md#keyboard-navigation", "What a tree and a menu have to be walkable with."),

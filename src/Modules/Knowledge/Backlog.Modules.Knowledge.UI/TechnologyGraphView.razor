@@ -1,20 +1,273 @@
 @*
-    The technology graph is the shared GraphExplorer — board, roadmap and cloud
-    views, zoom and panning all live in the library — plus one app-specific
-    adapter: what a status means and which lanes and clusters exist comes from
-    .tech metadata, so backlogDiagrams.renderTechnologyGraph in app.js maps that
-    metadata into the explorer's model and hands it over.
+    The technology graph as an atlas: the stack drawn as a place, with a sheet
+    that opens on whatever technology is picked.
+
+    The picture, the pan and the picking all live in the component library, as
+    GraphAtlas. What is app-specific is here and only here: which layer a
+    technology belongs to, what its status means, what a `depends-on` reference
+    points at, and what a reader is told when the selection moves.
+
+    The sheet is rendered in Blazor rather than painted on the canvas, and that
+    is the whole reason the selection round-trips through .NET. It carries a
+    status select that writes back to `.tech` and references that navigate to
+    another knowledge folder — neither of which a canvas can hold.
 *@
-@* No title, description or badge: the pane above already says Technology and
-   counts the technologies and dependencies in its stat tiles, so the header
-   here repeated both. An empty Title drops the explorer's header entirely. *@
-<GraphExplorer Title=""
-               Data="@Graph"
-               JsFunction="backlogDiagrams.renderTechnologyGraph"
-               StatusText="Rendering technology visualizer..."
-               AriaLabel="Technology dependency visualizer" />
+
+<GraphAtlas Title=""
+            Data="@View.Graph"
+            Nodes="@AtlasNodes"
+            JsFunction="backlogDiagrams.renderTechnologyAtlas"
+            StatusText="Rendering technology atlas..."
+            AriaLabel="Technology dependency atlas"
+            IndexLabel="Technologies, in reading order"
+            SelectedId="@_selectedId"
+            SelectedIdChanged="SelectAsync"
+            Announcement="@Announcement"
+            TestId="technology-atlas">
+    <Detail>
+        <DetailSheet Open="@(Selected is not null)"
+                     OpenChanged="OnSheetOpenChangedAsync"
+                     Kicker="@Selected?.Layer"
+                     Title="@Selected?.Label"
+                     Lede="@SelectedDescription"
+                     TestId="technology-atlas-sheet"
+                     CloseLabel="Close technology details">
+            <ChildContent>
+                @if (Selected is { } node)
+                {
+                    <div class="tech-atlas-facts">
+                        @if (!string.IsNullOrWhiteSpace(node.Kind))
+                        {
+                            <Badge Kind="">@node.Kind</Badge>
+                        }
+                        @if (Chapter?.Metadata.Version is { Length: > 0 } version)
+                        {
+                            <Badge Kind="">@version</Badge>
+                        }
+                        <Badge Kind="">@DegreeSummary(node)</Badge>
+                    </div>
+
+                    @* A boundary node is a chapter in another knowledge folder. Its
+                       status belongs to that folder, so this atlas prints it and does
+                       not offer to change it — writing it from here would be `.tech`
+                       editing `.arc42`. *@
+                    @if (node.IsBoundary)
+                    {
+                        <p class="tech-atlas-note">
+                            Defined in @node.Layer. This atlas shows it because
+                            @DependentCount(node) here @(node.InDegree == 1 ? "depends" : "depend") on it.
+                        </p>
+
+                        @if (KnowledgeReference.Parse(node.Id) is { } reference)
+                        {
+                            <div class="tech-atlas-relations">
+                                <span class="tech-atlas-relations__label">Documented in</span>
+                                <div>
+                                    <KnowledgeReferenceLink Reference="@reference"
+                                                            Text="@reference.Label"
+                                                            OnNavigate="NavigateAsync" />
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="tech-atlas-status">
+                            <StatusSelector Id="@StatusSelectId(node.Id)"
+                                            CurrentValue="@node.Status"
+                                            Options="@StatusOptions(node.Status)"
+                                            Label="@($"State for {node.Label}")"
+                                            TestId="technology-atlas-state-select"
+                                            OnChanged="value => ChangeStatusAsync(node, value)" />
+                            <Alert Message="@StatusError" TestId="technology-atlas-state-error" Role="status" />
+                        </div>
+
+                        @if (Chapter is { Description.Length: > 0 } described
+                             && !string.Equals(described.Description, SelectedDescription, StringComparison.Ordinal))
+                        {
+                            <p class="tech-atlas-prose">@described.Description</p>
+                        }
+                    }
+
+                    @RenderRelations("Depends on", Chapter?.DependsOn ?? [])
+                    @RenderRelations("Related", Chapter?.Related ?? [])
+                    @RenderRelations("Alternatives", Chapter?.Alternatives ?? [])
+                }
+            </ChildContent>
+
+            <Footer>
+                <RecordPager Index="@SelectedIndex"
+                             Total="@AtlasNodes.Count"
+                             AriaLabel="Technologies"
+                             PreviousLabel="Previous technology"
+                             NextLabel="Next technology"
+                             TestId="technology-atlas-pager"
+                             Hints="@PagerHints"
+                             OnPrevious="() => StepAsync(-1)"
+                             OnNext="() => StepAsync(1)" />
+            </Footer>
+        </DetailSheet>
+    </Detail>
+</GraphAtlas>
 
 @code {
+    private static readonly IReadOnlyList<RecordPagerHint> PagerHints =
+    [
+        new("Esc", "close"),
+        new("↑ ↓", "move")
+    ];
+
+    private string? _selectedId;
+    private TechnologyGraphData? _projected;
+
     [Parameter, EditorRequired]
-    public TechnologyGraphData Graph { get; set; } = TechnologyGraphData.Empty;
+    public TechnologyKnowledgeView View { get; set; } = null!;
+
+    /// <summary>Raised when a reader follows a reference off a technology onto a
+    /// chapter in another knowledge folder.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
+
+    /// <summary>Raised when a reader picks a different state for a technology. The
+    /// panel owns writing it, because it owns the folder.</summary>
+    [Parameter]
+    public EventCallback<TechnologyStatusChange> OnStatusChanged { get; set; }
+
+    /// <summary>The message the panel reports back after a failed write, so the
+    /// error appears beside the control that caused it.</summary>
+    [Parameter]
+    public string? StatusError { get; set; }
+
+    /// <summary>The atlas's nodes, in the folder's reading order — which is the
+    /// order the graph itself is built in, so this is a projection and not a
+    /// second opinion about sequence.
+    ///
+    /// <para>Built when the graph changes rather than on every read. A fresh list
+    /// is a changed parameter to Blazor, so a computed property here would re-render
+    /// the index on every keystroke the sheet sees.</para></summary>
+    private IReadOnlyList<GraphAtlasNode> AtlasNodes { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_projected, View.Graph)) return;
+
+        _projected = View.Graph;
+        AtlasNodes = [.. View.Graph.Nodes.Select(node => new GraphAtlasNode(
+            node.Id,
+            node.Label,
+            node.Kind,
+            node.Status,
+            node.ToneSlug,
+            node.Layer,
+            node.InDegree,
+            node.OutDegree))];
+
+        // The folder was re-read and this technology is no longer in it. Holding the
+        // selection would leave the sheet open on nothing.
+        if (_selectedId is not null && AtlasNodes.All(node => !string.Equals(node.Id, _selectedId, StringComparison.Ordinal)))
+        {
+            _selectedId = null;
+        }
+    }
+
+    private TechnologyGraphNode? Selected =>
+        View.Graph.Nodes.FirstOrDefault(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
+
+    /// <summary>The parsed chapter behind the selected node, which carries the
+    /// metadata the graph node does not: version, and the three reference lists.
+    /// A boundary node has none, and resolves to null.</summary>
+    private TechnologyNode? Chapter => _selectedId is null
+        ? null
+        : View.Layers
+            .SelectMany(layer => layer.Nodes)
+            .FirstOrDefault(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
+
+    private int SelectedIndex => AtlasNodes.ToList().FindIndex(node => string.Equals(node.Id, _selectedId, StringComparison.Ordinal));
+
+    /// <summary>The one-line definition under the title. A chapter's summary is
+    /// its first couple of prose lines, which is sometimes a bullet fragment, so an
+    /// empty one is left out rather than printed as a blank line.</summary>
+    private string? SelectedDescription =>
+        Selected is { Description.Length: > 0 } node ? node.Description : null;
+
+    /// <summary>What the live region says. Position and total are in it because a
+    /// reader arrowing through a list with no visible counter has no other way to
+    /// know how far along they are.</summary>
+    private string? Announcement => Selected is { } node
+        ? $"{node.Label}, {node.Status}, {node.Layer}. {SelectedIndex + 1} of {AtlasNodes.Count}. {DegreeSummary(node)}."
+        : null;
+
+    private static string DegreeSummary(TechnologyGraphNode node) =>
+        $"{node.InDegree} {(node.InDegree == 1 ? "dependent" : "dependents")}, {node.OutDegree} {(node.OutDegree == 1 ? "dependency" : "dependencies")}";
+
+    private static string DependentCount(TechnologyGraphNode node) =>
+        node.InDegree == 1 ? "one technology" : $"{node.InDegree} technologies";
+
+    private static IReadOnlyList<SelectorOption> StatusOptions(string status)
+    {
+        // The folder's own vocabulary, not a list of this view's own. A status the
+        // file already holds is kept even when the vocabulary does not name it, so
+        // opening the select never silently offers to correct it.
+        var values = KnowledgeStatus.Values(KnowledgeFolder.Tech);
+        var options = values.Contains(status, StringComparer.OrdinalIgnoreCase) ? values : [.. values, status];
+        return [.. options.Select(value => new SelectorOption(value, value))];
+    }
+
+    private static string StatusSelectId(string itemPath) =>
+        "technology-atlas-" + new string([.. itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')]).Trim('-') + "-state";
+
+    private Task SelectAsync(string? nodeId)
+    {
+        _selectedId = nodeId;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Closing the sheet clears the selection, which is the same state.
+    /// Two ways to say "nothing is selected" would drift the first time one of
+    /// them was used and the other was not.</summary>
+    private Task OnSheetOpenChangedAsync(bool open) => open ? Task.CompletedTask : SelectAsync(null);
+
+    /// <summary>Steps the selection along the reading order. Clamped rather than
+    /// wrapped: the pager disables its ends, and a reader who reaches the last
+    /// technology should be told they have rather than sent back to the first.</summary>
+    private Task StepAsync(int delta)
+    {
+        if (AtlasNodes.Count == 0) return Task.CompletedTask;
+
+        var next = Math.Clamp(SelectedIndex + delta, 0, AtlasNodes.Count - 1);
+        return SelectAsync(AtlasNodes[next].Id);
+    }
+
+    private Task ChangeStatusAsync(TechnologyGraphNode node, string? status) =>
+        string.IsNullOrWhiteSpace(status) || string.Equals(status, node.Status, StringComparison.OrdinalIgnoreCase)
+            ? Task.CompletedTask
+            : OnStatusChanged.InvokeAsync(new TechnologyStatusChange(node.Id, node.Status, status));
+
+    private Task NavigateAsync(KnowledgeReference reference) =>
+        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+
+    /// <summary>One reference list, drawn through the shared reference control so a
+    /// relation reads and behaves the way one does everywhere else. An empty list
+    /// renders nothing at all — a heading over no references is a promise the
+    /// chapter does not keep.</summary>
+    private RenderFragment RenderRelations(string label, IReadOnlyList<string> references) => __builder =>
+    {
+        @if (references.Count > 0)
+        {
+            <div class="tech-atlas-relations">
+                <span class="tech-atlas-relations__label">@label</span>
+                <div>
+                    @foreach (var value in references)
+                    {
+                        @if (KnowledgeReference.Parse(value) is { } reference)
+                        {
+                            <KnowledgeReferenceLink Reference="@reference"
+                                                    Text="@reference.Label"
+                                                    OnNavigate="NavigateAsync" />
+                        }
+                    }
+                </div>
+            </div>
+        }
+    };
 }

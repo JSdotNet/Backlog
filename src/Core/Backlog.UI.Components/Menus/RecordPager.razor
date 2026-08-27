@@ -1,0 +1,106 @@
+@*
+    Step through a sequence one record at a time, and say where in it you are.
+
+    The counter is the point. A previous/next pair on its own tells a reader that
+    there is more without telling them how much more, and "3 of 12" is the whole
+    difference between browsing and knowing you have seen everything.
+
+    It is a `nav` with a label because that is what a list of navigation controls
+    is, and it is the pattern the breadcrumb already uses. Total zero renders
+    nothing at all: "0 of 0" is a counter reporting on a sequence that does not
+    exist, and an absent fact is left out rather than printed as a placeholder.
+
+    The key hints are the caller's, not this component's. A pager reached by
+    arrow keys in one host and by `[`/`]` in another would be lying if the hint
+    were baked in here.
+*@
+
+@if (Total > 0)
+{
+    <nav class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
+        <IconButton BaseClass="record-pager__step"
+                    AriaLabel="@PreviousLabel"
+                    Disabled="@(!HasPrevious)"
+                    TestId="@StepTestId("previous")"
+                    OnClick="PreviousAsync">&#8592;</IconButton>
+
+        <span class="record-pager__count">
+            <span class="record-pager__index">@(Index + 1)</span>
+            <span class="record-pager__of">of</span>
+            <span class="record-pager__total">@Total</span>
+        </span>
+
+        <IconButton BaseClass="record-pager__step"
+                    AriaLabel="@NextLabel"
+                    Disabled="@(!HasNext)"
+                    TestId="@StepTestId("next")"
+                    OnClick="NextAsync">&#8594;</IconButton>
+
+        @if (Hints.Count > 0)
+        {
+            <span class="record-pager__hints">
+                @foreach (var hint in Hints)
+                {
+                    <span class="record-pager__hint">
+                        <kbd class="record-pager__keys">@hint.Keys</kbd>
+                        <span class="record-pager__action">@hint.Action</span>
+                    </span>
+                }
+            </span>
+        }
+    </nav>
+}
+
+@code {
+    /// <summary>Zero-based position in the sequence. The counter prints it
+    /// one-based, because a reader counts from one and an index does not.</summary>
+    [Parameter]
+    public int Index { get; set; }
+
+    [Parameter]
+    public int Total { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public string PreviousLabel { get; set; } = "Previous";
+
+    [Parameter]
+    public string NextLabel { get; set; } = "Next";
+
+    /// <summary>Names the sequence for a screen reader, which otherwise hears two
+    /// unlabelled arrows and a number.</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Pagination";
+
+    /// <summary>Keyboard shortcuts the host binds, printed beside the counter.
+    /// Empty renders nothing.</summary>
+    [Parameter]
+    public IReadOnlyList<RecordPagerHint> Hints { get; set; } = [];
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>record-pager</c> on the nav.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "record-pager";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private bool HasPrevious => Index > 0;
+
+    private bool HasNext => Index < Total - 1;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    private string? StepTestId(string step) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{step}";
+
+    private Task PreviousAsync() => HasPrevious ? OnPrevious.InvokeAsync() : Task.CompletedTask;
+
+    private Task NextAsync() => HasNext ? OnNext.InvokeAsync() : Task.CompletedTask;
+}

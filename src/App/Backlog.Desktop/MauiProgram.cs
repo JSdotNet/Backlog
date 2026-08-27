@@ -122,6 +122,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<FeedbackReporter>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
+        builder.Services.AddSingleton<KnowledgeAtlasService>();
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
