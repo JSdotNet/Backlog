@@ -6,20 +6,20 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 484,
-    "edges": 770,
+    "nodes": 499,
+    "edges": 802,
     "nodesByFolder": {
-      "domain": 474,
+      "domain": 489,
       "arc42": 8,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 410,
+      "chapter": 425,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 393,
+      "draft": 408,
       "proposed": 32,
       "deprecated": 3,
       "idea": 1,
@@ -27,9 +27,9 @@
       "none": 1
     },
     "edgesByType": {
-      "contains": 402,
-      "related": 332,
-      "depends-on": 36
+      "contains": 417,
+      "related": 348,
+      "depends-on": 37
     }
   },
   "problems": [],
@@ -5591,6 +5591,23 @@
       },
       {
         "data": {
+          "id": ".domain/second-brain/domain.md#instruction-review",
+          "label": "Instruction Review",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/domain.md",
+          "slug": "instruction-review",
+          "level": 2,
+          "line": 150,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/features.md#instruction-optimization",
+            ".domain/repository-management/features.md#repository-knowledge-folder-settings"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/domain.md#shared-enums",
           "label": "Shared Enums",
           "type": "chapter",
@@ -5598,7 +5615,7 @@
           "path": ".domain/second-brain/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 150,
+          "line": 193,
           "status": "draft"
         }
       },
@@ -5737,6 +5754,151 @@
           "level": 3,
           "line": 109,
           "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#instruction-optimization",
+          "label": "Instruction optimization",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "instruction-optimization",
+          "level": 2,
+          "line": 123,
+          "status": "draft",
+          "feature-flag": [
+            "instruction-optimization"
+          ],
+          "depends-on": [
+            ".domain/second-brain/features.md#repository-knowledge-areas"
+          ],
+          "related": [
+            ".domain/second-brain/domain.md#instruction-review",
+            ".domain/repository-management/features.md#repository-knowledge-folder-settings"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#instruction-set-inventory",
+          "label": "Instruction set inventory",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "instruction-set-inventory",
+          "level": 3,
+          "line": 148,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/naming.md#instruction-set"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#context-load-budget",
+          "label": "Context-load budget",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "context-load-budget",
+          "level": 3,
+          "line": 163,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/naming.md#context-load"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#duplicate-rule-detection",
+          "label": "Duplicate rule detection",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "duplicate-rule-detection",
+          "level": 3,
+          "line": 177,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/naming.md#instruction-alignment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#cross-tool-alignment-validation",
+          "label": "Cross-tool alignment validation",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "cross-tool-alignment-validation",
+          "level": 3,
+          "line": 191,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/naming.md#instruction-alignment"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#pointer-and-phrasing-review",
+          "label": "Pointer and phrasing review",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "pointer-and-phrasing-review",
+          "level": 3,
+          "line": 207,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#prune-candidates",
+          "label": "Prune candidates",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "prune-candidates",
+          "level": 3,
+          "line": 222,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#reviewed-change-proposals",
+          "label": "Reviewed change proposals",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "reviewed-change-proposals",
+          "level": 3,
+          "line": 236,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/domain.md#instruction-review"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#saving-evidence",
+          "label": "Saving evidence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "saving-evidence",
+          "level": 3,
+          "line": 250,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/naming.md#saving-evidence"
+          ]
         }
       },
       {
@@ -5890,6 +6052,107 @@
           "related": [
             ".domain/second-brain/domain.md#roadmap-contribution",
             ".domain/roadmap/naming.md#roadmap-tag"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#instruction-set",
+          "label": "Instruction Set",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "instruction-set",
+          "level": 2,
+          "line": 95,
+          "status": "draft",
+          "aliases": [
+            "instructions",
+            "agent instructions",
+            "working instructions"
+          ],
+          "related": [
+            ".domain/second-brain/domain.md#instruction-review",
+            ".domain/second-brain/features.md#instruction-set-inventory"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#context-load",
+          "label": "Context Load",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "context-load",
+          "level": 2,
+          "line": 110,
+          "status": "draft",
+          "aliases": [
+            "context load",
+            "always-loaded weight"
+          ],
+          "related": [
+            ".domain/second-brain/features.md#context-load-budget"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#instruction-finding",
+          "label": "Instruction Finding",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "instruction-finding",
+          "level": 2,
+          "line": 127,
+          "status": "draft",
+          "aliases": [
+            "finding",
+            "proposal"
+          ],
+          "related": [
+            ".domain/second-brain/domain.md#instruction-review"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#instruction-alignment",
+          "label": "Instruction Alignment",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "instruction-alignment",
+          "level": 2,
+          "line": 141,
+          "status": "draft",
+          "aliases": [
+            "alignment",
+            "cross-tool alignment"
+          ],
+          "related": [
+            ".domain/second-brain/features.md#cross-tool-alignment-validation"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/naming.md#saving-evidence",
+          "label": "Saving Evidence",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/naming.md",
+          "slug": "saving-evidence",
+          "level": 2,
+          "line": 160,
+          "status": "draft",
+          "aliases": [
+            "evidence basis"
+          ],
+          "related": [
+            ".domain/second-brain/features.md#saving-evidence"
           ]
         }
       },
@@ -9930,6 +10193,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/second-brain/domain.md->.domain/second-brain/domain.md#instruction-review",
+          "source": ".domain/second-brain/domain.md",
+          "target": ".domain/second-brain/domain.md#instruction-review",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/second-brain/domain.md->.domain/second-brain/domain.md#shared-enums",
           "source": ".domain/second-brain/domain.md",
           "target": ".domain/second-brain/domain.md#shared-enums",
@@ -10002,6 +10273,78 @@
       },
       {
         "data": {
+          "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#instruction-optimization",
+          "source": ".domain/second-brain/features.md",
+          "target": ".domain/second-brain/features.md#instruction-optimization",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#instruction-set-inventory",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#instruction-set-inventory",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#context-load-budget",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#context-load-budget",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#duplicate-rule-detection",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#duplicate-rule-detection",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#cross-tool-alignment-validation",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#cross-tool-alignment-validation",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#pointer-and-phrasing-review",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#pointer-and-phrasing-review",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#prune-candidates",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#prune-candidates",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#reviewed-change-proposals",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#reviewed-change-proposals",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#saving-evidence",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#saving-evidence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#knowledge-note",
           "source": ".domain/second-brain/naming.md",
           "target": ".domain/second-brain/naming.md#knowledge-note",
@@ -10045,6 +10388,46 @@
           "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#roadmap-contribution",
           "source": ".domain/second-brain/naming.md",
           "target": ".domain/second-brain/naming.md#roadmap-contribution",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#instruction-set",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#instruction-set",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#context-load",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#context-load",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#instruction-finding",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#instruction-finding",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#instruction-alignment",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#instruction-alignment",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/naming.md->.domain/second-brain/naming.md#saving-evidence",
+          "source": ".domain/second-brain/naming.md",
+          "target": ".domain/second-brain/naming.md#saving-evidence",
           "type": "contains"
         }
       },
@@ -12986,6 +13369,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/second-brain/domain.md#instruction-review->.domain/second-brain/features.md#instruction-optimization",
+          "source": ".domain/second-brain/domain.md#instruction-review",
+          "target": ".domain/second-brain/features.md#instruction-optimization",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/domain.md#instruction-review->.domain/repository-management/features.md#repository-knowledge-folder-settings",
+          "source": ".domain/second-brain/domain.md#instruction-review",
+          "target": ".domain/repository-management/features.md#repository-knowledge-folder-settings",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/second-brain/features.md#knowledge-capture->.domain/inbox/features.md#routing",
           "source": ".domain/second-brain/features.md#knowledge-capture",
           "target": ".domain/inbox/features.md#routing",
@@ -13037,6 +13436,78 @@
           "id": "related:.domain/second-brain/features.md#repository-knowledge-areas->.domain/backlog/features.md#search-filter-and-organize",
           "source": ".domain/second-brain/features.md#repository-knowledge-areas",
           "target": ".domain/backlog/features.md#search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#repository-knowledge-areas",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/domain.md#instruction-review",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/second-brain/domain.md#instruction-review",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#instruction-optimization->.domain/repository-management/features.md#repository-knowledge-folder-settings",
+          "source": ".domain/second-brain/features.md#instruction-optimization",
+          "target": ".domain/repository-management/features.md#repository-knowledge-folder-settings",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#instruction-set-inventory->.domain/second-brain/naming.md#instruction-set",
+          "source": ".domain/second-brain/features.md#instruction-set-inventory",
+          "target": ".domain/second-brain/naming.md#instruction-set",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#context-load-budget->.domain/second-brain/naming.md#context-load",
+          "source": ".domain/second-brain/features.md#context-load-budget",
+          "target": ".domain/second-brain/naming.md#context-load",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#duplicate-rule-detection->.domain/second-brain/naming.md#instruction-alignment",
+          "source": ".domain/second-brain/features.md#duplicate-rule-detection",
+          "target": ".domain/second-brain/naming.md#instruction-alignment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#cross-tool-alignment-validation->.domain/second-brain/naming.md#instruction-alignment",
+          "source": ".domain/second-brain/features.md#cross-tool-alignment-validation",
+          "target": ".domain/second-brain/naming.md#instruction-alignment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#reviewed-change-proposals->.domain/second-brain/domain.md#instruction-review",
+          "source": ".domain/second-brain/features.md#reviewed-change-proposals",
+          "target": ".domain/second-brain/domain.md#instruction-review",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#saving-evidence->.domain/second-brain/naming.md#saving-evidence",
+          "source": ".domain/second-brain/features.md#saving-evidence",
+          "target": ".domain/second-brain/naming.md#saving-evidence",
           "type": "related"
         }
       },
@@ -13109,6 +13580,54 @@
           "id": "related:.domain/second-brain/naming.md#roadmap-contribution->.domain/roadmap/naming.md#roadmap-tag",
           "source": ".domain/second-brain/naming.md#roadmap-contribution",
           "target": ".domain/roadmap/naming.md#roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#instruction-set->.domain/second-brain/domain.md#instruction-review",
+          "source": ".domain/second-brain/naming.md#instruction-set",
+          "target": ".domain/second-brain/domain.md#instruction-review",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#instruction-set->.domain/second-brain/features.md#instruction-set-inventory",
+          "source": ".domain/second-brain/naming.md#instruction-set",
+          "target": ".domain/second-brain/features.md#instruction-set-inventory",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#context-load->.domain/second-brain/features.md#context-load-budget",
+          "source": ".domain/second-brain/naming.md#context-load",
+          "target": ".domain/second-brain/features.md#context-load-budget",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#instruction-finding->.domain/second-brain/domain.md#instruction-review",
+          "source": ".domain/second-brain/naming.md#instruction-finding",
+          "target": ".domain/second-brain/domain.md#instruction-review",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#instruction-alignment->.domain/second-brain/features.md#cross-tool-alignment-validation",
+          "source": ".domain/second-brain/naming.md#instruction-alignment",
+          "target": ".domain/second-brain/features.md#cross-tool-alignment-validation",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/naming.md#saving-evidence->.domain/second-brain/features.md#saving-evidence",
+          "source": ".domain/second-brain/naming.md#saving-evidence",
+          "target": ".domain/second-brain/features.md#saving-evidence",
           "type": "related"
         }
       },

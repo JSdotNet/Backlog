@@ -147,6 +147,49 @@ embed knowledge snippets into backlog details). It is a service because a link
 has two owners in different contexts and must be kept consistent from both sides
 rather than living inside a single aggregate. Invocation semantics: consistency policy invoked when note/backlog links are created, removed, or reconciled.
 
+## Instruction Review
+
+```meta
+type: domain-service
+status: draft
+related: [.domain/second-brain/features.md#instruction-optimization, .domain/repository-management/features.md#repository-knowledge-folder-settings]
+```
+
+Reviews the agent-facing instruction documents a repository carries — the
+working-instructions knowledge area, per tool — and produces findings about what
+they cost, where they disagree, and which wording is not doing its job. It is a
+service rather than an aggregate because the documents belong to the repository and
+are read through the knowledge-folder settings
+[Repository Management](../repository-management/features.md#repository-knowledge-folder-settings)
+owns: several tools' instruction sets are examined as one subject, and no aggregate
+here may hold their content without becoming a second, staler copy of it.
+
+A finding names a location, the kind of problem, and the change proposed for it.
+The kinds are: context load carried by an always-loaded document; one meaning
+stated in more than one place; a disagreement or an omission between the sets two
+tools read; wording that will not reliably make an agent reach the document it
+names; wording that steers by prohibition where stating the wanted behaviour would
+steer better; guidance the agent already follows unprompted; guidance that has gone
+stale; and guidance that copies what the repository's own configuration already
+states.
+
+Every finding is a **proposal**. Accepting one edits the repository's own file and
+the repository stays its owner: the previous wording remains recoverable exactly,
+and code blocks, commands, paths, and error strings are carried through a rewrite
+unchanged. A change that shrinks an instruction set at the cost of how well the
+agents work is a failed change rather than a saving, which is why an applied
+proposal is measured afterwards and can be withdrawn. A claimed reduction carries
+the basis it was obtained on — observed from local agent activity, or measured in a
+controlled comparison — and is expressed in what agents load rather than in money.
+
+Findings live for the review that produced them. Nothing here stores instruction
+content, a second copy of a repository's rules, or a verdict that outlives the
+documents it was drawn from.
+
+Invocation semantics: command-invoked read-only analysis over a repository's
+instruction documents; it writes only through a proposal a person has accepted, one
+at a time.
+
 ## Shared Enums
 
 ```meta
