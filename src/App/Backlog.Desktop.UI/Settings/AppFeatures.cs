@@ -109,7 +109,7 @@ public static class AppFeatures
         new(
             FeedbackReporting,
             "Feedback reporting",
-            "Report Desktop app issues to GitHub with current-screen context and a screenshot.",
+            "Report Desktop app issues to GitHub with a title, details, and an attached screenshot.",
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(

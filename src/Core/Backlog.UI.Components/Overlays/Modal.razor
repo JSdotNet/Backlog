@@ -21,6 +21,7 @@
     private readonly string _id = "modal-" + Guid.NewGuid().ToString("N");
     private ElementReference _dialog;
     private bool _focusPending;
+    private bool _wasOpen;
 
     [Parameter]
     public bool Open { get; set; }
@@ -165,8 +166,13 @@
     protected override void OnParametersSet()
     {
         // Focus has to land inside the dialog the moment it appears, or the
-        // keyboard is still out in the page behind it.
-        if (Open) _focusPending = true;
+        // keyboard is still out in the page behind it. Armed only on the
+        // false->true transition: OnParametersSet runs on every render, and a
+        // host that re-renders while a field inside the dialog is being typed
+        // into re-passes Open="true" unchanged — arming on that too would drag
+        // focus back onto the dialog container on every keystroke.
+        if (Open && !_wasOpen) _focusPending = true;
+        _wasOpen = Open;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

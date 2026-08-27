@@ -2,7 +2,6 @@
 @implements IDisposable
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
-@inject FeedbackReporter Feedback
 @inject IAppFeatureSettings Features
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
@@ -343,20 +342,7 @@
                 </AppButton>
             }
 
-            @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
-            {
-                <AppButton BaseClass="header-util"
-                           Variant="ButtonVariant.None"
-                           id="feedback-button"
-                           TestId="feedback-button"
-                           aria-haspopup="dialog"
-                           OnClick="OpenFeedbackDialog">
-                    Report issue
-                    <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.FeedbackReporting)"
-                                        Title="@FeatureStatusTitle(AppFeatures.FeedbackReporting)"
-                                        TestId="feedback-feature-status" />
-                </AppButton>
-            }
+            <FeedbackReportButton />
 
             @* The header keeps the current version visible. Checking and installing
                updates happen in the separate update window opened from this control.
@@ -422,70 +408,6 @@
             <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
         </ChildContent>
     </Modal>
-    @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
-    {
-        <Modal Open="_feedbackOpen"
-               OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
-               Element="section"
-               BaseClass="feedback-dialog"
-               BackdropCssClass="feedback-backdrop"
-               BackdropRole="presentation"
-               UseBodyWrapper="false"
-               CloseOnBackdropClick="false"
-               CloseOnEscape="@(!_feedbackSubmitting)"
-               TestId="feedback-dialog"
-               FooterCssClass="feedback-dialog__actions"
-               aria-labelledby="feedback-title"
-               aria-describedby="feedback-description">
-            <Header>
-                <header class="feedback-dialog__header">
-                    <div>
-                        <p class="feedback-dialog__eyebrow">GitHub feedback</p>
-                        <h2 id="feedback-title">Report an issue</h2>
-                    </div>
-                    <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
-                </header>
-            </Header>
-            <ChildContent>
-                <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Add where on the current screen it happens; the app will ask which screen to capture when you submit.</p>
-                @* Plain library fields. `.feedback-field` used to hand-roll the
-                   label-over-input shape the library already ships, down to the
-                   same padding and border, so the classes went with the markup. *@
-                <TextField Label="Screen area"
-                           Id="feedback-screen-area-input"
-                           data-testid="feedback-screen-area-input"
-                           Value="@_feedbackScreenArea"
-                           ValueChanged="OnFeedbackScreenAreaInput"
-                           maxlength="120"
-                           Placeholder="For example: header, backlog list, settings repositories"
-                           Disabled="@_feedbackSubmitting" />
-                <TextField Label="Title"
-                           Id="feedback-title-input"
-                           data-testid="feedback-title-input"
-                           Value="@_feedbackTitle"
-                           ValueChanged="OnFeedbackTitleInput"
-                           maxlength="120"
-                           Disabled="@_feedbackSubmitting" />
-
-                <TextArea Label="Details"
-                          Id="feedback-details-input"
-                          data-testid="feedback-details-input"
-                          Value="@_feedbackDetails"
-                          ValueChanged="OnFeedbackDetailsInput"
-                          Rows="6"
-                          Disabled="@_feedbackSubmitting" />
-
-                <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
-            </ChildContent>
-            <Footer>
-                <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
-                <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
-                    @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
-                </AppButton>
-            </Footer>
-        </Modal>
-    }
-
     @if (IsFeatureEnabled(AppFeatures.AiAssistant) && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
@@ -670,13 +592,6 @@
     private bool _installingAppUpdate;
     private bool _appUpdateReady;
     private bool _appUpdateWindowOpen;
-    private bool _feedbackOpen;
-    private bool _feedbackSubmitting;
-    private bool _feedbackSucceeded;
-    private string _feedbackTitle = string.Empty;
-    private string _feedbackScreenArea = string.Empty;
-    private string _feedbackDetails = string.Empty;
-    private string? _feedbackMessage;
     private string _aiQuestion = string.Empty;
     private string? _aiAnswer;
     private string? _aiError;
@@ -937,97 +852,6 @@
 
     private string? FeatureStatusTitle(string featureKey) =>
         AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
-    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
-
-    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
-
-    private void OpenFeedbackDialog()
-    {
-        _feedbackOpen = true;
-        _feedbackSucceeded = false;
-        _feedbackMessage = null;
-    }
-
-    private void CloseFeedbackDialog()
-    {
-        if (_feedbackSubmitting) return;
-
-        _feedbackOpen = false;
-        _feedbackSucceeded = false;
-        _feedbackMessage = null;
-    }
-
-    private void OnFeedbackTitleInput(string value)
-    {
-        _feedbackTitle = value;
-        _feedbackSucceeded = false;
-        _feedbackMessage = null;
-    }
-
-    private void OnFeedbackDetailsInput(string value)
-    {
-        _feedbackDetails = value;
-        _feedbackSucceeded = false;
-        _feedbackMessage = null;
-    }
-
-    private void OnFeedbackScreenAreaInput(string value)
-    {
-        _feedbackScreenArea = value;
-        _feedbackSucceeded = false;
-        _feedbackMessage = null;
-    }
-
-    private async Task SubmitFeedbackAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_feedbackTitle))
-        {
-            _feedbackSucceeded = false;
-            _feedbackMessage = "Add a short title before creating the issue.";
-            return;
-        }
-
-        _feedbackSubmitting = true;
-        _feedbackSucceeded = false;
-        _feedbackMessage = "Capturing a screenshot...";
-
-        GitHubFeedbackScreenshot? screenshot = null;
-        string? screenshotError = null;
-
-        try
-        {
-            screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogCaptureScreenshot");
-            if (screenshot is null)
-            {
-                screenshotError = "No screenshot was captured.";
-            }
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            screenshotError = ex.Message;
-        }
-
-        _feedbackMessage = "Creating the GitHub issue...";
-
-        try
-        {
-            var link = await Feedback.ReportAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenArea, screenshot, screenshotError);
-            _feedbackSucceeded = true;
-            _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
-            _feedbackTitle = string.Empty;
-            _feedbackScreenArea = string.Empty;
-            _feedbackDetails = string.Empty;
-        }
-        catch (GitHubException ex)
-        {
-            _feedbackSucceeded = false;
-            _feedbackMessage = ex.Message;
-        }
-        finally
-        {
-            _feedbackSubmitting = false;
-        }
-    }
 
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {

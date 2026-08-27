@@ -207,6 +207,7 @@ public sealed class SettingsKnowledgeFolderStatusTests
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));
+        context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
 
@@ -226,6 +227,15 @@ public sealed class SettingsKnowledgeFolderStatusTests
         public Task<GitHubIssueSnapshot> GetIssueAsync(
             GitHubRepositoryRef repository,
             int number,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }

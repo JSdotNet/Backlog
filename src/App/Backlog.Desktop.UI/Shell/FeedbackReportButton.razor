@@ -1,0 +1,236 @@
+@implements IDisposable
+@inject IJSRuntime JS
+@inject FeedbackReporter Feedback
+@inject IAppFeatureSettings Features
+
+@*
+    The "Report issue" trigger and its dialog, self-contained so every routed
+    page can mount the same instance rather than each page growing its own copy
+    of the state machine underneath it. Home and Settings are the app's only two
+    routes today; a third route reaches every page the same way this one does —
+    by adding this tag, not by re-deriving the dialog.
+*@
+
+@if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
+{
+    <AppButton BaseClass="header-util"
+               Variant="ButtonVariant.None"
+               id="feedback-button"
+               TestId="feedback-button"
+               aria-haspopup="dialog"
+               OnClick="OpenFeedbackDialog">
+        Report issue
+        <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.FeedbackReporting)"
+                             Title="@FeatureStatusTitle(AppFeatures.FeedbackReporting)"
+                             TestId="feedback-feature-status" />
+    </AppButton>
+
+    <Modal Open="_feedbackOpen"
+           OpenChanged="value => { if (!value) CloseFeedbackDialog(); }"
+           Element="section"
+           BaseClass="feedback-dialog"
+           BackdropCssClass="feedback-backdrop"
+           BackdropRole="presentation"
+           UseBodyWrapper="false"
+           CloseOnBackdropClick="false"
+           CloseOnEscape="@(!_feedbackSubmitting)"
+           TestId="feedback-dialog"
+           FooterCssClass="feedback-dialog__actions"
+           aria-labelledby="feedback-title"
+           aria-describedby="feedback-description">
+        <Header>
+            <header class="feedback-dialog__header">
+                <div>
+                    <p class="feedback-dialog__eyebrow">GitHub feedback</p>
+                    <h2 id="feedback-title">Report an issue</h2>
+                </div>
+                <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
+            </header>
+        </Header>
+        <ChildContent>
+            <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Attach a screenshot if it helps show what's wrong.</p>
+
+            <TextField Label="Title"
+                       Id="feedback-title-input"
+                       data-testid="feedback-title-input"
+                       Value="@_feedbackTitle"
+                       ValueChanged="OnFeedbackTitleInput"
+                       maxlength="120"
+                       Disabled="@_feedbackSubmitting" />
+
+            <TextArea Label="Details"
+                      Id="feedback-details-input"
+                      data-testid="feedback-details-input"
+                      Value="@_feedbackDetails"
+                      ValueChanged="OnFeedbackDetailsInput"
+                      Rows="6"
+                      Disabled="@_feedbackSubmitting" />
+
+            <div class="feedback-dialog__screenshot">
+                @if (_feedbackScreenshot is not null)
+                {
+                    <img class="feedback-dialog__screenshot-preview"
+                         data-testid="feedback-screenshot-preview"
+                         src="@_feedbackScreenshot.DataUrl"
+                         alt="Captured screenshot preview" />
+                    <div class="feedback-dialog__screenshot-actions">
+                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-retake" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="CaptureScreenshotAsync">
+                            @(_feedbackCapturing ? "Capturing..." : "Retake screenshot")
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Ghost" data-testid="feedback-screenshot-remove" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="RemoveScreenshot">
+                            Remove
+                        </AppButton>
+                    </div>
+                }
+                else
+                {
+                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-attach" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="CaptureScreenshotAsync">
+                        @(_feedbackCapturing ? "Capturing..." : "Attach screenshot")
+                    </AppButton>
+                }
+            </div>
+
+            <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
+        </ChildContent>
+        <Footer>
+            <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary" data-testid="feedback-submit" Disabled="@(_feedbackSubmitting || string.IsNullOrWhiteSpace(_feedbackTitle))" OnClick="SubmitFeedbackAsync">
+                @(_feedbackSubmitting ? "Sending..." : "Create GitHub issue")
+            </AppButton>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private bool _feedbackOpen;
+    private bool _feedbackSubmitting;
+    private bool _feedbackCapturing;
+    private bool _feedbackSucceeded;
+    private string _feedbackTitle = string.Empty;
+    private string _feedbackDetails = string.Empty;
+    private string? _feedbackMessage;
+    private GitHubFeedbackScreenshot? _feedbackScreenshot;
+    private string? _feedbackScreenshotError;
+
+    protected override void OnInitialized() => Features.Changed += HandleFeaturesChanged;
+
+    public void Dispose() => Features.Changed -= HandleFeaturesChanged;
+
+    private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
+
+    private string FeatureStatusSlug(string featureKey) =>
+        AppFeatureStatusBadge.SlugFor(AppFeatures.All, Features, featureKey);
+
+    private string? FeatureStatusTitle(string featureKey) =>
+        AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
+
+    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
+
+    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
+
+    private void OpenFeedbackDialog()
+    {
+        _feedbackOpen = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void CloseFeedbackDialog()
+    {
+        if (_feedbackSubmitting) return;
+
+        _feedbackOpen = false;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackTitleInput(string value)
+    {
+        _feedbackTitle = value;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private void OnFeedbackDetailsInput(string value)
+    {
+        _feedbackDetails = value;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+    }
+
+    private async Task CaptureScreenshotAsync()
+    {
+        if (_feedbackCapturing) return;
+
+        _feedbackCapturing = true;
+        _feedbackScreenshotError = null;
+        _feedbackSucceeded = false;
+        _feedbackMessage = null;
+
+        try
+        {
+            var screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogCaptureScreenshot");
+            if (screenshot is null)
+            {
+                _feedbackScreenshotError = "No screenshot was captured.";
+                _feedbackMessage = _feedbackScreenshotError;
+            }
+            else
+            {
+                _feedbackScreenshot = screenshot;
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            _feedbackScreenshotError = ex.Message;
+            _feedbackMessage = _feedbackScreenshotError;
+        }
+        finally
+        {
+            _feedbackCapturing = false;
+        }
+    }
+
+    private void RemoveScreenshot()
+    {
+        _feedbackScreenshot = null;
+        _feedbackScreenshotError = null;
+        _feedbackMessage = null;
+    }
+
+    private async Task SubmitFeedbackAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_feedbackTitle))
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = "Add a short title before creating the issue.";
+            return;
+        }
+
+        _feedbackSubmitting = true;
+        _feedbackSucceeded = false;
+        _feedbackMessage = _feedbackScreenshot is null ? "Creating the GitHub issue..." : "Uploading the screenshot...";
+
+        try
+        {
+            var link = await Feedback.ReportAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenshot, _feedbackScreenshotError);
+            _feedbackSucceeded = true;
+            _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
+            _feedbackTitle = string.Empty;
+            _feedbackDetails = string.Empty;
+            _feedbackScreenshot = null;
+            _feedbackScreenshotError = null;
+        }
+        catch (GitHubException ex)
+        {
+            _feedbackSucceeded = false;
+            _feedbackMessage = ex.Message;
+        }
+        finally
+        {
+            _feedbackSubmitting = false;
+        }
+    }
+}

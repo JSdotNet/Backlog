@@ -123,6 +123,15 @@ public sealed class BacklogCopilotCliTests : IDisposable
             int number,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeProbe : IGitHubConnectionProbe
