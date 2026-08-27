@@ -91,3 +91,82 @@ rather than *addressing* a chapter, so it is not a `<path>#<slug>` reference and
 draws no edge in the knowledge graph — it is the thread Roadmap Planning follows
 when it gathers knowledge by tag. Nothing is validated; a slug naming no current
 item is harmless.
+
+## Instruction Set
+
+```meta
+type: term
+status: draft
+aliases: [instructions, agent instructions, working instructions]
+related: [.domain/second-brain/domain.md#instruction-review, .domain/second-brain/features.md#instruction-set-inventory]
+```
+
+The documents one tool reads as its instructions for a repository: the file it
+loads on every run, the ones it loads when a condition matches, and the skills it
+can reach. One repository carries several instruction sets, one per tool. They are
+the content of the working-instructions knowledge area and belong to the
+repository, not to this product.
+
+## Context Load
+
+```meta
+type: term
+status: draft
+aliases: [context load, always-loaded weight]
+related: [.domain/second-brain/features.md#context-load-budget]
+```
+
+What an instruction spends on every agent turn because it is loaded whether or not
+it applies. It is a property of *when* a document is loaded rather than of how long
+it is: a line reached only on the branch that needs it carries almost none.
+
+Distinct from the person's own cost of knowing which document to reach for. That
+one buys human judgement and is spent on purpose, so the two are never summed and
+never traded against each other silently.
+
+## Instruction Finding
+
+```meta
+type: term
+status: draft
+aliases: [finding, proposal]
+related: [.domain/second-brain/domain.md#instruction-review]
+```
+
+One reviewed observation about an instruction set: where it is, what kind of
+problem it is, and the change proposed. Always a proposal — a finding never means
+a file was changed, and an accepted one is applied singly with the previous wording
+recoverable.
+
+## Instruction Alignment
+
+```meta
+type: term
+status: draft
+aliases: [alignment, cross-tool alignment]
+related: [.domain/second-brain/features.md#cross-tool-alignment-validation]
+```
+
+Two tools' instruction sets stating the same rule for the same repository, each in
+its own agent, skill, and command names.
+
+**Distinct from duplication**, and the distinction is load-bearing. Duplication is
+one meaning stated twice where one place would do, and the fix is to keep one
+place. Alignment is one meaning that deliberately has to be stated in each tool's
+set, and the fix is never to delete one of them — it is to make them agree, or to
+add the rule to the set that is missing it. Documents held in alignment are
+maintained as a pair, and a change to one leaves the other unfinished.
+
+## Saving Evidence
+
+```meta
+type: term
+status: draft
+aliases: [evidence basis]
+related: [.domain/second-brain/features.md#saving-evidence]
+```
+
+How a claimed reduction was obtained: read from local agent activity, or measured
+in a controlled before-and-after. It travels with the number so a reader knows what
+the number is worth. It is stated in what agents load rather than in money — no
+billed amount is claimed, and a figure with no basis is not shown.
