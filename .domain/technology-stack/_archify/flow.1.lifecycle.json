@@ -4,6 +4,7 @@
   "meta": {
     "title": "Technology Lifecycle",
     "viewBox": [980, 660],
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Health scoring flow",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

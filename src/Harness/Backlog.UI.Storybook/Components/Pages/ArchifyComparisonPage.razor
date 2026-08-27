@@ -56,6 +56,7 @@ The third band, labelled `03 / Outcomes`, is empty because only two lanes were d
     </Story>
 
     <Story Name="What has no counterpart"
+           Code="@ClassDiagramCode"
            Description="One pane, because there is nothing to put beside it. Archify offers five diagram types — architecture, workflow, sequence, dataflow and lifecycle — and none of them is a class or entity diagram. There is no way to say `aggregate root`, `value object`, or `0..*` in any of them.
 
 That is not a corner case in this repository. Twelve of its fifty-one mermaid blocks are `classDiagram`, and every one of them is a bounded context's aggregate model — the `model.md` in each `.domain` folder. The largest single category of diagram this repository writes has no counterpart on the other side, so the three pairs above cannot be read as one tool standing in for another."
@@ -187,5 +188,9 @@ That is not a corner case in this repository. Twelve of its fifty-one mermaid bl
             { "id": "refine", "type": "active", "label": "Refine", "lane": "loops", "col": 1 }
           ]
         }
+        """;
+
+    private const string ClassDiagramCode = """
+        <DiagramView Title="Backlog entry model" Language="mermaid" Source="@source" ShowSource="false" />
         """;
 }

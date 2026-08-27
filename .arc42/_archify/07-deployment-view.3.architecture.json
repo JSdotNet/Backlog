@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Cloud Deployment (Azure)",
+    "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
       930,

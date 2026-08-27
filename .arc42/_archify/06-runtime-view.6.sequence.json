@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "Copilot App Session Capture",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [1440, 700]

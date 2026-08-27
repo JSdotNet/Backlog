@@ -5,6 +5,7 @@
       "chapter": "technology-graph.md",
       "ordinal": 1,
       "type": "architecture",
+      "quality": "showcase",
       "kind": "flowchart",
       "spec": "technology-graph.1.architecture.json",
       "artifact": "technology-graph.1.architecture.html",

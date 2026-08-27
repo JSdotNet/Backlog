@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "Mobile Capture and Sync",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [960, 830]

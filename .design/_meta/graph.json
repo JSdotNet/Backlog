@@ -24,7 +24,7 @@
       "none": 7,
       "draft": 5,
       "accepted": 1,
-      "candidate": 1,
+      "adopted": 1,
       "proposed": 5
     },
     "edgesByType": {
@@ -116,7 +116,7 @@
           "path": ".design/README.md",
           "slug": "table-of-contents",
           "level": 2,
-          "line": 140,
+          "line": 164,
           "status": "active"
         }
       },
@@ -129,7 +129,7 @@
           "path": ".design/README.md",
           "slug": "provenance",
           "level": 2,
-          "line": 156,
+          "line": 180,
           "status": "active"
         }
       },
@@ -142,7 +142,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 169,
+          "line": 193,
           "status": "active"
         }
       },
@@ -1596,7 +1596,7 @@
           "type": "file",
           "folder": "tech",
           "path": ".tech/technology-graph.md",
-          "status": "candidate",
+          "status": "adopted",
           "related": [
             ".arc42/04-solution-strategy.md#technology-choices",
             ".arc42/07-deployment-view.md",

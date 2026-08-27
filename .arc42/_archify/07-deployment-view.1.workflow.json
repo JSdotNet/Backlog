@@ -3,6 +3,7 @@
   "diagram_type": "workflow",
   "meta": {
     "title": "Desktop Release and Update Delivery",
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

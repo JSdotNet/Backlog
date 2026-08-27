@@ -212,6 +212,7 @@ It exists for the row that was projected from a document the task itself does no
     </Story>
 
     <Story Name="Nothing to toggle, nothing to copy"
+           Code="@ReadOnlyCode"
            Description="A row with no `OnToggle` renders its circle as state rather than as a control — the same rule `MarkdownView` follows for a checklist. `AllowCopy=&quot;false&quot;` is how a host with nowhere to paste turns the copy button off.">
         <div class="sb-menu-wide" data-testid="task-list-readonly">
             <TaskListView Tasks="@ReadOnlySample" AriaLabel="Read-only tasks" TestId="readonly" />
@@ -219,6 +220,7 @@ It exists for the row that was projected from a document the task itself does no
     </Story>
 
     <Story Name="An empty list"
+           Code="@EmptyListCode"
            Description="`EmptyMessage` is the caller's: what to say when there is nothing here depends on why there is nothing here.">
         <div class="sb-columns" data-testid="task-list-empty">
             <div class="sb-menu-wide">
@@ -634,5 +636,18 @@ It exists for the row that was projected from a document the task itself does no
             private RenderFragment Actions(TaskRow task) =>
                 @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
         }
+        """;
+
+    private const string ReadOnlyCode = """
+        @* No OnToggle, so each circle draws as state rather than as a control. *@
+        <TaskListView Tasks="@tasks" AriaLabel="Read-only tasks" TestId="readonly" />
+        """;
+
+    private const string EmptyListCode = """
+        <TaskListView Tasks="@(Array.Empty<TaskRow>())" AriaLabel="Empty" />
+
+        <TaskListView Tasks="@(Array.Empty<TaskRow>())"
+                      EmptyMessage="Nothing due today. Add something, or go and do something else."
+                      AriaLabel="Empty with a message" />
         """;
 }

@@ -4,6 +4,7 @@
   "meta": {
     "title": "AI-assisted activity recording",
     "viewBox": [880, 560],
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread"
   },
