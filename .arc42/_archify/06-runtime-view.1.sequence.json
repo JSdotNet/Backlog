@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "Backlog Entry to GitHub Issue",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [980, 740]

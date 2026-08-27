@@ -3,6 +3,7 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "Remote PC Wake and Status Update",
+    "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [1400, 830]

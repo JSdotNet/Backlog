@@ -5,6 +5,7 @@
     "title": "Entry lifecycle",
     "output": "entry-lifecycle.lifecycle.html",
     "viewBox": [1020, 566],
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

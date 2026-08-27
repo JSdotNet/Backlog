@@ -112,6 +112,64 @@ the only thing that will ever connect the artifact back to the fence — and dro
 whatever used to hold that ordinal, so a re-render after an edited fence leaves
 no leftover matching text nobody can see any more.
 
+## Motion is opt-in, and every specification has to ask for it
+
+Every specification's `meta` must carry:
+
+```json
+"animation": "trace"
+```
+
+Archify gates all motion on it. `meta.animation` is an `enum ["trace", "none"]`
+in all five schemas and **its default is static**, so a specification that says
+nothing renders a diagram that never moves. One flag drives both halves:
+`svgRootAttrs` puts `data-animation="trace"` on the diagram's `<svg>`, which is
+the only thing the artifact's Motion Governor reads to decide the document is
+motion-capable, and `animateAttr` puts the matching `data-animate` +`--step`
+hooks on the edges and nodes the keyframes run on. Without the flag the artifact
+still embeds the whole animation stylesheet — it just has nothing to apply it to.
+
+All 42 specifications shipped without it and every artifact was silently static.
+Nothing reported it, and nothing can: a static artifact is a complete, valid,
+nine-of-nine-checks artifact. It renders, it exports, it passes every gate
+Archify has. `ArchifyArtifactMotionTests` in `tests/Backlog.ArchitectureTests`
+is what notices now, and it checks the rendered HTML as well as the
+specification, because the two go out of step whenever a specification is edited
+without a re-render.
+
+**Do not go looking for the attribute with a whole-file grep.** Every artifact
+embeds a stylesheet full of `svg[data-animation="trace"] [data-animate="edge"]`
+selectors, so `grep -l data-animation` matches all 42 whether they animate or
+not — which is exactly what sent the first investigation down the wrong path.
+Match the diagram's own tag instead:
+
+```bash
+grep -o '<svg viewBox[^>]*>' .arc42/_archify/06-runtime-view.1.sequence.html
+```
+
+Motion stays reader-controlled. The trace runs once, finitely; reduced-motion,
+page hiding, print and canonical export all preserve the complete static
+meaning, and the artifact's own Live/Still control keeps the last word. Inside
+the app, `backlogDiagrams.renderArtifact` lifts embed mode's blanket
+`animation: none` so the artifact's governor can decide — without that lift, a
+correctly generated artifact still would not move.
+
+## Re-rendering after editing a specification
+
+`render --all` will not do it. It renders what `scan` calls `stale` or
+`unrendered`, and both are judged from the **mermaid fence hash** — which does
+not change when you edit a specification. Change a spec and `--all` reports
+`Nothing to render.` and exits 0, which reads exactly like success.
+
+Pass the paths instead:
+
+```powershell
+node tools/diagrams/archify-artifacts.mjs render (git ls-files '*_archify/*.json' | Where-Object { $_ -notlike '*index.json' })
+```
+
+`--all` is for the case it was built for: a fence was edited, so the artifact is
+genuinely stale.
+
 ## The two diagrams that render at `standard`
 
 Archify has two composition profiles. `showcase` is the default and the bar
@@ -200,7 +258,8 @@ The working loop:
 2. `scaffold <chapter> <ordinal>` gives the fence, the target path, the default
    type and any alternatives.
 3. Write the specification. Say what the diagram says; do not add anything it
-   does not.
+   does not. Include `"animation": "trace"` in `meta` — see above; it is not the
+   default and nothing downstream will tell you it is missing.
 4. `render <spec>` and require 9/9 checks, 0 errors, 0 warnings.
 5. `verify` at the end.
 

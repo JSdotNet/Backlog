@@ -3,6 +3,7 @@
   "diagram_type": "lifecycle",
   "meta": {
     "title": "Sync Item Lifecycle",
+    "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [980, 660]
   },
