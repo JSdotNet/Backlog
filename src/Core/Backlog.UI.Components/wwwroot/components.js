@@ -830,13 +830,12 @@
         return backlogMermaidPromise;
     }
 
-    // `sourceShown` is whether the component kept its source disclosure. A host that
-    // prints the fence itself turns that off, and the fallback must not then point a
-    // reader at something that is not there — the promise is the part of this message
-    // that has to be true.
-    function backlogRenderDiagramError(element, message, sourceShown = true) {
-        const promise = sourceShown ? ' Source is available below.' : '';
-        element.innerHTML = `<div class="diagram-view__fallback" role="note">${backlogEscapeHtml(message)}${promise}</div>`;
+    // The message and nothing else. It used to end with "Source is available
+    // below.", which was true while a diagram carried a source disclosure; there is
+    // no disclosure now, and a fallback that points a reader at something that is
+    // not there is worse than one that just says what went wrong.
+    function backlogRenderDiagramError(element, message) {
+        element.innerHTML = `<div class="diagram-view__fallback" role="note">${backlogEscapeHtml(message)}</div>`;
     }
 
     // mermaid.render() works in a scratch element it appends to <body>. It removes
@@ -2032,6 +2031,83 @@
         }
     };
 
+    /*
+        Gives an artifact frame the height of the artifact inside it.
+
+        The frame cannot work this out for itself and neither can its stylesheet:
+        an Archify document is a single `width: 100%` SVG over its own viewBox, so
+        its height is a function of the frame's width, and it differs per diagram -
+        1440x700 for one runtime view, 1200x2458 for a building block view. A fixed
+        height fits neither, and whatever did not fit used to be simply gone.
+
+        So the measurement is made where the answer is known and sent out. This is
+        the receiving half.
+    */
+    const backlogWatchArtifactHeight = (element, id) => {
+        const onMessage = (event) => {
+            /*
+                The window reference is the identity check, not the origin.
+                `sandbox="allow-scripts"` without `allow-same-origin` puts the frame
+                in an opaque origin, so `event.origin` arrives as the string "null"
+                for every artifact frame on the page and can tell none of them
+                apart. `event.source` can, and it is not forgeable by anything
+                inside the frame.
+            */
+            if (event.source !== element.contentWindow) return;
+
+            const message = event.data;
+            if (!message || message.channel !== 'backlog-artifact-height' || message.id !== id) return;
+
+            const height = Number(message.height);
+            if (!Number.isFinite(height) || height <= 0) return;
+
+            // Not while the frame is the whole screen. There the height is the
+            // screen's and the browser owns it; writing a measured pixel value onto
+            // a fullscreen element is how you get a diagram in a letterbox.
+            if (document.fullscreenElement === element) return;
+
+            // Bounded at both ends. The floor stops a frame that reports something
+            // absurd from collapsing to a sliver, and the ceiling sits far above the
+            // tallest artifact in this repository, so it only ever catches a
+            // runaway rather than trimming a real diagram.
+            element.style.height = `${Math.min(Math.max(Math.ceil(height), 120), 20000)}px`;
+        };
+
+        /*
+            Fullscreen is a fact about the frame that the document inside cannot
+            see, and it changes what `100dvh` means for it - the screen, rather than
+            a height this host chose. So it is told, both ways.
+
+            Listening on the document rather than the element because that is where
+            `fullscreenchange` is dispatched, and checking identity rather than
+            assuming: several artifact frames share this page and only one of them
+            is ever the screen.
+        */
+        const onFullscreenChange = () => {
+            const mine = document.fullscreenElement === element;
+
+            // The inline height goes while fullscreen so the browser can size the
+            // element, and comes back on exit from the frame's next measurement.
+            if (mine) element.style.removeProperty('height');
+
+            try {
+                element.contentWindow?.postMessage(
+                    { channel: 'backlog-artifact-fullscreen', on: mine },
+                    '*');
+            } catch {
+                // A frame that has already gone is not an error worth reporting.
+            }
+        };
+
+        window.addEventListener('message', onMessage);
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+
+        return () => {
+            window.removeEventListener('message', onMessage);
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+        };
+    };
+
     // Merged, not assigned. app.js attaches its own renderers to this object, and
     // an outright assignment here would drop them if the load order ever flipped.
     window.backlogDiagrams = Object.assign(window.backlogDiagrams ?? {}, {
@@ -2041,10 +2117,10 @@
         escapeHtml: backlogEscapeHtml,
         renderError: backlogRenderDiagramError,
 
-        async render(element, id, language, source, sourceShown = true) {
+        async render(element, id, language, source) {
             const normalized = String(language ?? '').trim().toLowerCase();
             if (normalized !== 'mermaid' && normalized !== 'mmd') {
-                backlogRenderDiagramError(element, `${language ?? 'Diagram'} rendering is not configured yet.`, sourceShown);
+                backlogRenderDiagramError(element, `${language ?? 'Diagram'} rendering is not configured yet.`);
                 return;
             }
 
@@ -2056,7 +2132,7 @@
                 element.innerHTML = result.svg;
                 result.bindFunctions?.(element);
             } catch (error) {
-                backlogRenderDiagramError(element, error instanceof Error ? error.message : 'Mermaid rendering failed.', sourceShown);
+                backlogRenderDiagramError(element, error instanceof Error ? error.message : 'Mermaid rendering failed.');
             } finally {
                 backlogRemoveMermaidScratchNodes(element, id);
             }
@@ -2087,9 +2163,17 @@
             publishes, and re-pinned if anything inside changes it. Nothing in the
             generated file is touched, so a regeneration cannot undo this.
 
-            The cost is that the artifact's own theme toggle does nothing in-app.
-            `data-embed` hides the toolbar it lives on, so there is no dead control
-            on screen, and a reader who wants the full viewer opens the file itself.
+            The cost is that the artifact's own theme toggle does nothing in-app,
+            so it is the one control hidden from the viewer below.
+
+            The other thing the frame has to be told is how tall to be. An artifact
+            is one `width: 100%` SVG over its own viewBox, so its height follows the
+            frame's WIDTH - a number only the frame knows. So it reports it: the
+            script below watches its own layout and posts the height out, and
+            `backlogWatchArtifactHeight` writes it onto the frame. Without that the
+            frame kept the fixed height its stylesheet gives it and everything past
+            that was cut off, which for a portrait diagram like
+            `05-building-block-view.2` (1200x2458) is most of the picture.
         */
         renderArtifact(element, id, html) {
             /*
@@ -2117,7 +2201,28 @@
                 scrollbars — rather than for the flash, which was never its doing.
             */
             const pin = `<script>(function(){try{var h=document.documentElement;`
-                + `h.setAttribute('data-embed','true');`
+                /*
+                    Presentation mode, on and staying on. It is the reading mode:
+                    the diagram takes the whole frame and the info cards step out of
+                    the way. It used to be a button, and the button did nothing worth
+                    seeing - present mode sizes the diagram to the viewport, and in a
+                    frame this host has already sized to the content, that only moves
+                    the same box around. Fullscreen is where it earns its keep, and
+                    fullscreen is now a host control rather than an artifact one.
+                */
+                + `h.setAttribute('data-present','true');`
+                /*
+                    And the one thing the artifact cannot work out for itself:
+                    whether this frame is currently the whole screen. It changes what
+                    `100dvh` means - the screen, rather than a height the host chose -
+                    so the host says so, and the stylesheet below keys off it.
+                */
+                + `addEventListener('message',function(e){try{`
+                + `if(!e.data||e.data.channel!=='backlog-artifact-fullscreen')return;`
+                + `if(e.data.on)h.setAttribute('data-host-fullscreen','true');`
+                + `else h.removeAttribute('data-host-fullscreen');`
+                + `if(typeof schedule==='function')schedule();`
+                + `}catch(_){}});`
                 + `var real=window.matchMedia&&window.matchMedia.bind(window);`
                 + `if(real){window.matchMedia=function(q){var r=real(q);`
                 + `if(typeof q==='string'&&q.indexOf('prefers-color-scheme')>=0){`
@@ -2129,15 +2234,87 @@
                 + `return r;};}`
                 + `var pin=function(){if(h.getAttribute('data-theme')!=='dark')h.setAttribute('data-theme','dark');};`
                 + `pin();new MutationObserver(pin).observe(h,{attributes:true,attributeFilter:['data-theme']});`
+                /*
+                    And the height, measured off the root box rather than off
+                    `scrollHeight`, which is the whole trick. `scrollHeight` never
+                    reports less than the viewport, and here the viewport IS the
+                    frame we are about to size - so a frame that started at 28rem
+                    would report 28rem forever and could never shrink to fit a small
+                    diagram. The root element's border box is the content's real
+                    height and has no such floor.
+
+                    It can feed back on itself, which is what the guard below is
+                    for: the artifact trims its own padding on a short viewport, and
+                    the viewport is the answer this host just gave.
+                */
+                + `var last=0,prev=0,settled=false;`
+                + `var post=function(){try{if(settled)return;var b=document.body;`
+                + `var m=Math.max(b?b.getBoundingClientRect().height:0,h.getBoundingClientRect().height);`
+                + `if(!(m>0))return;m=Math.ceil(m);if(Math.abs(m-last)<2)return;`
+                /*
+                    Two-cycle guard, and it is what makes measuring a document that
+                    is no longer in embed mode safe.
+
+                    The artifact's stylesheet has `@media (max-height: ...)` rules
+                    that trim its padding on a short viewport. Inside a frame this
+                    host sizes from the content, the viewport IS the answer we just
+                    gave - so a diagram whose height lands near 920px or 1100px can
+                    ask for a taller frame, get trimmed by the media query, ask for
+                    a shorter one, and flip between the two for ever. Seeing the
+                    height from two reports ago come back is exactly that, and the
+                    larger of the pair is the one that leaves nothing cut off.
+                */
+                + `if(Math.abs(m-prev)<2){settled=true;m=Math.max(m,last);}`
+                + `prev=last;last=m;`
+                + `parent.postMessage({channel:'backlog-artifact-height',id:'${id}',height:m},'*');`
+                + `}catch(_){}};`
+                /*
+                    `setTimeout` rather than `requestAnimationFrame`, which is the
+                    difference between this working and not. A cross-origin frame
+                    the browser is not currently painting - one scrolled out of a
+                    chapter, which on a page with six diagrams is most of them - has
+                    its animation frames throttled to nothing, so a measurement
+                    posted from a rAF callback never left. Layout is still computed
+                    for such a frame, so a timer measures it perfectly well.
+                */
+                + `var schedule=function(){setTimeout(post,0);};`
+                // The artifact settles in stages - fonts, then its own chrome layout
+                // - so one measurement is not enough. The observer covers a pane
+                // resize; the two timers cover the settling of a frame too far off
+                // screen for the observer to be delivered promptly.
+                + `var watch=function(){if(window.ResizeObserver){var o=new ResizeObserver(schedule);`
+                + `o.observe(h);if(document.body)o.observe(document.body);`
+                + `var c=document.querySelector('.diagram-container');if(c)o.observe(c);}`
+                + `post();setTimeout(post,150);setTimeout(post,600);};`
+                + `if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watch);else watch();`
+                + `window.addEventListener('load',schedule);window.addEventListener('resize',schedule);`
                 + `}catch(_){}})();<\/script>`;
 
             /*
+                `color-scheme: normal`, and it is the one line that decides whether
+                the frame is transparent at all.
+
+                A frame whose root declares a `color-scheme` gets an opaque base
+                canvas painted behind its document in that scheme - so with `dark`
+                here, clearing every background inside the artifact only ever
+                revealed the browser's dark slab instead of Archify's navy one, and
+                a colour put behind the frame never came through. `normal` leaves
+                the base transparent, and the drawing composites onto whatever the
+                chapter puts behind it.
+
+                It was set to `dark` for a flash that turned out to be something
+                else: the artifact resolving its theme from `prefers-color-scheme`
+                before the observer could correct it, which the `matchMedia` lie
+                below fixes at the source. Nothing here regressed by dropping it -
+                the artifact never reads `color-scheme`, it reads `data-theme` and
+                the media query, and both are answered.
+
                 Injected into the artifact's own <head> rather than appended after
-                the document, because the script above only works if it runs before
-                the artifact's theme resolver does. Appended at the end it was
-                always a frame too late.
+                the document, because the script that follows only works if it runs
+                before the artifact's theme resolver does. Appended at the end it
+                was always a frame too late.
             */
-            const suppressFlash = `<style>:root{color-scheme:dark}</style>${pin}`;
+            const suppressFlash = `<style>:root{color-scheme:normal}</style>${pin}`;
             const source = String(html ?? '');
             const head = source.search(/<head[^>]*>/i);
             const injected = head < 0
@@ -2148,17 +2325,160 @@
                     + suppressFlash
                     + source.slice(source.indexOf('>', head) + 1);
 
-            element.srcdoc = injected;
+            /*
+                What this host asks of the artifact, now that it is no longer asking
+                it to be a thumbnail.
+
+                `data-embed` used to be set here, and unsetting it is most of this
+                feature. It is not a stylesheet: the artifact enforces it in
+                twenty-four JavaScript guards, and every one of them is a plain
+                `if (html.getAttribute('data-embed') === 'true') return false;` at
+                the top of something a reader would want. The visual style menu will
+                not open under it. Neither will the node finder, the semantic lens,
+                the route probe, a guided view's journey, or presentation mode; the
+                relationship overlays never install, and focus-from-hash never
+                resolves. No amount of CSS from out here reaches any of that, which
+                is what the first attempt at this discovered by unhiding a Style
+                button that then refused to do anything.
+
+                So the artifact renders as its full self, and what stays is only what
+                genuinely cannot work inside a frame the host controls.
+
+                Appended after the document rather than spliced into its head,
+                because two of these have to beat rules in the artifact's own
+                stylesheet at identical specificity, and parse order is the only
+                thing that can separate them. Nothing in the generated file is
+                edited, so a regeneration cannot undo any of it.
+            */
+            const chrome = '<style>'
+                /*
+                    `min-height: 100vh` off the body, which is the one rule that
+                    would break the sizing outright. The frame's viewport height is
+                    the height this host just gave it from the content, so a body
+                    that insists on filling the viewport can never report less than
+                    the frame already is - it would latch at its opening 28rem and
+                    stay there for every diagram.
+                */
+                + 'body{min-height:0}'
+
+                /*
+                    The theme toggle, which is the only control here with nothing
+                    behind it. This host pins `data-theme` to dark from outside and
+                    re-pins it through a MutationObserver, so pressing it would snap
+                    straight back - a switch that visibly refuses is worse than one
+                    that is not offered. `.design/design-principles.md` makes the
+                    product dark-only; a reader who wants the light artifact opens
+                    the file.
+                */
+                + '#btn-theme{display:none!important}'
+
+                /*
+                    The Present button, gone. Presentation is not a mode to toggle
+                    here - it is always on - so a control that claims to turn it on
+                    is a control that lies about the state it is in.
+                */
+                + '#btn-present{display:none!important}'
+
+                /*
+                    Presentation mode's viewport sizing, neutralised while the frame
+                    is in the chapter - and this is the rule that keeps the whole
+                    feature standing up.
+
+                    Present mode pins the document to `100dvh`. Inside a frame this
+                    host sizes from the document's own height, `100dvh` IS the answer
+                    the host just gave, so the measurement would report back exactly
+                    what it was told and every frame would latch at its opening 28rem
+                    for ever. Letting the document be its own height again breaks that
+                    circle, and present mode's real effects - the cards away, the
+                    diagram filling its container - are untouched.
+
+                    In fullscreen the opposite is true: `100dvh` means the screen,
+                    which is a number the host did not choose and cannot feed back
+                    into. So the override lifts exactly there.
+                */
+                + 'html[data-present="true"]:not([data-host-fullscreen]) body'
+                + '{height:auto!important;min-height:0!important;overflow:visible!important}'
+                + 'html[data-present="true"]:not([data-host-fullscreen]) .container{height:auto!important}'
+
+                /*
+                    And Style only where it is a choice. A picker offering one thing
+                    is a control that cannot change anything, which is the same
+                    objection as the theme toggle above.
+
+                    Written as "unless it holds two options that are not hidden"
+                    rather than as a count, because the sibling combinator inside
+                    `:has()` is exactly that question and needs no JavaScript to ask
+                    it. Every artifact in this repository currently offers four
+                    presets, so this shows the picker today; it earns its place the
+                    moment a generated artifact offers fewer.
+                */
+                + '.preset-wrap'
+                + ':not(:has(.preset-option:not([hidden]) ~ .preset-option:not([hidden])))'
+                + '{display:none!important}'
+
+                /*
+                    And the background out. The artifact paints a near-black navy
+                    slab three ways - `--bg` on the body, `--panel` on the diagram
+                    container and a grid rect filling the SVG - which inside a
+                    chapter reads as a card the diagram is sitting on rather than as
+                    part of the page. All three go, and the frame element's own
+                    background goes with them in components.css, so what is behind
+                    the drawing is the knowledge pane.
+
+                    The grid is the one that cannot be reached through a class,
+                    because it has none: it is
+                    `<rect width="100%" height="100%" fill="url(#grid)"/>` inside the
+                    SVG, so it is addressed as exactly that.
+                */
+                + 'html,body,.container,.diagram-container'
+                + '{background:transparent!important;background-image:none!important;box-shadow:none!important}'
+                + '.diagram-container>svg>rect[fill="url(#grid)"]{display:none}'
+                + '</style>';
+
+            element.srcdoc = injected + chrome;
+
+            const unwatch = backlogWatchArtifactHeight(element, id);
 
             backlogDiagramInstances.set(id, {
                 destroy() {
+                    unwatch();
                     // Dropping the document releases the frame's own runtime, its
                     // observer and the roughly 675 KB behind it. A closed panel that
                     // kept all three would be the difference between a knowledge
                     // pane that can be browsed and one that cannot.
                     element.srcdoc = '';
+                    element.style.removeProperty('height');
                 }
             });
+        },
+
+        /*
+            Takes an artifact frame to the whole screen, and back.
+
+            The native Fullscreen API rather than a pop-out of this app's own: the
+            artifact is already a self-contained document with its own viewer, so
+            what it needs is room, not a second frame around it. Requested on the
+            iframe element by this page - the frame itself is sandboxed and asks for
+            nothing.
+
+            Presentation mode is what makes the room count. It is always on inside
+            the artifact, and the stylesheet injected with it lets present mode's own
+            `100dvh` sizing apply exactly here, where the viewport really is a screen
+            rather than a height this host measured.
+        */
+        async toggleArtifactFullscreen(element) {
+            if (!element) return false;
+
+            if (document.fullscreenElement === element) {
+                await document.exitFullscreen();
+                return false;
+            }
+
+            // `navigationUI: 'hide'` asks for the diagram and nothing else; a browser
+            // that will not honour it still goes fullscreen, which is the part that
+            // matters.
+            await element.requestFullscreen({ navigationUI: 'hide' });
+            return true;
         },
 
         renderGraph(element, id, data) {

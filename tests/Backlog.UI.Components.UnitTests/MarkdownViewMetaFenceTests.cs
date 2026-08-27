@@ -283,8 +283,14 @@ public sealed class MarkdownViewMetaFenceTests
         Assert.Empty(view.FindAll("pre.md-code"));
     }
 
+    /// <summary>
+    /// A fence in a body becomes a picture and nothing else. It used to become a
+    /// picture with the same fence folded underneath it, which a reading surface
+    /// had to switch off by hand; there is no fold to switch off any more, and no
+    /// parameter left to do it with.
+    /// </summary>
     [Fact]
-    public void A_diagram_keeps_its_source_disclosure_until_a_host_says_otherwise()
+    public void A_diagram_in_a_body_is_a_picture_with_no_fold_of_text_under_it()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -292,21 +298,9 @@ public sealed class MarkdownViewMetaFenceTests
         var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
             .Add(v => v.RenderKnowledgeMetadata, true));
 
-        Assert.Equal("Diagram source", view.Find(".diagram-view__details summary").TextContent);
-    }
-
-    [Fact]
-    public void A_reading_surface_can_drop_the_fold_under_every_picture()
-    {
-        using var context = new BunitContext();
-        context.JSInterop.Mode = JSRuntimeMode.Loose;
-
-        var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.ShowDiagramSource, false));
-
         Assert.NotNull(view.Find("[data-testid='diagram-view']"));
         Assert.Empty(view.FindAll(".diagram-view__details"));
+        Assert.Empty(view.FindAll("details"));
     }
 
     [Fact]

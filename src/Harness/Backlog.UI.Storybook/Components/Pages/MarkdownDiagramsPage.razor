@@ -48,7 +48,7 @@ Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and n
            Description="A drawn diagram keeps a `Diagram source` disclosure under it. A picture is not always the thing a reader wants — reviewing a change to one means reading the text — and a diagram that renders is otherwise the one block in a body whose content you cannot select. The disclosure is closed by default, so it costs a reader who wanted the picture nothing."
            Code="@SourceCode"
            Source="@SequenceSample">
-        <MarkdownStory Source="@SequenceSample" ShowDiagramSource="true" TestId="markdown-diagram-sequence" />
+        <MarkdownStory Source="@SequenceSample" TestId="markdown-diagram-sequence" />
     </Story>
 
     <Story Name="The kinds worth writing in an entry"
@@ -90,7 +90,7 @@ Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and n
 
 A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it."
            Source="@BrokenSample">
-        <MarkdownStory Source="@BrokenSample" ShowDiagramSource="true" TestId="markdown-diagram-broken" />
+        <MarkdownStory Source="@BrokenSample" TestId="markdown-diagram-broken" />
     </Story>
 
 </StoryPage>

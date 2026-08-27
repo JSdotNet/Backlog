@@ -6,30 +6,30 @@
     ".design"
   ],
   "stats": {
-    "nodes": 111,
-    "edges": 219,
+    "nodes": 113,
+    "edges": 224,
     "nodesByFolder": {
-      "design": 95,
+      "design": 96,
       "arc42": 5,
       "domain": 10,
-      "tech": 1
+      "tech": 2
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 94,
+      "chapter": 96,
       "heading": 7
     },
     "nodesByStatus": {
-      "active": 92,
+      "active": 93,
       "none": 7,
       "draft": 5,
       "accepted": 1,
-      "adopted": 1,
+      "adopted": 2,
       "proposed": 5
     },
     "edgesByType": {
-      "contains": 87,
-      "related": 132
+      "contains": 88,
+      "related": 136
     }
   },
   "problems": [],
@@ -631,7 +631,26 @@
           "status": "active",
           "related": [
             ".tech/technology-graph.md",
+            ".tech/tooling.md#archify",
             ".design/content-editing.md",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#archify-artifacts",
+          "label": "Archify artifacts",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "archify-artifacts",
+          "level": 3,
+          "line": 212,
+          "status": "active",
+          "related": [
+            ".tech/tooling.md#archify",
+            ".design/design-principles.md",
             ".design/accessibility.md"
           ]
         }
@@ -645,7 +664,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 211,
+          "line": 236,
           "status": "active"
         }
       },
@@ -658,7 +677,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 235,
+          "line": 260,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1608,6 +1627,29 @@
       },
       {
         "data": {
+          "id": ".tech/tooling.md#archify",
+          "label": "Archify",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "archify",
+          "level": 2,
+          "line": 272,
+          "status": "adopted",
+          "version": "2.15.0",
+          "depends-on": [
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#mermaid"
+          ],
+          "related": [
+            ".tech/tooling.md#ajv",
+            ".tech/tooling.md#simple-icons"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/domain.md#backlog-entry",
           "label": "Backlog Entry",
           "type": "chapter",
@@ -2094,6 +2136,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#diagram-and-graph-strategy",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md#diagram-and-graph-strategy->.design/component-libraries.md#archify-artifacts",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/component-libraries.md#archify-artifacts",
           "type": "contains"
         }
       },
@@ -2875,6 +2925,14 @@
       },
       {
         "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/tooling.md#archify",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".tech/tooling.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/content-editing.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
           "target": ".design/content-editing.md",
@@ -2885,6 +2943,30 @@
         "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.tech/tooling.md#archify",
+          "source": ".design/component-libraries.md#archify-artifacts",
+          "target": ".tech/tooling.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.design/design-principles.md",
+          "source": ".design/component-libraries.md#archify-artifacts",
+          "target": ".design/design-principles.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.design/accessibility.md",
+          "source": ".design/component-libraries.md#archify-artifacts",
           "target": ".design/accessibility.md",
           "type": "related"
         }

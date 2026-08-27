@@ -13,14 +13,56 @@
     <figcaption class="diagram-view__header">
         <span class="diagram-view__title">@DiagramName</span>
         <span class="diagram-view__badges">
-            @* Said out loud, because the two renderers draw the same diagram
-               differently and a reader comparing a picture against the source
-               below needs to know which one they are looking at. *@
+            @* Which renderer drew this, as a control rather than a label.
+
+               The two draw the same diagram differently and neither is simply
+               better: the artifact is the considered picture, and the mermaid is
+               the one that is unarguably current, because it is a rendering of
+               the fence rather than a re-authoring of it. A reader who doubts
+               what they are looking at has to be able to check it against the
+               other, and a badge that only announced the answer left them
+               nothing to do about it.
+
+               Only where there is a choice to make. A diagram with no artifact
+               has one renderer and gets no switch at all. *@
+            @if (_artifact is { CanRender: true })
+            {
+                <span class="diagram-view__renderers" role="group" aria-label="Renderer" data-testid="diagram-view-renderers">
+                    <ToggleButton Pressed="@(!_preferMermaid)"
+                                  BaseClass="language-badge diagram-view__renderer"
+                                  PressedCssClass="diagram-view__renderer--active"
+                                  TestId="diagram-view-renderer-artifact"
+                                  Title="Show the Archify artifact"
+                                  PressedChanged="@(pressed => ChooseRendererAsync(preferMermaid: false, pressed))">Archify</ToggleButton>
+                    <ToggleButton Pressed="@_preferMermaid"
+                                  BaseClass="language-badge diagram-view__renderer"
+                                  PressedCssClass="diagram-view__renderer--active"
+                                  TestId="diagram-view-renderer-mermaid"
+                                  Title="Draw the diagram from its source"
+                                  PressedChanged="@(pressed => ChooseRendererAsync(preferMermaid: true, pressed))">Mermaid</ToggleButton>
+                </span>
+            }
+            @* Room, which is the one thing a diagram in a column of prose cannot
+               have. The artifact is already a whole viewer with its own zoom and
+               pan; what it runs out of is width. This hands it the screen.
+
+               Only for the artifact: a drawn mermaid diagram is an SVG in the
+               page and has nothing to go fullscreen with. *@
             @if (ShowingArtifact)
             {
-                <span class="language-badge diagram-view__renderer" data-testid="diagram-view-renderer">Archify</span>
+                <AppButton Size="ButtonSize.Small"
+                           Variant="ButtonVariant.Ghost"
+                           TestId="diagram-view-fullscreen"
+                           title="Show this diagram full screen"
+                           OnClick="ExpandArtifactAsync">Full screen</AppButton>
             }
-            @if (!string.IsNullOrWhiteSpace(Language))
+            @* The language, except where the switch has already said it. A mermaid
+               fence with an artifact rendered "Archify | Mermaid | mermaid", and the
+               last two are the same word for the same thing: the switch's second
+               option IS the fence's language, because drawing the fence is what
+               that option does. The badge is worth keeping only where there is no
+               switch to say it. *@
+            @if (!string.IsNullOrWhiteSpace(Language) && _artifact is not { CanRender: true })
             {
                 <span class="language-badge diagram-view__language" data-testid="diagram-view-language">@Language</span>
             }
@@ -33,10 +75,18 @@
     <div class="diagram-view__canvas" role="@(ShowingArtifact ? null : "img")" aria-label="@(ShowingArtifact ? null : AriaLabel)">
         @if (ShowingArtifact)
         {
+            @* `allow-downloads` is what makes the artifact's Export menu real.
+               It writes a PNG, SVG or WebM by clicking an anchor with a
+               `download` attribute at a blob URL, and a frame without this
+               permission has that click silently ignored — the menu was there,
+               the button pressed, and nothing ever arrived. It grants the frame
+               nothing else: without `allow-same-origin` the document stays in an
+               opaque origin and still cannot read a cookie, a store, or this
+               page. *@
             <iframe @ref="_frame"
                     class="diagram-view__artifact"
                     data-testid="diagram-view-artifact"
-                    sandbox="allow-scripts"
+                    sandbox="allow-scripts allow-downloads"
                     title="@AriaLabel"></iframe>
         }
         else if (CanRender(Language))
@@ -44,7 +94,7 @@
             <div @ref="_canvas" class="diagram-view__rendered" data-diagram-id="@_diagramId">
                 @if (_renderError is { } error)
                 {
-                    <p class="diagram-view__fallback" role="note">@error@(ShowSource ? " Source is available below." : null)</p>
+                    <p class="diagram-view__fallback" role="note">@error</p>
                 }
                 else
                 {
@@ -57,29 +107,21 @@
             <pre class="diagram-view__source"><code>@Source</code></pre>
         }
     </div>
-    @* A drawn diagram is the one block in a body whose content cannot be selected,
-       so it carries its own source disclosure. A host that already shows the same
-       text — a review surface printing the fence beside the picture — turns it off
-       and does not get it twice; a render that failed keeps it either way, because
-       then the source is the only thing left to read and the fallback line above
-       promises it.
+    @* No source disclosure. A drawn diagram used to carry one, on the reasoning
+       that the picture is the one block in a body a reader cannot select — and for
+       an artifact especially, since the artifact is a re-authoring of the fence
+       rather than a rendering of it, so nothing on screen was the canonical text.
 
-       An artifact overrides ShowSource and keeps the disclosure either way, which
-       is the one case where a host does not get to turn it off. Everywhere else
-       the host's "I already show this text" is true; here it is not, because the
-       artifact is a re-authoring of the fence rather than a rendering of it, and
-       nothing on the screen is the canonical text any more. The knowledge pane is
-       exactly that case — it passes ShowDiagramSource="false", correctly, because
-       a drawn mermaid diagram IS its source rendered. An artifact is not, so
-       leaving it off there would make the fence unreadable in the one place a
-       reader is looking at something that only claims to say the same thing. *@
-    @if ((ShowingArtifact || CanRender(Language)) && (ShowSource || ShowingArtifact || _renderError is not null))
-    {
-        <details class="diagram-view__details">
-            <summary>Diagram source</summary>
-            <pre class="diagram-view__source"><code>@Source</code></pre>
-        </details>
-    }
+       The renderer switch above answers that better than a fold of text did. A
+       reader who wants to know whether the artifact still tells the truth presses
+       Mermaid and sees the fence drawn, which is the question they actually had;
+       a wall of `stateDiagram-v2` under every diagram was the long way round to
+       it, and it was under every diagram, open or shut, in a pane that is mostly
+       prose. The fence is still in the chapter for anyone who wants to read it as
+       text.
+
+       A language nothing can draw keeps its <pre> above — that is not a
+       disclosure, it is the only rendering there is. *@
     @* The offers, and only where there is an honest one to make. A diagram whose
        kind Archify has no type for gets nothing at all, because an offer is a
        promise. *@
@@ -129,6 +171,12 @@
     private string? _actionError;
     private bool _busy;
 
+    /// <summary>Whether the reader has asked for the mermaid rather than the
+    /// artifact. Held here rather than lifted to the host, because it is a
+    /// question about one diagram: a reader checking whether this picture still
+    /// matches its fence is not saying anything about the next one.</summary>
+    private bool _preferMermaid;
+
     [Parameter, EditorRequired]
     public string Source { get; set; } = string.Empty;
 
@@ -138,15 +186,7 @@
     [Parameter]
     public string Title { get; set; } = "Diagram";
 
-    /// <summary>Whether a drawn diagram keeps its own "Diagram source"
-    /// disclosure. On by default: in a body, the picture is all a reader can
-    /// select, and the text behind it has nowhere else to be. Off for a host that
-    /// prints the same source itself, where a second copy is a second thing to
-    /// keep in step.</summary>
-    [Parameter]
-    public bool ShowSource { get; set; } = true;
-
-    private bool ShowingArtifact => _artifact is { CanRender: true };
+    private bool ShowingArtifact => _artifact is { CanRender: true } && !_preferMermaid;
 
     /// <summary>Whether to offer to start an agent. Three things have to be true
     /// at once — the host knows about artifacts, an agent CLI is available, and
@@ -221,13 +261,67 @@
 
         try
         {
-            await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source, ShowSource);
+            await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source);
         }
         catch (JSException ex)
         {
             _renderedSource = null;
             _renderError = $"The diagram renderer could not start: {ex.Message}";
             StateHasChanged();
+        }
+    }
+
+    /// <summary>Answers one of the two renderer buttons.
+    /// <para>
+    /// A press that turns a button off is ignored on purpose. These are one of
+    /// two, so pressing the one already showing means "yes, this one" rather than
+    /// "neither" — <c>ToggleButton</c> announces the state it would move to and
+    /// leaves a host driving a strip to decide, which is what this is.
+    /// </para></summary>
+    private async Task ChooseRendererAsync(bool preferMermaid, bool pressed)
+    {
+        if (!pressed || _preferMermaid == preferMermaid) return;
+
+        _preferMermaid = preferMermaid;
+
+        // Switching to mermaid drops the artifact's document, its runtime and the
+        // roughly 675 KB behind it right away rather than leaving it parked in a
+        // frame nobody is looking at. OnAfterRenderAsync would do it on the next
+        // pass anyway; doing it here means the two never both exist.
+        if (preferMermaid)
+        {
+            _renderedArtifact = null;
+            await DisposeDiagramAsync();
+        }
+        else
+        {
+            // The mermaid canvas is going away with the element it drew into, so
+            // the next pass has to draw the artifact from nothing rather than
+            // deciding it is already current.
+            _renderedSource = null;
+            _renderedLanguage = null;
+        }
+    }
+
+    /// <summary>Hands the artifact the whole screen.
+    /// <para>
+    /// A failure here is swallowed on purpose. Fullscreen is refused for reasons
+    /// that are not faults and that a reader can do nothing about — no user
+    /// gesture recognised, a permissions policy on the host, a browser that
+    /// declines — and the diagram is still perfectly readable in the chapter. An
+    /// error banner over a working diagram would be the worse outcome.
+    /// </para></summary>
+    private async Task ExpandArtifactAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _frame);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
         }
     }
 

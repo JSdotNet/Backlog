@@ -3980,24 +3980,71 @@ button.task-panel__check:focus-visible {
     font-family: var(--font-family-mono);
 }
 
-/* Which renderer drew the picture, next to what the fence is written in. Not
-   mono: it names a tool rather than quoting a language, and the difference in
-   face is what keeps the two badges from reading as one thing. */
+/* Which renderer drew the picture, next to what the fence is written in — and,
+   where there are two to choose between, the control that chooses. Not mono: it
+   names a tool rather than quoting a language, and the difference in face is what
+   keeps it from reading as one thing with the language beside it. */
+/* Two badges side by side, spaced like the badges they sit beside. It was a
+   segmented pill first — one background with the inner corners squared off — and
+   that made it the loudest thing in a header whose whole job is to be quiet. A
+   badge is already the vocabulary for "a small fact about this block"; which
+   renderer drew the picture is exactly that, and being able to press it does not
+   make it a different kind of thing. */
+.diagram-view__renderers {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+}
+
+/* Everything else is .language-badge's. Only what a button adds over a span is
+   taken back off. */
 .diagram-view__renderer {
-    font-weight: 700;
+    border: 0;
+    cursor: pointer;
+}
+
+.diagram-view__renderer:hover {
+    color: var(--color-text-primary);
+}
+
+.diagram-view__renderer:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+}
+
+/* Selected, said the way every other selected thing in this library says it: the
+   primary at low mix over the badge's own surface, with the text brought up to
+   full. The same three declarations as .graph-explorer__tab--active, because a
+   reader should not have to learn a second way of being told what is chosen. */
+.diagram-view__renderer--active {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+    color: var(--color-text-primary);
 }
 
 /* An Archify artifact is a whole document with its own layout, so it gets height
    rather than the width-fitting a drawn SVG gets. No frame, matching
    .diagram-view__rendered: the artifact paints its own background and a border
-   here would draw a box around a box. */
+   here would draw a box around a box.
+
+   The height here is only the opening bid. What an artifact is actually worth is
+   a function of how wide this frame turns out to be — one drawing is 1440x700 and
+   another is 1200x2458 — so the document measures itself and components.js writes
+   the answer back as an inline height. This is what it looks like until that
+   arrives, and what it stays at if the frame never reports: `height` rather than
+   `min-height` precisely so the measured value can go under it as well as over,
+   and a small diagram is not left sitting in 28rem of empty panel.
+
+   Transparent, and it takes both sides to be so: components.js clears the
+   artifact's own background inside the frame, and this clears the background the
+   frame element itself paints behind that. Either one left opaque and the diagram
+   still sits on a navy card in the middle of a chapter. */
 .diagram-view__artifact {
     display: block;
     width: 100%;
-    min-height: 28rem;
+    height: 28rem;
     border: 0;
     border-radius: var(--border-radius-md);
-    background: var(--color-background);
+    background: transparent;
 }
 
 /* The offers, under the diagram rather than in the header: they are about what
@@ -4050,15 +4097,6 @@ button.task-panel__check:focus-visible {
     padding: var(--spacing-md);
     border: var(--border-width) dashed var(--color-border-strong);
     border-radius: var(--border-radius-md);
-}
-
-.diagram-view__details {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.diagram-view__details summary {
-    cursor: pointer;
 }
 
 /* No frame of its own, for the same reason as .diagram-view: whoever places the

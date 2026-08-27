@@ -51,23 +51,31 @@ public sealed class DiagramInteropTests
         Assert.Equal("Code diagram", diagram.Find(".diagram-view__title").TextContent);
     }
 
+    /// <summary>
+    /// No diagram carries a fold of its own source any more, and no host asks for
+    /// one. It used to, on the reasoning that a picture is the one block a reader
+    /// cannot select; what it amounted to in a chapter was a wall of fence text
+    /// under every drawing, open or shut. A reader who wants to check a picture
+    /// against its source now presses Mermaid.
+    /// </summary>
     [Fact]
-    public void A_host_that_shows_the_source_itself_does_not_get_it_twice()
+    public void A_drawn_diagram_does_not_carry_a_fold_of_its_own_source()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var diagram = context.Render<DiagramView>(parameters => parameters
             .Add(d => d.Source, "graph TD; a-->b;")
-            .Add(d => d.Language, "mermaid")
-            .Add(d => d.ShowSource, false));
+            .Add(d => d.Language, "mermaid"));
 
         Assert.NotNull(diagram.Find(".diagram-view__rendered"));
         Assert.Empty(diagram.FindAll(".diagram-view__details"));
+        Assert.Empty(diagram.FindAll("details"));
     }
 
-    // A render that failed keeps its source whichever way ShowSource was set, and
-    // that clause is still in the markup — but it cannot be exercised from here.
+    // A render that failed used to promise the source below it, and that promise
+    // is gone with the disclosure — but the failed state cannot be exercised from
+    // here either way.
     // A JSException makes OnAfterRenderAsync clear the source it recorded and ask
     // for a redraw, so the next render tries the same call again; against a
     // runtime that fails every time, that is a loop, and in bUnit the planned

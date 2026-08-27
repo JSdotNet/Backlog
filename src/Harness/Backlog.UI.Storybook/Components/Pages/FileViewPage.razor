@@ -194,7 +194,7 @@ Everything else on this pane is a reading being passed down: each chapter's stat
     <Story Name="A control nobody would gain anything by pressing"
            Description="The same arbitration, from the other side. Compare is absent here, and that is the story: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at. The pane knows because the pane holds the baselines and does the aligning; the header is simply told there is nothing to offer.
 
-The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. `ShowDiagramSource` off drops the fold under the picture, because the source is already a copy button and an Edit away. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it."
+The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
             <FileView Name="Domain: Backlog Management"
@@ -207,7 +207,6 @@ The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetad
                       AllowChapterCopy="true"
                       RenderKnowledgeMetadata="true"
                       RenderKnowledgeMetadataFields="false"
-                      ShowDiagramSource="false"
                       KnowledgeFolder="KnowledgeFolder.Domain"
                       OnKnowledgeNavigate="reference => _followed = reference.Raw"
                       CompareBaselines="@UnchangedBaseline" />
@@ -774,7 +773,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   AllowChapterCopy="true"
                   RenderKnowledgeMetadata="true"
                   RenderKnowledgeMetadataFields="false"
-                  ShowDiagramSource="false"
                   KnowledgeFolder="KnowledgeFolder.Domain"
                   OnKnowledgeNavigate="Open"
                   CompareBaselines="@baselines" />

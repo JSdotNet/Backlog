@@ -71,8 +71,7 @@
         {
             <DiagramView Title="@DiagramTitle"
                          Source="@codeBlock.Text"
-                         Language="@codeBlock.Language"
-                         ShowSource="@ShowDiagramSource" />
+                         Language="@codeBlock.Language" />
         }
         else
         {
@@ -158,11 +157,6 @@
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
     public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
-
-    /// <summary>Whether a diagram drawn from a fence keeps its own source
-    /// disclosure. Forwarded verbatim to <c>DiagramView.ShowSource</c>.</summary>
-    [Parameter]
-    public bool ShowDiagramSource { get; set; } = true;
 
     /// <summary>What a drawn diagram is called in its own caption. Forwarded
     /// verbatim to <c>DiagramView.Title</c>, which shows it only for a language
