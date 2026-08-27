@@ -138,6 +138,13 @@
               "status": "accepted"
             },
             {
+              "type": "file",
+              "name": "0004-knowledge-index-is-a-generated-local-database.md",
+              "path": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+              "title": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
+              "status": "proposed"
+            },
+            {
               "type": "directory",
               "name": "guidelines",
               "path": ".arc42/adr/guidelines",

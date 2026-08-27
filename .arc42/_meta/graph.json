@@ -6,28 +6,28 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 104,
-    "edges": 178,
+    "nodes": 108,
+    "edges": 189,
     "nodesByFolder": {
-      "arc42": 81,
+      "arc42": 83,
       "domain": 16,
-      "tech": 5,
+      "tech": 7,
       "design": 2
     },
     "nodesByType": {
-      "file": 39,
-      "chapter": 65
+      "file": 40,
+      "chapter": 68
     },
     "nodesByStatus": {
       "active": 70,
-      "proposed": 5,
+      "proposed": 7,
       "draft": 21,
       "accepted": 3,
-      "adopted": 5
+      "adopted": 7
     },
     "edgesByType": {
-      "contains": 48,
-      "related": 130
+      "contains": 49,
+      "related": 140
     }
   },
   "problems": [],
@@ -117,7 +117,7 @@
           "path": ".arc42/02-constraints.md",
           "slug": "organizational--process-constraints",
           "level": 2,
-          "line": 26,
+          "line": 27,
           "status": "active"
         }
       },
@@ -563,7 +563,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 38,
+          "line": 43,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -580,7 +580,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "local-deployment-mobile",
           "level": 2,
-          "line": 77,
+          "line": 82,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app",
@@ -597,7 +597,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 90,
+          "line": 95,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",
@@ -614,7 +614,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 143,
+          "line": 148,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -653,6 +653,24 @@
       },
       {
         "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "label": "Knowledge Index",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "knowledge-index",
+          "level": 2,
+          "line": 42,
+          "status": "proposed",
+          "related": [
+            ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+            ".arc42/02-constraints.md#technical-constraints",
+            ".domain/second-brain/features.md#repository-knowledge-areas"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/08-crosscutting-concepts.md#feature-enablement",
           "label": "Feature Enablement",
           "type": "chapter",
@@ -660,7 +678,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 37,
+          "line": 98,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -678,7 +696,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 64,
+          "line": 125,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -694,7 +712,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 85,
+          "line": 146,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -710,7 +728,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 101,
+          "line": 162,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -726,7 +744,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 113,
+          "line": 174,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -812,7 +830,7 @@
           "path": ".arc42/09-architecture-decisions.md",
           "slug": "local-adrs",
           "level": 2,
-          "line": 90,
+          "line": 92,
           "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md"
@@ -990,6 +1008,25 @@
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
             ".domain/backlog/domain.md#backlog-entry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "label": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/08-crosscutting-concepts.md#knowledge-index",
+            ".arc42/07-deployment-view.md#local-deployment-desktop",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".domain/second-brain/features.md#repository-knowledge-areas",
+            ".tech/tooling.md#knowledge-meta-generator",
+            ".tech/shared.md#sqlite"
           ]
         }
       },
@@ -1593,6 +1630,54 @@
       },
       {
         "data": {
+          "id": ".tech/tooling.md#knowledge-meta-generator",
+          "label": "knowledge-meta Generator",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "knowledge-meta-generator",
+          "level": 2,
+          "line": 250,
+          "status": "adopted",
+          "depends-on": [
+            ".tech/shared.md#nodejs",
+            ".tech/shared.md#json"
+          ],
+          "related": [
+            ".tech/ai-development.md#knowledge-base-plugin",
+            ".tech/tooling.md#github-actions"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/shared.md#sqlite",
+          "label": "SQLite",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "sqlite",
+          "level": 2,
+          "line": 304,
+          "status": "adopted",
+          "alternatives": [
+            "Markdown files with YAML frontmatter",
+            "LiteDB",
+            "Azure Cosmos DB"
+          ],
+          "depends-on": [
+            ".tech/shared.md#markdown"
+          ],
+          "related": [
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".tech/shared.md",
           "label": "Shared Technologies",
           "type": "file",
@@ -1916,6 +2001,14 @@
           "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
           "source": ".arc42/08-crosscutting-concepts.md",
           "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#knowledge-index",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#knowledge-index",
           "type": "contains"
         }
       },
@@ -2433,6 +2526,30 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#knowledge-index->.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "source": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "target": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#knowledge-index->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#knowledge-index->.domain/second-brain/features.md#repository-knowledge-areas",
+          "source": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "target": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#feature-enablement->.arc42/04-solution-strategy.md",
           "source": ".arc42/08-crosscutting-concepts.md#feature-enablement",
           "target": ".arc42/04-solution-strategy.md",
@@ -2756,6 +2873,62 @@
           "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#backlog-entry",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/02-constraints.md#technical-constraints",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".arc42/02-constraints.md#technical-constraints",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/08-crosscutting-concepts.md#knowledge-index",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/07-deployment-view.md#local-deployment-desktop",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".arc42/07-deployment-view.md#local-deployment-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.domain/second-brain/features.md#repository-knowledge-areas",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.tech/tooling.md#knowledge-meta-generator",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".tech/tooling.md#knowledge-meta-generator",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.tech/shared.md#sqlite",
+          "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "target": ".tech/shared.md#sqlite",
           "type": "related"
         }
       },

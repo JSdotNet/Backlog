@@ -265,9 +265,14 @@ indexes.
   `knowledge-base` plugin rather than hand-written here.
 - **Why** — it is what turns the metadata convention into something queryable,
   and it is where a broken `depends-on` or `related` reference is caught.
-- **How** — `.github/workflows/knowledge-meta.yml` runs the generator and diffs
-  the result, failing on a stale committed index. It runs the generator rather
-  than trusting `--check`, because `--check` misses line-number drift.
+- **How** — `.github/workflows/knowledge-meta.yml` fails on an unresolvable
+  reference or an invalid `meta` block, then regenerates and diffs the committed
+  indexes and reports drift as a *warning* only: making every pull request carry a
+  regenerated index is what turned these files into merge conflicts. Refresh is
+  deliberate instead — `build/Update-KnowledgeIndex.ps1` on demand,
+  `.github/workflows/knowledge-meta-nightly.yml` on a schedule. The drift step runs
+  the generator rather than trusting `--check`, because `--check` misses
+  line-number drift.
 
 ## Archify
 

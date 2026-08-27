@@ -2,7 +2,7 @@
 
 ```meta
 status: proposed
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/second-brain/features.md#repository-knowledge-areas"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
 issue: null
 ```
 
@@ -11,7 +11,12 @@ issue: null
 Proposed. Nothing is built yet; this records the direction and the questions it
 deliberately leaves open.
 
-It **extends** ADR 0003 to a second corpus rather than superseding it. Nothing
+A **local** decision, numbered in the local sequence — not to be confused with
+inherited ADR 0004 (result objects for expected failures) under
+`.arc42/adr/guidelines/`. Every reference below to ADR 0001–0004 without a
+qualifier means the local one.
+
+It **extends** local ADR 0003 to a second corpus rather than superseding it. Nothing
 here changes what canonical means for a task, and — the distinction matters —
 nothing here makes a database canonical for knowledge. The knowledge folders stay
 markdown, hand-edited and diffed in pull requests. Only the generated layer over
@@ -20,40 +25,62 @@ them moves.
 ## Context
 
 `.arc42/`, `.domain/`, `.backlog/`, `.tech/` and `.design/` are markdown, and
-`.github/tools/knowledge-meta/build.mjs` derives two JSON artifacts from them per
-scope: `graph.json`, the reference graph, and `index.json`, the ordered reading
-outline. Six scopes, twelve files, about 1.4 MB — the repository-wide
-`_meta/graph.json` alone is 716 KB for 689 nodes and 1273 edges.
-`.github/workflows/knowledge-meta.yml` regenerates both and fails the build when
-the committed copies differ.
+the [knowledge-meta generator](../../.tech/tooling.md#knowledge-meta-generator)
+derives two JSON artifacts from them per scope: `graph.json`, the reference
+graph, and `index.json`, the ordered reading outline. Six scopes, twelve files,
+about 1.8 MB — the repository-wide `_meta/graph.json` alone is 836 KB for 772
+nodes and 1540 edges.
 
-Three things are wrong with that, and they pull in the same direction.
+**Most of the argument for changing this has already been half-answered, and the
+half-answers are what make the case.**
 
-**The derived files are a merge-conflict generator.** Sixty-seven commits have
-touched them, for roughly 82,000 lines of churn. Two merge commits are named for
-the problem — `0d55364 Merge origin/main, regenerating the indexes rather than
-merging them` and `0df7587 Merge origin/main, regenerating the indexes both sides
-rewrote`. Any two branches that each edit any chapter in any folder both rewrite
-the same repository-wide graph, and the only correct resolution is to discard both
-sides and re-run the generator, because the file's only correct content is
-whatever the generator emits. Requiring every pull request to carry a regenerated
-artifact is what turns a derived file into a conflict; the upstream
-`knowledge-derived-artifacts` convention has since reached the same conclusion and
-downgraded its staleness check to a warning, while this repository still fails on
-it.
+**On merge conflicts, the repository has already conceded the point.**
+`knowledge-meta.yml` now reports a stale index as a warning instead of failing,
+`knowledge-meta-nightly.yml` reconciles the default branch in one pull request
+nobody has to rebase, and `build/Update-KnowledgeIndex.ps1` refreshes a branch on
+demand. That was the right move, and it removed the worst of the churn behind
+sixty-seven commits, roughly 82,000 lines, and merge commits named for the problem
+— `0d55364 Merge origin/main, regenerating the indexes rather than merging them`.
 
-**Almost nothing reads them.** Two consumers: `RoadmapItemRollupService` parses
-the 716 KB repository graph to total the effort behind a roadmap item, and
-`TechnologyKnowledge` reads node counts out of `.tech/_meta/graph.json`. Every
-knowledge panel — domain, arc42, design, technology — walks its folder and
-re-parses the markdown with regexes on each load, as `DomainKnowledgeStore` does.
-The derived layer is paid for in merge pain and spent on next to nothing.
+But it did not remove the files, and every branch that does refresh still collides
+with every other that did, with the nightly reconciliation landing on top of
+long-lived branches. More to the point, look at what is now being committed: an
+artifact that is *expected* to be stale, that CI declines to enforce, and that
+every consumer must re-verify against its sources before trusting a row. The
+reasons the derived-artifacts convention gives for committing an artifact have
+been argued away one at a time, and what remains in version control is a build
+output nobody may rely on.
 
-**Nothing in it is usable for retrieval.** There is no full-text index and no
+**On being read, the position has reversed — in this decision's favour.** When
+this was first sketched, two things read the indexes. Now the derived layer is
+load-bearing: `KnowledgeIndexReader` lists a folder without opening a markdown
+file, `LazyKnowledgeList` defers the parse to the one chapter a reader opens,
+`KnowledgeAtlas` draws every folder from `_meta/graph.json`, and the domain,
+arc42, design and technology panels all build from the index.
+`RoadmapItemRollupService` still parses the whole repository graph to total the
+effort behind a roadmap item.
+
+That work also established the reading discipline this decision depends on, which
+is therefore not something it has to invent: an entry whose file is newer than the
+index is re-read from its markdown, an unrecognised `schemaVersion` falls back to
+scanning, and a folder with no index behaves exactly as it did before one existed.
+The degradation ladder below is a restatement of what `KnowledgeIndexReader`
+already does, applied to a different container.
+
+**What JSON still costs, now that it is load-bearing.** A consumer parses a whole
+document to answer a narrow question — 836 KB read to total a few hundred effort
+values. The corpus is serialized twice, once into the repository rollup and once
+per folder, which is how 772 nodes become 1.8 MB. The authored reading order is
+interleaved in the same file as re-read titles and statuses. Archify state is
+another JSON read per folder. And there is nowhere to put anything that is not a
+graph or an outline.
+
+**Retrieval is the part nothing has answered.** There is no full-text index and no
 semantic one. An AI-facing surface — an MCP server, an in-app assistant, a
 retrieval step in a Copilot session — would have to parse the corpus itself, and
 so would the mobile app and the VS Code extension, each in its own language. Four
-markdown parsers for one body of markdown.
+markdown parsers for one body of markdown. This is now the largest gap between
+what the knowledge folders hold and what anything can ask of them.
 
 There is one constraint that shapes any answer: **`index.json` is not purely
 derived.** As `outline.mjs` states in its own header, a directory's reading order
@@ -93,9 +120,9 @@ things nobody authored.
 ### One database, not one per scope
 
 `_meta/knowledge.db` at the repository root. A scope becomes `WHERE folder = …`,
-not another file. The present arrangement serializes most of the corpus twice —
-once into the repository-wide rollup and once into each folder's own pair — which
-is how 689 nodes become 1.4 MB.
+not another file — which is what removes the double serialization the context
+describes, without a consumer having to choose between a scoped file and a
+repository-wide one.
 
 The location rule from the derived-artifacts convention is unchanged: `_meta/`,
 one level below the thing it describes. Being repository-wide, the root `_meta/`
@@ -130,7 +157,7 @@ full of exact identifiers, hybrid lexical-plus-semantic beats semantic alone.
 
 ### No vector index yet
 
-The corpus is 689 chapters. Embeddings are stored as a `BLOB` and cosine
+The corpus is 639 chapters. Embeddings are stored as a `BLOB` and cosine
 similarity is computed in the reader; a brute-force scan over a few thousand
 vectors costs less than the query that fetched them. `sqlite-vec` and its
 equivalents are native loadable extensions — a real deployment problem inside an
@@ -222,10 +249,13 @@ the corpus per query is not a fallback but a hang. Everything else about an
 unindexed repository keeps working — its areas open, its chapters render, its
 diagrams draw — and only search is missing until an index exists.
 
-The fallback is not a second implementation written for this decision. It is the
-markdown reader the panels use today, kept as the floor of the ladder, and that is
-what stops it rotting: the path an unindexed repository takes is the only path any
-repository has ever had.
+None of this is new, which is most of why the decision is worth taking now rather
+than earlier. `KnowledgeIndexReader` already returns nothing for a folder with no
+index, already refuses a `schemaVersion` it does not recognise, and already
+re-reads an entry whose file is newer than the index it came from; the panels
+already fall back to scanning the directory, because that is what they did before
+an index existed. This changes what the reader opens, not how it decides whether
+to trust what it finds.
 
 ### Where it lives
 
@@ -268,14 +298,16 @@ ADR is this repository's answer and the divergence is deliberate.
 
 Positive:
 
-- Two branches editing different chapters conflict on nothing. The derived byte
-  count in git goes to zero, and the class of merge commit named after
-  regenerating an index disappears.
+- Two branches editing different chapters conflict on nothing, and the 1.8 MB of
+  derived output in git goes to zero. The warning-only check and the nightly
+  refresh already stopped most of this churn; removing the files finishes it and
+  makes `Update-KnowledgeIndex.ps1` safe to run in a branch at any time.
 - A chapter moving from `draft` to `active` rewrites one line of markdown, where
-  today it rewrites four committed files.
-- A knowledge panel becomes an indexed query instead of a folder walk plus a regex
-  re-parse; the roadmap rollup stops parsing a 716 KB document to read a few
-  hundred effort values.
+  today it rewrites four committed files whenever anything refreshes them.
+- A narrow question becomes a narrow read. The panels already avoid re-parsing the
+  corpus, so the remaining win is per-query rather than per-load: the roadmap
+  rollup stops parsing an 836 KB document to total a few hundred effort values,
+  and the Archify lookup stops reading a JSON file per folder.
 - Desktop, mobile, the IDE extension and a future MCP server read one artifact
   with one schema instead of each carrying its own markdown parser. This is the
   benefit that compounds, and it is the reason to do this rather than simply
@@ -283,8 +315,9 @@ Positive:
 - Retrieval by words and by meaning becomes possible, which it currently is not.
 - Correctness never depends on the refresh running. Every refresh path can be
   switched off and the app still shows what the folders say, because the floor of
-  the ladder is the reader it already has. That is what makes the whole thing safe
-  to adopt incrementally, and safe to leave half-built.
+  the ladder is the reader it already has. That is already true of the JSON
+  indexes, so the property is inherited rather than promised, and it is what makes
+  this safe to adopt incrementally and safe to leave half-built.
 
 Negative:
 

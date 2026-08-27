@@ -29,6 +29,7 @@ between inherited ADRs 0005 and 0009.
 - **[0001 — Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3](0001-desktop-stack-maui-blazor-hybrid.md)**
 - **[0002 — The Backlog module owns the entry text language](0002-backlog-module-owns-the-entry-text-language.md)**
 - **[0003 — SQLite is the canonical local task store; markdown is the content](0003-sqlite-is-the-canonical-local-task-store.md)**
+- **[0004 — One generated local database holds the derived knowledge layer; markdown stays canonical](0004-knowledge-index-is-a-generated-local-database.md)** *(proposed)*
 
 ## Inherited decisions
 
