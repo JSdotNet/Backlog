@@ -127,15 +127,18 @@ depends-on: [".tech/ai-development.md#claude-code", ".tech/ai-development.md#git
 related: [".tech/ai-development.md#orchestration-dashboard", ".tech/testing.md#playwright"]
 ```
 
-The tool-server protocol that supplies agents with capabilities and with
-authoritative guidance.
+The tool-server protocol that supplies agents with capabilities they do not ship
+themselves.
 
-- **Used for** — `jsdotnet-project-guidelines` (repository conventions) and
-  `jsdotnet-project-design` (design and UX guidance), which are the authority
-  order `.github/instructions/mcp-usage.instructions.md` defines; the Aspire and
-  Playwright servers the `qa` plugin supplies; and the orchestration dashboard.
-- **Why** — it keeps governance out of prompt memory and in a queryable source,
-  and it is how a harness reaches a tool it does not ship.
+- **Used for** — the Aspire and Playwright servers the `qa` plugin supplies, and
+  the orchestration dashboard.
+- **Why** — these expose live state an agent cannot read from the repository, and
+  it is how a harness reaches a tool it does not ship.
+- **Not used for guidance.** The `jsdotnet-project-guidelines` and
+  `jsdotnet-project-design` servers were retired on 2026-08-27; their content was
+  imported into `.arc42/adr/guidelines/` and `.design/`, which are the authority
+  `.github/instructions/mcp-usage.instructions.md` now names and need no server
+  to read.
 
 ## Orchestration Dashboard
 

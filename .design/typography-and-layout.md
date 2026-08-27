@@ -6,9 +6,9 @@ related: [".design/color-scheme.md", ".design/design-principles.md#low-chrome-co
 ```
 
 > Type scale, font choices, spacing scale, density, grid/layout, elevation, and
-> iconography tokens for the Backlog product. Sourced from the
-> `jsdotnet-project-design` MCP guides `02-typography`, `03-spacing-and-layout`,
-> `04-motion-and-interaction`, and `07-iconography`. This file declares the
+> iconography tokens for the Backlog product. Adapted from the JSdotNet design
+> style guide (`02-typography`, `03-spacing-and-layout`,
+> `04-motion-and-interaction`, `07-iconography`). This file declares the
 > non-color token *values*; color values live in `color-scheme.md`. All other
 > files reference token **names**.
 

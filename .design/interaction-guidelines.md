@@ -8,9 +8,9 @@ related: [".design/design-principles.md#no-save-buttons--auto-save-everywhere", 
 > Binding interaction rules for the Backlog product: auto-save (there are no save
 > buttons), drag-and-drop reordering of both items and chapters with mandatory
 > keyboard equivalents, feedback/toasts, motion and reduced-motion, and the
-> empty/loading/error state patterns. Motion tokens and interaction patterns are
-> sourced from the `jsdotnet-project-design` MCP guides `04-motion-and-interaction`
-> and `09-interaction-patterns`; conflict handling aligns with the last-write-wins
+> empty/loading/error state patterns. Motion tokens and interaction patterns were
+> adapted from the JSdotNet design style guide (`04-motion-and-interaction`,
+> `09-interaction-patterns`); conflict handling aligns with the last-write-wins
 > rule in `.arc42/08-crosscutting-concepts.md#storage-and-sync`. Token names are
 > declared in `color-scheme.md` and `typography-and-layout.md`.
 

@@ -179,7 +179,7 @@
           "path": ".tech/ai-development.md",
           "slug": "orchestration-dashboard",
           "level": 2,
-          "line": 140,
+          "line": 143,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#model-context-protocol-servers"
@@ -198,7 +198,7 @@
           "path": ".tech/ai-development.md",
           "slug": "repository-instruction-files",
           "level": 2,
-          "line": 159,
+          "line": 162,
           "status": "adopted",
           "alternatives": [
             "AGENTS.md",
@@ -223,7 +223,7 @@
           "path": ".tech/ai-development.md",
           "slug": "claude-code-hooks",
           "level": 2,
-          "line": 184,
+          "line": 187,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code",
@@ -243,7 +243,7 @@
           "path": ".tech/ai-development.md",
           "slug": "knowledge-base-plugin",
           "level": 2,
-          "line": 202,
+          "line": 205,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code-plugins",
@@ -264,7 +264,7 @@
           "path": ".tech/ai-development.md",
           "slug": "knowledge-canvas-extension",
           "level": 2,
-          "line": 221,
+          "line": 224,
           "status": "adopted",
           "depends-on": [
             ".tech/ai-development.md#claude-code-plugins",
@@ -285,7 +285,7 @@
           "path": ".tech/ai-development.md",
           "slug": "git-worktree-sessions",
           "level": 2,
-          "line": 240,
+          "line": 243,
           "status": "adopted",
           "depends-on": [
             ".tech/tooling.md#git"

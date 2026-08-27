@@ -94,8 +94,9 @@ related: [".arc42/09-architecture-decisions.md"]
 - **Cloud connection uses device-based auth** — JWT device sessions, no user login.
 - The current architecture assumes a single personal user and does not include team-oriented authorization roles.
 
-For the cloud service specifically, the organization's identity, authorization, and
-error-contract ADRs apply (see `.arc42/09-architecture-decisions.md`).
+For the cloud service specifically, the inherited identity, authorization, and
+error-contract decisions apply — `.arc42/adr/guidelines/0012-authentication-external-identity-providers.md`,
+`0013-authorization-zero-trust.md`, and `0017-http-error-contract-and-problem-details.md`.
 
 ## Observability
 
@@ -105,8 +106,9 @@ related: [".arc42/09-architecture-decisions.md"]
 ```
 
 Monitoring dashboards read telemetry signals from Application Insights (errors,
-latency per project) alongside local queue/backlog health metrics. The cloud service
-follows the organization's OpenTelemetry guidance.
+latency per project) alongside local queue/backlog health metrics. Telemetry follows
+`.arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
+`Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
 ## Shared Data Types
 

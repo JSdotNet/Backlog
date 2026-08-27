@@ -347,7 +347,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): `jsdotnet-project-guidelines`, `jsdotnet-project-design`, the Aspire and [Playwright](testing.md#playwright) servers, and the orchestration dashboard |
+| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): the Aspire and [Playwright](testing.md#playwright) servers, and the orchestration dashboard. Guidance is not one of them — it is checked in under `.arc42/adr/guidelines/` and `.design/`. |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
 | Environment | The Aspire app model: [.NET Aspire](shared.md#net-aspire) is what gives an agent a running system to observe, with logs and traces |
 | Filesystem | The worktree. `.github/instructions/context-loading.instructions.md` limits which knowledge folders a given workflow may read. |

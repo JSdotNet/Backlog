@@ -34,7 +34,7 @@ status: active
 | **No account required for personal use** | Standalone mode works without login; cloud connection uses device-based auth. |
 | **GitHub as the external issue system** | Backlog entries sync to GitHub issues; the system integrates via `gh` CLI / GitHub API and webhooks. |
 | **Personal, single-user only** | The documented scope is personal use; multi-user and collaborative workflows are outside the current architecture baseline. |
-| **Governed guidance grounding** | Cloud-service decisions are grounded in the organization's ADRs via `jsdotnet-project-guidelines`; arc42 links to ADRs rather than restating them. |
+| **Governed guidance grounding** | Cloud-service decisions are grounded in the inherited organization ADRs checked in under `.arc42/adr/guidelines/`; arc42 chapters link to a decision record rather than restating it. |
 
 
 
