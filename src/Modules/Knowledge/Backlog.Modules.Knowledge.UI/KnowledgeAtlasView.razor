@@ -26,19 +26,6 @@
                 </p>
             }
         </div>
-
-        @* The scope picker, and only that. Closing belongs to the control that
-           opened this — the toggle in the section strip, which reads "Hide atlas"
-           while the map is up. A second close button beside it was two ways to do
-           one thing, and the reader had to work out whether they differed. *@
-        <div class="knowledge-atlas__actions">
-            <SelectField Id="knowledge-atlas-scope"
-                         Label="Atlas scope"
-                         CurrentValue="@Scope.Key"
-                         OnChanged="ChangeScopeAsync"
-                         Options="@ScopeOptions"
-                         TestId="knowledge-atlas-scope" />
-        </div>
     </header>
 
     @if (_view is null)
@@ -157,15 +144,6 @@
     public KnowledgeAtlasScope Scope { get; set; } = KnowledgeAtlasScope.All;
 
     [Parameter]
-    public EventCallback<KnowledgeAtlasScope> ScopeChanged { get; set; }
-
-    /// <summary>The scopes this atlas can be widened or narrowed to — the sections
-    /// the pane is showing, plus all of them. The host owns the list, because the
-    /// host knows which areas this repository has turned on.</summary>
-    [Parameter]
-    public IReadOnlyList<KnowledgeAtlasScope> Scopes { get; set; } = [];
-
-    [Parameter]
     public string? RepositoryAlias { get; set; }
 
     [Parameter]
@@ -185,9 +163,6 @@
     private string? Announcement => Selected is { } node
         ? $"{node.Label}, {node.Group}, {node.Folder}. {SelectedIndex + 1} of {_atlasNodes.Count}. {DegreeSummary(node)}."
         : null;
-
-    private IReadOnlyList<SelectorOption> ScopeOptions =>
-        [.. (Scopes.Count > 0 ? Scopes : [Scope]).Select(scope => new SelectorOption(scope.Key, scope.Label))];
 
     private static string DegreeSummary(KnowledgeAtlasNode node) =>
         $"{node.InDegree} inbound, {node.OutDegree} outbound";
@@ -289,16 +264,6 @@
 
         var next = Math.Clamp(SelectedIndex + delta, 0, _atlasNodes.Count - 1);
         return SelectAsync(_atlasNodes[next].Id);
-    }
-
-    private async Task ChangeScopeAsync(string? key)
-    {
-        var next = Scopes.FirstOrDefault(scope => string.Equals(scope.Key, key, StringComparison.Ordinal));
-        if (next is null || string.Equals(next.Key, Scope.Key, StringComparison.Ordinal)) return;
-
-        Scope = next;
-        await ScopeChanged.InvokeAsync(next);
-        await LoadAsync();
     }
 
     private Task NavigateAsync(KnowledgeReference reference) =>
