@@ -146,9 +146,14 @@ public sealed class ArchifyArtifactFrameTests
             render,
             StringComparison.Ordinal);
 
+        // Present goes too, and for a third reason: presentation is not a mode to
+        // toggle here, it is always on, so a control claiming to turn it on lies
+        // about the state it is in.
+        Assert.Contains("#btn-present{display:none!important}", render, StringComparison.Ordinal);
+
         // Everything else the viewer ships stays. These were hidden while the
         // artifact was in embed mode and are the reason it no longer is.
-        foreach (var kept in new[] { "#btn-present", "#btn-export", ".diagram-nav", ".node-finder", ".guided-views" })
+        foreach (var kept in new[] { "#btn-export", ".diagram-nav", ".node-finder", ".guided-views" })
         {
             Assert.DoesNotContain($"{kept}{{display:none", render, StringComparison.Ordinal);
         }
@@ -224,7 +229,73 @@ public sealed class ArchifyArtifactFrameTests
         Assert.Contains("unwatch();", render, StringComparison.Ordinal);
         Assert.Contains("element.style.removeProperty('height');", render, StringComparison.Ordinal);
 
-        Assert.Contains("return () => window.removeEventListener('message', onMessage);", ArtifactHeightWatcher(), StringComparison.Ordinal);
+        // Both listeners, since the watcher now holds two: the height channel and
+        // the document's fullscreen change.
+        var watch = ArtifactHeightWatcher();
+        Assert.Contains("window.removeEventListener('message', onMessage);", watch, StringComparison.Ordinal);
+        Assert.Contains("document.removeEventListener('fullscreenchange', onFullscreenChange);", watch, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Presentation mode is on and stays on — it is the reading mode, with the
+    /// diagram taking the frame and the info cards out of the way. It used to be a
+    /// button that did nothing worth seeing: present mode sizes the diagram to the
+    /// viewport, and in a frame already sized to its content that only moves the
+    /// same box around.
+    /// <para>
+    /// Which is also why its viewport sizing has to be neutralised in the chapter,
+    /// and this is the rule the whole feature stands on. Present mode pins the
+    /// document to <c>100dvh</c>; inside the frame that IS the height this host
+    /// just gave it, so the measurement would report back exactly what it was told
+    /// and every frame would latch at its opening 28rem for ever. The override
+    /// lifts in fullscreen, where <c>100dvh</c> means the screen — a number the
+    /// host did not choose and cannot feed back into.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Presentation_is_always_on_and_may_not_size_itself_from_a_height_this_host_chose()
+    {
+        var render = RenderArtifact();
+
+        Assert.Contains("data-present','true'", render, StringComparison.Ordinal);
+
+        Assert.Contains(
+            """html[data-present="true"]:not([data-host-fullscreen]) body""",
+            render,
+            StringComparison.Ordinal);
+        Assert.Contains("{height:auto!important;min-height:0!important", render, StringComparison.Ordinal);
+        Assert.Contains(
+            """html[data-present="true"]:not([data-host-fullscreen]) .container{height:auto!important}""",
+            render,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Room, which is the one thing a diagram in a column of prose cannot have.
+    /// The native Fullscreen API rather than a pop-out of this app's own: the
+    /// artifact is already a self-contained viewer, so what it needs is space, not
+    /// a second frame around it.
+    /// <para>
+    /// Two things have to happen together for it to read right. The measured height
+    /// stops being written, because on a fullscreen element the browser owns the
+    /// size and a pixel value there is a letterbox. And the document is told, since
+    /// whether it is the whole screen is a fact about the frame it cannot see and
+    /// the one that decides what its own <c>100dvh</c> means.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Fullscreen_hands_over_the_sizing_and_says_so_to_the_document()
+    {
+        var watch = ArtifactHeightWatcher();
+
+        Assert.Contains("if (document.fullscreenElement === element) return;", watch, StringComparison.Ordinal);
+        Assert.Contains("element.style.removeProperty('height');", watch, StringComparison.Ordinal);
+        Assert.Contains("channel: 'backlog-artifact-fullscreen', on: mine", watch, StringComparison.Ordinal);
+
+        // And the frame listens for exactly that.
+        var render = RenderArtifact();
+        Assert.Contains("backlog-artifact-fullscreen", render, StringComparison.Ordinal);
+        Assert.Contains("data-host-fullscreen", render, StringComparison.Ordinal);
     }
 
     /// <summary>The body of <c>backlogDiagrams.renderArtifact</c>, so an assertion

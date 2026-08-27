@@ -1267,6 +1267,11 @@
             const height = Number(message.height);
             if (!Number.isFinite(height) || height <= 0) return;
 
+            // Not while the frame is the whole screen. There the height is the
+            // screen's and the browser owns it; writing a measured pixel value onto
+            // a fullscreen element is how you get a diagram in a letterbox.
+            if (document.fullscreenElement === element) return;
+
             // Bounded at both ends. The floor stops a frame that reports something
             // absurd from collapsing to a sliver, and the ceiling sits far above the
             // tallest artifact in this repository, so it only ever catches a
@@ -1274,9 +1279,39 @@
             element.style.height = `${Math.min(Math.max(Math.ceil(height), 120), 20000)}px`;
         };
 
-        window.addEventListener('message', onMessage);
+        /*
+            Fullscreen is a fact about the frame that the document inside cannot
+            see, and it changes what `100dvh` means for it - the screen, rather than
+            a height this host chose. So it is told, both ways.
 
-        return () => window.removeEventListener('message', onMessage);
+            Listening on the document rather than the element because that is where
+            `fullscreenchange` is dispatched, and checking identity rather than
+            assuming: several artifact frames share this page and only one of them
+            is ever the screen.
+        */
+        const onFullscreenChange = () => {
+            const mine = document.fullscreenElement === element;
+
+            // The inline height goes while fullscreen so the browser can size the
+            // element, and comes back on exit from the frame's next measurement.
+            if (mine) element.style.removeProperty('height');
+
+            try {
+                element.contentWindow?.postMessage(
+                    { channel: 'backlog-artifact-fullscreen', on: mine },
+                    '*');
+            } catch {
+                // A frame that has already gone is not an error worth reporting.
+            }
+        };
+
+        window.addEventListener('message', onMessage);
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+
+        return () => {
+            window.removeEventListener('message', onMessage);
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+        };
     };
 
     window.backlogDiagrams = {
@@ -1371,6 +1406,28 @@
                 scrollbars — rather than for the flash, which was never its doing.
             */
             const pin = `<script>(function(){try{var h=document.documentElement;`
+                /*
+                    Presentation mode, on and staying on. It is the reading mode:
+                    the diagram takes the whole frame and the info cards step out of
+                    the way. It used to be a button, and the button did nothing worth
+                    seeing - present mode sizes the diagram to the viewport, and in a
+                    frame this host has already sized to the content, that only moves
+                    the same box around. Fullscreen is where it earns its keep, and
+                    fullscreen is now a host control rather than an artifact one.
+                */
+                + `h.setAttribute('data-present','true');`
+                /*
+                    And the one thing the artifact cannot work out for itself:
+                    whether this frame is currently the whole screen. It changes what
+                    `100dvh` means - the screen, rather than a height the host chose -
+                    so the host says so, and the stylesheet below keys off it.
+                */
+                + `addEventListener('message',function(e){try{`
+                + `if(!e.data||e.data.channel!=='backlog-artifact-fullscreen')return;`
+                + `if(e.data.on)h.setAttribute('data-host-fullscreen','true');`
+                + `else h.removeAttribute('data-host-fullscreen');`
+                + `if(typeof schedule==='function')schedule();`
+                + `}catch(_){}});`
                 + `var real=window.matchMedia&&window.matchMedia.bind(window);`
                 + `if(real){window.matchMedia=function(q){var r=real(q);`
                 + `if(typeof q==='string'&&q.indexOf('prefers-color-scheme')>=0){`
@@ -1521,6 +1578,34 @@
                 + '#btn-theme{display:none!important}'
 
                 /*
+                    The Present button, gone. Presentation is not a mode to toggle
+                    here - it is always on - so a control that claims to turn it on
+                    is a control that lies about the state it is in.
+                */
+                + '#btn-present{display:none!important}'
+
+                /*
+                    Presentation mode's viewport sizing, neutralised while the frame
+                    is in the chapter - and this is the rule that keeps the whole
+                    feature standing up.
+
+                    Present mode pins the document to `100dvh`. Inside a frame this
+                    host sizes from the document's own height, `100dvh` IS the answer
+                    the host just gave, so the measurement would report back exactly
+                    what it was told and every frame would latch at its opening 28rem
+                    for ever. Letting the document be its own height again breaks that
+                    circle, and present mode's real effects - the cards away, the
+                    diagram filling its container - are untouched.
+
+                    In fullscreen the opposite is true: `100dvh` means the screen,
+                    which is a number the host did not choose and cannot feed back
+                    into. So the override lifts exactly there.
+                */
+                + 'html[data-present="true"]:not([data-host-fullscreen]) body'
+                + '{height:auto!important;min-height:0!important;overflow:visible!important}'
+                + 'html[data-present="true"]:not([data-host-fullscreen]) .container{height:auto!important}'
+
+                /*
                     And Style only where it is a choice. A picker offering one thing
                     is a control that cannot change anything, which is the same
                     objection as the theme toggle above.
@@ -1570,6 +1655,35 @@
                     element.style.removeProperty('height');
                 }
             });
+        },
+
+        /*
+            Takes an artifact frame to the whole screen, and back.
+
+            The native Fullscreen API rather than a pop-out of this app's own: the
+            artifact is already a self-contained document with its own viewer, so
+            what it needs is room, not a second frame around it. Requested on the
+            iframe element by this page - the frame itself is sandboxed and asks for
+            nothing.
+
+            Presentation mode is what makes the room count. It is always on inside
+            the artifact, and the stylesheet injected with it lets present mode's own
+            `100dvh` sizing apply exactly here, where the viewport really is a screen
+            rather than a height this host measured.
+        */
+        async toggleArtifactFullscreen(element) {
+            if (!element) return false;
+
+            if (document.fullscreenElement === element) {
+                await document.exitFullscreen();
+                return false;
+            }
+
+            // `navigationUI: 'hide'` asks for the diagram and nothing else; a browser
+            // that will not honour it still goes fullscreen, which is the part that
+            // matters.
+            await element.requestFullscreen({ navigationUI: 'hide' });
+            return true;
         },
 
         renderGraph(element, id, data) {

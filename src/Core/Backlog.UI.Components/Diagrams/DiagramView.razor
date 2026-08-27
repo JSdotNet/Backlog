@@ -42,6 +42,20 @@
                                   PressedChanged="@(pressed => ChooseRendererAsync(preferMermaid: true, pressed))">Mermaid</ToggleButton>
                 </span>
             }
+            @* Room, which is the one thing a diagram in a column of prose cannot
+               have. The artifact is already a whole viewer with its own zoom and
+               pan; what it runs out of is width. This hands it the screen.
+
+               Only for the artifact: a drawn mermaid diagram is an SVG in the
+               page and has nothing to go fullscreen with. *@
+            @if (ShowingArtifact)
+            {
+                <AppButton Size="ButtonSize.Small"
+                           Variant="ButtonVariant.Ghost"
+                           TestId="diagram-view-fullscreen"
+                           title="Show this diagram full screen"
+                           OnClick="ExpandArtifactAsync">Full screen</AppButton>
+            }
             @* The language, except where the switch has already said it. A mermaid
                fence with an artifact rendered "Archify | Mermaid | mermaid", and the
                last two are the same word for the same thing: the switch's second
@@ -286,6 +300,28 @@
             // deciding it is already current.
             _renderedSource = null;
             _renderedLanguage = null;
+        }
+    }
+
+    /// <summary>Hands the artifact the whole screen.
+    /// <para>
+    /// A failure here is swallowed on purpose. Fullscreen is refused for reasons
+    /// that are not faults and that a reader can do nothing about — no user
+    /// gesture recognised, a permissions policy on the host, a browser that
+    /// declines — and the diagram is still perfectly readable in the chapter. An
+    /// error banner over a working diagram would be the worse outcome.
+    /// </para></summary>
+    private async Task ExpandArtifactAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _frame);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
         }
     }
 
