@@ -19,7 +19,6 @@
 
 <div class="sb-stack" data-testid="@TestId">
     <MarkdownView Blocks="Blocks"
-                  ShowDiagramSource="@ShowDiagramSource"
                   RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                   KnowledgeFolder="@KnowledgeFolder"
                   KnowledgeDocumentPath="@KnowledgeDocumentPath"
@@ -35,14 +34,6 @@
 
     [Parameter]
     public string? TestId { get; set; }
-
-    /// <summary>Whether a diagram drawn from a fence keeps its own source
-    /// disclosure. Off by default here, unlike in the library: a story shows the
-    /// sample's markdown in its own Code and source column, so the disclosure
-    /// under the picture would be the same fence a second time. The one story
-    /// that is about the disclosure turns it back on.</summary>
-    [Parameter]
-    public bool ShowDiagramSource { get; set; }
 
     /// <summary>Passed straight to <c>MarkdownView</c>. Off here for the same
     /// reason it is off there: most markdown is not a knowledge document.</summary>

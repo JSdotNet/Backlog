@@ -177,7 +177,6 @@
                           RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                           RenderFileKnowledgeMetadata="false"
                           RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                          ShowDiagramSource="@ShowDiagramSource"
                           KnowledgeFolder="@KnowledgeFolder"
                           KnowledgeDocumentPath="@KnowledgeDocumentPath"
                           OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
@@ -329,12 +328,6 @@
     /// Passed straight to the read view.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
-
-    /// <summary>Whether a diagram drawn from a fence keeps its own source
-    /// disclosure. Passed straight to the read view and on to
-    /// <c>DiagramView.ShowSource</c>.</summary>
-    [Parameter]
-    public bool ShowDiagramSource { get; set; } = true;
 
     /// <summary>Which knowledge folder the file was read from, so a chapter's
     /// status can be checked against that folder's vocabulary.</summary>

@@ -32,7 +32,7 @@ public sealed class DiagramArtifactViewTests
         Assert.Single(context.JSInterop.Invocations["backlogDiagrams.render"]);
         Assert.NotNull(diagram.Find(".diagram-view__rendered"));
         Assert.Empty(diagram.FindAll("[data-testid='diagram-view-footer']"));
-        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-renderer']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-renderers']"));
         Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact']"));
     }
 
@@ -50,18 +50,17 @@ public sealed class DiagramArtifactViewTests
 
         var frame = diagram.Find("[data-testid='diagram-view-artifact']");
         Assert.Equal("IFRAME", frame.TagName);
-        Assert.Equal("allow-scripts", frame.GetAttribute("sandbox"));
 
-        // Said out loud, because the two renderers draw the same diagram
-        // differently and the reader is comparing the picture against the source
-        // below it.
-        Assert.Equal("Archify", diagram.Find("[data-testid='diagram-view-renderer']").TextContent);
+        // Two permissions and no more. `allow-scripts` is what makes the viewer
+        // run at all; `allow-downloads` is what makes its Export menu write a
+        // file. `allow-same-origin` is deliberately absent, so the document stays
+        // in an opaque origin and cannot reach back into this page.
+        Assert.Equal("allow-scripts allow-downloads", frame.GetAttribute("sandbox"));
+
+        // Which renderer this is, said out loud — and as the control that changes
+        // it, since the reader comparing the two needs to be able to.
+        Assert.Equal("Archify", diagram.Find("[data-testid='diagram-view-renderer-artifact']").TextContent);
         Assert.Equal("mermaid", diagram.Find("[data-testid='diagram-view-language']").TextContent);
-
-        // The artifact is a re-authoring rather than a rendering, so the
-        // disclosure is the only place the canonical text can still be read.
-        Assert.Equal("Diagram source", diagram.Find(".diagram-view__details summary").TextContent);
-        Assert.Contains("A[Start]", diagram.Find(".diagram-view__details pre").TextContent, StringComparison.Ordinal);
 
         Assert.Empty(diagram.FindAll(".diagram-view__rendered"));
         Assert.Empty(context.JSInterop.Invocations["backlogDiagrams.render"]);
@@ -183,15 +182,15 @@ public sealed class DiagramArtifactViewTests
     }
 
     /// <summary>
-    /// The one case where a host does not get to turn the disclosure off. The
-    /// knowledge panels pass <c>ShowDiagramSource="false"</c> because a drawn
-    /// mermaid diagram is its source rendered, and there is nothing to read that
-    /// the picture does not already say. An artifact is not that: it is a
-    /// re-authoring of the fence, so with the disclosure off the canonical text
-    /// would be readable nowhere on the screen.
+    /// The disclosure is gone, and for an artifact especially. It used to be kept
+    /// here whatever the host asked for, because an artifact is a re-authoring of
+    /// the fence rather than a rendering of it, so with the fold shut the
+    /// canonical text was readable nowhere on the screen. The renderer switch is
+    /// the better answer to that: a reader who doubts the picture presses Mermaid
+    /// and watches the fence itself be drawn.
     /// </summary>
     [Fact]
-    public void An_artifact_keeps_the_source_disclosure_even_where_the_host_turned_it_off()
+    public void An_artifact_carries_no_source_disclosure_either()
     {
         using var context = Context(new DiagramArtifact(
             "<!doctype html><html><body>Archify</body></html>",
@@ -200,49 +199,52 @@ public sealed class DiagramArtifactViewTests
             "workflow",
             IsOutOfDate: false));
 
-        var diagram = Render(context, showSource: false);
+        var diagram = Render(context);
 
         Assert.NotNull(diagram.Find("[data-testid='diagram-view-artifact']"));
-        Assert.Equal("Diagram source", diagram.Find(".diagram-view__details summary").TextContent);
-
-        // The fence itself, not a paraphrase of it: what the artifact claims to
-        // say has to be checkable against what the chapter actually says.
-        Assert.Contains(Flowchart, diagram.Find(".diagram-view__details pre").TextContent, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The scope of that override, which is the half worth guarding. An artifact
-    /// overriding <c>ShowSource</c> must not amount to switching the host's choice
-    /// off everywhere — a mermaid diagram in a knowledge panel still gets no
-    /// disclosure, whether nothing was authored for it or something was authored
-    /// and cannot be shown.
-    /// </summary>
-    [Fact]
-    public void With_the_disclosure_off_a_diagram_that_is_still_mermaid_does_not_get_one()
-    {
-        using var nothing = Context(null);
-        Assert.Empty(Render(nothing, showSource: false).FindAll(".diagram-view__details"));
-
-        // An artifact exists and is withheld because the fence moved on. The
-        // reader is looking at mermaid, so the host's "I already show this text"
-        // is true again and the disclosure stays off.
-        using var withheld = Context(new DiagramArtifact(
-            null,
-            null,
-            "/repo/.domain/orders/_archify/flow.1.workflow.json",
-            "workflow",
-            IsOutOfDate: true));
-
-        var diagram = Render(withheld, showSource: false);
-
-        Assert.NotNull(diagram.Find("[data-testid='diagram-view-outdated']"));
+        Assert.Empty(diagram.FindAll("details"));
         Assert.Empty(diagram.FindAll(".diagram-view__details"));
     }
 
-    /// <summary>A host that never turned it off is unaffected by the override:
-    /// the disclosure it asked for is the disclosure it gets.</summary>
+    /// <summary>
+    /// The switch, and the one condition on it: there has to be a choice. A
+    /// diagram with nothing authored for it has one renderer, and offering to
+    /// switch to the only thing on offer would be a control that does nothing.
+    /// </summary>
     [Fact]
-    public void A_host_that_wants_the_source_disclosure_still_gets_it_under_an_artifact()
+    public void The_renderer_switch_appears_only_where_both_renderers_are_available()
+    {
+        using var both = Context(new DiagramArtifact(
+            "<!doctype html><html><body>Archify</body></html>",
+            "/repo/.domain/orders/_archify/flow.1.workflow.html",
+            null,
+            "workflow",
+            IsOutOfDate: false));
+
+        var offered = Render(both);
+
+        Assert.NotNull(offered.Find("[data-testid='diagram-view-renderers']"));
+        Assert.Equal("Archify", offered.Find("[data-testid='diagram-view-renderer-artifact']").TextContent);
+        Assert.Equal("Mermaid", offered.Find("[data-testid='diagram-view-renderer-mermaid']").TextContent);
+
+        // Selected is said out loud rather than only coloured: this is one of two,
+        // and a screen reader has to be able to hear which.
+        Assert.Equal("true", offered.Find("[data-testid='diagram-view-renderer-artifact']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", offered.Find("[data-testid='diagram-view-renderer-mermaid']").GetAttribute("aria-pressed"));
+
+        using var neither = Context(null);
+
+        Assert.Empty(Render(neither).FindAll("[data-testid='diagram-view-renderers']"));
+    }
+
+    /// <summary>
+    /// Pressing Mermaid puts the reader on the mermaid, and takes the artifact's
+    /// document off the page rather than parking it in a frame nobody is looking
+    /// at — 675 KB and a running viewer per diagram is not something to leave
+    /// behind a hidden element.
+    /// </summary>
+    [Fact]
+    public void Choosing_mermaid_draws_the_fence_and_drops_the_artifact()
     {
         using var context = Context(new DiagramArtifact(
             "<!doctype html><html><body>Archify</body></html>",
@@ -251,11 +253,26 @@ public sealed class DiagramArtifactViewTests
             "workflow",
             IsOutOfDate: false));
 
-        var diagram = Render(context, showSource: true);
+        var diagram = Render(context);
 
-        Assert.Equal("Diagram source", diagram.Find(".diagram-view__details summary").TextContent);
-        Assert.Contains(Flowchart, diagram.Find(".diagram-view__details pre").TextContent, StringComparison.Ordinal);
+        Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
+
+        diagram.Find("[data-testid='diagram-view-renderer-mermaid']").Click();
+
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-artifact']"));
+        Assert.NotNull(diagram.Find(".diagram-view__rendered"));
+        Assert.NotEmpty(context.JSInterop.Invocations["backlogDiagrams.dispose"]);
+
+        var drawn = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.render"]);
+        Assert.Equal(Flowchart, drawn.Arguments[3]);
+
+        // And back, which has to redraw rather than decide it is already current.
+        diagram.Find("[data-testid='diagram-view-renderer-artifact']").Click();
+
+        Assert.NotNull(diagram.Find("[data-testid='diagram-view-artifact']"));
+        Assert.Equal(2, context.JSInterop.Invocations["backlogDiagrams.renderArtifact"].Count);
     }
+
 
     private static BunitContext Context(DiagramArtifact? artifact, bool canAuthor = false)
     {
@@ -267,12 +284,10 @@ public sealed class DiagramArtifactViewTests
 
     private static IRenderedComponent<DiagramView> Render(
         BunitContext context,
-        string source = Flowchart,
-        bool showSource = true) =>
+        string source = Flowchart) =>
         context.Render<DiagramView>(parameters => parameters
             .Add(diagram => diagram.Source, source)
-            .Add(diagram => diagram.Language, "mermaid")
-            .Add(diagram => diagram.ShowSource, showSource));
+            .Add(diagram => diagram.Language, "mermaid"));
 }
 
 /// <summary>

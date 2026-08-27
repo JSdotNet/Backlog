@@ -144,7 +144,6 @@
                                                 AllowChapterCopy="@AllowChapterCopy"
                                                 RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                                                 RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                                                ShowDiagramSource="@ShowDiagramSource"
                                                 KnowledgeFolder="@KnowledgeFolder"
                                                 KnowledgeDocumentPath="@KnowledgeDocumentPath"
                                                 OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
@@ -346,16 +345,6 @@
     /// worth on a surface that is already showing the file.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
-
-    /// <summary>Whether a diagram drawn from a fence keeps its own source
-    /// disclosure. Passed straight to the read view and on to
-    /// <c>DiagramView.ShowSource</c>. On by default, so nothing that renders a
-    /// diagram today changes; off for a reading surface where a fold holding the
-    /// text behind every picture is chrome the reader did not ask for. A render
-    /// that failed keeps the source either way — that is DiagramView's own rule,
-    /// and it has to be, because then the text is all there is left to read.</summary>
-    [Parameter]
-    public bool ShowDiagramSource { get; set; } = true;
 
     /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the
