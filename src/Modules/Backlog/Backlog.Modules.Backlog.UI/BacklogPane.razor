@@ -1774,10 +1774,18 @@
     /// Repository-authored rows are left out too, for the same reason no picker is
     /// offered on one: with no id there is nothing an <c>after:</c> token could
     /// name them by.
+    /// </para>
+    /// <para>
+    /// Done rows are left out too. A finished predecessor cannot block, so
+    /// offering one would let a reader write down a wait that TaskChain silently
+    /// drops the moment it resolves the chain — the picker would look like it
+    /// worked and the list row would look like it did not.
     /// </para></summary>
     private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row) =>
         [.. State.FilteredRows
-            .Where(candidate => !ReferenceEquals(candidate, row) && candidate.Id is not null)
+            .Where(candidate => !ReferenceEquals(candidate, row)
+                && candidate.Id is not null
+                && candidate.PreviewStatus is not EntryStatus.Done)
             .Select(candidate => new SelectorOption(
                 candidate.Id!.Value.ToString(),
                 string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle))];
