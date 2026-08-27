@@ -31,6 +31,12 @@ graph, and `index.json`, the ordered reading outline. Six scopes, twelve files,
 about 1.8 MB — the repository-wide `_meta/graph.json` alone is 836 KB for 772
 nodes and 1540 edges.
 
+The folder set is open, and that matters to the shape of the answer rather than
+just to its size. The convention now defines a sixth folder, `.ai`, which this
+repository has not adopted; adopting it adds two more committed artifacts and
+rewrites the repository-wide rollup again. Every future folder costs the same,
+because the current arrangement answers "which scope?" with a file.
+
 **Most of the argument for changing this has already been half-answered, and the
 half-answers are what make the case.**
 
@@ -123,6 +129,11 @@ things nobody authored.
 not another file — which is what removes the double serialization the context
 describes, without a consumer having to choose between a scoped file and a
 repository-wide one.
+
+It also makes adopting a folder free. Taking on `.ai`, or whatever the convention
+defines next, adds rows rather than two more committed artifacts and another
+rewrite of the rollup; a consumer that already filters by folder needs no change
+at all.
 
 The location rule from the derived-artifacts convention is unchanged: `_meta/`,
 one level below the thing it describes. Being repository-wide, the root `_meta/`
