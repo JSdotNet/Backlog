@@ -135,6 +135,154 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
     }
 
 
+    /// <summary>
+    /// The point of the generated index: the panel can name every bounded
+    /// context without opening one document. Proven by deleting the documents —
+    /// a load that still names the context cannot have read them.
+    /// </summary>
+    [Fact]
+    public async Task Lists_contexts_from_the_index_without_reading_their_documents()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        WriteDomainIndex(repo);
+        File.Delete(Path.Combine(repo, ".domain", "inbox", "domain.md"));
+        File.Delete(Path.Combine(repo, ".domain", "inbox", "features.md"));
+        File.Delete(Path.Combine(repo, ".domain", "inbox", "model.md"));
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        Assert.Equal("Inbox", context.DisplayName);
+        Assert.Equal("active", context.Status);
+    }
+
+    [Fact]
+    public async Task Defers_reading_a_context_until_its_documents_are_asked_for()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        WriteDomainIndex(repo);
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        var documents = Assert.IsType<LazyKnowledgeList<DomainKnowledgeDocument>>(context.Documents);
+        Assert.False(documents.IsMaterialized);
+
+        var domain = context.Documents.Single(document => document.Kind == DomainKnowledgeDocumentKind.Domain);
+
+        Assert.True(documents.IsMaterialized);
+        Assert.Equal("Domain: Inbox", domain.Title);
+        Assert.Equal("active", domain.Status);
+        Assert.Single(domain.Sections, section => section.Title == "Aggregate: Inbox Item");
+    }
+
+    /// <summary>
+    /// The committed index is refreshed deliberately, so it can lag the Markdown
+    /// beside it. An entry whose file has been written since is read rather than
+    /// trusted, which is what keeps an edit made between refreshes off the stale
+    /// path.
+    /// </summary>
+    [Fact]
+    public async Task Re_reads_a_context_root_edited_since_the_index_was_written()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        WriteDomainIndex(repo, contextTitle: "Stale Name", contextStatus: "draft");
+
+        var domainPath = Path.Combine(repo, ".domain", "inbox", "domain.md");
+        File.SetLastWriteTimeUtc(domainPath, DateTime.UtcNow.AddMinutes(5));
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        Assert.Equal("Inbox", context.DisplayName);
+        Assert.Equal("active", context.Status);
+    }
+
+    [Fact]
+    public async Task Falls_back_to_scanning_the_folder_when_no_index_is_present()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        Assert.False(Directory.Exists(Path.Combine(repo, ".domain", "_meta")));
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        Assert.Equal("Inbox", context.DisplayName);
+        Assert.Equal("active", context.Status);
+        Assert.Contains(context.Documents, document => document.Kind == DomainKnowledgeDocumentKind.Domain);
+    }
+
+    /// <summary>
+    /// A payload shape this reader does not know is not something to guess at.
+    /// The derived-artifact convention says an unrecognised <c>schemaVersion</c>
+    /// sends the consumer back to the sources, which is the one behaviour that
+    /// cannot go wrong when the envelope changes under it.
+    /// </summary>
+    [Fact]
+    public async Task Falls_back_to_scanning_when_the_index_declares_an_unknown_schema_version()
+    {
+        var repo = TempDir();
+        WriteDomain(repo);
+        WriteDomainIndex(repo);
+
+        var indexPath = Path.Combine(repo, ".domain", "_meta", "index.json");
+        File.WriteAllText(indexPath, File.ReadAllText(indexPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99", StringComparison.Ordinal));
+        var settings = ConfiguredSettings(repo);
+
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+
+        var context = Assert.Single(view.Contexts);
+        Assert.Equal("Inbox", context.DisplayName);
+        Assert.Equal("active", context.Status);
+        Assert.Contains(context.Documents, document => document.Kind == DomainKnowledgeDocumentKind.Domain);
+
+        // The scan materialises its documents; only the index path defers them.
+        Assert.IsNotType<LazyKnowledgeList<DomainKnowledgeDocument>>(context.Documents);
+    }
+
+    /// <summary>
+    /// The outline the <c>knowledge-meta</c> generator writes to
+    /// <c>.domain/_meta/index.json</c>, in the shape the real one has. Written
+    /// last so it is newer than the Markdown, which is the state a fresh
+    /// regeneration leaves behind.
+    /// </summary>
+    private static void WriteDomainIndex(string repoRoot, string contextTitle = "Inbox", string contextStatus = "active")
+    {
+        var metaDir = Path.Combine(repoRoot, ".domain", "_meta");
+        Directory.CreateDirectory(metaDir);
+
+        File.WriteAllText(Path.Combine(metaDir, "index.json"), $$"""
+{
+  "schemaVersion": 1,
+  "generatedBy": ".github/tools/knowledge-meta/build.mjs",
+  "scope": ".domain",
+  "sources": [".domain"],
+  "problems": [],
+  "entries": [
+    { "type": "file", "name": "context-map.md", "path": ".domain/context-map.md",
+      "title": "Context Map: Test", "status": "draft", "root": true },
+    { "type": "directory", "name": "inbox", "path": ".domain/inbox", "title": "{{contextTitle}}",
+      "children": [
+        { "type": "file", "name": "domain.md", "path": ".domain/inbox/domain.md",
+          "title": "Domain: {{contextTitle}}", "status": "{{contextStatus}}", "root": true },
+        { "type": "file", "name": "features.md", "path": ".domain/inbox/features.md",
+          "title": "Features: Inbox", "status": "planned" },
+        { "type": "file", "name": "model.md", "path": ".domain/inbox/model.md",
+          "title": "Domain Model: Inbox", "status": "active" }
+      ] }
+  ]
+}
+""");
+    }
+
     private GitHubSettingsStore ConfiguredSettings(string repo)
     {
         var settings = NewSettingsStore();
