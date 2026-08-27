@@ -4240,6 +4240,26 @@ body.is-resizing-pane {
    because the dialog hand-rolled its markup instead of using TextField. The
    dialog uses the component now, so this is the one shape again. */
 
+.feedback-dialog__screenshot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.feedback-dialog__screenshot-preview {
+    max-width: 100%;
+    max-height: 12rem;
+    width: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    object-fit: contain;
+}
+
+.feedback-dialog__screenshot-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
 .feedback-status {
     margin: 0;
     padding: var(--spacing-sm);

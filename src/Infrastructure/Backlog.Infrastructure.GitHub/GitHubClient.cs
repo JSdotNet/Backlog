@@ -19,6 +19,21 @@ public interface IGitHubClient
         GitHubRepositoryRef repository,
         int number,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Commits <paramref name="content"/> to <paramref name="path"/> on
+    /// <paramref name="branch"/>, creating the branch off the repository's default
+    /// branch first if it does not already exist, and returns the raw URL the
+    /// committed file can be linked from (an issue body, for one — GitHub's
+    /// markdown sanitizer strips embedded <c>data:</c> images, so a real file
+    /// committed to the repository is what makes an attached screenshot actually
+    /// render).</summary>
+    Task<GitHubUploadedFile> UploadFileAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        string branch,
+        byte[] content,
+        string commitMessage,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -95,6 +110,110 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         return new GitHubIssueSnapshot(issue, pullRequests, DateTimeOffset.UtcNow);
+    }
+
+    public async Task<GitHubUploadedFile> UploadFileAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        string branch,
+        byte[] content,
+        string commitMessage,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(content);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new GitHubException("A committed file needs a path.");
+        }
+
+        if (string.IsNullOrWhiteSpace(branch))
+        {
+            throw new GitHubException("A committed file needs a branch.");
+        }
+
+        await EnsureBranchExistsAsync(repository, branch, cancellationToken);
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["message"] = commitMessage,
+            ["content"] = Convert.ToBase64String(content),
+            ["branch"] = branch
+        };
+
+        var response = await transport.SendAsync(
+            HttpMethod.Put,
+            $"repos/{repository.Owner}/{repository.Name}/contents/{Uri.EscapeDataString(path)}",
+            payload,
+            cancellationToken: cancellationToken);
+
+        var downloadUrl = response.TryGetProperty("content", out var contentElement)
+            && contentElement.ValueKind == JsonValueKind.Object
+            ? String(contentElement, "download_url")
+            : null;
+
+        if (string.IsNullOrWhiteSpace(downloadUrl))
+        {
+            throw new GitHubException("GitHub did not return a download URL for the committed file.");
+        }
+
+        return new GitHubUploadedFile(path, downloadUrl);
+    }
+
+    /// <summary>Creates <paramref name="branch"/> off the repository's default
+    /// branch when it does not already exist. The Contents API commits onto an
+    /// existing branch only — it will not create one implicitly.</summary>
+    private async Task EnsureBranchExistsAsync(GitHubRepositoryRef repository, string branch, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await transport.SendAsync(
+                HttpMethod.Get,
+                $"repos/{repository.Owner}/{repository.Name}/git/ref/heads/{Uri.EscapeDataString(branch)}",
+                body: null,
+                cancellationToken: cancellationToken);
+            return;
+        }
+        catch (GitHubException)
+        {
+            // Doesn't exist yet (or the lookup failed for some other reason, in
+            // which case the branch/commit calls below fail with a clearer
+            // message than a bare 404 on the ref lookup would have).
+        }
+
+        var repositoryDetails = await transport.SendAsync(
+            HttpMethod.Get,
+            $"repos/{repository.Owner}/{repository.Name}",
+            body: null,
+            cancellationToken: cancellationToken);
+
+        var defaultBranch = String(repositoryDetails, "default_branch");
+        if (string.IsNullOrWhiteSpace(defaultBranch))
+        {
+            throw new GitHubException("GitHub did not report a default branch to branch from.");
+        }
+
+        var defaultRef = await transport.SendAsync(
+            HttpMethod.Get,
+            $"repos/{repository.Owner}/{repository.Name}/git/ref/heads/{Uri.EscapeDataString(defaultBranch)}",
+            body: null,
+            cancellationToken: cancellationToken);
+
+        var sha = defaultRef.TryGetProperty("object", out var target) && target.ValueKind == JsonValueKind.Object
+            ? String(target, "sha")
+            : null;
+
+        if (string.IsNullOrWhiteSpace(sha))
+        {
+            throw new GitHubException("GitHub did not return a commit to branch from.");
+        }
+
+        await transport.SendAsync(
+            HttpMethod.Post,
+            $"repos/{repository.Owner}/{repository.Name}/git/refs",
+            new Dictionary<string, object?> { ["ref"] = $"refs/heads/{branch}", ["sha"] = sha },
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>Reads the issue payload GitHub returns for both create and get.</summary>

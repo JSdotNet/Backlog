@@ -239,24 +239,29 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task Feedback_reports_create_an_issue_in_the_backlog_repository_with_the_screenshot()
+    public async Task Feedback_reports_upload_the_screenshot_and_link_the_real_url_in_the_issue()
     {
         var harness = Build("someone/else");
         var screenshot = new GitHubFeedbackScreenshot(
-            "data:image/jpeg;base64,abc123",
+            "data:image/jpeg;base64,AAAA",
             "image/jpeg",
             800,
             600,
             42);
 
-        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", "backlog list", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
 
+        // A data: URL embedded straight in the body is stripped by GitHub's
+        // markdown sanitizer and never renders — the fix commits the screenshot
+        // to the repository first and links the real URL that comes back.
+        Assert.Equal("JSdotNet/Backlog", harness.Client.UploadedRepository);
+        Assert.Equal("feedback-screenshots", harness.Client.UploadedBranch);
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Equal("[Feedback][Desktop app] Broken view", harness.Client.CreatedTitle);
-        Assert.Contains("## Desktop app screen area", harness.Client.CreatedBody);
-        Assert.Contains("backlog list", harness.Client.CreatedBody);
+        Assert.DoesNotContain("## Desktop app screen area", harness.Client.CreatedBody);
         Assert.Contains("The pane is blank.", harness.Client.CreatedBody);
-        Assert.Contains("![Screenshot](data:image/jpeg;base64,abc123)", harness.Client.CreatedBody);
+        Assert.Contains($"![Screenshot]({FakeGitHubClient.UploadedDownloadUrl})", harness.Client.CreatedBody);
+        Assert.DoesNotContain("data:image", harness.Client.CreatedBody);
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
     }
 
@@ -265,11 +270,25 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Feedback.ReportAsync("Cannot capture", null, null, null, "Permission denied.");
+        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.");
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
         Assert.Contains("Screenshot capture failed: Permission denied.", harness.Client.CreatedBody);
+    }
+
+    [Fact]
+    public async Task A_screenshot_upload_failure_still_files_the_issue()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        harness.Client.UploadFailure = new GitHubException("GitHub refused the request — the token may lack repo scope.");
+        var screenshot = new GitHubFeedbackScreenshot("data:image/jpeg;base64,AAAA", "image/jpeg", 800, 600, 42);
+
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
+
+        Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
+        Assert.Contains("Screenshot upload failed:", harness.Client.CreatedBody);
+        Assert.DoesNotContain("![Screenshot]", harness.Client.CreatedBody);
     }
 
     private async Task<EntryRow> WriteEntryAsync(BacklogDesktopState state, string text)
@@ -308,12 +327,19 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     private sealed class FakeGitHubClient : IGitHubClient
     {
+        public const string UploadedDownloadUrl = "https://raw.githubusercontent.com/JSdotNet/Backlog/feedback-screenshots/feedback-screenshots/fake.jpg";
+
         public int CreateCount { get; set; }
         public string? CreatedRepository { get; private set; }
         public string? CreatedTitle { get; private set; }
         public string? CreatedBody { get; private set; }
         public IReadOnlyList<string> CreatedLabels { get; private set; } = [];
         public Exception? Failure { get; set; }
+        public Exception? UploadFailure { get; set; }
+        public string? UploadedRepository { get; private set; }
+        public string? UploadedBranch { get; private set; }
+        public string? UploadedPath { get; private set; }
+        public byte[]? UploadedContent { get; private set; }
 
         public GitHubIssueSnapshot Snapshot { get; set; } = new(
             new GitHubIssue(101, "https://github.com/JSdotNet/Backlog/issues/101", "Add GitHub support", GitHubItemState.Open, null),
@@ -350,6 +376,24 @@ public sealed class GitHubPushFlowTests : IDisposable
         {
             if (Failure is not null) throw Failure;
             return Task.FromResult(Snapshot);
+        }
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
+            CancellationToken cancellationToken = default)
+        {
+            if (UploadFailure is not null) throw UploadFailure;
+
+            UploadedRepository = repository.FullName;
+            UploadedBranch = branch;
+            UploadedPath = path;
+            UploadedContent = content;
+
+            return Task.FromResult(new GitHubUploadedFile(path, UploadedDownloadUrl));
         }
     }
 

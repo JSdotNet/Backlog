@@ -155,6 +155,15 @@ internal sealed class BacklogPaneHost : IDisposable
                 new GitHubIssue(number, $"https://github.com/{repository.FullName}/issues/{number}", "An issue", GitHubItemState.Open, null),
                 [],
                 DateTimeOffset.UtcNow));
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GitHubUploadedFile(path, $"https://github.com/{repository.FullName}/blob/{branch}/{path}"));
     }
 
     private sealed class ConnectedProbe : IGitHubConnectionProbe

@@ -61,6 +61,20 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
         return new GitHubIssueLink(repository.FullName, issue.Number);
     }
 
+    /// <summary>Commits a file to a repository and hands back the raw URL it can
+    /// be linked from. See <see cref="IGitHubClient.UploadFileAsync"/>.</summary>
+    public Task<GitHubUploadedFile> UploadFileAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        string branch,
+        byte[] content,
+        string commitMessage,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        return client.UploadFileAsync(repository, path, branch, content, commitMessage, cancellationToken);
+    }
+
     /// <summary>The configured repository matching <paramref name="owner"/> and
     /// <paramref name="name"/>, or an unconfigured reference to it. Filing an
     /// issue somewhere the app knows by name but has not been pointed at in
