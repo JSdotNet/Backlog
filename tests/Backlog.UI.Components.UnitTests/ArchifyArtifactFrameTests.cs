@@ -85,82 +85,78 @@ public sealed class ArchifyArtifactFrameTests
     }
 
     /// <summary>
-    /// Archify's own controls, put back — and the two groups are separate places.
-    /// Zoom is on <c>.diagram-nav</c>, the dock in the diagram's corner; Style and
-    /// Export are on <c>.toolbar</c>, which floats in the frame's top-right and
-    /// costs no layout height. Each comes back minus the buttons that cannot work
-    /// inside an embedded frame.
+    /// The artifact is not put into embed mode, and that is most of this feature.
     ///
-    /// <para>Where the rules go is the whole of why they work. Each has to beat a
-    /// <c>display: none !important</c> in the artifact's own stylesheet at
-    /// identical specificity — so the only thing that can separate them is which
-    /// one the parser reads last. Spliced into the head every one would lose.</para>
+    /// <para><c>data-embed</c> is not a stylesheet. The artifact enforces it in
+    /// twenty-four JavaScript guards, each a plain
+    /// <c>if (html.getAttribute('data-embed') === 'true') return false;</c> at the
+    /// top of something a reader would want — the visual style menu will not open
+    /// under it, and neither will the node finder, the semantic lens, the route
+    /// probe, a guided view's journey or presentation mode. The first attempt at
+    /// this unhid the Style button with CSS and produced a control that refused to
+    /// do anything, which is how the guards were found.</para>
+    ///
+    /// <para>So the attribute is never set, and what this host asks for afterwards
+    /// is only what a frame genuinely cannot leave to the document.</para>
     /// </summary>
     [Fact]
-    public void The_artifacts_own_controls_are_unhidden_after_its_own_stylesheet_minus_the_dead_ones()
+    public void The_artifact_is_never_put_into_embed_mode()
     {
         var render = RenderArtifact();
 
+        Assert.DoesNotContain("data-embed', 'true'", render, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-embed','true'", render, StringComparison.Ordinal);
+
+        // And nothing is written against it either, since none of it would match.
+        Assert.DoesNotContain("""html[data-embed""", render, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The one rule that would break the sizing outright. The frame's viewport
+    /// height is the height this host just gave it from the content, so a body
+    /// insisting on filling the viewport can never report less than the frame
+    /// already is — it would latch at its opening 28rem and stay there.
+    /// </summary>
+    [Fact]
+    public void The_body_may_not_insist_on_filling_a_viewport_this_host_decides()
+    {
+        Assert.Contains("body{min-height:0}", RenderArtifact(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Two controls are still taken away, and each for a reason the reader would
+    /// otherwise meet as a button that refuses.
+    /// <para>
+    /// The theme toggle has nothing behind it: this host pins <c>data-theme</c> to
+    /// dark and re-pins it through a MutationObserver, so pressing it snaps back.
+    /// Style goes only when it holds fewer than two selectable presets — asked as
+    /// "unless it has two options that are not hidden" rather than as a count,
+    /// because the sibling combinator inside <c>:has()</c> is exactly that
+    /// question. Inert on today's artifacts, which all offer four.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Only_the_controls_that_could_not_work_here_are_taken_away()
+    {
+        var render = RenderArtifact();
+
+        Assert.Contains("#btn-theme{display:none!important}", render, StringComparison.Ordinal);
         Assert.Contains(
-            """html[data-embed="true"] .diagram-nav{display:inline-flex!important}""",
+            """:not(:has(.preset-option:not([hidden]) ~ .preset-option:not([hidden])))""",
             render,
             StringComparison.Ordinal);
 
-        // Only the three zoom controls. The dock's other five buttons open overlay
-        // panels that data-embed still hides, and a button that visibly does
-        // nothing is the problem hiding the toolbar exists to avoid. The two groups
-        // separate without a list to maintain: the panel openers carry an id, the
-        // zoom controls carry data-view and no id.
-        Assert.Contains(
-            """html[data-embed="true"] .diagram-nav button[id]{display:none!important}""",
-            render,
-            StringComparison.Ordinal);
+        // Everything else the viewer ships stays. These were hidden while the
+        // artifact was in embed mode and are the reason it no longer is.
+        foreach (var kept in new[] { "#btn-present", "#btn-export", ".diagram-nav", ".node-finder", ".guided-views" })
+        {
+            Assert.DoesNotContain($"{kept}{{display:none", render, StringComparison.Ordinal);
+        }
 
         var chrome = render.IndexOf("const chrome =", StringComparison.Ordinal);
         var applied = render.IndexOf("element.srcdoc = injected + chrome;", StringComparison.Ordinal);
 
         Assert.True(chrome >= 0 && applied > chrome, "The host's rules must be appended after the artifact's own document.");
-
-        // And the toolbar, for Style, Motion and Export — minus the two that
-        // cannot work here. `#btn-theme` toggles a theme this host pins dark from
-        // the outside; `#btn-present` drives a mode whose every rule is written
-        // `:not([data-embed="true"])`, so the artifact itself rules it out.
-        Assert.Contains("""html[data-embed="true"] .toolbar{display:flex!important}""", render, StringComparison.Ordinal);
-        Assert.Contains("#btn-theme", render, StringComparison.Ordinal);
-        Assert.Contains("#btn-present", render, StringComparison.Ordinal);
-
-        // Style survives only while it is a choice. Asked as "unless it holds two
-        // options that are not hidden" rather than as a count, because the sibling
-        // combinator inside :has() is exactly that question. Inert on today's
-        // artifacts, which all offer four presets.
-        Assert.Contains(
-            """:not(:has(.preset-option:not([hidden]) ~ .preset-option:not([hidden])))""",
-            render,
-            StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The renderer switch is two badges, not a segmented pill. It was a pill
-    /// first — one background with the inner corners squared off — and that made
-    /// the loudest thing in the header the one part of it that is only a label.
-    /// A badge is already this library's word for "a small fact about this block";
-    /// being able to press it does not make it a different kind of thing.
-    /// </summary>
-    [Fact]
-    public void The_renderer_switch_wears_the_badge_every_other_fact_in_the_header_wears()
-    {
-        Assert.Contains(""""BaseClass="language-badge diagram-view__renderer"""", View.Value, StringComparison.Ordinal);
-
-        // Nothing but a flex row and the gap the badges beside it already use.
-        var group = Rule(".diagram-view__renderers");
-        Assert.Contains("gap: var(--spacing-xs);", group, StringComparison.Ordinal);
-        Assert.DoesNotContain("background", group, StringComparison.Ordinal);
-        Assert.DoesNotContain("border-radius", group, StringComparison.Ordinal);
-
-        // Selected, said the way the library's other selected chips say it.
-        var active = Rule(".diagram-view__renderer--active");
-        Assert.Contains("var(--color-primary)", active, StringComparison.Ordinal);
-        Assert.Contains("color: var(--color-text-primary);", active, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -177,40 +173,6 @@ public sealed class ArchifyArtifactFrameTests
 
         Assert.Contains(""""sandbox="allow-scripts allow-downloads"""", markup, StringComparison.Ordinal);
         Assert.DoesNotContain("allow-same-origin", markup, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Embed mode's blanket <c>animation: none !important</c> on the traced edges,
-    /// the pulsing dot and the ambient sweep, lifted.
-    /// <para>
-    /// This changes nothing visible on today's artifacts, and that is the part
-    /// worth pinning. Archify animates only a diagram whose <c>&lt;svg&gt;</c>
-    /// carries <c>data-animation="trace"</c>, and none of the 38 artifacts in this
-    /// repository does — the string is in every one of them, but only inside the
-    /// stylesheet's own selectors, so the Motion Governor reports
-    /// <c>capable: false</c>. These diagrams are static where they are generated,
-    /// not where they are embedded.
-    /// </para>
-    /// <para>
-    /// Lifted anyway, because it is the second lock on the same door: leave it and
-    /// an artifact regenerated with motion still would not move here, for a reason
-    /// three layers from the thing that changed. <c>revert-layer</c> rather than a
-    /// named animation, so what plays is whatever the artifact authored, and
-    /// guarded on the two states the Motion Governor writes — its Still switch and
-    /// its pause while the tab is hidden — so a reader who asked for stillness
-    /// still wins.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void Embed_modes_blanket_stop_on_motion_is_lifted_without_overriding_the_reader()
-    {
-        var render = RenderArtifact();
-
-        Assert.Contains("{animation:revert-layer!important}", render, StringComparison.Ordinal);
-        Assert.Contains("""svg[data-animation="trace"] [data-animate]""", render, StringComparison.Ordinal);
-
-        Assert.Contains(""":not([data-motion="still"])""", render, StringComparison.Ordinal);
-        Assert.Contains(""":not([data-document-hidden="true"])""", render, StringComparison.Ordinal);
     }
 
     /// <summary>

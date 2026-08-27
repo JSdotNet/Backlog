@@ -1244,8 +1244,7 @@
         an Archify document is a single `width: 100%` SVG over its own viewBox, so
         its height is a function of the frame's width, and it differs per diagram -
         1440x700 for one runtime view, 1200x2458 for a building block view. A fixed
-        height fits neither, and under `data-embed` the artifact's body is
-        `overflow: hidden`, so whatever did not fit was simply gone.
+        height fits neither, and whatever did not fit used to be simply gone.
 
         So the measurement is made where the answer is known and sent out. This is
         the receiving half.
@@ -1334,32 +1333,17 @@
             publishes, and re-pinned if anything inside changes it. Nothing in the
             generated file is touched, so a regeneration cannot undo this.
 
-            The cost is that the artifact's own theme toggle does nothing in-app.
-            `data-embed` hides the toolbar it lives on, so there is no dead control
-            on screen, and a reader who wants the full viewer opens the file itself.
+            The cost is that the artifact's own theme toggle does nothing in-app,
+            so it is the one control hidden from the viewer below.
 
-            Two things `data-embed` takes away are put back, because in a chapter the
-            frame is the whole viewport and the artifact has no idea how big that is.
-
-            The first is the frame's height. An artifact is one `width: 100%` SVG
-            over its own viewBox, so how tall it is depends on how wide the frame is
-            - which is a number only the frame knows. So it reports it: the script
-            below watches its own layout and posts the height out, and
+            The other thing the frame has to be told is how tall to be. An artifact
+            is one `width: 100%` SVG over its own viewBox, so its height follows the
+            frame's WIDTH - a number only the frame knows. So it reports it: the
+            script below watches its own layout and posts the height out, and
             `backlogWatchArtifactHeight` writes it onto the frame. Without that the
-            frame kept the fixed height its stylesheet gives it, `body` is
-            `overflow: hidden` under `data-embed`, and everything past that height
-            was cut off with no scrollbar to say so - which for a portrait diagram
-            like `05-building-block-view.2` (1200x2458) is most of the picture.
-
-            The second is `.diagram-nav`, the dock in the corner of the diagram
-            carrying zoom out, reset, the percentage and zoom in. Its buttons are
-            already wired by the artifact's own runtime and its drag-to-pan already
-            works; `data-embed` only hides it. It is not on `.toolbar`, which stays
-            hidden - that one holds the theme toggle we have deliberately pinned
-            shut, and an export that cannot write a file from a sandbox with no
-            `allow-downloads`. Archify's zoom clamps to 1x-3x, so it magnifies and
-            never shrinks: it is worth having only because the frame is now tall
-            enough to show the whole diagram at 1x to begin with.
+            frame kept the fixed height its stylesheet gives it and everything past
+            that was cut off, which for a portrait diagram like
+            `05-building-block-view.2` (1200x2458) is most of the picture.
         */
         renderArtifact(element, id, html) {
             /*
@@ -1387,7 +1371,6 @@
                 scrollbars — rather than for the flash, which was never its doing.
             */
             const pin = `<script>(function(){try{var h=document.documentElement;`
-                + `h.setAttribute('data-embed','true');`
                 + `var real=window.matchMedia&&window.matchMedia.bind(window);`
                 + `if(real){window.matchMedia=function(q){var r=real(q);`
                 + `if(typeof q==='string'&&q.indexOf('prefers-color-scheme')>=0){`
@@ -1408,15 +1391,29 @@
                     diagram. The root element's border box is the content's real
                     height and has no such floor.
 
-                    Nothing here can feed back on itself: under `data-embed` the
-                    body is `min-height: 0` with a fixed padding that outranks every
-                    height-based media query in the document, so making the frame
-                    taller cannot make its contents taller in turn.
+                    It can feed back on itself, which is what the guard below is
+                    for: the artifact trims its own padding on a short viewport, and
+                    the viewport is the answer this host just gave.
                 */
-                + `var last=0;`
-                + `var post=function(){try{var b=document.body;`
+                + `var last=0,prev=0,settled=false;`
+                + `var post=function(){try{if(settled)return;var b=document.body;`
                 + `var m=Math.max(b?b.getBoundingClientRect().height:0,h.getBoundingClientRect().height);`
-                + `if(!(m>0))return;m=Math.ceil(m);if(Math.abs(m-last)<2)return;last=m;`
+                + `if(!(m>0))return;m=Math.ceil(m);if(Math.abs(m-last)<2)return;`
+                /*
+                    Two-cycle guard, and it is what makes measuring a document that
+                    is no longer in embed mode safe.
+
+                    The artifact's stylesheet has `@media (max-height: ...)` rules
+                    that trim its padding on a short viewport. Inside a frame this
+                    host sizes from the content, the viewport IS the answer we just
+                    gave - so a diagram whose height lands near 920px or 1100px can
+                    ask for a taller frame, get trimmed by the media query, ask for
+                    a shorter one, and flip between the two for ever. Seeing the
+                    height from two reports ago come back is exactly that, and the
+                    larger of the pair is the one that leaves nothing cut off.
+                */
+                + `if(Math.abs(m-prev)<2){settled=true;m=Math.max(m,last);}`
+                + `prev=last;last=m;`
                 + `parent.postMessage({channel:'backlog-artifact-height',id:'${id}',height:m},'*');`
                 + `}catch(_){}};`
                 /*
@@ -1477,124 +1474,85 @@
                     + source.slice(source.indexOf('>', head) + 1);
 
             /*
-                Everything this host puts back that `data-embed` takes away.
+                What this host asks of the artifact, now that it is no longer asking
+                it to be a thumbnail.
 
-                Appended after the document rather than spliced into its head, and
-                that is the whole reason it works. The rules it has to beat - the
-                `display: none !important` on `.diagram-nav` and `.toolbar`, the
-                `animation: none !important` on the traced edges - are all in the
-                artifact's own stylesheet at identical specificity, so the only
-                thing that can decide between the two is which one the parser reads
-                last. In the head every one of them would lose.
+                `data-embed` used to be set here, and unsetting it is most of this
+                feature. It is not a stylesheet: the artifact enforces it in
+                twenty-four JavaScript guards, and every one of them is a plain
+                `if (html.getAttribute('data-embed') === 'true') return false;` at
+                the top of something a reader would want. The visual style menu will
+                not open under it. Neither will the node finder, the semantic lens,
+                the route probe, a guided view's journey, or presentation mode; the
+                relationship overlays never install, and focus-from-hash never
+                resolves. No amount of CSS from out here reaches any of that, which
+                is what the first attempt at this discovered by unhiding a Style
+                button that then refused to do anything.
 
-                Nothing in the generated file is edited, so a regeneration cannot
-                undo any of it.
+                So the artifact renders as its full self, and what stays is only what
+                genuinely cannot work inside a frame the host controls.
+
+                Appended after the document rather than spliced into its head,
+                because two of these have to beat rules in the artifact's own
+                stylesheet at identical specificity, and parse order is the only
+                thing that can separate them. Nothing in the generated file is
+                edited, so a regeneration cannot undo any of it.
             */
             const chrome = '<style>'
                 /*
-                    The zoom dock. Its buttons, its drag-to-pan and its `+`/`-`/`0`
-                    keys are all wired by the artifact's own runtime; `data-embed`
-                    only hides it.
-
-                    Of its eight buttons only the last three are worth having here.
-                    The other five - PATH, MAP, LENS, find, guide - open overlay
-                    panels that `data-embed` still hides, so showing them would put
-                    five controls on screen that visibly do nothing. The two groups
-                    separate with no list to maintain: the panel openers each carry
-                    an `id`, and the three zoom controls carry `data-view` and no
-                    `id` at all.
+                    `min-height: 100vh` off the body, which is the one rule that
+                    would break the sizing outright. The frame's viewport height is
+                    the height this host just gave it from the content, so a body
+                    that insists on filling the viewport can never report less than
+                    the frame already is - it would latch at its opening 28rem and
+                    stay there for every diagram.
                 */
-                + 'html[data-embed="true"] .diagram-nav{display:inline-flex!important}'
-                + 'html[data-embed="true"] .diagram-nav button[id]{display:none!important}'
+                + 'body{min-height:0}'
 
                 /*
-                    The toolbar, for Style, Motion and Export. It is `position:
-                    fixed` in the frame's own top-right corner, so it costs no
-                    layout height and cannot push the diagram around.
-
-                    Two of its five come straight back off. `#btn-theme` toggles a
-                    theme this host pins dark from the outside, so it is a switch
-                    with nothing behind it. `#btn-present` drives presentation mode,
-                    whose every rule is written
-                    `html[data-present="true"]:not([data-embed="true"])` - it cannot
-                    do anything in an embedded frame, by the artifact's own design.
-
-                    Export needs `allow-downloads` on the frame, which
-                    DiagramView.razor now grants. Without it the menu opened, the
-                    button pressed, and the file never arrived.
+                    The theme toggle, which is the only control here with nothing
+                    behind it. This host pins `data-theme` to dark from outside and
+                    re-pins it through a MutationObserver, so pressing it would snap
+                    straight back - a switch that visibly refuses is worse than one
+                    that is not offered. `.design/design-principles.md` makes the
+                    product dark-only; a reader who wants the light artifact opens
+                    the file.
                 */
-                + 'html[data-embed="true"] .toolbar{display:flex!important}'
-                + 'html[data-embed="true"] #btn-theme,html[data-embed="true"] #btn-present{display:none!important}'
+                + '#btn-theme{display:none!important}'
 
                 /*
-                    And Style only where it is a choice. A picker offering one
-                    thing is a control that cannot change anything, which is the
-                    same objection that keeps the theme toggle hidden.
+                    And Style only where it is a choice. A picker offering one thing
+                    is a control that cannot change anything, which is the same
+                    objection as the theme toggle above.
 
                     Written as "unless it holds two options that are not hidden"
                     rather than as a count, because the sibling combinator inside
-                    `:has()` is exactly that question and needs no JavaScript to
-                    ask it. Every artifact in this repository currently offers four
+                    `:has()` is exactly that question and needs no JavaScript to ask
+                    it. Every artifact in this repository currently offers four
                     presets, so this shows the picker today; it earns its place the
                     moment a generated artifact offers fewer.
                 */
-                + 'html[data-embed="true"] .preset-wrap'
+                + '.preset-wrap'
                 + ':not(:has(.preset-option:not([hidden]) ~ .preset-option:not([hidden])))'
                 + '{display:none!important}'
 
                 /*
-                    The embed mode's blanket stop on motion, lifted.
-
-                    `data-embed` sets `animation: none !important` on the traced
-                    edges, the pulsing status dot and the container's ambient sweep -
-                    a fair default for a thumbnail and the wrong one for a diagram
-                    somebody is reading.
-
-                    On today's artifacts this changes nothing visible, and that is
-                    worth writing down rather than discovering twice. Archify only
-                    animates a diagram whose `<svg>` carries
-                    `data-animation="trace"`; none of the 38 artifacts in this
-                    repository does. The string appears in all of them, but only
-                    inside the stylesheet's own selectors, so the Motion Governor
-                    reports `capable: false` and `data-ambient-motion` is never set.
-                    These diagrams are static where they are generated, not where
-                    they are embedded, and turning that on is a change to the
-                    specifications and the generator rather than to this host.
-
-                    Lifted anyway, because it is the second lock on the same door:
-                    with it in place, an artifact regenerated with motion still would
-                    not move here, and the reason would be a rule three layers away
-                    from the thing that changed.
-
-                    `revert-layer` rather than a named animation, so what plays is
-                    whatever the artifact authored - and guarded on the two states
-                    the Motion Governor writes, so a reader who has asked for
-                    stillness, or a tab in the background, still wins.
-                */
-                + 'html[data-embed="true"]:not([data-motion="still"]):not([data-document-hidden="true"]) .pulse-dot,'
-                + 'html[data-embed="true"]:not([data-motion="still"]):not([data-document-hidden="true"]) .diagram-container::before,'
-                + 'html[data-embed="true"]:not([data-motion="still"]):not([data-document-hidden="true"]) svg[data-animation="trace"] [data-animate]'
-                + '{animation:revert-layer!important}'
-                + 'html[data-embed="true"] .diagram-container::before{opacity:revert-layer}'
-
-                /*
                     And the background out. The artifact paints a near-black navy
-                    slab - `--bg` on the body, `--panel` on the diagram container and
-                    a grid rect filling the SVG - which inside a chapter reads as a
-                    card the diagram is sitting on rather than as part of the page.
-                    All three go, and the frame element's own background goes with
-                    them in components.css, so what is behind the drawing is the
-                    knowledge pane.
+                    slab three ways - `--bg` on the body, `--panel` on the diagram
+                    container and a grid rect filling the SVG - which inside a
+                    chapter reads as a card the diagram is sitting on rather than as
+                    part of the page. All three go, and the frame element's own
+                    background goes with them in components.css, so what is behind
+                    the drawing is the knowledge pane.
 
                     The grid is the one that cannot be reached through a class,
                     because it has none: it is
                     `<rect width="100%" height="100%" fill="url(#grid)"/>` inside the
                     SVG, so it is addressed as exactly that.
                 */
-                + 'html[data-embed="true"],html[data-embed="true"] body,'
-                + 'html[data-embed="true"] .container,html[data-embed="true"] .diagram-container'
+                + 'html,body,.container,.diagram-container'
                 + '{background:transparent!important;background-image:none!important;box-shadow:none!important}'
-                + 'html[data-embed="true"] .diagram-container>svg>rect[fill="url(#grid)"]{display:none}'
+                + '.diagram-container>svg>rect[fill="url(#grid)"]{display:none}'
                 + '</style>';
 
             element.srcdoc = injected + chrome;

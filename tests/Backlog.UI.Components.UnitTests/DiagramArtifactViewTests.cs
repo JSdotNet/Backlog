@@ -60,7 +60,13 @@ public sealed class DiagramArtifactViewTests
         // Which renderer this is, said out loud — and as the control that changes
         // it, since the reader comparing the two needs to be able to.
         Assert.Equal("Archify", diagram.Find("[data-testid='diagram-view-renderer-artifact']").TextContent);
-        Assert.Equal("mermaid", diagram.Find("[data-testid='diagram-view-language']").TextContent);
+        Assert.Equal("Mermaid", diagram.Find("[data-testid='diagram-view-renderer-mermaid']").TextContent);
+
+        // And the language badge steps aside, because the switch has already said
+        // it. "Archify | Mermaid | mermaid" put the same word on screen twice: the
+        // switch's second option IS the fence's language, since drawing the fence
+        // is what that option does.
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-language']"));
 
         Assert.Empty(diagram.FindAll(".diagram-view__rendered"));
         Assert.Empty(context.JSInterop.Invocations["backlogDiagrams.render"]);

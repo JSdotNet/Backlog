@@ -42,7 +42,13 @@
                                   PressedChanged="@(pressed => ChooseRendererAsync(preferMermaid: true, pressed))">Mermaid</ToggleButton>
                 </span>
             }
-            @if (!string.IsNullOrWhiteSpace(Language))
+            @* The language, except where the switch has already said it. A mermaid
+               fence with an artifact rendered "Archify | Mermaid | mermaid", and the
+               last two are the same word for the same thing: the switch's second
+               option IS the fence's language, because drawing the fence is what
+               that option does. The badge is worth keeping only where there is no
+               switch to say it. *@
+            @if (!string.IsNullOrWhiteSpace(Language) && _artifact is not { CanRender: true })
             {
                 <span class="language-badge diagram-view__language" data-testid="diagram-view-language">@Language</span>
             }
