@@ -39,6 +39,16 @@
     <ListTrailing>
         @if (VisibleAreas.Count > 0 && !IsSectionActive("tech"))
         {
+            @if (_atlasOpen)
+            {
+                <AppButton BaseClass="knowledge-stack__atlas-all"
+                           Variant="ButtonVariant.None"
+                           TestId="knowledge-atlas-all"
+                           title="See the whole knowledge base at once"
+                           OnClick="ShowAllKnowledge">
+                    All knowledge
+                </AppButton>
+            }
             <AppButton BaseClass="knowledge-stack__atlas-toggle"
                        Variant="ButtonVariant.None"
                        TestId="knowledge-atlas-toggle"
@@ -90,8 +100,6 @@
                         @if (_atlasOpen)
                         {
                             <KnowledgeAtlasView Scope="@AtlasScope"
-                                                Scopes="@AtlasScopes"
-                                                ScopeChanged="scope => _atlasScopeKey = scope.Key"
                                                 RepositoryAlias="@ActiveRepositoryAlias"
                                                 OnNavigateToChapter="OpenChapterFromAtlas" />
                         }
@@ -262,6 +270,17 @@
     }
 
     private void CloseAtlas() => _atlasOpen = false;
+
+    /// <summary>Widens the map to every knowledge folder at once. This is the
+    /// explicit way back to the unfiltered view — the section tabs already narrow
+    /// the map to the one they name via <see cref="FollowSectionWithAtlas"/>, but
+    /// none of them names "all of it", because none of them is a knowledge area of
+    /// its own.</summary>
+    private void ShowAllKnowledge()
+    {
+        _atlasScopeKey = KnowledgeAtlasScope.All.Key;
+        _atlasOpen = true;
+    }
 
     /// <summary>Following a document out of the map closes the map. The reader
     /// asked to go and read it, and leaving the atlas up over the thing they asked

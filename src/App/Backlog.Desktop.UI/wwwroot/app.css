@@ -4722,20 +4722,16 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-.knowledge-atlas__actions {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--spacing-sm);
-}
-
 .knowledge-atlas > .graph-atlas {
     flex: 1 1 auto;
     min-height: 0;
 }
 
-/* The toggle sits at the end of the section strip and is deliberately quiet:
-   text and a hairline, no fill. The map is offered, not advertised. */
-.knowledge-stack__atlas-toggle {
+/* The toggle and the "All knowledge" button sit at the end of the section
+   strip and are deliberately quiet: text and a hairline, no fill. The map is
+   offered, not advertised. */
+.knowledge-stack__atlas-toggle,
+.knowledge-stack__atlas-all {
     flex: 0 0 auto;
     align-self: center;
     padding: var(--spacing-2xs) var(--spacing-sm);
@@ -4748,12 +4744,14 @@ h1, h2, h3 {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.knowledge-stack__atlas-toggle:hover {
+.knowledge-stack__atlas-toggle:hover,
+.knowledge-stack__atlas-all:hover {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.knowledge-stack__atlas-toggle:focus-visible {
+.knowledge-stack__atlas-toggle:focus-visible,
+.knowledge-stack__atlas-all:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }

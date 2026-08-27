@@ -12,12 +12,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// Rendering the atlas view against a real folder on disk.
 ///
-/// <para>These exist because of what they caught. The scope picker was written
-/// against parameters <c>SelectField</c> does not have, and nothing said so until
-/// the component was rendered in a browser — Blazor resolves parameter names at
-/// render time, so a wrong one compiles perfectly and then takes the circuit down
-/// the first time a reader presses the button. Every one of these tests is
-/// therefore a render, not an assertion about a service.</para>
+/// <para>These exist because of what they caught. A wrong parameter name compiles
+/// perfectly and only takes the circuit down the first time a reader presses a
+/// button, because Blazor resolves parameter names at render time. Every one of
+/// these tests is therefore a render, not an assertion about a service.</para>
 /// </summary>
 public sealed class KnowledgeAtlasViewTests : IDisposable
 {
@@ -39,37 +37,20 @@ public sealed class KnowledgeAtlasViewTests : IDisposable
         Assert.Equal(3, component.FindAll("[data-testid=\"graph-atlas-index-option\"]").Count);
     }
 
-    /// <summary>The picker is a real select over the scopes it was given. This is
-    /// the one that failed before it existed.</summary>
+    /// <summary>The scope is the host's to drive — see the section strip's own
+    /// "All knowledge" button in <c>KnowledgePane</c> — and this view just follows
+    /// whatever it is handed.</summary>
     [Fact]
-    public void The_scope_picker_offers_every_scope_it_was_given()
+    public void Changing_the_scope_parameter_reads_that_one()
     {
         using var harness = CreateHarness();
 
         var component = harness.Render(DomainScope);
+        component.WaitForAssertion(() =>
+            Assert.Equal("Domain", component.Find(".knowledge-atlas__heading h3").TextContent.Trim()));
 
-        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid=\"knowledge-atlas-scope\"] select")));
+        component.Render(parameters => parameters.Add(view => view.Scope, KnowledgeAtlasScope.All));
 
-        var offered = component
-            .FindAll("[data-testid=\"knowledge-atlas-scope\"] option")
-            .Select(option => option.TextContent.Trim())
-            .ToArray();
-
-        Assert.Equal(["All knowledge", "Domain"], offered);
-    }
-
-    [Fact]
-    public void Choosing_another_scope_reads_that_one()
-    {
-        using var harness = CreateHarness();
-        KnowledgeAtlasScope? chosen = null;
-
-        var component = harness.Render(DomainScope, scope => chosen = scope);
-
-        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid=\"knowledge-atlas-scope\"] select")));
-        component.Find("[data-testid=\"knowledge-atlas-scope\"] select").Change("all");
-
-        Assert.Equal("all", chosen?.Key);
         component.WaitForAssertion(() =>
             Assert.Equal("All knowledge", component.Find(".knowledge-atlas__heading h3").TextContent.Trim()));
     }
@@ -114,8 +95,6 @@ public sealed class KnowledgeAtlasViewTests : IDisposable
     }
 
     private static readonly KnowledgeAtlasScope DomainScope = new("domain", "Domain", ".domain");
-
-    private static readonly IReadOnlyList<KnowledgeAtlasScope> Scopes = [KnowledgeAtlasScope.All, DomainScope];
 
     private Harness CreateHarness(bool writeIndex = true)
     {
@@ -166,21 +145,11 @@ public sealed class KnowledgeAtlasViewTests : IDisposable
 
     private sealed record Harness(BunitContext Context) : IDisposable
     {
-        public IRenderedComponent<KnowledgeAtlasView> Render(
-            KnowledgeAtlasScope scope,
-            Action<KnowledgeAtlasScope>? onScopeChanged = null) =>
+        public IRenderedComponent<KnowledgeAtlasView> Render(KnowledgeAtlasScope scope) =>
             Context.Render<KnowledgeAtlasView>(parameters =>
             {
                 parameters.Add(view => view.Scope, scope);
-                parameters.Add(view => view.Scopes, Scopes);
                 parameters.Add(view => view.RepositoryAlias, "backlog");
-
-                if (onScopeChanged is not null)
-                {
-                    parameters.Add(
-                        view => view.ScopeChanged,
-                        EventCallback.Factory.Create<KnowledgeAtlasScope>(new object(), onScopeChanged));
-                }
             });
 
         public void Dispose() => Context.Dispose();
