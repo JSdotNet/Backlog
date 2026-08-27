@@ -10212,7 +10212,7 @@
           "path": ".design/README.md",
           "slug": "table-of-contents",
           "level": 2,
-          "line": 140,
+          "line": 164,
           "status": "active"
         }
       },
@@ -10225,7 +10225,7 @@
           "path": ".design/README.md",
           "slug": "provenance",
           "level": 2,
-          "line": 156,
+          "line": 180,
           "status": "active"
         }
       },
@@ -10238,7 +10238,7 @@
           "path": ".design/README.md",
           "slug": "status-vocabulary",
           "level": 2,
-          "line": 169,
+          "line": 193,
           "status": "active"
         }
       },

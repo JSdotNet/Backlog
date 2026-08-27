@@ -17,6 +17,7 @@ Nothing about the surrounding body changes. The prose above and below is parsed 
     </Story>
 
     <Story Name="Which fences are diagrams, and which of those can be drawn"
+           Code="@LanguagesCode"
            Description="Two questions with different answers. `IsDiagram` decides whether a fence goes to `DiagramView` at all; `CanRender` decides whether `DiagramView` can draw it.
 
 Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and no to the second, so they get the diagram frame and its caption and then show their source. Anything else renders as an ordinary code block."
@@ -51,6 +52,7 @@ Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and n
     </Story>
 
     <Story Name="The kinds worth writing in an entry"
+           Code="@KindsCode"
            Description="Mermaid draws more than this, and this is the set that earns its place in a backlog body: how something flows, who talks to whom, what states a thing moves between, and how the pieces relate. Each is an ordinary fence in ordinary prose."
            SourceLabel="Every fence above">
         <SourceContent>
@@ -83,6 +85,7 @@ Mermaid answers yes to both. PlantUML and Graphviz answer yes to the first and n
     </Story>
 
     <Story Name="When the renderer cannot start"
+           Code="@BrokenViewCode"
            Description="Mermaid is fetched from a CDN on first use. In a WebView with no egress, or behind a proxy that refuses it, the import fails — and the block says so and shows the source rather than leaving an empty frame where a picture was promised. The same path covers a diagram whose syntax mermaid rejects: the message is the renderer's own, and the source is underneath it either way.
 
 A body is content that may have come from a repository file nobody here wrote, so a diagram that fails is an expected outcome and not an error state. Nothing about the surrounding prose is affected by it."
@@ -267,5 +270,31 @@ A body is content that may have come from a repository file nobody here wrote, s
     private const string DocumentCode = """
         @* One string, parsed once. The diagram is a block like any other. *@
         <MarkdownView Blocks="@MarkdownPreview.ParseDocument(body)" />
+        """;
+
+    private const string BrokenViewCode = """
+        @* ShowDiagramSource, so the fence stays reachable when the picture cannot be
+           drawn. Off by default in the storybook's frame, because a story already shows
+           its sample's markdown in its own Source column. *@
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(source)" ShowDiagramSource="true" />
+        """;
+
+    private const string KindsCode = """
+        @* One call per kind, and the same call each time: what changes is the fence in
+           the body, never the way the body is rendered. *@
+        @foreach (var kind in Kinds)
+        {
+            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(kind.Source)" />
+        }
+        """;
+
+    private const string LanguagesCode = """
+        @* Nothing here asks IsDiagram or CanRender. The fence goes into the body and
+           MarkdownView answers both on the way to drawing it — which is the point: a
+           caller renders markdown, not a decision tree over it. *@
+        @foreach (var language in Languages)
+        {
+            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(language.Source)" />
+        }
         """;
 }
