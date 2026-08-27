@@ -4,6 +4,7 @@
   "meta": {
     "title": "Backlog Entry Lifecycle",
     "viewBox": [980, 600],
+    "animation": "trace",
     "quality_profile": "showcase"
   },
   "lanes": [

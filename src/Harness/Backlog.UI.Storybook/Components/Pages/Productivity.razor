@@ -7,6 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="The controls, and what they drive"
+           Code="@ControlsCode"
            Description="Window, granularity and subject, built from the library's existing `ButtonGroup`, `ToggleButton` and `NavList` rather than from anything new.
 
 Everything below reacts to these three: change the subject and the trellis highlight, the spotlight and the score all follow.">
@@ -213,6 +214,7 @@ Turn the totals off — as below — and the two charts are indistinguishable."
     </Story>
 
     <Story Name="The estate as one line"
+           Code="@EstateCode"
            Description="The mean score across whichever repositories reported that week — not a sum, because a score is already normalised. Worth having as the one figure a weekly summary can carry, and worth distrusting: a mean hides the repository that fell off a cliff.">
         <MetricGrid Label="Estate score">
             <MetricTile Label="Estate score, this week"
@@ -361,5 +363,35 @@ Turn the totals off — as below — and the two charts are indistinguishable."
                          Label="Score over the last 12 weeks"
                          NameHeading="Repository"
                          SharedMax="MetricScoring.MaxScore" />
+        """;
+
+    private const string ControlsCode = """
+        @* PressedChanged, not the pressed state itself: the strip is one-of-many, so the
+           page owns the selection and the button only announces the press. *@
+        <ButtonGroup AriaLabel="Score window">
+            @foreach (var window in ProductivityFixtures.Windows)
+            {
+                <ToggleButton Pressed="_weeks == window.Weeks"
+                              PressedChanged="_ => _weeks = window.Weeks">
+                    @window.Label
+                </ToggleButton>
+            }
+        </ButtonGroup>
+        """;
+
+    private const string EstateCode = """
+        <MetricGrid Label="Estate score">
+            <MetricTile Label="Estate score, this week"
+                        Value="@MetricFormat.Score(score)"
+                        Unit="@($"/ {MetricFormat.Score(MetricScoring.MaxScore)}")"
+                        Emphasis="true"
+                        Footnote="Mean across the repositories that reported.">
+                <Trend>
+                    <MetricSparkline Points="@weekly"
+                                     Max="MetricScoring.MaxScore"
+                                     Description="Estate score over twelve weeks." />
+                </Trend>
+            </MetricTile>
+        </MetricGrid>
         """;
 }

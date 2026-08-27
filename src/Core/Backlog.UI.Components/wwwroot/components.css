@@ -5229,6 +5229,38 @@ select.field__input option {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/*
+   The file pane's header is two lines, not two columns, and at every width.
+
+   The identity line holds what the file *is* — name, path, status — and it is
+   already the widest thing in the pane: a path is a machine string that grows
+   with the tree it sits in, and the status closes the line at the right edge. A
+   row of buttons opposite that was competing with the path for the same space,
+   so the path clipped to an ellipsis on a header that had room, and on a knowledge
+   file the marks landed hard against the status badge with nothing separating a
+   fact about the file from a thing you can do to it.
+
+   So the acts drop to their own line and stay right-aligned there
+   (see .file-view__aside). What a reader is here to read holds the full width of
+   the pane; what a reader may do to it sits under, where the eye lands after the
+   line rather than inside it. `stretch` rather than the row's `baseline`, which
+   is a cross-axis declaration and in a column would size the two lines to their
+   content instead of to the header; `--spacing-xs` rather than the row's
+   `--spacing-md`, because the gap is now between two lines of one block and not
+   between two columns.
+
+   FolderView and MarkdownCompare keep the row. Neither has a growing path on the
+   name's line — both keep theirs in an aside — so neither has the collision this
+   solves, and stacking them would be a second change nobody asked for. They still
+   stack below 40rem, which is what the media query at the end of this section is
+   for; this pane no longer needs that branch because it is already a column.
+*/
+.file-view__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-xs);
+}
+
 .file-view__identity,
 .folder-view__identity,
 .md-compare__identity {
@@ -5475,14 +5507,20 @@ select.field__input option {
     min-height: 0;
 }
 
-/* The right-hand side of the header, and what is left in it: the file's own
-   actions, and the baseline picker while a comparison is running. Stacked, so a
-   header narrow enough that both are showing keeps them out of the name's way.
+/* The header's second line: the file's own actions, and the baseline picker
+   while a comparison is running. Held to the right edge — `flex-end` on a full
+   width line, which is the whole of what "right-aligned" means here — so the acts
+   sit under the end of the identity line rather than under its start, and the
+   line reads as the trailing edge of the header rather than as a toolbar of its
+   own.
 
-   The path used to share this column, which is what the two rules below were
-   written for; it is an item of the name's line now, and both rules stayed
-   because a row of buttons reaches past its column the same way a nowrap string
-   did. */
+   Still a column, because both children can be showing at once and the picker
+   belongs under the toggle that summoned it, not beside it.
+
+   The path used to share this space back when it was a column, which is what the
+   two rules below were written for. It is an item of the name's line now, and
+   both rules stayed: a row of buttons reaches past the space it is given the same
+   way a nowrap string did. */
 .file-view__aside {
     display: flex;
     flex-direction: column;
@@ -5618,21 +5656,17 @@ select.field__input option {
 }
 
 @media (max-width: 40rem) {
-    .file-view__header,
+    /* The file pane is absent from this rule on purpose: it is a column at every
+       width now, so it has nothing to switch to here. What used to follow —
+       stretching its aside and left-aligning its actions — went with it, because
+       the acts are right-aligned at every width and a breakpoint that moved them
+       to the other edge would be the one width at which that stopped being
+       true. */
     .folder-view__header,
     .md-compare__header {
         flex-direction: column;
         align-items: stretch;
         gap: var(--spacing-xs);
-    }
-
-    .file-view__aside {
-        align-items: stretch;
-    }
-
-    .file-view__actions,
-    .file-view__baselines {
-        justify-content: flex-start;
     }
 
     /* The stacked paths only. The file pane's is an item of the name's line at

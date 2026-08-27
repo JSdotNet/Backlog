@@ -82,6 +82,7 @@ The glyphs are set the way the thing they make is set — the bold button is bol
     </Story>
 
     <Story Name="Pressing it twice takes it off"
+           Code="@ToggleCode"
            Description="Wrapping is a toggle. Bold on text that is already bold removes the markers rather than adding another pair, because the alternative is `****text****` and a reader who has to count asterisks. It reads the markers whether they are inside the selection or just outside it, so it works the same whether you selected the word or the word with its asterisks.
 
 Line prefixes toggle as a block: applied to every line the selection touches or removed from all of them. A half-marked block is nobody's intent. A numbered list renumbers as it goes rather than writing `1.` down the whole thing.">
@@ -103,6 +104,7 @@ Line prefixes toggle as a block: applied to every line the selection touches or 
     </Story>
 
     <Story Name="The toolbar is an accelerator, never the only way in"
+           Code="@DisabledCode"
            Description="Everything the buttons do can be typed, and that matters more than it sounds. It is what makes the editor work when interop fails — a WebView that has not finished starting, a prerendered page, a disconnected circuit — and a failed click leaves the text exactly as it was rather than half-applied. It is also what keeps the component honest: a toolbar that could do something the source cannot express would have invented a syntax the parser does not read.
 
 Disabled, the box and every button go together. A toolbar over a field nobody can type in is a set of controls that would each fail in their own way.">
@@ -241,5 +243,19 @@ Disabled, the box and every button go together. A toolbar over a field nobody ca
                 _blocks = MarkdownPreview.ParseDocument(value);
             }
         }
+        """;
+
+    private const string ToggleCode = """
+        <MarkdownEditor Value="@_source"
+                        ValueChanged="v => _source = v"
+                        Rows="8"
+                        TestId="rich-text-toggle" />
+
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(_source)" />
+        """;
+
+    private const string DisabledCode = """
+        @* One parameter, and the box and every button go with it. *@
+        <MarkdownEditor Value="@sample" Disabled="true" Rows="6" AriaLabel="A disabled editor" />
         """;
 }

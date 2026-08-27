@@ -3,6 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Backlog Context Map",
+    "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
       2960,

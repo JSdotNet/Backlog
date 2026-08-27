@@ -21,12 +21,12 @@ constant in `ArchifyComparisonPage.razor`; the two are kept in step by hand.
 
 ## Regenerating
 
-Archify needs no install: its only dependencies are `devDependencies`, and its
-validators and brand marks are committed pre-generated. Node 18+ is enough.
+Archify needs no install and no clone: it is vendored under `tools/archify/` at a
+pinned revision, its only dependencies are `devDependencies`, and its validators and
+brand marks are committed pre-generated. Node 18+ is enough.
 
 ```bash
-git clone --depth 1 https://github.com/tt-a1i/archify.git
-cd archify/archify
+cd tools/archify
 ```
 
 Then, from that directory, for each specification — with `$WW` pointing at the folder
@@ -41,6 +41,16 @@ node bin/archify.mjs deliver lifecycle    $WW/entry-lifecycle.lifecycle.json   $
 `deliver` validates before it writes and exits non-zero if it cannot. All three are
 expected to report 9 of 9 artifact checks with 0 errors and 0 warnings; anything less
 means the specification regressed, not that the bar moved.
+
+## Motion
+
+Each specification's `meta` carries `"animation": "trace"`. Archify's default is
+static, and it will happily render a perfectly valid nine-of-nine-checks artifact that
+never moves — so the flag has to be in the JSON, and validation will not miss it for
+you. `tools/diagrams/README.md` has the full account, including why a whole-file grep
+for `data-animation` cannot tell an animated artifact from a static one.
+`ArchifyArtifactMotionTests` in `tests/Backlog.ArchitectureTests` covers these three
+samples along with the knowledge-chapter artifacts.
 
 `node bin/archify.mjs visual-check <file.html> --json` checks that nothing overflows at
 the four desktop sizes. It writes screenshots and a report beside the file it is given,
