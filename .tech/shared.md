@@ -67,6 +67,42 @@ Diagram-as-text notation embedded directly in Markdown.
 - **Why** — diagrams stay version-controlled and reviewable in the same diff as
   the prose they belong to; rendered natively by GitHub and the knowledge canvas.
 
+## Archify
+
+```meta
+status: adopted
+kind: format
+depends-on: [".tech/shared.md#markdown", ".tech/shared.md#mermaid", ".tech/shared.md#nodejs"]
+related: [".design/component-libraries.md#diagram-and-graph-strategy"]
+```
+
+A generated, self-contained diagram document: one HTML file carrying inline SVG,
+its stylesheet, and a viewer with zoom, pan, presets, guided views and export.
+Rendered from a typed JSON specification by [Archify](https://github.com/tt-a1i/archify)
+(MIT), which this repository drives through `tools/diagrams/archify-artifacts.mjs`.
+
+- **Used for** — an optional second rendering of a knowledge chapter's diagram,
+  where somebody has authored a specification for it. The generated `.html` and
+  its `.json` source sit in an `_archify/` folder beside the chapter, indexed by
+  the hash of the fence they belong to.
+- **Not a replacement for Mermaid, and not a converter for it** — an Archify
+  specification is a *re-authoring* of a fence rather than a rendering of one,
+  and no mermaid-to-Archify converter exists. Markdown stays canonical; a fence
+  with no artifact, or whose text has moved on, is simply drawn by Mermaid.
+- **Five types** — architecture, workflow, sequence, dataflow, lifecycle. Class
+  and ER diagrams have none, so a chapter's aggregate model can never have an
+  artifact and is not offered one.
+- **Two quality profiles** — `showcase` by default, `standard` for the recorded
+  exceptions, which a specification opts into by naming it in its filename.
+- **Why** — a considered picture for the diagrams worth one, without giving up
+  the diffable text underneath. Drift is settled by construction: the app finds
+  an artifact by hashing the normalised fence, so an edited fence stops matching
+  and the reader gets the current Mermaid rather than a confident stale picture.
+- **Why the output is committed** — Archify needs Node only to regenerate, and
+  only as devDependencies with its validators and brand marks pre-generated.
+  Building this solution needs no Node at all, so the generated documents are
+  committed rather than built.
+
 ## .NET Runtime
 
 ```meta

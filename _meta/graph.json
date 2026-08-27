@@ -10,22 +10,22 @@
     ".design"
   ],
   "stats": {
-    "nodes": 689,
-    "edges": 1273,
+    "nodes": 691,
+    "edges": 1283,
     "nodesByFolder": {
       "arc42": 63,
       "domain": 474,
       "backlog": 4,
-      "tech": 53,
-      "design": 95
+      "tech": 54,
+      "design": 96
     },
     "nodesByType": {
       "file": 103,
-      "chapter": 578,
+      "chapter": 580,
       "heading": 8
     },
     "nodesByStatus": {
-      "active": 184,
+      "active": 185,
       "proposed": 33,
       "draft": 401,
       "accepted": 3,
@@ -33,13 +33,13 @@
       "idea": 1,
       "done": 3,
       "candidate": 32,
-      "adopted": 21,
+      "adopted": 22,
       "none": 8
     },
     "edgesByType": {
-      "contains": 586,
-      "related": 605,
-      "depends-on": 80,
+      "contains": 588,
+      "related": 610,
+      "depends-on": 83,
       "implements": 2
     }
   },
@@ -8866,6 +8866,28 @@
       },
       {
         "data": {
+          "id": ".tech/shared.md#archify",
+          "label": "Archify",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "archify",
+          "level": 2,
+          "line": 70,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/shared.md#markdown",
+            ".tech/shared.md#mermaid",
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".design/component-libraries.md#diagram-and-graph-strategy"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/shared.md#net-runtime",
           "label": ".NET Runtime",
           "type": "chapter",
@@ -8873,7 +8895,7 @@
           "path": ".tech/shared.md",
           "slug": "net-runtime",
           "level": 2,
-          "line": 70,
+          "line": 106,
           "status": "candidate",
           "kind": "runtime",
           "version": "10.0",
@@ -8896,7 +8918,7 @@
           "path": ".tech/shared.md",
           "slug": "c-language",
           "level": 2,
-          "line": 87,
+          "line": 123,
           "status": "candidate",
           "kind": "language",
           "depends-on": [
@@ -8916,7 +8938,7 @@
           "path": ".tech/shared.md",
           "slug": "nodejs",
           "level": 2,
-          "line": 102,
+          "line": 138,
           "status": "candidate",
           "kind": "runtime",
           "related": [
@@ -8933,7 +8955,7 @@
           "path": ".tech/shared.md",
           "slug": "typescript",
           "level": 2,
-          "line": 118,
+          "line": 154,
           "status": "candidate",
           "kind": "language",
           "depends-on": [
@@ -8953,7 +8975,7 @@
           "path": ".tech/shared.md",
           "slug": "net-maui",
           "level": 2,
-          "line": 133,
+          "line": 169,
           "status": "adopted",
           "kind": "framework",
           "alternatives": [
@@ -8981,7 +9003,7 @@
           "path": ".tech/shared.md",
           "slug": "blazor-hybrid",
           "level": 2,
-          "line": 155,
+          "line": 191,
           "status": "adopted",
           "kind": "framework",
           "alternatives": [
@@ -9006,7 +9028,7 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 176,
+          "line": 212,
           "status": "adopted",
           "kind": "service",
           "related": [
@@ -9023,7 +9045,7 @@
           "path": ".tech/shared.md",
           "slug": "anthropic-claude-platform",
           "level": 2,
-          "line": 191,
+          "line": 227,
           "status": "candidate",
           "kind": "service",
           "alternatives": [
@@ -9043,7 +9065,7 @@
           "path": ".tech/shared.md",
           "slug": "github-copilot-usage-apis",
           "level": 2,
-          "line": 211,
+          "line": 247,
           "status": "candidate",
           "kind": "service",
           "depends-on": [
@@ -9890,7 +9912,26 @@
           "status": "active",
           "related": [
             ".tech/technology-graph.md",
+            ".tech/shared.md#archify",
             ".design/content-editing.md",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#archify-artifacts",
+          "label": "Archify artifacts",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "archify-artifacts",
+          "level": 3,
+          "line": 197,
+          "status": "active",
+          "related": [
+            ".tech/shared.md#archify",
+            ".design/design-principles.md",
             ".design/accessibility.md"
           ]
         }
@@ -9904,7 +9945,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 196,
+          "line": 221,
           "status": "active"
         }
       },
@@ -9917,7 +9958,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 218,
+          "line": 243,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -14590,6 +14631,14 @@
       },
       {
         "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#archify",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#archify",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/shared.md->.tech/shared.md#net-runtime",
           "source": ".tech/shared.md",
           "target": ".tech/shared.md#net-runtime",
@@ -15033,6 +15082,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#diagram-and-graph-strategy",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md#diagram-and-graph-strategy->.design/component-libraries.md#archify-artifacts",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/component-libraries.md#archify-artifacts",
           "type": "contains"
         }
       },
@@ -19542,6 +19599,38 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#markdown",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#mermaid",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#mermaid",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#nodejs",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#archify->.design/component-libraries.md#diagram-and-graph-strategy",
+          "source": ".tech/shared.md#archify",
+          "target": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.tech/shared.md#net-runtime->.arc42/04-solution-strategy.md#technology-choices",
           "source": ".tech/shared.md#net-runtime",
           "target": ".arc42/04-solution-strategy.md#technology-choices",
@@ -20262,6 +20351,14 @@
       },
       {
         "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/shared.md#archify",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".tech/shared.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/content-editing.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
           "target": ".design/content-editing.md",
@@ -20272,6 +20369,30 @@
         "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.tech/shared.md#archify",
+          "source": ".design/component-libraries.md#archify-artifacts",
+          "target": ".tech/shared.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.design/design-principles.md",
+          "source": ".design/component-libraries.md#archify-artifacts",
+          "target": ".design/design-principles.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#archify-artifacts->.design/accessibility.md",
+          "source": ".design/component-libraries.md#archify-artifacts",
           "target": ".design/accessibility.md",
           "type": "related"
         }

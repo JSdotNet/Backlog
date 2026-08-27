@@ -178,7 +178,7 @@ status: active
 
 ```meta
 status: active
-related: [".tech/technology-graph.md", ".design/content-editing.md", ".design/accessibility.md"]
+related: [".tech/technology-graph.md", ".tech/shared.md#archify", ".design/content-editing.md", ".design/accessibility.md"]
 ```
 
 Backlog should solve diagrams in layers instead of relying on one component suite:
@@ -186,12 +186,37 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | Need | Choice | Guidance |
 |---|---|---|
 | Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-base Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
+| A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
 | Technology graph / knowledge graph exploration | **AntV G6** | Use G6 for interactive node-link graphs with zoom, pan, drag, force/layout animations, and status/layer coloring. Keep list/card views as keyboard-accessible alternatives. |
 | Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than G6. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
 | Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor is more valuable than Markdown-first diagrams. Bundle assets locally if embedded. |
 
 All diagram libraries must follow the product defaults: dark mode only, local/offline asset bundling for production, no save buttons, Markdown remains canonical for knowledge documents, and every pointer interaction needs a keyboard-accessible companion surface with announced state changes.
+
+### Archify artifacts
+
+```meta
+status: active
+related: [".tech/shared.md#archify", ".design/design-principles.md", ".design/accessibility.md"]
+```
+
+An Archify artifact is a whole generated document rather than a picture, and the
+rules that follow are about showing somebody else's viewer inside a chapter
+without it reading as a foreign object.
+
+| Rule | Guidance |
+|---|---|
+| The reader chooses the renderer | A diagram with an artifact carries an Archify/Mermaid switch. An artifact is a *re-authoring* of the fence, not a rendering of it, so a reader who doubts the picture must be able to see the fence drawn instead. Both wear the same badge as the rest of the header, with the selected one highlighted. |
+| The frame is sized to the drawing | Never a fixed height. An artifact's height follows the width it is given, and it differs per diagram — a landscape runtime view and a portrait building-block view are not the same shape. A fixed frame clips one and leaves the other in empty space. |
+| The diagram sits on the chapter | The artifact's own background, panel and grid are cleared so the drawing composites onto the pane. A diagram in a body is part of the prose, not a card laid on top of it. |
+| No control that visibly refuses | The artifact's theme toggle is hidden, because the app pins the dark theme from outside per `design-principles.md`; its visual-style picker is hidden when it offers fewer than two options. Everything the viewer can actually do — zoom, drag-to-pan, presets, presentation, export — stays. |
+| It is a document, not an image | The frame is not labelled `role="img"`: that would collapse a structured document into one opaque graphic for a screen reader. The frame's title carries the accessible name instead, and what is inside stays reachable. |
+
+**Not every diagram can have one.** Archify has five types — architecture,
+workflow, sequence, dataflow, lifecycle. Class and ER diagrams have none, so a
+bounded context's aggregate model is always Mermaid, and the app offers nothing
+for it rather than offering something it cannot deliver.
 
 ## Risks and Gaps
 

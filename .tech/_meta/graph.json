@@ -6,28 +6,29 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 66,
-    "edges": 142,
+    "nodes": 68,
+    "edges": 147,
     "nodesByFolder": {
-      "tech": 53,
+      "tech": 54,
       "arc42": 12,
+      "design": 1,
       "domain": 1
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 56
+      "chapter": 58
     },
     "nodesByStatus": {
       "candidate": 32,
-      "adopted": 21,
-      "active": 11,
+      "adopted": 22,
+      "active": 12,
       "accepted": 1,
       "draft": 1
     },
     "edgesByType": {
-      "contains": 46,
-      "related": 52,
-      "depends-on": 44
+      "contains": 47,
+      "related": 53,
+      "depends-on": 47
     }
   },
   "problems": [],
@@ -606,6 +607,28 @@
       },
       {
         "data": {
+          "id": ".tech/shared.md#archify",
+          "label": "Archify",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/shared.md",
+          "slug": "archify",
+          "level": 2,
+          "line": 70,
+          "status": "adopted",
+          "kind": "format",
+          "depends-on": [
+            ".tech/shared.md#markdown",
+            ".tech/shared.md#mermaid",
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".design/component-libraries.md#diagram-and-graph-strategy"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/shared.md#net-runtime",
           "label": ".NET Runtime",
           "type": "chapter",
@@ -613,7 +636,7 @@
           "path": ".tech/shared.md",
           "slug": "net-runtime",
           "level": 2,
-          "line": 70,
+          "line": 106,
           "status": "candidate",
           "kind": "runtime",
           "version": "10.0",
@@ -636,7 +659,7 @@
           "path": ".tech/shared.md",
           "slug": "c-language",
           "level": 2,
-          "line": 87,
+          "line": 123,
           "status": "candidate",
           "kind": "language",
           "depends-on": [
@@ -656,7 +679,7 @@
           "path": ".tech/shared.md",
           "slug": "nodejs",
           "level": 2,
-          "line": 102,
+          "line": 138,
           "status": "candidate",
           "kind": "runtime",
           "related": [
@@ -673,7 +696,7 @@
           "path": ".tech/shared.md",
           "slug": "typescript",
           "level": 2,
-          "line": 118,
+          "line": 154,
           "status": "candidate",
           "kind": "language",
           "depends-on": [
@@ -693,7 +716,7 @@
           "path": ".tech/shared.md",
           "slug": "net-maui",
           "level": 2,
-          "line": 133,
+          "line": 169,
           "status": "adopted",
           "kind": "framework",
           "alternatives": [
@@ -721,7 +744,7 @@
           "path": ".tech/shared.md",
           "slug": "blazor-hybrid",
           "level": 2,
-          "line": 155,
+          "line": 191,
           "status": "adopted",
           "kind": "framework",
           "alternatives": [
@@ -746,7 +769,7 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 176,
+          "line": 212,
           "status": "adopted",
           "kind": "service",
           "related": [
@@ -763,7 +786,7 @@
           "path": ".tech/shared.md",
           "slug": "anthropic-claude-platform",
           "level": 2,
-          "line": 191,
+          "line": 227,
           "status": "candidate",
           "kind": "service",
           "alternatives": [
@@ -783,7 +806,7 @@
           "path": ".tech/shared.md",
           "slug": "github-copilot-usage-apis",
           "level": 2,
-          "line": 211,
+          "line": 247,
           "status": "candidate",
           "kind": "service",
           "depends-on": [
@@ -1207,6 +1230,26 @@
       },
       {
         "data": {
+          "id": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "label": "Diagram and Graph Strategy",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "diagram-and-graph-strategy",
+          "level": 2,
+          "line": 177,
+          "status": "active",
+          "related": [
+            ".tech/technology-graph.md",
+            ".tech/shared.md#archify",
+            ".design/content-editing.md",
+            ".design/accessibility.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/02-constraints.md#organizational--process-constraints",
           "label": "Organizational & Process Constraints",
           "type": "chapter",
@@ -1449,6 +1492,14 @@
           "id": "contains:.tech/shared.md->.tech/shared.md#mermaid",
           "source": ".tech/shared.md",
           "target": ".tech/shared.md#mermaid",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/shared.md->.tech/shared.md#archify",
+          "source": ".tech/shared.md",
+          "target": ".tech/shared.md#archify",
           "type": "contains"
         }
       },
@@ -2074,6 +2125,38 @@
           "source": ".tech/shared.md#mermaid",
           "target": ".tech/shared.md#markdown",
           "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#markdown",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#markdown",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#mermaid",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#mermaid",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/shared.md#archify->.tech/shared.md#nodejs",
+          "source": ".tech/shared.md#archify",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/shared.md#archify->.design/component-libraries.md#diagram-and-graph-strategy",
+          "source": ".tech/shared.md#archify",
+          "target": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "type": "related"
         }
       },
       {

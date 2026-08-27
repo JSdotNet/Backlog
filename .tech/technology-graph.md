@@ -58,6 +58,7 @@ flowchart LR
 
     subgraph Shared["Shared technologies"]
         Mermaid["Mermaid"]:::adopted
+        Archify["Archify"]:::adopted
         DotNet[".NET Runtime 10.0"]:::candidate
         CSharp["C#"]:::candidate
         NodeJS["Node.js"]:::candidate
@@ -113,6 +114,9 @@ flowchart LR
     end
 
     Mermaid --> Markdown
+    Archify --> Markdown
+    Archify --> Mermaid
+    Archify --> NodeJS
     CSharp --> DotNet
     TypeScript --> NodeJS
     MAUI --> WinUI
