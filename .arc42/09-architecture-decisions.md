@@ -79,7 +79,9 @@ related: [".arc42/04-solution-strategy.md"]
 Decisions specific to Prompt Backlog that no inherited decision covers are
 captured as solution strategy in `.arc42/04-solution-strategy.md`:
 
-- **Local-first, markdown-canonical** storage with JSON files as derived indexes and metadata.
+- **Local-first storage**, with one canonical local store per corpus: a SQLite database
+  for tasks (ADR 0003), and markdown for a repository's knowledge folders with a
+  generated layer over it (ADR 0004).
 - **Thin cloud, rich desktop** responsibility split.
 - **Conflict policy**: new items always create; edits are last-write-wins.
 - **Capture/Inbox kept as one pipeline** for now, with a possible future split.
@@ -108,3 +110,10 @@ related: [".arc42/04-solution-strategy.md"]
   with a single local SQLite database, so no two files can disagree about a task,
   while keeping a task's content as markdown and leaving the published entry text
   language untouched.
+- **[ADR 0004 — One generated local database holds the derived knowledge layer; markdown stays canonical](adr/0004-knowledge-index-is-a-generated-local-database.md)**
+  *(proposed)*: replaces the committed `_meta/*.json` indexes with a single
+  generated, uncommitted SQLite database per knowledge repository, so branches stop
+  conflicting on files nobody authored and every channel — desktop, mobile, IDE, a
+  future MCP server — reads one schema instead of carrying its own markdown parser.
+  Extends local ADR 0003 to a second corpus without making a database canonical for
+  knowledge.
