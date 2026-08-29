@@ -259,7 +259,7 @@ The web host underneath every HTTP surface in the solution
 ```meta
 status: adopted
 type: framework
-version: "13.5.2"
+version: "13.5.3"
 depends-on: [".tech/shared.md#aspnet-core", ".tech/shared.md#c-language"]
 related: [".tech/tooling.md#aspire-cli", ".tech/shared.md#opentelemetry", ".arc42/07-deployment-view.md"]
 alternatives: ["Docker Compose only", "no orchestration"]

@@ -1113,7 +1113,7 @@
           "level": 2,
           "line": 257,
           "status": "adopted",
-          "version": "13.5.2",
+          "version": "13.5.3",
           "alternatives": [
             "Docker Compose only",
             "no orchestration"
