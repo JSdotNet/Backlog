@@ -155,6 +155,38 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_chapter_under_a_remapped_indexed_folder_still_offers_a_way_in()
+    {
+        // The folder is pointed at docs/arch and carries the index the generator
+        // writes, whose entries are spelled from the repository down — so the
+        // panel lists docs/arch/... rather than .arc42/..., and the chapter behind
+        // that name has to stay editable. A folder somebody moved in settings is a
+        // supported configuration, and the read-only fallback is for a selection
+        // that names no file, not for one this panel just listed.
+        await using var harness = CreateHarness(withArc42Folder: true, configuredPath: "docs/arch");
+
+        var component = harness.Render("docs/arch/adr/0001-decision.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+        Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_chapter_under_a_remapped_unindexed_folder_still_offers_a_way_in()
+    {
+        // The other spelling of the same folder. With no index to read, the reader
+        // walks the top of the folder itself and names what it finds relative to
+        // the folder — so the panel lists 01-introduction.md under docs/arch, and
+        // that chapter has to be as editable as the indexed one beside it.
+        await using var harness = CreateHarness(withArc42Folder: true, configuredPath: "docs/arch", withIndex: false);
+
+        var component = harness.Render("docs/arch/01-introduction.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
+        Assert.Contains("Goals.", component.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Changing_the_state_beside_the_heading_writes_it_to_the_file()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
@@ -284,28 +316,52 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         }
     }
 
-    private Harness CreateHarness(bool withArc42Folder)
+    /// <param name="configuredPath">Where the <c>.arc42</c> knowledge folder is
+    /// pointed, or null for the conventional folder at the repository root. A
+    /// folder somebody has moved is a supported configuration rather than a
+    /// degraded one, so the arrangement inside it is the same either way and only
+    /// the path to it differs — including the index, whose entries the generator
+    /// spells relative to the repository whatever folder they are written into.</param>
+    /// <param name="withIndex">Whether the folder carries a generated
+    /// <c>_meta/index.json</c>. A folder that has never been indexed is the other
+    /// half of what the panel has to read, and the reader names its documents
+    /// differently there, so both spellings are worth arranging.</param>
+    private Harness CreateHarness(bool withArc42Folder, string? configuredPath = null, bool withIndex = true)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         _roots.Add(root);
 
+        var folderPath = configuredPath ?? ".arc42";
+        var arc42 = Path.Combine(root, folderPath.Replace('/', Path.DirectorySeparatorChar));
+
+        // What `build/Update-KnowledgeIndex.ps1` writes: every entry is spelled
+        // from the repository root down, so an index inside docs/arch reads
+        // docs/arch/... and never arch/.... Arranging the folder-relative spelling
+        // instead would be arranging a file no generator produces, and the panel
+        // would be proved against a repository that cannot exist.
+        var indexPrefix = folderPath.TrimEnd('/');
+
         if (withArc42Folder)
         {
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "adr"));
-            Directory.CreateDirectory(Path.Combine(root, ".arc42", "_meta"));
-            File.WriteAllText(Path.Combine(root, ".arc42", "01-introduction.md"), "# Introduction\n\nGoals.\n");
-            File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0001-decision.md"), Decision);
+            Directory.CreateDirectory(Path.Combine(arc42, "adr"));
+            File.WriteAllText(Path.Combine(arc42, "01-introduction.md"), "# Introduction\n\nGoals.\n");
+            File.WriteAllText(Path.Combine(arc42, "adr", "0001-decision.md"), Decision);
+        }
+
+        if (withArc42Folder && withIndex)
+        {
+            Directory.CreateDirectory(Path.Combine(arc42, "_meta"));
 
             // The reader only walks the top of the folder on its own, so the
             // decision record reaches the catalog through the index — which is
             // also how the real folder presents it, and the state dropdown under
             // test only appears for a decision record.
-            File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
+            File.WriteAllText(Path.Combine(arc42, "_meta", "index.json"), $$"""
                 {
                   "entries": [
-                    { "type": "file", "path": ".arc42/adr/0001-decision.md" },
-                    { "type": "file", "path": ".arc42/01-introduction.md" }
+                    { "type": "file", "path": "{{indexPrefix}}/adr/0001-decision.md" },
+                    { "type": "file", "path": "{{indexPrefix}}/01-introduction.md" }
                   ]
                 }
                 """);
@@ -319,7 +375,13 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         var repository = Assert.Single(repositories) with
         {
             CloneDirectory = root,
-            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+            KnowledgeFolders =
+            [
+                .. KnowledgeFolderSetting.Defaults().Select(folder =>
+                    string.Equals(folder.Key, ".arc42", StringComparison.OrdinalIgnoreCase)
+                        ? folder with { Path = configuredPath }
+                        : folder)
+            ]
         };
         Assert.Null(gitHub.SetRepositories([repository]));
 
@@ -330,7 +392,7 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var folders = new RecordingKnowledgeFolderSource(
             new KnowledgeFolderSource(gitHub, settings),
-            Path.Combine(root, ".arc42", "adr", "0001-decision.md"));
+            Path.Combine(arc42, "adr", "0001-decision.md"));
 
         context.Services.AddSingleton(settings);
         context.Services.AddSingleton(gitHub);

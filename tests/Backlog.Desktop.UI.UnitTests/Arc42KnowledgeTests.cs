@@ -103,6 +103,70 @@ public class Arc42KnowledgeTests
     }
 
     [Fact]
+    public async Task Reads_a_remapped_folders_index_against_the_repository_root()
+    {
+        // The generator spells every index entry from the repository root down,
+        // whatever folder it writes the index into — so a folder pointed at
+        // docs/arch carries entries reading docs/arch/... . Resolving those
+        // against the folder's own parent went looking under docs/docs/arch,
+        // matched nothing, and left the panel a folder that exists with no
+        // documents in it and no chapter to open.
+        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(root, "docs", "arch");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(folder, "_meta"));
+            Directory.CreateDirectory(Path.Combine(folder, "adr"));
+            File.WriteAllText(Path.Combine(folder, "adr", "0001-test.md"), "# ADR 0001");
+            File.WriteAllText(Path.Combine(folder, "_meta", "index.json"), """
+                {
+                  "entries": [
+                    { "type": "file", "path": "docs/arch/adr/0001-test.md" }
+                  ]
+                }
+                """);
+
+            var catalog = await Arc42KnowledgeReader.LoadFolderAsync(folder, root);
+
+            var document = Assert.Single(catalog.Documents);
+            Assert.Equal("docs/arch/adr/0001-test.md", document.Path);
+            Assert.Equal("ADR 0001", document.Title);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Names_documents_from_the_folders_parent_when_it_sits_outside_the_repository()
+    {
+        // A configured folder may name somewhere off the clone entirely. Spelling
+        // its documents relative to a repository that does not contain them would
+        // produce a path climbing out of the root the writer checks against, so
+        // the folder's own parent stands in and the last segment is what a
+        // selection carries.
+        var repository = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        var elsewhere = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(elsewhere, "arch");
+        try
+        {
+            Directory.CreateDirectory(repository);
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "08-concepts.md"), "# Concepts");
+
+            var catalog = await Arc42KnowledgeReader.LoadFolderAsync(folder, repository);
+
+            Assert.Equal("arch/08-concepts.md", Assert.Single(catalog.Documents).Path);
+        }
+        finally
+        {
+            if (Directory.Exists(repository)) Directory.Delete(repository, recursive: true);
+            if (Directory.Exists(elsewhere)) Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Counts_only_adr_and_tdr_files_as_decision_records()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));

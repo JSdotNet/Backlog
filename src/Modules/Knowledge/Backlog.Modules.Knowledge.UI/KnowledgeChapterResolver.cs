@@ -29,14 +29,29 @@ public static class KnowledgeChapterResolver
     /// <summary>Resolves against a folder the knowledge-folder port has already
     /// located. An unavailable folder resolves to null rather than to a path that
     /// happens to combine: the message explaining why it is unavailable belongs
-    /// to the panel, and an editing surface is not where it gets shown.</summary>
+    /// to the panel, and an editing surface is not where it gets shown.
+    /// <para>
+    /// The location carries the setting the folder was resolved from, so the
+    /// configured path travels with the root rather than being guessed back from
+    /// the area. A repository that points <c>.arc42</c> at <c>docs/arch</c> spells
+    /// its selections that way, and forwarding only the root left that spelling
+    /// matching nothing — the chapter resolved to null and the pane offered no way
+    /// in without saying why. A location with no setting behind it falls back to
+    /// the area's conventional folder.
+    /// </para></summary>
     public static KnowledgeChapterRef? TryResolve(string areaKey, KnowledgeFolderLocation? location, string? selection) =>
-        location is { Available: true } ? TryResolve(areaKey, location.FullPath, selection) : null;
+        location is { Available: true } ? TryResolve(areaKey, location.FullPath, selection, location.Folder?.EffectivePath) : null;
 
     /// <summary>Resolves against a root a store already holds — the technology
     /// view's location, the design model's folder, the arc42 folder. Same rules;
-    /// the five areas differ only in where their root came from.</summary>
-    public static KnowledgeChapterRef? TryResolve(string areaKey, string? rootPath, string? selection)
+    /// the five areas differ only in where their root came from.
+    /// <para>
+    /// <paramref name="folderPath"/> is the configured path of that root, for a
+    /// caller that holds it. Omitting it reads the area's conventional folder,
+    /// which is what the stores that stamp a dotted prefix onto their document
+    /// paths are naming whatever the folder was pointed at.
+    /// </para></summary>
+    public static KnowledgeChapterRef? TryResolve(string areaKey, string? rootPath, string? selection, string? folderPath = null)
     {
         if (string.IsNullOrWhiteSpace(areaKey) || string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(selection))
         {
@@ -45,7 +60,7 @@ public static class KnowledgeChapterResolver
 
         var area = NormalizeAreaKey(areaKey);
 
-        foreach (var candidate in Candidates(area, selection))
+        foreach (var candidate in Candidates(area, folderPath, selection))
         {
             if (KnowledgeChapterPaths.ResolveWithin(rootPath, candidate) is not { } fullPath) continue;
             if (!File.Exists(fullPath)) continue;
@@ -62,23 +77,33 @@ public static class KnowledgeChapterResolver
     /// Order matters wherever a selection could be read two ways. One that
     /// carries the dotted area folder (<c>.arc42/08-x.md</c>) means the chapter
     /// under that folder, so the stripped form goes first. One that starts with
-    /// the undotted name (<c>arc42/08-x.md</c>, which is what the panels'
-    /// leading-dot trimming leaves behind) is ambiguous with a real subfolder of
-    /// that name, so the literal reading goes first and the strip is the
-    /// fallback. Existence decides between them, which is why it is the last
-    /// check rather than the first.
+    /// an undotted name (<c>arc42/08-x.md</c>, which is what the panels'
+    /// leading-dot trimming leaves behind, or <c>docs/arch/08-x.md</c> under a
+    /// folder somebody moved) is ambiguous with a real subfolder of that name, so
+    /// the literal reading goes first and the strip is the fallback. Existence
+    /// decides between them, which is why it is the last check rather than the
+    /// first — and it is what keeps a configured folder from resolving against
+    /// its own root twice.
+    /// </para>
+    /// <para>
+    /// Only the first prefix a selection carries is read, because
+    /// <see cref="FolderPrefixes"/> offers them most specific first: a selection
+    /// under <c>docs/arch</c> is that folder's, not a chapter of some
+    /// <c>arch</c> beneath it.
     /// </para>
     /// </summary>
-    private static IEnumerable<string> Candidates(string areaKey, string selection)
+    private static IEnumerable<string> Candidates(string areaKey, string? folderPath, string selection)
     {
         var normalized = KnowledgeChapterPaths.Normalize(selection);
         if (normalized.Length == 0) yield break;
 
-        var folder = AreaFolderName(areaKey);
-        if (folder is null)
+        var prefixes = FolderPrefixes(areaKey, folderPath);
+        if (prefixes.Count == 0)
         {
-            // Instructions has no area folder: its root is the repository root
-            // and its relative paths keep their leading dot (.github/, .claude/).
+            // No folder to strip means Instructions: its root is the repository
+            // root and its relative paths keep their leading dot (.github/,
+            // .claude/). Its configured path is empty and cannot be overridden,
+            // so it reaches here whatever the settings say.
             yield return normalized;
 
             // The menu presents .agents as ".agent" so the three instruction
@@ -93,19 +118,83 @@ public static class KnowledgeChapterResolver
             yield break;
         }
 
-        if (StartsWithSegment(normalized, "." + folder))
+        foreach (var prefix in prefixes)
         {
-            yield return normalized[(folder.Length + 2)..];
-            yield return normalized;
+            if (!StartsWithSegment(normalized, prefix)) continue;
+
+            var stripped = normalized[(prefix.Length + 1)..];
+            if (prefix[0] == '.')
+            {
+                yield return stripped;
+                yield return normalized;
+            }
+            else
+            {
+                yield return normalized;
+                yield return stripped;
+            }
+
+            yield break;
         }
-        else if (StartsWithSegment(normalized, folder))
+
+        yield return normalized;
+    }
+
+    /// <summary>
+    /// The folder names a selection may carry, most specific first, or nothing at
+    /// all for an area whose root is the repository itself.
+    /// <para>
+    /// Three spellings of one folder reach here, which is why this is a list
+    /// rather than a name. The document list of an area pointed at
+    /// <c>docs/arch</c> names the whole configured path; <c>Arc42KnowledgeReader</c>
+    /// falls back to spelling its documents relative to the folder's <em>parent</em>
+    /// when it is reading a folder configured off the clone, and so emits only the
+    /// last segment; and a store that stamps a literal <c>.domain/</c> onto every
+    /// path keeps naming the conventional folder wherever the folder actually
+    /// sits. The conventional folder is therefore always offered alongside the
+    /// configured one rather than instead of it.
+    /// </para>
+    /// <para>
+    /// A rooted override contributes nothing but its last segment, which is the
+    /// only part of it a selection can be spelled with.
+    /// </para>
+    /// </summary>
+    private static List<string> FolderPrefixes(string areaKey, string? folderPath)
+    {
+        var prefixes = new List<string>();
+        Add(folderPath);
+        Add(DefaultFolderPaths.GetValueOrDefault(areaKey));
+
+        return prefixes;
+
+        void Add(string? path)
         {
-            yield return normalized;
-            yield return normalized[(folder.Length + 1)..];
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            var normalized = KnowledgeChapterPaths.Normalize(path).TrimEnd('/');
+
+            // A rooted override names somewhere off the clone entirely, so the
+            // whole of it is not a prefix any selection carries; its last segment
+            // still is, because that is the folder the reader walked.
+            if (!Path.IsPathRooted(normalized)) AddPrefix(normalized);
+
+            var lastSeparator = normalized.LastIndexOf('/');
+            if (lastSeparator >= 0) AddPrefix(normalized[(lastSeparator + 1)..]);
         }
-        else
+
+        void AddPrefix(string prefix)
         {
-            yield return normalized;
+            AddOne(prefix);
+
+            // The panels trim the leading dot when they present an area, so a
+            // selection can name the same folder undotted. Kept after the dotted
+            // spelling because Candidates reads the two in opposite orders.
+            if (prefix.StartsWith('.')) AddOne(prefix[1..]);
+        }
+
+        void AddOne(string prefix)
+        {
+            if (prefix.Length > 0 && !prefixes.Contains(prefix, StringComparer.OrdinalIgnoreCase)) prefixes.Add(prefix);
         }
     }
 
@@ -114,18 +203,16 @@ public static class KnowledgeChapterResolver
         && path[segment.Length] == '/'
         && path.StartsWith(segment, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The area's folder name without its leading dot, or null for an
-    /// area whose root is the repository itself. Mirrors the mapping
-    /// <see cref="KnowledgeFolderOpenService"/> uses in the other direction, from
-    /// an area key to a configured folder key.</summary>
-    private static string? AreaFolderName(string areaKey) => areaKey switch
-    {
-        "domain" => "domain",
-        "arc42" => "arc42",
-        "tech" => "tech",
-        "design" => "design",
-        _ => null
-    };
+    /// <summary>The conventional folder of each area that has one, keyed the way
+    /// the menu and the area catalog name it. Read from the published settings
+    /// rather than written out again, so an area whose default moves does not
+    /// leave a second copy of it here — and so Instructions, whose default path is
+    /// empty because its root is the repository itself, is absent by construction
+    /// rather than by a <c>_ =&gt; null</c> arm somebody has to remember.</summary>
+    private static readonly Dictionary<string, string> DefaultFolderPaths =
+        KnowledgeFolderSetting.Defaults()
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.DefaultRelativePath))
+            .ToDictionary(folder => NormalizeAreaKey(folder.Key), folder => folder.DefaultRelativePath, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Areas are named without the dot everywhere the menu and the area
     /// catalog speak, but a caller holding a configured folder key (<c>.arc42</c>)

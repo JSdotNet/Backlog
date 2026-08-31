@@ -133,6 +133,106 @@ public sealed class KnowledgeChapterResolverTests : IDisposable
     }
 
     [Fact]
+    public void A_configured_folder_resolves_a_selection_that_carries_its_whole_path()
+    {
+        // The document list names a chapter by the folder the repository has
+        // configured, so a folder pointed at docs/arch spells its documents that
+        // way. Resolving it against the already-configured root a second time is
+        // what used to leave the chapter read-only with nothing said about it.
+        var root = Area("docs/arch", "08-concepts.md");
+
+        var chapter = KnowledgeChapterResolver.TryResolve("arc42", root, "docs/arch/08-concepts.md", "docs/arch");
+
+        Assert.NotNull(chapter);
+        Assert.Equal("arc42", chapter.AreaKey);
+        Assert.Equal("08-concepts.md", chapter.RelativePath);
+        Assert.Equal(Path.Combine(root, "08-concepts.md"), chapter.FullPath);
+    }
+
+    [Fact]
+    public void A_configured_folder_resolves_a_selection_that_carries_only_its_final_segment()
+    {
+        // What Arc42KnowledgeReader emits for a folder configured off the clone
+        // entirely: with no repository containing it, it falls back to spelling
+        // document paths relative to the folder's parent, so a folder whose last
+        // segment is arch produces arch/08-concepts.md and never a whole path.
+        var root = Area("docs/arch", "08-concepts.md");
+
+        var chapter = KnowledgeChapterResolver.TryResolve("arc42", root, "arch/08-concepts.md", "docs/arch");
+
+        Assert.NotNull(chapter);
+        Assert.Equal("08-concepts.md", chapter.RelativePath);
+        Assert.Equal(Path.Combine(root, "08-concepts.md"), chapter.FullPath);
+    }
+
+    [Fact]
+    public void A_configured_folder_resolves_an_unprefixed_menu_selection()
+    {
+        var root = Area("docs/arch", "08-concepts.md");
+
+        var chapter = KnowledgeChapterResolver.TryResolve("arc42", root, "08-concepts.md", "docs/arch");
+
+        Assert.NotNull(chapter);
+        Assert.Equal("08-concepts.md", chapter.RelativePath);
+    }
+
+    [Fact]
+    public void A_configured_folder_still_answers_to_the_areas_conventional_name()
+    {
+        // The domain store stamps a literal ".domain/" onto every document path
+        // whatever the folder is configured to, and the design view hands over a
+        // bare file name. Both keep resolving under a folder that has moved.
+        var domainRoot = Area("docs/domain", "context-map.md");
+        var designRoot = Area("docs/design", "interaction-guidelines.md");
+
+        Assert.Equal("context-map.md", KnowledgeChapterResolver.TryResolve("domain", domainRoot, ".domain/context-map.md")?.RelativePath);
+        Assert.Equal("interaction-guidelines.md", KnowledgeChapterResolver.TryResolve("design", designRoot, "interaction-guidelines.md")?.RelativePath);
+    }
+
+    [Fact]
+    public void A_folder_configured_at_its_conventional_path_resolves_the_way_it_always_did()
+    {
+        var root = Area(".arc42", "08-crosscutting-concepts.md");
+
+        Assert.Equal("08-crosscutting-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", root, ".arc42/08-crosscutting-concepts.md", ".arc42")?.RelativePath);
+        Assert.Equal("08-crosscutting-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", root, "arc42/08-crosscutting-concepts.md", ".arc42")?.RelativePath);
+        Assert.Equal("08-crosscutting-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", root, "08-crosscutting-concepts.md", ".arc42")?.RelativePath);
+    }
+
+    [Fact]
+    public void A_configured_folder_does_not_widen_what_counts_as_inside_the_root()
+    {
+        var root = Area("docs/arch", "adr/0001-use-markdown.md");
+        var parent = Directory.GetParent(root)!.FullName;
+        Write(parent, "secrets.md");
+
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", root, "../secrets.md", "docs/arch"));
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", root, Path.Combine(parent, "secrets.md"), "docs/arch"));
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", root, "99-not-written-yet.md", "docs/arch"));
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", root, "adr", "docs/arch"));
+    }
+
+    [Fact]
+    public void An_available_folder_location_resolves_against_the_folder_it_was_configured_with()
+    {
+        var root = Area("docs/arch", "08-concepts.md");
+        var folder = new KnowledgeFolderSetting(".arc42", "Architecture", ".arc42") { Path = "docs/arch" };
+        var location = new KnowledgeFolderLocation(".arc42", true, null, "JSdotNet/Backlog", folder, root);
+
+        Assert.Equal("08-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", location, "docs/arch/08-concepts.md")?.RelativePath);
+        Assert.Equal("08-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", location, "arch/08-concepts.md")?.RelativePath);
+        Assert.Equal("08-concepts.md", KnowledgeChapterResolver.TryResolve("arc42", location, "08-concepts.md")?.RelativePath);
+        Assert.Equal(Path.Combine(root, "08-concepts.md"), KnowledgeChapterResolver.TryResolve("arc42", location, "arch/08-concepts.md")?.FullPath);
+    }
+
+    [Fact]
+    public void An_empty_root_resolves_to_nothing()
+    {
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", (string?)null, "08-crosscutting-concepts.md"));
+        Assert.Null(KnowledgeChapterResolver.TryResolve("arc42", "   ", "08-crosscutting-concepts.md"));
+    }
+
+    [Fact]
     public void A_selection_that_climbs_out_of_the_root_resolves_to_nothing()
     {
         var root = Area(".arc42", "08-crosscutting-concepts.md");
@@ -210,7 +310,7 @@ public sealed class KnowledgeChapterResolverTests : IDisposable
     /// chapter in it — the arrangement every area resolves against.</summary>
     private string Area(string folderName, string relativePath)
     {
-        var root = Path.Combine(TempDir(), folderName);
+        var root = Path.Combine(TempDir(), folderName.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(root);
         Write(root, relativePath);
         return root;
