@@ -14,11 +14,14 @@
 
     <!--
       Transitive pinning is deliberately OFF. Turning it on rewrites versions the
-      solution never asked for: the AppHost's transitive YamlDotNet went 16.3.0 ->
-      18.1.0, OpenTelemetry 1.15.3 -> 1.17.0 and Microsoft.Extensions.* 10.0.8 ->
-      10.0.11, purely because those names appear below as direct versions. Adopting
-      CPM was meant to change where versions are declared, not which ones resolve.
-      Enable it as its own reviewed change if transitive governance is wanted.
+      solution never asked for: the AppHost's transitive YamlDotNet 16.3.0,
+      OpenTelemetry 1.15.3 and Microsoft.Extensions.* 10.0.8 each get lifted to
+      whatever this file declares for that name, purely because those names appear
+      below as direct versions. Those targets are not repeated here because they
+      move with every bump of the package; read them from the PackageVersion
+      entries. Adopting CPM was meant to change where versions are declared, not
+      which ones resolve. Enable it as its own reviewed change if transitive
+      governance is wanted.
     -->
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
