@@ -46,7 +46,10 @@ public sealed record TaskItemDto(
     IReadOnlyList<string>? DependsOn = null,
     EntryView? View = null,
     Attachment? Attachment = null,
-    int? Effort = null);
+    int? Effort = null,
+    IReadOnlyList<string>? RepoIds = null,
+    string? ImportPlanId = null,
+    string? ImportItemId = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not

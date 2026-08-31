@@ -467,6 +467,51 @@ public sealed class BacklogDesktopState : IDisposable
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Brings in a plan — a block of entry text naming one or more prompts — and
+    /// turns it into backlog entries in one step. Per ADR 0004 this is a use case
+    /// over the same grammar every entry already goes through, so the only thing
+    /// this class adds on top of an ordinary save is showing what the import
+    /// produced.
+    /// <para>
+    /// Reloads the row list afterwards, the same way <see cref="ShowSpawnedOccurrenceAsync"/>
+    /// does for a completed repeat: created and updated entries are not the rows
+    /// this list already holds, so a refresh is the only way they show up without
+    /// waiting for whatever the next unrelated reload happens to be.
+    /// </para>
+    /// <para>
+    /// Returns the message the dialog reports, on either outcome. There is no
+    /// separate error channel: a validation failure ("nothing parsed to a title")
+    /// and a success ("3 created, 1 updated") are both a sentence for the reader,
+    /// and the dialog shows whichever one it was handed.
+    /// </para>
+    /// </summary>
+    public async Task<string> ImportPlanAsync(string rawText, string? defaultRepo = null)
+    {
+        SetSaveState(AppSaveState.Saving);
+
+        Result<ImportPlanResultDto> result;
+        try
+        {
+            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo);
+        }
+        catch
+        {
+            SetSaveState(AppSaveState.Error);
+            return "Import failed.";
+        }
+
+        SetSaveState(AppSaveState.Saved);
+
+        if (result.IsFailure) return result.Error.Message;
+
+        await ReloadRowsAsync();
+        Changed?.Invoke();
+
+        var value = result.Value;
+        return $"Imported: {value.Created} created, {value.Updated} updated, {value.Skipped} skipped.";
+    }
+
     // --- Editing ---------------------------------------------------------
 
     /// <summary>Swaps a row from its rendered form to raw markdown.</summary>
@@ -1023,7 +1068,20 @@ public sealed class BacklogDesktopState : IDisposable
                 link.IssueNumber.ToString(),
                 EntryProjectionDto.IssueTargetType);
 
-            if (linked.TryGetValue(out var updated)) _entries[id] = updated;
+            if (linked.TryGetValue(out var updated))
+            {
+                _entries[id] = updated;
+
+                // `repo:` round-trips through the canonical text like every other
+                // named token now, so the row's raw text has to catch up here —
+                // LinkToIssueAsync set RepoIds on the aggregate directly, off to
+                // the side of the ordinary parse-and-save path, and a row left
+                // holding the text from before the push would silently lose that
+                // on its next edit: SaveTaskFromText parses what is on screen,
+                // and a `repo:` token that was never written is a `repo:` token
+                // that edit clears.
+                RefreshRowFromEntry(row, updated, rewriteText: true);
+            }
 
             row.IssueLink = link;
             SetSaveState(AppSaveState.Saved);

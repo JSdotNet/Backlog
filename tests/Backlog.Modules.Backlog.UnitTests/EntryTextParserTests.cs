@@ -207,6 +207,8 @@ public class EntryTextParserTests
     [InlineData("repeat:fortnightly")]
     [InlineData("repeat:0w")]
     [InlineData("after:")]
+    [InlineData("id:")]
+    [InlineData("repo:")]
     public void A_malformed_named_token_leaves_its_field_unset_rather_than_failing(string token)
     {
         var parsed = EntryTextParser.Parse($"# Title\n`task` `{token}`\n");
@@ -220,6 +222,102 @@ public class EntryTextParserTests
         Assert.Null(parsed.Recurrence);
         Assert.Null(parsed.InMyDayOn);
         Assert.Empty(parsed.DependsOn!);
+        Assert.Null(parsed.ImportItemId);
+        Assert.Empty(parsed.RepoIds!);
+    }
+
+    // --- Import tokens: id and repo ---------------------------------------
+    //
+    // Neither is Import-specific: `id:` names an entry before it has a real
+    // backlog_item_id and `repo:` targets a repository, exactly as
+    // .design/content-editing.md#scheduling-and-dependency-tokens describes them
+    // for any pasted batch, hand-typed or brought in through Import alike.
+
+    [Fact]
+    public void An_id_token_parses_to_the_local_id()
+    {
+        var parsed = EntryTextParser.Parse("# Add the import command\n`task` `id:add-command`\n");
+
+        Assert.Equal("add-command", parsed.ImportItemId);
+    }
+
+    [Fact]
+    public void A_repeated_id_token_keeps_only_the_last_one()
+    {
+        // Last-one-wins, like `due:` — an entry names itself once.
+        var parsed = EntryTextParser.Parse("# Title\n`id:first` `id:second`\n");
+
+        Assert.Equal("second", parsed.ImportItemId);
+    }
+
+    [Fact]
+    public void A_missing_id_token_leaves_the_local_id_unset()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task`\n");
+
+        Assert.Null(parsed.ImportItemId);
+    }
+
+    [Fact]
+    public void A_repo_token_parses_to_the_target_repository()
+    {
+        var parsed = EntryTextParser.Parse("# Deploy SpecManager\n`task` `repo:specmanager`\n");
+
+        Assert.Equal(["specmanager"], parsed.RepoIds);
+    }
+
+    [Fact]
+    public void Repo_tokens_repeat_and_collect_in_the_order_written()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`repo:alpha` `repo:beta` `repo:alpha`\n");
+
+        // Two mentions of the same repository are one target, the same rule
+        // `after:` follows.
+        Assert.Equal(["alpha", "beta"], parsed.RepoIds);
+    }
+
+    [Fact]
+    public void A_missing_repo_token_leaves_the_repositories_empty()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task`\n");
+
+        Assert.Empty(parsed.RepoIds!);
+    }
+
+    [Fact]
+    public void The_canonical_form_carries_the_id_and_repo_tokens_after_the_dependencies()
+    {
+        var entry = new TaskItem("Deploy SpecManager", string.Empty, EntryType.Task, Priority.High);
+        entry.SetDependsOn(["a1b2c3"]);
+        entry.SetImportItemId("deploy-specmanager");
+        entry.SetRepoIds(["specmanager", "backlog-desktop"]);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.Equal(
+            "`task` `*high` `!draft` `after:a1b2c3` `id:deploy-specmanager` `repo:specmanager` `repo:backlog-desktop`",
+            raw.Split('\n')[1]);
+    }
+
+    [Fact]
+    public void Id_and_repo_round_trip_through_a_parse_write_parse()
+    {
+        var once = EntryTextParser.Parse(
+            "# Deploy SpecManager\n`task` `id:deploy-specmanager` `repo:specmanager` `repo:backlog-desktop`\n\nBody.\n");
+
+        var entry = new TaskItem("Deploy SpecManager", once.Body, once.Type ?? EntryType.Task, once.Priority ?? Priority.Medium);
+        entry.SetImportItemId(once.ImportItemId);
+        entry.SetRepoIds(once.RepoIds ?? []);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+        var twice = EntryTextParser.Parse(raw);
+
+        Assert.Equal("deploy-specmanager", once.ImportItemId);
+        Assert.Equal(once.ImportItemId, twice.ImportItemId);
+        Assert.Equal(once.RepoIds, twice.RepoIds);
+        // Writing the same text again lands the same line — no data lost on the
+        // second trip through.
+        Assert.Equal(raw, EntryTextParser.ToRawText(entry.ToDto()));
     }
 
     [Fact]

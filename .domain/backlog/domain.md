@@ -110,6 +110,19 @@ the same spirit as `source_inbox_id` and carries no invariant: a spawned entry
 is a separate aggregate with its own lifecycle, and the entry it came from may
 since have been archived or deleted.
 
+An entry created by importing a plan carries `import_plan_id` and
+`import_item_id`, naming the plan and the item inside it that produced the
+entry. Both are provenance in the same spirit as `source_inbox_id` and
+`recurrence_source_id` and carry no invariant of their own, but together they
+are also the key a later import of the same plan uses to find the entry a
+given item already produced, so re-importing an updated plan can adjust an
+entry still in flight instead of duplicating it — see
+[Re-importing an updated plan](features.md#re-importing-an-updated-plan).
+`import_plan_id` is also added to the entry's `tags`, so filing and filtering
+by plan reuses the same mechanism as filing against a
+[roadmap tag](features.md#filing-an-entry-against-a-roadmap-tag) rather than a
+parallel lookup.
+
 The entry also carries an optional `effort`: a size estimate in **story points**,
 held as a non-negative integer. It is deliberately three-valued at the edges.
 Absent or `null` means "not estimated"; `0` is a real estimate that happens to

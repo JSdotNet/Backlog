@@ -153,7 +153,7 @@ related: [".domain/backlog/naming.md#entry-status", ".domain/backlog/naming.md#a
 
 ```meta
 status: active
-related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#due-date", ".domain/backlog/naming.md#reminder", ".domain/backlog/naming.md#recurrence", ".domain/backlog/naming.md#my-day", ".domain/backlog/naming.md#dependency"]
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#due-date", ".domain/backlog/naming.md#reminder", ".domain/backlog/naming.md#recurrence", ".domain/backlog/naming.md#my-day", ".domain/backlog/naming.md#dependency", ".domain/backlog/features.md#import", ".domain/repository-management/domain.md#repository-registry"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -167,7 +167,9 @@ related: [".design/content-editing.md#structured-metadata-sigils", ".domain/back
 | `remind:` | reminder | `` `remind:2026-08-21T09:00` `` |
 | `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
 | `myday:` | My Day | `` `myday:2026-08-19` `` |
+| `id:` | local id | `` `id:add-command` `` |
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
+| `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
 | `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
 
@@ -176,7 +178,20 @@ A full metadata line mixes both forms, sigils first:
 ```markdown
 # Deploy SpecManager
 
-`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` `remind:2026-08-21T09:00` `after:a1b2c3`
+`task` `*high` `!ready` `@repos` `#deploy` `due:2026-08-21` `remind:2026-08-21T09:00` `after:a1b2c3` `repo:specmanager`
+```
+
+Two entries pasted together — neither saved yet, so neither has a real
+`backlog_item_id` — still order themselves with `id:` and `after:`:
+
+```markdown
+# Add the export command
+
+`task` `@repos` `id:add-command` `repo:specmanager`
+
+# Wire the export command into the toolbar
+
+`task` `@repos` `after:add-command` `repo:specmanager`
 ```
 
 | Rule | Requirement |
@@ -187,7 +202,10 @@ A full metadata line mixes both forms, sigils first:
 | My Day expires by arithmetic | `myday:` holds the date the entry was picked for, not a flag. The entry is in My Day exactly while that date is the reader's current local date, so yesterday's list clears itself with no timer and no overnight sweep. |
 | A path is taken as written | `files:` takes a path and the parser has no opinion about it — separators, drive letters and spaces all survive, because a path is whatever the file system will accept and a grammar that refused the ones it disliked would be a grammar with an opinion about operating systems. Nothing is checked against the disk either: a path is meaningful on the machine that wrote it, so an entry read elsewhere may name a place that is not there and is no less valid for it. |
 | One attached place, and never a list | `files:` appears at most once. A second one is a replacement rather than an addition, and the last one on the line wins. This is the opposite rule to `after:` above, deliberately: a task waiting on two things is ordinary, where an entry pointing at two folders is an entry whose presentation grows with however many places somebody named. |
+| A local id bridges an unsaved batch | `id:` names an entry before it has a real `backlog_item_id`, which is what every entry in a fresh paste is — none of them saved yet. A sibling's `after:` resolves against a same-document `id:` first, so one new entry can depend on another before either exists; failing that, `after:` means a real id as it always did. An entry with no `id:` is addressable exactly as today, once saved. |
 | Dependencies repeat | `after:` may appear more than once and the order carries no meaning — an entry waiting on two things names both, and asking which is the real predecessor has no answer. An id naming nothing visible still counts, and still blocks. |
+| A repo name repeats, like a dependency | `repo:` may appear more than once, the same as `after:` and for the same reason — an entry can target several repositories at once, and order carries no meaning. This matches the aggregate's own `repo_ids[]` (`.domain/backlog/features.md#multi-repo-targeting`), which already holds more than one. |
+| A repo name is resolved, never invented | `repo:` names a repository the way a person or a pasted document actually can — by name — and is resolved against the Repository Registry (`.domain/repository-management/domain.md#repository-registry`) to the `repo_id` the aggregate stores, because nothing hand-typed can know that id. A name the registry does not recognize is simply unresolved, on the same terms as an unrecognized sigil value; this token never registers a repository on its own. Only the narrower import policy (`.domain/backlog/features.md#repository-resolution-on-import`) auto-registers an unknown name, and only for that feature. |
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |

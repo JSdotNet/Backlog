@@ -6,28 +6,28 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 108,
-    "edges": 189,
+    "nodes": 111,
+    "edges": 194,
     "nodesByFolder": {
-      "arc42": 83,
-      "domain": 16,
+      "arc42": 84,
+      "domain": 17,
       "tech": 7,
-      "design": 2
+      "design": 3
     },
     "nodesByType": {
-      "file": 40,
-      "chapter": 68
+      "file": 41,
+      "chapter": 70
     },
     "nodesByStatus": {
-      "active": 70,
-      "proposed": 7,
+      "active": 71,
+      "proposed": 9,
       "draft": 21,
       "accepted": 3,
       "adopted": 7
     },
     "edgesByType": {
       "contains": 49,
-      "related": 140
+      "related": 145
     }
   },
   "problems": [],
@@ -1013,6 +1013,23 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/features.md#import",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".design/content-editing.md#scheduling-and-dependency-tokens",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "label": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
           "type": "file",
@@ -1625,6 +1642,55 @@
           "folder": "domain",
           "path": ".domain/backlog/domain.md",
           "status": "draft",
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#import",
+          "label": "Import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "import",
+          "level": 2,
+          "line": 372,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#backlog-entry-creation",
+            ".domain/backlog/features.md#entry-dependencies",
+            ".domain/backlog/features.md#multi-repo-targeting"
+          ],
+          "related": [
+            ".domain/backlog/features.md#prompt-features",
+            ".domain/backlog/features.md#sub-items-and-steps",
+            ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+            ".domain/repository-management/features.md#repository-registration"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "label": "Scheduling and Dependency Tokens",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/content-editing.md",
+          "slug": "scheduling-and-dependency-tokens",
+          "level": 2,
+          "line": 152,
+          "status": "active",
+          "related": [
+            ".design/content-editing.md#structured-metadata-sigils",
+            ".domain/backlog/naming.md#due-date",
+            ".domain/backlog/naming.md#reminder",
+            ".domain/backlog/naming.md#recurrence",
+            ".domain/backlog/naming.md#my-day",
+            ".domain/backlog/naming.md#dependency",
+            ".domain/backlog/features.md#import",
+            ".domain/repository-management/domain.md#repository-registry"
+          ],
           "outOfScope": true
         }
       },
@@ -2873,6 +2939,46 @@
           "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#backlog-entry",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/features.md#import",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/backlog/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/domain.md#backlog-entry",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "type": "related"
         }
       },

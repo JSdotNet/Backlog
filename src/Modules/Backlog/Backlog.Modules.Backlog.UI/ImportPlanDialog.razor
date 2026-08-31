@@ -1,0 +1,173 @@
+@*
+    Bring in a plan: upload a .md file or paste its text directly — both feed the
+    identical parse path, per ADR 0004. The file field and the paste box are one
+    value, the same bargain ToolsPane's catalog-import dialog already makes:
+    picking a file fills the box, so what is about to be imported is on screen
+    either way and there is never a question of which of the two won.
+
+    A dumb dialog on purpose. It knows nothing about EntryTextParser, ITaskItems
+    or what a plan is — it hands an ImportPlanSubmission to OnImport and shows
+    whatever error the caller hands back. The parsing and the upsert both live
+    in the module; this is a place to type or drop text.
+
+    The "Target repository" field is the same kind of shortcut the file field
+    already is for the paste box: a UI-level convenience over a grammar that
+    already supports per-entry repo: tokens, not a second way of expressing it.
+    It travels alongside the raw text rather than getting spliced into it, so
+    the module decides — per entry — whether an entry's own repo: token wins.
+*@
+
+<Modal Open="@Open"
+       OpenChanged="OnOpenChanged"
+       Title="Import a plan"
+       CssClass="import-plan-dialog"
+       TestId="import-plan-dialog">
+    <ChildContent>
+        <div class="import-plan-form">
+            <p class="import-plan-form__note">
+                A plan is entry text with more than one <code>#</code> heading — the
+                same format a hand-typed entry uses. Each prompt becomes an entry;
+                <code>after:</code> and <code>id:</code> order them, and a shared
+                <code>#tag</code> is what a later re-import matches against.
+            </p>
+            @if (Options.Count > 0)
+            {
+                <RepositorySelector CurrentValue="@_defaultRepo"
+                                    Options="@Options"
+                                    Label="Target repository"
+                                    IncludeEmptyOption="true"
+                                    EmptyLabel="No default repo"
+                                    TestId="import-plan-default-repo"
+                                    OnChanged="value => _defaultRepo = value" />
+            }
+            <FileField Label="Plan file"
+                       Accept=".md,.txt"
+                       HelpText="A markdown file with one or more # headings."
+                       OnTextRead="OnFileRead"
+                       OnRejected="OnFileRejected"
+                       TestId="import-plan-file" />
+            <TextArea Label="Or paste the plan text"
+                      Value="@_text"
+                      ValueChanged="value => _text = value"
+                      AutoGrow="false"
+                      Rows="10"
+                      Placeholder="@Placeholder"
+                      TestId="import-plan-text" />
+            <Alert Message="@_error" BaseClass="import-plan-form__error" Role="alert" />
+        </div>
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" Disabled="@Busy" OnClick="Cancel" TestId="import-plan-cancel">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Disabled="@Busy" OnClick="SubmitAsync" TestId="import-plan-submit">
+            @(Busy ? "Importing..." : "Import")
+        </AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private const string Placeholder =
+        "# First prompt\n`prompt` `#myplan` `id:one`\n\nDo the first thing.\n\n"
+        + "# Second prompt\n`prompt` `#myplan` `id:two` `after:one`\n\nDo the second thing.\n";
+
+    private string _text = string.Empty;
+    private string? _defaultRepo;
+    private string? _error;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The repositories offered for the batch's default. Which
+    /// repositories exist is a workspace question and not this dialog's
+    /// business — the same bargain <c>RepositorySelector</c> itself makes —
+    /// so the host hands them in rather than this dialog reaching into
+    /// <c>GitHub</c> or a repository service on its own. Empty means no
+    /// repositories are configured, and the field is hidden entirely rather
+    /// than shown as an always-empty select.</summary>
+    [Parameter]
+    public IReadOnlyList<SelectorOption> Options { get; set; } = [];
+
+    /// <summary>Whether an import is in flight. The caller owns this — it is the
+    /// one running the use case — so a submit pressed twice while the first is
+    /// still saving is the caller's to refuse, not this dialog's.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The plan's raw text and the optional default repository, once
+    /// the reader presses Import. The caller reports back through
+    /// <see cref="SetError"/> when the text did not parse to anything, rather
+    /// than this dialog guessing at what counts as empty.</summary>
+    [Parameter]
+    public EventCallback<ImportPlanSubmission> OnImport { get; set; }
+
+    /// <summary>Resets the draft and opens the dialog. Called by the host rather
+    /// than on every <c>Open</c> flip, so a dialog left open across a re-render
+    /// does not lose what somebody is mid-paste on.</summary>
+    public void OpenFresh()
+    {
+        _text = string.Empty;
+        _defaultRepo = null;
+        _error = null;
+        Open = true;
+    }
+
+    /// <summary>Shows a refusal under the paste box — an empty plan, or whatever
+    /// the import use case reported — and leaves the text exactly as typed so it
+    /// can be fixed rather than retyped.</summary>
+    public void SetError(string? message)
+    {
+        _error = message;
+        StateHasChanged();
+    }
+
+    /// <summary>Closes the dialog on the caller's say-so, once the import has
+    /// actually gone through.</summary>
+    public Task Close()
+    {
+        Open = false;
+        return OpenChanged.InvokeAsync(false);
+    }
+
+    private Task OnOpenChanged(bool open)
+    {
+        Open = open;
+        return OpenChanged.InvokeAsync(open);
+    }
+
+    /// <summary>Cancel is one more path that closes the dialog from inside
+    /// itself, the same as the backdrop click and Escape that <c>Modal</c>
+    /// already routes through <see cref="OnOpenChanged"/>. It has to report back
+    /// through <see cref="OpenChanged"/> too, or the caller's own notion of
+    /// whether the dialog is open goes stale the moment this button is pressed.</summary>
+    private Task Cancel()
+    {
+        Open = false;
+        return OpenChanged.InvokeAsync(false);
+    }
+
+    /// <summary>The file and the paste box are one value, the same bargain
+    /// ToolsPane's import dialog makes: picking a file fills the box, so what is
+    /// about to be imported is on screen either way.</summary>
+    private void OnFileRead(string text)
+    {
+        _text = text;
+        _error = null;
+    }
+
+    private void OnFileRejected(string message) => _error = message;
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_text))
+        {
+            _error = "Choose a file or paste the plan text.";
+            return;
+        }
+
+        _error = null;
+        var defaultRepo = string.IsNullOrWhiteSpace(_defaultRepo) ? null : _defaultRepo.Trim();
+        await OnImport.InvokeAsync(new ImportPlanSubmission(_text, defaultRepo));
+    }
+}

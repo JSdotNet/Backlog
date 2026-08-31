@@ -1,5 +1,6 @@
 using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
 using Backlog.Modules.Backlog.Features.DeleteTask;
+using Backlog.Modules.Backlog.Features.ImportPlan;
 using Backlog.Modules.Backlog.Features.LinkTaskToIssue;
 using Backlog.Modules.Backlog.Features.ListTasks;
 using Backlog.Modules.Backlog.Features.RecordTaskUsage;
@@ -36,6 +37,7 @@ public static class BacklogModuleRegistration
         services.AddScoped<ICommandHandler<DeleteTaskCommand>, DeleteTaskCommandHandler>();
         services.AddScoped<ICommandHandler<ReorderTasksCommand>, ReorderTasksCommandHandler>();
         services.AddScoped<ICommandHandler<RecordTaskUsageCommand>, RecordTaskUsageCommandHandler>();
+        services.AddScoped<ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>, ImportPlanCommandHandler>();
 
         services.AddScoped<ITaskItems, TaskItems>();
 

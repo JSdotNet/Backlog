@@ -227,6 +227,29 @@ public sealed class TaskItem
         if (repoIds is not null) _repoIds.AddRange(repoIds);
     }
 
+    /// <summary>The shared <c>#tag</c> the plan this entry was imported from was
+    /// filed under, or null when the entry was not imported (or was imported from
+    /// a plan with no shared tag). Provenance in the same spirit as
+    /// <see cref="SourceInboxId"/>, but mutable rather than constructor-only: an
+    /// entry re-saved through the ordinary text-save path has to keep carrying it,
+    /// the same way <see cref="Area"/> and <see cref="Effort"/> survive an
+    /// unrelated edit.</summary>
+    public string? ImportPlanId { get; private set; }
+
+    /// <summary>The <c>id:</c> token the imported plan gave this entry, or null
+    /// when the entry carries none. Together with <see cref="ImportPlanId"/> this
+    /// is what a later re-import matches an entry against.</summary>
+    public string? ImportItemId { get; private set; }
+
+    /// <summary>Files the entry under a plan, or clears it. Blank is stored as
+    /// null, the same normalization <see cref="SetArea"/> applies.</summary>
+    public void SetImportPlanId(string? importPlanId) =>
+        ImportPlanId = string.IsNullOrWhiteSpace(importPlanId) ? null : importPlanId.Trim();
+
+    /// <summary>Records the plan's local id for this entry, or clears it.</summary>
+    public void SetImportItemId(string? importItemId) =>
+        ImportItemId = string.IsNullOrWhiteSpace(importItemId) ? null : importItemId.Trim();
+
     public void SetTags(IEnumerable<string> tags)
     {
         _tags.Clear();

@@ -1,6 +1,7 @@
 using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
 using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Backlog.Features.DeleteTask;
+using Backlog.Modules.Backlog.Features.ImportPlan;
 using Backlog.Modules.Backlog.Features.LinkTaskToIssue;
 using Backlog.Modules.Backlog.Features.ListTasks;
 using Backlog.Modules.Backlog.Features.RecordTaskUsage;
@@ -22,7 +23,8 @@ internal sealed class TaskItems(
     ICommandHandler<LinkTaskToIssueCommand, Result<TaskItemDto>> link,
     ICommandHandler<DeleteTaskCommand> delete,
     ICommandHandler<ReorderTasksCommand> reorder,
-    ICommandHandler<RecordTaskUsageCommand> recordUsage) : ITaskItems
+    ICommandHandler<RecordTaskUsageCommand> recordUsage,
+    ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -50,4 +52,10 @@ internal sealed class TaskItems(
 
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default) =>
         recordUsage.Handle(new RecordTaskUsageCommand(id, action), cancellationToken);
+
+    public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
+        string rawText,
+        string? defaultRepo = null,
+        CancellationToken cancellationToken = default) =>
+        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo), cancellationToken);
 }
