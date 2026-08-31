@@ -141,6 +141,7 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);
+        testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         testContext.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
 
@@ -182,6 +183,15 @@ public sealed class SettingsAiUsageTests
         public Task<GitHubIssueSnapshot> GetIssueAsync(
             GitHubRepositoryRef repository,
             int number,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }

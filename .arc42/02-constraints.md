@@ -17,6 +17,7 @@ related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
 | Constraint | Implication |
 |---|---|
 | **Local-first canonical storage** | The desktop's own local store is the single source of truth. Tasks live in one SQLite database; a task's content is markdown text inside it. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. |
+| **Repository knowledge stays markdown-canonical** | A repository's knowledge folders are hand-edited markdown and remain the source of truth. The graph, reading outline, retrieval and diagram indexes derived from them are generated, never authoritative, and a reader falls back to the markdown when they are absent. See `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`. |
 | **Local-first, offline-capable** | All core workflows run without connectivity; the cloud is additive only. |
 | **All capture runs locally** | YouTube, website, and email polling execute on the desktop via background workers, so external credentials stay on the user's machine. |
 | **Cloud is a thin sync/coordination layer** | No inbox fetching, domain CRUD, or full-text search in the cloud — only sync state, webhook forwarding, push, and machine registry. |

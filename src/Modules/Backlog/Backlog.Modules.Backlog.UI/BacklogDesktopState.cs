@@ -432,15 +432,21 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>Appends a new, unsaved draft row at the end of the list and opens
     /// it in the detail pane, on its title. It is only persisted once a title line
     /// exists (the domain requires a title), so what is typed before that is held
-    /// locally. When an area is being filtered, the new entry starts already
-    /// filed there — otherwise it would vanish the moment it saved.</summary>
+    /// locally. When an area is being filtered, or a repository is scoped, the new
+    /// entry starts already filed there — otherwise it would vanish the moment it
+    /// saved, since a repository's rows are exactly the rows whose area names it
+    /// (<see cref="RowBelongsToSelectedRepository"/>).</summary>
     public void NewRow()
     {
         var row = new EntryRow();
 
-        if (SelectedArea.Length > 0 && SelectedArea != UnfiledArea)
+        var seedArea = SelectedArea.Length > 0 && SelectedArea != UnfiledArea
+            ? SelectedArea
+            : SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
+
+        if (seedArea is not null)
         {
-            row.RawText = $"# \n`task` `*medium` `!draft` `@{SelectedArea}`\n";
+            row.RawText = $"# \n`task` `*medium` `!draft` `@{seedArea}`\n";
             row.SeedText = row.RawText;
         }
 

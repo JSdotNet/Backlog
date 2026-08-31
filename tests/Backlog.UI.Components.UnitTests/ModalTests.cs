@@ -45,6 +45,27 @@ public sealed class ModalTests
     }
 
     [Fact]
+    public void A_host_re_rendering_while_open_does_not_re_focus_the_dialog()
+    {
+        // Typing into a field inside the dialog re-renders the host, which
+        // re-passes Open="true" unchanged into this component. That must not
+        // look like the dialog opening again, or every keystroke would drag
+        // focus back onto the dialog container and out of the field.
+        using var context = new BunitContext();
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+
+        modal.Render(parameters => parameters.Add(m => m.Open, true));
+        modal.Render(parameters => parameters.Add(m => m.Open, true));
+
+        Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+    }
+
+    [Fact]
     public void Escape_closes_the_dialog_only_when_it_is_allowed_to()
     {
         using var context = new BunitContext();

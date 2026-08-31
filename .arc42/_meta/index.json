@@ -5,13 +5,7 @@
   "sources": [
     ".arc42"
   ],
-  "problems": [
-    {
-      "severity": "warning",
-      "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-      "message": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md is not listed in the reading order recorded in the committed `_meta/index.json`; appended alphabetically. Move it there to pin its position."
-    }
-  ],
+  "problems": [],
   "entries": [
     {
       "type": "file",
@@ -131,6 +125,13 @@
           "path": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "title": "ADR 0003: SQLite is the canonical local task store; markdown is the content",
           "status": "accepted"
+        },
+        {
+          "type": "file",
+          "name": "0004-knowledge-index-is-a-generated-local-database.md",
+          "path": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+          "title": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
+          "status": "proposed"
         },
         {
           "type": "directory",

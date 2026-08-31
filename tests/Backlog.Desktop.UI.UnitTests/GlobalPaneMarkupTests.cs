@@ -120,7 +120,9 @@ public sealed class GlobalPaneMarkupTests
         // Both navigation groups are inside the landmark; the utilities are not.
         Assert.InRange(home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
-        Assert.True(home.IndexOf("TestId=\"feedback-button\"", StringComparison.Ordinal) > utilities);
+        // The trigger and its dialog moved into their own component so every
+        // routed page can mount the same one; only the mount point is left here.
+        Assert.True(home.IndexOf("<FeedbackReportButton", StringComparison.Ordinal) > utilities);
         Assert.True(home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal) > utilities);
         Assert.True(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal) > utilities);
 

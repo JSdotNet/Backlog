@@ -1826,7 +1826,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 272,
+          "line": 277,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -1848,7 +1848,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 299,
+          "line": 304,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -1866,7 +1866,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 316,
+          "line": 321,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [
@@ -1895,7 +1895,7 @@
           "path": ".arc42/02-constraints.md",
           "slug": "organizational--process-constraints",
           "level": 2,
-          "line": 26,
+          "line": 27,
           "status": "active",
           "outOfScope": true
         }
@@ -1909,7 +1909,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 143,
+          "line": 148,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -2044,7 +2044,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 38,
+          "line": 43,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -2062,7 +2062,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 90,
+          "line": 95,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",

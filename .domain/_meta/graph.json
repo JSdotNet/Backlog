@@ -6,29 +6,29 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 502,
-    "edges": 816,
+    "nodes": 505,
+    "edges": 823,
     "nodesByFolder": {
-      "domain": 492,
-      "arc42": 8,
+      "domain": 494,
+      "arc42": 9,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 428,
+      "chapter": 431,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 408,
-      "proposed": 35,
+      "draft": 410,
+      "proposed": 36,
       "deprecated": 3,
       "idea": 1,
       "active": 54,
       "none": 1
     },
     "edgesByType": {
-      "contains": 420,
-      "related": 356,
+      "contains": 422,
+      "related": 361,
       "depends-on": 40
     }
   },
@@ -771,7 +771,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 443,
+          "line": 448,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -788,7 +788,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 469,
+          "line": 474,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -808,7 +808,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 486,
+          "line": 491,
           "status": "draft"
         }
       },
@@ -821,7 +821,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 496,
+          "line": 501,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
@@ -842,7 +842,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 527,
+          "line": 532,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -5816,6 +5816,22 @@
       },
       {
         "data": {
+          "id": ".domain/second-brain/features.md#knowledge-that-stays-current",
+          "label": "Knowledge that stays current",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "knowledge-that-stays-current",
+          "level": 3,
+          "line": 123,
+          "status": "draft",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#knowledge-index"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/features.md#instruction-optimization",
           "label": "Instruction optimization",
           "type": "chapter",
@@ -5823,7 +5839,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "instruction-optimization",
           "level": 2,
-          "line": 123,
+          "line": 147,
           "status": "draft",
           "feature-flag": [
             "instruction-optimization"
@@ -5846,7 +5862,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "instruction-set-inventory",
           "level": 3,
-          "line": 148,
+          "line": 172,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-set"
@@ -5862,7 +5878,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "context-load-budget",
           "level": 3,
-          "line": 163,
+          "line": 187,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#context-load"
@@ -5878,7 +5894,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "duplicate-rule-detection",
           "level": 3,
-          "line": 177,
+          "line": 201,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-alignment"
@@ -5894,7 +5910,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "cross-tool-alignment-validation",
           "level": 3,
-          "line": 191,
+          "line": 215,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-alignment"
@@ -5910,7 +5926,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "pointer-and-phrasing-review",
           "level": 3,
-          "line": 207,
+          "line": 231,
           "status": "draft"
         }
       },
@@ -5923,7 +5939,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "prune-candidates",
           "level": 3,
-          "line": 222,
+          "line": 246,
           "status": "draft"
         }
       },
@@ -5936,7 +5952,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "reviewed-change-proposals",
           "level": 3,
-          "line": 236,
+          "line": 260,
           "status": "draft",
           "related": [
             ".domain/second-brain/domain.md#instruction-review"
@@ -5952,10 +5968,29 @@
           "path": ".domain/second-brain/features.md",
           "slug": "saving-evidence",
           "level": 3,
-          "line": 250,
+          "line": 274,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#saving-evidence"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/second-brain/features.md#knowledge-retrieval",
+          "label": "Knowledge retrieval",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "knowledge-retrieval",
+          "level": 2,
+          "line": 287,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/features.md#topic-and-tag-grouping",
+            ".domain/second-brain/features.md#repository-knowledge-areas",
+            ".domain/backlog/features.md#search-filter-and-organize",
+            ".arc42/08-crosscutting-concepts.md#knowledge-index"
           ]
         }
       },
@@ -7609,7 +7644,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 113,
+          "line": 174,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -7704,7 +7739,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 143,
+          "line": 148,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -7722,7 +7757,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 101,
+          "line": 162,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -7779,6 +7814,25 @@
             ".design/design-principles.md#no-save-buttons--auto-save-everywhere",
             ".design/accessibility.md",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "label": "Knowledge Index",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "knowledge-index",
+          "level": 2,
+          "line": 42,
+          "status": "proposed",
+          "related": [
+            ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
+            ".arc42/02-constraints.md#technical-constraints",
+            ".domain/second-brain/features.md#repository-knowledge-areas"
           ],
           "outOfScope": true
         }
@@ -10355,6 +10409,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/second-brain/features.md#repository-knowledge-areas->.domain/second-brain/features.md#knowledge-that-stays-current",
+          "source": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "target": ".domain/second-brain/features.md#knowledge-that-stays-current",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#instruction-optimization",
           "source": ".domain/second-brain/features.md",
           "target": ".domain/second-brain/features.md#instruction-optimization",
@@ -10422,6 +10484,14 @@
           "id": "contains:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#saving-evidence",
           "source": ".domain/second-brain/features.md#instruction-optimization",
           "target": ".domain/second-brain/features.md#saving-evidence",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#knowledge-retrieval",
+          "source": ".domain/second-brain/features.md",
+          "target": ".domain/second-brain/features.md#knowledge-retrieval",
           "type": "contains"
         }
       },
@@ -13611,6 +13681,14 @@
       },
       {
         "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-that-stays-current->.arc42/08-crosscutting-concepts.md#knowledge-index",
+          "source": ".domain/second-brain/features.md#knowledge-that-stays-current",
+          "target": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/second-brain/features.md#instruction-optimization->.domain/second-brain/features.md#repository-knowledge-areas",
           "source": ".domain/second-brain/features.md#instruction-optimization",
           "target": ".domain/second-brain/features.md#repository-knowledge-areas",
@@ -13678,6 +13756,38 @@
           "id": "related:.domain/second-brain/features.md#saving-evidence->.domain/second-brain/naming.md#saving-evidence",
           "source": ".domain/second-brain/features.md#saving-evidence",
           "target": ".domain/second-brain/naming.md#saving-evidence",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-retrieval->.domain/second-brain/features.md#topic-and-tag-grouping",
+          "source": ".domain/second-brain/features.md#knowledge-retrieval",
+          "target": ".domain/second-brain/features.md#topic-and-tag-grouping",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-retrieval->.domain/second-brain/features.md#repository-knowledge-areas",
+          "source": ".domain/second-brain/features.md#knowledge-retrieval",
+          "target": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-retrieval->.domain/backlog/features.md#search-filter-and-organize",
+          "source": ".domain/second-brain/features.md#knowledge-retrieval",
+          "target": ".domain/backlog/features.md#search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-retrieval->.arc42/08-crosscutting-concepts.md#knowledge-index",
+          "source": ".domain/second-brain/features.md#knowledge-retrieval",
+          "target": ".arc42/08-crosscutting-concepts.md#knowledge-index",
           "type": "related"
         }
       },

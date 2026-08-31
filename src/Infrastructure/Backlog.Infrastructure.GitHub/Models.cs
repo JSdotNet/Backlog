@@ -61,3 +61,6 @@ public sealed record GitHubFeedbackScreenshot(
     int Width,
     int Height,
     long SizeBytes);
+
+/// <summary>A file committed to a repository through the Contents API.</summary>
+public sealed record GitHubUploadedFile(string Path, string DownloadUrl);

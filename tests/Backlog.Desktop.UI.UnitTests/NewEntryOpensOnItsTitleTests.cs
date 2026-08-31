@@ -178,6 +178,53 @@ public sealed class NewEntryOpensOnItsTitleTests
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
 
+    /// <summary>With a repository scoped, a new entry starts already filed there —
+    /// the same bargain <see cref="Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with"/>
+    /// documents for an area filter, extended to the other scope
+    /// <see cref="BacklogDesktopState.RowBelongsToSelectedRepository"/> reads the
+    /// same field to decide. Without the seed, a repository's rows are exactly the
+    /// rows whose area names it — so an entry created with no area would pass the
+    /// filter only while pinned as an unpersisted draft, then drop out of
+    /// <c>FilteredRows</c> the moment its title saved and closed the pane on it.</summary>
+    [Fact]
+    public async Task A_new_entry_is_seeded_with_the_scoped_repositorys_area()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
+        host.State.SetRepositoryFilter("backlog");
+
+        var pane = host.Render();
+        var row = await AddEntryAsync(host, pane);
+
+        Assert.Contains("`@backlog`", row.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>The regression itself: typing the title on a repository-scoped draft
+    /// must not vanish it from the list or close the pane on it. Before the seed
+    /// above, the draft passed the filter only as an unpersisted, selected row — a
+    /// pin that <see cref="BacklogDesktopState.ApplyFilter"/> withdraws the instant
+    /// the save gives it an id, so the very act of naming the entry made it
+    /// disappear.</summary>
+    [Fact]
+    public async Task Typing_the_title_keeps_a_repository_scoped_entry_visible()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
+        host.State.SetRepositoryFilter("backlog");
+
+        var pane = host.Render();
+        var row = await AddEntryAsync(host, pane);
+
+        await pane.Find("[data-testid='entry-panel-rename']").InputAsync(new() { Value = "Provision the box" });
+        await pane.Find("[data-testid='entry-panel-rename']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.True(row.IsPersisted);
+        Assert.Equal("backlog", row.PreviewArea);
+        Assert.Same(row, host.State.SelectedRow);
+        Assert.Contains(row, host.State.FilteredRows);
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
     // --- And an abandoned one is not an entry at all ----------------------
 
     /// <summary>A draft nobody wrote in goes when the reader moves on, rather than
