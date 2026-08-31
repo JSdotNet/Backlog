@@ -23,7 +23,12 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
             return Task.FromResult(Arc42KnowledgeCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty));
         }
 
-        return Arc42KnowledgeReader.LoadFolderAsync(location.FullPath);
+        // The root travels with the folder, because the index inside a folder
+        // spells its entries relative to the repository, not to the folder. A
+        // folder pointed at docs/arch carries entries reading docs/arch/..., and
+        // resolving those against the folder's own parent would look for them
+        // under docs/docs/arch and list nothing at all.
+        return Arc42KnowledgeReader.LoadFolderAsync(location.FullPath, location.RootPath);
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -46,11 +51,21 @@ public static class Arc42KnowledgeReader
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public static Task<Arc42KnowledgeCatalog> LoadAsync(string rootDirectory) =>
-        LoadFolderAsync(Path.Combine(rootDirectory, ".arc42"));
+        LoadFolderAsync(Path.Combine(rootDirectory, ".arc42"), rootDirectory);
 
-    public static async Task<Arc42KnowledgeCatalog> LoadFolderAsync(string arc42Directory)
+    /// <summary>Reads one arc42 folder into a catalog.
+    /// <para>
+    /// <paramref name="repositoryRoot"/> is the repository the folder sits in, for
+    /// a caller that knows it. Every path this catalog carries is spelled relative
+    /// to that root — which is also the spelling the index generator writes, so
+    /// the two agree for a folder wherever it has been pointed. Without it the
+    /// folder's own parent stands in, which is the same answer for the
+    /// conventional folder at the repository root and the only answer available
+    /// for a folder configured somewhere off the clone entirely.
+    /// </para></summary>
+    public static async Task<Arc42KnowledgeCatalog> LoadFolderAsync(string arc42Directory, string? repositoryRoot = null)
     {
-        var rootDirectory = Directory.GetParent(arc42Directory)?.FullName ?? arc42Directory;
+        var rootDirectory = ResolveRoot(arc42Directory, repositoryRoot);
         if (!Directory.Exists(arc42Directory))
         {
             return Arc42KnowledgeCatalog.Missing(rootDirectory);
@@ -75,6 +90,35 @@ public static class Arc42KnowledgeReader
         }
 
         return new Arc42KnowledgeCatalog(rootDirectory, true, documents);
+    }
+
+    /// <summary>
+    /// The directory every path in this catalog is spelled relative to.
+    /// <para>
+    /// The offered root is believed only while the folder is actually inside it.
+    /// A configured folder may name somewhere off the clone entirely, and
+    /// spelling its documents relative to a repository that does not contain them
+    /// would produce a path climbing out of the root the writer later checks
+    /// against — so that case falls back to the folder's own parent, and the
+    /// documents keep the last-segment spelling the resolver already reads.
+    /// </para>
+    /// </summary>
+    private static string ResolveRoot(string arc42Directory, string? repositoryRoot)
+    {
+        var parent = Directory.GetParent(arc42Directory)?.FullName ?? arc42Directory;
+        if (string.IsNullOrWhiteSpace(repositoryRoot)) return parent;
+
+        try
+        {
+            var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+            var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(arc42Directory));
+
+            return folder.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ? root : parent;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return parent;
+        }
     }
 
     private static async Task<List<string>> ReadIndexedPathsAsync(string indexPath, string rootDirectory)

@@ -270,10 +270,10 @@
     /// <para>
     /// The folder comes from the knowledge-folder port and never from
     /// <see cref="Arc42KnowledgeCatalog.RootDirectory"/>: the reader sets that to
-    /// the <em>parent</em> of the folder it read, so a chapter rooted there would
+    /// the <em>repository</em> the folder sits in, so a chapter rooted there would
     /// hand the writer a containment root covering the whole repository. The port
     /// is asked for the same folder the catalog was built from, rather than
-    /// reconstructed by combining a literal <c>.arc42</c> back onto the parent.
+    /// reconstructed by combining a literal <c>.arc42</c> back onto the root.
     /// </para>
     /// <para>
     /// Guarded on reference identity, which is what makes the guard clear itself:
