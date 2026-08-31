@@ -30,6 +30,19 @@ internal static class BacklogTestHost
     public static ITaskItems EntriesFor(WorkspaceSettingsStore store) =>
         EntriesFor(RepositoryFor(store));
 
+    /// <summary>
+    /// The module's use cases over one repository.
+    /// <para>
+    /// The provider composing them is deliberately not disposed and not held: the
+    /// handlers it builds are the return value, they outlive this call by
+    /// definition, and disposing the provider would take them with it. Nothing it
+    /// creates owns a thread, a timer, or a handle — the repository it is handed
+    /// was constructed outside and opens its SQLite connection per call — so a
+    /// rooted provider here costs the test process a few objects until it exits
+    /// and nothing else. Contrast <c>BacklogDesktopState</c>, which does arm
+    /// timers and is disposed by every harness that builds one.
+    /// </para>
+    /// </summary>
     public static ITaskItems EntriesFor(ITaskRepository repository) =>
         new ServiceCollection()
             .AddSingleton(repository)
@@ -53,6 +66,10 @@ internal static class BacklogTestHost
     /// returns a fixture would make every test about the band pass whether the
     /// storage worked or not. A test that wants an empty plan simply does not write
     /// one.
+    /// </para>
+    /// <para>
+    /// The provider is rooted rather than disposed, for the reason
+    /// <see cref="EntriesFor(ITaskRepository)"/> gives.
     /// </para>
     /// </summary>
     public static IRoadmapPlanning PlanningFor(WorkspaceSettingsStore store) =>

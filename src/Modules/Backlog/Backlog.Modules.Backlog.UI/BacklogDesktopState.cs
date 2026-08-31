@@ -48,6 +48,10 @@ public sealed class BacklogDesktopState : IDisposable
 {
     private const int DebounceMilliseconds = 750;
 
+    /// <summary>How long the tick beside a just-saved row stays up. See
+    /// <see cref="FlashSaved"/>.</summary>
+    private const int FlashMilliseconds = 900;
+
     private readonly IBacklogStore _store;
     private readonly ITaskItems _entryUseCases;
     private readonly GitHubIntegration _gitHub;
@@ -60,7 +64,23 @@ public sealed class BacklogDesktopState : IDisposable
     /// re-parsing text — never to change an entry, which only ever happens by
     /// saving its text through <see cref="ITaskItems"/>.</summary>
     private readonly Dictionary<Guid, TaskItemDto> _entries = new();
+
+    /// <summary>The debounce each row is waiting on, keyed by row. Written by
+    /// whoever is typing and read-modified by every callback that fires, which
+    /// are different threads, so it is only ever touched under its own lock.
+    /// </summary>
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
+
+    /// <summary>Cancelled when this state is disposed. Every callback it left in
+    /// flight — an elapsed debounce, a save flash — asks this before touching
+    /// anything, because by then the store it would write to and the screen it
+    /// would re-render belong to a workspace nobody is looking at.</summary>
+    private readonly CancellationTokenSource _lifetime = new();
+
+    /// <summary><see cref="_lifetime"/>'s token, taken once. A token read off a
+    /// source that has since been disposed throws; a copy taken before that does
+    /// not, and still reports the cancellation.</summary>
+    private readonly CancellationToken _untilDisposed;
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
     /// opened, or -1 when no entry is being written in. See
@@ -70,6 +90,9 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>Whether a save has reported a recurrence successor that is not in
     /// <see cref="Rows"/> yet. See <see cref="ShowSpawnedOccurrenceAsync"/>.</summary>
     private bool _spawnedOccurrencePending;
+
+    /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
+    private bool _disposed;
 
     public BacklogDesktopState(
         IBacklogStore store,
@@ -84,6 +107,7 @@ public sealed class BacklogDesktopState : IDisposable
         _issues = new BacklogIssues(gitHub);
         _copilot = copilot ?? BacklogCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _untilDisposed = _lifetime.Token;
         _store.RootChanged += OnRootChanged;
     }
 
@@ -1012,16 +1036,40 @@ public sealed class BacklogDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Hands back everything that outlives the gesture that started it: the
+    /// store subscription, every armed debounce, and the timed callbacks already
+    /// in flight.
+    /// <para>
+    /// The cancellation matters as much as the timer disposal, and is why the
+    /// order here is cancel-then-dispose. Disposing a <see cref="Timer"/> does
+    /// not stop a callback that has already begun, and the save flash is a bare
+    /// delay with no timer to dispose at all — so both read the token instead,
+    /// and see a cancellation that was raised before this method took the lock.
+    /// </para>
+    /// </summary>
     public void Dispose()
     {
+        // A host may register this state with a container and dispose it by hand,
+        // and which of the two gets there first is not something either can see.
+        if (_disposed) return;
+        _disposed = true;
+
         _store.RootChanged -= OnRootChanged;
 
-        foreach (var timer in _debounceTimers.Values)
+        _lifetime.Cancel();
+
+        lock (_debounceTimers)
         {
-            timer.Dispose();
+            foreach (var timer in _debounceTimers.Values)
+            {
+                timer.Dispose();
+            }
+
+            _debounceTimers.Clear();
         }
 
-        _debounceTimers.Clear();
+        _lifetime.Dispose();
     }
 
     // --- GitHub -----------------------------------------------------------
@@ -1221,13 +1269,38 @@ public sealed class BacklogDesktopState : IDisposable
     {
         CancelDebounce(row);
 
-        var timer = new Timer(_ => OnDebounceElapsed(row), null, DebounceMilliseconds, Timeout.Infinite);
-        _debounceTimers[row.Key] = timer;
+        lock (_debounceTimers)
+        {
+            // Disposed while this keystroke was being handled. Arming now would
+            // put a timer in a map nothing will ever empty again.
+            if (_untilDisposed.IsCancellationRequested) return;
+
+            // The timer is its own callback's state, so the callback can tell
+            // whether it is still the arm this row is waiting on. See
+            // OnDebounceElapsed.
+            var timer = new Timer(state => OnDebounceElapsed(row, (Timer)state!));
+            _debounceTimers[row.Key] = timer;
+            timer.Change(DebounceMilliseconds, Timeout.Infinite);
+        }
     }
 
-    private async void OnDebounceElapsed(EntryRow row)
+    private async void OnDebounceElapsed(EntryRow row, Timer timer)
     {
-        _debounceTimers.Remove(row.Key);
+        lock (_debounceTimers)
+        {
+            // Not this row's arm any more. Disposing a timer does not stop a
+            // callback that has already been scheduled, so the typing thread may
+            // have re-armed the row in the meantime — and taking that newer
+            // timer's entry out here would leave it with nothing able to cancel
+            // it, saving text the person has since moved past.
+            if (!_debounceTimers.TryGetValue(row.Key, out var armed) || !ReferenceEquals(armed, timer)) return;
+
+            _debounceTimers.Remove(row.Key);
+        }
+
+        timer.Dispose();
+
+        if (_untilDisposed.IsCancellationRequested) return;
 
         await SaveRowAsync(row, isFlush: false);
 
@@ -1236,10 +1309,14 @@ public sealed class BacklogDesktopState : IDisposable
 
     private void CancelDebounce(EntryRow row)
     {
-        if (_debounceTimers.Remove(row.Key, out var timer))
+        Timer? timer;
+
+        lock (_debounceTimers)
         {
-            timer.Dispose();
+            _debounceTimers.Remove(row.Key, out timer);
         }
+
+        timer?.Dispose();
     }
 
     /// <summary>
@@ -1361,11 +1438,30 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
+    /// <summary>
+    /// The tick beside a row that has just been written, and the wait after which
+    /// it goes away again.
+    /// <para>
+    /// Cancellable, because the state can be disposed inside that wait — the pane
+    /// closed, the workspace moved — and a flash that came back regardless would
+    /// re-render a screen that is gone. Same shape as the shared library's own
+    /// timed feedback; see <c>Toast</c> and <c>CopyButton</c>.
+    /// </para>
+    /// </summary>
     private async void FlashSaved(EntryRow row)
     {
         row.JustSaved = true;
         Changed?.Invoke();
-        await Task.Delay(900);
+
+        try
+        {
+            await Task.Delay(FlashMilliseconds, _untilDisposed);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
         row.JustSaved = false;
         Changed?.Invoke();
     }

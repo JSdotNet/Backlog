@@ -96,6 +96,37 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
             TimeSpan.FromSeconds(5));
     }
 
+    /// <summary>
+    /// Closing the editor flushes what was typed — once. The debounce it armed
+    /// on the way is a timed callback with nothing left to render into, and a
+    /// write it made afterwards would land on a chapter nobody is editing any
+    /// more. It is also work still queued when the test host has finished, which
+    /// is what left the desktop UI assembly refusing to exit (issue #211).
+    /// </summary>
+    [Fact]
+    public async Task A_closed_editor_flushes_once_and_never_writes_again()
+    {
+        var context = NewContext();
+        var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.\n");
+        var component = Render(context, chapter, "# Notes\n\nProse.\n");
+        var path = Path.Combine(root, "notes.md");
+
+        component.Find("[data-testid='knowledge-chapter-edit']").Click();
+        component.Find("textarea").Input("# Notes\n\nTyped as the pane closed.\n");
+
+        await context.DisposeAsync();
+
+        var flushed = File.ReadAllText(path);
+        var flushedAt = File.GetLastWriteTimeUtc(path);
+        Assert.Contains("Typed as the pane closed.", flushed, StringComparison.Ordinal);
+
+        // Well past the 750 ms the closing keystroke armed.
+        await Task.Delay(1500);
+
+        Assert.Equal(flushed, File.ReadAllText(path));
+        Assert.Equal(flushedAt, File.GetLastWriteTimeUtc(path));
+    }
+
     [Fact]
     public async Task Moving_to_another_chapter_flushes_the_one_being_left()
     {
