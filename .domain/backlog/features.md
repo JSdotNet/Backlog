@@ -369,6 +369,108 @@ entry's own markdown — title, metadata, body, and sub-items — is the brief, 
 the hand-off is recorded in the entry's usage history so the entry itself shows
 that AI was put to work on it.
 
+## Import
+
+```meta
+type: feature
+status: proposed
+depends-on: [.domain/backlog/features.md#backlog-entry-creation, .domain/backlog/features.md#entry-dependencies, .domain/backlog/features.md#multi-repo-targeting]
+related: [.domain/backlog/features.md#prompt-features, .domain/backlog/features.md#sub-items-and-steps, .domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag, .domain/repository-management/features.md#repository-registration]
+```
+
+Bring in a plan that lists a sequence of AI prompts to run across one or more
+repositories, in the order they depend on each other, and turn the whole plan
+into backlog entries in one step instead of typing each one in by hand. A plan
+can be brought in as an uploaded file or pasted directly, whichever is faster
+in the moment — both read the same plan. Import builds nothing that entry
+creation does not already offer — it is a faster way of filling the backlog,
+not a second way of holding work.
+
+Each prompt in the plan becomes one `prompt`-type
+[Backlog Entry](domain.md#backlog-entry). The prompt's own instructions become
+that entry's body, and the order the plan declares between prompts becomes an
+ordinary [entry dependency](#entry-dependencies) between the entries import
+creates — the same relationship a person would have typed by hand, resolved
+from the plan's own local prompt references to the real entry ids as the
+entries are created. "What's next" for an imported chain reads no differently
+than for any other: by [Readiness](domain.md#readiness), grouped by
+[repository](#multi-repo-targeting). The plan itself becomes one of the
+entry's tags, filed the same way an entry is
+[filed against a roadmap tag](#filing-an-entry-against-a-roadmap-tag), so
+everything one plan brought in can be found and filtered as a group without a
+separate "which plan was this" lookup.
+
+A plan also carries work around a prompt that is not the prompt itself: a
+setup or dependency step the repository needs before the prompt can run —
+installing a plugin, say — a reminder to update that repository's knowledge
+docs or devbook, and a task only a person can do. None of these are a new
+kind of thing. They land as ordinary [sub-items](#sub-items-and-steps) on the
+entry they belong to, ordered ahead of the prompt they gate. A step is a step
+whichever list it came from; import adds no second vocabulary for what a
+sub-item already says, and a sub-item created by import is indistinguishable
+from one a person typed by hand, because it is the same thing.
+
+Every entry import creates carries where it came from — see
+[Backlog Entry](domain.md#backlog-entry) — so a batch of prompts brought in
+together stays traceable back to the plan and the specific item that produced
+each one.
+
+### Repository resolution on import
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/repository-management/features.md#repository-registration, .domain/repository-management/domain.md#repository-registry]
+```
+
+Resolve each prompt's target repository by the name the plan's author wrote,
+against the same [Repository Registry](../repository-management/domain.md#repository-registry)
+[multi-repo targeting](#multi-repo-targeting) already resolves `repo_ids`
+against. A name the registry already knows resolves to its `repo_id` as
+usual. A name the registry has never seen is registered there on the spot,
+using Repository Management's existing
+[registration capability](../repository-management/features.md#repository-registration),
+before the entry naming it is created — so a plan can introduce a repository
+to the product just by mentioning it, without a separate registration step
+first.
+
+Import triggers registration; it does not perform it. The repository is
+registered with whatever the plan states about it (at minimum, its name); what
+a registered repository holds and how registration behaves stays Repository
+Management's decision, and Import gains no authority over it beyond the
+ability to ask for it.
+
+The Import dialog also offers a "Target repository" field for the whole
+batch: when filled in, it is applied as the resolved repository for any
+prompt in the plan that names none of its own, without touching a prompt that
+already carries its own `repo:` token.
+
+### Re-importing an updated plan
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/backlog/domain.md#backlog-entry, .domain/backlog/domain.md#entry-status]
+```
+
+Bring in a later version of a plan already imported once, and have it adjust
+the entries still in flight rather than duplicate them. Each prompt in a plan
+keeps the same id across versions, so a later import recognizes "this is the
+same prompt, updated" instead of "this is a new prompt" — the plan's id
+together with the prompt's id inside it is what an entry remembers about
+where it came from, and what a later import matches against.
+
+An entry a previous import produced, and that is not yet `done` or
+`archived`, is updated in place from the new version: its instructions, its
+dependencies, its target repository, and its setup/knowledge/manual sub-items
+are replaced with what the new version says. A prompt the plan no longer
+mentions is left as it is — import removes nothing on its own. An entry
+already `done` or `archived` is never touched by a later import, the same way
+finishing a recurring entry leaves that occurrence as the settled record of
+what was done rather than something a later change reopens. A prompt id the
+first import never produced an entry for is simply created new, whichever
+version of the plan introduced it.
+
 ## AI assistance over the visible backlog
 
 ```meta

@@ -9,7 +9,13 @@
     ".tech",
     ".design"
   ],
-  "problems": [],
+  "problems": [
+    {
+      "severity": "warning",
+      "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+      "message": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md is not listed in the reading order recorded in the committed `_meta/index.json`; appended alphabetically. Move it there to pin its position."
+    }
+  ],
   "entries": [
     {
       "type": "area",
@@ -264,6 +270,13 @@
                   "status": "proposed"
                 }
               ]
+            },
+            {
+              "type": "file",
+              "name": "0004-import-reuses-the-entry-text-grammar.md",
+              "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+              "title": "ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text",
+              "status": "proposed"
             }
           ]
         },

@@ -10,23 +10,23 @@
     ".design"
   ],
   "stats": {
-    "nodes": 768,
-    "edges": 1524,
+    "nodes": 772,
+    "edges": 1545,
     "nodesByFolder": {
-      "arc42": 81,
-      "domain": 489,
+      "arc42": 82,
+      "domain": 492,
       "backlog": 4,
       "tech": 98,
       "design": 96
     },
     "nodesByType": {
-      "file": 123,
-      "chapter": 636,
+      "file": 124,
+      "chapter": 639,
       "heading": 9
     },
     "nodesByStatus": {
       "active": 200,
-      "proposed": 37,
+      "proposed": 41,
       "draft": 415,
       "accepted": 3,
       "deprecated": 3,
@@ -38,9 +38,9 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 645,
-      "related": 738,
-      "depends-on": 139,
+      "contains": 648,
+      "related": 753,
+      "depends-on": 142,
       "implements": 2
     }
   },
@@ -1009,6 +1009,23 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/features.md#import",
+            ".domain/backlog/domain.md#backlog-entry",
+            ".design/content-editing.md#scheduling-and-dependency-tokens",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/adr/README.md",
           "label": "Architecture Decision Records",
           "type": "file",
@@ -1309,7 +1326,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item",
           "level": 3,
-          "line": 132,
+          "line": 145,
           "status": "draft"
         }
       },
@@ -1322,7 +1339,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "projection-ref",
           "level": 3,
-          "line": 155,
+          "line": 168,
           "status": "draft"
         }
       },
@@ -1335,7 +1352,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence",
           "level": 3,
-          "line": 166,
+          "line": 179,
           "status": "draft"
         }
       },
@@ -1348,7 +1365,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "attachment",
           "level": 3,
-          "line": 183,
+          "line": 196,
           "status": "draft"
         }
       },
@@ -1361,7 +1378,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "usage-event",
           "level": 3,
-          "line": 206,
+          "line": 219,
           "status": "draft"
         }
       },
@@ -1374,7 +1391,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "ai-work-log",
           "level": 3,
-          "line": 216,
+          "line": 229,
           "status": "draft"
         }
       },
@@ -1387,7 +1404,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-type",
           "level": 3,
-          "line": 227,
+          "line": 240,
           "status": "draft"
         }
       },
@@ -1400,7 +1417,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entry-status",
           "level": 3,
-          "line": 236,
+          "line": 249,
           "status": "draft"
         }
       },
@@ -1413,7 +1430,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 245,
+          "line": 258,
           "status": "draft"
         }
       },
@@ -1426,7 +1443,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 254,
+          "line": 267,
           "status": "draft"
         }
       },
@@ -1439,7 +1456,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 263,
+          "line": 276,
           "status": "draft"
         }
       },
@@ -1452,7 +1469,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 272,
+          "line": 285,
           "status": "draft"
         }
       },
@@ -1465,7 +1482,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 282,
+          "line": 295,
           "status": "draft"
         }
       },
@@ -1478,7 +1495,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 301,
+          "line": 314,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -1495,7 +1512,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 315,
+          "line": 328,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1513,7 +1530,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 357,
+          "line": 370,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1530,7 +1547,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entryprojected",
           "level": 2,
-          "line": 384,
+          "line": 397,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1548,7 +1565,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "entrycompleted",
           "level": 2,
-          "line": 412,
+          "line": 425,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1566,7 +1583,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 438,
+          "line": 451,
           "status": "proposed",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1584,7 +1601,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 467,
+          "line": 480,
           "status": "draft",
           "related": [
             ".domain/backlog/domain.md#backlog-entry",
@@ -1601,7 +1618,7 @@
           "path": ".domain/backlog/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 502,
+          "line": 515,
           "status": "draft"
         }
       },
@@ -1951,6 +1968,64 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#import",
+          "label": "Import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "import",
+          "level": 2,
+          "line": 372,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#backlog-entry-creation",
+            ".domain/backlog/features.md#entry-dependencies",
+            ".domain/backlog/features.md#multi-repo-targeting"
+          ],
+          "related": [
+            ".domain/backlog/features.md#prompt-features",
+            ".domain/backlog/features.md#sub-items-and-steps",
+            ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+            ".domain/repository-management/features.md#repository-registration"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#repository-resolution-on-import",
+          "label": "Repository resolution on import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "repository-resolution-on-import",
+          "level": 3,
+          "line": 418,
+          "status": "proposed",
+          "related": [
+            ".domain/repository-management/features.md#repository-registration",
+            ".domain/repository-management/domain.md#repository-registry"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#re-importing-an-updated-plan",
+          "label": "Re-importing an updated plan",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "re-importing-an-updated-plan",
+          "level": 3,
+          "line": 443,
+          "status": "proposed",
+          "related": [
+            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/backlog/domain.md#entry-status"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#ai-assistance-over-the-visible-backlog",
           "label": "AI assistance over the visible backlog",
           "type": "chapter",
@@ -1958,7 +2033,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 372,
+          "line": 469,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -1978,7 +2053,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 389,
+          "line": 486,
           "status": "draft"
         }
       },
@@ -1991,7 +2066,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 399,
+          "line": 496,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
@@ -2012,7 +2087,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 430,
+          "line": 527,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -11432,7 +11507,9 @@
             ".domain/backlog/naming.md#reminder",
             ".domain/backlog/naming.md#recurrence",
             ".domain/backlog/naming.md#my-day",
-            ".domain/backlog/naming.md#dependency"
+            ".domain/backlog/naming.md#dependency",
+            ".domain/backlog/features.md#import",
+            ".domain/repository-management/domain.md#repository-registry"
           ]
         }
       },
@@ -11445,7 +11522,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 198,
+          "line": 216,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -11461,7 +11538,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 216,
+          "line": 234,
           "status": "active"
         }
       },
@@ -11474,7 +11551,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 238,
+          "line": 256,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -11491,7 +11568,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 254,
+          "line": 272,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -11507,7 +11584,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 271,
+          "line": 289,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -11524,7 +11601,7 @@
           "path": ".design/content-editing.md",
           "slug": "ai-proposals-in-a-document",
           "level": 2,
-          "line": 286,
+          "line": 304,
           "status": "active",
           "related": [
             ".design/design-principles.md#ai-first-surfaces",
@@ -11542,7 +11619,7 @@
           "path": ".design/content-editing.md",
           "slug": "knowledge-metadata-blocks",
           "level": 2,
-          "line": 311,
+          "line": 329,
           "status": "active",
           "related": [
             ".design/README.md#status-vocabulary",
@@ -11561,7 +11638,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 338,
+          "line": 356,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -12881,6 +12958,30 @@
           "id": "contains:.domain/backlog/features.md#prompt-features->.domain/backlog/features.md#hand-off-to-copilot-cli",
           "source": ".domain/backlog/features.md#prompt-features",
           "target": ".domain/backlog/features.md#hand-off-to-copilot-cli",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#import",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#import",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#import->.domain/backlog/features.md#repository-resolution-on-import",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#repository-resolution-on-import",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md#import->.domain/backlog/features.md#re-importing-an-updated-plan",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#re-importing-an-updated-plan",
           "type": "contains"
         }
       },
@@ -17974,6 +18075,46 @@
       },
       {
         "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/features.md#import",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/backlog/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/domain.md#backlog-entry",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/adr/README.md->.arc42/09-architecture-decisions.md",
           "source": ".arc42/adr/README.md",
           "target": ".arc42/09-architecture-decisions.md",
@@ -18649,6 +18790,94 @@
           "id": "related:.domain/backlog/features.md#hand-off-to-copilot-cli->.domain/productivity/features.md#ai-activity-capture",
           "source": ".domain/backlog/features.md#hand-off-to-copilot-cli",
           "target": ".domain/productivity/features.md#ai-activity-capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#import->.domain/backlog/features.md#backlog-entry-creation",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#backlog-entry-creation",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#import->.domain/backlog/features.md#entry-dependencies",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#entry-dependencies",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/backlog/features.md#import->.domain/backlog/features.md#multi-repo-targeting",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#multi-repo-targeting",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#import->.domain/backlog/features.md#prompt-features",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#prompt-features",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#import->.domain/backlog/features.md#sub-items-and-steps",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#sub-items-and-steps",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#import->.domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#import->.domain/repository-management/features.md#repository-registration",
+          "source": ".domain/backlog/features.md#import",
+          "target": ".domain/repository-management/features.md#repository-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#repository-resolution-on-import->.domain/repository-management/features.md#repository-registration",
+          "source": ".domain/backlog/features.md#repository-resolution-on-import",
+          "target": ".domain/repository-management/features.md#repository-registration",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#repository-resolution-on-import->.domain/repository-management/domain.md#repository-registry",
+          "source": ".domain/backlog/features.md#repository-resolution-on-import",
+          "target": ".domain/repository-management/domain.md#repository-registry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#re-importing-an-updated-plan->.domain/backlog/domain.md#backlog-entry",
+          "source": ".domain/backlog/features.md#re-importing-an-updated-plan",
+          "target": ".domain/backlog/domain.md#backlog-entry",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#re-importing-an-updated-plan->.domain/backlog/domain.md#entry-status",
+          "source": ".domain/backlog/features.md#re-importing-an-updated-plan",
+          "target": ".domain/backlog/domain.md#entry-status",
           "type": "related"
         }
       },
@@ -23841,6 +24070,22 @@
           "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#dependency",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
           "target": ".domain/backlog/naming.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/features.md#import",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/repository-management/domain.md#repository-registry",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/repository-management/domain.md#repository-registry",
           "type": "related"
         }
       },

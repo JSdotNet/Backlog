@@ -6,30 +6,30 @@
     ".design"
   ],
   "stats": {
-    "nodes": 113,
-    "edges": 224,
+    "nodes": 115,
+    "edges": 226,
     "nodesByFolder": {
       "design": 96,
       "arc42": 5,
-      "domain": 10,
+      "domain": 12,
       "tech": 2
     },
     "nodesByType": {
       "file": 10,
-      "chapter": 96,
+      "chapter": 98,
       "heading": 7
     },
     "nodesByStatus": {
       "active": 93,
       "none": 7,
-      "draft": 5,
+      "draft": 6,
       "accepted": 1,
       "adopted": 2,
-      "proposed": 5
+      "proposed": 6
     },
     "edgesByType": {
       "contains": 88,
-      "related": 136
+      "related": 138
     }
   },
   "problems": [],
@@ -812,7 +812,9 @@
             ".domain/backlog/naming.md#reminder",
             ".domain/backlog/naming.md#recurrence",
             ".domain/backlog/naming.md#my-day",
-            ".domain/backlog/naming.md#dependency"
+            ".domain/backlog/naming.md#dependency",
+            ".domain/backlog/features.md#import",
+            ".domain/repository-management/domain.md#repository-registry"
           ]
         }
       },
@@ -825,7 +827,7 @@
           "path": ".design/content-editing.md",
           "slug": "live-parse-confirmation",
           "level": 2,
-          "line": 198,
+          "line": 216,
           "status": "active",
           "related": [
             ".design/content-editing.md#editing-feedback-and-state"
@@ -841,7 +843,7 @@
           "path": ".design/content-editing.md",
           "slug": "paste-behavior",
           "level": 2,
-          "line": 216,
+          "line": 234,
           "status": "active"
         }
       },
@@ -854,7 +856,7 @@
           "path": ".design/content-editing.md",
           "slug": "slash-and-inline-commands",
           "level": 2,
-          "line": 238,
+          "line": 256,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#feedback-and-toasts",
@@ -871,7 +873,7 @@
           "path": ".design/content-editing.md",
           "slug": "unsupported-syntax-preservation",
           "level": 2,
-          "line": 254,
+          "line": 272,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#reorder--auto-save"
@@ -887,7 +889,7 @@
           "path": ".design/content-editing.md",
           "slug": "editing-feedback-and-state",
           "level": 2,
-          "line": 271,
+          "line": 289,
           "status": "active",
           "related": [
             ".design/interaction-guidelines.md#save-state-indicator-vocabulary",
@@ -904,7 +906,7 @@
           "path": ".design/content-editing.md",
           "slug": "ai-proposals-in-a-document",
           "level": 2,
-          "line": 286,
+          "line": 304,
           "status": "active",
           "related": [
             ".design/design-principles.md#ai-first-surfaces",
@@ -922,7 +924,7 @@
           "path": ".design/content-editing.md",
           "slug": "knowledge-metadata-blocks",
           "level": 2,
-          "line": 311,
+          "line": 329,
           "status": "active",
           "related": [
             ".design/README.md#status-vocabulary",
@@ -941,7 +943,7 @@
           "path": ".design/content-editing.md",
           "slug": "materialization",
           "level": 2,
-          "line": 338,
+          "line": 356,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1836,6 +1838,50 @@
           ],
           "related": [
             ".domain/backlog/domain.md#backlog-entry"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/backlog/features.md#import",
+          "label": "Import",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "import",
+          "level": 2,
+          "line": 372,
+          "status": "proposed",
+          "depends-on": [
+            ".domain/backlog/features.md#backlog-entry-creation",
+            ".domain/backlog/features.md#entry-dependencies",
+            ".domain/backlog/features.md#multi-repo-targeting"
+          ],
+          "related": [
+            ".domain/backlog/features.md#prompt-features",
+            ".domain/backlog/features.md#sub-items-and-steps",
+            ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+            ".domain/repository-management/features.md#repository-registration"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/repository-management/domain.md#repository-registry",
+          "label": "Repository Registry",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/repository-management/domain.md",
+          "slug": "repository-registry",
+          "level": 2,
+          "line": 21,
+          "status": "draft",
+          "related": [
+            ".domain/technology-stack/domain.md#technology-registry",
+            ".domain/monitoring/domain.md#progress-signal",
+            ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
         }
@@ -3136,6 +3182,22 @@
           "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#dependency",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
           "target": ".domain/backlog/naming.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/features.md#import",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/backlog/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/repository-management/domain.md#repository-registry",
+          "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "target": ".domain/repository-management/domain.md#repository-registry",
           "type": "related"
         }
       },

@@ -217,7 +217,21 @@
             }
         </End>
     </SplitPane>
+
+    @* What the last import produced, once the dialog it ran from has closed —
+       the same "reads as" sentence a single save already gives, for a whole
+       batch. Dismissable, the same as every other transient result this pane
+       reports; not auto-dismissed, because "3 created, 1 updated" is exactly the
+       kind of line somebody opened the dialog to go and check against the list. *@
+    <Alert Message="@_importMessage" BaseClass="import-plan-result" Role="status" TestId="import-plan-result" />
 </section>
+
+<ImportPlanDialog @ref="_importDialog"
+                   Open="@_importOpen"
+                   OpenChanged="OnImportOpenChanged"
+                   Busy="@_importBusy"
+                   Options="@RepositoryOptions()"
+                   OnImport="OnImportAsync" />
 
 @code {
     /// <summary>
@@ -617,17 +631,79 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderAddEntry() =>
-        @<AppButton BaseClass="entry-add"
-                    Variant="ButtonVariant.None"
-                    id="new-entry-button"
-                    TestId="new-entry-button"
-                    OnClick="OnNewEntry">
-            @* Not the Icon slot: that wraps what it is given in a `btn__icon`
-               span, and this row already has its own plus. *@
-            <span class="entry-add__plus" aria-hidden="true">+</span>
-            New entry
-        </AppButton>;
+        @<div class="entry-add-row">
+            <AppButton BaseClass="entry-add"
+                        Variant="ButtonVariant.None"
+                        id="new-entry-button"
+                        TestId="new-entry-button"
+                        OnClick="OnNewEntry">
+                @* Not the Icon slot: that wraps what it is given in a `btn__icon`
+                   span, and this row already has its own plus. *@
+                <span class="entry-add__plus" aria-hidden="true">+</span>
+                New entry
+            </AppButton>
+            @* Beside the entry it types in by hand, because both put entries in
+               the same list the same way — a plan is faster typing, not a second
+               way of holding work (ADR 0004). *@
+            <AppButton BaseClass="entry-add entry-add--import"
+                        Variant="ButtonVariant.None"
+                        id="import-plan-button"
+                        TestId="import-plan-open"
+                        OnClick="OnOpenImport">
+                Import
+            </AppButton>
+        </div>;
     private void OnNewEntry() => State.NewRow();
+
+    // --- Import --------------------------------------------------------
+
+    private ImportPlanDialog? _importDialog;
+    private bool _importOpen;
+    private bool _importBusy;
+    private string? _importMessage;
+
+    private void OnOpenImport()
+    {
+        _importMessage = null;
+        _importOpen = true;
+        _importDialog?.OpenFresh();
+    }
+
+    private void OnImportOpenChanged(bool open) => _importOpen = open;
+
+    /// <summary>
+    /// Runs the import and reports what it produced, the same "reads as" sentence
+    /// the raw hatch already gives for a single entry — the dialog shows it under
+    /// the paste box on a refusal, and the pane's own alert repeats it after a
+    /// successful run once the dialog has closed.
+    /// </summary>
+    private async Task OnImportAsync(ImportPlanSubmission submission)
+    {
+        _importBusy = true;
+        try
+        {
+            var message = await State.ImportPlanAsync(submission.RawText, submission.DefaultRepo);
+
+            // A validation failure ("nothing parsed to a title") is shown under
+            // the paste box, where the text that caused it still is. A result
+            // closes the dialog and moves the sentence to the pane, because the
+            // pane — not the dialog the reader just dismissed — is where the new
+            // rows now are.
+            if (State.SaveState == AppSaveState.Error || message.StartsWith("Imported:", StringComparison.Ordinal))
+            {
+                _importOpen = false;
+                _importMessage = message;
+            }
+            else
+            {
+                _importDialog?.SetError(message);
+            }
+        }
+        finally
+        {
+            _importBusy = false;
+        }
+    }
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
 

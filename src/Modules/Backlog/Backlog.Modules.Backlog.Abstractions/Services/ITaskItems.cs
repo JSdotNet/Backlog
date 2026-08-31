@@ -56,4 +56,19 @@ public interface ITaskItems
 
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
+
+    /// <summary>Brings in a plan — a block of entry text naming more than one
+    /// prompt — and turns it into backlog entries in one step. See
+    /// <c>ImportPlanCommand</c> and ADR 0004 for what "brings in" means: the
+    /// same grammar and repository port every other entry goes through, with
+    /// two-pass dependency resolution and upsert-by-plan on top.
+    /// <para>
+    /// <paramref name="defaultRepo"/> is the Import dialog's optional "Target
+    /// repository" field. It is applied only to an entry whose own text names
+    /// no <c>repo:</c> — an entry that already specifies one keeps it.
+    /// </para></summary>
+    Task<Result<ImportPlanResultDto>> ImportPlanAsync(
+        string rawText,
+        string? defaultRepo = null,
+        CancellationToken cancellationToken = default);
 }

@@ -112,7 +112,7 @@ public static class EntryTextParser
     /// surface showing what the text will be saved as can say the value was
     /// refused instead of showing nothing where a due date used to be.
     /// <para>
-    /// Only the five names this grammar knows are collected. A token whose
+    /// Only the names this grammar knows are collected. A token whose
     /// <em>name</em> is unknown is unrecognized rather than refused, which is a
     /// different fact with a different rule behind it.
     /// </para>
@@ -144,7 +144,9 @@ public static class EntryTextParser
         IReadOnlyList<UnreadableToken>? Unreadable = null,
         EntryView? View = null,
         Attachment? Attachment = null,
-        int? Effort = null);
+        int? Effort = null,
+        string? ImportItemId = null,
+        IReadOnlyList<string>? RepoIds = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -160,7 +162,9 @@ public static class EntryTextParser
         IReadOnlyList<UnreadableToken>? Unreadable = null,
         EntryView? View = null,
         Attachment? Attachment = null,
-        int? Effort = null)
+        int? Effort = null,
+        string? ImportItemId = null,
+        IReadOnlyList<string>? RepoIds = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -282,7 +286,9 @@ public static class EntryTextParser
             metadata.Unreadable ?? [],
             metadata.View,
             metadata.Attachment,
-            metadata.Effort);
+            metadata.Effort,
+            metadata.ImportItemId,
+            metadata.RepoIds ?? []);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -301,6 +307,8 @@ public static class EntryTextParser
         int? effort = null;
         var dependsOn = new List<string>();
         var unreadable = new List<UnreadableToken>();
+        string? importItemId = null;
+        var repoIds = new List<string>();
 
         foreach (Match match in TokenRegex.Matches(line))
         {
@@ -397,6 +405,26 @@ public static class EntryTextParser
                         }
 
                         break;
+
+                    case "id":
+                        // A local id, last-one-wins like `due`: an entry names
+                        // itself once, so a second `id:` on the same line replaces
+                        // the first rather than being a second identity.
+                        if (value.Length == 0) unreadable.Add(new UnreadableToken("id", value));
+                        else importItemId = value;
+                        break;
+
+                    case "repo":
+                        // Repeats like `after`, for the same reason: an entry can
+                        // target more than one repository at once, and order
+                        // carries no meaning.
+                        if (value.Length == 0) unreadable.Add(new UnreadableToken("repo", value));
+                        else if (!repoIds.Contains(value, StringComparer.Ordinal))
+                        {
+                            repoIds.Add(value);
+                        }
+
+                        break;
                 }
 
                 // An unrecognized name, and a recognized name whose value does
@@ -457,7 +485,9 @@ public static class EntryTextParser
             unreadable,
             view,
             attachment,
-            effort);
+            effort,
+            importItemId,
+            repoIds);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1142,6 +1172,14 @@ public static class EntryTextParser
             meta += $" `after:{id.Trim()}`";
         }
 
+        // A local id names this entry the way `after:` names one it waits on —
+        // both are read the same document round, so they sit together.
+        if (!string.IsNullOrWhiteSpace(entry.ImportItemId)) meta += $" `id:{entry.ImportItemId}`";
+        foreach (var repo in (entry.RepoIds ?? []).Where(r => !string.IsNullOrWhiteSpace(r)))
+        {
+            meta += $" `repo:{repo}`";
+        }
+
         // After the scheduling and dependency tokens and before the two that are
         // not about the work itself. A size sits with the facts about the task —
         // when it is due, what it waits on — rather than with what is attached to
@@ -1572,6 +1610,8 @@ public static class EntryTextParser
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
+        if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");
+        tokens.AddRange((parsed.RepoIds ?? []).Select(repo => $"repo:{repo}"));
         if (parsed.Effort is { } effort) tokens.Add($"effort:{effort.ToString(CultureInfo.InvariantCulture)}");
         if (parsed.View is { } view) tokens.Add($"view:{ViewToken(view)}");
 

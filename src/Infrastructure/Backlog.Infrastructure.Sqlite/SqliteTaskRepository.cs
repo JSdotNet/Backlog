@@ -29,7 +29,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
     private const string Columns =
         "id, title, content_md, type, status, priority, sort_order, area, created_at, " +
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
-        "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort";
+        "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
+        "import_plan_id, import_item_id";
 
     private readonly string _databasePath;
 
@@ -66,7 +67,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
             VALUES (
                 $id, $title, $content_md, $type, $status, $priority, $sort_order, $area, $created_at,
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
-                $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort)
+                $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
+                $import_plan_id, $import_item_id)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -89,7 +91,9 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 sub_items = excluded.sub_items,
                 usage_events = excluded.usage_events,
                 projections = excluded.projections,
-                effort = excluded.effort;
+                effort = excluded.effort,
+                import_plan_id = excluded.import_plan_id,
+                import_item_id = excluded.import_item_id;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -126,6 +130,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 .Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))
                 .ToList()));
         command.Parameters.AddWithValue("$effort", (object?)task.Effort ?? DBNull.Value);
+        command.Parameters.AddWithValue("$import_plan_id", Nullable(task.ImportPlanId));
+        command.Parameters.AddWithValue("$import_item_id", Nullable(task.ImportItemId));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -218,7 +224,9 @@ public sealed class SqliteTaskRepository : ITaskRepository
                     sub_items            TEXT NOT NULL DEFAULT '[]',
                     usage_events         TEXT NOT NULL DEFAULT '[]',
                     projections          TEXT NOT NULL DEFAULT '[]',
-                    effort               INTEGER NULL
+                    effort               INTEGER NULL,
+                    import_plan_id       TEXT NULL,
+                    import_item_id       TEXT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
@@ -235,6 +243,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
             // same way the CREATE above is. Additive-only, which is the only shape
             // of change this local store's one table has ever needed.
             await EnsureColumnAsync(connection, "effort", "INTEGER NULL", cancellationToken).ConfigureAwait(false);
+            await EnsureColumnAsync(connection, "import_plan_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+            await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
             return connection;
         }
@@ -294,6 +304,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int DueOn = 11, RemindAt = 12, Recurrence = 13, InMyDayOn = 14, View = 15;
         public const int Tags = 16, RepoIds = 17, DependsOn = 18;
         public const int SubItems = 19, UsageEvents = 20, Projections = 21, Effort = 22;
+        public const int ImportPlanId = 23, ImportItemId = 24;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -320,6 +331,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
         task.SetEffort(Int(row, Col.Effort));
+        task.SetImportPlanId(Text(row, Col.ImportPlanId));
+        task.SetImportItemId(Text(row, Col.ImportItemId));
 
         foreach (var payload in TaskPayloads.Read<SubItemPayload>(Text(row, Col.SubItems)).OrderBy(s => s.Order))
         {
