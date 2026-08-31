@@ -62,8 +62,12 @@
     {
         <div class="markdown-document__read" data-testid="@Suffix("read")">
             <MarkdownView Blocks="@_blocks"
+                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                          KnowledgeFolder="@KnowledgeFolder"
                           KnowledgeDocumentPath="@KnowledgeDocumentPath"
                           OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                          KnowledgeHrefFor="@KnowledgeHrefFor"
                           Comments="@Comments"
                           OnAddComment="OnAddComment"
                           OnResolveComment="OnResolveComment"
@@ -189,6 +193,38 @@
     /// it, a draft abandoned that way is left behind as an empty remark.</summary>
     [Parameter]
     public EventCallback<string> OnDeleteComment { get; set; }
+    /// <summary>Whether a fenced <c>meta</c> block is read as the knowledge record
+    /// it is, forwarded to the read view so a chapter's status is drawn beside its
+    /// heading instead of as the four lines of YAML that say it.
+    ///
+    /// <para>It travels through here for the same reason
+    /// <see cref="KnowledgeDocumentPath"/> does: this is the read view of every
+    /// knowledge chapter an area lets a reader write, and a chapter that opens
+    /// with a record was showing that record as a code fence. Off by default —
+    /// most markdown in this product is an entry body, where a <c>meta</c> fence
+    /// is only a fenced block.</para>
+    ///
+    /// <para>Read mode only, like the comments: the author of a chapter is looking
+    /// at the fence itself, and the blocks a record is folded into do not exist in
+    /// the editor.</para></summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Whether a record draws everything under the status as well.
+    /// Forwarded verbatim to the read view, which explains what a host with
+    /// somewhere better to put those rows gains by turning them off. On by
+    /// default, so a host that asks for records and says nothing else gets all of
+    /// them.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Which knowledge folder the text was read from, forwarded so a
+    /// status can be checked against that folder's vocabulary — which is what
+    /// turns it from a word into a value a reader can pick from a list. Unset,
+    /// the read view is folder-blind and draws the word, which is right for every
+    /// body that is not a chapter of a knowledge folder.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
 
     /// <summary>The repository-relative path of the knowledge document this text
     /// came from, forwarded to the read view so a relative link in it resolves to
@@ -206,6 +242,14 @@
     /// Only the host knows what "go there" means, so nothing here moves.</summary>
     [Parameter]
     public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a reference in a record to a link target, forwarded so a
+    /// host that can address a chapter by URL gets a real link rather than a
+    /// button it has to handle. Unset — and it is unset wherever there is no such
+    /// address — the reference stays what <see cref="OnKnowledgeNavigate"/> makes
+    /// it.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

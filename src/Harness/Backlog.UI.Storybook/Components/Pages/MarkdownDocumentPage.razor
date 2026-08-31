@@ -33,6 +33,26 @@ Editing hands the same string to the editor that the parser was reading, so a bo
         <p class="sb-state" data-testid="markdown-document-flush">@DocumentFlushState</p>
     </Story>
 
+    <Story Name="Reading a knowledge chapter"
+           Description="`RenderKnowledgeMetadata` says the body is a chapter of a knowledge folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
+
+`KnowledgeFolder` is what turns the status from a word into a value out of that folder's list, so the pill becomes a picker. `KnowledgeHrefFor` resolves a reference to an address, which is what makes `related` a link rather than a button the host has to handle.
+
+All three are read-mode only. Press **Edit**: the author of a chapter is looking at the fence itself, and the record has nothing to be folded into."
+           Code="@ChapterCode"
+           Source="@_chapterSource"
+           SourceLabel="Value">
+        <div class="sb-surface" data-testid="markdown-document-knowledge">
+            <MarkdownDocument @bind-Value="_chapterSource"
+                              @bind-Editing="_chapterEditing"
+                              RenderKnowledgeMetadata="true"
+                              KnowledgeFolder="KnowledgeFolder.Tech"
+                              KnowledgeHrefFor="@ChapterHref"
+                              Title="shared.md"
+                              TestId="chapter" />
+        </div>
+    </Story>
+
     <Story Name="Copying the source out of a read view"
            Description="`AllowCopy` puts a copy button on a read view, and `Source` is what it copies — the markdown, not the rendering. Pass both: the view renders from `Blocks` and has no way back to the text otherwise.
 
@@ -130,6 +150,26 @@ Editing works the same either way: a fresh remark opens straight into a box with
 
         Press **Edit** to change it, and **Done** to read it again.
         """;
+
+    private string _chapterSource = """
+        # Shared Technologies
+
+        ```meta
+        status: adopted
+        related: [".tech/technology-graph.md"]
+        ```
+
+        The fence above is this chapter's record, and the pill beside the heading
+        is the status out of it. Press **Edit** to see the four lines it was
+        written as.
+        """;
+
+    private bool _chapterEditing;
+
+    /// <summary>A real host maps a reference to whatever route it serves the
+    /// chapter on. The storybook serves no knowledge folder, so it points at the
+    /// page that does show how the mapping is written.</summary>
+    private static string? ChapterHref(KnowledgeReference reference) => "/markdown-references";
 
     private bool _editing;
     private int _documentFlushes;
@@ -230,6 +270,22 @@ Editing works the same either way: a fresh remark opens straight into a box with
             // Blur is a save, not an exit. The toolbar is outside the textarea, so
             // reaching for bold blurs it and the editor has to still be there.
             private void Flush() => Save(_source);
+        }
+        """;
+
+    private const string ChapterCode = """
+        @* The three knowledge signals a chapter needs, handed to the same
+           component every other body is read through. Read mode only — the
+           editor is the fence as it was written. *@
+        <MarkdownDocument @bind-Value="_chapter"
+                          RenderKnowledgeMetadata="true"
+                          KnowledgeFolder="KnowledgeFolder.Tech"
+                          KnowledgeHrefFor="@Route"
+                          Title="shared.md" />
+
+        @code {
+            // The host owns the mapping, because only it knows what it serves.
+            private string? Route(KnowledgeReference reference) => $"/knowledge/{reference.Path}";
         }
         """;
 
