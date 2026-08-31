@@ -45,11 +45,11 @@ the knowledge-folder orchestrations come from `knowledge-base`, and the rest —
 included — from `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`,
 which is a pull-request workflow rather than an orchestration.
 
-`plugins/backlog-tools` is this repository's own plugin — registered locally via
-`.claude/settings.json`'s `extraKnownMarketplaces`/`enabledPlugins`, not fetched from an
-external marketplace. Its `backlog-import-plan` skill is user-invoked
-(`disable-model-invocation: true`) and one-shot, so it does not change the paragraph above:
-it is not an orchestration entrypoint and does not go through the gate.
+`plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
+auto-enabled — see `plugins/backlog-tools/README.md` for install steps in either Claude
+Code or GitHub Copilot CLI, which it ships manifests for. Its `backlog-import-plan` skill
+is user-invoked (`disable-model-invocation: true`) and one-shot, so it does not change the
+paragraph above: it is not an orchestration entrypoint and does not go through the gate.
 
 Changes confined to `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, `.design/`, `.github/`,
 or `README.md` are documentation work and do not pass through the code gate. See
