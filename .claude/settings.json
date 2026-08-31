@@ -1,4 +1,15 @@
 {
+  "extraKnownMarketplaces": {
+    "backlog-tools": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "backlog-tools@backlog-tools": true
+  },
   "hooks": {
     "PostToolUse": [
       {

@@ -45,6 +45,12 @@ the knowledge-folder orchestrations come from `knowledge-base`, and the rest —
 included — from `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`,
 which is a pull-request workflow rather than an orchestration.
 
+`plugins/backlog-tools` is this repository's own plugin — registered locally via
+`.claude/settings.json`'s `extraKnownMarketplaces`/`enabledPlugins`, not fetched from an
+external marketplace. Its `backlog-import-plan` skill is user-invoked
+(`disable-model-invocation: true`) and one-shot, so it does not change the paragraph above:
+it is not an orchestration entrypoint and does not go through the gate.
+
 Changes confined to `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, `.design/`, `.github/`,
 or `README.md` are documentation work and do not pass through the code gate. See
 `## QA Depth` in `.github/copilot-orch-context.md` for how they are verified instead.
@@ -162,3 +168,5 @@ orchestration dashboard.
   story; the rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook`.
 - `.github/instructions/mcp-usage.instructions.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.
+- `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
+  plan (ADR 0004) from an agreed specification; user-invoked only.
