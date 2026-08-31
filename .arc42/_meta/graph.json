@@ -1703,7 +1703,7 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-meta-generator",
           "level": 2,
-          "line": 250,
+          "line": 253,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#nodejs",

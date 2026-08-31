@@ -111,11 +111,14 @@ One file declaring every package version in the solution.
 - **Why** — one place to see and change what the solution resolves.
 - **How** — `CentralPackageTransitivePinningEnabled` is deliberately **off**.
   Turning it on rewrote versions the solution never asked for — the AppHost's
-  transitive YamlDotNet from 16.3.0 to 18.1.0, OpenTelemetry 1.15.3 to 1.17.0,
-  `Microsoft.Extensions.*` 10.0.8 to 10.0.11 — purely because those names appear
-  as direct versions. Adopting CPM was meant to change *where* versions are
-  declared, not *which ones* resolve; transitive governance is a separate,
-  reviewed change.
+  transitive YamlDotNet 16.3.0, OpenTelemetry 1.15.3, and
+  `Microsoft.Extensions.*` 10.0.8 were each lifted to whatever
+  `Directory.Packages.props` declares for that name — purely because those names
+  appear there as direct versions. Those targets move with every package bump, so
+  they are not repeated here; the chapter that owns each package carries the
+  current one in its `version` field. Adopting CPM was meant to change *where*
+  versions are declared, not *which ones* resolve; transitive governance is a
+  separate, reviewed change.
 
 ## npm
 

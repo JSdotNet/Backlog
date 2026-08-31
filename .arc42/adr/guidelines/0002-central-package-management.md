@@ -37,10 +37,13 @@ child `Directory.Build.props` that imports the root one.
 ## Deviations and gaps
 
 - **Transitive pinning is deliberately off.** Turning it on rewrote versions the
-  solution never asked for — the AppHost's transitive YamlDotNet 16.3.0 → 18.1.0,
-  OpenTelemetry 1.15.3 → 1.17.0, `Microsoft.Extensions.*` 10.0.8 → 10.0.11 — purely
-  because those names appear as direct versions. Adopting CPM was meant to change
-  *where* versions are declared, not *which* ones resolve. The rationale is
-  repeated in a comment at the top of `Directory.Packages.props`.
+  solution never asked for — the AppHost's transitive YamlDotNet 16.3.0,
+  OpenTelemetry 1.15.3, and `Microsoft.Extensions.*` 10.0.8 were each lifted to
+  whatever `Directory.Packages.props` declares for that name — purely because
+  those names appear as direct versions. Those targets move with every package
+  bump, so they are not recorded here; read them from the packages file. Adopting
+  CPM was meant to change *where* versions are declared, not *which* ones
+  resolve. The rationale is repeated in a comment at the top of
+  `Directory.Packages.props`.
 - `.arc42/09-architecture-decisions.md` recorded this decision as "not adopted"
   until 2026-08-27. That was stale; CPM is adopted.
