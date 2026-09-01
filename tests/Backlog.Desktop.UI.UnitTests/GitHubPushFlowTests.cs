@@ -13,9 +13,18 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GitHubPushFlowTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
+    private readonly List<BacklogDesktopState> _states = [];
 
     public void Dispose()
     {
+        // Before the folders below go: the state arms timed saves, and one that
+        // elapsed after its folder was deleted is work the test host is still
+        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        foreach (var state in _states)
+        {
+            state.Dispose();
+        }
+
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -63,7 +72,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
-        var reloaded = BacklogTestHost.StateFor(harness.Store, harness.Integration);
+        var reloaded = StateFor(harness.Store, harness.Integration);
         await reloaded.InitializeAsync();
 
         var reloadedRow = Assert.Single(reloaded.Rows);
@@ -315,7 +324,16 @@ public sealed class GitHubPushFlowTests : IDisposable
         var client = new FakeGitHubClient();
         var integration = new GitHubIntegration(settings, client, new FakeProbe());
 
-        return new Harness(BacklogTestHost.StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
+        return new Harness(StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
+    }
+
+    /// <summary>The list state, remembered so <see cref="Dispose"/> can hand back
+    /// the timed saves it arms.</summary>
+    private BacklogDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration)
+    {
+        var state = BacklogTestHost.StateFor(store, integration);
+        _states.Add(state);
+        return state;
     }
 
     private sealed record Harness(

@@ -8,9 +8,18 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class BacklogCopilotCliTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
+    private readonly List<BacklogDesktopState> _states = [];
 
     public void Dispose()
     {
+        // Before the folders below go: the state arms timed saves, and one that
+        // elapsed after its folder was deleted is work the test host is still
+        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        foreach (var state in _states)
+        {
+            state.Dispose();
+        }
+
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -86,7 +95,10 @@ public sealed class BacklogCopilotCliTests : IDisposable
         var integration = new GitHubIntegration(settings, new FakeGitHubClient(), new FakeProbe());
         var copilot = new BacklogCopilotCli(launcher);
 
-        return new Harness(BacklogTestHost.StateFor(store, integration, copilot), store);
+        var state = BacklogTestHost.StateFor(store, integration, copilot);
+        _states.Add(state);
+
+        return new Harness(state, store);
     }
 
     private sealed record Harness(BacklogDesktopState State, WorkspaceSettingsStore Store);

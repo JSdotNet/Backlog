@@ -111,9 +111,23 @@ internal sealed class BacklogPaneHost : IDisposable
     /// beside the list is the subject, not the row in it.</summary>
     public Task OpenAsync(EntryRow row) => State.SelectAsync(row);
 
+    /// <summary>
+    /// Everything this host composed, given back in the order the app gives it
+    /// back: the rendered pane first, then the state behind it, then the folder
+    /// both were reading.
+    /// <para>
+    /// The state's turn is the one that is easy to leave out and the one that
+    /// matters most here. It arms a debounce per keystroke and a timed flash per
+    /// save, and a test finishes in milliseconds — so a host that dropped it
+    /// instead of disposing it left both running, writing into the folder the
+    /// next lines delete and, in CI, still queued on the runner's threads once
+    /// the assembly was done. See <c>BacklogDesktopStateLifetimeTests</c>.
+    /// </para>
+    /// </summary>
     public void Dispose()
     {
         Context.Dispose();
+        State.Dispose();
 
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
