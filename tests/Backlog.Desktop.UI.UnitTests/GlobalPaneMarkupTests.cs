@@ -552,6 +552,25 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
+    public void The_version_control_shows_the_worktree_when_the_host_registers_one()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        // The control keeps its test id and its click either way; only what it
+        // reads changes, so a host that registers nothing is unaffected.
+        Assert.Contains("Services.GetService<DevelopmentWorkspaceLabel>()", home, StringComparison.Ordinal);
+        Assert.Contains("@if (_workspace is null)", home, StringComparison.Ordinal);
+        Assert.Contains("Version <code>@Updates.CurrentVersion</code>", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"app-workspace\"", home, StringComparison.Ordinal);
+
+        var chipIndex = home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal);
+        var workspaceIndex = home.IndexOf("data-testid=\"app-workspace\"", StringComparison.Ordinal);
+
+        Assert.True(chipIndex >= 0);
+        Assert.True(workspaceIndex > chipIndex);
+    }
+
+    [Fact]
     public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));

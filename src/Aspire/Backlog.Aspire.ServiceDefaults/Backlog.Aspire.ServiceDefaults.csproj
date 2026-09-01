@@ -13,4 +13,11 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The worktree marker is derived by walking the folder chain and reading
+         HEAD, and the shapes worth asserting are a worktree pointer, a detached
+         head and a folder with no checkout above it. Those seams are internal so
+         the hosts see one API, and this project's own tests see the derivation. -->
+    <InternalsVisibleTo Include="Backlog.Aspire.ServiceDefaults.UnitTests" />
+  </ItemGroup>
 </Project>
