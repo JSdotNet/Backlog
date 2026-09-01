@@ -162,6 +162,179 @@ public sealed class TaskListTests
 
         Assert.Equal(["#ui", "#storybook"], view.FindAll(".task-item__tag").Select(t => t.TextContent));
         Assert.Empty(new TaskRow("a", "T").TagList);
+
+        // Text, and nothing more: no button, no name of its own, and the line still
+        // inside the button that opens the row. This is what every list that has no
+        // answer for a tag keeps, and the case below is the exception to it.
+        Assert.Empty(view.FindAll(".task-item__tag button"));
+        Assert.Empty(view.FindAll(".task-item__line"));
+        Assert.NotNull(view.Find(".task-item__body .task-item__meta"));
+    }
+
+    /// <summary>
+    /// A host that is listening turns the tags into controls, and the row pays for
+    /// it in one place: the metadata line moves out of the button that opens the
+    /// row, because a button cannot hold a button.
+    /// </summary>
+    [Fact]
+    public async Task A_listening_host_gets_tags_that_lead_somewhere()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pressed = new List<string>();
+        var opened = 0;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["ui", "storybook"]))
+            .Add(t => t.OnSelected, _ => opened++)
+            .Add(t => t.OnTagSelected, tag => pressed.Add(tag)));
+
+        var chips = view.FindAll(".task-item__tag .tag-chip__label");
+
+        Assert.Equal(["button", "button"], chips.Select(chip => chip.LocalName));
+
+        // The word drawn is the tag; the name read out is what pressing it does.
+        Assert.Equal("Filter by #ui", chips[0].GetAttribute("aria-label"));
+
+        await chips[0].ClickAsync(new());
+
+        // The bare tag, with no leading hash: that is stored, the hash is drawn.
+        Assert.Equal(["ui"], pressed);
+
+        // And filtering by a tag is not opening the row it was on.
+        Assert.Equal(0, opened);
+
+        Assert.Null(view.Find(".task-item").QuerySelector(".task-item__body .task-item__meta"));
+        Assert.NotNull(view.Find(".task-item__meta"));
+    }
+
+    /// <summary>
+    /// The row stays one line whether or not the tags lead anywhere.
+    /// <para>
+    /// This is the test that was missing. Moving the metadata line out of the button
+    /// is right — a control cannot nest in one — but the first attempt promoted it
+    /// to a second item on the row's own flex line and wrapped the row to fit it,
+    /// which pushed everything after it in source order onto a third line: the
+    /// title's right-hand side went empty, the tags landed flush against the card's
+    /// left edge, and the pencil, the host's actions and the copy button dropped
+    /// below them. The row came out about two and a half times its height, at every
+    /// width, and every behavioural test still passed.
+    /// </para>
+    /// <para>
+    /// So what is pinned here is the arrangement rather than the behaviour: the
+    /// displaced line is inside a box that stands where the button stood, and the
+    /// controls after it are still the row's own children — siblings of that box,
+    /// not of the line inside it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Moving_the_metadata_line_does_not_move_anything_else()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var tagged = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["ui"], Reminder: "09:00"))
+            .Add(t => t.OnRename, _ => { })
+            .Add(t => t.OnDelete, _ => { })
+            .Add(t => t.OnTagSelected, _ => { }));
+
+        var row = tagged.Find(".task-item");
+        var line = tagged.Find(".task-item__line");
+
+        // The box stands where the button stood: a child of the row, holding the
+        // button and the line under it and nothing else.
+        Assert.Contains("task-item", line.ParentElement!.ClassList);
+        Assert.NotNull(line.QuerySelector(".task-item__body"));
+        Assert.NotNull(line.QuerySelector(".task-item__meta"));
+
+        // And the controls after it are still the row's, so they stay on the row's
+        // one flex line rather than following the metadata onto another.
+        foreach (var control in new[] { ".task-item__edit", ".task-item__copy", ".task-item__delete" })
+        {
+            var element = row.QuerySelector(control);
+
+            Assert.True(element is not null, $"{control} should be on the row.");
+            Assert.Null(element!.Closest(".task-item__line"));
+        }
+
+        // The row itself is told nothing. It wore a modifier at one point and the
+        // modifier was the bug — it wrapped the row — so the whole difference is
+        // the box, and the row's class list is what it is for any other list.
+        var plain = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["ui"], Reminder: "09:00"))
+            .Add(t => t.OnRename, _ => { })
+            .Add(t => t.OnDelete, _ => { }));
+
+        Assert.Equal(plain.Find(".task-item").ClassName, row.ClassName);
+    }
+
+    /// <summary>The stylesheet's half of the same fact. The box has to be the item
+    /// that flexes and it must not wrap the row — those two together are what keeps
+    /// the pickers on the first line.</summary>
+    [Fact]
+    public void The_displaced_line_is_stacked_rather_than_wrapped()
+    {
+        // No line-ending normalisation: every assertion below is a substring of one
+        // declaration, and Rule() reads from a brace to the next one.
+        var css = File.ReadAllText(ComponentsCss());
+
+        var line = Rule(css, ".task-item__line {");
+
+        Assert.Contains("flex-direction: column;", line, StringComparison.Ordinal);
+
+        // The button's job on the row, taken over verbatim.
+        Assert.Contains("flex: 1 1 auto;", line, StringComparison.Ordinal);
+        Assert.Contains("min-width: 0;", line, StringComparison.Ordinal);
+
+        // Never this: wrapping the row is what sent the controls to a third line.
+        Assert.DoesNotContain("flex-wrap: wrap;", line, StringComparison.Ordinal);
+        Assert.DoesNotContain(".task-item--tag-links", css, StringComparison.Ordinal);
+
+        // Tokens only, and the one the button's own 2px gap is worth.
+        Assert.Contains("gap: var(--spacing-2xs);", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("px", line, StringComparison.Ordinal);
+    }
+
+    private static string ComponentsCss()
+    {
+        var at = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (at is not null && !Directory.Exists(Path.Combine(at.FullName, "src")))
+        {
+            at = at.Parent;
+        }
+
+        Assert.True(at is not null, "The repository root should be above the test assembly.");
+
+        return Path.Combine(at!.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css");
+    }
+
+    private static string Rule(string css, string opening)
+    {
+        var start = css.IndexOf(opening, StringComparison.Ordinal);
+
+        Assert.True(start >= 0, $"{opening} should exist.");
+
+        return css[start..css.IndexOf('}', start)];
+    }
+
+    /// <summary>A row with no tags is untouched by a host that is listening: there
+    /// is nothing to make a control of, so the line stays where every other list
+    /// draws it.</summary>
+    [Fact]
+    public void A_row_with_no_tags_keeps_its_line_inside_the_button()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Reminder: "09:00"))
+            .Add(t => t.OnTagSelected, _ => { }));
+
+        Assert.DoesNotContain("task-item--tag-links", view.Find(".task-item").ClassName);
+        Assert.NotNull(view.Find(".task-item__body .task-item__meta"));
     }
 
     [Fact]
