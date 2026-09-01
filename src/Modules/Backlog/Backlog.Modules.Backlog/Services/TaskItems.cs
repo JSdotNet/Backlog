@@ -56,6 +56,7 @@ internal sealed class TaskItems(
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,
+        IReadOnlyDictionary<string, string>? repoMatches = null,
         CancellationToken cancellationToken = default) =>
-        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo), cancellationToken);
+        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches), cancellationToken);
 }

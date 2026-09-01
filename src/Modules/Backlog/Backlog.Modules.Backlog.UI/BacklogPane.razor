@@ -682,7 +682,7 @@
         _importBusy = true;
         try
         {
-            var message = await State.ImportPlanAsync(submission.RawText, submission.DefaultRepo);
+            var message = await State.ImportPlanAsync(submission.RawText, submission.DefaultRepo, submission.RepoMatches);
 
             // A validation failure ("nothing parsed to a title") is shown under
             // the paste box, where the text that caused it still is. A result
