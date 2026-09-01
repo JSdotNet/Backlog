@@ -41,6 +41,11 @@ builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderS
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
+// How often the list re-reads a store somebody else may have written to. Scoped
+// to the content root like the harness's other settings files, so a session here
+// never rewrites the real per-user choice.
+builder.Services.AddSingleton<IBacklogRefreshSettings>(
+    _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
@@ -228,6 +233,17 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
     }
 
     return new AppFeatureSettingsStore(AppFeatures.All, settingsPath);
+}
+
+static BacklogRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_REFRESH_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "refresh.settings.json");
+    }
+
+    return new BacklogRefreshSettingsStore(settingsPath);
 }
 
 static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)

@@ -3,6 +3,7 @@ using AngleSharp.Dom;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Backlog.Abstractions.Services;
 
 using Bunit;
 
@@ -204,6 +205,8 @@ public sealed class SettingsKnowledgeFolderStatusTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
+        context.Services.AddSingleton<IBacklogRefreshSettings>(
+            new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));

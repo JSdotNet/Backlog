@@ -54,6 +54,7 @@ public sealed class BacklogDesktopState : IDisposable
     private readonly BacklogIssues _issues;
     private readonly BacklogCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
+    private readonly IBacklogRefreshSettings? _refreshSettings;
 
     /// <summary>The last saved state of each persisted row, as the module
     /// describes it. Held so a badge or a GitHub link can be read without
@@ -61,6 +62,29 @@ public sealed class BacklogDesktopState : IDisposable
     /// saving its text through <see cref="ITaskItems"/>.</summary>
     private readonly Dictionary<Guid, TaskItemDto> _entries = new();
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
+
+    /// <summary>Guards <see cref="_pollTimer"/> and <see cref="_disposed"/>. The
+    /// settings screen can start, rescale or stop the poll from the circuit's
+    /// thread while a tick is already running on the timer's.</summary>
+    private readonly Lock _pollGate = new();
+
+    /// <summary>The recurring check for a store somebody else wrote to, or null
+    /// while the setting has it switched off. See
+    /// <see cref="CheckForExternalChangesAsync"/>.</summary>
+    private Timer? _pollTimer;
+
+    /// <summary>The store's timestamp as this list last saw it — the newest across
+    /// the database and its write-ahead log sidecars, per
+    /// <see cref="LastWriteTimeUtc"/> — or null before the first check has looked.
+    /// Null means "no idea yet", which is not the same as "changed": a first tick
+    /// records and reloads nothing.</summary>
+    private DateTime? _lastSeenWriteUtc;
+
+    /// <summary>1 while a polled reload is in flight. A slow reload must not have
+    /// a second one started on top of it by the next tick.</summary>
+    private int _pollInFlight;
+
+    private bool _disposed;
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
     /// opened, or -1 when no entry is being written in. See
@@ -76,7 +100,8 @@ public sealed class BacklogDesktopState : IDisposable
         ITaskItems entryUseCases,
         GitHubIntegration gitHub,
         BacklogCopilotCli? copilot = null,
-        IRoadmapTagSource? roadmapTags = null)
+        IRoadmapTagSource? roadmapTags = null,
+        IBacklogRefreshSettings? refreshSettings = null)
     {
         _store = store;
         _entryUseCases = entryUseCases;
@@ -84,7 +109,18 @@ public sealed class BacklogDesktopState : IDisposable
         _issues = new BacklogIssues(gitHub);
         _copilot = copilot ?? BacklogCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _refreshSettings = refreshSettings;
         _store.RootChanged += OnRootChanged;
+
+        // Absent rather than off: a host that wires no refresh settings has said
+        // nothing about polling, and a list that started a timer anyway would be
+        // deciding for it. Every app host wires one; a test that is not about
+        // the poll does not have to.
+        if (_refreshSettings is not null)
+        {
+            _refreshSettings.Changed += OnRefreshSettingsChanged;
+            ApplyRefreshSettings();
+        }
     }
 
     /// <summary>Raised whenever rows or save state change from a background
@@ -1016,12 +1052,199 @@ public sealed class BacklogDesktopState : IDisposable
     {
         _store.RootChanged -= OnRootChanged;
 
+        if (_refreshSettings is not null)
+        {
+            _refreshSettings.Changed -= OnRefreshSettingsChanged;
+        }
+
+        lock (_pollGate)
+        {
+            _disposed = true;
+            _pollTimer?.Dispose();
+            _pollTimer = null;
+        }
+
         foreach (var timer in _debounceTimers.Values)
         {
             timer.Dispose();
         }
 
         _debounceTimers.Clear();
+    }
+
+    // --- Picking up somebody else's writes --------------------------------
+
+    /// <summary>
+    /// Whether the check is running right now. The setting says what was asked
+    /// for; this says what is actually scheduled, which is the only way a test
+    /// can tell "switched off" from "switched off but still ticking".
+    /// </summary>
+    internal bool IsPollingForExternalChanges
+    {
+        get
+        {
+            lock (_pollGate)
+            {
+                return _pollTimer is not null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// One tick's worth of work: has the store been written to since this list
+    /// last looked, and if so, start over from it.
+    /// <para>
+    /// The signal is the store's files on disk rather than anything the store
+    /// reports, because the writer is not in this process — it is the other
+    /// machine's copy of the app arriving through a synced folder. It is the
+    /// newest timestamp across the database and its write-ahead log sidecars, not
+    /// the database file alone: see <see cref="LastWriteTimeUtc"/> for why the
+    /// main file on its own never moves. A reload this list triggers itself
+    /// records the new baseline as it goes, so a local save does not read back as
+    /// somebody else's edit.
+    /// </para>
+    /// <para>
+    /// Internal so a test can take one tick deterministically. A timer that has to
+    /// be waited out is a test that is slow when it passes and flaky when it does
+    /// not.
+    /// </para>
+    /// </summary>
+    internal async Task CheckForExternalChangesAsync()
+    {
+        // A reload replaces every row object, and doing that under a live caret
+        // would take the editor out from under whoever is typing. The timestamp
+        // is deliberately not recorded here, so the very next tick after the
+        // editor closes still sees the change rather than having dropped it.
+        if (EditingRow is not null) return;
+
+        if (Interlocked.CompareExchange(ref _pollInFlight, 1, 0) != 0) return;
+
+        try
+        {
+            var writtenAt = LastWriteTimeUtc();
+            if (writtenAt is null) return;
+
+            if (_lastSeenWriteUtc is not { } lastSeen)
+            {
+                // Nothing to compare against yet. Whatever is on disk is what
+                // this list was built from, so record it and reload nothing.
+                _lastSeenWriteUtc = writtenAt;
+                return;
+            }
+
+            if (writtenAt == lastSeen) return;
+
+            // The reload records the new baseline itself, as every reload does.
+            await ReloadRowsAsync();
+            Changed?.Invoke();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _pollInFlight, 0);
+        }
+    }
+
+    /// <summary>
+    /// The newest timestamp across the three files SQLite keeps in WAL mode:
+    /// <c>backlog.db</c> and its <c>-wal</c> and <c>-shm</c> siblings. Null when
+    /// none of them can be read.
+    /// <para>
+    /// The main file alone is not the signal. In WAL mode an ordinary write lands
+    /// in the write-ahead log and leaves <c>backlog.db</c>'s own timestamp exactly
+    /// where it was until a checkpoint, which does not happen per save — so a
+    /// store watched by the main file's timestamp never appears to change at all.
+    /// The sidecars are where a write shows up first, and the latest of the three
+    /// is the moment the store was last written to.
+    /// </para>
+    /// <para>
+    /// A missing sidecar contributes nothing rather than throwing: a freshly
+    /// created or just-checkpointed database legitimately has no <c>-wal</c> or
+    /// <c>-shm</c> at that instant.
+    /// </para>
+    /// </summary>
+    private DateTime? LastWriteTimeUtc()
+    {
+        var path = _store.DatabasePath;
+        string[] files = [path, path + "-wal", path + "-shm"];
+
+        DateTime? newest = null;
+
+        foreach (var candidate in files)
+        {
+            var writtenAt = LastWriteTimeUtcOf(candidate);
+            if (writtenAt is { } stamp && (newest is null || stamp > newest))
+            {
+                newest = stamp;
+            }
+        }
+
+        return newest;
+    }
+
+    private static DateTime? LastWriteTimeUtcOf(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // A file that cannot be stat'ed right now — mid-sync, or on a share
+            // that dropped — is not a reason to say anything about it. The next
+            // tick asks again.
+            return null;
+        }
+    }
+
+    private void OnRefreshSettingsChanged() => ApplyRefreshSettings();
+
+    /// <summary>Brings the timer into line with the setting: started when the
+    /// check is on, rescaled when the interval moves, gone when it is switched
+    /// off. All three without a restart, because a person who has just turned the
+    /// check on is looking at the list to see whether it works.</summary>
+    private void ApplyRefreshSettings()
+    {
+        lock (_pollGate)
+        {
+            if (_disposed) return;
+
+            var settings = _refreshSettings?.Current;
+
+            if (settings is null || !settings.PollingEnabled)
+            {
+                _pollTimer?.Dispose();
+                _pollTimer = null;
+                return;
+            }
+
+            var period = TimeSpan.FromSeconds(Math.Max(
+                settings.PollingIntervalSeconds,
+                BacklogRefreshSettings.MinimumPollingIntervalSeconds));
+
+            if (_pollTimer is null)
+            {
+                _pollTimer = new Timer(_ => OnPollElapsed(), null, period, period);
+            }
+            else
+            {
+                _pollTimer.Change(period, period);
+            }
+        }
+    }
+
+    private async void OnPollElapsed()
+    {
+        try
+        {
+            await CheckForExternalChangesAsync();
+        }
+        catch (Exception)
+        {
+            // A tick runs on a thread pool thread with nobody to hand a failure
+            // to, and an escaping exception there ends the process. Swallowing
+            // it costs one refresh: the next tick reads the same timestamp and
+            // tries again.
+        }
     }
 
     // --- GitHub -----------------------------------------------------------
@@ -1402,6 +1625,12 @@ public sealed class BacklogDesktopState : IDisposable
         // asked for the reload and for whatever reason.
         _spawnedOccurrencePending = false;
 
+        // Read before the rows rather than after them, so a write that lands
+        // mid-reload is seen again on the next check rather than recorded as
+        // something this list already has. Every reload records it, not just a
+        // polled one: the baseline is "the store as this list last read it".
+        var readAt = LastWriteTimeUtc();
+
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.
         RoadmapTags = await _roadmapTags.TagsInUseAsync();
@@ -1418,6 +1647,12 @@ public sealed class BacklogDesktopState : IDisposable
         }
 
         Rows = rows;
+
+        // Asked again when there was nothing to read before: the store creates
+        // its database on first use, so this reload is often the thing that
+        // brought the file into existence.
+        _lastSeenWriteUtc = readAt ?? LastWriteTimeUtc() ?? _lastSeenWriteUtc;
+
         ApplyFilter();
     }
 
