@@ -678,7 +678,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 98,
+          "line": 101,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -696,7 +696,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 125,
+          "line": 128,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -712,7 +712,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 146,
+          "line": 149,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -728,7 +728,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 162,
+          "line": 165,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -744,7 +744,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 174,
+          "line": 177,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",

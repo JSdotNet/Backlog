@@ -83,6 +83,12 @@ public static class AppFeatures
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
+            KnowledgeFeatures.C4Diagrams,
+            "C4 diagrams",
+            "Show the C4 model kept beside the architecture chapters in .arc42/_c4/, authored as Structurizr DSL in c4hero. Its views are listed with the chapters, and a chapter that references a view links to it and back.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",

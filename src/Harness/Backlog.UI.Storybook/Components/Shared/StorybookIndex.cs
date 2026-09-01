@@ -162,6 +162,12 @@ internal static class StorybookIndex
             // component chapter at all: it is evidence about a rule `.design` has
             // already settled, kept where the diagrams it compares are.
             new("diagrams/archify", "Mermaid beside Archify", "The same diagram drawn twice — the live mermaid render next to a generated Archify document — and what the second one adds, loses and costs."),
+
+            // Beside its neighbour above and for the same reason: it puts DiagramView
+            // to a use the Diagrams page does not introduce. Where that page compares
+            // two renderers of one fence, this one shows a source that is not a fence
+            // at all — a Structurizr workspace read into mermaid at render time.
+            new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
 

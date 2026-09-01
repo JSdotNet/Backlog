@@ -9779,3 +9779,599 @@ select.field__input option {
         opacity: 1;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   The C4 explorer.
+
+   A three-part frame: a bar of controls, a body of Views panel / stage /
+   Highlighter, and a foot of drill targets and references. Presentation mode is
+   one class on the root that takes everything except the stage off screen, which
+   is why the parts are siblings rather than nested.
+
+   Every colour and space is a token (guideline 0011). The one place a raw value
+   appears is the minimap's size, which is a deliberate physical dimension rather
+   than a spacing step.
+   --------------------------------------------------------------------------- */
+
+.c4-explorer {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: var(--spacing-sm);
+    min-height: 0;
+}
+
+.c4-explorer__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-explorer__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.c4-explorer__body {
+    display: grid;
+    grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    min-height: 0;
+}
+
+/* Presentation mode: the picture, and nothing else. Panels are hidden rather
+   than collapsed so the stage takes the whole width in one step. */
+.c4-explorer--presenting .c4-explorer__body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.c4-explorer--presenting .c4-views,
+.c4-explorer--presenting .c4-highlighter,
+.c4-explorer--presenting .c4-explorer__foot,
+.c4-explorer--presenting .c4-breadcrumb {
+    display: none;
+}
+
+/* ---- views panel ---- */
+
+.c4-views {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    align-content: start;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.c4-views__level {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-views__item {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-views__item:hover,
+.c4-views__item:focus-visible,
+.c4-views__item--active {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    background: var(--color-background-raised);
+}
+
+/* ---- breadcrumb ---- */
+
+.c4-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-size: var(--font-size-sm);
+}
+
+.c4-breadcrumb__step {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-breadcrumb__step:hover,
+.c4-breadcrumb__step:focus-visible {
+    text-decoration: underline;
+}
+
+/* The trail's separator is drawn rather than written, so it is never read out as
+   content by a screen reader walking the buttons. */
+.c4-breadcrumb__step + .c4-breadcrumb__step::before {
+    content: "›";
+    margin-right: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.c4-breadcrumb__step[disabled] {
+    color: var(--color-text-primary);
+    cursor: default;
+}
+
+.c4-breadcrumb__step[disabled]:hover {
+    text-decoration: none;
+}
+
+/* ---- stage ---- */
+
+.c4-explorer__stage {
+    position: relative;
+    min-height: 24rem;
+    min-width: 0;
+}
+
+.c4-explorer__frame {
+    height: 100%;
+    min-height: 0;
+}
+
+/* The diagram fills the stage and stops scrolling: panning replaced the
+   scrollbars, and leaving both would fight for the same drag. */
+.c4-explorer__frame .c4-diagram-host {
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+}
+
+.c4-explorer__frame .c4-diagram-host.is-panning {
+    cursor: grabbing;
+}
+
+/* A node that can be drilled into says so, and one that cannot says nothing.
+   The hand cursor is an offer, and most elements have nothing below them — a
+   component is a leaf, and a container with no component view has nothing
+   declared — so offering on all of them made the gesture read as broken. */
+.c4-explorer__frame g.node.c4-drillable {
+    cursor: pointer;
+}
+
+.c4-explorer__frame g.node.c4-drillable:hover rect,
+.c4-explorer__frame g.node.c4-drillable:hover path {
+    stroke: var(--color-primary);
+    stroke-width: 2px;
+}
+
+/* ---- the C4 diagram ------------------------------------------------------
+
+   Drawn by this product now, not by mermaid, so every mark here is reachable —
+   which is the whole reason the renderer was written. Mermaid sized its own
+   boxes, drew no icon, routed its own edges and wrote every colour inline where
+   no rule could reach.
+
+   Depth on one hue, not a hue per level. `color-scheme.md#chart-roles` says the
+   palette carries exactly one saturated hue and that a second hue claims "this is
+   a different kind of quantity". A C4 level is not a different kind of thing, it
+   is the same architecture seen closer — so a level is a position on the ramp,
+   with the glyph carrying what the ramp cannot. That is the rule the technology
+   atlas already follows.                                                        */
+
+.c4-diagram-host {
+    height: 100%;
+    min-height: 0;
+}
+
+.c4-diagram {
+    display: block;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-family-base);
+}
+
+.c4-diagram__empty {
+    fill: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* ---- cards ----
+
+   Three tiers, not four shades.
+
+   Four steps of one ramp was the first attempt and it read as one colour: the
+   palette's hue mixed with the surface at 45/60/80/100% gives four golds that are
+   only tellable apart side by side, which is not how anybody reads a diagram. So
+   the code is weight rather than lightness — solid for what the view is about,
+   solid-but-quieter for its peers, and outline-only for what is outside it. That
+   is three tiers a reader can name at a glance, and it still spends exactly one
+   hue, which is what `color-scheme.md#chart-roles` requires.
+
+   The glyph carries the rest. A person, a store and a service differ by mark
+   before they differ by anything else — the rule the technology atlas follows for
+   the same reason.                                                              */
+
+.c4-diagram__node rect {
+    fill: var(--chart-ramp-2);
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1;
+}
+
+/* The deepest level on screen is the subject, so it takes the strongest step. */
+.c4-diagram__node--component rect,
+.c4-diagram__node--container rect,
+.c4-diagram__node--infrastructure rect {
+    fill: var(--chart-ramp-3);
+}
+
+/* A person is an actor rather than a part of the system, and reads as one:
+   quieter fill, full-strength border. */
+.c4-diagram__node--person rect {
+    fill: var(--chart-track);
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1.5;
+}
+
+/* Outside what the view is of, and it should read that way before a single label
+   is read: no fill at all. An outline against the page is the strongest
+   distinction one hue can buy, and it costs no second hue to make it. */
+.c4-diagram__node--external rect {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1;
+    stroke-dasharray: 5 4;
+}
+
+.c4-diagram__glyph {
+    fill: var(--chart-ink);
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+/* The actor. Drawn rather than typed: a head and shoulders reads as a person at
+   any size and in any font, where a character depends on both. */
+.c4-diagram__figure {
+    fill: none;
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1.6;
+}
+
+.c4-diagram__node--external .c4-diagram__figure {
+    stroke: var(--chart-ink-muted);
+}
+
+/* "EXTERNAL", in words. The dashed outline says it to a reader who knows the
+   notation; the chip says it to one who does not. */
+.c4-diagram__chip {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1;
+}
+
+.c4-diagram__chip-text {
+    fill: var(--chart-ink-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.c4-diagram__name {
+    fill: var(--chart-ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.c4-diagram__kind,
+.c4-diagram__descr {
+    fill: var(--chart-ink-muted);
+    font-size: 10.5px;
+}
+
+.c4-diagram__node--external .c4-diagram__name {
+    fill: var(--chart-ink-muted);
+}
+
+.c4-diagram__node--external .c4-diagram__glyph {
+    fill: var(--chart-ink-muted);
+    opacity: 0.55;
+}
+
+/* ---- frames ---- */
+
+.c4-diagram__boundary rect {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 6 5;
+}
+
+.c4-diagram__boundary-name {
+    fill: var(--chart-ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.c4-diagram__boundary-kind {
+    fill: var(--chart-ink-muted);
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* ---- edges ---- */
+
+.c4-diagram__edge path {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1.25;
+}
+
+.c4-diagram__arrowhead {
+    fill: var(--chart-axis);
+}
+
+.c4-diagram__edge-label text {
+    fill: var(--chart-ink-muted);
+    font-size: 10.5px;
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.c4-diagram__edge-tech {
+    opacity: 0.75;
+}
+
+.c4-diagram__edge-order {
+    fill: var(--color-primary);
+    font-weight: 700;
+}
+
+/* The Highlighter's answer. Dimmed rather than hidden, so the shape of the
+   diagram is still readable and the match reads as an emphasis rather than as a
+   different picture. */
+.c4-explorer__frame g.node.c4-dimmed {
+    opacity: 0.18;
+}
+
+.c4-explorer__frame g.node.c4-focused rect,
+.c4-explorer__frame g.node.c4-focused path {
+    stroke: var(--color-primary);
+    stroke-width: 3px;
+}
+
+/* ---- minimap ---- */
+
+.c4-minimap {
+    position: absolute;
+    right: var(--spacing-xs);
+    bottom: var(--spacing-xs);
+    width: 9rem;
+    height: 6rem;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+.c4-minimap svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.c4-minimap__lens {
+    fill: var(--color-primary);
+    fill-opacity: 0.15;
+    stroke: var(--color-primary);
+    stroke-width: 4px;
+    vector-effect: non-scaling-stroke;
+}
+
+/* ---- zoom ---- */
+
+.c4-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.c4-zoom__level {
+    min-width: 3.5rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* ---- search ---- */
+
+.c4-search {
+    position: relative;
+    min-width: 14rem;
+}
+
+.c4-search__hits {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+    max-height: 16rem;
+    overflow-y: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-search__hits--empty {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-search__hit {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-search__hit:hover,
+.c4-search__hit:focus-visible {
+    background: var(--color-background-alt);
+}
+
+.c4-search__hit-detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* ---- highlighter ---- */
+
+/* A bar under the diagram rather than a column beside it, which is where c4hero
+   puts the same four facets. It reads better here too: the picture keeps the
+   full width, and four short rows of chips are easier to scan across than down a
+   narrow rail. */
+.c4-highlighter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+    max-height: 9rem;
+    overflow-y: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-facet {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    max-width: 100%;
+}
+
+.c4-facet__label {
+    margin: 0 var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.c4-facet__value {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.c4-facet__value--on {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* ---- foot ---- */
+
+.c4-explorer__foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-drill {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.c4-drill__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-drill__item {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-drill__item:hover,
+.c4-drill__item:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.c4-problems {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-problems li + li {
+    margin-top: var(--spacing-2xs);
+}
+
+/* Narrow: the panels stack above the stage rather than squeezing it. */
+@media (max-width: 60rem) {
+    .c4-explorer__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-views {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+}
+
+/* Motion is not used here, but the focus ring is: a reduced-motion reader still
+   needs to see which box the search found. */
+@media (prefers-reduced-motion: reduce) {
+    .c4-explorer__frame g.node.c4-dimmed {
+        opacity: 0.3;
+    }
+}

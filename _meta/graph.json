@@ -10,37 +10,37 @@
     ".design"
   ],
   "stats": {
-    "nodes": 778,
-    "edges": 1568,
+    "nodes": 780,
+    "edges": 1577,
     "nodesByFolder": {
       "arc42": 84,
       "domain": 495,
       "backlog": 4,
-      "tech": 98,
-      "design": 97
+      "tech": 99,
+      "design": 98
     },
     "nodesByType": {
       "file": 125,
-      "chapter": 644,
+      "chapter": 646,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 201,
+      "active": 202,
       "proposed": 43,
       "draft": 418,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
       "done": 3,
-      "adopted": 83,
+      "adopted": 84,
       "candidate": 13,
       "hold": 1,
       "none": 9
     },
     "edgesByType": {
-      "contains": 653,
-      "related": 771,
-      "depends-on": 142,
+      "contains": 655,
+      "related": 777,
+      "depends-on": 143,
       "implements": 2
     }
   },
@@ -692,7 +692,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 98,
+          "line": 101,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -710,7 +710,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 125,
+          "line": 128,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -726,7 +726,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 146,
+          "line": 149,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -742,7 +742,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 162,
+          "line": 165,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -758,7 +758,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 174,
+          "line": 177,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -10785,6 +10785,27 @@
       },
       {
         "data": {
+          "id": ".tech/tooling.md#c4hero",
+          "label": "c4hero",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "c4hero",
+          "level": 2,
+          "line": 307,
+          "status": "adopted",
+          "version": "0.4.0",
+          "depends-on": [
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".tech/tooling.md#archify",
+            ".design/component-libraries.md#c4-workspaces"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/tooling.md#ajv",
           "label": "Ajv",
           "type": "chapter",
@@ -10792,7 +10813,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 307,
+          "line": 340,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -10810,7 +10831,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 324,
+          "line": 357,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [
@@ -11415,6 +11436,25 @@
           "related": [
             ".tech/technology-graph.md",
             ".tech/tooling.md#archify",
+            ".tech/tooling.md#c4hero",
+            ".design/content-editing.md",
+            ".design/accessibility.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#c4-workspaces",
+          "label": "C4 workspaces",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "c4-workspaces",
+          "level": 3,
+          "line": 213,
+          "status": "active",
+          "related": [
+            ".tech/tooling.md#c4hero",
             ".design/content-editing.md",
             ".design/accessibility.md"
           ]
@@ -11429,7 +11469,7 @@
           "path": ".design/component-libraries.md",
           "slug": "archify-artifacts",
           "level": 3,
-          "line": 212,
+          "line": 239,
           "status": "active",
           "related": [
             ".tech/tooling.md#archify",
@@ -11447,7 +11487,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 236,
+          "line": 263,
           "status": "active"
         }
       },
@@ -11460,7 +11500,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 260,
+          "line": 287,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -16828,6 +16868,14 @@
       },
       {
         "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#c4hero",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#c4hero",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/tooling.md->.tech/tooling.md#ajv",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#ajv",
@@ -17119,6 +17167,14 @@
           "id": "contains:.design/component-libraries.md->.design/component-libraries.md#diagram-and-graph-strategy",
           "source": ".design/component-libraries.md",
           "target": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/component-libraries.md#diagram-and-graph-strategy->.design/component-libraries.md#c4-workspaces",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/component-libraries.md#c4-workspaces",
           "type": "contains"
         }
       },
@@ -23692,6 +23748,30 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/tooling.md#c4hero->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#c4hero->.tech/tooling.md#archify",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".tech/tooling.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#c4hero->.design/component-libraries.md#c4-workspaces",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".design/component-libraries.md#c4-workspaces",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/tooling.md#ajv->.tech/tooling.md#archify",
           "source": ".tech/tooling.md#ajv",
           "target": ".tech/tooling.md#archify",
@@ -24140,6 +24220,14 @@
       },
       {
         "data": {
+          "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.tech/tooling.md#c4hero",
+          "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".tech/tooling.md#c4hero",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/content-editing.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
           "target": ".design/content-editing.md",
@@ -24150,6 +24238,30 @@
         "data": {
           "id": "related:.design/component-libraries.md#diagram-and-graph-strategy->.design/accessibility.md",
           "source": ".design/component-libraries.md#diagram-and-graph-strategy",
+          "target": ".design/accessibility.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#c4-workspaces->.tech/tooling.md#c4hero",
+          "source": ".design/component-libraries.md#c4-workspaces",
+          "target": ".tech/tooling.md#c4hero",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#c4-workspaces->.design/content-editing.md",
+          "source": ".design/component-libraries.md#c4-workspaces",
+          "target": ".design/content-editing.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/component-libraries.md#c4-workspaces->.design/accessibility.md",
+          "source": ".design/component-libraries.md#c4-workspaces",
           "target": ".design/accessibility.md",
           "type": "related"
         }

@@ -4,6 +4,7 @@
 @inject KnowledgeCopilotCli KnowledgeCopilot
 @inject IGitFileHistoryService GitHistory
 @inject IAppFeatureSettings Features
+@inject IServiceProvider Services
 
 @*
     The pane above already says which section this is — the tab strip names it and
@@ -172,6 +173,37 @@
 
     private DomainKnowledgeContext? SelectedContext => _view?.Contexts.FirstOrDefault(c => c.Slug == _selectedContextSlug);
 
+    /// <summary>
+    /// The architecture model, or nothing.
+    /// <para>
+    /// Resolved from the provider rather than injected, the same way the shared diagram
+    /// component resolves its artifact source: this panel is rendered by hosts that have
+    /// never heard of C4 — the storybook page and a long list of unit tests — and an
+    /// injected service would make every one of them fail to render over a feature they
+    /// never asked about.
+    /// </para>
+    /// </summary>
+    private C4KnowledgeStore? _c4Store;
+
+    private C4Catalog _c4 = C4Catalog.Off;
+
+    /// <summary>The arc42 C4 views that say they document this domain chapter. The
+    /// authored statement lives with the model, in <c>.arc42/_c4/references.json</c>,
+    /// and this is it inverted — the same inversion the architecture panel draws on the
+    /// chapter side.</summary>
+    private List<C4ViewEntry> C4ViewsDocumenting(DomainKnowledgeDocument? document) =>
+        document is null || !_c4.HasViews
+            ? []
+            : [.. _c4.Views.Where(view => view.Documented(document.Path))];
+
+    /// <summary>Hands the view to the host as an arc42 target. The pane switches section
+    /// and opens it there, because a C4 view is not a file in the knowledge menu and
+    /// this section has nowhere to draw one.</summary>
+    private Task NavigateToC4ViewAsync(C4ViewEntry view) =>
+        KnowledgeChapterLink.From(view.Reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
     private DomainKnowledgeDocument? SelectedDocument
     {
         get
@@ -209,6 +241,9 @@
     protected override void OnInitialized()
     {
         DomainKnowledge.Changed += OnKnowledgeChanged;
+
+        _c4Store = Services.GetService<C4KnowledgeStore>();
+        if (_c4Store is not null) _c4Store.Changed += OnKnowledgeChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -222,6 +257,12 @@
             _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
             _loadedRepositoryAlias = RepositoryAlias;
         }
+
+        // Read on every pass rather than only on a scope change: the store answers
+        // from its own cache, and a parent-supplied View never comes through the
+        // reload path at all — so this is the only place that branch would get it.
+        _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
+
         SelectDefaultContext();
 
         await LoadSelectedChapterAsync();
@@ -368,6 +409,7 @@
     private async Task ReloadAsync()
     {
         _view = await DomainKnowledge.LoadAsync(RepositoryAlias);
+        _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
         await LoadSelectedChapterAsync(force: true);
     }
@@ -785,6 +827,27 @@
                       CompareBaselines="@ChapterBaselines()"
                       CompareBaselineId="@_baselineId"
                       CompareBaselineIdChanged="OnBaselineChangedAsync" />
+
+            @* The link out to the architecture model.
+               `.domain` carries no C4 model of its own — Structurizr cannot say
+               aggregate root, value object or `0..*`, so there is nothing here for it
+               to describe. What it can have is the way across: a view under
+               `.arc42/_c4/` that says it documents this chapter is offered here, and
+               following it hands the pane an arc42 target with that view named, the
+               same as any other cross-section reference. *@
+            @if (C4ViewsDocumenting(document) is { Count: > 0 } c4Views)
+            {
+                <nav class="domain-c4-views" aria-label="C4 views documenting this chapter" data-testid="domain-c4-views">
+                    @foreach (var view in c4Views)
+                    {
+                        <AppButton BaseClass="domain-metadata__link"
+                                   Variant="ButtonVariant.None"
+                                   title="@view.Reference"
+                                   data-testid="domain-c4-view"
+                                   OnClick="() => NavigateToC4ViewAsync(view)">@view.Title</AppButton>
+                    }
+                </nav>
+            }
         }
         else
         {
@@ -1048,5 +1111,6 @@
     {
         _disposed = true;
         DomainKnowledge.Changed -= OnKnowledgeChanged;
+        if (_c4Store is not null) _c4Store.Changed -= OnKnowledgeChanged;
     }
 }
