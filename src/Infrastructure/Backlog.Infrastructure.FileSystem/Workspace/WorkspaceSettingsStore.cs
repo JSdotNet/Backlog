@@ -36,6 +36,17 @@ public sealed class WorkspaceSettingsStore
 
     private readonly string _settingsPath;
 
+    /// <summary>The per-user AppData folder name used when nothing overrides it.
+    /// A Debug build names it differently from a Release install so a developer
+    /// running the app — or the desktop web harness Aspire drives for the same
+    /// purpose — always lands in a private, isolated workspace instead of quietly
+    /// sharing whatever real backlog is configured on that machine.</summary>
+#if DEBUG
+    public const string DefaultAppDataFolderName = "Backlog.Debug";
+#else
+    public const string DefaultAppDataFolderName = "Backlog";
+#endif
+
     public WorkspaceSettingsStore()
         : this(null)
     {
@@ -44,11 +55,11 @@ public sealed class WorkspaceSettingsStore
     public WorkspaceSettingsStore(string? appDataDirectory)
         : this(
             string.IsNullOrWhiteSpace(appDataDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog")
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
                 : appDataDirectory,
             Path.Combine(
                 string.IsNullOrWhiteSpace(appDataDirectory)
-                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog")
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DefaultAppDataFolderName)
                     : appDataDirectory,
                 "settings.json"))
     {

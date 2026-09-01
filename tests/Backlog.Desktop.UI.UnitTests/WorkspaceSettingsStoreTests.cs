@@ -182,6 +182,22 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Assert.Equal(store.DefaultRootDirectory, store.RootDirectory);
     }
 
+    /// <summary>
+    /// The parameterless store is what both MauiProgram.cs and the desktop web
+    /// harness register through DI. A Debug build must never resolve that to the
+    /// same per-user folder a Release install uses, or a local dev/test run would
+    /// read and write whatever real backlog is configured on that machine.
+    /// </summary>
+    [Fact]
+    public void Debug_builds_default_to_an_isolated_appdata_folder()
+    {
+#if DEBUG
+        Assert.Equal("Backlog.Debug", WorkspaceSettingsStore.DefaultAppDataFolderName);
+#else
+        Assert.Equal("Backlog", WorkspaceSettingsStore.DefaultAppDataFolderName);
+#endif
+    }
+
     [Fact]
     public void A_chosen_folder_is_not_the_default()
     {
