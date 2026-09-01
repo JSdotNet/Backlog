@@ -35,10 +35,18 @@
     The shell decides whether the pane is on screen and nothing more.
 
     Selection is what puts the detail pane on screen, and losing the focus is what
-    takes it off again: the pane is the region both halves live in, so a focusout
-    that lands outside it is the reader having moved on. The check is a question
-    asked of the document rather than of the event, because Blazor's
+    takes it off again: a focusout that lands outside the detail half — or its
+    own separator, which sits between the two rather than inside either — is the
+    reader having moved on. The listener still sits on the section wrapping both
+    halves, because that is where every focusout from either side bubbles to;
+    what changed is what "outside" means to the check itself. The check is a
+    question asked of the document rather than of the event, because Blazor's
     FocusEventArgs carries no relatedTarget — see `backlogFocusOutside`.
+
+    A row picked while that check is still resolving is not a "did they leave"
+    the answer arrived late for — it is a different entry replacing the one the
+    focusout was ever about, and closing on top of it would hide the row the
+    reader just opened. See the guard in OnPaneFocusOutAsync.
 *@
 
 <section @key=@("backlog-pane") class="backlog-workspace" id="backlog-pane" data-testid="backlog-pane" aria-label="Backlog entries" @onfocusout="OnPaneFocusOutAsync">
@@ -284,9 +292,20 @@
     /// this pane already holds.</summary>
     private TaskPanel? _panel;
 
-    /// <summary>The element holding both halves of the split — the region the
-    /// selection survives inside. Matches the <c>id</c> on the section above.</summary>
-    private const string PaneElementId = "backlog-pane";
+    /// <summary>The detail half on its own — what a focus leaving now means,
+    /// rather than the section holding both halves. Matches the <c>id</c> below.</summary>
+    private const string DetailElementId = "backlog-pane-detail";
+
+    /// <summary>The two regions a focusout is not a departure from: the detail
+    /// pane itself, and the split's own separator, named by its stable
+    /// data-testid rather than a second id since nothing else needs to address it
+    /// directly. Selectors rather than plain ids because the separator has no id
+    /// of its own to match — see <see cref="OnPaneFocusOutAsync"/>.</summary>
+    private static readonly string[] DetailBoundarySelectors =
+    [
+        $"#{DetailElementId}",
+        "[data-testid='backlog-split-separator']"
+    ];
 
     /// <summary>Which of the selected entry's scheduling rows currently has its
     /// picker open. One per pane rather than one per row: two open pickers is a
@@ -750,7 +769,7 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderDetail(EntryRow row) =>
-        @<div class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
+        @<div id="@DetailElementId" class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
             <TaskPanel @ref="_panel"
                        Title="@DetailTitle(row)"
                        Done="@(row.PreviewStatus is EntryStatus.Done)"
@@ -1680,13 +1699,13 @@
     /// </summary>
     private async Task OnPaneFocusOutAsync()
     {
-        if (State.SelectedRow is null) return;
+        if (State.SelectedRow is not { } openedRow) return;
 
         bool left;
 
         try
         {
-            left = await JS.InvokeAsync<bool>("backlogFocusOutside", PaneElementId);
+            left = await JS.InvokeAsync<bool>("backlogFocusOutside", DetailBoundarySelectors);
         }
         catch (Exception)
         {
@@ -1694,6 +1713,12 @@
         }
 
         if (!left) return;
+
+        // Picking a different row is a switch, not a departure — and by the time
+        // the JS round trip above resolves, that click's own selection may already
+        // have landed. Closing on top of it would hide the row the reader just
+        // opened rather than the one this check was ever asking about.
+        if (!ReferenceEquals(State.SelectedRow, openedRow)) return;
 
         await State.SelectAsync(null);
     }

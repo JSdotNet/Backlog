@@ -201,8 +201,12 @@ public sealed class BacklogPaneFocusTests
 
     /// <summary>Moving from the row into the pane is a move within the region the
     /// selection lives in, and clearing there would close the pane on its way to
-    /// being used. The same answer covers picking a status chip and dragging the
-    /// separator.</summary>
+    /// being used. The same answer covers dragging the separator — see
+    /// <see cref="The_focus_out_check_asks_about_the_detail_pane_and_its_separator_only"/>
+    /// for why the separator counts as staying put despite sitting outside the
+    /// detail element itself. Picking a status chip no longer shares this answer:
+    /// that is the list, not the pane, and a focus landing there is the reader
+    /// having moved on to it.</summary>
     [Fact]
     public async Task Moving_the_focus_from_the_row_into_the_pane_keeps_the_selection()
     {
@@ -217,6 +221,55 @@ public sealed class BacklogPaneFocusTests
 
         Assert.Same(row, host.State.SelectedRow);
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
+    /// <summary>What counts as "still inside" narrowed from both halves of the
+    /// split to the detail half and its own separator — a focus landing anywhere
+    /// else in the list, such as a status chip or blank list space, is now a
+    /// departure rather than a move the pane stayed open through.</summary>
+    [Fact]
+    public async Task The_focus_out_check_asks_about_the_detail_pane_and_its_separator_only()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        await host.WriteEntryAsync(Entry);
+
+        host.Context.JSInterop.Setup<bool>("backlogFocusOutside", _ => true).SetResult(false);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='backlog-pane']").TriggerEventAsync("onfocusout", new FocusEventArgs());
+
+        var invocation = Assert.Single(host.Context.JSInterop.Invocations["backlogFocusOutside"]);
+
+        Assert.Equal(
+            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']"],
+            invocation.Arguments);
+    }
+
+    /// <summary>A row picked while the round trip above is still in flight is a
+    /// different entry replacing the one this focusout was ever about, not an
+    /// answer to "did they leave" that merely arrived late — closing over it would
+    /// hide the row the reader just opened.</summary>
+    [Fact]
+    public async Task A_row_selected_while_the_check_resolves_is_not_closed_over()
+    {
+        using var host = await BacklogPaneHost.CreateAsync();
+        var first = await host.WriteEntryAsync(Entry);
+        var second = await host.WriteEntryAsync(OtherEntry);
+        await host.State.SelectAsync(first);
+
+        var check = host.Context.JSInterop.Setup<bool>("backlogFocusOutside", _ => true);
+
+        var pane = host.Render();
+        var focusOut = pane.Find("[data-testid='backlog-pane']").TriggerEventAsync("onfocusout", new FocusEventArgs());
+
+        // The click that opened the second row does not wait for the first
+        // row's focusout check to answer.
+        await pane.InvokeAsync(() => host.State.SelectAsync(second));
+
+        check.SetResult(true);
+        await focusOut;
+
+        Assert.Same(second, host.State.SelectedRow);
     }
 
     /// <summary>Escape closes the pane and puts the reader back where they came
