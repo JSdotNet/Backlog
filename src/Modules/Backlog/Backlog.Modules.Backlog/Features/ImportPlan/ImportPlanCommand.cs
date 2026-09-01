@@ -51,26 +51,43 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         "import.empty_plan",
         "Nothing in that text parsed to an entry with a title.");
 
+    /// <summary>Two entries in the document claim the same <c>id:</c>. ADR 0004
+    /// reads an <c>id:</c> as the one name a prompt goes by inside its plan, and
+    /// every use of it here depends on that: an <c>after:</c> naming a doubled id
+    /// has two answers, and on a re-import both segments match the one stored
+    /// entry and write over each other while the counts report two. Refused whole
+    /// rather than resolved by a rule nobody wrote down — the person can see which
+    /// id it was and say which prompt owns it.</summary>
+    public static Error DuplicateItemId(string importItemId) => Error.Validation(
+        "import.duplicate_item_id",
+        $"Two entries both claim `id:{importItemId}` — an id names one prompt in a plan.");
+
     public async Task<Result<ImportPlanResultDto>> Handle(
         ImportPlanCommand command,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var parsedEntries = EntryTextParser.SplitSegments(command.RawText)
+            .Select(EntryTextParser.Parse)
+            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title))
+            .Select(parsed => ApplyDefaultRepo(parsed, command.DefaultRepo))
+            .ToList();
+
+        // Both refusals come before repository resolution, because resolution
+        // registers: a name the registry has never seen is added to it, which is a
+        // write to the workspace exactly as creating an entry is. A plan Import
+        // will not act on must not leave one behind for somebody to go and delete,
+        // so nothing about it is resolved until it is known to be a plan at all.
+        if (parsedEntries.Count == 0) return EmptyPlan;
+        if (FirstDuplicateItemId(parsedEntries) is { } duplicate) return DuplicateItemId(duplicate);
+
         // One memo for the whole run, keyed on the name exactly as the plan wrote
         // it. A plan that names the same repository in ten entries is one
         // question about one repository, and asking the registry ten times is
         // how an unrecognized name would get offered for registration ten times.
         var resolvedRepos = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        var parsedEntries = EntryTextParser.SplitSegments(command.RawText)
-            .Select(EntryTextParser.Parse)
-            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title))
-            .Select(parsed => ApplyDefaultRepo(parsed, command.DefaultRepo))
-            .Select(parsed => ResolveRepos(parsed, command.RepoMatches, resolvedRepos))
-            .ToList();
-
-        if (parsedEntries.Count == 0) return EmptyPlan;
+        parsedEntries = [.. parsedEntries.Select(parsed => ResolveRepos(parsed, command.RepoMatches, resolvedRepos))];
 
         var planId = SharedTag(parsedEntries);
         var existing = await entries.ListAsync(cancellationToken);
@@ -160,6 +177,28 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         }
 
         return new ImportPlanResultDto(created, updated, skipped, resultEntries);
+    }
+
+    /// <summary>The first <c>id:</c> two entries in the document both claim, or
+    /// null when every one of them is its own. Read before pass 1 rather than
+    /// discovered by the dictionary that pass 2 needs, so a plan Import cannot act
+    /// on is refused with nothing constructed and nothing saved.
+    /// <para>
+    /// Ordinal, matching how the same value is compared against a stored
+    /// <c>import_item_id</c> further down: an id that would not match itself on a
+    /// re-import is not the same id here either.
+    /// </para></summary>
+    private static string? FirstDuplicateItemId(IReadOnlyList<EntryTextParser.ParsedEntry> parsedEntries)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var parsed in parsedEntries)
+        {
+            if (string.IsNullOrWhiteSpace(parsed.ImportItemId)) continue;
+            if (!seen.Add(parsed.ImportItemId)) return parsed.ImportItemId;
+        }
+
+        return null;
     }
 
     /// <summary>The one <c>#tag</c> every parsed entry has in common, or null
