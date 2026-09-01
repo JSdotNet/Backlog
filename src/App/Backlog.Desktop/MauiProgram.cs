@@ -122,6 +122,13 @@ public static class MauiProgram
         builder.Services.AddDashboardModule();
         builder.Services.AddDashboardAdapters();
 
+        // Backlog Management's own adapter, registered here rather than beside
+        // AddBacklogModule() above because it reads the GitHub settings store and
+        // that is only configured by this point. It is what lets an imported plan
+        // resolve a `repo:` name against the repositories somebody has configured
+        // — and register one it names that nobody has, per ADR 0004.
+        builder.Services.AddBacklogAdapters();
+
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
         builder.Services.AddSingleton<DesignKnowledgeProvider>();

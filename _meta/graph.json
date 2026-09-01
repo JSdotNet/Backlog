@@ -10,22 +10,22 @@
     ".design"
   ],
   "stats": {
-    "nodes": 777,
-    "edges": 1565,
+    "nodes": 778,
+    "edges": 1568,
     "nodesByFolder": {
       "arc42": 84,
       "domain": 495,
       "backlog": 4,
       "tech": 98,
-      "design": 96
+      "design": 97
     },
     "nodesByType": {
       "file": 125,
-      "chapter": 643,
+      "chapter": 644,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 200,
+      "active": 201,
       "proposed": 43,
       "draft": 418,
       "accepted": 3,
@@ -38,8 +38,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 652,
-      "related": 769,
+      "contains": 653,
+      "related": 771,
       "depends-on": 142,
       "implements": 2
     }
@@ -12003,6 +12003,23 @@
       },
       {
         "data": {
+          "id": ".design/interaction-guidelines.md#workspace-panes",
+          "label": "Workspace Panes",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "workspace-panes",
+          "level": 2,
+          "line": 336,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#target-sizes-and-text",
+            ".design/design-principles.md#low-chrome-content-first"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/interaction-guidelines.md#action-density-and-overflow",
           "label": "Action Density and Overflow",
           "type": "chapter",
@@ -12010,7 +12027,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "action-density-and-overflow",
           "level": 2,
-          "line": 336,
+          "line": 361,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#density",
@@ -12028,7 +12045,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "timelines-and-roadmaps",
           "level": 2,
-          "line": 388,
+          "line": 413,
           "status": "active",
           "related": [
             ".design/color-scheme.md#chart-roles",
@@ -12046,7 +12063,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 418,
+          "line": 443,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -17366,6 +17383,14 @@
           "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#task-rows",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/interaction-guidelines.md#task-rows",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#workspace-panes",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#workspace-panes",
           "type": "contains"
         }
       },
@@ -24678,6 +24703,22 @@
           "id": "related:.design/interaction-guidelines.md#task-rows->.design/interaction-guidelines.md#auto-save-no-save-buttons",
           "source": ".design/interaction-guidelines.md#task-rows",
           "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#workspace-panes->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/interaction-guidelines.md#workspace-panes",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#workspace-panes->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/interaction-guidelines.md#workspace-panes",
+          "target": ".design/design-principles.md#low-chrome-content-first",
           "type": "related"
         }
       },

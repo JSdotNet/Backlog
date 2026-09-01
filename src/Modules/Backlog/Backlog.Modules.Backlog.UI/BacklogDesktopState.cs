@@ -521,15 +521,24 @@ public sealed class BacklogDesktopState : IDisposable
     /// and a success ("3 created, 1 updated") are both a sentence for the reader,
     /// and the dialog shows whichever one it was handed.
     /// </para>
+    /// <para>
+    /// The dialog's repository matches travel through untouched, the same as its
+    /// default repository: which name means which repository is the module's
+    /// question, and this class carries the reader's answer rather than
+    /// interpreting it.
+    /// </para>
     /// </summary>
-    public async Task<string> ImportPlanAsync(string rawText, string? defaultRepo = null)
+    public async Task<string> ImportPlanAsync(
+        string rawText,
+        string? defaultRepo = null,
+        IReadOnlyDictionary<string, string>? repoMatches = null)
     {
         SetSaveState(AppSaveState.Saving);
 
         Result<ImportPlanResultDto> result;
         try
         {
-            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo);
+            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches);
         }
         catch
         {

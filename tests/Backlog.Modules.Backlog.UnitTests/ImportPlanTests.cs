@@ -1,6 +1,7 @@
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Modules.Backlog.Features.ImportPlan;
 
@@ -211,7 +212,8 @@ public sealed class ImportPlanTests
     {
         var store = new InMemoryBacklogRepository();
 
-        var result = await new ImportPlanCommandHandler(store).Handle(new ImportPlanCommand("\n\n   \n"));
+        var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
+            .Handle(new ImportPlanCommand("\n\n   \n"));
 
         Assert.True(result.IsFailure);
         Assert.Equal(ImportPlanCommandHandler.EmptyPlan, result.Error);
@@ -243,9 +245,73 @@ public sealed class ImportPlanTests
         Assert.Equal(["its-own-repo"], Assert.Single(result.Entries).RepoIds!);
     }
 
-    private static async Task<ImportPlanResultDto> Import(ITaskRepository store, string rawText, string? defaultRepo = null)
+    /// <summary>A name the registry already knows resolves to its alias and
+    /// nothing is registered — per ADR 0004 auto-registration is what happens to
+    /// an <em>unrecognized</em> name, so a plan naming repositories that already
+    /// exist must leave the registry exactly as it found it.</summary>
+    [Fact]
+    public async Task A_repo_name_the_registry_already_knows_resolves_without_registering_anything()
     {
-        var result = await new ImportPlanCommandHandler(store).Handle(new ImportPlanCommand(rawText, defaultRepo));
+        var store = new InMemoryBacklogRepository();
+        var directory = new FakeRepositoryDirectory("widgets");
+
+        var result = await Import(store, "# Only prompt\n`prompt` `repo:widgets`\n", directory: directory);
+
+        Assert.Equal(["widgets"], Assert.Single(result.Entries).RepoIds!);
+        Assert.Empty(directory.Registered);
+    }
+
+    /// <summary>The Import dialog's matching row is the reader saying "the plan
+    /// calls it this, I mean that repository". That answer is the strongest
+    /// signal there is — a person looked at it — so it is taken before the
+    /// registry is consulted and nothing is registered behind it.</summary>
+    [Fact]
+    public async Task A_name_the_reader_matched_in_the_dialog_wins_over_the_registry()
+    {
+        var store = new InMemoryBacklogRepository();
+        var directory = new FakeRepositoryDirectory("widgets");
+
+        var result = await Import(
+            store,
+            "# Only prompt\n`prompt` `repo:Fancy Widgets`\n",
+            directory: directory,
+            repoMatches: new Dictionary<string, string> { ["Fancy Widgets"] = "widgets" });
+
+        Assert.Equal(["widgets"], Assert.Single(result.Entries).RepoIds!);
+        Assert.Empty(directory.Registered);
+        Assert.DoesNotContain("Fancy Widgets", directory.Resolved);
+    }
+
+    /// <summary>A name nothing recognises is registered on the spot, per ADR
+    /// 0004 — once for the whole plan, however many entries name it. Registering
+    /// per entry would be the same repository asked for twice, and a registry
+    /// that answered by adding it twice would be a plan quietly corrupting the
+    /// workspace it introduced itself to.</summary>
+    [Fact]
+    public async Task An_unknown_repo_named_by_two_entries_is_registered_once_for_the_whole_plan()
+    {
+        var store = new InMemoryBacklogRepository();
+        var directory = new FakeRepositoryDirectory();
+
+        const string plan =
+            "# First prompt\n`prompt` `#myplan` `repo:newcomer`\n\n"
+            + "# Second prompt\n`prompt` `#myplan` `repo:newcomer`\n";
+
+        var result = await Import(store, plan, directory: directory);
+
+        Assert.Equal(["newcomer"], directory.Registered);
+        Assert.All(result.Entries, entry => Assert.Equal(["newcomer"], entry.RepoIds!));
+    }
+
+    private static async Task<ImportPlanResultDto> Import(
+        ITaskRepository store,
+        string rawText,
+        string? defaultRepo = null,
+        FakeRepositoryDirectory? directory = null,
+        IReadOnlyDictionary<string, string>? repoMatches = null)
+    {
+        var handler = new ImportPlanCommandHandler(store, directory ?? new FakeRepositoryDirectory());
+        var result = await handler.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches));
 
         Assert.True(result.IsSuccess);
         return result.Value;
@@ -275,5 +341,51 @@ public sealed class ImportPlanTests
 
         public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values]);
+    }
+
+    /// <summary>A registry that starts with whatever aliases a test hands it and
+    /// records what Import asked of it. The recordings are the point: what these
+    /// tests are about is <em>whether</em> a name was resolved or registered at
+    /// all, which a directory that only returned answers could not show.</summary>
+    private sealed class FakeRepositoryDirectory(params string[] known) : IRepositoryDirectory
+    {
+        private readonly List<BacklogRepositoryRef> _repositories =
+            [.. known.Select(alias => new BacklogRepositoryRef(alias, "someone", alias))];
+
+        public List<string> Resolved { get; } = [];
+
+        public List<string> Registered { get; } = [];
+
+        public IReadOnlyList<BacklogRepositoryRef> Repositories => _repositories;
+
+        public BacklogRepositoryRef? Resolve(string name)
+        {
+            Resolved.Add(name);
+            return Find(name);
+        }
+
+        public BacklogRepositoryRef Register(string name)
+        {
+            // Every call is recorded, not every addition. A second call for a
+            // name already registered is exactly the thing the handler's
+            // memoization exists to prevent, and a fake that swallowed it would
+            // make the test pass whether the memoization was there or not.
+            Registered.Add(Normalize(name));
+
+            var existing = Find(name);
+            if (existing is not null) return existing;
+
+            var added = new BacklogRepositoryRef(Normalize(name), Normalize(name), Normalize(name));
+            _repositories.Add(added);
+            return added;
+        }
+
+        private BacklogRepositoryRef? Find(string name) =>
+            _repositories.FirstOrDefault(repository =>
+                string.Equals(repository.Alias, Normalize(name), StringComparison.Ordinal));
+
+        /// <summary>The same lower-cased trim the real adapter applies, so a test
+        /// asserting on an alias asserts on the form the workspace stores.</summary>
+        private static string Normalize(string name) => name.Trim().ToLowerInvariant();
     }
 }

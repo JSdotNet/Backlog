@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddBacklogAdapters(), the composition root a host calls to put the
+         settings-backed repository directory behind the module's port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
