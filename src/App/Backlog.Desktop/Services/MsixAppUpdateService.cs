@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
+using Backlog.UI.Components;
 using Microsoft.Extensions.Logging;
 
 #if WINDOWS

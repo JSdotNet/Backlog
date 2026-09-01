@@ -186,7 +186,8 @@
                           Layout="@BodyCommentLayout"
                           OnAddComment="@OnAddComment"
                           OnResolveComment="@OnResolveComment"
-                          OnEditComment="@OnEditComment" />
+                          OnEditComment="@OnEditComment"
+                          OnDeleteComment="@OnDeleteComment" />
         }
         else
         {
@@ -374,6 +375,11 @@
     [Parameter]
     public EventCallback<MarkdownComment> OnEditComment { get; set; }
 
+    /// <summary>Raised with a comment's id when a reader asks to remove it
+    /// outright. Without it a remark can be resolved but never taken away.</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteComment { get; set; }
+
     /// <summary>Take the full height the host gives the pane, and scroll inside
     /// it. For a file that lives in a pane or a column, where how tall it gets is
     /// the layout's business.</summary>
@@ -388,9 +394,22 @@
 
     /// <summary>The scroll region's classes. The block first and always — the
     /// padding, the overflow and the scrollbars hang off it, and a modifier that
-    /// replaced it would take all three with it.</summary>
+    /// replaced it would take all three with it.
+    ///
+    /// <para>The two modifiers are exclusive and the order they are asked in says
+    /// which: an editor fills the body edge to edge and draws no margin, so a body
+    /// that is being edited is never a body carrying a gutter.</para>
+    ///
+    /// <para>The gutter is announced here rather than left for the stylesheet to
+    /// work out from what is inside the body, because the decision is already made
+    /// here — see <see cref="BodyCommentLayout"/>, which is the one place that
+    /// knows a margin was asked for and that there is something to put in it. A
+    /// stylesheet asking the same question of its own descendants would be a second
+    /// answer to it, free to disagree with what MarkdownView drew.</para></summary>
     private string BodyClass =>
-        ShowsEditBody ? "file-view__body file-view__body--edit" : "file-view__body";
+        ShowsEditBody ? "file-view__body file-view__body--edit"
+        : BodyCommentLayout is MarkdownCommentLayout.Margin ? "file-view__body file-view__body--notes"
+        : "file-view__body";
 
     private string? BodyTestId => TestId is null ? null : $"{TestId}-body";
 
@@ -415,8 +434,21 @@
 
     // In fill mode the flex box decides the height, so a max-height here would
     // only fight it.
+    //
+    // Nor is there a cap while a gutter is drawn, whatever the host asked for. A
+    // capped body is a scroll box, a scroll box draws its bar at its own trailing
+    // edge, and the gutter is inside it — so the bar lands beyond the remarks and
+    // reads as theirs. The pane hands the scrolling up to whatever it sits in
+    // instead, which is what every surface in this product that draws remarks
+    // already does. Enforced here rather than in the stylesheet because this is
+    // where the cap is written, and an inline style would beat the rule that tried
+    // to withdraw it.
     private string? BodyStyle =>
-        Fill || string.IsNullOrWhiteSpace(MaxHeight) ? null : $"max-height: {MaxHeight}";
+        Fill
+        || string.IsNullOrWhiteSpace(MaxHeight)
+        || BodyCommentLayout is MarkdownCommentLayout.Margin
+            ? null
+            : $"max-height: {MaxHeight}";
 
     /// <summary>
     /// The layout the remarks actually get.
@@ -424,9 +456,13 @@
     /// A margin is only a layout when there is something in it. A host that hands
     /// in an add handler makes every block a row whether or not anyone has said
     /// anything, and in margin mode each of those rows reserves the column — so a
-    /// file nobody has remarked on would give up 16rem of its width to hold
+    /// file nobody has remarked on would give up the whole gutter's width to hold
     /// nothing, on the strength of a feature nobody has used yet. The first remark
     /// opens the column, which is also the moment it starts being worth the room.
+    /// </para>
+    /// <para>
+    /// Which makes this the one answer to "is a gutter being drawn", and the reason
+    /// <see cref="BodyClass"/> reads it rather than working it out again.
     /// </para>
     /// </summary>
     private MarkdownCommentLayout BodyCommentLayout =>

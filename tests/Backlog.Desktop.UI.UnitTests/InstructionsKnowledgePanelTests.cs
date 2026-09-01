@@ -32,17 +32,55 @@ public sealed class InstructionsKnowledgePanelTests
             .Add(parameter => parameter.RepositoryAlias, "backlog")
             .Add(parameter => parameter.SelectedPath, ".github/copilot-instructions.md"));
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='knowledge-chapter-surface']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-body']")));
+
+        // A selection means no file list, so the whole panel is the scope: the
+        // path belongs on the file view's header and nowhere else on the screen.
+        component.AssertTheFileIsNamedOnce("copilot-instructions.md", "[data-testid='instructions-knowledge-panel']");
+    }
+
+    /// <summary>
+    /// Read is the resting state, so the editing surface is not on screen until
+    /// someone asks for it — what is on screen is the file, and the button that
+    /// opens it, in the file view's own header.
+    /// </summary>
+    [Fact]
+    public async Task The_selected_document_opens_as_the_file_read_and_offers_a_way_in()
+    {
+        await using var harness = CreateCloneHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog")
+            .Add(parameter => parameter.SelectedPath, ".github/copilot-instructions.md"));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-edit']")));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-surface']"));
+        Assert.Contains("Repository-wide guidance.", component.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Edit_puts_the_editing_surface_in_the_file_views_own_body()
+    {
+        await using var harness = CreateCloneHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog")
+            .Add(parameter => parameter.SelectedPath, ".github/copilot-instructions.md"));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-edit']")));
+        component.Find("[data-testid='instructions-document-edit']").Click();
 
         // Inside the file view's body rather than merely somewhere on the panel.
         // The header is what keeps the identity on screen while the file scrolls,
         // and a body that landed beside the file view instead of in it would take
         // that away while still looking right in a screenshot.
-        Assert.Single(component.FindAll("[data-testid='instructions-document-body'] [data-testid='knowledge-chapter-surface']"));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-body'] [data-testid='knowledge-chapter-surface']")));
 
-        // A selection means no file list, so the whole panel is the scope: the
-        // path belongs on the file view's header and nowhere else on the screen.
-        component.AssertTheFileIsNamedOnce("copilot-instructions.md", "[data-testid='instructions-knowledge-panel']");
+        // The way out is where the way in was, and the editing surface brings no
+        // second one of its own: two Edit buttons, one under the other, is what
+        // Bare exists to prevent.
+        Assert.Single(component.FindAll("[data-testid='instructions-document-done']"));
+        Assert.Empty(component.FindAll("[data-testid='knowledge-chapter-edit']"));
     }
 
     [Fact]

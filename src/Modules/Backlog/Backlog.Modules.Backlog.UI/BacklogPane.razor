@@ -293,6 +293,16 @@
     /// this pane already holds.</summary>
     private TaskPanel? _panel;
 
+    /// <summary>The row whose title the open panel is currently drafting, and
+    /// what it currently reads — <c>null</c> together whenever nothing is being
+    /// typed. Read by <see cref="ToTaskRows"/> so the list shows the same
+    /// characters the panel does while the panel's own rename is still just a
+    /// draft, and by <see cref="HandleStateChanged"/> to drop the override the
+    /// moment it no longer belongs to whatever is now selected.</summary>
+    private EntryRow? _renamePreviewRow;
+
+    private string? _renamePreviewText;
+
     /// <summary>The detail half on its own — what a focus leaving now means,
     /// rather than the section holding both halves. Matches the <c>id</c> below.</summary>
     private const string DetailElementId = "backlog-pane-detail";
@@ -391,7 +401,17 @@
         }
     }
 
-    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
+    private void HandleStateChanged()
+    {
+        // A preview belongs to whichever row's panel raised it. The selection
+        // moving on is not that panel settling or being abandoned — neither
+        // fires while it happens — so without this check a row could still be
+        // shown someone else's half-typed title after the reader had already
+        // clicked away from it.
+        if (!ReferenceEquals(_renamePreviewRow, State.SelectedRow)) (_renamePreviewRow, _renamePreviewText) = (null, null);
+
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -478,10 +498,20 @@
     /// </summary>
     private IReadOnlyList<TaskRow> DependencyUniverse() => ToTaskRows(State.Rows);
 
+    /// <summary>What a row is called in the list, live: the open panel's draft
+    /// while that row is the one being retitled there, its saved title the rest
+    /// of the time — "Untitled" either way if that comes out blank, since a row
+    /// with nothing typed yet is the same fact whichever surface is asking.</summary>
+    private string EntryDisplayTitle(EntryRow row)
+    {
+        var title = ReferenceEquals(row, _renamePreviewRow) ? _renamePreviewText! : row.PreviewTitle;
+        return string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+    }
+
     private IReadOnlyList<TaskRow> ToTaskRows(IEnumerable<EntryRow> rows) =>
         [.. rows.Select(row => new TaskRow(
             EntryTaskId(row),
-            string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
+            EntryDisplayTitle(row),
             Done: row.PreviewStatus is EntryStatus.Done,
             InMyDay: IsInMyDay(row),
             Group: EntryGroup(row),
@@ -498,32 +528,18 @@
         })];
 
     /// <summary>
-    /// The area, for the quiet line under the title — unless the picker at the end
-    /// of the row is already set to it.
+    /// What the row shows for its area: the area, whatever it says.
     /// <para>
-    /// An area is one field with two readings. Most of them are piles somebody
-    /// typed, and nothing else on the row says "errands", so the line has to. Some
-    /// of them name a configured repository, and then the repository picker is
-    /// showing that alias two controls to the right — a metadata line repeating it
-    /// would be the same word twice on a row whose width the title is already
-    /// competing for.
-    /// </para>
-    /// <para>
-    /// Both halves of the test are needed, because the two <c>RepositoryFor</c>s
-    /// are not the same question. <c>State</c>'s resolves the row's own area;
-    /// the pane's is what the picker is set to, which with the
-    /// additional-repositories feature off is the first configured repository no
-    /// matter what the row says. Dropping the line on the pane's answer alone would
-    /// hide "errands" behind a picker reading "backlog".
+    /// It used to be dropped whenever it named a configured repository, because the
+    /// repository picker two controls to the right was showing the same word. That
+    /// suppression went with the conflation behind it: the picker reads the entry's
+    /// <c>`repo:`</c> targets and the area is the person's own pile
+    /// (<c>.domain/backlog/naming.md#area</c>), so they are two facts and an entry
+    /// filed under a pile that happens to be spelled like a repository is saying
+    /// something the picker is not.
     /// </para>
     /// </summary>
-    private string? EntryGroup(EntryRow row) =>
-        KnowledgeRepositories.Count > 0
-        && State.RepositoryFor(row) is { } filed
-        && RepositoryFor(row) is { } shown
-        && string.Equals(filed.Alias, shown.Alias, StringComparison.Ordinal)
-            ? null
-            : row.PreviewArea;
+    private string? EntryGroup(EntryRow row) => row.PreviewArea;
 
     private EntryRow? EntryFor(string id) =>
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
@@ -589,11 +605,12 @@
     /// picker neither opens the row nor starts a rename. Keys are covered by where
     /// the handlers are rather than by a third guard: the row's own key handling
     /// sits on the body button and the list's on its add field, and both are
-    /// siblings of this span rather than ancestors of it. Drag is the one thing the
-    /// slot does not already answer — the <c>li</c> is <c>draggable</c> and a
-    /// <c>dragstart</c> raised inside it would be the row asking to be re-ranked —
-    /// so the pointer is told there is nothing to pick up here and the event is
-    /// stopped before it reaches the row that would act on it.
+    /// siblings of this span rather than ancestors of it. Drag needs no guard here
+    /// either: reordering is a pointer gesture the shared library runs from the
+    /// document, and it declines any press that lands in <c>.task-item__actions</c>
+    /// — the slot this span is rendered into. This used to carry a
+    /// <c>draggable="false"</c> and a <c>dragstart</c> stopPropagation, which were
+    /// about the row being natively draggable; it no longer is.
     /// </para>
     /// <para>
     /// The label on each names the entry, the way the row's own pencil does, because
@@ -601,7 +618,7 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderRowPickers(EntryRow row, string title) =>
-        @<span class="entry-row__pickers" draggable="false" @ondragstart:stopPropagation="true">
+        @<span class="entry-row__pickers">
             @if (KnowledgeRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's
@@ -610,7 +627,7 @@
                 <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
-                                    TestId="row-area-badge"
+                                    TestId="row-repo-badge"
                                     OnChanged="value => OnRepositoryChangedAsync(row, value)" />
             }
 
@@ -649,6 +666,16 @@
     private async Task OnEntryRenamedAsync(TaskRename rename)
     {
         if (EntryFor(rename.Id) is { } row) await State.RenameEntryAsync(row, rename.Title);
+    }
+
+    /// <summary>What the panel's title field currently reads, before anything is
+    /// saved. Held only long enough for <see cref="ToTaskRows"/> to draw it on
+    /// the matching row — the panel is still the one place this is committed
+    /// from or abandoned.</summary>
+    private void OnEntryTitlePreview(EntryRow row, string? text)
+    {
+        (_renamePreviewRow, _renamePreviewText) = text is null ? (null, null) : (row, text);
+        StateHasChanged();
     }
 
     private async Task OnEntryReorderedAsync(TaskMove move)
@@ -796,6 +823,7 @@
                        Done="@(row.PreviewStatus is EntryStatus.Done)"
                        OnToggle="() => State.ToggleDoneAsync(row)"
                        OnRename="title => State.RenameEntryAsync(row, title)"
+                       OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CssClass="entry-detail__panel"
@@ -1198,7 +1226,7 @@
                     <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
-                                        TestId="area-badge"
+                                        TestId="repo-badge"
                                         OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
 
@@ -1757,7 +1785,7 @@
     }
 
     private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
-        await State.ChangeAreaAsync(row, repositoryAlias);
+        await State.ChangeRepositoryAsync(row, repositoryAlias);
 
     private async Task OnStatusChangedAsync(EntryRow row, string value)
     {
@@ -1904,21 +1932,100 @@
     /// worked and the list row would look like it did not.
     /// </para>
     /// <para>
-    /// Each option also carries its repository as a hint, when it has one. The
-    /// repository filter can put the whole list of entries from every repository
-    /// on screen at once, and once it does, a title alone can no longer tell two
-    /// candidates apart — the chip only ever shows the title, but the open list
-    /// is exactly where the aside belongs.
+    /// What is <em>not</em> left out is anything the list's own filters are
+    /// hiding: the candidates come from every row, not from the filtered ones. A
+    /// chain is a fact about the work, not about what the reader happens to be
+    /// looking at, and the repository, status, area and My Day filters are all
+    /// about the second. Reading one repository and finding that the entry it
+    /// waits on has become unnameable would make a true chain unwritable for no
+    /// reason the reader could see.
+    /// </para>
+    /// <para>
+    /// Which puts every entry in the product in one list, so the list is
+    /// sectioned by where each one is filed — its repository, falling back to the
+    /// bare area for an entry targeting nothing configured. The reader's own
+    /// repository leads, because the entry being edited is almost always waiting
+    /// on something beside it; then the rest of the
+    /// configured repositories in the order they were configured, so the
+    /// sections read in the same order as the repository switcher; then the plain
+    /// areas nobody configured; then the entries filed nowhere. A repository with
+    /// no candidate draws no heading at all — the sections come out of walking
+    /// the options, so an empty one never exists to be drawn.
     /// </para></summary>
-    private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row) =>
-        [.. State.FilteredRows
+    private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row)
+    {
+        var candidates = State.Rows
             .Where(candidate => !ReferenceEquals(candidate, row)
                 && candidate.Id is not null
                 && candidate.PreviewStatus is not EntryStatus.Done)
-            .Select(candidate => new SelectorOption(
-                candidate.Id!.Value.ToString(),
-                string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
-                string.IsNullOrWhiteSpace(candidate.PreviewArea) ? null : candidate.PreviewArea))];
+            .ToList();
+
+        return
+        [
+            .. DependencySections(candidates)
+                .SelectMany(section => candidates
+                    .Where(candidate => string.Equals(SectionOf(candidate), section, StringComparison.Ordinal))
+                    .Select(candidate => new SelectorOption(
+                        candidate.Id!.Value.ToString(),
+                        string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
+                        Hint: null,
+                        Group: section)))
+        ];
+    }
+
+    /// <summary>What the dependency picker calls an entry's section. An entry
+    /// filed nowhere is not left unsectioned: it would sit above the first heading
+    /// with nothing saying what it was, so it gets the same word the area filter
+    /// uses for the same rows.
+    /// <para>
+    /// The repository is asked first and the area only stands in for it, because
+    /// the two are unrelated facts: the repository is the entry's <c>`repo:`</c>
+    /// targets and the area is the pile somebody filed it in, so an area spelled
+    /// like a configured repository is not that repository's work
+    /// (<c>BacklogRepositoryScopeTests</c>). Reading the area as the repository
+    /// would put an imported entry under a heading it does not belong to, and
+    /// leave the entries that really do target that repository under another.
+    /// </para></summary>
+    private const string UnfiledSection = "Unfiled";
+
+    private string SectionOf(EntryRow row) =>
+        State.RepositoryFor(row)?.Alias
+        ?? (string.IsNullOrWhiteSpace(row.PreviewArea) ? UnfiledSection : row.PreviewArea!);
+
+    /// <summary>The section order, as the XML doc on <c>DependencyOptions</c>
+    /// spells it out. Only sections that actually have a candidate survive, and
+    /// "Unfiled" is last whether or not anything else came before it.</summary>
+    private IReadOnlyList<string> DependencySections(IReadOnlyList<EntryRow> candidates)
+    {
+        var present = candidates.Select(SectionOf).ToHashSet(StringComparer.Ordinal);
+
+        var ordered = new List<string>();
+
+        void Take(string section)
+        {
+            if (present.Remove(section)) ordered.Add(section);
+        }
+
+        if (!string.IsNullOrEmpty(State.SelectedRepositoryAlias))
+        {
+            Take(State.SelectedRepositoryAlias);
+        }
+
+        foreach (var repository in State.Repositories)
+        {
+            Take(repository.Alias);
+        }
+
+        // Pulled out before the sort rather than after it: it is last by rule, not
+        // by where the letter U happens to fall.
+        var unfiled = present.Remove(UnfiledSection);
+
+        ordered.AddRange(present.OrderBy(section => section, StringComparer.OrdinalIgnoreCase));
+
+        if (unfiled) ordered.Add(UnfiledSection);
+
+        return ordered;
+    }
 
     /// <summary>What the entry is waiting for, said by title. An id naming
     /// nothing in view is shown as the id rather than dropped — it still blocks,

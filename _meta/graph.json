@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 780,
-    "edges": 1577,
+    "nodes": 781,
+    "edges": 1579,
     "nodesByFolder": {
       "arc42": 84,
-      "domain": 495,
+      "domain": 496,
       "backlog": 4,
       "tech": 99,
       "design": 98
     },
     "nodesByType": {
       "file": 125,
-      "chapter": 646,
+      "chapter": 647,
       "heading": 9
     },
     "nodesByStatus": {
       "active": 202,
       "proposed": 43,
-      "draft": 418,
+      "draft": 419,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -38,8 +38,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 655,
-      "related": 777,
+      "contains": 656,
+      "related": 778,
       "depends-on": 143,
       "implements": 2
     }
@@ -7130,6 +7130,22 @@
       },
       {
         "data": {
+          "id": ".domain/second-brain/features.md#knowledge-on-the-repositorys-latest-version",
+          "label": "Knowledge on the repository's latest version",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/second-brain/features.md",
+          "slug": "knowledge-on-the-repositorys-latest-version",
+          "level": 3,
+          "line": 147,
+          "status": "draft",
+          "related": [
+            ".domain/repository-management/features.md#repository-knowledge-folder-settings"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/second-brain/features.md#instruction-optimization",
           "label": "Instruction optimization",
           "type": "chapter",
@@ -7137,7 +7153,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "instruction-optimization",
           "level": 2,
-          "line": 147,
+          "line": 176,
           "status": "draft",
           "feature-flag": [
             "instruction-optimization"
@@ -7160,7 +7176,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "instruction-set-inventory",
           "level": 3,
-          "line": 172,
+          "line": 201,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-set"
@@ -7176,7 +7192,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "context-load-budget",
           "level": 3,
-          "line": 187,
+          "line": 216,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#context-load"
@@ -7192,7 +7208,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "duplicate-rule-detection",
           "level": 3,
-          "line": 201,
+          "line": 230,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-alignment"
@@ -7208,7 +7224,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "cross-tool-alignment-validation",
           "level": 3,
-          "line": 215,
+          "line": 244,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#instruction-alignment"
@@ -7224,7 +7240,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "pointer-and-phrasing-review",
           "level": 3,
-          "line": 231,
+          "line": 260,
           "status": "draft"
         }
       },
@@ -7237,7 +7253,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "prune-candidates",
           "level": 3,
-          "line": 246,
+          "line": 275,
           "status": "draft"
         }
       },
@@ -7250,7 +7266,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "reviewed-change-proposals",
           "level": 3,
-          "line": 260,
+          "line": 289,
           "status": "draft",
           "related": [
             ".domain/second-brain/domain.md#instruction-review"
@@ -7266,7 +7282,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "saving-evidence",
           "level": 3,
-          "line": 274,
+          "line": 303,
           "status": "draft",
           "related": [
             ".domain/second-brain/naming.md#saving-evidence"
@@ -7282,7 +7298,7 @@
           "path": ".domain/second-brain/features.md",
           "slug": "knowledge-retrieval",
           "level": 2,
-          "line": 287,
+          "line": 316,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#topic-and-tag-grouping",
@@ -15364,6 +15380,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/second-brain/features.md#repository-knowledge-areas->.domain/second-brain/features.md#knowledge-on-the-repositorys-latest-version",
+          "source": ".domain/second-brain/features.md#repository-knowledge-areas",
+          "target": ".domain/second-brain/features.md#knowledge-on-the-repositorys-latest-version",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/second-brain/features.md->.domain/second-brain/features.md#instruction-optimization",
           "source": ".domain/second-brain/features.md",
           "target": ".domain/second-brain/features.md#instruction-optimization",
@@ -21199,6 +21223,14 @@
           "id": "related:.domain/second-brain/features.md#knowledge-that-stays-current->.arc42/08-crosscutting-concepts.md#knowledge-index",
           "source": ".domain/second-brain/features.md#knowledge-that-stays-current",
           "target": ".arc42/08-crosscutting-concepts.md#knowledge-index",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/second-brain/features.md#knowledge-on-the-repositorys-latest-version->.domain/repository-management/features.md#repository-knowledge-folder-settings",
+          "source": ".domain/second-brain/features.md#knowledge-on-the-repositorys-latest-version",
+          "target": ".domain/repository-management/features.md#repository-knowledge-folder-settings",
           "type": "related"
         }
       },

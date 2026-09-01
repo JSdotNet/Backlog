@@ -176,4 +176,112 @@ public sealed class MarkdownCommentTests
         Assert.Empty(view.FindAll(".md-block--affordance"));
         Assert.Empty(view.FindAll(".md-block__affordances"));
     }
+
+    [Fact]
+    public void Deleting_reports_the_comments_id()
+    {
+        using var context = new BunitContext();
+        string? deleted = null;
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "Stray note") })
+            .Add(v => v.OnDeleteComment, id => deleted = id));
+
+        view.Find("[data-testid='markdown-comment-delete-c1']").Click();
+
+        Assert.Equal("c1", deleted);
+    }
+
+    [Fact]
+    public void A_comment_offers_no_delete_when_nobody_is_listening()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "A remark") }));
+
+        Assert.Empty(view.FindAll("[data-testid='markdown-comment-delete-c1']"));
+    }
+
+    [Fact]
+    public void Adding_a_remark_opens_it_straight_into_its_own_textarea()
+    {
+        // The affordance and the box to type into are the same act: an
+        // empty-bodied comment is a draft, and a draft is shown editing without
+        // a second press on Edit.
+        //
+        // The explicit re-render after the click stands in for what a real host
+        // does on its own: OnAddComment's receiver is the host, so invoking it
+        // re-renders the host and pushes the grown list back down as a
+        // parameter — see DomainKnowledgePanel. bUnit has no such host above the
+        // component under test, so the test plays that part.
+        using var context = new BunitContext();
+        var comments = new List<MarkdownComment>();
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, comments)
+            .Add(v => v.OnAddComment, index => comments.Add(new MarkdownComment("draft", index, string.Empty, "You", "just now")))
+            .Add(v => v.OnEditComment, edited =>
+            {
+                var i = comments.FindIndex(c => c.Id == edited.Id);
+                comments[i] = edited;
+            }));
+
+        view.Find("[data-testid='markdown-comment-1']").Click();
+        view.Render(p => p.Add(v => v.Comments, comments));
+
+        Assert.Single(view.FindAll("[data-testid='markdown-comment-editor-draft']"));
+        Assert.Empty(view.FindAll("[data-testid='markdown-comment-edit-draft']"));
+
+        view.Find("[data-testid='markdown-comment-editor-draft']").Input("Worth flagging.");
+        view.Find("[data-testid='markdown-comment-save-draft']").Click();
+        view.Render(p => p.Add(v => v.Comments, comments));
+
+        Assert.Equal("Worth flagging.", view.Find(".md-comment__body").TextContent);
+    }
+
+    [Fact]
+    public void Cancelling_a_fresh_draft_asks_the_host_to_delete_it()
+    {
+        using var context = new BunitContext();
+        var comments = new List<MarkdownComment>();
+        string? deleted = null;
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, comments)
+            .Add(v => v.OnAddComment, index => comments.Add(new MarkdownComment("draft", index, string.Empty, "You", "just now")))
+            .Add(v => v.OnDeleteComment, id => deleted = id));
+
+        view.Find("[data-testid='markdown-comment-1']").Click();
+        view.Render(p => p.Add(v => v.Comments, comments));
+        view.Find("[data-testid='markdown-comment-cancel-draft']").Click();
+
+        Assert.Equal("draft", deleted);
+    }
+
+    [Fact]
+    public void Cancelling_an_existing_comments_edit_does_not_delete_it()
+    {
+        // Only a draft with nothing said yet is abandoned on Cancel — an existing
+        // remark just gets its wording put back, exactly as before.
+        using var context = new BunitContext();
+        var deletes = 0;
+
+        var view = Render(context, p => p
+            .Add(v => v.Blocks, Blocks)
+            .Add(v => v.Comments, new MarkdownComment[] { new("c1", 1, "Before") })
+            .Add(v => v.OnEditComment, _ => { })
+            .Add(v => v.OnDeleteComment, _ => deletes++));
+
+        view.Find("[data-testid='markdown-comment-edit-c1']").Click();
+        view.Find("textarea").Input("After");
+        view.Find("[data-testid='markdown-comment-cancel-c1']").Click();
+
+        Assert.Equal(0, deletes);
+        Assert.Equal("Before", view.Find(".md-comment__body").TextContent);
+    }
 }

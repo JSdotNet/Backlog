@@ -24,6 +24,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
+using Backlog.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +47,10 @@ builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
 // never rewrites the real per-user choice.
 builder.Services.AddSingleton<IBacklogRefreshSettings>(
     _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
+// Which surface the shell was last showing. Scoped to the content root like the
+// harness's other settings files, so a session here never rewrites the real
+// per-user choice.
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
@@ -139,6 +144,7 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
+builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
@@ -152,6 +158,14 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // tool service above there is nothing for a local-development variant to differ
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
+
+// Which worktree served this harness. It is only ever started from a checkout,
+// so there is nothing to gate on beyond finding one — and when it is missing the
+// header simply keeps showing the version.
+if (DevelopmentWorkspace.Current is { } workspace)
+{
+    builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
+}
 
 var app = builder.Build();
 
@@ -256,6 +270,17 @@ static BacklogRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(st
     }
 
     return new BacklogRefreshSettingsStore(settingsPath);
+}
+
+static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "shell-navigation.settings.json");
+    }
+
+    return new ShellNavigationStore(settingsPath);
 }
 
 static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)

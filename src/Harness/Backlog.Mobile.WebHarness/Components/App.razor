@@ -1,10 +1,21 @@
 @using Backlog.Mobile.UI.Components
+@using Backlog.Aspire.ServiceDefaults
+@using Backlog.UI.Components
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Backlog Mobile (browser harness)</title>
+    @if (DevelopmentWorkspace.Current is not null)
+    {
+        @* Says which worktree served this tab. Several worktrees run these
+           harnesses side by side, and every one of them titles its pages the
+           same. The marker is applied by script rather than written into the
+           title above because a page setting its own PageTitle replaces that
+           title outright. *@
+        <script>@((MarkupString)DevelopmentWorkspace.TitleScript)</script>
+    }
     <base href="/" />
     <link rel="stylesheet" href="_content/Backlog.UI.Components/components.css" />
     <link rel="stylesheet" href="_content/Backlog.Mobile.UI/app.css" />
@@ -17,6 +28,18 @@
     <div class="phone-frame">
         <Routes @rendermode="InteractiveServer" />
     </div>
+
+    @* Harness chrome, outside the frame: the phone is the app, and this says
+       which build is inside it — and which worktree served it, when several are
+       running the same harness side by side. *@
+    <footer class="harness-footer" data-testid="build-footer">
+        <span>Version <code>@AppVersion.OfEntryAssembly()</code></span>
+        @if (DevelopmentWorkspace.Current is { } workspace)
+        {
+            <span class="harness-footer__separator" aria-hidden="true">·</span>
+            <span>Worktree <code data-testid="build-footer-workspace">@workspace</code></span>
+        }
+    </footer>
 
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/Backlog.UI.Components/components.js"></script>

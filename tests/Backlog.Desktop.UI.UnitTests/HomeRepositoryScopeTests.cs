@@ -290,6 +290,7 @@ public sealed class HomeRepositoryScopeTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddSingleton(new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json")));
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
@@ -321,6 +322,7 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton<KnowledgeUpdateService>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.

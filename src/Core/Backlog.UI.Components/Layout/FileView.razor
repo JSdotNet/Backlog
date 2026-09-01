@@ -154,6 +154,7 @@
                                                 OnAddComment="@OnAddComment"
                                                 OnResolveComment="@OnResolveComment"
                                                 OnEditComment="@OnEditComment"
+                                                OnDeleteComment="@OnDeleteComment"
                                                 Fill="@Fill"
                                                 MaxHeight="@MaxHeight" />
 </article>
@@ -417,6 +418,11 @@
 
     [Parameter]
     public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
+    /// <summary>Raised with a comment's id when a reader asks to remove it
+    /// outright. Without it a remark can be resolved but never taken away.</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteComment { get; set; }
 
     /// <summary>What the body is written in. Null — the default — reads it from
     /// <see cref="Name"/>, which is what a reader goes on too.

@@ -66,7 +66,8 @@
                           OnKnowledgeNavigate="@OnKnowledgeNavigate"
                           Comments="@Comments"
                           OnAddComment="OnAddComment"
-                          OnResolveComment="OnResolveComment" />
+                          OnResolveComment="OnResolveComment"
+                          OnDeleteComment="OnDeleteComment" />
         </div>
     }
 </div>
@@ -181,6 +182,13 @@
 
     [Parameter]
     public EventCallback<string> OnResolveComment { get; set; }
+
+    /// <summary>Raised with a comment's id when a reader asks to remove it
+    /// outright, and also how a fresh draft nobody typed into is taken back when
+    /// Cancel is pressed on it — see <c>MarkdownView.CancelEditAsync</c>. Without
+    /// it, a draft abandoned that way is left behind as an empty remark.</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteComment { get; set; }
 
     /// <summary>The repository-relative path of the knowledge document this text
     /// came from, forwarded to the read view so a relative link in it resolves to

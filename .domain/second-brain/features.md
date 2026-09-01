@@ -144,6 +144,35 @@ ready to show something. A chapter edited moments ago is shown from the folder
 itself rather than held back until the prepared view catches up, so what is on
 screen is never older than what is on disk.
 
+### Knowledge on the repository's latest version
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/repository-management/features.md#repository-knowledge-folder-settings]
+```
+
+Say whether the knowledge in view is the latest version the repository has, and
+bring it up to date when it is not. A repository's folders are read from a local
+clone, and a clone falls behind in silence: every chapter still opens, and nothing
+in one says that somebody else has revised it since.
+
+The question is asked only when somebody asks it. Answering means reaching for the
+repository itself, and knowledge that reached out on its own would make opening a
+folder wait on the network for an answer nobody wanted yet.
+
+The answer says how far behind the clone is, and offers to bring it up to date only
+when being behind is all that is in the way. A clone carrying edits nobody has
+committed, one holding revisions the repository does not have, or one whose history
+has parted from the repository's is reported as it stands rather than reconciled on
+the reader's behalf: what to do about any of those belongs to whoever owns the clone.
+Knowledge kept outside a repository has no latest version to be on, and is not asked
+about.
+
+Bringing a clone up to date replaces what its folders say, so the knowledge on screen
+becomes the knowledge that arrived with it. The folders are the source of truth before
+and after, by the rule above.
+
 ## Instruction optimization
 
 ```meta

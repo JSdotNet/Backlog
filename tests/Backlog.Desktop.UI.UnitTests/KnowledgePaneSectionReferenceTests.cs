@@ -227,6 +227,8 @@ public sealed class KnowledgePaneSectionReferenceTests : IDisposable
         context.Services.AddSingleton<KnowledgeChapterWriter>();
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton<KnowledgeUpdateService>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());

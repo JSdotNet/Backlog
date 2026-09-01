@@ -13,9 +13,18 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GitHubPushFlowTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
+    private readonly List<BacklogDesktopState> _states = [];
 
     public void Dispose()
     {
+        // Before the folders below go: the state arms timed saves, and one that
+        // elapsed after its folder was deleted is work the test host is still
+        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        foreach (var state in _states)
+        {
+            state.Dispose();
+        }
+
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -23,11 +32,11 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task An_entry_filed_under_a_configured_repository_can_be_pushed()
+    public async Task An_entry_targeting_a_configured_repository_can_be_pushed()
     {
         var harness = Build("JSdotNet/Backlog");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n\nDetails here.");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n\nDetails here.");
 
         Assert.NotNull(harness.State.RepositoryFor(row));
 
@@ -41,7 +50,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task An_area_that_names_no_repository_does_not_push_silently()
+    public async Task An_entry_targeting_no_configured_repository_does_not_push_silently()
     {
         var harness = Build("JSdotNet/Backlog");
 
@@ -60,10 +69,10 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
-        var reloaded = BacklogTestHost.StateFor(harness.Store, harness.Integration);
+        var reloaded = StateFor(harness.Store, harness.Integration);
         await reloaded.InitializeAsync();
 
         var reloadedRow = Assert.Single(reloaded.Rows);
@@ -75,7 +84,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
         await harness.State.PushToGitHubAsync(row);
         harness.Client.CreateCount = 0;
 
@@ -90,7 +99,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var harness = Build("JSdotNet/Backlog");
         harness.Client.Failure = new GitHubException("GitHub rejected the token — check it hasn't expired.");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
         Assert.Null(row.IssueLink);
@@ -102,7 +111,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
         harness.Client.Snapshot = new GitHubIssueSnapshot(
@@ -121,7 +130,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `@backlog`\n");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
         await harness.State.PushToGitHubAsync(row);
 
         harness.Integration.Settings.SetRepositories([]);
@@ -150,7 +159,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var harness = Build("JSdotNet/Backlog");
         var row = await WriteEntryAsync(harness.State,
             "# Parent\n" +
-            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "`task` `*medium` `!draft` `repo:backlog`\n\n" +
             "## First\n" +
             "Keep this.\n\n" +
             "### Target\n" +
@@ -175,7 +184,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var harness = Build("JSdotNet/Backlog");
         var row = await WriteEntryAsync(harness.State,
             "# Parent\n" +
-            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "`task` `*medium` `!draft` `repo:backlog`\n\n" +
             "Old parent notes.\n\n" +
             "## Child\n" +
             "Keep child.\n\n" +
@@ -186,7 +195,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.DoesNotContain("## Child", harness.State.EntryEditText(row));
 
         harness.State.OnRawTextInput(row,
-            "# Parent\n`task` `*medium` `!ready` `@backlog`\n\nNew parent notes.");
+            "# Parent\n`task` `*medium` `!ready` `repo:backlog`\n\nNew parent notes.");
         await harness.State.EndEditAsync(row);
 
         Assert.Contains("New parent notes.", row.RawText);
@@ -211,14 +220,14 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// </para>
     /// </summary>
     [Fact]
-    public async Task An_entry_push_still_uses_the_repository_its_area_names()
+    public async Task An_entry_push_still_uses_the_repository_the_entry_targets()
     {
         var harness = Build("backlog = JSdotNet/Backlog", "other = someone/else");
         var row = await WriteEntryAsync(harness.State,
             "# Parent\n" +
-            "`task` `*medium` `!draft` `@backlog`\n\n" +
+            "`task` `*medium` `!draft` `repo:backlog`\n\n" +
             "## Child\n" +
-            "`task` `*high` `!ready` `@other` `#child`\n" +
+            "`task` `*high` `!ready` `repo:other` `#child`\n" +
             "Child notes.\n");
 
         await harness.State.PushToGitHubAsync(row);
@@ -315,7 +324,16 @@ public sealed class GitHubPushFlowTests : IDisposable
         var client = new FakeGitHubClient();
         var integration = new GitHubIntegration(settings, client, new FakeProbe());
 
-        return new Harness(BacklogTestHost.StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
+        return new Harness(StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
+    }
+
+    /// <summary>The list state, remembered so <see cref="Dispose"/> can hand back
+    /// the timed saves it arms.</summary>
+    private BacklogDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration)
+    {
+        var state = BacklogTestHost.StateFor(store, integration);
+        _states.Add(state);
+        return state;
     }
 
     private sealed record Harness(

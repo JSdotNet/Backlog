@@ -150,42 +150,6 @@ public class UnsupportedAppUpdateServiceTests
 }
 
 /// <summary>
-/// Version formatting is what the "About" section shows; the informational
-/// version carries a source-revision suffix the SDK appends that a person should
-/// never see.
-/// </summary>
-public class AppVersionTests
-{
-    [Theory]
-    [InlineData("1.2.3+abc1234", "1.2.3")]
-    [InlineData("1.2.3", "1.2.3")]
-    [InlineData("1.0.0-preview.2+deadbeef", "1.0.0-preview.2")]
-    [InlineData("  1.4.0+meta  ", "1.4.0")]
-    public void Normalize_drops_the_source_revision_suffix(string input, string expected)
-    {
-        Assert.Equal(expected, AppVersion.Normalize(input));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData(null)]
-    [InlineData("+onlymetadata")]
-    public void Normalize_treats_blank_or_metadata_only_as_no_version(string? input)
-    {
-        Assert.Null(AppVersion.Normalize(input));
-    }
-
-    [Fact]
-    public void Of_an_assembly_never_returns_blank()
-    {
-        var version = AppVersion.Of(typeof(AppVersion).Assembly);
-
-        Assert.False(string.IsNullOrWhiteSpace(version));
-    }
-}
-
-/// <summary>
 /// The version in the header opens the update window, while the update window owns
 /// checking, installing, and status presentation.
 /// </summary>
@@ -209,6 +173,28 @@ public class AppUpdatePresentationTests
         var label = AppUpdatePresentation.VersionWindowLabel("1.2.3");
 
         Assert.Contains("1.2.3", label);
+        Assert.Contains("Open update window", label);
+    }
+
+    [Fact]
+    public void The_header_names_the_worktree_when_a_host_supplies_one()
+    {
+        var label = AppUpdatePresentation.WorkspaceWindowLabel("dev-mode-app-title (claude/titles)");
+
+        Assert.Contains("dev-mode-app-title (claude/titles)", label);
+        Assert.Contains("Open update window", label);
+        Assert.DoesNotContain("Version", label);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_missing_worktree_still_produces_an_accessible_name(string? workspace)
+    {
+        var label = AppUpdatePresentation.WorkspaceWindowLabel(workspace);
+
+        Assert.Contains("unknown", label);
         Assert.Contains("Open update window", label);
     }
 

@@ -150,7 +150,9 @@ A host that renders its own body names `FrontmatterSource` instead, so the strip
 
 `OffersEdit` and `OffersCompare` fall out of the same arbitration: they answer “would pressing this do anything?”, not “may this file be edited?”. Editing needs a writable body to switch to or a host listening for the switch; comparing needs a baseline that differs from the file. Both are handed to the header already answered, because a header that worked them out for itself could offer a control the body will not honour.
 
-Everything else on this pane is a reading being passed down: each chapter's status where its heading is, the mermaid fence where it was written, a copy button per heading, remarks in the margin falling back to inline when the pane narrows. A host never has to parse the same text a second time to draw those around the outside."
+Everything else on this pane is a reading being passed down: each chapter's status where its heading is, the mermaid fence where it was written, a copy button per heading, remarks in the margin falling back to inline when the pane narrows. A host never has to parse the same text a second time to draw those around the outside.
+
+The remarks themselves take four callbacks: `OnAddComment` for the affordance on a block, `OnEditComment` and `OnResolveComment` for an existing remark's own buttons, and `OnDeleteComment` for taking one away outright. Press the affordance and the new remark opens straight into its own textarea — the host answers with an empty body, and an empty body is what tells the view this is a fresh draft rather than something to read. Cancel on that draft calls `OnDeleteComment` too, so an abandoned remark does not linger as a blank note in the margin."
            Code="@ChapterCode">
         <div class="sb-tall" data-testid="file-view-knowledge">
             <FileView Name="Domain: Backlog Management"
@@ -168,6 +170,7 @@ Everything else on this pane is a reading being passed down: each chapter's stat
                       OnAddComment="AddRemark"
                       OnResolveComment="ResolveRemark"
                       OnEditComment="EditRemark"
+                      OnDeleteComment="DeleteRemark"
                       CanEdit="true"
                       @bind-Editing="_editing"
                       @bind-Comparing="_comparing"
@@ -406,14 +409,22 @@ Tab through this one and then the arbitration story above. A supplied body gives
         return status?.Split(':', 2)[1].Trim() ?? "draft";
     }
 
+    /// <summary>Empty, so the read view opens it straight into its own textarea —
+    /// the reader types where they pressed rather than into a placeholder they
+    /// would have had to find Edit to reach.</summary>
     private void AddRemark(int blockIndex) =>
-        _remarks = [.. _remarks, new MarkdownComment($"r{_nextRemark++}", blockIndex, "A new remark. Edit it to say what it is.", "You", "just now")];
+        _remarks = [.. _remarks, new MarkdownComment($"r{_nextRemark++}", blockIndex, string.Empty, "You", "just now")];
 
     private void ResolveRemark(string id) =>
         _remarks = [.. _remarks.Select(remark => remark.Id == id ? remark with { Resolved = !remark.Resolved } : remark)];
 
     private void EditRemark(MarkdownComment edited) =>
         _remarks = [.. _remarks.Select(remark => remark.Id == edited.Id ? edited : remark)];
+
+    /// <summary>Taken away outright — a saved remark's own Delete button, or a
+    /// fresh draft Cancel is abandoning rather than saving.</summary>
+    private void DeleteRemark(string id) =>
+        _remarks = [.. _remarks.Where(remark => remark.Id != id)];
 
     // Read off the text rather than written down, so the header keeps telling the
     // truth while the story is being edited. A host that owns the body owns
@@ -748,6 +759,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   Comments="@remarks"
                   OnAddComment="Add"
                   OnResolveComment="Resolve"
+                  OnDeleteComment="Delete"
                   CanEdit="true"
                   @bind-Editing="editing"
                   @bind-Comparing="comparing"

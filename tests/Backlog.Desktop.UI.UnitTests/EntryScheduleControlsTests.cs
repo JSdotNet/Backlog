@@ -331,16 +331,62 @@ public sealed class EntryScheduleControlsTests
         Assert.NotNull(open);
     }
 
-    /// <summary>Each option in the open list names the repository it is filed
-    /// under, when it has one. With the repository filter showing more than one
-    /// repository at a time, two candidates that happen to share a title would
-    /// otherwise be indistinguishable in the list — the hint is what tells them
-    /// apart without adding a second control to read.</summary>
+    /// <summary>The picker is not filtered by the list's own repository filter.
+    /// A chain is a fact about the work, not about what the reader happens to be
+    /// looking at, so narrowing the list to one repository must not narrow what an
+    /// entry can be said to wait on — it would silently make cross-repository
+    /// chains unwritable.</summary>
+    [Fact]
+    public async Task The_dependency_picker_reaches_past_the_repository_filter()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var elsewhere = await host.WriteEntryAsync("# Write the changelog\n`task` `repo:docs`\n\nSay what shipped.\n");
+        var here = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n\nGet a machine.\n");
+        var open = await host.WriteEntryAsync(ExpandedEntry);
+
+        host.State.SetRepositoryFilter("backlog");
+        await host.OpenAsync(open);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-depends-select'] input").FocusAsync(new());
+
+        var options = pane.FindAll("[data-testid='entry-depends-select'] [role='option']");
+
+        Assert.Contains(options, option => option.TextContent.Contains("Write the changelog", StringComparison.Ordinal));
+        Assert.Contains(options, option => option.TextContent.Contains("Provision the box", StringComparison.Ordinal));
+
+        // The repository being read is the one the reader is in, so its section
+        // comes first; everything else follows in configured order.
+        var sections = pane.FindAll("[data-testid='entry-depends-select'] .tag-select__group-label");
+        Assert.Equal(["backlog", "docs"], sections.Select(section => section.TextContent));
+
+        // The scope really is narrowing the list, so the picker reaching past it
+        // is the thing under test rather than a filter that happened to keep both.
+        Assert.DoesNotContain(elsewhere, host.State.FilteredRows);
+        Assert.Contains(here, host.State.FilteredRows);
+    }
+
+    /// <summary>Each option in the open list sits under the repository it targets.
+    /// With entries from more than one repository on offer at a time, two
+    /// candidates that happen to share a title would otherwise be indistinguishable
+    /// in the list — the section header is what tells them apart without adding a
+    /// second control to read.
+    /// <para>
+    /// Three answers, in the order the name is looked for. A <c>repo:</c> target
+    /// names a repository. An entry that targets none falls back to its area,
+    /// because a pile is a weaker answer than a repository and a better one than
+    /// none — and an area spelled like a configured repository is still only a pile
+    /// (<c>BacklogRepositoryScopeTests</c>), which is why the repository is asked
+    /// first rather than the area being trusted to speak for it. An entry with
+    /// neither lands under "Unfiled" rather than under an invented repository.
+    /// </para></summary>
     [Fact]
     public async Task The_dependency_picker_names_each_options_repository()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-        var filed = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n\nGet a machine.\n");
+        var targeted = await host.WriteEntryAsync("# Provision the box\n`task` `@chores` `repo:backlog`\n\nGet a machine.\n");
+        var piled = await host.WriteEntryAsync("# Sort the shelf\n`task` `@chores`\n\nTidy up.\n");
         var unfiled = await host.WriteEntryAsync("# Write the changelog\n`task`\n\nSay what shipped.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
 
@@ -349,17 +395,24 @@ public sealed class EntryScheduleControlsTests
         await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
         await pane.Find("[data-testid='entry-depends-select'] input").FocusAsync(new());
 
-        var options = pane.FindAll("[data-testid='entry-depends-select'] [role='option']");
+        var sections = pane.FindAll("[data-testid='entry-depends-select'] .tag-select__group");
 
-        var filedOption = options.Single(option => option.TextContent.Contains("Provision the box", StringComparison.Ordinal));
-        var unfiledOption = options.Single(option => option.TextContent.Contains("Write the changelog", StringComparison.Ordinal));
+        string? SectionNaming(string title) => sections
+            .Single(section => section.TextContent.Contains(title, StringComparison.Ordinal))
+            .QuerySelector(".tag-select__group-label")?.TextContent;
 
-        // Filed shows the repository it is filed under; unfiled draws no hint at
-        // all, exactly as an option looked before hints existed.
-        Assert.Equal("backlog", filedOption.QuerySelector(".tag-select__hint")?.TextContent);
-        Assert.Null(unfiledOption.QuerySelector(".tag-select__hint"));
+        // The repository wins over the area the same entry also carries: the two
+        // are unrelated facts, and the one this list is organised by is the first.
+        Assert.Equal("backlog", SectionNaming("Provision the box"));
+        Assert.Equal("chores", SectionNaming("Sort the shelf"));
+        Assert.Equal("Unfiled", SectionNaming("Write the changelog"));
 
-        Assert.Equal("backlog", filed.PreviewArea);
+        // The aside an option used to carry is gone: the section says it once for
+        // the whole run instead of once per row.
+        Assert.Empty(pane.FindAll("[data-testid='entry-depends-select'] .tag-select__hint"));
+
+        Assert.Equal("chores", targeted.PreviewArea);
+        Assert.Equal("chores", piled.PreviewArea);
         Assert.Null(unfiled.PreviewArea);
         Assert.NotNull(open);
     }
