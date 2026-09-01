@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 776,
-    "edges": 1563,
+    "nodes": 777,
+    "edges": 1565,
     "nodesByFolder": {
       "arc42": 84,
-      "domain": 494,
+      "domain": 495,
       "backlog": 4,
       "tech": 98,
       "design": 96
     },
     "nodesByType": {
       "file": 125,
-      "chapter": 642,
+      "chapter": 643,
       "heading": 9
     },
     "nodesByStatus": {
       "active": 200,
       "proposed": 43,
-      "draft": 417,
+      "draft": 418,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -38,8 +38,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 651,
-      "related": 768,
+      "contains": 652,
+      "related": 769,
       "depends-on": 142,
       "implements": 2
     }
@@ -2096,6 +2096,22 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "label": "Refresh from shared storage",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "refresh-from-shared-storage",
+          "level": 2,
+          "line": 501,
+          "status": "draft",
+          "related": [
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#roadmap-planning",
           "label": "Roadmap planning",
           "type": "chapter",
@@ -2103,7 +2119,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 501,
+          "line": 515,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
@@ -2124,7 +2140,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 532,
+          "line": 546,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -13083,6 +13099,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#refresh-from-shared-storage",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#roadmap-planning",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#roadmap-planning",
@@ -19070,6 +19094,14 @@
           "id": "related:.domain/backlog/features.md#ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#ai-productivity-tracking",
           "source": ".domain/backlog/features.md#ai-assistance-over-the-visible-backlog",
           "target": ".domain/productivity/features.md#ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#refresh-from-shared-storage->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
           "type": "related"
         }
       },

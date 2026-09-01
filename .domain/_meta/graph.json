@@ -6,29 +6,29 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 505,
-    "edges": 823,
+    "nodes": 507,
+    "edges": 825,
     "nodesByFolder": {
-      "domain": 494,
-      "arc42": 9,
+      "domain": 495,
+      "arc42": 10,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 431,
+      "chapter": 433,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 410,
+      "draft": 411,
       "proposed": 36,
       "deprecated": 3,
       "idea": 1,
-      "active": 54,
+      "active": 55,
       "none": 1
     },
     "edgesByType": {
-      "contains": 422,
-      "related": 361,
+      "contains": 423,
+      "related": 362,
       "depends-on": 40
     }
   },
@@ -814,6 +814,22 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "label": "Refresh from shared storage",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "refresh-from-shared-storage",
+          "level": 2,
+          "line": 501,
+          "status": "draft",
+          "related": [
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#roadmap-planning",
           "label": "Roadmap planning",
           "type": "chapter",
@@ -821,7 +837,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 501,
+          "line": 515,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
@@ -842,7 +858,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 532,
+          "line": 546,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -7680,6 +7696,23 @@
       },
       {
         "data": {
+          "id": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "label": "State Sync and Webhook Forwarding",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/06-runtime-view.md",
+          "slug": "state-sync-and-webhook-forwarding",
+          "level": 2,
+          "line": 46,
+          "status": "active",
+          "related": [
+            ".arc42/05-building-block-view.md#cloud-service"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/06-runtime-view.md#mobile-capture-and-sync",
           "label": "Mobile Capture and Sync",
           "type": "chapter",
@@ -8212,6 +8245,14 @@
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#archive-and-lifecycle",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#archive-and-lifecycle",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#refresh-from-shared-storage",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#refresh-from-shared-storage",
           "type": "contains"
         }
       },
@@ -11668,6 +11709,14 @@
           "id": "related:.domain/backlog/features.md#ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#ai-productivity-tracking",
           "source": ".domain/backlog/features.md#ai-assistance-over-the-visible-backlog",
           "target": ".domain/productivity/features.md#ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#refresh-from-shared-storage->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
           "type": "related"
         }
       },
