@@ -19,3 +19,20 @@ html, body {
     padding: 1rem;
     box-sizing: border-box;
 }
+
+/* Sits under the frame rather than inside it: it describes the build being
+   framed, not the app's own UI. Dark mode only, like everything else here. */
+.harness-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    align-items: baseline;
+    margin: 0 auto 1.5rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.harness-footer__separator {
+    color: var(--color-border);
+}

@@ -4,6 +4,7 @@ using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Desktop.UI.Shell;
+using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
@@ -168,6 +169,14 @@ public static class MauiProgram
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
+
+        // Which worktree this window came from, for the header. Debug builds are
+        // the ones run out of a checkout, often several at once; an installed
+        // build registers nothing and the header shows the version.
+        if (DevelopmentWorkspace.Current is { } workspace)
+        {
+            builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
+        }
 #endif
 
         return builder.Build();

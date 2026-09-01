@@ -6,6 +6,7 @@
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
+@inject IServiceProvider Services
 
 @*
     The shell. It owns the app chrome — header, update and feedback windows, the
@@ -395,14 +396,27 @@
             @* The header keeps the current version visible. Checking and installing
                updates happen in the separate update window opened from this control.
                It sits at the right edge with settings after it, where the other
-               things that are not about the work on screen live. *@
+               things that are not about the work on screen live.
+
+               When the host runs out of a checkout it registers which one, and
+               that takes the version's place: several worktrees are run side by
+               side and which window belongs to which is the thing you cannot
+               tell by looking. The version is still one click away, in the
+               update window this control opens. *@
             <AppButton BaseClass="header-util app-version"
                        Variant="ButtonVariant.None"
                        TestId="app-version"
                        title="Open update window"
-                       aria-label="@AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)"
+                       aria-label="@VersionControlLabel"
                        OnClick="OpenUpdateWindow">
-                Version <code>@Updates.CurrentVersion</code>
+                @if (_workspace is null)
+                {
+                    <text>Version <code>@Updates.CurrentVersion</code></text>
+                }
+                else
+                {
+                    <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
+                }
             </AppButton>
 
             <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
@@ -607,6 +621,10 @@
     private readonly GlobalPaneSelection _globalPanes = new();
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
 
+    // Null in an installed build, where no host registers one and the header
+    // shows the version instead.
+    private DevelopmentWorkspaceLabel? _workspace;
+
     // Whether the roadmap band is on screen. Session-only and deliberately so:
     // WorkspaceSettingsStore scopes itself to where the backlog lives, which GitHub
     // repository backs that folder and which knowledge folders are configured —
@@ -664,8 +682,15 @@
         _ => SaveState.Saved
     };
 
+    private string VersionControlLabel => _workspace is null
+        ? AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)
+        : AppUpdatePresentation.WorkspaceWindowLabel(_workspace.Marker);
+
     protected override async Task OnInitializedAsync()
     {
+        // Asked for rather than injected, so a host that registers nothing —
+        // every installed build — still resolves this component.
+        _workspace = Services.GetService<DevelopmentWorkspaceLabel>();
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
         await State.InitializeAsync();

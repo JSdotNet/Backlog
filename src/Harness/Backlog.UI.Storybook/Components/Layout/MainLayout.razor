@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@using Backlog.Aspire.ServiceDefaults
+@using Backlog.UI.Components
 
 @*
     Two columns: the page index on the left, one component group on the right.
@@ -43,6 +45,18 @@
 
     <main class="sb-content">
         @Body
+
+        @* Which build, and — when this is served out of a checkout — which
+           worktree. Several worktrees serve identical storybooks side by side,
+           and nothing else on the page tells them apart. *@
+        <footer class="sb-footer" data-testid="build-footer">
+            <span>Version <code>@AppVersion.OfEntryAssembly()</code></span>
+            @if (DevelopmentWorkspace.Current is { } workspace)
+            {
+                <span class="sb-footer__separator" aria-hidden="true">·</span>
+                <span>Worktree <code data-testid="build-footer-workspace">@workspace</code></span>
+            }
+        </footer>
     </main>
 </div>
 
