@@ -1,11 +1,13 @@
 ﻿@page "/"
 @implements IDisposable
+@using Backlog.Infrastructure.FileSystem
 @inject BacklogDesktopState State
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
+@inject ShellNavigationStore ShellNavigation
 
 @*
     The shell. It owns the app chrome — header, update and feedback windows, the
@@ -604,7 +606,7 @@
 @code {
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
     private bool _aiExpanded;
-    private readonly GlobalPaneSelection _globalPanes = new();
+    private GlobalPaneSelection _globalPanes = new();
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
 
     // Whether the roadmap band is on screen. Session-only and deliberately so:
@@ -666,6 +668,38 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Reopen on the surface the reader was last looking at rather than
+        // always defaulting to the workspace panes. An unrecognised or absent
+        // value — first launch included — leaves the field default in place.
+        if (Enum.TryParse<WorkspaceSurface>(ShellNavigation.LastSurface, out var restoredSurface))
+        {
+            _surface = restoredSurface;
+        }
+
+        // Same restore for which panes were open, and which of those were
+        // pinned. This is what makes it survive Settings and back, not only a
+        // full relaunch: the Router disposes and reconstructs this component
+        // on every route change, so a fresh GlobalPaneSelection is exactly
+        // what a bare `new()` field initializer would otherwise hand back.
+        var restoredPanes = ShellNavigation.LastEnabledPanes
+            .Select(name => Enum.TryParse<GlobalPane>(name, out var pane) ? pane : (GlobalPane?)null)
+            .Where(pane => pane.HasValue)
+            .Select(pane => pane!.Value)
+            .ToArray();
+
+        if (restoredPanes.Length > 0)
+        {
+            _globalPanes = new GlobalPaneSelection(restoredPanes);
+
+            foreach (var name in ShellNavigation.LastPinnedPanes)
+            {
+                if (Enum.TryParse<GlobalPane>(name, out var pinnedPane))
+                {
+                    _globalPanes.TrySetPinned(pinnedPane, pinned: true);
+                }
+            }
+        }
+
         State.Changed += HandleStateChanged;
         Features.Changed += HandleFeaturesChanged;
         await State.InitializeAsync();
@@ -803,11 +837,16 @@
     {
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+        ShellNavigation.SetLastSurface(_surface.ToString());
     }
 
     /// <summary>Back to the panes. The pane selection was never touched, so there
     /// is nothing to restore — it is simply visible again.</summary>
-    private void CloseSurface() => _surface = WorkspaceSurface.Workspace;
+    private void CloseSurface()
+    {
+        _surface = WorkspaceSurface.Workspace;
+        ShellNavigation.SetLastSurface(_surface.ToString());
+    }
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {
@@ -984,6 +1023,18 @@
         _globalPanes.TrySetAvailable(GlobalPane.Backlog, available: true);
         _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
         _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
+        PersistPaneSelection();
+    }
+
+    /// <summary>Remembers which panes are open and pinned, so the next fresh
+    /// shell instance — a relaunch, or the Router rebuilding this component
+    /// after a trip to Settings — reopens on them instead of the single
+    /// default pane.</summary>
+    private void PersistPaneSelection()
+    {
+        var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
+        var pinned = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsPinned).Select(pane => pane.ToString()).ToArray();
+        ShellNavigation.SetLastPanes(enabled, pinned);
     }
 
     private bool PaneToggleDisabled(GlobalPane pane)
@@ -1002,11 +1053,23 @@
     /// See the multiselect group in the markup for why it stays out of the selection.</summary>
     private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;
 
-    private void ToggleInboxPane() => _globalPanes.Toggle(GlobalPane.Inbox);
+    private void ToggleInboxPane()
+    {
+        _globalPanes.Toggle(GlobalPane.Inbox);
+        PersistPaneSelection();
+    }
 
-    private void ToggleBacklogPane() => _globalPanes.Toggle(GlobalPane.Backlog);
+    private void ToggleBacklogPane()
+    {
+        _globalPanes.Toggle(GlobalPane.Backlog);
+        PersistPaneSelection();
+    }
 
-    private void ToggleKnowledgePane() => _globalPanes.Toggle(GlobalPane.Knowledge);
+    private void ToggleKnowledgePane()
+    {
+        _globalPanes.Toggle(GlobalPane.Knowledge);
+        PersistPaneSelection();
+    }
 
     private bool PanePinned(GlobalPane pane) => _globalPanes.IsPinned(pane);
 
@@ -1026,11 +1089,23 @@
         : !_globalPanes.IsEnabled(pane) ? $"Open {name} to keep it open"
         : PinLabel(pane, name);
 
-    private void ToggleInboxPin() => _globalPanes.TogglePin(GlobalPane.Inbox);
+    private void ToggleInboxPin()
+    {
+        _globalPanes.TogglePin(GlobalPane.Inbox);
+        PersistPaneSelection();
+    }
 
-    private void ToggleBacklogPin() => _globalPanes.TogglePin(GlobalPane.Backlog);
+    private void ToggleBacklogPin()
+    {
+        _globalPanes.TogglePin(GlobalPane.Backlog);
+        PersistPaneSelection();
+    }
 
-    private void ToggleKnowledgePin() => _globalPanes.TogglePin(GlobalPane.Knowledge);
+    private void ToggleKnowledgePin()
+    {
+        _globalPanes.TogglePin(GlobalPane.Knowledge);
+        PersistPaneSelection();
+    }
 
     /// <summary>Triage: the Inbox hands back the item it was asked to open, and
     /// the shell shows it where work actually happens.
@@ -1044,6 +1119,7 @@
         if (BacklogDrafts.Find(State.Rows, item) is not { } row) return Task.CompletedTask;
 
         _globalPanes.TryOpenAlongside(GlobalPane.Backlog);
+        PersistPaneSelection();
         State.BeginEdit(row);
         return Task.CompletedTask;
     }
