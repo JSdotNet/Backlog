@@ -52,19 +52,32 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
         _useRepositoryFallbackWhenNoAlias = useRepositoryFallbackWhenNoAlias;
     }
 
+    /// <summary>
+    /// Three sources of the same news, so the accessor forwards to two stores and
+    /// keeps a delegate of its own. The own delegate is what
+    /// <see cref="NotifyContentChanged"/> raises: content being replaced under a
+    /// folder is nothing either settings store can know about, because nothing was
+    /// configured differently.
+    /// </summary>
+    private Action? _contentChanged;
+
     public event Action? Changed
     {
         add
         {
             _settings.Changed += value;
             _store.RootChanged += value;
+            _contentChanged += value;
         }
         remove
         {
             _settings.Changed -= value;
             _store.RootChanged -= value;
+            _contentChanged -= value;
         }
     }
+
+    public void NotifyContentChanged() => _contentChanged?.Invoke();
 
     public string StorageDirectory => _store.RootDirectory;
 

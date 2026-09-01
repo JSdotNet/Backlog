@@ -134,6 +134,7 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
+builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 

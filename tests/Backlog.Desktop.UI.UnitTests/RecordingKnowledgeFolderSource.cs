@@ -73,4 +73,6 @@ internal sealed class RecordingKnowledgeFolderSource(IKnowledgeFolderSource inne
 
         return inner.Resolve(key, repositoryAlias);
     }
+
+    public void NotifyContentChanged() => inner.NotifyContentChanged();
 }

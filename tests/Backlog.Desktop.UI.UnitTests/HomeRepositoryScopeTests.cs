@@ -321,6 +321,7 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton<KnowledgeUpdateService>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
