@@ -1932,30 +1932,100 @@
     /// worked and the list row would look like it did not.
     /// </para>
     /// <para>
-    /// Each option also carries its repository as a hint, when it has one. The
-    /// repository filter can put the whole list of entries from every repository
-    /// on screen at once, and once it does, a title alone can no longer tell two
-    /// candidates apart — the chip only ever shows the title, but the open list
-    /// is exactly where the aside belongs.
+    /// What is <em>not</em> left out is anything the list's own filters are
+    /// hiding: the candidates come from every row, not from the filtered ones. A
+    /// chain is a fact about the work, not about what the reader happens to be
+    /// looking at, and the repository, status, area and My Day filters are all
+    /// about the second. Reading one repository and finding that the entry it
+    /// waits on has become unnameable would make a true chain unwritable for no
+    /// reason the reader could see.
+    /// </para>
+    /// <para>
+    /// Which puts every entry in the product in one list, so the list is
+    /// sectioned by where each one is filed — its repository, falling back to the
+    /// bare area for an entry targeting nothing configured. The reader's own
+    /// repository leads, because the entry being edited is almost always waiting
+    /// on something beside it; then the rest of the
+    /// configured repositories in the order they were configured, so the
+    /// sections read in the same order as the repository switcher; then the plain
+    /// areas nobody configured; then the entries filed nowhere. A repository with
+    /// no candidate draws no heading at all — the sections come out of walking
+    /// the options, so an empty one never exists to be drawn.
     /// </para></summary>
-    private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row) =>
-        [.. State.FilteredRows
+    private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row)
+    {
+        var candidates = State.Rows
             .Where(candidate => !ReferenceEquals(candidate, row)
                 && candidate.Id is not null
                 && candidate.PreviewStatus is not EntryStatus.Done)
-            .Select(candidate => new SelectorOption(
-                candidate.Id!.Value.ToString(),
-                string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
-                DependencyAside(candidate)))];
+            .ToList();
 
-    /// <summary>What tells two same-titled candidates apart: the repository, since
-    /// the repository filter is what puts entries from more than one on screen at
-    /// once. Falls back to the area for a candidate targeting nothing configured —
-    /// a pile is a weaker answer than a repository, and still a better one than
-    /// nothing.</summary>
-    private string? DependencyAside(EntryRow candidate) =>
-        State.RepositoryFor(candidate)?.Alias
-        ?? (string.IsNullOrWhiteSpace(candidate.PreviewArea) ? null : candidate.PreviewArea);
+        return
+        [
+            .. DependencySections(candidates)
+                .SelectMany(section => candidates
+                    .Where(candidate => string.Equals(SectionOf(candidate), section, StringComparison.Ordinal))
+                    .Select(candidate => new SelectorOption(
+                        candidate.Id!.Value.ToString(),
+                        string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
+                        Hint: null,
+                        Group: section)))
+        ];
+    }
+
+    /// <summary>What the dependency picker calls an entry's section. An entry
+    /// filed nowhere is not left unsectioned: it would sit above the first heading
+    /// with nothing saying what it was, so it gets the same word the area filter
+    /// uses for the same rows.
+    /// <para>
+    /// The repository is asked first and the area only stands in for it, because
+    /// the two are unrelated facts: the repository is the entry's <c>`repo:`</c>
+    /// targets and the area is the pile somebody filed it in, so an area spelled
+    /// like a configured repository is not that repository's work
+    /// (<c>BacklogRepositoryScopeTests</c>). Reading the area as the repository
+    /// would put an imported entry under a heading it does not belong to, and
+    /// leave the entries that really do target that repository under another.
+    /// </para></summary>
+    private const string UnfiledSection = "Unfiled";
+
+    private string SectionOf(EntryRow row) =>
+        State.RepositoryFor(row)?.Alias
+        ?? (string.IsNullOrWhiteSpace(row.PreviewArea) ? UnfiledSection : row.PreviewArea!);
+
+    /// <summary>The section order, as the XML doc on <c>DependencyOptions</c>
+    /// spells it out. Only sections that actually have a candidate survive, and
+    /// "Unfiled" is last whether or not anything else came before it.</summary>
+    private IReadOnlyList<string> DependencySections(IReadOnlyList<EntryRow> candidates)
+    {
+        var present = candidates.Select(SectionOf).ToHashSet(StringComparer.Ordinal);
+
+        var ordered = new List<string>();
+
+        void Take(string section)
+        {
+            if (present.Remove(section)) ordered.Add(section);
+        }
+
+        if (!string.IsNullOrEmpty(State.SelectedRepositoryAlias))
+        {
+            Take(State.SelectedRepositoryAlias);
+        }
+
+        foreach (var repository in State.Repositories)
+        {
+            Take(repository.Alias);
+        }
+
+        // Pulled out before the sort rather than after it: it is last by rule, not
+        // by where the letter U happens to fall.
+        var unfiled = present.Remove(UnfiledSection);
+
+        ordered.AddRange(present.OrderBy(section => section, StringComparer.OrdinalIgnoreCase));
+
+        if (unfiled) ordered.Add(UnfiledSection);
+
+        return ordered;
+    }
 
     /// <summary>What the entry is waiting for, said by title. An id naming
     /// nothing in view is shown as the id rather than dropped — it still blocks,

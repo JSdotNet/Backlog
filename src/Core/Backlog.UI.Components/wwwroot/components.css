@@ -4978,6 +4978,51 @@ select.field__input option {
     box-shadow: var(--shadow-lg);
 }
 
+/* A section of the open list. It is a plain run of options with a caption over
+   it — no box, no inset, nothing that would make the options inside it read as a
+   different kind of row from the ungrouped ones beside them. */
+.tag-select__group {
+    display: block;
+}
+
+/* The label is a caption, not a heading the reader has to read past: quiet
+   enough that the options stay the thing being scanned.
+
+   Set to the right, not flush with the option text. Left-aligned it shared a
+   column with the options and a reader scanning that column met it as one more
+   row — smaller and quieter than its neighbours, but in the same place, which is
+   the one cue that decides what a list row is. Off the column it cannot be
+   mistaken for one.
+
+   The right edge is also where this text used to be. Every option carried its
+   repository as a hint at the end of its row; the section says it once for the
+   whole run instead, and says it where the eye already went looking. The opacity
+   is the hint's, for the same reason. */
+.tag-select__group-label {
+    display: block;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-align: right;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+/* The run itself carries no box — only the hairline that says where the previous
+   one ended, and only between sections, so the first draws no rule above it. */
+.tag-select__group + .tag-select__group {
+    margin-top: var(--spacing-2xs);
+    padding-top: var(--spacing-2xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.tag-select__group-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 .tag-select__option {
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius-sm);

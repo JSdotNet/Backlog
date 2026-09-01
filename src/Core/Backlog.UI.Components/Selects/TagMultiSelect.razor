@@ -5,6 +5,37 @@
     Up/Down to walk the list, Enter to take one, Backspace on an empty input to
     drop the last chip, Escape to close — behave the same for a mouse user and a
     screen reader user.
+
+    An option may name a section it belongs to, and the open list draws those
+    sections. Three things about how, because none of them is the obvious choice:
+
+    The section is a real `role="group"` carrying a visible label, not a header row
+    dressed up as one. Nothing here ever moves the focus, so a presentational
+    heading would be a thing on screen that the keyboard route cannot reach and the
+    reading cursor never lands on — a sighted reader would see the boundary and a
+    screen reader user would cross it in silence. DataTable states the same
+    rationale for its `th scope="colgroup"`: the element that labels the run has to
+    be the element that says it does. `aria-labelledby` pointing at the label is
+    what makes the group announce its name on the way in.
+
+    Sections are runs, walked off `Matches` in order — the first option whose group
+    differs from the one before it opens a new one. Not a `GroupBy`: that would
+    coalesce two non-adjacent runs of the same name into one, which is this control
+    quietly deciding an ordering. The host owns the order (see SelectorOption.Group),
+    and a control that re-derived it would be a second definition of it, free to
+    disagree with the first. Walking the matches also means a section whose options
+    all fell out of the query takes its heading with it, without anything having to
+    check for that case.
+
+    The index an option is identified by stays flat and stays keyed on `Matches`,
+    so nesting some options one level deeper changes nothing about `_activeIndex`,
+    the cycling arithmetic, or the id `aria-activedescendant` resolves. A section is
+    a fact about the markup, not about the order the keyboard walks.
+
+    An option with no group is left where it was, an unwrapped child of the listbox.
+    Giving it a heading would mean inventing a name for it, and the only honest name
+    is one the host did not supply — so instead a list nobody grouped renders exactly
+    the markup it rendered before groups existed.
 *@
 
 <div class="@ClassValue" data-testid="@TestId">
@@ -50,22 +81,45 @@
 
     @if (_open && (Matches.Count > 0 || CanCreate))
     {
+        var matches = Matches;
+        var runs = SectionRuns(matches);
+
+        @* preventDefault on mousedown keeps the focus in the input, so the
+           blur that closes the popup cannot fire before this click lands. *@
+        RenderFragment<int> option = index =>
+            @<li id="@OptionId(index)"
+                 class="@OptionClass(index)"
+                 role="option"
+                 aria-selected="@(index == _activeIndex ? "true" : "false")"
+                 @onmousedown:preventDefault="true"
+                 @onclick="() => AddAsync(matches[index].Value)"><span class="tag-select__option-label">@matches[index].Label</span>@if (!string.IsNullOrWhiteSpace(matches[index].Hint))
+                 {
+                     <span class="tag-select__hint">@matches[index].Hint</span>
+                 }</li>;
+
         <ul id="@ListId" class="tag-select__list" role="listbox" aria-label="@(Label ?? "Tags")">
-            @for (var i = 0; i < Matches.Count; i++)
+            @foreach (var run in runs)
             {
-                var index = i;
-                var option = Matches[index];
-                @* preventDefault on mousedown keeps the focus in the input, so the
-                   blur that closes the popup cannot fire before this click lands. *@
-                <li id="@OptionId(index)"
-                    class="@OptionClass(index)"
-                    role="option"
-                    aria-selected="@(index == _activeIndex ? "true" : "false")"
-                    @onmousedown:preventDefault="true"
-                    @onclick="() => AddAsync(option.Value)"><span class="tag-select__option-label">@option.Label</span>@if (!string.IsNullOrWhiteSpace(option.Hint))
+                if (run.Name is null)
+                {
+                    for (var i = run.Start; i < run.End; i++)
                     {
-                        <span class="tag-select__hint">@option.Hint</span>
-                    }</li>
+                        @option(i)
+                    }
+                }
+                else
+                {
+                    var groupId = $"{InputId}-group-{run.Ordinal}";
+                    <li class="tag-select__group" role="group" aria-labelledby="@groupId">
+                        <span id="@groupId" class="tag-select__group-label">@run.Name</span>
+                        <ul class="tag-select__group-list" role="none">
+                            @for (var i = run.Start; i < run.End; i++)
+                            {
+                                @option(i)
+                            }
+                        </ul>
+                    </li>
+                }
             }
             @if (CanCreate)
             {
@@ -168,6 +222,33 @@
     private string? ActiveOptionId => _open && _activeIndex >= 0 && _activeIndex < OptionCount
         ? OptionId(_activeIndex)
         : null;
+
+    /// <summary>One stretch of <c>Matches</c> that renders together: a named
+    /// section, or the unwrapped options between two of them. <c>Ordinal</c>
+    /// numbers only the named ones, because it exists to name the label element a
+    /// section points <c>aria-labelledby</c> at.</summary>
+    private readonly record struct OptionRun(string? Name, int Ordinal, int Start, int End);
+
+    private static List<OptionRun> SectionRuns(IReadOnlyList<SelectorOption> matches)
+    {
+        var runs = new List<OptionRun>();
+        var ordinal = 0;
+
+        for (var index = 0; index < matches.Count;)
+        {
+            var name = matches[index].Group;
+            var start = index;
+
+            while (index < matches.Count && string.Equals(matches[index].Group, name, StringComparison.Ordinal))
+            {
+                index++;
+            }
+
+            runs.Add(new OptionRun(name, name is null ? -1 : ordinal++, start, index));
+        }
+
+        return runs;
+    }
 
     private string OptionClass(int index) => index == _activeIndex
         ? "tag-select__option tag-select__option--active"
