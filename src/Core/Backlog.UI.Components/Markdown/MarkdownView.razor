@@ -1,4 +1,5 @@
-﻿@*
+﻿@inject IJSRuntime Js
+@*
     The read view of an entry's body: what markdown looks like when you are not
     editing it. Sub-items are not here — a `##` heading is an item in its own
     right and is laid out as its own card below the entry (see Home.razor), so
@@ -224,6 +225,11 @@
     private string? _editingId;
     private string _draft = string.Empty;
 
+    /// <summary>Set whenever a box just opened — by StartEdit or by
+    /// BeginEditingNewDraft — and consumed the next time this view renders. See
+    /// OnAfterRenderAsync for why it has to wait that long.</summary>
+    private bool _focusEditor;
+
     /// <summary>Whether anything hangs off a block — an affordance to add a
     /// remark or to ask for a rewrite, or a remark or a suggestion already there.
     ///
@@ -274,24 +280,60 @@
     {
         _editingId = comment.Id;
         _draft = comment.Body;
+        _focusEditor = true;
     }
 
-    private void CancelEdit()
+    /// <summary>
+    /// Out of the box, and — for a draft nobody has said anything into yet — out
+    /// of the document too.
+    /// <para>
+    /// A comment with a body already has one: cancelling puts the reader back at
+    /// the wording it had before, exactly as it always did. A fresh draft has
+    /// none, only the affordance's promise that one is coming, and abandoning
+    /// that promise should not leave a blank note sitting in the margin — see
+    /// <see cref="BeginEditingNewDraft"/> for how it got there. So this asks the
+    /// host to take it back rather than leaving an empty <see cref="MarkdownComment"/>
+    /// for the next render to trip over.
+    /// </para>
+    /// </summary>
+    private async Task CancelEditAsync(MarkdownComment comment)
     {
-        _editingId = null;
-        _draft = string.Empty;
+        var isUnsavedDraft = comment.Body.Length == 0;
+        ResetEditState();
+
+        if (isUnsavedDraft && OnDeleteComment.HasDelegate)
+        {
+            await OnDeleteComment.InvokeAsync(comment.Id);
+        }
     }
 
     private async Task SaveEditAsync(MarkdownComment comment)
     {
         var body = _draft.Trim();
-        CancelEdit();
 
         // An empty comment is a delete asked for the wrong way, and an unchanged
-        // one is not an edit. Neither is raised.
-        if (body.Length == 0 || string.Equals(body, comment.Body, StringComparison.Ordinal)) return;
+        // one is not an edit. Neither is raised. An existing remark's box closes
+        // on either all the same, reverting to what it already said. A fresh
+        // draft's box does not: there is nothing to revert to, and closing it
+        // would leave exactly the blank note in the margin this mechanism exists
+        // to avoid, with no affordance left to reopen it — BeginEditingNewDraft
+        // only opens a draft once.
+        if (body.Length == 0 || string.Equals(body, comment.Body, StringComparison.Ordinal))
+        {
+            if (comment.Body.Length == 0) return;
 
+            ResetEditState();
+            return;
+        }
+
+        ResetEditState();
         await OnEditComment.InvokeAsync(comment with { Body = body });
+    }
+
+    private void ResetEditState()
+    {
+        _editingId = null;
+        _draft = string.Empty;
     }
 
     /// <summary>The comments hanging off one block, in the order they were
@@ -389,7 +431,8 @@
                                               AriaLabel="Edit comment"
                                               Rows="3"
                                               Bare="true"
-                                              TestId="@($"markdown-comment-editor-{comment.Id}")" />
+                                              Id="@EditorElementId(comment.Id)"
+                                              TestId="@EditorElementId(comment.Id)" />
                                     <div class="md-comment__edit-actions">
                                         <button type="button"
                                                 class="md-comment__action"
@@ -398,7 +441,7 @@
                                         <button type="button"
                                                 class="md-comment__action"
                                                 data-testid="@($"markdown-comment-cancel-{comment.Id}")"
-                                                @onclick="CancelEdit">Cancel</button>
+                                                @onclick="() => CancelEditAsync(comment)">Cancel</button>
                                     </div>
                                 </div>
                             }
@@ -446,6 +489,34 @@
                                                 class="md-comment__action md-comment__action--ai"
                                                 data-testid="@($"markdown-comment-ai-resolve-{comment.Id}")"
                                                 @onclick="() => OnResolveCommentWithAi.InvokeAsync(comment.Id)">Resolve with AI</button>
+                                    }
+                                    @if (OnDeleteComment.HasDelegate)
+                                    {
+                                        @* Removal, not resolution — see OnDeleteComment. A
+                                           second button rather than folding it into Resolve,
+                                           for the reason Resolve with AI already keeps: one
+                                           press should do one thing.
+                                           Last in the row and pushed to its far end by its
+                                           own margin, so the one irreversible act here sits
+                                           apart from the others rather than in the same
+                                           cluster a mis-aimed click could reach. An icon
+                                           rather than a fourth word: the colour alone
+                                           measured too close to the row's own background to
+                                           read as different from the rest at a glance. *@
+                                        <button type="button"
+                                                class="md-comment__action md-comment__action--delete"
+                                                aria-label="Delete comment"
+                                                data-testid="@($"markdown-comment-delete-{comment.Id}")"
+                                                @onclick="() => OnDeleteComment.InvokeAsync(comment.Id)">
+                                            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+                                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                                <path d="M2.75 4.25h10.5" />
+                                                <path d="M6.25 4.25V3a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .75.75v1.25" />
+                                                <path d="M4.25 4.25 4.9 13a.75.75 0 0 0 .75.7h4.7a.75.75 0 0 0 .75-.7l.65-8.75" />
+                                                <path d="M6.75 7v4" />
+                                                <path d="M9.25 7v4" />
+                                            </svg>
+                                        </button>
                                     }
                                 </span>
                             }
@@ -508,6 +579,15 @@
     /// a thread, an edit history — gets back something it can match up.</summary>
     [Parameter]
     public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
+    /// <summary>Raised with a comment's id when a reader asks to take it away
+    /// outright. Without it a comment can be resolved but never removed — see
+    /// <see cref="OnResolveComment"/> for why staying visible and quiet is usually
+    /// the better answer, and this one for the remark that should not stick
+    /// around at all: a stray double-press, or a fresh draft abandoned through
+    /// Cancel rather than saved — see <see cref="CancelEditAsync"/>.</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteComment { get; set; }
 
     /// <summary>Where the remarks are drawn: under each block, or in a column
     /// beside the body.</summary>
@@ -650,12 +730,83 @@
         // Splitting walks the whole file, and a view re-renders for reasons that
         // have nothing to do with it — a comment being typed, most of all. Only
         // the two inputs the alignment is made of can invalidate it.
-        if (_splitSource == Source && ReferenceEquals(_splitBlocks, Blocks)) return;
+        if (_splitSource != Source || !ReferenceEquals(_splitBlocks, Blocks))
+        {
+            AlignChapters();
+            _splitSource = Source;
+            _splitBlocks = Blocks;
+        }
 
-        AlignChapters();
-        _splitSource = Source;
-        _splitBlocks = Blocks;
+        BeginEditingNewDraft();
     }
+
+    /// <summary>
+    /// A comment with nothing said yet is a draft, not a remark: the reader
+    /// pressed the block's affordance and has typed nothing into it. This opens
+    /// it straight into its own textarea rather than leaving it sitting on
+    /// screen as a blank note with an Edit button beside it — asking for a
+    /// remark and being handed one to react to were never the same request.
+    /// <para>
+    /// Checked on every parameter set rather than once on add, because this view
+    /// does not control how a host stores its comments: a knowledge panel mutates
+    /// the same list in place and a storybook page replaces it wholesale, and
+    /// both have to be noticed the same way. Cheap enough to ask every render —
+    /// the list a document carries is never long.
+    /// </para>
+    /// <para>
+    /// Only when nothing else is already open. A reader mid-edit on one remark
+    /// should not have that draft silently swapped out from under them because a
+    /// press landed on a different block — and a comment is never both an
+    /// existing draft, since <see cref="SaveEditAsync"/> and
+    /// <see cref="CancelEditAsync"/> both clear <see cref="_editingId"/> before an
+    /// empty body could be saved as one.
+    /// </para>
+    /// </summary>
+    private void BeginEditingNewDraft()
+    {
+        if (_editingId is not null) return;
+
+        var draft = Comments.FirstOrDefault(comment => comment.Body.Length == 0);
+        if (draft is null) return;
+
+        _editingId = draft.Id;
+        _draft = string.Empty;
+        _focusEditor = true;
+    }
+
+    /// <summary>
+    /// The caret in whichever box just opened — StartEdit's or
+    /// BeginEditingNewDraft's, <see cref="_focusEditor"/> does not say which and
+    /// does not need to, since <see cref="_editingId"/> already names the one box
+    /// that can be open.
+    /// <para>
+    /// Here rather than where the box opens, for the reason every focus-after-
+    /// render call in this library is: the DOM does not have the element yet at
+    /// that point, only a render Blazor has queued. This is the first point
+    /// guaranteed to run after the batch that put the textarea on the page.
+    /// </para>
+    /// <para>
+    /// Consumed once per opening. A comment view re-renders for reasons that have
+    /// nothing to do with focus — another remark being typed into, most of all —
+    /// and asking again on each of those would drag the caret back to a box the
+    /// reader had already left.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusEditor) return;
+
+        _focusEditor = false;
+
+        if (_editingId is { } id)
+        {
+            await QuickEditField.FocusAsync(Js, EditorElementId(id), select: false);
+        }
+    }
+
+    /// <summary>The id a remark's textarea wears on the page, so the button that
+    /// opened it and the script that focuses it name the same element.</summary>
+    private static string EditorElementId(string commentId) => $"markdown-comment-editor-{commentId}";
 
     /// <summary>
     /// Matches the chapters of the source to the headings on screen, by order and

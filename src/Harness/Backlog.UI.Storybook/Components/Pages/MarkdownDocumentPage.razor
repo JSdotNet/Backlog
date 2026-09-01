@@ -47,7 +47,7 @@ Editing hands the same string to the editor that the parser was reading, so a bo
     <Story Name="Commenting on a section"
            Description="`Comments` are anchored to a block index — not to a character range, which nothing survives — so the record is `MarkdownComment(Id, BlockIndex, Body, Author, When, Resolved)`. Re-anchoring when blocks move is the host's; the view renders comments against the blocks it is told and never guesses.
 
-`OnAddComment` hands back the block index a reader asked at, `OnEditComment` hands back the whole record with the body already replaced, and `OnResolveComment` hands back an id. A comment whose block has gone renders at the end, marked adrift.
+`OnAddComment` hands back the block index a reader asked at. The host answers with an empty-bodied comment, and that emptiness is the whole of the trick: the view opens a comment with nothing said yet straight into its own textarea, so a reader who pressed the affordance can start typing immediately rather than pressing Edit on the placeholder it left behind. `OnEditComment` hands back the whole record with the body already replaced, `OnResolveComment` hands back an id to toggle, and `OnDeleteComment` hands back an id to take away outright — including the fresh draft's own id, when Cancel is pressed before anything was typed into it.
 
 Hover a block for the affordance; a block that already has comments keeps it visible."
            Code="@CommentCode"
@@ -57,7 +57,8 @@ Hover a block for the affordance; a block that already has comments keeps it vis
                           Comments="@_comments"
                           OnAddComment="AddComment"
                           OnEditComment="EditComment"
-                          OnResolveComment="ResolveComment" />
+                          OnResolveComment="ResolveComment"
+                          OnDeleteComment="DeleteComment" />
         </div>
     </Story>
 
@@ -66,7 +67,7 @@ Hover a block for the affordance; a block that already has comments keeps it vis
 
 One markup, two layouts — the margin cell is always emitted and follows its block until the grid picks it up. Below the narrow breakpoint it falls back to inline on its own, so a caller does not have to notice. Narrow this window and watch it.
 
-Editing works the same either way: Edit opens the comment in a box with Save and Cancel rather than committing on Enter, because a remark is prose and Enter has to stay a newline. The draft lives in the view until it is saved, so Cancel means something."
+Editing works the same either way: a fresh remark opens straight into a box with Save and Cancel rather than committing on Enter, because a remark is prose and Enter has to stay a newline. The draft lives in the view until it is saved, so Cancel means something — for an existing remark it puts the wording back, and for a draft nobody has typed into yet it asks the host to drop it, through the same `OnDeleteComment` a saved remark's own Delete button uses."
            Code="@MarginCode"
            Source="@CommentSample">
         <div data-testid="markdown-commented-margin">
@@ -75,7 +76,8 @@ Editing works the same either way: Edit opens the comment in a box with Save and
                           Layout="MarkdownCommentLayout.Margin"
                           OnAddComment="AddMarginComment"
                           OnEditComment="EditMarginComment"
-                          OnResolveComment="ResolveMarginComment" />
+                          OnResolveComment="ResolveMarginComment"
+                          OnDeleteComment="DeleteMarginComment" />
         </div>
     </Story>
 
@@ -161,7 +163,7 @@ Editing works the same either way: Edit opens the comment in a box with Save and
         }
     }
 
-    private int _nextComment = 3;
+    private int _nextComment = 4;
 
     private IReadOnlyList<MarkdownComment> _comments =
     [
@@ -171,12 +173,14 @@ Editing works the same either way: Edit opens the comment in a box with Save and
         new("c3", 9, "This was against a paragraph that no longer exists.", "Reviewer", "last week")
     ];
 
-    /// <summary>A real host would open a composer. The storybook has nowhere to
-    /// type, so it writes a placeholder and shows where it lands.</summary>
+    /// <summary>Empty, on purpose: the view reads that as a fresh draft and opens
+    /// it straight into its own textarea, so the reader types where they pressed
+    /// rather than into a placeholder they would have had to find Edit to
+    /// reach.</summary>
     private void AddComment(int blockIndex)
     {
         var id = $"c{_nextComment++}";
-        _comments = [.. _comments, new MarkdownComment(id, blockIndex, "A new remark, left where it was asked for.", "You", "just now")];
+        _comments = [.. _comments, new MarkdownComment(id, blockIndex, string.Empty, "You", "just now")];
     }
 
     private void ResolveComment(string id) =>
@@ -186,6 +190,11 @@ Editing works the same either way: Edit opens the comment in a box with Save and
     /// storing more than the view shows can match it up.</summary>
     private void EditComment(MarkdownComment edited) =>
         _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
+
+    /// <summary>Taken away outright — a saved remark's own Delete button, or a
+    /// fresh draft Cancel is abandoning rather than saving.</summary>
+    private void DeleteComment(string id) =>
+        _comments = [.. _comments.Where(c => c.Id != id)];
 
     private IReadOnlyList<MarkdownComment> _marginComments =
     [
@@ -199,7 +208,7 @@ Editing works the same either way: Edit opens the comment in a box with Save and
     private void AddMarginComment(int blockIndex)
     {
         var id = $"m{_nextMarginComment++}";
-        _marginComments = [.. _marginComments, new MarkdownComment(id, blockIndex, "A new remark, in the margin.", "You", "just now")];
+        _marginComments = [.. _marginComments, new MarkdownComment(id, blockIndex, string.Empty, "You", "just now")];
     }
 
     private void EditMarginComment(MarkdownComment edited) =>
@@ -207,6 +216,9 @@ Editing works the same either way: Edit opens the comment in a box with Save and
 
     private void ResolveMarginComment(string id) =>
         _marginComments = [.. _marginComments.Select(c => c.Id == id ? c with { Resolved = !c.Resolved } : c)];
+
+    private void DeleteMarginComment(string id) =>
+        _marginComments = [.. _marginComments.Where(c => c.Id != id)];
 
     private const string DocumentCode = """
         <MarkdownDocument @bind-Value="_source"
@@ -230,12 +242,20 @@ Editing works the same either way: Edit opens the comment in a box with Save and
         <MarkdownView Blocks="@blocks"
                       Comments="@comments"
                       OnAddComment="Add"
-                      OnResolveComment="Resolve" />
+                      OnResolveComment="Resolve"
+                      OnDeleteComment="Delete" />
 
         @code {
             // Anchored to a block index. Re-anchoring when blocks move is the
             // host's — the view renders what it is told and never guesses.
-            private void Add(int blockIndex) => _comments = [.. _comments, Compose(blockIndex)];
+            //
+            // Empty, not a placeholder: an empty body is what tells the view
+            // this is a fresh draft, so it opens straight into its own textarea
+            // instead of a paragraph the reader has to press Edit to reach.
+            private void Add(int blockIndex) =>
+                _comments = [.. _comments, new MarkdownComment(NextId(), blockIndex, "", "You", "just now")];
+
+            private void Delete(string id) => _comments = [.. _comments.Where(c => c.Id != id)];
         }
         """;
 
@@ -245,12 +265,17 @@ Editing works the same either way: Edit opens the comment in a box with Save and
                       Layout="MarkdownCommentLayout.Margin"
                       OnAddComment="Add"
                       OnEditComment="Save"
-                      OnResolveComment="Resolve" />
+                      OnResolveComment="Resolve"
+                      OnDeleteComment="Delete" />
 
         @code {
             // The whole record comes back, body replaced.
             private void Save(MarkdownComment edited) =>
                 _comments = [.. _comments.Select(c => c.Id == edited.Id ? edited : c)];
+
+            // Reached from a remark's own Delete button, and from Cancel on a
+            // draft nobody typed into — see the read view's own notes on that.
+            private void Delete(string id) => _comments = [.. _comments.Where(c => c.Id != id)];
         }
         """;
 }
