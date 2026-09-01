@@ -1334,19 +1334,9 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* A result, not an alarm: it reports what the import produced and stays until
-   dismissed, so it reads at the weight of `.setting__status` rather than
-   borrowing the error surface. */
-.import-plan-result {
-    margin: var(--spacing-md) 0 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    background: var(--color-background-alt);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    overflow-wrap: anywhere;
-}
+/* The result line this section used to style lives with the pane chrome instead,
+   near the bottom of this file: it renders under the split rather than inside the
+   dialog, so it is the workspace's footer and not one of the form's own blocks. */
 
 /* --- Settings -------------------------------------------------------------- */
 
@@ -3521,7 +3511,13 @@ h1, h2, h3 {
    rule above it and the type inside it — the same border and the same secondary
    ink the bar at the top of this pane uses, so the two ends of the surface match.
    Inline padding aligned with the workspace's own so the sentence starts where the
-   list does. */
+   list does.
+
+   A result, not an alarm — it reports what the import produced and stays until the
+   next one replaces it, so it reads at the weight of `.setting__status` rather than
+   borrowing the error surface. It wraps anywhere because a repository alias in the
+   message can be one long unbroken word, and a footer one line tall is only a
+   footer while that word cannot push it wider than the pane. */
 .import-plan-result {
     margin: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
@@ -3530,6 +3526,7 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     text-align: left;
+    overflow-wrap: anywhere;
 }
 
 
