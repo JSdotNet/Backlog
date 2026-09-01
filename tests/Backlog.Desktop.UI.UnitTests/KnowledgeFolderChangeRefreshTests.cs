@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.Copilot;
+﻿using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -131,6 +131,34 @@ public sealed class KnowledgeFolderChangeRefreshTests
     /// the subscription is counted directly instead of being inferred from a
     /// raised event.
     /// </summary>
+    /// <summary>
+    /// The pull case, which is the folder staying exactly where it is while
+    /// everything in it is replaced. Nothing about the component's parameters or
+    /// the repository alias changes, so the panel's own load guard short-circuits
+    /// and the announcement is the only thing that can invalidate it — the same
+    /// event a move raises, which is why it sits on the same port.
+    /// </summary>
+    [Fact]
+    public void Domain_knowledge_panel_rereads_when_the_folder_content_is_announced_replaced()
+    {
+        using var workspace = KnowledgeWorkspace.Create();
+        using var context = workspace.CreateBunitContext();
+
+        var component = context.Render<DomainKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, KnowledgeWorkspace.Alias));
+
+        Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal);
+
+        workspace.RewriteContextMap(workspace.RepositoryPath, "Pulled");
+        workspace.Folders.NotifyContentChanged();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("Context Map: Pulled", component.Markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Context Map: Alpha", component.Markup, StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public void Knowledge_panels_detach_from_the_folder_source_when_disposed()
     {
@@ -224,6 +252,11 @@ file sealed class KnowledgeWorkspace : IDisposable
     public void PointRepositoryAt(string cloneDirectory) =>
         Assert.Null(RepositorySettings.SetCloneDirectory(Alias, cloneDirectory));
 
+    /// <summary>Replaces a chapter where it stands, which is what pulling the
+    /// latest version into the clone does to it.</summary>
+    public void RewriteContextMap(string repositoryPath, string name) =>
+        WriteRepository(repositoryPath, name);
+
     public BunitContext CreateBunitContext(IKnowledgeFolderSource? folders = null)
     {
         var context = new BunitContext();
@@ -308,4 +341,6 @@ file sealed class CountingKnowledgeFolderSource(IKnowledgeFolderSource inner) : 
     public IReadOnlyList<KnowledgeFolderSetting> Folders(string? repositoryAlias) => inner.Folders(repositoryAlias);
 
     public KnowledgeFolderLocation Resolve(string key, string? repositoryAlias = null) => inner.Resolve(key, repositoryAlias);
+
+    public void NotifyContentChanged() => inner.NotifyContentChanged();
 }

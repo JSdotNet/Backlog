@@ -1,4 +1,4 @@
-using Backlog.Desktop.Services;
+﻿using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
@@ -145,6 +145,7 @@ public static class MauiProgram
         // installed — is the host's to know, which is why the library only asks.
         builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
         builder.Services.AddSingleton<KnowledgeScope>();
+        builder.Services.AddSingleton<KnowledgeUpdateService>();
         builder.Services.AddSingleton<BacklogDesktopState>();
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();

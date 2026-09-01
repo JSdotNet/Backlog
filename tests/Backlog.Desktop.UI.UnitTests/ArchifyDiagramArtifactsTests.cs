@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
@@ -906,6 +906,8 @@ file sealed class FakeKnowledgeFolderSource(string root) : IKnowledgeFolderSourc
             ? new KnowledgeFolderLocation(key, true, null, null, null, full, root)
             : KnowledgeFolderLocation.Unavailable(key, $"{key} is not configured here.");
     }
+
+    public void NotifyContentChanged() => Changed?.Invoke();
 
     /// <summary>What a moved folder or a repointed clone raises. The adapter
     /// subscribes to it to throw its chapter scan away.</summary>

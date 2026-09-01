@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+﻿using AngleSharp.Dom;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
@@ -199,6 +199,8 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         context.Services.AddSingleton<KnowledgeChapterWriter>();
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton<KnowledgeUpdateService>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
 

@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+﻿namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Records what a chapter file said at the moment a knowledge store went looking
@@ -73,4 +73,6 @@ internal sealed class RecordingKnowledgeFolderSource(IKnowledgeFolderSource inne
 
         return inner.Resolve(key, repositoryAlias);
     }
+
+    public void NotifyContentChanged() => inner.NotifyContentChanged();
 }
