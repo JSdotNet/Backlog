@@ -458,27 +458,29 @@
         }
     };
 
-    // A task row's drag needs a payload, and Blazor's DragEventArgs is read-only so
-    // no C# handler can supply one. Chromium starts a drag without one happily
-    // enough and then refuses to fire drop, which reads as a drag that works and
-    // does nothing when released.
+    // Reordering a task row is a pointer gesture, not an HTML5 drag.
+    //
+    // Native drag was the obvious implementation and it is unusable in one of the
+    // heads this library ships to. The desktop head renders these components in a
+    // WebView2 hosted by WinUI3 (MAUI's BlazorWebView on Windows), and there the
+    // native drag session is aborted by the platform about five milliseconds after
+    // it opens: `dragstart` fires, `pointercancel` follows, `dragend` arrives
+    // immediately, and no `dragover` or `drop` is ever delivered. Measured on the
+    // running app over its WebView2 debugging port, ten gestures out of ten.
+    //
+    // That leaves nothing for a native-drag implementation to hook: the events that
+    // say where the row is going never happen, and the pointer stream that could
+    // have answered instead is cancelled by the drag that is about to die. Both
+    // halves of the gesture have to come from pointer events, so the row is no
+    // longer `draggable` at all and this drives the same C# state machine —
+    // PointerDragStart, PointerDragOver, PointerDragEnd — that the drag events used
+    // to. One implementation for every host, because a second one kept only for the
+    // hosts where native drag happens to work would be a second one to get wrong.
     //
     // Here rather than in a host's own script, because TaskListView owns the whole
     // gesture: a host that had to supply this would be a host that has to know the
-    // list drags at all. Capture phase, so it runs before Blazor's handler for the
-    // same event.
-    //
-    // The live reorder preview (TaskListView.Preview) moves the dragged row's own
-    // DOM node mid-gesture, to the position the drop would produce — and relocating
-    // a node the browser's native drag session is still tracking is exactly the
-    // kind of mutation that can cause the eventual `dragend` to never reach that
-    // row's own @ondragend handler, even though the browser still fires the event.
-    // taskListDrag below is the fallback: a registry of each list's own .NET
-    // reference, so a dragend caught here — never dependent on Blazor's own
-    // per-row event association surviving the move — can force that specific
-    // list's drag state clear regardless.
+    // list reorders at all.
     const taskListRefs = new Map();
-    let draggingListRef = null;
 
     window.taskListDrag = {
         register(ownerId, dotNetRef) {
@@ -489,59 +491,148 @@
         }
     };
 
-    document.addEventListener(
-        'dragstart',
-        (event) => {
-            const row = event.target instanceof Element ? event.target.closest('.task-item[draggable="true"]') : null;
+    // How far the pointer travels before a press becomes a drag. Without a
+    // threshold every click on a row would open and close a drag, and a click is
+    // how a row is selected — so the gesture has to prove it is a move first.
+    const TASK_DRAG_THRESHOLD_PX = 4;
 
-            const ownerId = row?.closest('[data-list-owner]')?.getAttribute('data-list-owner');
-            draggingListRef = ownerId ? taskListRefs.get(ownerId) ?? null : null;
+    // How long after a drag a click is swallowed. The pointerup that ends a drag is
+    // followed by a click on whatever is under it, and that click would select a
+    // row the reader was only dropping onto.
+    const TASK_DRAG_CLICK_GRACE_MS = 300;
 
-            if (!row || !event.dataTransfer) return;
+    // Everything inside a row that owns its own press. The row's title button is
+    // deliberately absent: dragging a row by its title is the gesture people
+    // actually make, and it stays a click when the pointer does not travel.
+    const TASK_DRAG_EXCLUDED =
+        '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
+        '.task-item__actions, .task-item__fold, .task-item__rename,' +
+        'input, textarea, select, a[href]';
 
-            event.dataTransfer.effectAllowed = 'move';
-            // Some payload is required for the drag to be considered valid.
-            event.dataTransfer.setData('text/plain', row.getAttribute('data-testid') ?? 'task');
+    let taskDrag = null;
+    let taskDragClickBlockedUntil = 0;
 
-            if (event.dataTransfer.setDragImage) {
-                const bounds = row.getBoundingClientRect();
-                event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
-            }
-        },
-        true
-    );
+    function endTaskDrag() {
+        taskDrag = null;
+    }
 
-    // The guaranteed half of the fallback above: whatever list started the drag
-    // gets told it ended, once, regardless of whether its own row-level dragend
-    // binding also fired. Clearing an already-clear state is a no-op on the .NET
-    // side, so this never fights a drag that ended normally: ForceEndDrag commits
-    // through the same fields Drop does, and whichever of the two reaches the
-    // server first clears them, leaving the other nothing to act on.
-    document.addEventListener(
-        'dragend',
-        () => {
-            const ref = draggingListRef;
-            draggingListRef = null;
+    function taskRowFromPoint(x, y) {
+        const element = document.elementFromPoint(x, y);
+        return element instanceof Element ? element.closest('.task-item[data-task-id]') : null;
+    }
 
-            ref?.invokeMethodAsync('ForceEndDrag').catch(() => {
-                // The circuit can already be gone by the time this fires
-                // (navigation, disposal) — nothing left to clean up for.
+    document.addEventListener('pointerdown', (event) => {
+        // The primary button only. A right-click opens a menu and a middle-click is
+        // not a gesture this list claims.
+        if (event.button !== 0 || !event.isPrimary) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        const row = target?.closest('.task-item[data-draggable="true"]');
+        if (!row) return;
+
+        const onGrip = !!target.closest('.task-item__grip');
+
+        // A control inside the row keeps its own press, unless the press is on the
+        // grip — which is nothing but a handle and sits inside the row with them.
+        if (!onGrip && target.closest(TASK_DRAG_EXCLUDED)) return;
+
+        // Touch and pen drag from the grip only. A finger pressing anywhere else on
+        // a row is how the list is scrolled, and taking that over would make a long
+        // list unreadable to get a row moved.
+        if (event.pointerType !== 'mouse' && !onGrip) return;
+
+        const ownerId = row.closest('[data-list-owner]')?.getAttribute('data-list-owner');
+        const ref = ownerId ? taskListRefs.get(ownerId) ?? null : null;
+        const taskId = row.getAttribute('data-task-id');
+        if (!ref || !taskId) return;
+
+        taskDrag = {
+            ref,
+            taskId,
+            startX: event.clientX,
+            startY: event.clientY,
+            pointerId: event.pointerId,
+            active: false,
+            lastOverId: null
+        };
+    });
+
+    document.addEventListener('pointermove', (event) => {
+        if (!taskDrag || event.pointerId !== taskDrag.pointerId) return;
+
+        if (!taskDrag.active) {
+            const travelled = Math.hypot(event.clientX - taskDrag.startX, event.clientY - taskDrag.startY);
+            if (travelled < TASK_DRAG_THRESHOLD_PX) return;
+
+            taskDrag.active = true;
+            taskDrag.ref.invokeMethodAsync('PointerDragStart', taskDrag.taskId).catch(() => {
+                // The circuit can already be gone (navigation, disposal).
+                endTaskDrag();
             });
-        },
-        true
-    );
+        }
 
-    // A drop only fires where dragover was cancelled. The row's own
-    // `:preventDefault` does that too; this is the frame before Blazor has attached
-    // it, which is otherwise a dropped drop.
+        // Reported only when the answer changes. A pointer crossing a list produces
+        // a move event per frame, and each one is a round trip to C# — the row under
+        // the pointer is what the drop needs, not how often it was asked.
+        const overId = taskRowFromPoint(event.clientX, event.clientY)?.getAttribute('data-task-id');
+        if (!overId || overId === taskDrag.lastOverId) return;
+
+        taskDrag.lastOverId = overId;
+        taskDrag.ref.invokeMethodAsync('PointerDragOver', overId).catch(() => {
+        });
+    });
+
+    document.addEventListener('pointerup', (event) => {
+        if (!taskDrag || event.pointerId !== taskDrag.pointerId) return;
+
+        const { ref, active } = taskDrag;
+        endTaskDrag();
+
+        // Never travelled, so it was a click: the row keeps it, and nothing was
+        // started that needs settling.
+        if (!active) return;
+
+        taskDragClickBlockedUntil = performance.now() + TASK_DRAG_CLICK_GRACE_MS;
+
+        ref.invokeMethodAsync('PointerDragEnd').catch(() => {
+        });
+    });
+
+    // The gesture was taken away rather than finished — the platform cancelling the
+    // pointer, or the window losing it. The row goes back where it was, because a
+    // drag nobody released is not a drop.
+    const cancelTaskDrag = () => {
+        if (!taskDrag) return;
+
+        const { ref, active } = taskDrag;
+        endTaskDrag();
+
+        if (active) {
+            ref.invokeMethodAsync('PointerDragCancel').catch(() => {
+            });
+        }
+    };
+
+    document.addEventListener('pointercancel', cancelTaskDrag);
+    window.addEventListener('blur', cancelTaskDrag);
+
+    // Escape abandons a drag in flight, the way it abandons every other thing in
+    // this product that can be put down.
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') cancelTaskDrag();
+    });
+
+    // The click that follows the pointerup that ended a drag. It would land on the
+    // row the drop was aimed at and select it, which is a second thing happening
+    // because of one gesture.
     document.addEventListener(
-        'dragover',
+        'click',
         (event) => {
-            const row = event.target instanceof Element ? event.target.closest('.task-item') : null;
-            if (!row || !event.dataTransfer) return;
+            if (performance.now() >= taskDragClickBlockedUntil) return;
 
-            event.dataTransfer.dropEffect = 'move';
+            taskDragClickBlockedUntil = 0;
             event.preventDefault();
+            event.stopPropagation();
         },
         true
     );

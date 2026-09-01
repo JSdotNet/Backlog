@@ -3,12 +3,18 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// A row whose title is a field from the start, and the collision that comes with it.
 /// <para>
-/// A draggable element swallows the pointer inside its own inputs: press and move to
-/// select a word and the browser starts dragging the row instead of selecting text.
-/// So a row with a field open turns its own <c>draggable</c> off — and that alone
-/// would have taken pointer reordering away from a list whose titles are always
-/// fields, which is why the grip is draggable in its own right and Alt+Arrow is heard
-/// inside the field.
+/// A natively draggable element swallows the pointer inside its own inputs: press and
+/// move to select a word and the browser started dragging the row instead of selecting
+/// text. That is why a row with a field open used to turn its own <c>draggable</c> off,
+/// and why the grip was draggable in its own right so a list of always-open fields kept
+/// a pointer route at all.
+/// </para>
+/// <para>
+/// The collision is gone now that reordering is a pointer gesture rather than a native
+/// drag: the row keeps <c>data-draggable</c> open field or not, and a press that lands
+/// in the field is declined in components.js instead. What is asserted below is the
+/// new arrangement — the field keeps the pointer, the grip still starts a drag, and
+/// Alt+Arrow is still heard inside the field.
 /// </para>
 /// <para>
 /// All three are asserted together on purpose. Each one on its own is satisfiable by
@@ -164,8 +170,15 @@ public sealed class TaskDirectRenameTests
     // --- The collision: still reorderable ----------------------------------
 
     [Fact]
-    public void A_row_being_edited_is_not_itself_draggable()
+    public void A_row_being_edited_still_offers_the_gesture()
     {
+        // This used to be the opposite assertion, and the change is the point of
+        // moving off native drag. The browser's own draggable had to be taken away
+        // while a field was open, because a draggable row swallowed the pointer
+        // inside its own input: press and move to select a word and the browser
+        // dragged the row instead. The pointer gesture has no such conflict — a
+        // press that lands in the rename field is declined in components.js — so
+        // the row keeps the gesture and the reader keeps their text selection.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -177,7 +190,10 @@ public sealed class TaskDirectRenameTests
 
         foreach (var row in view.FindAll("li.task-item"))
         {
-            Assert.Null(row.GetAttribute("draggable"));
+            Assert.Equal("true", row.GetAttribute("data-draggable"));
+
+            // Never the browser's kind of draggable, open field or not.
+            Assert.False(row.HasAttribute("draggable"));
 
             // Still described as pick-up-able, because it is: the row is what moves,
             // whichever element the pointer has to start the gesture on.
@@ -185,7 +201,7 @@ public sealed class TaskDirectRenameTests
         }
     }
 
-    /// <summary>The same list without the field keeps the row draggable, so the
+    /// <summary>The same list without the field marks its rows the same way, so the
     /// assertion above is about the open field rather than about reordering having
     /// been switched off somewhere.</summary>
     [Fact]
@@ -199,11 +215,11 @@ public sealed class TaskDirectRenameTests
             .Add(l => l.OnRename, (TaskRename _) => { })
             .Add(l => l.Reorderable, true));
 
-        Assert.All(view.FindAll("li.task-item"), row => Assert.Equal("true", row.GetAttribute("draggable")));
+        Assert.All(view.FindAll("li.task-item"), row => Assert.Equal("true", row.GetAttribute("data-draggable")));
     }
 
     [Fact]
-    public void The_grip_is_the_drag_handle_and_the_drop_still_reorders()
+    public async Task The_grip_is_the_drag_handle_and_the_drop_still_reorders()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -218,13 +234,15 @@ public sealed class TaskDirectRenameTests
 
         var grips = view.FindAll(".task-item__grip");
         Assert.Equal(3, grips.Count);
-        Assert.All(grips, grip => Assert.Equal("true", grip.GetAttribute("draggable")));
 
-        // The gesture starts on the grip and bubbles to the row, which is what makes
-        // one handler enough. The rest of the drag is the list's, unchanged.
-        grips[0].DragStart();
-        view.FindAll("li.task-item")[2].DragOver();
-        view.FindAll("li.task-item")[2].Drop();
+        // The grip carries no draggable of its own any more: it is an affordance
+        // and the place a finger must start, and components.js finds it by class.
+        Assert.All(grips, grip => Assert.False(grip.HasAttribute("draggable")));
+
+        // The rest of the drag is the list's, unchanged.
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
 
         Assert.Equal(new TaskMove("a", "c"), move);
     }
