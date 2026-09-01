@@ -110,7 +110,6 @@ public static class AppFeatures
             FeedbackReporting,
             "Feedback reporting",
             "Report Desktop app issues to GitHub with a title, details, and an attached screenshot.",
-            Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(
             AppFeatureKeys.CopilotCli,
