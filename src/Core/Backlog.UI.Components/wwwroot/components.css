@@ -2546,6 +2546,10 @@ button.md-check {
     color: var(--color-text-disabled);
     cursor: grab;
     user-select: none;
+    /* The gesture is pointer events now, so the grip has to keep the pointer
+       rather than hand it to the scroller — this is the one part of a row a
+       finger may drag, and without it the list would scroll instead. */
+    touch-action: none;
 }
 
 /*
@@ -2581,6 +2585,14 @@ button.md-check {
 .task-list--dragging .task-item:not(.task-item--dragging) {
     margin-inline: var(--spacing-sm);
     opacity: 0.72;
+}
+
+/* A row is dragged by pressing and moving, which is also how text is selected.
+   The browser's own draggable used to suppress that; without it, dragging a row
+   by its title would paint a selection across the list on the way past. */
+.task-list--dragging {
+    user-select: none;
+    cursor: grabbing;
 }
 
 .task-item {

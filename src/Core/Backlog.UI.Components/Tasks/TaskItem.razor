@@ -71,23 +71,26 @@
     about whether there is a field there.
 *@
 
-@* draggable is off while a field is open, and the grip below picks the gesture up
-   instead. A draggable row swallows the pointer inside its own input: press and
-   move to select a word and the browser starts a drag of the row rather than a
-   selection, so renaming in place stopped being possible with a mouse at all.
+@* data-draggable rather than the browser's own draggable, and no drag handlers
+   here at all: the whole gesture is pointer events, driven from `taskListDrag` in
+   components.js and committed through TaskListView. The argument for leaving
+   native drag behind is there rather than repeated here — in short, one of the
+   heads this library ships to kills a native drag five milliseconds after it
+   starts, so the events a row could bind are never delivered.
 
-   aria-grabbed stays on the row either way — it describes what the row *is*
-   rather than which element the pointer has to start on. *@
+   It stays on while a field is open, which the browser's draggable could not: a
+   draggable row swallowed the pointer inside its own input, so press-and-move to
+   select a word started a drag of the row instead and renaming in place became
+   impossible with a mouse. The pointer path has no such conflict — it declines a
+   press that lands in the rename field, and the grip goes on working.
+
+   aria-grabbed describes what the row *is* rather than which element the pointer
+   has to start on. *@
 <li class="@ClassValue"
     data-testid="@TestId"
-    draggable="@(Draggable && !RenameOpen ? "true" : null)"
-    aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)"
-    @ondragstart="() => OnDragStart.InvokeAsync(Task.Id)"
-    @ondragend="() => OnDragEnd.InvokeAsync()"
-    @ondragover:preventDefault="true"
-    @ondragenter:preventDefault="true"
-    @ondragover="() => OnDragOver.InvokeAsync(Task.Id)"
-    @ondrop="() => OnDrop.InvokeAsync(Task.Id)">
+    data-task-id="@Task.Id"
+    data-draggable="@(Draggable ? "true" : null)"
+    aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)">
 
     @if (Draggable)
     {
@@ -98,13 +101,13 @@
            second tab stop here would be a control that duplicates one that is
            already reachable.
 
-           It is also draggable in its own right, and that is what keeps a row
-           whose title is a field reorderable by pointer at all: the row above
-           turns its own draggable off while an input is open, and without this
-           the gesture would simply have gone. No handler of its own — dragstart
-           bubbles to the row, which already knows what to do with it, and a
-           second one here would report the same pick-up twice. *@
-        <span class="task-item__grip" draggable="true" aria-hidden="true">⠿</span>
+           It is also the only place a finger or a pen may start the gesture, and
+           the one part of the row a press always claims for the drag: a press
+           anywhere else is declined while a field is open, and on a touch screen
+           a press anywhere else is how the list is scrolled. No handler of its
+           own — the pointer listeners are on the document, and they find the row
+           this sits in. *@
+        <span class="task-item__grip" aria-hidden="true">⠿</span>
     }
 
     @if (CanToggle)
@@ -777,18 +780,6 @@
     /// </summary>
     [Parameter]
     public EventCallback OnTabBackward { get; set; }
-
-    [Parameter]
-    public EventCallback<string> OnDragStart { get; set; }
-
-    [Parameter]
-    public EventCallback<string> OnDragOver { get; set; }
-
-    [Parameter]
-    public EventCallback<string> OnDrop { get; set; }
-
-    [Parameter]
-    public EventCallback OnDragEnd { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

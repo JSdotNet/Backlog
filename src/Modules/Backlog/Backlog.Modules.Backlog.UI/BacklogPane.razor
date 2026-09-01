@@ -589,11 +589,12 @@
     /// picker neither opens the row nor starts a rename. Keys are covered by where
     /// the handlers are rather than by a third guard: the row's own key handling
     /// sits on the body button and the list's on its add field, and both are
-    /// siblings of this span rather than ancestors of it. Drag is the one thing the
-    /// slot does not already answer — the <c>li</c> is <c>draggable</c> and a
-    /// <c>dragstart</c> raised inside it would be the row asking to be re-ranked —
-    /// so the pointer is told there is nothing to pick up here and the event is
-    /// stopped before it reaches the row that would act on it.
+    /// siblings of this span rather than ancestors of it. Drag needs no guard here
+    /// either: reordering is a pointer gesture the shared library runs from the
+    /// document, and it declines any press that lands in <c>.task-item__actions</c>
+    /// — the slot this span is rendered into. This used to carry a
+    /// <c>draggable="false"</c> and a <c>dragstart</c> stopPropagation, which were
+    /// about the row being natively draggable; it no longer is.
     /// </para>
     /// <para>
     /// The label on each names the entry, the way the row's own pencil does, because
@@ -601,7 +602,7 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderRowPickers(EntryRow row, string title) =>
-        @<span class="entry-row__pickers" draggable="false" @ondragstart:stopPropagation="true">
+        @<span class="entry-row__pickers">
             @if (KnowledgeRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's
