@@ -140,6 +140,7 @@
                           OnAddComment="index => AddChapterComment(index)"
                           OnResolveComment="ResolveChapterComment"
                           OnEditComment="EditChapterComment"
+                          OnDeleteComment="DeleteChapterComment"
                           CanEdit="@(_chapter.Chapter is not null)"
                           Editing="@(_editing && _chapter.Chapter is not null)"
                           EditingChanged="OnEditingChangedAsync"
@@ -473,10 +474,10 @@
             ? comments
             : [];
 
-    /// <summary>A remark, where it was asked for. It arrives with wording rather
-    /// than empty because the read view offers no way to write one before it exists:
-    /// a reader presses the affordance on a block and then edits what appears, and an
-    /// empty note beside the prose reads as something having gone wrong.</summary>
+    /// <summary>A remark, where it was asked for — empty, because the read view
+    /// now opens a fresh one straight into its own textarea rather than asking a
+    /// reader to find the Edit button first. The empty body is exactly the signal
+    /// that tells it to.</summary>
     private void AddChapterComment(int blockIndex)
     {
         if (_chapterDocument is not { } document) return;
@@ -490,18 +491,30 @@
         comments.Add(new MarkdownComment(
             $"remark-{_nextComment++}",
             blockIndex,
-            "A new remark. Edit it to say what it is.",
+            string.Empty,
             "You",
             "just now"));
     }
 
     /// <summary>Resolved rather than removed: the reason a paragraph reads the way
-    /// it does is usually in the remark that got it there.</summary>
+    /// it does is usually in the remark that got it there. See
+    /// <see cref="DeleteChapterComment"/> for the remark that should not stick
+    /// around at all.</summary>
     private void ResolveChapterComment(string id) =>
         ReplaceChapterComment(id, comment => comment with { Resolved = !comment.Resolved });
 
     private void EditChapterComment(MarkdownComment edited) =>
         ReplaceChapterComment(edited.Id, _ => edited);
+
+    /// <summary>Taken away outright — a stray double-press, or a fresh draft
+    /// Cancel is abandoning rather than saving.</summary>
+    private void DeleteChapterComment(string id)
+    {
+        if (_chapterDocument is not { } document) return;
+        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+
+        comments.RemoveAll(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
+    }
 
     private void ReplaceChapterComment(string id, Func<MarkdownComment, MarkdownComment> replace)
     {

@@ -497,10 +497,9 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
 
-        // The affordance on a block is what asks for a remark, because there is
-        // nowhere to type one before it exists. Block 2 is the prose under the
-        // heading: block 1 is the `meta` fence, which has no row of its own because
-        // the heading above it drew it.
+        // The affordance on a block opens a fresh remark straight into its own
+        // textarea. Block 2 is the prose under the heading: block 1 is the `meta`
+        // fence, which has no row of its own because the heading above it drew it.
         component.Find("[data-testid='markdown-comment-2']").Click();
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
@@ -508,6 +507,65 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // Beside the prose rather than pushed into it: a chapter under review has
         // to keep reading as a chapter.
         Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body'] .md-view--margin"));
+    }
+
+    [Fact]
+    public async Task A_new_remark_opens_straight_into_its_own_textarea()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        component.Find("[data-testid='markdown-comment-2']").Click();
+
+        // No second press on Edit: the affordance and the box to type into are
+        // the same act now, so the box is already there and the read-mode Edit
+        // button for this remark is not.
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
+        Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment__actions"));
+
+        var textarea = component.Find(".md-comment__edit textarea");
+        textarea.Input("Worth flagging before this ships.");
+        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+
+        component.WaitForAssertion(() =>
+            Assert.Contains("Worth flagging before this ships.", component.Find(".md-block-row[data-block='2'] .md-comment__body").TextContent, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Cancelling_a_fresh_remark_removes_it_rather_than_leaving_it_blank()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        component.Find("[data-testid='markdown-comment-2']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']")));
+
+        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']").Click();
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
+    }
+
+    [Fact]
+    public async Task A_saved_remark_can_be_deleted_outright()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        component.Find("[data-testid='markdown-comment-2']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
+        component.Find(".md-comment__edit textarea").Input("Say which team owns this.");
+        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-block-row[data-block='2'] [data-testid^='markdown-comment-delete-']")));
+
+        component.Find(".md-block-row[data-block='2'] [data-testid^='markdown-comment-delete-']").Click();
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
     }
 
     [Fact]

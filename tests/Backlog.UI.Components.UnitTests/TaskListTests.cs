@@ -200,7 +200,7 @@ public sealed class TaskListTests
     }
 
     [Fact]
-    public void While_a_row_is_dragged_the_list_shows_where_it_would_land()
+    public async Task While_a_row_is_dragged_the_list_shows_where_it_would_land()
     {
         // Previewing rather than drawing an insertion line: the reader is
         // already looking at the list, so moving it is the cheapest possible
@@ -212,9 +212,8 @@ public sealed class TaskListTests
             .Add(l => l.Tasks, Three)
             .Add(l => l.Reorderable, true));
 
-        var rows = view.FindAll("li.task-item");
-        rows[0].DragStart();
-        view.FindAll("li.task-item")[2].DragOver();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
 
         Assert.Equal(["Second", "Third", "First"], view.FindAll(".task-item__title").Select(t => t.TextContent));
 
@@ -224,7 +223,7 @@ public sealed class TaskListTests
     }
 
     [Fact]
-    public void Abandoning_a_drag_puts_the_preview_back()
+    public async Task Abandoning_a_drag_puts_the_preview_back()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -233,15 +232,37 @@ public sealed class TaskListTests
             .Add(l => l.Tasks, Three)
             .Add(l => l.Reorderable, true));
 
-        view.FindAll("li.task-item")[0].DragStart();
-        view.FindAll("li.task-item")[2].DragOver();
-        view.FindAll("li.task-item")[0].DragEnd();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragCancel);
 
         Assert.Equal(["First", "Second", "Third"], view.FindAll(".task-item__title").Select(t => t.TextContent));
     }
 
     [Fact]
-    public void Dragging_over_the_moving_row_itself_is_ignored()
+    public async Task A_cancelled_drag_reports_nothing_however_far_the_preview_had_moved()
+    {
+        // Escape, a cancelled pointer, or the window losing focus. The reader let
+        // go of the idea rather than the row, so a move here would be one they
+        // have to notice before they can undo it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var raised = 0;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, _ => raised++));
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragCancel);
+
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public async Task Dragging_over_the_moving_row_itself_is_ignored()
     {
         // In the previewed order that row is already under the pointer, so
         // honouring it would mean "put it back" — and the two would trade places
@@ -253,17 +274,17 @@ public sealed class TaskListTests
             .Add(l => l.Tasks, Three)
             .Add(l => l.Reorderable, true));
 
-        view.FindAll("li.task-item")[0].DragStart();
-        view.FindAll("li.task-item")[2].DragOver();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
 
         // The moved row now sits last; dragging over it must not undo the move.
-        view.FindAll("li.task-item")[2].DragOver();
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("a"));
 
         Assert.Equal(["Second", "Third", "First"], view.FindAll(".task-item__title").Select(t => t.TextContent));
     }
 
     [Fact]
-    public void The_list_says_when_a_drag_is_in_flight_so_the_rest_can_make_room()
+    public async Task The_list_says_when_a_drag_is_in_flight_so_the_rest_can_make_room()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -274,14 +295,14 @@ public sealed class TaskListTests
 
         Assert.DoesNotContain("task-list--dragging", view.Find("ul.task-list").ClassList);
 
-        view.FindAll("li.task-item")[0].DragStart();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
 
         Assert.Contains("task-list--dragging", view.Find("ul.task-list").ClassList);
         Assert.Contains("task-item--dragging", view.FindAll("li.task-item")[0].ClassList);
     }
 
     [Fact]
-    public void A_list_reports_where_a_row_was_dropped_and_reorders_nothing_itself()
+    public async Task A_list_reports_where_a_row_was_dropped_and_reorders_nothing_itself()
     {
         // Only the host knows whether the new order is saved anywhere.
         using var context = new BunitContext();
@@ -294,9 +315,9 @@ public sealed class TaskListTests
             .Add(l => l.OnReorder, m => move = m)
             .Add(l => l.TestId, "list"));
 
-        view.FindAll("li.task-item")[0].DragStart();
-        view.FindAll("li.task-item")[2].DragOver();
-        view.FindAll("li.task-item")[2].Drop();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
 
         Assert.Equal("a", move?.Id);
         Assert.Equal("c", move?.TargetId);
@@ -307,7 +328,45 @@ public sealed class TaskListTests
     }
 
     [Fact]
-    public void A_row_dropped_on_itself_is_a_drag_thought_better_of_not_a_move()
+    public void A_row_carries_the_handles_the_pointer_gesture_finds_it_by()
+    {
+        // The gesture is driven from document-level pointer listeners rather than
+        // from anything bound on the row, so these two attributes are the whole
+        // contract between the markup and components.js: one says the row may be
+        // picked up, the other says which task it is. A row that lost them would
+        // be a row the pointer walks straight past — and nothing would fail until
+        // somebody tried to drag it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true));
+
+        var row = view.FindAll("li.task-item")[0];
+
+        Assert.Equal("true", row.GetAttribute("data-draggable"));
+        Assert.Equal("a", row.GetAttribute("data-task-id"));
+
+        // And the row is deliberately not the browser's kind of draggable: native
+        // drag is what the desktop head's WebView2 aborts five milliseconds in.
+        Assert.False(row.HasAttribute("draggable"));
+        Assert.False(view.Find(".task-item__grip").HasAttribute("draggable"));
+    }
+
+    [Fact]
+    public void A_list_that_is_not_reorderable_marks_no_row_as_draggable()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p.Add(l => l.Tasks, Three));
+
+        Assert.All(view.FindAll("li.task-item"), row => Assert.False(row.HasAttribute("data-draggable")));
+    }
+
+    [Fact]
+    public async Task A_row_dropped_on_itself_is_a_drag_thought_better_of_not_a_move()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -318,9 +377,8 @@ public sealed class TaskListTests
             .Add(l => l.Reorderable, true)
             .Add(l => l.OnReorder, _ => raised++));
 
-        var rows = view.FindAll("li.task-item");
-        rows[1].DragStart();
-        rows[1].Drop();
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("b"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
 
         Assert.Equal(0, raised);
     }
@@ -1166,8 +1224,8 @@ public sealed class TaskListTests
         view.Find("[data-testid='list-completed-toggle']").Click();
 
         var rows = view.FindAll("li.task-item");
-        Assert.Equal("true", rows[0].GetAttribute("draggable"));
-        Assert.False(rows[1].HasAttribute("draggable"));
+        Assert.Equal("true", rows[0].GetAttribute("data-draggable"));
+        Assert.False(rows[1].HasAttribute("data-draggable"));
     }
 
     [Fact]
@@ -1767,9 +1825,10 @@ public sealed class TaskListTests
             .Add(l => l.TestId, "list"));
 
         // Ready rather than blocked, because the row it named turned out to be
-        // finished — not merely absent from this narrower view.
+        // finished — not merely absent from this narrower view. The row still
+        // carries its own "next" outline; no badge names it any more.
         Assert.Empty(view.FindAll(".task-item__detail--blocked"));
-        Assert.NotNull(view.Find("[data-testid='list-here-next']"));
+        Assert.Contains("task-item--next", view.Find("[data-testid='list-here']").ClassList);
     }
 
     /// <summary>The other half of the same proof: unfinished in the universe

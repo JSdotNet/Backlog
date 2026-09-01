@@ -2359,6 +2359,29 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* The one irreversible act among these four: an icon rather than a fourth
+   underlined word, in color-error-text rather than color-error — the latter is
+   a fill meant for a surface behind text, not text on top of one, and measures
+   near-invisible here. Its own margin pushes it to the far end of the row (see
+   .md-comment__actions below), the way a footer's lead button keeps a delete
+   away from the controls beside it. */
+.md-comment__action--delete {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0;
+    margin-left: auto;
+    padding: var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-error-text);
+    text-decoration: none;
+}
+
+.md-comment__action--delete:hover,
+.md-comment__action--delete:focus-visible {
+    background: var(--color-background-alt);
+    color: var(--color-error-text);
+}
+
 /* Adrift: the block it was written against has gone. Marked rather than hidden,
    because a lost comment is worse than a stray one. */
 .md-comments--orphaned {
@@ -2366,7 +2389,15 @@ button.md-check {
     border-left-style: dashed;
 }
 
-.md-comment__actions,
+/* Full width so Delete's own auto margin has a row to push against — see
+   .md-comment__action--delete. The edit box's Save/Cancel stay content-width:
+   nothing in that pair asks to be at the far end. */
+.md-comment__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .md-comment__edit-actions {
     display: inline-flex;
     gap: var(--spacing-sm);
@@ -2546,6 +2577,10 @@ button.md-check {
     color: var(--color-text-disabled);
     cursor: grab;
     user-select: none;
+    /* The gesture is pointer events now, so the grip has to keep the pointer
+       rather than hand it to the scroller — this is the one part of a row a
+       finger may drag, and without it the list would scroll instead. */
+    touch-action: none;
 }
 
 /*
@@ -2581,6 +2616,14 @@ button.md-check {
 .task-list--dragging .task-item:not(.task-item--dragging) {
     margin-inline: var(--spacing-sm);
     opacity: 0.72;
+}
+
+/* A row is dragged by pressing and moving, which is also how text is selected.
+   The browser's own draggable used to suppress that; without it, dragging a row
+   by its title would paint a selection across the list on the way past. */
+.task-list--dragging {
+    user-select: none;
+    cursor: grabbing;
 }
 
 .task-item {
@@ -2877,41 +2920,9 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
-/* The two things on the metadata line that answer a question about the list
-   rather than stating a fact about the task. One box for both, declared together,
-   because they are the same kind of statement and a reader should see them as one
-   family — the shapes inside them are the same triangle filled and hollow for the
-   same reason. */
-.task-item__next,
-.task-item__ready {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    padding: 0 var(--spacing-xs);
-    border: var(--border-width) solid;
-    border-radius: var(--border-radius-full);
-    white-space: nowrap;
-}
-
-/* The one part of the line allowed to take the brand colour: a marker that read
-   like the rest of it would have to be found, and the whole point of it is to be
-   seen. */
-.task-item__next {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-/* Quieter, deliberately. A fan-out can free four rows at once, and four brand-
-   coloured badges would be four answers to a question that has one — this says
-   "you could start here too" without competing with the row that says start
-   here. */
-.task-item__ready {
-    border-color: var(--color-border);
-    color: var(--color-text-secondary);
-}
-
-/* Enough to find the row from across the list, and no more: the marker inside it
-   is already saying which one this is. */
+/* The row to pick up next still carries this outline of its own — the badge
+   that used to sit on the metadata line and name it is gone, but the row
+   itself is still worth finding from across the list. */
 .task-item--next {
     border-color: var(--color-primary-dark);
 }

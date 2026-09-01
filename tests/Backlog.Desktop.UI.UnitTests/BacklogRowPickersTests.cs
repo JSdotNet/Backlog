@@ -195,16 +195,16 @@ public class BacklogRowPickersTests
         Assert.Null(Row(pane, first).QuerySelector($"[data-testid='{RowTestId(first)}-rename']"));
         Assert.Equal([first, second], host.State.FilteredRows);
 
-        // Drag is the one gesture the action slot does not already answer: the row is
-        // a draggable li and a dragstart raised anywhere inside it is the row asking
-        // to be re-ranked. So the pair says there is nothing here to pick up, and
-        // stops the event before it reaches the row that would act on it.
-        var pickers = Row(pane, first).QuerySelector(".entry-row__pickers")!;
-        Assert.Equal("false", pickers.GetAttribute("draggable"));
-        Assert.Contains(
-            pickers.Attributes,
-            attribute => attribute.Name.Contains("stopPropagation", StringComparison.OrdinalIgnoreCase)
-                && attribute.Name.Contains("dragstart", StringComparison.OrdinalIgnoreCase));
+        // Drag needs no guard of its own here. Reordering is a pointer gesture the
+        // shared library runs from the document, and it declines any press landing
+        // in the action slot — so what keeps these pickers out of it is where they
+        // are rendered, not an attribute on them. The pair used to carry a
+        // draggable="false" and a dragstart stopPropagation for the native drag the
+        // row no longer uses; this asserts the slot, which is what now answers.
+        var pickers = Row(pane, first).QuerySelector(".task-item__actions .entry-row__pickers");
+
+        Assert.NotNull(pickers);
+        Assert.False(pickers.HasAttribute("draggable"));
 
         // And the row itself still opens, so what the picker is not reaching is a
         // live control rather than one that had already gone.

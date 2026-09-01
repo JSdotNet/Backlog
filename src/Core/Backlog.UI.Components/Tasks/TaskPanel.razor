@@ -111,7 +111,7 @@
             @if (_editing)
             {
                 <TextField Value="@_draft"
-                           ValueChanged="value => _draft = value"
+                           ValueChanged="OnDraftChangedAsync"
                            AriaLabel="@($"Rename {Title}")"
                            Bare="true"
                            InputCssClass="task-panel__rename-input"
@@ -253,6 +253,28 @@
     /// </para></summary>
     [Parameter]
     public EventCallback<string> OnRename { get; set; }
+
+    /// <summary>What the title field currently holds, raised on every keystroke
+    /// while it is open — <c>null</c> once it is closed, committed or not.
+    /// <para>
+    /// Deliberately not <see cref="OnRename"/> again at a faster rate: that one
+    /// stays settle-only for the reasons on its own summary, Escape chief among
+    /// them. This is the same text with none of that weight — nothing here is
+    /// saved, so a host free to lose it the moment editing ends. It exists
+    /// because a task can be named somewhere other than this heading (a row in
+    /// the list this panel opened from, say), and that second place goes stale
+    /// mid-sentence if it only hears about a title once the reader has finished
+    /// typing it.
+    /// </para>
+    /// <para>
+    /// The <c>null</c> is as much the point as the text: a host holding this as
+    /// a display override needs to know when to stop, and "editing just ended"
+    /// is one event whether it ended by Enter, blur, or Escape — a host that
+    /// only heard non-null values would have no way to tell "settled, read the
+    /// real title again" from "still typing, presumably done".
+    /// </para></summary>
+    [Parameter]
+    public EventCallback<string?> OnRenamePreview { get; set; }
 
     /// <summary>Where it has got to, as the word to show — "Ready", "In
     /// progress". Already said: what a status is called, and in what language,
@@ -504,6 +526,15 @@
         _focusRename = true;
     }
 
+    /// <summary>Every keystroke, forwarded two ways: kept as the draft this
+    /// component commits or abandons, and echoed to <see cref="OnRenamePreview"/>
+    /// for whoever else is showing this task's name live.</summary>
+    private Task OnDraftChangedAsync(string value)
+    {
+        _draft = value;
+        return OnRenamePreview.InvokeAsync(value);
+    }
+
     /// <summary>The caret in the field, or the ring back on the title, once each
     /// and after the render that made the element. Once is what the flags are for:
     /// a panel re-renders whenever anything in it changes, and a focus call on
@@ -534,6 +565,7 @@
             _editing = false;
             _draft = string.Empty;
             _focusTitle = CanRename;
+            await OnRenamePreview.InvokeAsync(null);
             return;
         }
 
@@ -551,6 +583,11 @@
 
         var title = _draft.Trim();
         _draft = string.Empty;
+
+        // One notification whether this settles, ends up unchanged, or comes
+        // back empty: all three close the field, and whoever was mirroring the
+        // draft live needs telling regardless of which of them just happened.
+        await OnRenamePreview.InvokeAsync(null);
 
         if (title.Length == 0 || title == Title) return;
 

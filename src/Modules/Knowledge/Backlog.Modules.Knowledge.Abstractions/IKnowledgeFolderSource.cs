@@ -15,9 +15,25 @@ namespace Backlog.Modules.Knowledge.Abstractions;
 /// </summary>
 public interface IKnowledgeFolderSource
 {
-    /// <summary>Raised when a folder, a repository or the storage root moves, so
-    /// open panels can reload.</summary>
+    /// <summary>Raised when a folder, a repository or the storage root moves, or
+    /// when a folder's content was replaced under it, so open panels can
+    /// reload.</summary>
     event Action? Changed;
+
+    /// <summary>
+    /// Announce that a folder's content was replaced wholesale — a clone pulled to
+    /// its latest version, say — so open panels reload the way they already do
+    /// when a folder moves.
+    /// <para>
+    /// This sits on the same port as <see cref="Changed"/> rather than on one of
+    /// its own, because the two are one mechanism: a port that publishes an event
+    /// and hides who may raise it leaves the raiser reaching for the adapter, and
+    /// reaching for the adapter is the thing this port exists to stop. Moving and
+    /// being overwritten are the same news to every subscriber — the folder you
+    /// read is not the folder you have — so they arrive as the same event.
+    /// </para>
+    /// </summary>
+    void NotifyContentChanged();
 
     /// <summary>Where the folders resolve against when no repository is scoped.
     /// A panel needs it to present the storage folder as a source alongside the

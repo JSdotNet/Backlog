@@ -103,6 +103,8 @@ public sealed class KnowledgePaneOpenErrorTests
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<KnowledgeScope>();
+        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddSingleton<KnowledgeUpdateService>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         // The pane renders a panel, and a panel renders the shared editing

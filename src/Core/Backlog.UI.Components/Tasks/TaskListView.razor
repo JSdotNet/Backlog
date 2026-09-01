@@ -350,10 +350,6 @@
                    Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
                    Draggable="@(Reorderable && !task.Done)"
                    Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"
-                   OnDragStart="StartDrag"
-                   OnDragOver="DragOver"
-                   OnDrop="Drop"
-                   OnDragEnd="EndDrag"
                    RowElementId="@RowElementId(task)"
                    OnTabForward="@TabForwardFor(task)"
                    OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
@@ -1034,35 +1030,60 @@
         _over = null;
     }
 
-    /// <summary>The dragend fallback's entry point — see `taskListDrag` in
-    /// components.js. The live preview relocates the dragged row's own DOM node
-    /// mid-gesture, which can make the browser's native drag session lose its
-    /// association with this row's own `@ondrop`/`@ondragend` bindings entirely:
-    /// the browser still fires both events, but neither ever reaches this
-    /// component. dragend fires unconditionally regardless, so this is routed
-    /// through the same commit <see cref="Drop"/> uses rather than just the
-    /// visual clear — otherwise the preview's frozen "it moved" look would be
-    /// the only thing that ever happened, with nothing actually written back.
+    /// <summary>
+    /// The reader has pressed a row and moved far enough for it to be a drag —
+    /// see `taskListDrag` in components.js, which owns the whole gesture.
     /// <para>
-    /// Safe to call whether or not the native path already ran: committing
-    /// clears the fields it read from, so whichever of the two runs second
-    /// finds nothing left to commit.
+    /// Three entry points rather than drag events bound on the row, because the
+    /// row is no longer <c>draggable</c>: the desktop head's WebView2 aborts a
+    /// native drag about five milliseconds after it opens and delivers neither
+    /// <c>dragover</c> nor <c>drop</c>, so there is nothing there for a row to
+    /// bind. The state underneath is the same state the drag events drove.
     /// </para>
     /// </summary>
     [JSInvokable]
-    public async Task ForceEndDrag()
+    public void PointerDragStart(string id)
+    {
+        StartDrag(id);
+        StateHasChanged();
+    }
+
+    /// <summary>Which row the pointer has moved over, and so where the drop would
+    /// land. Called only when that answer changes, so the preview costs one round
+    /// trip per row crossed rather than one per frame.</summary>
+    [JSInvokable]
+    public void PointerDragOver(string id)
+    {
+        DragOver(id);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The pointer was released: commit what the preview was already showing.
+    /// <para>
+    /// The move reports the row the pointer was last over rather than whatever it
+    /// technically landed on — the reader has been looking at the answer for as
+    /// long as they held the row there, and anything else would move it somewhere
+    /// they had not seen.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public async Task PointerDragEnd()
     {
         await CommitDragAsync();
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Commits what the preview was already showing. The drop reports the row
-    /// the pointer was last over rather than whatever it technically landed on —
-    /// the reader has been looking at the answer for as long as they held the
-    /// row there, and anything else would move it somewhere they had not seen.
-    /// </summary>
-    private Task Drop(string _) => CommitDragAsync();
+    /// <summary>The gesture was taken away rather than finished — Escape, a
+    /// cancelled pointer, or the window losing focus. The row goes back where it
+    /// was: a drag nobody released is not a drop, and committing one would put a
+    /// move the reader abandoned into the host's undo stack.</summary>
+    [JSInvokable]
+    public void PointerDragCancel()
+    {
+        EndDrag();
+        StateHasChanged();
+    }
 
     private async Task CommitDragAsync()
     {

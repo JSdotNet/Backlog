@@ -1,6 +1,7 @@
 @inject KnowledgeMenu KnowledgeMenu
 @inject KnowledgeFolderOpenService KnowledgeFolderOpen
 @inject KnowledgeScope Scope
+@inject KnowledgeUpdateService KnowledgeUpdate
 
 @*
     The Second Brain pane. Everything it needs arrives as a repository alias:
@@ -37,6 +38,34 @@
        read them, so it is offered and not imposed; Technology is the exception,
        and it has a tab of its own because a technology stack *is* a graph. *@
     <ListTrailing>
+        @* The version control comes before the atlas toggle and outlives the
+           section: which version of the knowledge you are reading is true of the
+           whole clone, not of the tab you happen to be on, so unlike the atlas it
+           does not disappear on Technology. One button, whose label follows the
+           state, because "check" and "pull" are never both worth offering — you
+           cannot pull what you have not found out is there. *@
+        @if (ShowUpdateControl)
+        {
+            @if (BehindLabel is { } behind)
+            {
+                <Badge Kind="knowledge-update"
+                       Slug="behind"
+                       BaseClass="knowledge-stack__update-badge"
+                       TestId="knowledge-update-behind"
+                       Title="@_updateState.Message">
+                    @behind
+                </Badge>
+            }
+            <AppButton BaseClass="knowledge-stack__update-toggle"
+                       Variant="ButtonVariant.None"
+                       TestId="knowledge-update-action"
+                       Busy="_updateBusy"
+                       BusyLabel="@KnowledgeUpdatePresentation.BusyLabel(_updateState)"
+                       title="@UpdateActionTitle"
+                       OnClick="RunUpdateActionAsync">
+                @KnowledgeUpdatePresentation.ActionLabel(_updateState)
+            </AppButton>
+        }
         @if (VisibleAreas.Count > 0 && !IsSectionActive("tech"))
         {
             @if (_atlasOpen)
@@ -61,6 +90,16 @@
     </ListTrailing>
 
     <ChildContent>
+        @* Above the body rather than in the strip: the strip has room for a
+           control and none for a sentence, and what came back from the remote is
+           always a sentence — "on the latest version", or the reason git gave for
+           refusing. Role status, because it answers something the reader asked
+           for and interrupting them with it would be too much. *@
+        <Alert Message="@_updateState.Message"
+               BaseClass="@KnowledgeUpdatePresentation.StatusClass(_updateState)"
+               Role="status"
+               TestId="knowledge-update-status" />
+
         <div class="knowledge-stack__body @(SectionUsesMenu && !_atlasOpen ? string.Empty : "knowledge-stack__body--without-menu")">
             @if (SectionUsesMenu && !_atlasOpen)
             {
@@ -127,13 +166,20 @@
     private bool _atlasOpen;
     private string? _loadedMenuRepositoryAlias;
     private string _loadedMenuVisibleKeyFingerprint = string.Empty;
+    private KnowledgeUpdateState _updateState = KnowledgeUpdateState.NotChecked;
+    private bool _updateBusy;
+    private string? _checkedRepositoryAlias;
 
     /// <summary>The repository scope to read knowledge for, or empty/null for the
     /// storage folder.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
-    protected override async Task OnParametersSetAsync() => await RefreshMenuAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        ForgetUpdateStateOnScopeChange();
+        await RefreshMenuAsync();
+    }
 
     private IReadOnlyList<KnowledgeArea> VisibleAreas => Scope.VisibleAreas(RepositoryAlias);
 
@@ -350,6 +396,78 @@
     }
 
     private static string BuildFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
+
+    /// <summary>Whether this scope has a version to be behind. Knowledge kept in
+    /// the storage folder has no clone and no remote, and neither has a repository
+    /// nobody has cloned yet — in both, a control would only ever say so.</summary>
+    private bool ShowUpdateControl => KnowledgeUpdate.CanCheck(RepositoryAlias);
+
+    private string? BehindLabel => KnowledgeUpdatePresentation.BehindLabel(_updateState);
+
+    private string UpdateActionTitle => _updateState.CanPull
+        ? "Pull the latest version of this knowledge into the local clone"
+        : "Check whether this knowledge is on the latest version";
+
+    /// <summary>
+    /// The one button. Its label already told the reader which of the two things
+    /// it does, so the handler follows the same state rather than asking again:
+    /// once a check has found the clone behind, pressing it pulls.
+    /// </summary>
+    private async Task RunUpdateActionAsync()
+    {
+        if (_updateBusy) return;
+
+        var alias = RepositoryAlias;
+        var pulling = _updateState.CanPull;
+
+        _updateBusy = true;
+        try
+        {
+            _updateState = pulling
+                ? await KnowledgeUpdate.PullAsync(alias)
+                : await KnowledgeUpdate.CheckAsync(alias);
+            _checkedRepositoryAlias = alias;
+        }
+        finally
+        {
+            _updateBusy = false;
+        }
+
+        // A pull replaces the files the menu was built from, so the menu is rebuilt
+        // from them. The panels hear it from the folder source instead — the pull
+        // announced itself there — which is why nothing here reaches into them.
+        if (pulling) await ReloadMenuAsync();
+    }
+
+    /// <summary>
+    /// A version answer belongs to the clone it was asked about, so scoping to a
+    /// different repository drops it. Carrying it over would leave the pane saying
+    /// this repository is three commits behind on the strength of a check that was
+    /// run against another one.
+    /// </summary>
+    private void ForgetUpdateStateOnScopeChange()
+    {
+        if (string.Equals(_checkedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _checkedRepositoryAlias = RepositoryAlias;
+        _updateState = KnowledgeUpdateState.NotChecked;
+    }
+
+    /// <summary>
+    /// Rebuild the menu even though nothing about the scope changed.
+    /// <para>
+    /// <see cref="RefreshMenuAsync"/> is guarded on scope and visible sections
+    /// because it runs on every parameter set, and that guard is exactly wrong
+    /// after a pull: the same repository showing the same sections is now a
+    /// different set of files. Forgetting what was loaded is how you ask again.
+    /// </para>
+    /// </summary>
+    private async Task ReloadMenuAsync()
+    {
+        _loadedMenuRepositoryAlias = null;
+        _loadedMenuVisibleKeyFingerprint = string.Empty;
+        await RefreshMenuAsync();
+    }
 
     /// <summary>Reloads the menu when the scope or the set of visible sections
     /// has actually moved; re-reading the disk on every render would make a tab

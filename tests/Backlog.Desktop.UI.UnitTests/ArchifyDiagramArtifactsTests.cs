@@ -907,6 +907,8 @@ file sealed class FakeKnowledgeFolderSource(string root) : IKnowledgeFolderSourc
             : KnowledgeFolderLocation.Unavailable(key, $"{key} is not configured here.");
     }
 
+    public void NotifyContentChanged() => Changed?.Invoke();
+
     /// <summary>What a moved folder or a repointed clone raises. The adapter
     /// subscribes to it to throw its chapter scan away.</summary>
     internal void Move() => Changed?.Invoke();

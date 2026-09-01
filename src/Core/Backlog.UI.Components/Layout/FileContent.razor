@@ -186,7 +186,8 @@
                           Layout="@BodyCommentLayout"
                           OnAddComment="@OnAddComment"
                           OnResolveComment="@OnResolveComment"
-                          OnEditComment="@OnEditComment" />
+                          OnEditComment="@OnEditComment"
+                          OnDeleteComment="@OnDeleteComment" />
         }
         else
         {
@@ -373,6 +374,11 @@
 
     [Parameter]
     public EventCallback<MarkdownComment> OnEditComment { get; set; }
+
+    /// <summary>Raised with a comment's id when a reader asks to remove it
+    /// outright. Without it a remark can be resolved but never taken away.</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteComment { get; set; }
 
     /// <summary>Take the full height the host gives the pane, and scroll inside
     /// it. For a file that lives in a pane or a column, where how tall it gets is

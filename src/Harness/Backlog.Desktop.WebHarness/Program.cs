@@ -47,6 +47,10 @@ builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
 // never rewrites the real per-user choice.
 builder.Services.AddSingleton<IBacklogRefreshSettings>(
     _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
+// Which surface the shell was last showing. Scoped to the content root like the
+// harness's other settings files, so a session here never rewrites the real
+// per-user choice.
+builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
 
 // Composition: the Backlog module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
@@ -135,6 +139,7 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
+builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<BacklogDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
@@ -260,6 +265,17 @@ static BacklogRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(st
     }
 
     return new BacklogRefreshSettingsStore(settingsPath);
+}
+
+static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "shell-navigation.settings.json");
+    }
+
+    return new ShellNavigationStore(settingsPath);
 }
 
 static ClaudeSettingsStore CreateLocalDevelopmentClaudeSettingsStore(string contentRootPath)
