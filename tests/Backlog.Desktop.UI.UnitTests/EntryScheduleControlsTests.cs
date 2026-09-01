@@ -340,8 +340,8 @@ public sealed class EntryScheduleControlsTests
     public async Task The_dependency_picker_reaches_past_the_repository_filter()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-        var elsewhere = await host.WriteEntryAsync("# Write the changelog\n`task` `@docs`\n\nSay what shipped.\n");
-        var here = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n\nGet a machine.\n");
+        var elsewhere = await host.WriteEntryAsync("# Write the changelog\n`task` `repo:docs`\n\nSay what shipped.\n");
+        var here = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n\nGet a machine.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
 
         host.State.SetRepositoryFilter("backlog");
@@ -361,21 +361,32 @@ public sealed class EntryScheduleControlsTests
         var sections = pane.FindAll("[data-testid='entry-depends-select'] .tag-select__group-label");
         Assert.Equal(["backlog", "docs"], sections.Select(section => section.TextContent));
 
-        Assert.Equal("docs", elsewhere.PreviewArea);
-        Assert.Equal("backlog", here.PreviewArea);
+        // The scope really is narrowing the list, so the picker reaching past it
+        // is the thing under test rather than a filter that happened to keep both.
+        Assert.DoesNotContain(elsewhere, host.State.FilteredRows);
+        Assert.Contains(here, host.State.FilteredRows);
     }
 
-    /// <summary>Each option in the open list sits under the repository it is filed
-    /// under. With entries from more than one repository on offer at a time, two
+    /// <summary>Each option in the open list sits under the repository it targets.
+    /// With entries from more than one repository on offer at a time, two
     /// candidates that happen to share a title would otherwise be indistinguishable
     /// in the list — the section header is what tells them apart without adding a
-    /// second control to read. Entries filed nowhere land under "Unfiled" rather
-    /// than under an invented repository.</summary>
+    /// second control to read.
+    /// <para>
+    /// Three answers, in the order the name is looked for. A <c>repo:</c> target
+    /// names a repository. An entry that targets none falls back to its area,
+    /// because a pile is a weaker answer than a repository and a better one than
+    /// none — and an area spelled like a configured repository is still only a pile
+    /// (<c>BacklogRepositoryScopeTests</c>), which is why the repository is asked
+    /// first rather than the area being trusted to speak for it. An entry with
+    /// neither lands under "Unfiled" rather than under an invented repository.
+    /// </para></summary>
     [Fact]
     public async Task The_dependency_picker_names_each_options_repository()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-        var filed = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n\nGet a machine.\n");
+        var targeted = await host.WriteEntryAsync("# Provision the box\n`task` `@chores` `repo:backlog`\n\nGet a machine.\n");
+        var piled = await host.WriteEntryAsync("# Sort the shelf\n`task` `@chores`\n\nTidy up.\n");
         var unfiled = await host.WriteEntryAsync("# Write the changelog\n`task`\n\nSay what shipped.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
 
@@ -386,19 +397,22 @@ public sealed class EntryScheduleControlsTests
 
         var sections = pane.FindAll("[data-testid='entry-depends-select'] .tag-select__group");
 
-        var filedSection = sections.Single(section =>
-            section.TextContent.Contains("Provision the box", StringComparison.Ordinal));
-        var unfiledSection = sections.Single(section =>
-            section.TextContent.Contains("Write the changelog", StringComparison.Ordinal));
+        string? SectionNaming(string title) => sections
+            .Single(section => section.TextContent.Contains(title, StringComparison.Ordinal))
+            .QuerySelector(".tag-select__group-label")?.TextContent;
 
-        Assert.Equal("backlog", filedSection.QuerySelector(".tag-select__group-label")?.TextContent);
-        Assert.Equal("Unfiled", unfiledSection.QuerySelector(".tag-select__group-label")?.TextContent);
+        // The repository wins over the area the same entry also carries: the two
+        // are unrelated facts, and the one this list is organised by is the first.
+        Assert.Equal("backlog", SectionNaming("Provision the box"));
+        Assert.Equal("chores", SectionNaming("Sort the shelf"));
+        Assert.Equal("Unfiled", SectionNaming("Write the changelog"));
 
         // The aside an option used to carry is gone: the section says it once for
         // the whole run instead of once per row.
         Assert.Empty(pane.FindAll("[data-testid='entry-depends-select'] .tag-select__hint"));
 
-        Assert.Equal("backlog", filed.PreviewArea);
+        Assert.Equal("chores", targeted.PreviewArea);
+        Assert.Equal("chores", piled.PreviewArea);
         Assert.Null(unfiled.PreviewArea);
         Assert.NotNull(open);
     }

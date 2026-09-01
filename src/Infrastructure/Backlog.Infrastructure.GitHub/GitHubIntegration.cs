@@ -35,7 +35,7 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
 
     /// <summary>The repository an entry's area names, or null when the area is
     /// blank or not assigned to a configured repository.</summary>
-    public GitHubRepositoryRef? ResolveRepository(string? area) => settings.Current.Find(area);
+    public GitHubRepositoryRef? ResolveRepository(string? repoId) => settings.Current.Find(repoId);
 
     /// <summary>Re-checks how the app can reach GitHub.</summary>
     public Task<GitHubConnection> DescribeConnectionAsync(CancellationToken cancellationToken = default)

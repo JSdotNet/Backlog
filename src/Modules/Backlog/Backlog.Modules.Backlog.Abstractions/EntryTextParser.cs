@@ -1296,6 +1296,16 @@ public static class EntryTextParser
     public static string WithDependsOn(string raw, IEnumerable<string>? dependsOn) =>
         RewriteMetaLine(raw, dependsOn: NormalizeDependsOn(dependsOn), updateDependsOn: true);
 
+    /// <summary>Rewrites the whole set of <c>repo:</c> tokens. A set rather than a
+    /// value because an entry may target several repositories at once
+    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>), and an empty list
+    /// clears them: an entry that targets nothing carries no token rather than an
+    /// empty one, the rule every other named field here follows. Deliberately
+    /// unrelated to <c>@area</c> — the area is the person's own pile and says
+    /// nothing about repositories (<c>.domain/backlog/naming.md#area</c>).</summary>
+    public static string WithRepoIds(string raw, IEnumerable<string>? repoIds) =>
+        RewriteMetaLine(raw, repoIds: NormalizeRepoIds(repoIds), updateRepoIds: true);
+
     /// <summary>Writes a story-point estimate on to the metadata line, or clears
     /// it when <paramref name="effort"/> is null. Clearing has to be expressible
     /// for the reason it is on every other named token: "not estimated" and "zero
@@ -1468,6 +1478,8 @@ public static class EntryTextParser
         bool updateMyDay = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
+        IReadOnlyList<string>? repoIds = null,
+        bool updateRepoIds = false,
         int? effort = null,
         bool updateEffort = false,
         EntryView? view = null,
@@ -1554,6 +1566,15 @@ public static class EntryTextParser
         {
             RemoveNamedToken(tokens, "after");
             tokens.AddRange((dependsOn ?? []).Select(id => $"after:{id}"));
+        }
+
+        // Written as a whole set for the reason `after:` is: the tokens are the
+        // targeting, so there is nothing left to say once they are gone, and a
+        // write that merged would make the first target permanent.
+        if (updateRepoIds)
+        {
+            RemoveNamedToken(tokens, "repo");
+            tokens.AddRange((repoIds ?? []).Select(repo => $"repo:{repo}"));
         }
 
         // Slotted with the scheduling and dependency tokens above rather than with
@@ -1824,6 +1845,16 @@ public static class EntryTextParser
         (dependsOn ?? [])
         .Select(id => (id ?? string.Empty).Trim())
         .Where(id => id.Length > 0)
+        .Distinct(StringComparer.Ordinal)
+        .ToList();
+
+    /// <summary>The same shaping <see cref="NormalizeDependsOn"/> does, and for the
+    /// same reasons: a blank is not a target, and two mentions of one repository
+    /// are one target — which is exactly what the parser does reading them back.</summary>
+    private static IReadOnlyList<string> NormalizeRepoIds(IEnumerable<string>? repoIds) =>
+        (repoIds ?? [])
+        .Select(repo => (repo ?? string.Empty).Trim())
+        .Where(repo => repo.Length > 0)
         .Distinct(StringComparer.Ordinal)
         .ToList();
 

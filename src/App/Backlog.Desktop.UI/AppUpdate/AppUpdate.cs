@@ -74,6 +74,17 @@ public static class AppUpdatePresentation
         return $"Version {version}. Open update window.";
     }
 
+    /// <summary>
+    /// The accessible name for that same control when a development host has
+    /// said which checkout it is running from, and the worktree takes the
+    /// version's place on screen.
+    /// </summary>
+    public static string WorkspaceWindowLabel(string? workspace)
+    {
+        var marker = string.IsNullOrWhiteSpace(workspace) ? "unknown" : workspace.Trim();
+        return $"Worktree {marker}. Open update window.";
+    }
+
     /// <summary>The CSS classes for update status messages.</summary>
     public static string StatusClass(AppUpdateAvailability availability) => availability switch
     {

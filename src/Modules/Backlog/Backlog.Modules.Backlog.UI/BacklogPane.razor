@@ -528,32 +528,18 @@
         })];
 
     /// <summary>
-    /// The area, for the quiet line under the title — unless the picker at the end
-    /// of the row is already set to it.
+    /// What the row shows for its area: the area, whatever it says.
     /// <para>
-    /// An area is one field with two readings. Most of them are piles somebody
-    /// typed, and nothing else on the row says "errands", so the line has to. Some
-    /// of them name a configured repository, and then the repository picker is
-    /// showing that alias two controls to the right — a metadata line repeating it
-    /// would be the same word twice on a row whose width the title is already
-    /// competing for.
-    /// </para>
-    /// <para>
-    /// Both halves of the test are needed, because the two <c>RepositoryFor</c>s
-    /// are not the same question. <c>State</c>'s resolves the row's own area;
-    /// the pane's is what the picker is set to, which with the
-    /// additional-repositories feature off is the first configured repository no
-    /// matter what the row says. Dropping the line on the pane's answer alone would
-    /// hide "errands" behind a picker reading "backlog".
+    /// It used to be dropped whenever it named a configured repository, because the
+    /// repository picker two controls to the right was showing the same word. That
+    /// suppression went with the conflation behind it: the picker reads the entry's
+    /// <c>`repo:`</c> targets and the area is the person's own pile
+    /// (<c>.domain/backlog/naming.md#area</c>), so they are two facts and an entry
+    /// filed under a pile that happens to be spelled like a repository is saying
+    /// something the picker is not.
     /// </para>
     /// </summary>
-    private string? EntryGroup(EntryRow row) =>
-        KnowledgeRepositories.Count > 0
-        && State.RepositoryFor(row) is { } filed
-        && RepositoryFor(row) is { } shown
-        && string.Equals(filed.Alias, shown.Alias, StringComparison.Ordinal)
-            ? null
-            : row.PreviewArea;
+    private string? EntryGroup(EntryRow row) => row.PreviewArea;
 
     private EntryRow? EntryFor(string id) =>
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
@@ -641,7 +627,7 @@
                 <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
-                                    TestId="row-area-badge"
+                                    TestId="row-repo-badge"
                                     OnChanged="value => OnRepositoryChangedAsync(row, value)" />
             }
 
@@ -1240,7 +1226,7 @@
                     <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
-                                        TestId="area-badge"
+                                        TestId="repo-badge"
                                         OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
 
@@ -1799,7 +1785,7 @@
     }
 
     private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
-        await State.ChangeAreaAsync(row, repositoryAlias);
+        await State.ChangeRepositoryAsync(row, repositoryAlias);
 
     private async Task OnStatusChangedAsync(EntryRow row, string value)
     {
@@ -1956,11 +1942,11 @@
     /// </para>
     /// <para>
     /// Which puts every entry in the product in one list, so the list is
-    /// sectioned by where each one is filed — the area, which for a configured
-    /// repository is its alias (<c>RowBelongsToSelectedRepository</c> is that
-    /// same equality). The reader's own repository leads, because the entry being
-    /// edited is almost always waiting on something beside it; then the rest of
-    /// the configured repositories in the order they were configured, so the
+    /// sectioned by where each one is filed — its repository, falling back to the
+    /// bare area for an entry targeting nothing configured. The reader's own
+    /// repository leads, because the entry being edited is almost always waiting
+    /// on something beside it; then the rest of the
+    /// configured repositories in the order they were configured, so the
     /// sections read in the same order as the repository switcher; then the plain
     /// areas nobody configured; then the entries filed nowhere. A repository with
     /// no candidate draws no heading at all — the sections come out of walking
@@ -1990,11 +1976,21 @@
     /// <summary>What the dependency picker calls an entry's section. An entry
     /// filed nowhere is not left unsectioned: it would sit above the first heading
     /// with nothing saying what it was, so it gets the same word the area filter
-    /// uses for the same rows.</summary>
+    /// uses for the same rows.
+    /// <para>
+    /// The repository is asked first and the area only stands in for it, because
+    /// the two are unrelated facts: the repository is the entry's <c>`repo:`</c>
+    /// targets and the area is the pile somebody filed it in, so an area spelled
+    /// like a configured repository is not that repository's work
+    /// (<c>BacklogRepositoryScopeTests</c>). Reading the area as the repository
+    /// would put an imported entry under a heading it does not belong to, and
+    /// leave the entries that really do target that repository under another.
+    /// </para></summary>
     private const string UnfiledSection = "Unfiled";
 
-    private static string SectionOf(EntryRow row) =>
-        string.IsNullOrWhiteSpace(row.PreviewArea) ? UnfiledSection : row.PreviewArea!;
+    private string SectionOf(EntryRow row) =>
+        State.RepositoryFor(row)?.Alias
+        ?? (string.IsNullOrWhiteSpace(row.PreviewArea) ? UnfiledSection : row.PreviewArea!);
 
     /// <summary>The section order, as the XML doc on <c>DependencyOptions</c>
     /// spells it out. Only sections that actually have a candidate survive, and

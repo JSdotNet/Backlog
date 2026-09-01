@@ -1,10 +1,20 @@
 @using Backlog.Desktop.UI.Shell
+@using Backlog.Aspire.ServiceDefaults
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Backlog</title>
+    @if (DevelopmentWorkspace.Current is not null)
+    {
+        @* Says which worktree served this tab. Several worktrees run these
+           harnesses side by side, and every one of them titles its pages the
+           same. The marker is applied by script rather than written into the
+           title above because a page setting its own PageTitle replaces that
+           title outright. *@
+        <script>@((MarkupString)DevelopmentWorkspace.TitleScript)</script>
+    }
     <base href="/" />
     <link rel="stylesheet" href="_content/Backlog.UI.Components/components.css" />
     <link rel="stylesheet" href="app.css" />
