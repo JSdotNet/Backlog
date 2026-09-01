@@ -452,6 +452,52 @@ public sealed class TaskPromptTests
             StringComparison.Ordinal);
     }
 
+    // --- A wider universe to resolve against --------------------------------
+
+    [Fact]
+    public void A_dependency_missing_from_tasks_still_resolves_against_the_universe()
+    {
+        // The list a host draws and the list a dependency is looked up against
+        // are not always the same list — a repo-scoped view is a real example,
+        // not a hypothetical one. Handed a universe, an id absent from tasks is
+        // not unknown; it is simply somewhere else, and the row it names still
+        // has a title and a Done bit worth reading.
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+
+        IReadOnlyList<TaskRow> notDoneUniverse =
+            [.. tasks, new("elsewhere", "Out of view, not finished")];
+
+        var stillWaiting = Assert.Single(TaskChain.Resolve(tasks, notDoneUniverse));
+
+        Assert.Equal(TaskReadiness.Blocked, stillWaiting.Readiness);
+        var dependency = Assert.Single(stillWaiting.Waiting);
+        Assert.True(dependency.Known);
+        Assert.Equal("Out of view, not finished", dependency.Label);
+
+        IReadOnlyList<TaskRow> doneUniverse =
+            [.. tasks, new("elsewhere", "Out of view, finished", Done: true)];
+
+        var freed = Assert.Single(TaskChain.Resolve(tasks, doneUniverse));
+
+        Assert.Equal(TaskReadiness.Ready, freed.Readiness);
+        Assert.Empty(freed.Waiting);
+    }
+
+    [Fact]
+    public void With_no_universe_supplied_resolution_falls_back_to_tasks_itself()
+    {
+        // Every caller before the universe existed passed one list and meant it
+        // as both — the rows to derive statuses for and the rows to look ids up
+        // against. Nothing about that behaviour may change just because a second
+        // parameter now exists to change it with.
+        var withUniverse = TaskChain.Resolve(Chain, Chain);
+        var withoutUniverse = TaskChain.Resolve(Chain);
+
+        Assert.Equal(
+            withoutUniverse.Select(status => (status.Id, status.Readiness, status.InCycle)),
+            withUniverse.Select(status => (status.Id, status.Readiness, status.InCycle)));
+    }
+
     // --- Cycles ------------------------------------------------------------
 
     [Fact]

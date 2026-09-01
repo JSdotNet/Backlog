@@ -307,7 +307,7 @@
         // walk the graph and detect the cycles a second time to learn something
         // the statuses in hand already say: Resolve returns them in list order, so
         // the first Ready in this loop is the row NextReady would have returned.
-        foreach (var status in TaskChain.Resolve(Tasks))
+        foreach (var status in TaskChain.Resolve(Tasks, Universe))
         {
             statuses.TryAdd(status.Id, status);
 
@@ -356,6 +356,18 @@
 
     [Parameter, EditorRequired]
     public IReadOnlyList<TaskRow> Tasks { get; set; } = [];
+
+    /// <summary>Where a dependency id is looked up, when that is a wider list
+    /// than the rows this draws. Unset, it is <c>Tasks</c> itself — the ordinary
+    /// case, where what is on screen is everything there is to resolve against.
+    /// A host scoping the rows it draws to one repository, one filter, one page
+    /// still owes a reader the true state of a dependency that lives outside
+    /// that scope, and this is how it hands over a place to find it without
+    /// drawing it: <see cref="TaskChain.Resolve"/> reads titles and done bits
+    /// out of this list but this view never renders a row from it that is not
+    /// also in <c>Tasks</c>.</summary>
+    [Parameter]
+    public IReadOnlyList<TaskRow>? Universe { get; set; }
 
     [Parameter]
     public string? SelectedId { get; set; }

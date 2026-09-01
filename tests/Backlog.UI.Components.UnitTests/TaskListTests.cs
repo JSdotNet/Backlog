@@ -1722,4 +1722,77 @@ public sealed class TaskListTests
         Assert.True(state < copy, $"Copy must follow the state, but the order was: {drawn}");
         Assert.True(copy < bin, $"The bin must stay last, but the order was: {drawn}");
     }
+
+    // --- A wider universe to resolve against --------------------------------
+
+    /// <summary>A row this list draws can wait on an id that names no row in
+    /// <c>Tasks</c> at all — a host scoping the drawn rows to one repository,
+    /// say — and still say the true thing about it, provided the host also hands
+    /// over a wider <c>Universe</c> to look the id up in.</summary>
+    [Fact]
+    public void A_dependency_outside_tasks_resolves_against_the_universe()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view", Done: true)];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        // Ready rather than blocked, because the row it named turned out to be
+        // finished — not merely absent from this narrower view.
+        Assert.Empty(view.FindAll(".task-item__detail--blocked"));
+        Assert.NotNull(view.Find("[data-testid='list-here-next']"));
+    }
+
+    /// <summary>The other half of the same proof: unfinished in the universe
+    /// still blocks, and is named by the title the universe carries for it
+    /// rather than by the bare id — the row is unknown to <c>Tasks</c>, not
+    /// unknown altogether.</summary>
+    [Fact]
+    public void An_outstanding_dependency_in_the_universe_still_blocks_and_is_named()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view, unfinished")];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
+
+        Assert.Contains("Out of view, unfinished", waiting.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Left unset, a list resolves exactly as it always did — against
+    /// the rows it was handed and nothing wider. The parameter is additive, and
+    /// every list rendered before it existed must keep reading the way it always
+    /// has.</summary>
+    [Fact]
+    public void With_no_universe_supplied_a_dependency_outside_tasks_is_unknown()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
+
+        Assert.Contains("elsewhere", waiting.TextContent, StringComparison.Ordinal);
+    }
 }

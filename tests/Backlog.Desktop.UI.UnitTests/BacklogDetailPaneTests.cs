@@ -944,4 +944,48 @@ public sealed class BacklogDetailPaneTests
             schedule.QuerySelector(".task-action-pane__trailing")!
                 .Children.Single().GetAttribute("data-testid"));
     }
+
+    // --- Cross-repository dependencies --------------------------------------
+
+    /// <summary>The regression this guards: an entry that waits on one filed
+    /// under a different repository must still read the true state of that wait
+    /// once the repository filter has scoped it out of view.
+    /// <para>
+    /// Before <c>TaskListView.Universe</c> existed, the entry list's dependency
+    /// lookup was built from the same <c>FilteredRows</c> it draws rows from —
+    /// so scoping the list to one repository made every dependency filed under
+    /// another one indistinguishable from an id naming nothing at all: Blocked,
+    /// shown by its raw id, no matter how finished the entry behind it actually
+    /// was. The row list itself stays repo-scoped; only the lookup a dependency
+    /// resolves against had to widen.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_dependency_in_another_repository_still_resolves_under_a_repository_filter()
+    {
+        using var host = await BacklogPaneHost.CreateAsync(
+            "repox = JSdotNet/RepoX",
+            "repoy = JSdotNet/RepoY");
+
+        var acrossRepo = await host.WriteEntryAsync("# Ship the library\n`task` `!done` `@repoy`\n");
+        var scoped = await host.WriteEntryAsync(
+            $"# Ship the app\n`task` `@repox` `after:{acrossRepo.Id!.Value}`\n");
+
+        host.State.SetRepositoryFilter("repox");
+
+        var pane = host.Render();
+
+        // The filter really did narrow the list — the entry it depends on is
+        // out of view, which is the precondition the bug needed to reproduce.
+        Assert.Contains(scoped, host.State.FilteredRows);
+        Assert.DoesNotContain(acrossRepo, host.State.FilteredRows);
+
+        var row = pane.Find($"[data-testid='{RowTestId(scoped)}']");
+
+        // Ready, not Blocked: the dependency is done, and that fact does not
+        // stop being true because the row that records it scrolled out of the
+        // filtered view.
+        Assert.Empty(row.QuerySelectorAll(".task-item__detail--blocked"));
+        Assert.NotNull(pane.Find($"[data-testid='{RowTestId(scoped)}-next']"));
+    }
 }
