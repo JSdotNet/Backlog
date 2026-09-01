@@ -333,6 +333,31 @@ line of a list that may be hundreds long.
 
 Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 
+## Workspace Panes
+
+```meta
+status: active
+related: [".design/accessibility.md#target-sizes-and-text", ".design/design-principles.md#low-chrome-content-first"]
+```
+
+The desktop shell's header switches between a small set of panes — Inbox,
+Backlog, Knowledge — and holds a pin on each pane's own toggle. Pinning a pane
+here is unrelated to a pinned act in `#action-density-and-overflow`: that one
+exempts a button from overflow collapse, this one exempts a pane from being
+closed by a switch.
+
+| Rule | Requirement |
+|---|---|
+| Switching is exclusive | Opening a pane MUST close every other open pane the reader has not pinned. |
+| Pin requires an open pane | A pin control MUST only be available on a pane that is already open; a closed pane cannot be pinned. |
+| Unpinning never closes | Removing a pin MUST NOT itself close the pane — it only withdraws the pane's claim on the *next* switch. |
+| The requested pane always wins | Where pinned panes would leave no room for the pane just requested, the requested pane MUST open and the pane(s) it displaces MUST be unpinned as they close, rather than the request being refused. |
+| At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own toggle is disabled rather than left clickable and refused. |
+| Pin state is visible without relying on colour | A pinned pane's control MUST be visually distinct from an unpinned one through more than colour alone (see `accessibility.md`). |
+
+No review surface: the header strip is application chrome specific to the
+desktop shell, not a shared-library component, so it carries no storybook page.
+
 ## Action Density and Overflow
 
 ```meta
