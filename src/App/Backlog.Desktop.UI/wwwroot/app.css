@@ -1172,6 +1172,11 @@ h1, h2, h3 {
     .header-group__option {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
+
+    .header-group__pin {
+        min-width: 1.75rem;
+        padding: var(--spacing-xs) 0;
+    }
 }
 
 /* --- Add entry ------------------------------------------------------------ */
@@ -1851,11 +1856,75 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
-/* A pane held on screen by the capacity rule is still the selected one, so it
-   keeps the selected treatment and only dims. */
+/* A pane held on screen as the last one is still the selected one, so it keeps
+   the selected treatment and only dims. */
 .header-group__option--selected:disabled {
     color: var(--color-primary-light);
     opacity: 0.8;
+}
+
+/*
+  A pane and its pin are one cell of the group. The hairline moves out to the
+  cell so the pair reads as one member of the strip: an option and the pin that
+  keeps it belong together, and a rule between them would say they were two
+  choices. The surface switcher still holds bare options side by side, which is
+  why the option-to-option rule above stays.
+*/
+
+.header-group__pane {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.header-group__option + .header-group__pane,
+.header-group__pane + .header-group__pane,
+.header-group__pane + .header-group__option {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+/*
+  Quieter than the option it follows: pinning is the rarer act, and a pin drawn
+  at the option's weight would read as a second thing to choose between.
+*/
+.header-group__pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2.25rem;
+    padding: var(--spacing-xs);
+    border: 0;
+    /* Reserved, as on the option, so pinning does not shift the row. */
+    border-bottom: var(--border-width-2) solid transparent;
+    background: transparent;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    opacity: 0.45;
+    cursor: pointer;
+    transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.header-group__pin:hover:not(:disabled) {
+    background: var(--color-background-raised);
+    opacity: 1;
+}
+
+/* Inset, for the same reason the option's ring is: the group clips its overflow. */
+.header-group__pin:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/* Two channels again — fill and underline — because colour alone is ruled out. */
+.header-group__pin--pinned {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    border-bottom-color: var(--color-primary);
+    opacity: 1;
+}
+
+.header-group__pin:disabled {
+    cursor: not-allowed;
+    opacity: 0.2;
 }
 
 /* --- Header accent and utilities ------------------------------------------ */

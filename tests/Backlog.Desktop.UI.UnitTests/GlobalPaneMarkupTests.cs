@@ -182,8 +182,14 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("_globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);", home, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Capacity no longer disables an option: a pane the reader asks for makes its own
+    /// room by closing what they did not pin, so the only thing that can block one of
+    /// the three is being the last pane on screen. The binding stays on exactly the
+    /// three panes all the same — the band has neither rule.
+    /// </summary>
     [Fact]
-    public void Pane_multiselect_uses_selected_state_and_capacity_aware_disabling()
+    public void Pane_multiselect_uses_selected_state_and_last_pane_aware_disabling()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
@@ -194,10 +200,13 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("Pressed=\"BacklogPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"KnowledgePaneVisible\"", home, StringComparison.Ordinal);
 
-        // Three panes have the capacity rule and the band does not, so exactly three
-        // options are ever disabled by it. A fourth would mean the band had been
-        // folded into the selection.
+        // Three panes have the rule and the band does not, so exactly three options
+        // are ever disabled by it. A fourth would mean the band had been folded into
+        // the selection.
         Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PaneToggleDisabled("));
+
+        // And one pin per pane, disabled on its own terms rather than the option's.
+        Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PinToggleDisabled("));
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
@@ -209,6 +218,92 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("Hide backlog", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Show knowledge", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide knowledge", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A pane and its pin are one cell of the strip, in that order: the thing being
+    /// kept, then the act of keeping it. The band is deliberately not one of them —
+    /// it competes with nothing for width, so there is nothing for a pin to save it
+    /// from.
+    /// <para>
+    /// The test ids end in <c>-pane-pin</c> rather than <c>-pane-option</c> so the
+    /// <c>[data-testid$='-pane-option']</c> selector the strip's own tests use keeps
+    /// matching the four options and nothing else.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_pane_carries_a_pin_and_the_band_does_not()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("TestId=\"inbox-pane-pin\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"backlog-pane-pin\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"knowledge-pane-pin\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-pane-pin", home, StringComparison.Ordinal);
+
+        // The cell that holds the pair, and the pin's own two class hooks.
+        Assert.Contains("header-group__pane", home, StringComparison.Ordinal);
+        Assert.Contains("BaseClass=\"header-group__pin\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedCssClass=\"header-group__pin--pinned\"", home, StringComparison.Ordinal);
+
+        foreach (var pane in new[] { "inbox", "backlog", "knowledge" })
+        {
+            var option = home.IndexOf($"TestId=\"{pane}-pane-option\"", StringComparison.Ordinal);
+            var pin = home.IndexOf($"TestId=\"{pane}-pane-pin\"", StringComparison.Ordinal);
+
+            Assert.True(option >= 0 && pin > option, $"The {pane} pin must follow its own option.");
+        }
+    }
+
+    /// <summary>
+    /// The pin is the shared <c>ToggleButton</c> rather than a control of its own:
+    /// pinned is a pressed state, which is what the component already draws and
+    /// announces. Its state is read from the selection and written back to it, so
+    /// there is no second copy of "which panes are pinned" anywhere.
+    /// </summary>
+    [Fact]
+    public void The_pin_is_the_shared_toggle_button_wired_to_the_selection()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        foreach (var pane in new[] { "Inbox", "Backlog", "Knowledge" })
+        {
+            Assert.Contains($"Pressed=\"@PanePinned(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"PressedChanged=\"Toggle{pane}Pin\"", home, StringComparison.Ordinal);
+            Assert.Contains($"_globalPanes.TogglePin(GlobalPane.{pane});", home, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Triage hands an item from the Inbox to the Backlog, which is the shell opening
+    /// a pane on the reader's behalf rather than the reader switching sections. It
+    /// goes through the non-switching entry point for exactly that reason: the plain
+    /// enable would close the Inbox the item was picked from.
+    /// </summary>
+    [Fact]
+    public void Opening_an_inbox_item_never_closes_the_inbox()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        Assert.Contains("_globalPanes.TryOpenAlongside(GlobalPane.Backlog);", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_globalPanes.TrySetEnabled(GlobalPane.Backlog, true);", home, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Pinned is drawn the way selected is — a tinted fill and the primary underline
+    /// together — because colour alone is the one channel the accessibility rules rule
+    /// out. And a pin that cannot be taken says so rather than merely failing.
+    /// </summary>
+    [Fact]
+    public void The_pin_states_are_drawn_with_more_than_colour()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var pinned = RuleFor(css, ".header-group__pin--pinned {");
+        Assert.Contains("border-bottom-color: var(--color-primary);", pinned, StringComparison.Ordinal);
+        Assert.Contains("background:", pinned, StringComparison.Ordinal);
+
+        Assert.Contains("cursor: not-allowed;", RuleFor(css, ".header-group__pin:disabled {"), StringComparison.Ordinal);
     }
 
     [Fact]
