@@ -2920,41 +2920,9 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
-/* The two things on the metadata line that answer a question about the list
-   rather than stating a fact about the task. One box for both, declared together,
-   because they are the same kind of statement and a reader should see them as one
-   family — the shapes inside them are the same triangle filled and hollow for the
-   same reason. */
-.task-item__next,
-.task-item__ready {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    padding: 0 var(--spacing-xs);
-    border: var(--border-width) solid;
-    border-radius: var(--border-radius-full);
-    white-space: nowrap;
-}
-
-/* The one part of the line allowed to take the brand colour: a marker that read
-   like the rest of it would have to be found, and the whole point of it is to be
-   seen. */
-.task-item__next {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-/* Quieter, deliberately. A fan-out can free four rows at once, and four brand-
-   coloured badges would be four answers to a question that has one — this says
-   "you could start here too" without competing with the row that says start
-   here. */
-.task-item__ready {
-    border-color: var(--color-border);
-    color: var(--color-text-secondary);
-}
-
-/* Enough to find the row from across the list, and no more: the marker inside it
-   is already saying which one this is. */
+/* The row to pick up next still carries this outline of its own — the badge
+   that used to sit on the metadata line and name it is gone, but the row
+   itself is still worth finding from across the list. */
 .task-item--next {
     border-color: var(--color-primary-dark);
 }

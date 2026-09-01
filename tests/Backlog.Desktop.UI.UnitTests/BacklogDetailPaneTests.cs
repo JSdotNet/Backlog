@@ -986,6 +986,6 @@ public sealed class BacklogDetailPaneTests
         // stop being true because the row that records it scrolled out of the
         // filtered view.
         Assert.Empty(row.QuerySelectorAll(".task-item__detail--blocked"));
-        Assert.NotNull(pane.Find($"[data-testid='{RowTestId(scoped)}-next']"));
+        Assert.Contains("task-item--next", row.ClassList);
     }
 }

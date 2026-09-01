@@ -396,37 +396,9 @@
     /// </summary>
     private RenderFragment RenderMeta() =>
         @<text>
-        @if (Task.TagList.Count > 0 || Details.Count > 0 || Next || ReadyToStart)
+        @if (Task.TagList.Count > 0 || Details.Count > 0)
         {
             <span class="task-item__meta">
-                @if (Next)
-                {
-                    @* Which one to pick up has to be answerable at a glance,
-                       so the answer is on the row rather than something the
-                       reader works out by reading every row above it. It is
-                       first on the line because it is the only part of it
-                       that is about the list rather than about this task. *@
-                    <span class="task-item__next" data-testid="@Suffix("next")">
-                        <span class="task-item__glyph" aria-hidden="true">▶</span>
-                        <span>Next</span>
-                    </span>
-                }
-                else if (ReadyToStart)
-                {
-                    @* Startable, but not the one the list nominated. Its own
-                       class rather than a quieter "next": there is exactly
-                       one next, and a marker that shared the name would make
-                       "which one do I start" answerable only by counting.
-
-                       The hollow triangle beside the filled one is the same
-                       shape twice, so the two read as one family with one
-                       primary rather than as two unrelated badges. *@
-                    <span class="task-item__ready" data-testid="@Suffix("ready")">
-                        <span class="task-item__glyph" aria-hidden="true">▷</span>
-                        <span>Ready</span>
-                    </span>
-                }
-
                 @foreach (var detail in Details)
                 {
                     <span class="@detail.CssClass" title="@detail.Name">
@@ -891,13 +863,6 @@
     /// than recomputed, so done-wins-over-a-missing-predecessor is decided in
     /// exactly one place.</summary>
     private bool Blocked => Status is { Readiness: TaskReadiness.Blocked };
-
-    /// <summary>Nothing outstanding, so this row could be started. Read off the
-    /// status the list already passes rather than taken as a parameter of its
-    /// own: the list has said everything it needs to say about this row's place
-    /// in the chain, and a second flag saying "ready" would be the same fact
-    /// arriving twice with two chances to disagree.</summary>
-    private bool ReadyToStart => Status is { Readiness: TaskReadiness.Ready };
 
     private string StateLabel => Task.Done ? "Done" : Blocked ? "Blocked" : "Not done";
 
