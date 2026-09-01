@@ -2777,3 +2777,337 @@
         }
     };
 })();
+
+(() => {
+    /*
+        The C4 explorer's viewer.
+
+        Everything here is about a diagram somebody else drew. Mermaid renders a C4
+        view into a static SVG and hands it over; this adds the exploration layer over
+        the top — pan and zoom, a minimap, presentation mode, a click target on every
+        element, and a dimming pass for the Highlighter.
+
+        It works on the SVG's own `viewBox` rather than on a CSS transform. The viewBox
+        is what mermaid already sizes the picture with, so zoom-to-fit is a copy of the
+        original numbers, panning is arithmetic on them, and the minimap only has to
+        draw the same SVG at its full extent with a rectangle where the viewBox now
+        sits. A CSS transform would have needed all of that translated back out of a
+        matrix, and would have blurred the text on the way.
+
+        The bridge back to the model is the node id. Mermaid writes each element as
+        `<g class="node ..." id="<svg id>-<alias>">`, and the alias is the one this
+        repository's own writer produced — so stripping the svg id off the front is the
+        whole of the lookup, and no text matching is involved anywhere.
+    */
+
+    const explorers = new Map();
+
+    const MIN_SCALE = 0.2;
+    const MAX_SCALE = 8;
+
+    function nodeAlias(svg, group) {
+        const prefix = svg.id ? svg.id + '-' : '';
+        const id = group.id || '';
+        return prefix && id.startsWith(prefix) ? id.slice(prefix.length) : id;
+    }
+
+    function readViewBox(svg) {
+        const raw = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+        if (raw.length !== 4 || raw.some(Number.isNaN)) {
+            // A mermaid SVG always carries one; this is the honest fallback rather
+            // than NaN arithmetic that silently blanks the picture.
+            const box = svg.getBBox ? svg.getBBox() : { x: 0, y: 0, width: 100, height: 100 };
+            return { x: box.x, y: box.y, w: box.width || 100, h: box.height || 100 };
+        }
+
+        return { x: raw[0], y: raw[1], w: raw[2], h: raw[3] };
+    }
+
+    function writeViewBox(svg, box) {
+        svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
+    }
+
+    window.backlogC4Explorer = {
+        /**
+         * Takes over a rendered diagram. Safe to call again for the same id — the
+         * previous attachment is torn down first, which is what makes it correct to
+         * call on every re-render rather than having to track whether one is live.
+         */
+        attach(id, frameSelector, reference, viewKey, drillable) {
+            this.dispose(id);
+
+            const frame = document.querySelector(frameSelector);
+            const svg = frame?.querySelector('svg');
+            if (!frame || !svg) return false;
+
+            // Mermaid caps its own width so the picture never fills a tall frame.
+            // The explorer owns the box now.
+            svg.removeAttribute('style');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+            // Only the boxes that lead somewhere are marked, and only those get the
+            // hand cursor and the hover outline. Marking all of them was a promise
+            // the click could not keep: most elements have no deeper view — a
+            // component is a leaf, and a container without a component view has
+            // nothing declared — so the pointer invited a click that did nothing and
+            // made the whole gesture read as broken.
+            const drills = new Set(Array.isArray(drillable) ? drillable : []);
+            svg.querySelectorAll('g.node').forEach(group => {
+                group.classList.toggle('c4-drillable', drills.has(nodeAlias(svg, group)));
+            });
+
+            const home = readViewBox(svg);
+            let box = { ...home };
+
+            const minimap = frame.closest('.c4-explorer__stage')?.querySelector('[data-c4-minimap]') ?? null;
+            let lens = null;
+
+            if (minimap) {
+                // The minimap is the same SVG again, frozen at full extent, with a
+                // rectangle for where the reader is. A clone rather than a <use>,
+                // because <use> would inherit the live viewBox and show nothing but
+                // itself.
+                const copy = svg.cloneNode(true);
+                copy.removeAttribute('id');
+                copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+                writeViewBox(copy, home);
+                copy.setAttribute('width', '100%');
+                copy.setAttribute('height', '100%');
+
+                lens = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                lens.setAttribute('class', 'c4-minimap__lens');
+                copy.appendChild(lens);
+
+                minimap.replaceChildren(copy);
+            }
+
+            function drawLens() {
+                if (!lens) return;
+                lens.setAttribute('x', box.x);
+                lens.setAttribute('y', box.y);
+                lens.setAttribute('width', Math.max(box.w, 1));
+                lens.setAttribute('height', Math.max(box.h, 1));
+            }
+
+            function apply() {
+                writeViewBox(svg, box);
+                drawLens();
+                reference?.invokeMethodAsync('ZoomChanged', Math.round((home.w / box.w) * 100));
+            }
+
+            function clampScale(next) {
+                const scale = home.w / next.w;
+                if (scale < MIN_SCALE || scale > MAX_SCALE) return false;
+                return true;
+            }
+
+            // ---- zoom ----------------------------------------------------------
+
+            function zoomAt(factor, clientX, clientY) {
+                const rect = svg.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+
+                // Zoom about the pointer: the point under the cursor is the one that
+                // must not move, which is what makes wheel-zoom feel like a map.
+                const fx = (clientX - rect.left) / rect.width;
+                const fy = (clientY - rect.top) / rect.height;
+
+                const next = {
+                    w: box.w / factor,
+                    h: box.h / factor,
+                    x: box.x + (box.w - box.w / factor) * fx,
+                    y: box.y + (box.h - box.h / factor) * fy
+                };
+
+                if (!clampScale(next)) return;
+                box = next;
+                apply();
+            }
+
+            function zoomBy(factor) {
+                const rect = svg.getBoundingClientRect();
+                zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+            }
+
+            const onWheel = (event) => {
+                if (!event.ctrlKey && Math.abs(event.deltaY) < 1) return;
+                event.preventDefault();
+                zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
+            };
+
+            // ---- pan -----------------------------------------------------------
+
+            // `node` is the shape the gesture started on, and it is the whole reason
+            // activation happens on pointerup rather than on click.
+            //
+            // Capturing the pointer is what makes panning survive the cursor leaving
+            // the frame — and it also redirects the subsequent `click` to the capture
+            // target. So the click arrives on the frame div, `closest('g.node')` finds
+            // nothing, and clicking a card did nothing at all. Remembering what was
+            // under the pointer when it went down is immune to that, and it is more
+            // correct anyway: a press that starts on a card and ends on one is a click
+            // on the card the reader aimed at.
+            const drag = { active: false, x: 0, y: 0, moved: 0, node: null };
+
+            const onPointerDown = (event) => {
+                if (event.button !== 0) return;
+                drag.active = true;
+                drag.x = event.clientX;
+                drag.y = event.clientY;
+                drag.moved = 0;
+                drag.node = event.target.closest?.('g.node') ?? null;
+                frame.setPointerCapture?.(event.pointerId);
+                frame.classList.add('is-panning');
+            };
+
+            const onPointerMove = (event) => {
+                if (!drag.active) return;
+
+                const rect = svg.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+
+                const dx = event.clientX - drag.x;
+                const dy = event.clientY - drag.y;
+                drag.moved += Math.abs(dx) + Math.abs(dy);
+                drag.x = event.clientX;
+                drag.y = event.clientY;
+
+                box = {
+                    ...box,
+                    x: box.x - dx * (box.w / rect.width),
+                    y: box.y - dy * (box.h / rect.height)
+                };
+
+                apply();
+            };
+
+            const endDrag = (event) => {
+                if (!drag.active) return;
+
+                drag.active = false;
+                frame.releasePointerCapture?.(event.pointerId);
+                frame.classList.remove('is-panning');
+
+                // A press that moved is a pan, not a click. Without this, dragging
+                // across the picture opens whatever happened to be under the finger
+                // when it went down.
+                if (event.type !== 'pointerup' || drag.moved > 4) { drag.node = null; return; }
+
+                const group = drag.node;
+                drag.node = null;
+                if (!group) return;
+
+                const now = performance.now();
+                if (now - activatedAt < 500) return;
+
+                const alias = nodeAlias(svg, group);
+                if (!alias) return;
+
+                activatedAt = now;
+
+                // The view is named as well as the node. What the reader pressed is a
+                // box on *this* picture, and by the time the message lands the explorer
+                // may have moved on — in which case the press meant nothing and is
+                // dropped rather than applied to whatever is showing now.
+                reference?.invokeMethodAsync('NodeActivated', alias, viewKey ?? null);
+            };
+
+            // ---- drill in ------------------------------------------------------
+
+            // The last activation, so a second one on its heels is ignored.
+            //
+            // Drilling is one press here and a double-click in c4hero, and a reader who
+            // brings that habit would otherwise descend two levels at once — the second
+            // press landing on the newly drawn diagram before they have seen the first.
+            // The same window covers the render race: while the next view is being
+            // drawn the old SVG is still on screen and still listening.
+            let activatedAt = 0;
+
+            frame.addEventListener('wheel', onWheel, { passive: false });
+            frame.addEventListener('pointerdown', onPointerDown);
+            frame.addEventListener('pointermove', onPointerMove);
+            frame.addEventListener('pointerup', endDrag);
+            frame.addEventListener('pointercancel', endDrag);
+
+            explorers.set(id, {
+                svg,
+                frame,
+                home,
+                get box() { return box; },
+                set box(value) { box = value; },
+                apply,
+                zoomBy,
+                detach() {
+                    frame.removeEventListener('wheel', onWheel);
+                    frame.removeEventListener('pointerdown', onPointerDown);
+                    frame.removeEventListener('pointermove', onPointerMove);
+                    frame.removeEventListener('pointerup', endDrag);
+                    frame.removeEventListener('pointercancel', endDrag);
+                }
+            });
+
+            apply();
+            return true;
+        },
+
+        /** Back to the whole picture. Mermaid's own viewBox is the definition of
+         *  "fits", so this is a copy rather than a measurement. */
+        fit(id) {
+            const state = explorers.get(id);
+            if (!state) return;
+            state.box = { ...state.home };
+            state.apply();
+        },
+
+        zoom(id, factor) {
+            explorers.get(id)?.zoomBy(factor);
+        },
+
+        /**
+         * Marks which nodes the Highlighter matched and which the search found.
+         * Classes rather than inline style, so the dimming is themeable and one
+         * selector turns the whole effect off.
+         */
+        highlight(id, matched, focused) {
+            const state = explorers.get(id);
+            if (!state) return;
+
+            const dim = Array.isArray(matched);
+            const wanted = new Set(dim ? matched : []);
+            const focus = new Set(Array.isArray(focused) ? focused : []);
+
+            state.svg.querySelectorAll('g.node').forEach(group => {
+                const alias = nodeAlias(state.svg, group);
+                group.classList.toggle('c4-dimmed', dim && !wanted.has(alias));
+                group.classList.toggle('c4-focused', focus.has(alias));
+            });
+        },
+
+        /** Centres one element and leaves the zoom alone — a search hit should move
+         *  the reader to the box, not decide how close they stand to it. */
+        reveal(id, alias) {
+            const state = explorers.get(id);
+            if (!state || !alias) return;
+
+            const prefix = state.svg.id ? state.svg.id + '-' : '';
+            const group = state.svg.querySelector(`g.node[id="${CSS.escape(prefix + alias)}"]`);
+            if (!group || !group.getBBox) return;
+
+            const box = group.getBBox();
+            state.box = {
+                ...state.box,
+                x: box.x + box.width / 2 - state.box.w / 2,
+                y: box.y + box.height / 2 - state.box.h / 2
+            };
+            state.apply();
+        },
+
+        dispose(id) {
+            const state = explorers.get(id);
+            state?.detach();
+            explorers.delete(id);
+        }
+    };
+})();

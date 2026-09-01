@@ -1,0 +1,54 @@
+{
+  "$schema-note": "Authored by hand. Not generated, and not written by c4hero.",
+  "$why-here": [
+    "Which knowledge chapter each C4 view documents. Read by the desktop app to draw the",
+    "reference in both directions: a view shows the chapters listed against it, and a",
+    "chapter shows the views that list it — so the link is stated once, here, and the",
+    "reverse direction is derived rather than stored a second time.",
+    "",
+    "Named references.json and not index.json on purpose. The _archify/index.json beside",
+    "a chapter is GENERATED, by the renderer, and a file with that name beside a workspace",
+    "would read as generated too. This one is authored and reviewed like the .dsl is.",
+    "",
+    "It is a file rather than a line in a chapter or a block in the DSL, and both of those",
+    "were tried first:",
+    "",
+    "  - A chapter's own `related:` list is the natural home and the generator refuses it.",
+    "    .github/tools/knowledge-meta/graph.mjs resolves a reference against nodes built",
+    "    from .md files only, and folderKindForPath treats anything under .arc42/ as",
+    "    inside-knowledge — so a .dsl target is an error, not a warning. That generator is",
+    "    an installed copy of the knowledge-base plugin's tooling and must not be edited",
+    "    here.",
+    "",
+    "  - A `properties` block in the workspace or on a view would keep the link with the",
+    "    model, and c4hero deletes it. Its parser calls skipBraceBlock() on both, so the",
+    "    block is parsed away and never written back: the reference would disappear the",
+    "    first time somebody saved in the editor, silently.",
+    "",
+    "See tools/diagrams/C4.md."
+  ],
+  "views": {
+    "landscape": [
+      ".arc42/03-context-and-scope.md"
+    ],
+    "context-backlog": [
+      ".arc42/03-context-and-scope.md#business-context"
+    ],
+    "containers-backlog": [
+      ".arc42/05-building-block-view.md#container-view",
+      ".domain/context-map.md"
+    ],
+    "components-desktop": [
+      ".arc42/05-building-block-view.md#desktop-app"
+    ],
+    "capture-to-issue": [
+      ".arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+    ],
+    "deployment-local": [
+      ".arc42/07-deployment-view.md#local-deployment-desktop"
+    ],
+    "deployment-azure": [
+      ".arc42/07-deployment-view.md#cloud-deployment-azure"
+    ]
+  }
+}

@@ -178,7 +178,7 @@ status: active
 
 ```meta
 status: active
-related: [".tech/technology-graph.md", ".tech/tooling.md#archify", ".design/content-editing.md", ".design/accessibility.md"]
+related: [".tech/technology-graph.md", ".tech/tooling.md#archify", ".tech/tooling.md#c4hero", ".design/content-editing.md", ".design/accessibility.md"]
 ```
 
 Backlog should solve diagrams in layers instead of relying on one component suite:
@@ -187,6 +187,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 |---|---|---|
 | Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-base Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
 | A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
+| A C4 model of the system, beside the chapters rather than inside one | **c4hero** (authoring) + **a first-party renderer** (drawing) | A Structurizr workspace under `.arc42/_c4/`, edited in c4hero and drawn by the app from the DSL. Mermaid drew it first and could not be themed into the shape a C4 view wants — it sizes its own boxes, draws no glyph and writes every colour inline. Additive: it replaces no fence, and the `C4Context`/`C4Container` fences in chapters 03 and 05 stay canonical. See `#c4-workspaces` below. |
 | Technology graph / knowledge graph exploration | **A first-party canvas renderer** | Draw the `.tech` graph as a 3D-projected atlas: one cluster per layer, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles` — the palette carries one saturated hue, so an ordinal status reads as a position on that hue's ramp and never as a hue of its own, with shape carrying what the ramp cannot. The keyboard companion below is part of the renderer, not an addition to it. |
 | Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than a read-and-select atlas is. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
@@ -208,6 +209,32 @@ carrying each node's status and relation counts as text. Selection is one model
 behind both, announced once through a polite live region as position, status and
 counts. A reviewer should be able to unplug the mouse and lose nothing but the
 picture.
+
+### C4 workspaces
+
+```meta
+status: active
+related: [".tech/tooling.md#c4hero", ".design/content-editing.md", ".design/accessibility.md"]
+```
+
+A C4 view is not a chapter diagram. It is one view of a model that lives beside the
+architecture chapters, authored somewhere else entirely, and the rules that follow
+are about it reading as part of the section rather than as a second product bolted
+to the side of it.
+
+| Rule | Guidance |
+|---|---|
+| Drawn here, in this palette | A view is laid out and drawn by the product rather than by a diagram library, because a library that sizes its own boxes and writes its own colours cannot be made to sit inside a section. Levels are told apart by weight and glyph on the single hue `#chart-roles` allows — solid for the subject, outline for anything outside it — never by a hue per level. |
+| A tab beside the chapters, not an entry inside them | The Architecture panel keeps two tabs, the shape Technology already uses: chapters on the first, the model on the second. A C4 view is not a chapter and is in no chapter, so it does not belong in the chapter list — and the tab is absent rather than empty when there is no workspace. |
+| Every gesture has a control beside it | Drilling in by clicking a box is discoverable and invisible to a keyboard, so the same move is also a button — the Views panel and the Drill into row. `accessibility.md#target-sizes-and-text` is the rule; a shape in an SVG is not a focusable target, so the pointer cannot be the only way. |
+| Where you are and how you got here are two controls | The breadcrumb is derived from the open view's scope and the Back button walks the history. Collapsing them into one makes the survivor a worse version of both. |
+| Dimmed, not hidden | The Highlighter takes non-matching elements down to a low opacity and leaves them in place, so the shape of the diagram stays readable and a filter reads as emphasis rather than as a different picture. |
+| The reference is drawn on both sides | A view lists the chapters it documents; a chapter lists the views that say so. Same single authored statement — `_c4/references.json` — read from either end, so the two cannot disagree. A view nothing documents says so in words rather than showing an empty row. |
+| What could not be read is said, not hidden | A workspace the reader only partly understood still draws a complete-looking picture. The unreadable constructs appear as a plain list under the diagram: a footnote under something that rendered, not an error that stopped one. |
+| The generated Mermaid is never shown as the source | The `.dsl` is the authored text. A reader who wants the source wants the workspace, not the Mermaid it was turned into on the way to the screen. |
+
+Off by default, behind `c4-diagrams`. `tools/diagrams/C4.md` carries the
+arrangement, the DSL subset, and what the drawing cannot say.
 
 ### Archify artifacts
 

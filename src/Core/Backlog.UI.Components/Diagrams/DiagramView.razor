@@ -186,6 +186,19 @@
     [Parameter]
     public string Title { get; set; } = "Diagram";
 
+    /// <summary>
+    /// Raised once the renderer has drawn this diagram.
+    /// <para>
+    /// For a caller that has to work on the rendered SVG rather than on the source —
+    /// there is exactly one, the C4 explorer, which attaches pan, zoom, a minimap and
+    /// a click target to it. It is an event rather than something the explorer polls
+    /// for, because a poll has to guess how long mermaid takes and gets it wrong on
+    /// either a cold library load or a fast machine.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnRendered { get; set; }
+
     private bool ShowingArtifact => _artifact is { CanRender: true } && !_preferMermaid;
 
     /// <summary>Whether to offer to start an agent. Three things have to be true
@@ -262,6 +275,13 @@
         try
         {
             await Js.InvokeVoidAsync("backlogDiagrams.render", _canvas, _diagramId, Language, Source);
+
+            // Said after the drawing, because the only caller that wants to know is
+            // one that needs the SVG to exist: the C4 explorer takes the rendered
+            // picture over for pan, zoom and clicking, and polling for it would be
+            // the alternative. Nobody else takes the callback, and the render path is
+            // unchanged for them.
+            if (OnRendered.HasDelegate) await OnRendered.InvokeAsync();
         }
         catch (JSException ex)
         {

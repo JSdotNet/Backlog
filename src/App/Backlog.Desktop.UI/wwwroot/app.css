@@ -3952,6 +3952,43 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The C4 views, listed under the chapters. A rule above the group rather than a
+   gap on each item: it separates two lists of the same shape, and the chapters
+   above already carry their own spacing. The label is the nav's accessible name,
+   so nothing is drawn for it. */
+.knowledge-chapters--c4 {
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.knowledge-c4-references {
+    margin-top: var(--spacing-sm);
+}
+
+/* The way across from a domain chapter to the architecture model. A row of links
+   under the file rather than a nav of cards: the domain pane is narrow, and this is
+   one or two entries, not a list to choose from. */
+.domain-c4-views {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+/* What the reader could not be shown. Small and plain: it is a footnote under a
+   picture that rendered, not an error that stopped one. */
+.knowledge-problems {
+    margin: var(--spacing-xs) 0 0;
+    padding-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.knowledge-problems li + li {
+    margin-top: var(--spacing-2xs);
+}
+
 .knowledge-stack__nav a,
 .knowledge-stack__nav-item,
 .design-knowledge__nav-link,

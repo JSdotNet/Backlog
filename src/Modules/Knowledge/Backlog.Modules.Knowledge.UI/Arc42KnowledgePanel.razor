@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject Arc42KnowledgeStore Knowledge
+@inject IServiceProvider Services
 @inject IKnowledgeFolderSource Folders
 
 @*
@@ -43,6 +44,26 @@
     }
     else
     {
+        @* Two tabs rather than one surface, the same shape the Technology panel
+           keeps: the chapters are what this section opens with, and the C4 model is
+           a second reading of the same architecture rather than a continuation of
+           the first. It is not a chapter and it is in no chapter, so it was never
+           going to sit comfortably in the chapter list — which is where it was, and
+           why it moved.
+
+           The second tab is absent, not empty, when the feature is off or nobody has
+           written a workspace. A tab that opens onto nothing is worse than no tab. *@
+        <Tabs AriaLabel="Architecture views"
+              TestId="arc42-tabs"
+              ActiveId="@_tab"
+              ActiveIdChanged="OnTabChanged">
+
+            <TabPanel Id="@ChaptersTab"
+                      Title="Chapters"
+                      Element="section"
+                      TestId="arc42-chapters-panel"
+                      TabTestId="arc42-chapters-tab"
+                      aria-label="Architecture chapters">
         <div class="arc42-knowledge-layout">
             @if (string.IsNullOrWhiteSpace(SelectedPath))
             {
@@ -146,8 +167,77 @@
                           EditingChanged="OnEditingChangedAsync"
                           EditBodyContent="@ChapterEditor()"
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />
+
+                @* The other half of the reference, under the chapter.
+                   It is here rather than in the file view's metadata because this
+                   panel deliberately does not draw metadata fields — the note on
+                   RenderKnowledgeMetadataFields says why — so a chapter's `related`
+                   entry naming a view would otherwise be authored, honoured on the
+                   view side, and invisible on the chapter side. Drawn from the same
+                   single statement as the view's own list, read the same way. *@
+                @if (ViewsReferencedBy(_selected) is { Count: > 0 } chapterViews)
+                {
+                    <nav class="knowledge-chapters knowledge-chapters--c4" aria-label="C4 views documenting this chapter" data-testid="arc42-chapter-c4-views">
+                        @foreach (var view in chapterViews)
+                        {
+                            <div class="knowledge-chapter" data-testid="arc42-chapter-c4-view">
+                                <AppButton BaseClass="knowledge-chapter__button"
+                                           Variant="ButtonVariant.None"
+                                           title="@view.Reference"
+                                           OnClick="() => SelectView(view)">
+                                    <span class="knowledge-chapter__title">@view.Title</span>
+                                    <span class="knowledge-chapter__meta">
+                                        <StatusBadge BaseClass="knowledge-status" Kind="" Status="@ViewKindLabel(view)" />
+                                    </span>
+                                </AppButton>
+                            </div>
+                        }
+                    </nav>
+                }
             </article>
         </div>
+            </TabPanel>
+
+            @if (_c4.Workspaces.Count > 0)
+            {
+                <TabPanel Id="@C4Tab"
+                          Title="C4"
+                          Element="section"
+                          TestId="arc42-c4-panel"
+                          TabTestId="arc42-c4-tab"
+                          aria-label="C4 model">
+
+                    @* More than one workspace is possible and not expected, so the
+                       picker appears only when there is a choice to make. *@
+                    @if (_c4.Workspaces.Count > 1)
+                    {
+                        <nav class="knowledge-chapters" aria-label="C4 workspaces" data-testid="arc42-c4-workspaces">
+                            @foreach (var entry in _c4.Workspaces)
+                            {
+                                <div class="knowledge-chapter" data-testid="arc42-c4-workspace">
+                                    <AppButton BaseClass="knowledge-chapter__button"
+                                               Variant="ButtonVariant.None"
+                                               aria-current="@(ReferenceEquals(entry, Workspace) ? "page" : null)"
+                                               OnClick="() => SelectWorkspace(entry)">
+                                        <span class="knowledge-chapter__title">@entry.Name</span>
+                                    </AppButton>
+                                </div>
+                            }
+                        </nav>
+                    }
+
+                    @if (Workspace is { } workspace)
+                    {
+                        <C4Explorer Workspace="@workspace.Workspace"
+                                    Problems="@workspace.Problems"
+                                    ViewKey="@_viewKey"
+                                    ViewKeyChanged="key => _viewKey = key"
+                                    ViewFooter="@ViewReferences"
+                                    TestId="arc42-c4-explorer" />
+                    }
+                </TabPanel>
+            }
+        </Tabs>
     }
 </aside>
 
@@ -161,6 +251,35 @@
     private readonly Dictionary<string, List<MarkdownComment>> _chapterComments = new(StringComparer.OrdinalIgnoreCase);
 
     private Arc42KnowledgeCatalog? _catalog;
+
+    /// <summary>The C4 model beside these chapters. Empty and harmless when the
+    /// feature is off, which is what keeps every branch below a no-op rather than a
+    /// condition the rest of the panel has to be written around.</summary>
+    private C4Catalog _c4 = C4Catalog.Off;
+
+    /// <summary>Which tab is open. Panel state: the host's selection is a chapter
+    /// path, and which of two readings of the folder is on screen is not something a
+    /// path can say.</summary>
+    private string _tab = ChaptersTab;
+
+    /// <summary>The workspace the C4 tab is showing, when there is more than one to
+    /// choose between.</summary>
+    private C4WorkspaceEntry? _selectedWorkspace;
+
+    /// <summary>Which view the explorer has open. Held here rather than left to the
+    /// explorer so that arriving from a chapter reference, or from another section,
+    /// opens the view that was asked for.</summary>
+    private string? _viewKey;
+
+    private const string ChaptersTab = "chapters";
+    private const string C4Tab = "c4";
+
+    /// <summary>The knowledge area this panel's own chapters belong to. A reference
+    /// into another section is the host's to follow and leaves this panel's tab
+    /// alone — switching to Chapters for a `.domain` target would show the reader a
+    /// list they are about to leave.</summary>
+    private const string ChaptersArea = "arc42";
+
     private KnowledgeDocument? _selected;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
     private KnowledgeDocument? _chapterDocument;
@@ -192,9 +311,36 @@
     [Parameter]
     public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>
+    /// A C4 view to open, named by its reference.
+    /// <para>
+    /// How a reference from outside this section arrives: a <c>.domain</c> chapter
+    /// naming an arc42 C4 view has nowhere to send the reader except here, and the
+    /// host cannot select it through the knowledge menu because a view is not a file
+    /// in it. So the host names the view and this panel opens it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? SelectedC4View { get; set; }
+
+    /// <summary>
+    /// The C4 model, or nothing.
+    /// <para>
+    /// Resolved from the provider rather than injected, by the same rule the shared
+    /// diagram component already follows for Archify artifacts: a host that has not
+    /// registered it — the storybook page, a unit test rendering this panel for a
+    /// reason that has nothing to do with C4 — gets the panel as it was, rather than
+    /// an injection error for a feature it never asked about.
+    /// </para>
+    /// </summary>
+    private C4KnowledgeStore? _c4Store;
+
     protected override void OnInitialized()
     {
         Knowledge.Changed += OnKnowledgeChanged;
+
+        _c4Store = Services.GetService<C4KnowledgeStore>();
+        if (_c4Store is not null) _c4Store.Changed += OnKnowledgeChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -205,6 +351,7 @@
         }
 
         SelectRequestedDocument();
+        SelectRequestedView();
         await LoadSelectedChapterAsync();
     }
 
@@ -243,7 +390,13 @@
     private async Task RefreshAsync(string? selectedPath = null)
     {
         _catalog = await Knowledge.LoadAsync(RepositoryAlias);
+        _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
+
+        // A workspace that is gone must not stay selected. The explorer holds the view
+        // and re-resolves it against whatever loaded, so only the workspace is checked
+        // here.
+        if (_selectedWorkspace is not null && !_c4.Workspaces.Contains(_selectedWorkspace)) _selectedWorkspace = null;
         _selected = selectedPath is null
             ? _catalog.Documents.FirstOrDefault(document => document.DiagramCount > 0) ?? _catalog.Documents.FirstOrDefault()
             : _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, selectedPath))
@@ -440,8 +593,32 @@
     /// and not a move. A reference that does not resolve to a chapter in a section
     /// goes nowhere, which is what leaves a bare file path reading as the text the
     /// author wrote.</summary>
-    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference) =>
-        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+    private Task NavigateKnowledgeReferenceAsync(KnowledgeReference reference)
+    {
+        // A reference into this section's own C4 model is followed here rather than
+        // handed up. The host selects by path in the knowledge menu and a view is not
+        // a file in it, so asking the host would be asking for something it cannot
+        // do — and the reference would read as a control that goes nowhere.
+        if (_c4.Find(reference?.Raw) is { } view)
+        {
+            SelectView(view);
+            return Task.CompletedTask;
+        }
+
+        if (reference is null || KnowledgeChapterLink.From(reference) is not { } target) return Task.CompletedTask;
+
+        // A chapter reference brings the Chapters tab with it. Following one from the
+        // C4 tab otherwise opened the chapter *behind* the diagram: the host changed
+        // its selection, this panel stayed where it was, and the reader was left
+        // looking at the picture they had just navigated away from.
+        //
+        // The mirror of what SelectView does for a view, and for the same reason —
+        // the tab is part of the answer to "take me there", not a separate setting
+        // the reader is expected to change themselves.
+        if (target.AreaKey is ChaptersArea) _tab = ChaptersTab;
+
+        return OnNavigateToChapter.InvokeAsync(target);
+    }
 
     /// <summary>
     /// Into the editor, or back out of it.
@@ -541,8 +718,121 @@
         return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
     }
 
+    // ---- the C4 model beside the chapters ----------------------------------
+
+    /// <summary>The workspace the C4 tab is on: the one chosen, or the only one
+    /// there is.</summary>
+    private C4WorkspaceEntry? Workspace =>
+        _selectedWorkspace is not null && _c4.Workspaces.Contains(_selectedWorkspace)
+            ? _selectedWorkspace
+            : _c4.Workspaces.FirstOrDefault();
+
+    private void SelectWorkspace(C4WorkspaceEntry entry)
+    {
+        _selectedWorkspace = entry;
+        _viewKey = null;
+    }
+
+    private void OnTabChanged(string tab) => _tab = tab;
+
+    /// <summary>The view the host asked for, if it names one these workspaces have.
+    /// A reference that resolves to nothing leaves the panel where it was rather than
+    /// switching tabs for a view that does not exist.</summary>
+    private void SelectRequestedView()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedC4View)) return;
+        if (_c4.Find(SelectedC4View) is not { } view) return;
+
+        SelectView(view);
+    }
+
+    /// <summary>
+    /// Opening a view: the C4 tab, on that view's workspace, at that view.
+    /// <para>
+    /// Switching the tab is the point. Every way in — a chapter that lists the views
+    /// documenting it, a <c>.domain</c> chapter reaching across, the host naming one —
+    /// asks for a picture, and leaving the reader on the chapters tab with the
+    /// selection changed underneath them answers a question nobody asked.
+    /// </para>
+    /// </summary>
+    private void SelectView(C4ViewEntry view)
+    {
+        _selectedWorkspace = _c4.WorkspaceOf(view) ?? _selectedWorkspace;
+        _viewKey = view.Key;
+        _tab = C4Tab;
+    }
+
+    /// <summary>The chapters the open view documents, drawn under the diagram. Handed
+    /// to the explorer as a slot because the component library has no idea what a
+    /// knowledge chapter is, and should not learn.</summary>
+    private RenderFragment<C4View> ViewReferences => view => builder =>
+    {
+        var references = ReferencesTo(view);
+        var sequence = 0;
+
+        builder.OpenElement(sequence++, "div");
+        builder.AddAttribute(sequence++, "class", "knowledge-c4-references");
+        builder.AddAttribute(sequence++, "data-testid", "arc42-c4-view-references");
+
+        if (references.Count > 0)
+        {
+            builder.OpenComponent<MetadataReferenceList>(sequence++);
+            builder.AddAttribute(sequence++, "References", references);
+            builder.AddAttribute(sequence++, "OnNavigate", EventCallback.Factory.Create<KnowledgeReference>(this, NavigateKnowledgeReferenceAsync));
+            builder.CloseComponent();
+        }
+        else
+        {
+            builder.OpenComponent<Alert>(sequence++);
+            builder.AddAttribute(sequence++, "Message", "No chapter references this view yet. Name it in _c4/references.json to tie the two together.");
+            builder.AddAttribute(sequence++, "TestId", "arc42-c4-view-unreferenced");
+            builder.AddAttribute(sequence++, "Role", "status");
+            builder.CloseComponent();
+        }
+
+        builder.CloseElement();
+    };
+
+    /// <summary>The view kind as a reader says it: "System Context", not
+    /// "SystemContext".</summary>
+    private static string ViewKindLabel(C4ViewEntry view) => view.Kind switch
+    {
+        C4ViewKind.SystemLandscape => "System landscape",
+        C4ViewKind.SystemContext => "System context",
+        C4ViewKind.Container => "Container",
+        C4ViewKind.Component => "Component",
+        C4ViewKind.Dynamic => "Dynamic",
+        C4ViewKind.Deployment => "Deployment",
+        _ => "C4"
+    };
+
+    /// <summary>
+    /// The chapters the open view documents, as <c>_c4/references.json</c> states
+    /// them.
+    /// <para>
+    /// One authored statement, read here as written and inverted for the chapter side
+    /// — so the two directions cannot disagree, because there is only one of them on
+    /// disk. A reference may name a section and this keeps the section: it is part of
+    /// what the author wrote. Whether a given chapter counts as documented is a
+    /// question about the file, which is <c>C4ViewEntry.Documented</c>.
+    /// </para>
+    /// </summary>
+    private List<KnowledgeReference> ReferencesTo(C4View view) =>
+        [.. (Workspace?.Documents(view.Key) ?? []).Select(KnowledgeReference.Parse).OfType<KnowledgeReference>()];
+
+    /// <summary>The views that say they document this chapter — the same authored
+    /// statement as <see cref="ReferencesTo"/> reads, inverted.</summary>
+    private List<C4ViewEntry> ViewsReferencedBy(KnowledgeDocument? document) =>
+        document is null || !_c4.HasViews
+            ? []
+            : [.. _c4.Views.Where(view => view.Documented(document.Path))];
+
+    private List<C4WorkspaceProblem> ProblemsFor(C4ViewEntry view) =>
+        [.. _c4.Problems.Where(problem => string.Equals(problem.WorkspaceFile, view.WorkspaceFile, StringComparison.OrdinalIgnoreCase))];
+
     public void Dispose()
     {
         Knowledge.Changed -= OnKnowledgeChanged;
+        if (_c4Store is not null) _c4Store.Changed -= OnKnowledgeChanged;
     }
 }
