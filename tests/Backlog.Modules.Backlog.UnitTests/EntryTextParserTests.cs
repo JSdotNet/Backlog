@@ -32,6 +32,18 @@ public class EntryTextParserTests
     }
 
     [Fact]
+    public void An_empty_heading_line_reads_as_no_title_rather_than_a_literal_hash()
+    {
+        // What a brand-new, not-yet-titled entry starts as: the heading marker
+        // with nothing typed after it yet. Trimming the line loses the space
+        // that tells "# " apart from a title that is just "#", so this used to
+        // come back as the literal character rather than an empty title.
+        var parsed = EntryTextParser.Parse("# \n`task` `*medium` `!draft`\n");
+
+        Assert.Equal(string.Empty, parsed.Title);
+    }
+
+    [Fact]
     public void Reads_type_priority_and_status_from_the_meta_line()
     {
         var parsed = EntryTextParser.Parse("# Title\n`idea` `high` `ready`\n");

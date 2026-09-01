@@ -237,7 +237,15 @@ public static class EntryTextParser
         if (i < lines.Length)
         {
             var line = lines[i].Trim();
-            title = line.StartsWith("# ", StringComparison.Ordinal) ? line[2..].Trim() : line;
+
+            // "# " with nothing typed after it yet trims down to a bare "#" —
+            // still a heading marker carrying no title, not a one-character
+            // title. Read literally, this line would come out as "#", which is
+            // exactly the raw marker <see cref="EnsureTitleHeading"/> exists to
+            // hide from a reader who never chose to type it.
+            title = line.StartsWith("# ", StringComparison.Ordinal)
+                ? line[2..].Trim()
+                : line == "#" ? string.Empty : line;
             i++;
         }
 

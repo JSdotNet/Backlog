@@ -293,6 +293,16 @@
     /// this pane already holds.</summary>
     private TaskPanel? _panel;
 
+    /// <summary>The row whose title the open panel is currently drafting, and
+    /// what it currently reads — <c>null</c> together whenever nothing is being
+    /// typed. Read by <see cref="ToTaskRows"/> so the list shows the same
+    /// characters the panel does while the panel's own rename is still just a
+    /// draft, and by <see cref="HandleStateChanged"/> to drop the override the
+    /// moment it no longer belongs to whatever is now selected.</summary>
+    private EntryRow? _renamePreviewRow;
+
+    private string? _renamePreviewText;
+
     /// <summary>The detail half on its own — what a focus leaving now means,
     /// rather than the section holding both halves. Matches the <c>id</c> below.</summary>
     private const string DetailElementId = "backlog-pane-detail";
@@ -391,7 +401,17 @@
         }
     }
 
-    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
+    private void HandleStateChanged()
+    {
+        // A preview belongs to whichever row's panel raised it. The selection
+        // moving on is not that panel settling or being abandoned — neither
+        // fires while it happens — so without this check a row could still be
+        // shown someone else's half-typed title after the reader had already
+        // clicked away from it.
+        if (!ReferenceEquals(_renamePreviewRow, State.SelectedRow)) (_renamePreviewRow, _renamePreviewText) = (null, null);
+
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -478,10 +498,20 @@
     /// </summary>
     private IReadOnlyList<TaskRow> DependencyUniverse() => ToTaskRows(State.Rows);
 
+    /// <summary>What a row is called in the list, live: the open panel's draft
+    /// while that row is the one being retitled there, its saved title the rest
+    /// of the time — "Untitled" either way if that comes out blank, since a row
+    /// with nothing typed yet is the same fact whichever surface is asking.</summary>
+    private string EntryDisplayTitle(EntryRow row)
+    {
+        var title = ReferenceEquals(row, _renamePreviewRow) ? _renamePreviewText! : row.PreviewTitle;
+        return string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+    }
+
     private IReadOnlyList<TaskRow> ToTaskRows(IEnumerable<EntryRow> rows) =>
         [.. rows.Select(row => new TaskRow(
             EntryTaskId(row),
-            string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
+            EntryDisplayTitle(row),
             Done: row.PreviewStatus is EntryStatus.Done,
             InMyDay: IsInMyDay(row),
             Group: EntryGroup(row),
@@ -652,6 +682,16 @@
         if (EntryFor(rename.Id) is { } row) await State.RenameEntryAsync(row, rename.Title);
     }
 
+    /// <summary>What the panel's title field currently reads, before anything is
+    /// saved. Held only long enough for <see cref="ToTaskRows"/> to draw it on
+    /// the matching row — the panel is still the one place this is committed
+    /// from or abandoned.</summary>
+    private void OnEntryTitlePreview(EntryRow row, string? text)
+    {
+        (_renamePreviewRow, _renamePreviewText) = text is null ? (null, null) : (row, text);
+        StateHasChanged();
+    }
+
     private async Task OnEntryReorderedAsync(TaskMove move)
     {
         if (EntryFor(move.Id) is { } row && EntryFor(move.TargetId) is { } target)
@@ -797,6 +837,7 @@
                        Done="@(row.PreviewStatus is EntryStatus.Done)"
                        OnToggle="() => State.ToggleDoneAsync(row)"
                        OnRename="title => State.RenameEntryAsync(row, title)"
+                       OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
                        CopyValue="@(EntryCopyText(row) ?? DetailTitle(row))"
                        CssClass="entry-detail__panel"

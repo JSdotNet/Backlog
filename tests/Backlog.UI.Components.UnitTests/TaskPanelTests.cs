@@ -200,6 +200,74 @@ public sealed class TaskPanelTests
     }
 
     [Fact]
+    public void Typing_reports_the_draft_as_a_preview_without_renaming()
+    {
+        // OnRenamePreview is how a row elsewhere (a list this panel opened
+        // from) stays in step with a title still being typed, without any of
+        // that landing as a save — OnRename stays silent until the field
+        // settles, exactly as it always has.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var previews = new List<string?>();
+        var renames = new List<string>();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.OnRename, title => renames.Add(title))
+            .Add(t => t.OnRenamePreview, text => previews.Add(text))
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-title']").Click();
+        view.Find("[data-testid='panel-rename']").Input("Wiring it into the shell");
+
+        Assert.Equal(["Wiring it into the shell"], previews);
+        Assert.Empty(renames);
+    }
+
+    [Fact]
+    public void Settling_the_title_clears_the_preview_too()
+    {
+        // One notification either way once the field closes: whoever was
+        // mirroring the draft needs telling to go back to the real title,
+        // whether that title just changed or the field settled on nothing new.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var previews = new List<string?>();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.OnRename, _ => { })
+            .Add(t => t.OnRenamePreview, text => previews.Add(text))
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-title']").Click();
+        view.Find("[data-testid='panel-rename']").Input("Wiring it into the shell");
+        view.Find("[data-testid='panel-rename']").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Equal(["Wiring it into the shell", null], previews);
+    }
+
+    [Fact]
+    public void Escape_clears_the_preview_as_well_as_abandoning_the_rename()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var previews = new List<string?>();
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Wire the pane into the shell")
+            .Add(t => t.OnRename, _ => { })
+            .Add(t => t.OnRenamePreview, text => previews.Add(text))
+            .Add(t => t.TestId, "panel"));
+
+        view.Find("[data-testid='panel-title']").Click();
+        view.Find("[data-testid='panel-rename']").Input("Thrown away");
+        view.Find("[data-testid='panel-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(["Thrown away", null], previews);
+    }
+
+    [Fact]
     public void Escape_abandons_the_title_and_hands_the_focus_back()
     {
         // A dismissal owes its trigger the focus ring. Without it the field that
