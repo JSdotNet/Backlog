@@ -77,8 +77,11 @@
                MinRem="24">
         <Start>
             <div class="backlog-list">
-                @* Areas are local piles/tags inside the selected repository scope.
-                   Status narrows what is already in view, so it sits on the right. *@
+                @* Areas are local piles inside the selected repository scope, and tags
+                   are the second label on an entry that already has one — so the two
+                   sit together in the middle and both are built from what people
+                   typed. Status narrows what is already in view, so it sits on the
+                   right. *@
                 <div class="filter-bar">
                     @* My Day is a scope rather than one of a set, so it holds a
                        state of its own: it narrows whatever area and status have
@@ -114,6 +117,29 @@
                             </AppButton>
                         }
                     </div>
+
+                    @* Nothing at all until something in scope carries a tag: the group
+                       is built from what people typed, so a backlog with no tags has
+                       no fourth group rather than a dead "All" chip filtering nothing.
+                       Same shape as the areas beside it — one of a set, so aria-checked
+                       — because a tag narrows the same view an area does. *@
+                    @if (State.TagFilters.Count > 0)
+                    {
+                        <div class="filter-group filter-group--tags" role="radiogroup" aria-label="Filter by tag">
+                            @foreach (var tag in State.TagFilters)
+                            {
+                                <AppButton BaseClass="chip chip--filter"
+                                           Variant="ButtonVariant.None"
+                                           CssClass="@(State.SelectedTag == tag.Value ? "chip--active" : null)"
+                                           TestId="tag-filter-option"
+                                           role="radio"
+                                           aria-checked="@(State.SelectedTag == tag.Value ? "true" : "false")"
+                                           OnClick="() => State.SetTagFilter(tag.Value)">
+                                    @tag.Label<span class="chip__count">@tag.Count</span>
+                                </AppButton>
+                            }
+                        </div>
+                    }
 
                     <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
                         @foreach (var filter in State.StatusFilters)
@@ -183,6 +209,7 @@
                                   OnRename="OnEntryRenamedAsync"
                                   Reorderable="true"
                                   OnReorder="OnEntryReorderedAsync"
+                                  OnTagSelected="OnRowTagSelected"
                                   GroupCompleted="true"
                                   RowCopyValue="@EntryCopyText"
                                   RowCssClass="@RepositoryMark"
@@ -691,6 +718,28 @@
         (_renamePreviewRow, _renamePreviewText) = text is null ? (null, null) : (row, text);
         StateHasChanged();
     }
+
+    /// <summary>
+    /// A tag on a row is the way into the tag filter, and — pressed again — the way
+    /// back out of it.
+    /// <para>
+    /// The toggle is here rather than in <c>SetTagFilter</c> on purpose. The chips in
+    /// the bar are a radiogroup: one of a set is chosen, and pressing the chosen one
+    /// is not a request to choose nothing. A tag on a row is not one of a set — it is
+    /// the tag on that row — so pressing the one already being filtered by can only
+    /// mean "stop". Two surfaces, two gestures, one setter.
+    /// </para>
+    /// <para>
+    /// And it is the reason this matters at all: the tag group leaves the bar on a
+    /// narrow column, so once the list is filtered the row's own tag is the only
+    /// control still on screen that can unfilter it.
+    /// </para>
+    /// </summary>
+    private void OnRowTagSelected(string tag) =>
+        State.SetTagFilter(
+            string.Equals(State.SelectedTag, tag, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : tag);
 
     private async Task OnEntryReorderedAsync(TaskMove move)
     {

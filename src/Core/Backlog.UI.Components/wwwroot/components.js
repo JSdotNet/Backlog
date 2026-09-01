@@ -507,6 +507,10 @@
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
         '.task-item__actions, .task-item__fold, .task-item__rename,' +
+        // A tag that filters is a control, and a press on a control is a press on
+        // that control. Only the button form is named: an inert tag is text on the
+        // row like the title is, and text on the row is draggable.
+        'button.tag-chip__label,' +
         'input, textarea, select, a[href]';
 
     let taskDrag = null;

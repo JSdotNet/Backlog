@@ -197,6 +197,16 @@ public sealed class BacklogDesktopState : IDisposable
     /// space.</summary>
     public const string UnfiledArea = " unfiled";
 
+    /// <summary>The selected tag, bare and lower-cased the way
+    /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
+    /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
+    public string SelectedTag { get; private set; } = string.Empty;
+
+    /// <summary>Sentinel for "entries with no tags", on the same terms as
+    /// <see cref="UnfiledArea"/>: the parser strips the leading <c>#</c>,
+    /// lower-cases, and would never produce a leading space.</summary>
+    public const string UntaggedTag = " untagged";
+
     /// <summary>
     /// The date the My Day scope is narrowing to, or null while the scope is off.
     /// <para>
@@ -214,6 +224,19 @@ public sealed class BacklogDesktopState : IDisposable
     /// <summary>The areas actually in use, in alphabetical order. There is no
     /// fixed taxonomy: an area exists because somebody typed it.</summary>
     public List<AreaFilterOption> AreaFilters { get; private set; } = [];
+
+    /// <summary>
+    /// The tags actually in use, in alphabetical order, and empty when nothing in
+    /// scope carries one — which is what takes the whole group off the bar rather
+    /// than leaving a lone "All" chip filtering nothing.
+    /// <para>
+    /// Unlike an area, an entry has any number of tags, so a row is counted under
+    /// every tag it wears. The counts are occurrences rather than a partition; only
+    /// "All" is a row count, and it is the same pool the area and My Day chips count
+    /// against — see <see cref="ScopedRows"/>.
+    /// </para>
+    /// </summary>
+    public List<TagFilterOption> TagFilters { get; private set; } = [];
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
 
@@ -475,6 +498,15 @@ public sealed class BacklogDesktopState : IDisposable
     public void SetAreaFilter(string? area)
     {
         SelectedArea = area ?? string.Empty;
+        ApplyFilter();
+    }
+
+    /// <summary>Selects a tag, bare and lower-cased the way the parser stores one.
+    /// <see cref="UntaggedTag"/> asks for the entries with no tags; null or empty
+    /// asks for all of them.</summary>
+    public void SetTagFilter(string? tag)
+    {
+        SelectedTag = tag ?? string.Empty;
         ApplyFilter();
     }
 
@@ -1770,6 +1802,7 @@ public sealed class BacklogDesktopState : IDisposable
 
         var repositoryScopedRows = rows.ToList();
         RebuildAreaFilters(repositoryScopedRows);
+        RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
@@ -1793,6 +1826,19 @@ public sealed class BacklogDesktopState : IDisposable
         else if (SelectedArea.Length > 0)
         {
             rows = rows.Where(x => x.PreviewArea == SelectedArea);
+        }
+
+        // Tags narrow inside the area the same way status does, and compose with
+        // both. An entry wears any number of them, so this asks whether the row
+        // carries the selected one rather than whether it *is* that one — which is
+        // the whole difference between a tag and an area.
+        if (SelectedTag == UntaggedTag)
+        {
+            rows = rows.Where(x => x.PreviewTags.Count == 0);
+        }
+        else if (SelectedTag.Length > 0)
+        {
+            rows = rows.Where(x => x.PreviewTags.Contains(SelectedTag, StringComparer.OrdinalIgnoreCase));
         }
 
         // A row being written right now always stays put, even if what was just
@@ -1872,6 +1918,62 @@ public sealed class BacklogDesktopState : IDisposable
         }
     }
 
+    /// <summary>
+    /// Tags exist for the same reason areas do — somebody typed one — so the group
+    /// is rebuilt from what is in the current repository scope, and disappears
+    /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
+    /// holding one dead "All" chip would be charging every reader for a feature only
+    /// the taggers use.
+    /// <para>
+    /// Read off <c>PreviewTags</c>, which is the union of the metadata line and the
+    /// body: a <c>#tag</c> written mid-sentence is a tag the reader can see on the
+    /// row, so it is one they can filter by. Values stay bare and lower-cased the way
+    /// the parser stores them; the leading <c>#</c> is on the label only, because that
+    /// is how a tag reads everywhere else on this screen.
+    /// </para>
+    /// </summary>
+    private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
+    {
+        var used = scopedRows
+            .SelectMany(r => r.PreviewTags)
+            .Where(tag => !string.IsNullOrEmpty(tag))
+            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
+
+        if (used.Count == 0)
+        {
+            TagFilters = [];
+            SelectedTag = string.Empty;
+            return;
+        }
+
+        var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
+
+        foreach (var group in used)
+        {
+            // Counted per tag rather than per row: a row wearing two tags is under
+            // both of them, so the counts sum past the row count on purpose. Each one
+            // answers "how much is over there", which is the only question a chip is
+            // asked — see ScopedRows.
+            options.Add(new TagFilterOption($"#{group.Key}", group.Key, group.Count()));
+        }
+
+        var untagged = scopedRows.Count(r => r.PreviewTags.Count == 0);
+        if (untagged > 0)
+        {
+            options.Add(new TagFilterOption("Untagged", UntaggedTag, untagged));
+        }
+
+        TagFilters = options;
+
+        // A tag stops existing when the last entry wearing it drops it.
+        if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
+        {
+            SelectedTag = string.Empty;
+        }
+    }
+
     private static string StatusWire(EntryStatus status) => status switch
     {
         EntryStatus.Draft => "draft",
@@ -1914,6 +2016,13 @@ public sealed record StatusFilterOption(string Label, string Wire);
 /// <summary>One entry in the area filter. <see cref="Count"/> is shown so the
 /// filter doubles as a sense of where the work actually is.</summary>
 public sealed record AreaFilterOption(string Label, string Value, int Count);
+
+/// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
+/// leading <c>#</c> a tag reads with everywhere else on the screen;
+/// <paramref name="Value"/> is the bare, lower-cased tag the parser stores.
+/// <paramref name="Count"/> is an occurrence count rather than a share of the
+/// rows — see <c>BacklogDesktopState.TagFilters</c>.</summary>
+public sealed record TagFilterOption(string Label, string Value, int Count);
 
 /// <summary>One thing the app read out of an entry's meta line. <paramref
 /// name="Explicit"/> distinguishes what was actually typed from what is merely

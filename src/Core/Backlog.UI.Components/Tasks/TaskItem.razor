@@ -183,24 +183,32 @@
            on — the same facts, dropped by the choice of how to edit the title. *@
         @RenderMeta()
     }
+    else if (MetaOutside)
+    {
+        @* The metadata line leaves the button, and takes a box with it.
+
+           It has to leave: its tags are controls now, and a button inside a button
+           is not a shape the DOM has — bUnit's parser hoists the inner one, so the
+           test would stop describing the browser. Leaving the tags inert instead
+           would put the only way back to "All" behind a chip the narrow bar hides,
+           and hoisting the tags alone would split one line of metadata in two.
+
+           What it must not do is change the row. The button was a two-row grid —
+           title and status on the first, this line spanning both columns on the
+           second — and a line promoted to a sibling of it is a second item on the
+           row's own flex line, which pushed the pickers off the end and onto a
+           third line of their own. The wrapper is that grid's second row given
+           back: one flex item where the button used to be, holding the button and
+           the line under it, so the row is the same height, the line starts at the
+           same left edge, and the pickers stay where they were. *@
+        <div class="task-item__line">
+            @RenderOpen()
+            @RenderMeta()
+        </div>
+    }
     else
     {
-        @* The row's own focusable element, and so where Alt+Arrow is heard. It
-           carries an id because after a move this is a different element and the
-           focus has to be put back on the row that moved rather than on whatever
-           slid into its old place. *@
-        <button type="button"
-                class="task-item__body"
-                id="@RowElementId"
-                data-testid="@Suffix("open")"
-                @onkeydown="OnRowKeyDownAsync"
-                @onclick="() => OnSelected.InvokeAsync(Task.Id)">
-            <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
-
-            @RenderStatus()
-
-            @RenderMeta()
-        </button>
+        @RenderOpen()
     }
 
     @if (CanRename && !RenameOpen)
@@ -378,6 +386,33 @@
         }
         </text>;
 
+    /// <summary>The row's own focusable element, and so where Alt+Arrow is heard.
+    /// It carries an id because after a move this is a different element and the
+    /// focus has to be put back on the row that moved rather than on whatever slid
+    /// into its old place.
+    /// <para>
+    /// A fragment because there are two places it is drawn from — bare, and inside
+    /// the wrapper that carries a displaced metadata line — and a button written
+    /// twice is a keyboard contract written twice.
+    /// </para></summary>
+    private RenderFragment RenderOpen() =>
+        @<button type="button"
+                 class="task-item__body"
+                 id="@RowElementId"
+                 data-testid="@Suffix("open")"
+                 @onkeydown="OnRowKeyDownAsync"
+                 @onclick="() => OnSelected.InvokeAsync(Task.Id)">
+            <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
+
+            @RenderStatus()
+
+            @* Inside unless it has been moved out; see the branch that moves it. *@
+            @if (!MetaOutside)
+            {
+                @RenderMeta()
+            }
+        </button>;
+
     /// <summary>
     /// Everything the row knows about itself, in the order a reader asks for it:
     /// its place in the chain, then its own dates and tags.
@@ -416,7 +451,23 @@
 
                 @foreach (var tag in Task.TagList)
                 {
-                    <span class="tag-chip task-item__tag">#@tag</span>
+                    @* Inert unless a host is listening, which is the same rule the
+                       circle and the pencil follow: a tag that looked pressable and
+                       did nothing would be worse than one that never offered. The
+                       inert form stays the span it always was rather than a
+                       disabled control, so every list that passes no callback keeps
+                       the markup — and the pointer cursor — it had. *@
+                    @if (OnTagSelected.HasDelegate)
+                    {
+                        <TagChip Text="@($"#{tag}")"
+                                 CssClass="task-item__tag"
+                                 Label="@($"Filter by #{tag}")"
+                                 OnClick="() => OnTagSelected.InvokeAsync(tag)" />
+                    }
+                    else
+                    {
+                        <span class="tag-chip task-item__tag">#@tag</span>
+                    }
                 }
             </span>
         }
@@ -551,6 +602,26 @@
     /// <summary>Raised by the row itself — "show me this one".</summary>
     [Parameter]
     public EventCallback<string> OnSelected { get; set; }
+
+    /// <summary>
+    /// Raised when one of the row's tags is pressed, carrying the bare tag — no
+    /// leading <c>#</c>, which is drawn rather than stored.
+    /// <para>
+    /// Unset, the tags stay the plain text they have always been. A host that wants
+    /// them to lead somewhere — to a filter, usually — says so, and only then does
+    /// the row spend a tab stop per tag and move its metadata line out of the button
+    /// that opens it. What pressing one <em>means</em> is the host's: this row knows
+    /// which tag was pressed and nothing about what is on the other side of it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnTagSelected { get; set; }
+
+    /// <summary>Whether the metadata line is drawn beside the row's button rather
+    /// than inside it. True exactly when there are tags and they are controls —
+    /// nothing else needs the line moved, and a row with no tags keeps the layout
+    /// every other list has.</summary>
+    private bool MetaOutside => OnTagSelected.HasDelegate && Task.TagList.Count > 0;
 
     /// <summary>Raised when a rename settles. Without it the row offers no way
     /// in — a pencil that opened a field nobody would save is worse than none.</summary>

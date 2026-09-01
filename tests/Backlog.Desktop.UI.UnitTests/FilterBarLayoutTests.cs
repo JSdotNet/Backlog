@@ -54,9 +54,10 @@ public sealed class FilterBarLayoutTests
         Assert.DoesNotContain(".filter-group .chip", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--areas .chip:not", css, StringComparison.Ordinal);
 
-        // One step for one decision: the tightening lives lower down, where the
-        // column is nearly as narrow as the separator can drag it.
-        Assert.Equal(1, CountOccurrences(collapse, "display: none;"));
+        // One decision per group: status loses its unchosen chips, tags loses the
+        // group, and nothing else on the bar is touched at this step.
+        Assert.DoesNotContain(".filter-group--scope", collapse, StringComparison.Ordinal);
+        Assert.DoesNotContain(".filter-group--areas", collapse, StringComparison.Ordinal);
 
         var tighten = Block(css, TightenStep);
 
@@ -68,6 +69,99 @@ public sealed class FilterBarLayoutTests
         Assert.True(
             css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
             "The narrower container step must come after the wider one it overrides.");
+    }
+
+    /// <summary>
+    /// The tags group shares the middle of the bar with the areas, and yields first.
+    /// <para>
+    /// It is the one group whose length has no ceiling: an entry wears any number of
+    /// tags and every distinct one gets a chip, so left alone it would take the room
+    /// the areas need in a bar that does not wrap.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_tags_group_shares_the_middle_and_yields_before_the_areas()
+    {
+        var css = Css();
+
+        var tags = Block(css, ".filter-group--tags {");
+        var areas = Block(css, ".filter-group--areas {");
+
+        Assert.Contains("flex: 1 1 auto;", areas, StringComparison.Ordinal);
+
+        // Same grow, higher shrink: both take the leftover, tags gives it back first.
+        Assert.Contains("flex: 1 2 auto;", tags, StringComparison.Ordinal);
+
+        // And the areas are never collapsed to buy that room, at either step.
+        Assert.DoesNotContain(".filter-group--areas .chip", css, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Below 38rem the tag group leaves the bar altogether, and it is the only group
+    /// allowed to.
+    /// <para>
+    /// Every other group is the whole of its own question — there is nowhere else to
+    /// pick an area, a status or My Day, so hiding one would take the answer with it.
+    /// A tag is also on the rows, and <c>TagFilterTests</c> pins the half of this
+    /// that makes it safe: pressing a row's tag filters by it and pressing the one
+    /// already chosen clears it, so the way back does not go with the group.
+    /// </para>
+    /// <para>
+    /// The narrower step must say nothing about the group any more. A rule that
+    /// fired below a rule that had already removed its subject is the next reader's
+    /// evidence that the subject is still there.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_tag_group_is_the_one_group_that_leaves_the_bar()
+    {
+        var css = Css();
+        var collapse = Block(css, CollapseStep);
+
+        Assert.Contains(".filter-group--tags {", collapse, StringComparison.Ordinal);
+
+        Assert.DoesNotContain(".filter-group--tags", Block(css, TightenStep), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// At the same step the row's trailing cluster comes down to the one control on
+    /// it that says how far the entry has got.
+    /// <para>
+    /// The pencil, the repository picker and the copy button are all controls a
+    /// reader reached the row <em>through</em> rather than for, and all three are
+    /// still one click away inside the entry. The status is the fact a backlog is
+    /// scanned for, so it stays — as the colour that was already carrying it, in a
+    /// circle, still the same select.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rows_lose_their_cluster_but_never_their_status()
+    {
+        var collapse = Block(Css(), CollapseStep);
+
+        foreach (var hidden in new[]
+                 {
+                     ".task-item__edit",
+                     ".task-item__copy",
+                     ".entry-row__pickers .metadata-editor--repo"
+                 })
+        {
+            Assert.Contains(hidden, collapse, StringComparison.Ordinal);
+        }
+
+        // Not the status: it is narrowed to a dot, never removed.
+        var dot = collapse[collapse.IndexOf(".entry-row__pickers .badge--status {", StringComparison.Ordinal)..];
+
+        Assert.Contains("border-radius: var(--border-radius-full);", dot, StringComparison.Ordinal);
+        Assert.Contains("width: var(--spacing-md);", dot, StringComparison.Ordinal);
+
+        // The word goes, not the control — and not the words in the list it opens,
+        // which .status-editor__select option draws in full colour.
+        Assert.Contains("color: transparent;", dot, StringComparison.Ordinal);
+
+        // Tokens only: no literal length, colour or font in any of it.
+        Assert.DoesNotContain("6.5rem", collapse, StringComparison.Ordinal);
+        Assert.DoesNotContain("px;", collapse, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -143,18 +237,5 @@ public sealed class FilterBarLayoutTests
         }
 
         return css[start..];
-    }
-
-    private static int CountOccurrences(string text, string value)
-    {
-        var count = 0;
-
-        for (var index = text.IndexOf(value, StringComparison.Ordinal); index >= 0;
-             index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal))
-        {
-            count++;
-        }
-
-        return count;
     }
 }

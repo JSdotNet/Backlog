@@ -2796,6 +2796,39 @@ button.task-panel__check:focus-visible {
     padding: 0 var(--spacing-xs);
 }
 
+/*
+   A row whose tags lead somewhere draws its metadata line beside the button
+   rather than inside it, because a control cannot live in a button. This is the
+   box that makes that invisible.
+
+   It stands exactly where the button stood — the one flex item on the row that
+   gives up room, which is what `flex: 1 1 auto` and `min-width: 0` were saying
+   there — and stacks the button and the line inside itself. So the row keeps one
+   flex line, the pickers at the end of it keep their place, the metadata starts at
+   the same left edge the grid's first column gave it, and the row is the same
+   height it was.
+
+   Not `flex-wrap` on the row. That was tried and it is the wrong tool: wrapping
+   promotes the line to a row of its own, and everything after it in source order
+   — the pencil, the host's actions, the copy button — goes with it.
+
+   The gap is the button's own 2px, said in the token that is worth 2px, so the
+   line sits under the title exactly as far as it did when the grid drew it.
+*/
+.task-item__line {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The button is no longer the item that flexes — the box around it is — and a
+   grow left on it here would be a request to stretch downwards instead. */
+.task-item__line > .task-item__body {
+    flex: 0 0 auto;
+}
+
 /* --- A body under the row ------------------------------------------------ */
 /*
    Only a row that has a body wraps. flex-wrap on every row would let the copy
