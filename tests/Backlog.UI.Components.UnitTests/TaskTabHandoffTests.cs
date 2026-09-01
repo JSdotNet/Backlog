@@ -29,6 +29,7 @@ public class TaskTabHandoffTests
     public void Tab_off_the_selected_row_is_handed_to_the_host()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var handed = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -46,6 +47,7 @@ public class TaskTabHandoffTests
     public void Tab_off_any_other_row_is_left_to_the_browser()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var handed = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -67,6 +69,7 @@ public class TaskTabHandoffTests
     public void Shift_tab_off_the_selected_row_is_not_the_hand_off()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var handed = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -85,6 +88,8 @@ public class TaskTabHandoffTests
     {
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Three)
@@ -106,6 +111,8 @@ public class TaskTabHandoffTests
     {
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Three)
