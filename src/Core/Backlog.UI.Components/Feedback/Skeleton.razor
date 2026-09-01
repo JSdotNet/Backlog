@@ -1,0 +1,65 @@
+@*
+    One placeholder bar, in the shape of the thing that has not arrived yet.
+
+    A sentence saying "loading" is indistinguishable from a screen that failed to
+    draw: the reader has to decide, from a line of grey text on an otherwise empty
+    surface, whether to wait or to reach for the refresh. A block the shape of the
+    content answers that before it is read, which is why the design guidance sends
+    lists, cards, and tables here rather than to the spinner.
+
+    Deliberately a bar rather than a table or a list. What makes a placeholder
+    convincing is that it lands on the same grid as the content it stands in for,
+    and only the host knows that grid - so the host lays these out in its own row,
+    and this component owns nothing but the shape, the surface, and the pulse.
+
+    Always aria-hidden. A screenful of these is one wait, not forty announcements;
+    the host says once, in a live region of its own, what is being waited for.
+*@
+
+<span class="@ClassValue" style="@StyleValue" data-testid="@TestId" aria-hidden="true" @attributes="AdditionalAttributes"></span>
+
+@code {
+    [Parameter]
+    public SkeletonShape Shape { get; set; } = SkeletonShape.Text;
+
+    /// <summary>Any CSS width. Placeholder lines of identical length read as a
+    /// pattern rather than as text, so a host varies these across a block.</summary>
+    [Parameter]
+    public string? Width { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? BaseClass { get; set; } = "skeleton";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? ClassValue
+    {
+        get
+        {
+            var shape = Shape switch
+            {
+                SkeletonShape.Heading => "skeleton--heading",
+                SkeletonShape.Block => "skeleton--block",
+                _ => "skeleton--text"
+            };
+
+            // The shape rides with the base class rather than with the element:
+            // a host renaming the bar still wants it a line's worth of tall. A
+            // null base drops both, which is the way out for a host whose own
+            // rule sizes the element and wants none of this one's.
+            var start = string.IsNullOrWhiteSpace(BaseClass) ? null : $"{BaseClass} {shape}";
+            if (string.IsNullOrWhiteSpace(CssClass)) return start;
+
+            return start is null ? CssClass : $"{start} {CssClass}";
+        }
+    }
+
+    private string? StyleValue => string.IsNullOrWhiteSpace(Width) ? null : $"width: {Width};";
+}

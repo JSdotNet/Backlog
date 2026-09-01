@@ -4483,6 +4483,47 @@ button.tag-chip__label {
     }
 }
 
+/* --- Skeleton ------------------------------------------------------------ */
+/*
+  A bar where a piece of content is about to be. It borrows the border ramp
+  rather than a surface colour: the placeholder has to read as a hole in the
+  layout, and a filled panel-coloured block reads as content that arrived and
+  turned out to be blank.
+
+  The bars are laid out by whoever is waiting - this owns the shape only, so a
+  host can drop them into the grid its real rows already use and have the
+  placeholder land on the same columns.
+*/
+
+.skeleton {
+    display: block;
+    min-width: 1rem;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-border-strong) 40%, transparent);
+    animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+/* Sized against the type they stand in for rather than in bare pixels, so a
+   placeholder line stays a line's worth of space if the type scale moves. */
+.skeleton--text { height: var(--font-size-sm); }
+.skeleton--heading { height: var(--font-size-lg); }
+.skeleton--block { height: var(--spacing-xl); }
+
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* Unlike the spinner, this one does not get a substitute animation. A spinner
+   stopping altogether would claim the work had finished; a skeleton says the
+   same thing standing still as it does pulsing, so under reduced motion it
+   simply stops. */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton {
+        animation: none;
+    }
+}
+
 /* --- Save-state indicator: settled state --------------------------------- */
 
 .save-indicator--saved .save-indicator__dot {

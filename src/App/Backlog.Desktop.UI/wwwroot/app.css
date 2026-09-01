@@ -1,4 +1,4 @@
-/*
+﻿/*
   The design tokens live in the component library, in
   _content/Backlog.UI.Components/components.css, which every host links before
   this file. They used to be repeated here as well, identical value for
@@ -2224,6 +2224,12 @@ h1, h2, h3 {
 
 .tools-panel {
     display: grid;
+    /* start, not the grid default. The pane is as tall as the column it sits in,
+       and stretched rows put the gap between the header and everything else -
+       which, on a pane still waiting for its first read, was most of the screen
+       and read as a surface that had failed to draw rather than one still
+       loading. */
+    align-content: start;
     gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-lg);
@@ -2251,8 +2257,7 @@ h1, h2, h3 {
 .tools-panel__eyebrow,
 .tools-panel__title,
 .tools-panel__subtitle,
-.tools-panel__message,
-.tools-panel__empty {
+.tools-panel__message {
     margin: 0;
 }
 
@@ -2275,7 +2280,6 @@ h1, h2, h3 {
 .tools-panel__subtitle,
 .tools-panel__count,
 .tools-panel__message,
-.tools-panel__empty,
 .tools-table__meta {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -2305,6 +2309,22 @@ h1, h2, h3 {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
+}
+
+/* The inventory that has not arrived yet, in the shape of the one that will.
+   It wears the real .tools-kind and .tools-table classes, so everything below
+   about grid tracks, the frame, and the narrow restack applies to it unchanged
+   and there is no second layout to keep in step. */
+.tools-panel__skeleton {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* The name and its meta line, spaced as the real cell spaces them. */
+.tools-panel__skeleton .tools-table__tool {
+    display: grid;
+    gap: var(--spacing-xs);
 }
 
 /* One heading's worth of the inventory. The kind is the outer heading and the
