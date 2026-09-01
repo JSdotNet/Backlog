@@ -95,10 +95,11 @@ public static class TaskChain
     /// the cycles. Two rules decide the rest, and both of them are deliberate:
     /// </para>
     /// <para>
-    /// A dependency naming no row here leaves the task blocked, and the id is
-    /// carried through verbatim so the row can say it. Dropping an unknown id
-    /// would let a chain claim to be ready when the step it waits on is merely
-    /// missing from this view — the one failure that looks exactly like success.
+    /// A dependency naming no row in <paramref name="universe"/> leaves the task
+    /// blocked, and the id is carried through verbatim so the row can say it.
+    /// Dropping an unknown id would let a chain claim to be ready when the step
+    /// it waits on is merely missing from this view — the one failure that looks
+    /// exactly like success.
     /// </para>
     /// <para>
     /// A task marked done is done. Its outstanding dependencies are not
@@ -106,16 +107,31 @@ public static class TaskChain
     /// is something a person recorded, and a component that argued with it would
     /// be telling the reader they are wrong about their own list.
     /// </para>
+    /// <para>
+    /// <paramref name="universe"/> is where an id is looked up; <paramref
+    /// name="tasks"/> is what gets a status. The two are the same list for every
+    /// caller that predates this parameter, which is why it defaults to null and
+    /// falls back to <paramref name="tasks"/> the moment it is asked to resolve
+    /// anything — but they need not be. A host that only draws one repository's
+    /// rows still owes a reader the true state of a dependency filed under
+    /// another one, and the honest way to answer that is to look the id up
+    /// somewhere wider than what is on screen, not to call it unknown because
+    /// the view happens to be narrower than the data.
+    /// </para>
     /// </summary>
-    public static IReadOnlyList<TaskChainStatus> Resolve(IReadOnlyList<TaskRow> tasks)
+    public static IReadOnlyList<TaskChainStatus> Resolve(
+        IReadOnlyList<TaskRow> tasks,
+        IReadOnlyList<TaskRow>? universe = null)
     {
         ArgumentNullException.ThrowIfNull(tasks);
+
+        universe ??= tasks;
 
         // First row wins a duplicated id. A list with two rows under one id is
         // already broken in a way this cannot fix, and throwing would take the
         // whole view down over it.
         var byId = new Dictionary<string, TaskRow>(StringComparer.Ordinal);
-        foreach (var task in tasks) byId.TryAdd(task.Id, task);
+        foreach (var task in universe) byId.TryAdd(task.Id, task);
 
         var cycled = CycleMembers(tasks, byId);
         var statuses = new List<TaskChainStatus>(tasks.Count);

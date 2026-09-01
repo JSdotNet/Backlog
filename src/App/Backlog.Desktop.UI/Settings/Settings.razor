@@ -30,12 +30,15 @@
     written below instead.
 *@
 @namespace Backlog.Desktop.UI.Shell
+@using System.Globalization
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
 @using Backlog.Modules.Backlog.Abstractions
+@using Backlog.Modules.Backlog.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
 @inject WorkspaceSettingsStore Store
+@inject IBacklogRefreshSettings Refresh
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -489,6 +492,62 @@
                         </AppButton>
                     </div>
                 </div>
+
+                @* Point the folder above at something two machines share and the
+                   other machine's writes arrive as a changed file with nobody to
+                   announce them. This is the announcement, until the store can
+                   push one of its own. *@
+                <div class="repo-card__section" data-testid="storage-refresh-settings">
+                    <h3 class="knowledge-folders__title">Pick up changes from disk</h3>
+                    <p class="setting__note">
+                        Re-reads the backlog when the database file changes, so work done on another
+                        machine sharing this folder shows up without reopening the app. An entry open
+                        for editing is never replaced underneath you - the change lands once you are done.
+                    </p>
+
+                    <Toggle NativeCheckbox="true"
+                            BaseClass="feature-flag"
+                            TextCssClass="feature-flag__content"
+                            LabelCssClass="feature-flag__title"
+                            DescriptionCssClass="feature-flag__description"
+                            Label="Check the file for changes"
+                            Description="Turn this off if this machine is the only one writing to the folder."
+                            Checked="@Refresh.Current.PollingEnabled"
+                            CheckedChanged="SetRefreshPollingEnabled"
+                            data-testid="storage-refresh-enabled" />
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="@SettingInputClass(_refreshError)"
+                               Label="Check every (seconds)"
+                               Id="storage-refresh-interval"
+                               data-testid="storage-refresh-interval-input"
+                               Type="number"
+                               min="@BacklogRefreshSettings.MinimumPollingIntervalSeconds"
+                               step="1"
+                               autocomplete="off"
+                               aria-describedby="storage-refresh-status"
+                               Disabled="@(!Refresh.Current.PollingEnabled)"
+                               Value="@_draftRefreshInterval"
+                               ValueChanged="value => _draftRefreshInterval = value"
+                               @onchange="ApplyRefreshInterval"
+                               @onkeydown="OnRefreshIntervalKeyDown" />
+
+                    <p class="setting__status" id="storage-refresh-status" data-testid="storage-refresh-status" role="status">
+                        @if (_refreshError is not null)
+                        {
+                            <span class="setting__status--error">@_refreshError</span>
+                        }
+                        else if (!Refresh.Current.PollingEnabled)
+                        {
+                            <span>Off. The list shows what it read when you opened it.</span>
+                        }
+                        else
+                        {
+                            <span>Checking every @Refresh.Current.PollingIntervalSeconds seconds.</span>
+                        }
+                    </p>
+                </div>
             </div>
         </TabPanel>
 
@@ -838,6 +897,8 @@
     private string? _repoError;
     private string _draftStorageRepository = string.Empty;
     private string? _storageRepositoryError;
+    private string _draftRefreshInterval = string.Empty;
+    private string? _refreshError;
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private string _draftAzureFoundryEndpoint = string.Empty;
@@ -1030,6 +1091,7 @@
     {
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+        SyncRefreshDraft();
         SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
@@ -1091,6 +1153,33 @@
         if (e.Key == "Enter") ApplyStorageRepository();
         else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
     }
+
+    private void SetRefreshPollingEnabled(bool enabled)
+    {
+        _refreshError = Refresh.SetPollingEnabled(enabled);
+        SyncRefreshDraft();
+    }
+
+    /// <summary>Commits the interval the way every other field on this page
+    /// commits: on blur or Enter, with the reason it was refused in the status
+    /// line beside it and the field put back to what is actually in force.</summary>
+    private void ApplyRefreshInterval()
+    {
+        _refreshError = int.TryParse(_draftRefreshInterval, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+            ? Refresh.SetPollingIntervalSeconds(seconds)
+            : "Enter how many seconds to wait between checks.";
+
+        SyncRefreshDraft();
+    }
+
+    private void OnRefreshIntervalKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyRefreshInterval();
+        else if (e.Key == "Escape") SyncRefreshDraft();
+    }
+
+    private void SyncRefreshDraft() =>
+        _draftRefreshInterval = Refresh.Current.PollingIntervalSeconds.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>The input's classes for a field whose rejection is reported in
     /// the status line beside it rather than by the component.</summary>

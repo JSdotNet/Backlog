@@ -285,6 +285,7 @@ public sealed class TaskListTests
     {
         // Only the host knows whether the new order is saved anywhere.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         TaskMove? move = null;
 
         var view = context.Render<TaskListView>(p => p
@@ -309,6 +310,7 @@ public sealed class TaskListTests
     public void A_row_dropped_on_itself_is_a_drag_thought_better_of_not_a_move()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var raised = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -327,6 +329,7 @@ public sealed class TaskListTests
     public void A_list_that_is_not_reorderable_offers_no_grip()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = context.Render<TaskListView>(p => p.Add(l => l.Tasks, Three));
 
@@ -1186,6 +1189,7 @@ public sealed class TaskListTests
     public void An_empty_list_says_so_in_whatever_words_the_caller_chose()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Array.Empty<TaskRow>())
@@ -1201,6 +1205,7 @@ public sealed class TaskListTests
     public void An_empty_list_says_nothing_when_the_caller_left_the_words_out()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Array.Empty<TaskRow>())
@@ -1270,6 +1275,8 @@ public sealed class TaskListTests
         // only dragged would be a list some people cannot reorder at all.
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
         TaskMove? move = null;
 
         var view = context.Render<TaskListView>(p => p
@@ -1292,6 +1299,8 @@ public sealed class TaskListTests
     {
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
         TaskMove? move = null;
 
         var view = context.Render<TaskListView>(p => p
@@ -1310,6 +1319,7 @@ public sealed class TaskListTests
     {
         // Swallowing ArrowDown to reorder would take away scrolling to add moving.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var raised = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -1329,6 +1339,7 @@ public sealed class TaskListTests
         // A row at the top that jumped to the bottom on one more press would be a
         // move nobody asked for.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var raised = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -1347,6 +1358,7 @@ public sealed class TaskListTests
     {
         // Parity runs both ways: no grip, no Alt+Arrow.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var raised = 0;
 
         var view = context.Render<TaskListView>(p => p
@@ -1363,6 +1375,7 @@ public sealed class TaskListTests
     {
         // Its place in the order stopped meaning anything when it left the list.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var raised = 0;
 
         IReadOnlyList<TaskRow> tasks =
@@ -1393,6 +1406,8 @@ public sealed class TaskListTests
         // old slot. The id is the only handle that survives the re-render.
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Three)
@@ -1419,6 +1434,8 @@ public sealed class TaskListTests
         // for.
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Three)
@@ -1437,6 +1454,7 @@ public sealed class TaskListTests
         // and an id belongs to the document rather than to the component. Sharing
         // them would let a move in one list put the focus in the other.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var first = context.Render<TaskListView>(p => p.Add(l => l.Tasks, Three).Add(l => l.Reorderable, true));
         var second = context.Render<TaskListView>(p => p.Add(l => l.Tasks, Three).Add(l => l.Reorderable, true));
@@ -1454,6 +1472,8 @@ public sealed class TaskListTests
         // is no answer at all to somebody who cannot see the list.
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
 
         var view = context.Render<TaskListView>(p => p
             .Add(l => l.Tasks, Three)
@@ -1484,6 +1504,8 @@ public sealed class TaskListTests
         // would move a row past something invisible.
         using var context = new BunitContext();
         context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
         TaskMove? move = null;
 
         IReadOnlyList<TaskRow> tasks =
@@ -1721,5 +1743,78 @@ public sealed class TaskListTests
         Assert.True(state >= 0 && copy >= 0 && bin >= 0, $"Missing a control: {drawn}");
         Assert.True(state < copy, $"Copy must follow the state, but the order was: {drawn}");
         Assert.True(copy < bin, $"The bin must stay last, but the order was: {drawn}");
+    }
+
+    // --- A wider universe to resolve against --------------------------------
+
+    /// <summary>A row this list draws can wait on an id that names no row in
+    /// <c>Tasks</c> at all — a host scoping the drawn rows to one repository,
+    /// say — and still say the true thing about it, provided the host also hands
+    /// over a wider <c>Universe</c> to look the id up in.</summary>
+    [Fact]
+    public void A_dependency_outside_tasks_resolves_against_the_universe()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view", Done: true)];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        // Ready rather than blocked, because the row it named turned out to be
+        // finished — not merely absent from this narrower view.
+        Assert.Empty(view.FindAll(".task-item__detail--blocked"));
+        Assert.NotNull(view.Find("[data-testid='list-here-next']"));
+    }
+
+    /// <summary>The other half of the same proof: unfinished in the universe
+    /// still blocks, and is named by the title the universe carries for it
+    /// rather than by the bare id — the row is unknown to <c>Tasks</c>, not
+    /// unknown altogether.</summary>
+    [Fact]
+    public void An_outstanding_dependency_in_the_universe_still_blocks_and_is_named()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view, unfinished")];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
+
+        Assert.Contains("Out of view, unfinished", waiting.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Left unset, a list resolves exactly as it always did — against
+    /// the rows it was handed and nothing wider. The parameter is additive, and
+    /// every list rendered before it existed must keep reading the way it always
+    /// has.</summary>
+    [Fact]
+    public void With_no_universe_supplied_a_dependency_outside_tasks_is_unknown()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
+
+        Assert.Contains("elsewhere", waiting.TextContent, StringComparison.Ordinal);
     }
 }

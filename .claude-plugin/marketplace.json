@@ -1,0 +1,14 @@
+{
+  "name": "backlog-tools",
+  "owner": {
+    "name": "JSdotNet"
+  },
+  "plugins": [
+    {
+      "name": "backlog-tools",
+      "source": "./plugins/backlog-tools",
+      "description": "Backlog-native Claude Code skills for the Backlog product itself.",
+      "version": "0.1.0"
+    }
+  ]
+}

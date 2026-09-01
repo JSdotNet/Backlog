@@ -331,6 +331,39 @@ public sealed class EntryScheduleControlsTests
         Assert.NotNull(open);
     }
 
+    /// <summary>Each option in the open list names the repository it is filed
+    /// under, when it has one. With the repository filter showing more than one
+    /// repository at a time, two candidates that happen to share a title would
+    /// otherwise be indistinguishable in the list — the hint is what tells them
+    /// apart without adding a second control to read.</summary>
+    [Fact]
+    public async Task The_dependency_picker_names_each_options_repository()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var filed = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n\nGet a machine.\n");
+        var unfiled = await host.WriteEntryAsync("# Write the changelog\n`task`\n\nSay what shipped.\n");
+        var open = await host.WriteEntryAsync(ExpandedEntry);
+
+        var pane = host.Render();
+
+        await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-depends-select'] input").FocusAsync(new());
+
+        var options = pane.FindAll("[data-testid='entry-depends-select'] [role='option']");
+
+        var filedOption = options.Single(option => option.TextContent.Contains("Provision the box", StringComparison.Ordinal));
+        var unfiledOption = options.Single(option => option.TextContent.Contains("Write the changelog", StringComparison.Ordinal));
+
+        // Filed shows the repository it is filed under; unfiled draws no hint at
+        // all, exactly as an option looked before hints existed.
+        Assert.Equal("backlog", filedOption.QuerySelector(".tag-select__hint")?.TextContent);
+        Assert.Null(unfiledOption.QuerySelector(".tag-select__hint"));
+
+        Assert.Equal("backlog", filed.PreviewArea);
+        Assert.Null(unfiled.PreviewArea);
+        Assert.NotNull(open);
+    }
+
     /// <summary>What it is waiting for, said by title rather than by id. An entry
     /// that only reported "blocked" would leave the reader to go and find out by
     /// what.</summary>

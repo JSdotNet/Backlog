@@ -209,7 +209,16 @@
     };
 
     /*
-        Whether the focus has landed on something outside a named region.
+        Whether the focus has landed outside every one of several named regions.
+
+        Several rather than one, because "outside" is not always one element's
+        worth of DOM: a resizable split's own separator sits between its two
+        halves rather than inside either, and a reader dragging it — or tabbing
+        onto it — has not left the pane on the other side of it. The caller
+        passes every element a focus landing there should still count as staying
+        put, as CSS selectors rather than plain ids so a stable data-testid can
+        be reused instead of minting a matching id for every element this needs
+        to name.
 
         The question a `focusout` handler actually has is "did the reader leave
         this region, or only move about inside it", and Blazor's FocusEventArgs
@@ -230,14 +239,14 @@
         reader moving on, and a caller acting on it would tear down the surface
         they are in the middle of using.
     */
-    window.backlogFocusOutside = (id) => {
-        const element = document.getElementById(id);
-        if (!element) return false;
+    window.backlogFocusOutside = (...selectors) => {
+        const elements = selectors.map((selector) => document.querySelector(selector)).filter(Boolean);
+        if (elements.length === 0) return false;
 
         const focused = document.activeElement;
         if (!focused || focused === document.body || focused === document.documentElement) return false;
 
-        return !element.contains(focused);
+        return !elements.some((element) => element.contains(focused));
     };
 
     // Copying is the browser's job, and the browser is allowed to refuse: the
@@ -458,10 +467,36 @@
     // gesture: a host that had to supply this would be a host that has to know the
     // list drags at all. Capture phase, so it runs before Blazor's handler for the
     // same event.
+    //
+    // The live reorder preview (TaskListView.Preview) moves the dragged row's own
+    // DOM node mid-gesture, to the position the drop would produce — and relocating
+    // a node the browser's native drag session is still tracking is exactly the
+    // kind of mutation that can cause the eventual `dragend` to never reach that
+    // row's own @ondragend handler, even though the browser still fires the event.
+    // taskListDrag below is the fallback: a registry of each list's own .NET
+    // reference, so a dragend caught here — never dependent on Blazor's own
+    // per-row event association surviving the move — can force that specific
+    // list's drag state clear regardless.
+    const taskListRefs = new Map();
+    let draggingListRef = null;
+
+    window.taskListDrag = {
+        register(ownerId, dotNetRef) {
+            taskListRefs.set(ownerId, dotNetRef);
+        },
+        unregister(ownerId) {
+            taskListRefs.delete(ownerId);
+        }
+    };
+
     document.addEventListener(
         'dragstart',
         (event) => {
             const row = event.target instanceof Element ? event.target.closest('.task-item[draggable="true"]') : null;
+
+            const ownerId = row?.closest('[data-list-owner]')?.getAttribute('data-list-owner');
+            draggingListRef = ownerId ? taskListRefs.get(ownerId) ?? null : null;
+
             if (!row || !event.dataTransfer) return;
 
             event.dataTransfer.effectAllowed = 'move';
@@ -472,6 +507,26 @@
                 const bounds = row.getBoundingClientRect();
                 event.dataTransfer.setDragImage(row, event.clientX - bounds.left, event.clientY - bounds.top);
             }
+        },
+        true
+    );
+
+    // The guaranteed half of the fallback above: whatever list started the drag
+    // gets told it ended, once, regardless of whether its own row-level dragend
+    // binding also fired. Clearing an already-clear state is a no-op on the .NET
+    // side, so this never fights a drag that ended normally: ForceEndDrag commits
+    // through the same fields Drop does, and whichever of the two reaches the
+    // server first clears them, leaving the other nothing to act on.
+    document.addEventListener(
+        'dragend',
+        () => {
+            const ref = draggingListRef;
+            draggingListRef = null;
+
+            ref?.invokeMethodAsync('ForceEndDrag').catch(() => {
+                // The circuit can already be gone by the time this fires
+                // (navigation, disposal) — nothing left to clean up for.
+            });
         },
         true
     );

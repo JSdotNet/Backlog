@@ -1,4 +1,5 @@
 ﻿@inject IJSRuntime Js
+@implements IAsyncDisposable
 
 @*
     A list of tasks that can be reordered.
@@ -87,7 +88,7 @@
     would hear is the same broken promise as a pencil with no OnRename behind it.
 *@
 
-<ul class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel">
+<ul class="@ClassValue" data-testid="@TestId" data-list-owner="@_listId" aria-label="@AriaLabel">
     @* Nothing to list, and nothing said about it when the host has nothing to say.
        A list that draws its own add row already shows an empty list as an empty
        field, and a line above it repeating the fact is the second answer to a
@@ -238,6 +239,11 @@
     /// </summary>
     private readonly string _listId = "task-list-" + Guid.NewGuid().ToString("N");
 
+    /// <summary>This list's registration with the document-level dragend
+    /// fallback in components.js — see the comment on `taskListDrag` there for
+    /// why a row's own dragend binding cannot be trusted alone.</summary>
+    private DotNetObjectReference<TaskListView>? _dragSelf;
+
     /// <summary>The row with the editor open, while quick edit is on. Held here
     /// rather than in the row for the same reason the drag state is: the fact a
     /// Tab needs is which row comes after this one, and only the list has the
@@ -307,7 +313,7 @@
         // walk the graph and detect the cycles a second time to learn something
         // the statuses in hand already say: Resolve returns them in list order, so
         // the first Ready in this loop is the row NextReady would have returned.
-        foreach (var status in TaskChain.Resolve(Tasks))
+        foreach (var status in TaskChain.Resolve(Tasks, Universe))
         {
             statuses.TryAdd(status.Id, status);
 
@@ -356,6 +362,18 @@
 
     [Parameter, EditorRequired]
     public IReadOnlyList<TaskRow> Tasks { get; set; } = [];
+
+    /// <summary>Where a dependency id is looked up, when that is a wider list
+    /// than the rows this draws. Unset, it is <c>Tasks</c> itself — the ordinary
+    /// case, where what is on screen is everything there is to resolve against.
+    /// A host scoping the rows it draws to one repository, one filter, one page
+    /// still owes a reader the true state of a dependency that lives outside
+    /// that scope, and this is how it hands over a place to find it without
+    /// drawing it: <see cref="TaskChain.Resolve"/> reads titles and done bits
+    /// out of this list but this view never renders a row from it that is not
+    /// also in <c>Tasks</c>.</summary>
+    [Parameter]
+    public IReadOnlyList<TaskRow>? Universe { get; set; }
 
     [Parameter]
     public string? SelectedId { get; set; }
@@ -846,6 +864,19 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+        {
+            _dragSelf = DotNetObjectReference.Create(this);
+
+            try
+            {
+                await Js.InvokeVoidAsync("taskListDrag.register", _listId, _dragSelf);
+            }
+            catch (JSException)
+            {
+            }
+        }
+
         if (CanAdd && !_guardedAdd)
         {
             _guardedAdd = true;
@@ -1003,13 +1034,37 @@
         _over = null;
     }
 
+    /// <summary>The dragend fallback's entry point — see `taskListDrag` in
+    /// components.js. The live preview relocates the dragged row's own DOM node
+    /// mid-gesture, which can make the browser's native drag session lose its
+    /// association with this row's own `@ondrop`/`@ondragend` bindings entirely:
+    /// the browser still fires both events, but neither ever reaches this
+    /// component. dragend fires unconditionally regardless, so this is routed
+    /// through the same commit <see cref="Drop"/> uses rather than just the
+    /// visual clear — otherwise the preview's frozen "it moved" look would be
+    /// the only thing that ever happened, with nothing actually written back.
+    /// <para>
+    /// Safe to call whether or not the native path already ran: committing
+    /// clears the fields it read from, so whichever of the two runs second
+    /// finds nothing left to commit.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public async Task ForceEndDrag()
+    {
+        await CommitDragAsync();
+        StateHasChanged();
+    }
+
     /// <summary>
     /// Commits what the preview was already showing. The drop reports the row
     /// the pointer was last over rather than whatever it technically landed on —
     /// the reader has been looking at the answer for as long as they held the
     /// row there, and anything else would move it somewhere they had not seen.
     /// </summary>
-    private async Task Drop(string _)
+    private Task Drop(string _) => CommitDragAsync();
+
+    private async Task CommitDragAsync()
     {
         var moved = _dragging;
         var target = _over;
@@ -1108,4 +1163,21 @@
         await OnReorder.InvokeAsync(new TaskMove(task.Id, order[to].Id));
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        if (_dragSelf is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("taskListDrag.unregister", _listId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _dragSelf.Dispose();
+    }
 }

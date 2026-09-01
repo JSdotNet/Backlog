@@ -66,9 +66,16 @@ public interface ITaskItems
     /// <paramref name="defaultRepo"/> is the Import dialog's optional "Target
     /// repository" field. It is applied only to an entry whose own text names
     /// no <c>repo:</c> — an entry that already specifies one keeps it.
+    /// </para>
+    /// <para>
+    /// <paramref name="repoMatches"/> is what the reader said in the dialog about
+    /// the repository names the plan mentions: the name as written, mapped to the
+    /// alias they meant. Names they did not match are resolved against the
+    /// registry, and registered there when it has never seen them.
     /// </para></summary>
     Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,
+        IReadOnlyDictionary<string, string>? repoMatches = null,
         CancellationToken cancellationToken = default);
 }

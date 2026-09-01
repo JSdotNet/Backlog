@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 776,
-    "edges": 1563,
+    "nodes": 778,
+    "edges": 1568,
     "nodesByFolder": {
       "arc42": 84,
-      "domain": 494,
+      "domain": 495,
       "backlog": 4,
       "tech": 98,
-      "design": 96
+      "design": 97
     },
     "nodesByType": {
       "file": 125,
-      "chapter": 642,
+      "chapter": 644,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 200,
+      "active": 201,
       "proposed": 43,
-      "draft": 417,
+      "draft": 418,
       "accepted": 3,
       "deprecated": 3,
       "idea": 1,
@@ -38,8 +38,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 651,
-      "related": 768,
+      "contains": 653,
+      "related": 771,
       "depends-on": 142,
       "implements": 2
     }
@@ -2096,6 +2096,22 @@
       },
       {
         "data": {
+          "id": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "label": "Refresh from shared storage",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/backlog/features.md",
+          "slug": "refresh-from-shared-storage",
+          "level": 2,
+          "line": 501,
+          "status": "draft",
+          "related": [
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/backlog/features.md#roadmap-planning",
           "label": "Roadmap planning",
           "type": "chapter",
@@ -2103,7 +2119,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 501,
+          "line": 515,
           "status": "deprecated",
           "depends-on": [
             ".domain/backlog/features.md#refinement-and-prioritization"
@@ -2124,7 +2140,7 @@
           "path": ".domain/backlog/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 532,
+          "line": 546,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -10601,7 +10617,7 @@
           "path": ".tech/tooling.md",
           "slug": "npm",
           "level": 2,
-          "line": 120,
+          "line": 123,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#nodejs"
@@ -10617,7 +10633,7 @@
           "path": ".tech/tooling.md",
           "slug": "powershell",
           "level": 2,
-          "line": 138,
+          "line": 141,
           "status": "adopted"
         }
       },
@@ -10630,7 +10646,7 @@
           "path": ".tech/tooling.md",
           "slug": "bicep",
           "level": 2,
-          "line": 154,
+          "line": 157,
           "status": "adopted",
           "depends-on": [
             ".tech/tooling.md#azure-cli"
@@ -10649,7 +10665,7 @@
           "path": ".tech/tooling.md",
           "slug": "azure-cli",
           "level": 2,
-          "line": 170,
+          "line": 173,
           "status": "adopted",
           "related": [
             ".tech/cloud.md#azure-ai-foundry",
@@ -10666,7 +10682,7 @@
           "path": ".tech/tooling.md",
           "slug": "aspire-cli",
           "level": 2,
-          "line": 187,
+          "line": 190,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#net-aspire"
@@ -10682,7 +10698,7 @@
           "path": ".tech/tooling.md",
           "slug": "github-actions",
           "level": 2,
-          "line": 204,
+          "line": 207,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#github-platform"
@@ -10698,7 +10714,7 @@
           "path": ".tech/tooling.md",
           "slug": "codeql",
           "level": 2,
-          "line": 221,
+          "line": 224,
           "status": "adopted",
           "depends-on": [
             ".tech/tooling.md#github-actions"
@@ -10714,7 +10730,7 @@
           "path": ".tech/tooling.md",
           "slug": "dependabot",
           "level": 2,
-          "line": 235,
+          "line": 238,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#github-platform"
@@ -10733,7 +10749,7 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-meta-generator",
           "level": 2,
-          "line": 250,
+          "line": 253,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#nodejs",
@@ -10754,7 +10770,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 277,
+          "line": 280,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -10776,7 +10792,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 304,
+          "line": 307,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -10794,7 +10810,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 321,
+          "line": 324,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [
@@ -11987,6 +12003,23 @@
       },
       {
         "data": {
+          "id": ".design/interaction-guidelines.md#workspace-panes",
+          "label": "Workspace Panes",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/interaction-guidelines.md",
+          "slug": "workspace-panes",
+          "level": 2,
+          "line": 336,
+          "status": "active",
+          "related": [
+            ".design/accessibility.md#target-sizes-and-text",
+            ".design/design-principles.md#low-chrome-content-first"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".design/interaction-guidelines.md#action-density-and-overflow",
           "label": "Action Density and Overflow",
           "type": "chapter",
@@ -11994,7 +12027,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "action-density-and-overflow",
           "level": 2,
-          "line": 336,
+          "line": 361,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#density",
@@ -12012,7 +12045,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "timelines-and-roadmaps",
           "level": 2,
-          "line": 388,
+          "line": 413,
           "status": "active",
           "related": [
             ".design/color-scheme.md#chart-roles",
@@ -12030,7 +12063,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 418,
+          "line": 443,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -13078,6 +13111,14 @@
           "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#archive-and-lifecycle",
           "source": ".domain/backlog/features.md",
           "target": ".domain/backlog/features.md#archive-and-lifecycle",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/backlog/features.md->.domain/backlog/features.md#refresh-from-shared-storage",
+          "source": ".domain/backlog/features.md",
+          "target": ".domain/backlog/features.md#refresh-from-shared-storage",
           "type": "contains"
         }
       },
@@ -17347,6 +17388,14 @@
       },
       {
         "data": {
+          "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#workspace-panes",
+          "source": ".design/interaction-guidelines.md",
+          "target": ".design/interaction-guidelines.md#workspace-panes",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.design/interaction-guidelines.md->.design/interaction-guidelines.md#action-density-and-overflow",
           "source": ".design/interaction-guidelines.md",
           "target": ".design/interaction-guidelines.md#action-density-and-overflow",
@@ -19070,6 +19119,14 @@
           "id": "related:.domain/backlog/features.md#ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#ai-productivity-tracking",
           "source": ".domain/backlog/features.md#ai-assistance-over-the-visible-backlog",
           "target": ".domain/productivity/features.md#ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/backlog/features.md#refresh-from-shared-storage->.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+          "source": ".domain/backlog/features.md#refresh-from-shared-storage",
+          "target": ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
           "type": "related"
         }
       },
@@ -24646,6 +24703,22 @@
           "id": "related:.design/interaction-guidelines.md#task-rows->.design/interaction-guidelines.md#auto-save-no-save-buttons",
           "source": ".design/interaction-guidelines.md#task-rows",
           "target": ".design/interaction-guidelines.md#auto-save-no-save-buttons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#workspace-panes->.design/accessibility.md#target-sizes-and-text",
+          "source": ".design/interaction-guidelines.md#workspace-panes",
+          "target": ".design/accessibility.md#target-sizes-and-text",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.design/interaction-guidelines.md#workspace-panes->.design/design-principles.md#low-chrome-content-first",
+          "source": ".design/interaction-guidelines.md#workspace-panes",
+          "target": ".design/design-principles.md#low-chrome-content-first",
           "type": "related"
         }
       },

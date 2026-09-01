@@ -1,5 +1,6 @@
 using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Modules.Backlog.Services;
 using Backlog.SharedKernel.Handlers;
@@ -27,9 +28,19 @@ namespace Backlog.Modules.Backlog.Features.ImportPlan;
 /// field. Applied as an entry's <c>repo:</c> value only when that entry's own
 /// text names none — the per-entry token stays the power-user override this
 /// never touches. See ADR 0004's `repo:` resolution.</param>
-public sealed record ImportPlanCommand(string RawText, string? DefaultRepo = null);
+/// <param name="RepoMatches">What the reader said in the Import dialog about the
+/// repository names the plan actually mentions: the name as the plan wrote it,
+/// mapped to the alias of the known repository they meant. Only the names they
+/// matched appear here — anything they left alone is resolved, and if need be
+/// registered, the ordinary way. A person having looked at a name is the
+/// strongest signal there is about what it means, which is why this is consulted
+/// before the registry rather than after it.</param>
+public sealed record ImportPlanCommand(
+    string RawText,
+    string? DefaultRepo = null,
+    IReadOnlyDictionary<string, string>? RepoMatches = null);
 
-public sealed class ImportPlanCommandHandler(ITaskRepository entries)
+public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
     : ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>
 {
     /// <summary>Nothing in the pasted or uploaded text parsed to an entry with a
@@ -46,10 +57,17 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // One memo for the whole run, keyed on the name exactly as the plan wrote
+        // it. A plan that names the same repository in ten entries is one
+        // question about one repository, and asking the registry ten times is
+        // how an unrecognized name would get offered for registration ten times.
+        var resolvedRepos = new Dictionary<string, string>(StringComparer.Ordinal);
+
         var parsedEntries = EntryTextParser.SplitSegments(command.RawText)
             .Select(EntryTextParser.Parse)
             .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title))
             .Select(parsed => ApplyDefaultRepo(parsed, command.DefaultRepo))
+            .Select(parsed => ResolveRepos(parsed, command.RepoMatches, resolvedRepos))
             .ToList();
 
         if (parsedEntries.Count == 0) return EmptyPlan;
@@ -169,6 +187,60 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries)
         if (string.IsNullOrWhiteSpace(defaultRepo) || (parsed.RepoIds?.Count ?? 0) > 0) return parsed;
 
         return parsed with { RepoIds = [defaultRepo] };
+    }
+
+    /// <summary>
+    /// Turns the repository names an entry wrote into the aliases the workspace
+    /// actually knows, registering any it does not.
+    /// <para>
+    /// Runs over every entry, not only the ones the dialog flagged. A name that
+    /// already matches a configured repository costs one lookup and changes
+    /// nothing, which is what keeps the ordinary single-repository import exactly
+    /// as fast as it was; the interesting cases are only ever the leftovers.
+    /// </para>
+    /// <para>
+    /// Two names can resolve to one repository — "Widgets" matched to
+    /// <c>widgets</c> beside a literal <c>widgets</c> — so the result is
+    /// de-duplicated. The parser already guarantees an entry names each
+    /// repository once, and resolution should not be the step that breaks it.
+    /// </para>
+    /// </summary>
+    private EntryTextParser.ParsedEntry ResolveRepos(
+        EntryTextParser.ParsedEntry parsed,
+        IReadOnlyDictionary<string, string>? matches,
+        Dictionary<string, string> resolved)
+    {
+        if ((parsed.RepoIds?.Count ?? 0) == 0) return parsed;
+
+        return parsed with
+        {
+            RepoIds =
+            [
+                .. parsed.RepoIds!
+                    .Select(name => ResolveRepo(name, matches, resolved))
+                    .Distinct(StringComparer.Ordinal)
+            ]
+        };
+    }
+
+    /// <summary>One name, resolved once per run. The reader's own answer from the
+    /// dialog first, then the registry, and only a name neither knows is
+    /// registered — the leniency ADR 0004 grants Import and nothing else.</summary>
+    private string ResolveRepo(
+        string name,
+        IReadOnlyDictionary<string, string>? matches,
+        Dictionary<string, string> resolved)
+    {
+        if (resolved.TryGetValue(name, out var already)) return already;
+
+        var alias = matches is not null
+            && matches.TryGetValue(name, out var matched)
+            && !string.IsNullOrWhiteSpace(matched)
+                ? matched
+                : (repositories.Resolve(name) ?? repositories.Register(name)).Alias;
+
+        resolved[name] = alias;
+        return alias;
     }
 
     private enum OutcomeKind { Create, Update, Skip }
