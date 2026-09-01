@@ -54,6 +54,10 @@ public static class MauiProgram
             sp.GetRequiredService<WorkspaceSettingsStore>()));
         builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // How often the list re-reads a store somebody else may have written to.
+        // Its own per-user file beside the feature choices, for the same reason
+        // theirs is not in settings.json.
+        builder.Services.AddSingleton<IBacklogRefreshSettings, BacklogRefreshSettingsStore>();
 
         // Composition: the Backlog module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the

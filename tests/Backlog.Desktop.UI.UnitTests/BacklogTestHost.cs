@@ -68,8 +68,9 @@ internal static class BacklogTestHost
         WorkspaceSettingsStore store,
         GitHubIntegration gitHub,
         BacklogCopilotCli? copilot = null,
-        IRoadmapTagSource? roadmapTags = null) =>
-        new(BacklogStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags);
+        IRoadmapTagSource? roadmapTags = null,
+        IBacklogRefreshSettings? refreshSettings = null) =>
+        new(BacklogStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings);
 
     /// <summary>
     /// The repository directory a test host stands in with: it knows nothing and

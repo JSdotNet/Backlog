@@ -498,6 +498,20 @@ status: draft
 Move entries between active and archived states; archived entries are excluded
 from default views but always accessible and restorable.
 
+## Refresh from shared storage
+
+```meta
+type: feature
+status: draft
+related: [.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding]
+```
+
+Automatically refresh when another process or device modifies the shared backlog,
+keeping changes synchronized across machines accessing the same data. Enable or
+disable this feature and configure the refresh interval in Settings → Storage. This
+is an interim mechanism while the cloud Sync module is in development; the eventual
+architecture will use direct push updates instead.
+
 ## Roadmap planning
 
 ```meta

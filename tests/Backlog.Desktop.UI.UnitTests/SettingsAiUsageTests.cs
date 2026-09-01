@@ -2,6 +2,7 @@ using Bunit;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Backlog.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -138,6 +139,8 @@ public sealed class SettingsAiUsageTests
         var testContext = new BunitContext();
         testContext.Services.AddSingleton(store);
         testContext.Services.AddSingleton<IAppFeatureSettings>(features);
+        testContext.Services.AddSingleton<IBacklogRefreshSettings>(
+            new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);
