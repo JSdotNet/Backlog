@@ -35,6 +35,18 @@ public sealed class FileViewFileMetadataTests
         Where it runs.
         """;
 
+    /// <summary>A file whose own block states a status and nothing else — the case
+    /// that has a record to draw in the header and no rows to put under it.</summary>
+    private const string StatusOnly = """
+        # Shared Technologies
+
+        ```meta
+        status: adopted
+        ```
+
+        What the technologies are.
+        """;
+
     /// <summary>The same file without a block of its own: the first heading is a
     /// chapter, and nothing describes the whole file.</summary>
     private const string ChaptersOnly = """
@@ -154,8 +166,13 @@ public sealed class FileViewFileMetadataTests
         var identity = view.Find(".file-view__identity");
 
         Assert.Equal("shared-technologies.md", identity.QuerySelector("h3.file-view__name")!.TextContent);
-        Assert.Equal("GitHub Copilot", identity.QuerySelector("p.file-view__meta")!.TextContent);
         Assert.Empty(identity.QuerySelectorAll(".knowledge-record"));
+
+        // The details are on the header's second line rather than under the name in
+        // this column, which is what holds the header to two lines — see
+        // FileViewHeaderLayoutTests. They are still drawn, and still the pane's:
+        // what moved is which line they are on.
+        Assert.Equal("GitHub Copilot", view.Find(".file-view__summary p.file-view__meta").TextContent);
 
         // And the chapter that does state one still has it.
         Assert.Equal("trial", view.Find(".file-view__body .knowledge-record__headline .badge--status").TextContent);
@@ -174,8 +191,18 @@ public sealed class FileViewFileMetadataTests
         Assert.Empty(view.FindAll(".file-view__header dl.knowledge-fields"));
     }
 
+    /// <summary>
+    /// The fields the file states are drawn in a strip under the header, not in it.
+    ///
+    /// <para>They were in it, under the name, and they are the one part of a record
+    /// that is a row per stated field — so a file stating <c>related</c> and
+    /// <c>depends-on</c> gave the header four lines, and no amount of truncating
+    /// inside it would have helped, because the rows are the content. The strip is
+    /// where this pane already puts a band of facts about the file that is not the
+    /// file: the frontmatter sits in the same place for the same reason.</para>
+    /// </summary>
     [Fact]
-    public void The_fields_the_file_states_are_drawn_under_its_name()
+    public void The_fields_the_file_states_are_drawn_in_a_strip_under_the_header()
     {
         using var context = new BunitContext();
 
@@ -184,7 +211,29 @@ public sealed class FileViewFileMetadataTests
 
         Assert.Equal(
             ".tech/technology-graph.md",
-            view.Find(".file-view__header dl.knowledge-fields .knowledge-ref").TextContent);
+            view.Find(".file-view__record-fields dl.knowledge-fields .knowledge-ref").TextContent);
+
+        // And nowhere inside the header, which is the whole point of the move.
+        Assert.Empty(view.FindAll(".file-view__header dl.knowledge-fields"));
+
+        // The status stays in the header. It is one badge on a line that already
+        // exists, and it is the question a reader asks of a file first.
+        Assert.Equal("adopted", view.Find(".file-view__header .badge--status").TextContent);
+    }
+
+    /// <summary>The strip is not drawn at all when the record states nothing but a
+    /// status — an empty band under the header is a rule across the pane saying
+    /// nothing.</summary>
+    [Fact]
+    public void A_record_stating_only_a_status_draws_no_strip()
+    {
+        using var context = new BunitContext();
+
+        var view = Render(context, parameters => parameters
+            .Add(v => v.RenderKnowledgeMetadata, true), StatusOnly);
+
+        Assert.Equal("adopted", view.Find(".file-view__header .badge--status").TextContent);
+        Assert.Empty(view.FindAll(".file-view__record-fields"));
     }
 
     [Fact]
