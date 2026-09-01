@@ -78,12 +78,14 @@
                                the short name, the agent and scope and size as the meta
                                line, and the relative path opposite them.
 
-                               A document this may not write keeps its body and loses only
-                               the way in, and this is the one area that still has that
-                               body: the discovery record read every instruction file in
-                               the clone. So there is no BodyContent for it, and the file
-                               view reads the record's own text the way it reads any file
-                               nobody can write.
+                               Copy and the way into editing are offered here too, the
+                               same as the other four knowledge areas: one icon apiece on
+                               the file view's own header, rather than the second bar
+                               under it that this panel used to leave up — which is why
+                               the editor below is handed Bare now, the same as theirs.
+                               CanEdit follows whether discovery resolved a chapter to
+                               write; a document that did not still loses only the way
+                               in, and reads from its own text exactly as it always did.
 
                                ShowFrontmatter because this is the area whose files carry
                                one: an instruction file states what it is about and which
@@ -92,26 +94,30 @@
                                markdown they were a divider and a paragraph of
                                `key: value` above the prose.
 
-                               The source is named rather than left to default, because
-                               half the time there is no Body to default to: a chapter
-                               this may write renders through the editor below, and the
-                               text then lives on the chapter pair. Which is also the
-                               text to read it from — discovery built the list by reading
-                               every instruction file in the clone, and a file that
-                               changed after that would describe itself as it used to. *@
+                               The source is named rather than left to default, because a
+                               file's own agent and scope are the discovery record's, not
+                               something the file view could infer from its text. Body
+                               follows whichever text is current — the discovery record's
+                               for a file nobody can write, the chapter buffer for one
+                               that changed since — the same choice FrontmatterSource
+                               already made just above it. *@
                             <FileView Name="@selectedDocument.Title"
                                       Source="@selectedDocument.Agent"
                                       Kind="@selectedDocument.Scope"
                                       SizeInBytes="@selectedDocument.SizeBytes"
                                       Path="@selectedDocument.RelativePath"
-                                      Body="@(_chapter.Chapter is null ? selectedDocument.Content : null)"
+                                      Body="@(_chapter.Chapter is null ? selectedDocument.Content : _chapter.Text)"
                                       ShowFrontmatter="true"
                                       FrontmatterSource="@(_chapter.Chapter is null ? selectedDocument.Content : _chapter.Text)"
                                       Fill="true"
                                       TestId="instructions-document"
+                                      AllowCopy="true"
                                       KnowledgeDocumentPath="@DocumentPath(selectedDocument)"
                                       OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
-                                      BodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
+                                      CanEdit="@(_chapter.Chapter is not null)"
+                                      Editing="@_editing"
+                                      EditingChanged="OnEditingChangedAsync"
+                                      EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
                     </div>
                 }
@@ -126,6 +132,8 @@
     private string? _selectedDocumentPath;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
     private InstructionDocument? _chapterDocument;
+    private KnowledgeChapterEditor? _editor;
+    private bool _editing;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -221,6 +229,37 @@
     }
 
     /// <summary>
+    /// Into editing, or out of it. Not a two-way binding — the pane is what
+    /// decides whether the header's press did anything, the same reason
+    /// <see cref="FileView.EditingChanged"/> asks rather than tells everywhere
+    /// else it is offered.
+    /// <para>
+    /// Leaving flushes the editor first, the same order <see cref="OnChapterSavedAsync"/>
+    /// already keeps: the body goes to disk while the surface holding the pending
+    /// write is still on screen, and only then is the list re-read so the header
+    /// reflects whatever just landed.
+    /// </para>
+    /// </summary>
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        if (editing)
+        {
+            _editing = true;
+            return;
+        }
+
+        await FlushEditorAsync();
+        _editing = false;
+        await OnChapterSavedAsync();
+    }
+
+    /// <summary>Flushes the editing surface if there is one. Guarded on the same
+    /// condition the markup renders it on, because a captured reference outlives
+    /// the component it points at.</summary>
+    private Task FlushEditorAsync() =>
+        _editor is not null && _chapter.Chapter is not null ? _editor.FlushAsync() : Task.CompletedTask;
+
+    /// <summary>
     /// The chapter as a buffer, for the file view's body.
     /// <para>
     /// The whole file, frontmatter and all. It used to be shown with the
@@ -233,9 +272,13 @@
     /// from the text it used to have.
     /// </para>
     /// <para>
-    /// No Title is handed over. The file view's header above it names the file and
-    /// gives its path, and repeating the path on the document bar is the thing this
-    /// panel was reported for.
+    /// No Title is handed over, and Bare besides: the file view's header above it
+    /// names the file, gives its path, and now carries Copy and the way into
+    /// editing too, so a second bar repeating any of that directly under it was
+    /// the thing this panel was reported for. Fill for the bargain that opens:
+    /// the file view is given no MaxHeight and this pane scrolls on its own, so
+    /// the header's Edit button just gave the buffer the room a fixed row count
+    /// would otherwise leave half-empty.
     /// </para>
     /// <para>
     /// HideFrontmatter for the same reason the buffer keeps it: what is on screen
@@ -246,8 +289,11 @@
     /// </para>
     /// </summary>
     private RenderFragment ChapterEditor(InstructionDocument document) =>
-        @<KnowledgeChapterEditor Chapter="@_chapter.Chapter"
+        @<KnowledgeChapterEditor @ref="_editor"
+                                 Chapter="@_chapter.Chapter"
                                  InitialText="@_chapter.Text"
+                                 Bare="true"
+                                 Fill="true"
                                  HideFrontmatter="true"
                                  KnowledgeDocumentPath="@DocumentPath(document)"
                                  OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
