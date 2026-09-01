@@ -535,7 +535,7 @@
             </p>
             <FileField Label="Catalog file"
                        Accept=".json"
-                       HelpText="An ai-tools.json with a plugins, mcpServers or claude.marketplaces array."
+                       HelpText="An ai-tools.json with a plugins, mcpServers, claude.marketplaces or applications array."
                        ErrorMessage="@_importError"
                        OnTextRead="OnImportFileRead"
                        OnRejected="OnImportFileRejected"
@@ -654,9 +654,13 @@
         ? "This machine has no tool catalog. Create one, or import a catalog you already have."
         : $"Nothing has been configured on this machine yet. The catalog will be written to {_catalogPath}.";
 
+    /// <summary>Names all four kinds a catalog can hold, because this fires only
+    /// when every one of them is empty. It said "no plugins or MCP servers" while
+    /// those were the only two, and a person who had just added an applications
+    /// array read a sentence that did not mention the thing they were editing.</summary>
     private string EmptyCatalogDescription => _catalogPath.Length == 0
-        ? "The catalog is there but has no plugins or MCP servers in it yet."
-        : $"{_catalogPath} has no plugins or MCP servers in it yet.";
+        ? "The catalog is there but has no plugins, marketplaces, MCP servers or applications in it yet."
+        : $"{_catalogPath} has no plugins, marketplaces, MCP servers or applications in it yet.";
 
     private string RemoveMessage => _removing is null
         ? string.Empty

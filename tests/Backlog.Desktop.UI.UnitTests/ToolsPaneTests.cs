@@ -28,12 +28,12 @@ public sealed class ToolsPaneTests
     [Fact]
     public void No_catalog_offers_creating_one_and_names_where_it_goes()
     {
-        using var context = Context(FakeDevToolService.WithoutCatalog(@"C:\tools\copilot-tools.json"));
+        using var context = Context(FakeDevToolService.WithoutCatalog(@"C:\tools\ai-tools.json"));
 
         var pane = context.Render<ToolsPane>();
 
         var empty = pane.Find("[data-testid='tools-empty-no-catalog']");
-        Assert.Contains(@"C:\tools\copilot-tools.json", empty.TextContent, StringComparison.Ordinal);
+        Assert.Contains(@"C:\tools\ai-tools.json", empty.TextContent, StringComparison.Ordinal);
         Assert.NotNull(pane.Find("[data-testid='tools-create-catalog']"));
         Assert.NotNull(pane.Find("[data-testid='tools-import-open']"));
 
@@ -1011,7 +1011,7 @@ public sealed class ToolsPaneTests
 
         public bool CatalogExists { get; init; } = true;
 
-        public string CatalogPath { get; init; } = @"C:\tools\copilot-tools.json";
+        public string CatalogPath { get; init; } = @"C:\tools\ai-tools.json";
 
         public bool CanEdit { get; init; } = true;
 
@@ -1044,7 +1044,7 @@ public sealed class ToolsPaneTests
             return service;
         }
 
-        public static FakeDevToolService WithoutCatalog(string catalogPath = @"C:\tools\copilot-tools.json") =>
+        public static FakeDevToolService WithoutCatalog(string catalogPath = @"C:\tools\ai-tools.json") =>
             new() { CatalogExists = false, CatalogPath = catalogPath };
 
         public Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
