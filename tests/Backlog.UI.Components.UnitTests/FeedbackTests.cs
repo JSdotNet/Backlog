@@ -1,4 +1,4 @@
-namespace Backlog.UI.Components.UnitTests;
+﻿namespace Backlog.UI.Components.UnitTests;
 
 public sealed class SaveIndicatorTests
 {
@@ -38,6 +38,72 @@ public sealed class SaveIndicatorTests
 
         Assert.Equal("status", region.GetAttribute("role"));
         Assert.Equal("polite", region.GetAttribute("aria-live"));
+    }
+}
+
+public sealed class SkeletonTests
+{
+    [Theory]
+    [InlineData(SkeletonShape.Text, "skeleton--text")]
+    [InlineData(SkeletonShape.Heading, "skeleton--heading")]
+    [InlineData(SkeletonShape.Block, "skeleton--block")]
+    public void Every_shape_wears_its_own_modifier(SkeletonShape shape, string modifier)
+    {
+        using var context = new BunitContext();
+
+        var bar = context.Render<Skeleton>(parameters => parameters.Add(s => s.Shape, shape));
+
+        Assert.Contains("skeleton", bar.Find("span").ClassList);
+        Assert.Contains(modifier, bar.Find("span").ClassList);
+    }
+
+    [Fact]
+    public void A_bar_says_nothing_to_a_screen_reader()
+    {
+        // A screenful of these is one wait, not forty announcements. Whoever is
+        // waiting says so once, in a live region of its own.
+        using var context = new BunitContext();
+
+        var bar = context.Render<Skeleton>();
+
+        Assert.Equal("true", bar.Find("span").GetAttribute("aria-hidden"));
+        Assert.Equal(string.Empty, bar.Find("span").TextContent);
+    }
+
+    [Fact]
+    public void The_width_is_the_hosts_to_set_and_is_absent_until_it_does()
+    {
+        using var context = new BunitContext();
+
+        Assert.False(context.Render<Skeleton>().Find("span").HasAttribute("style"));
+
+        var sized = context.Render<Skeleton>(parameters => parameters.Add(s => s.Width, "62%"));
+
+        Assert.Contains("width: 62%", sized.Find("span").GetAttribute("style"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_host_can_name_the_bar_itself_or_take_the_styling_over_entirely()
+    {
+        using var context = new BunitContext();
+
+        // Its own name for the bar, with the shape still doing its one job.
+        var named = context.Render<Skeleton>(parameters => parameters
+            .Add(s => s.BaseClass, "tools-panel__bar")
+            .Add(s => s.Shape, SkeletonShape.Block)
+            .Add(s => s.CssClass, "is-wide"));
+
+        Assert.Contains("tools-panel__bar", named.Find("span").ClassList);
+        Assert.Contains("skeleton--block", named.Find("span").ClassList);
+        Assert.Contains("is-wide", named.Find("span").ClassList);
+
+        // Or none of it: a null base drops the library's height along with its
+        // surface, for a host whose own rule already sizes the element.
+        var bare = context.Render<Skeleton>(parameters => parameters
+            .Add(s => s.BaseClass, null)
+            .Add(s => s.CssClass, "tools-panel__bar"));
+
+        Assert.Equal(["tools-panel__bar"], bare.Find("span").ClassList);
     }
 }
 
