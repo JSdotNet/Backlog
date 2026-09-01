@@ -47,6 +47,20 @@ No file writes a block like this one; it is assembled so every shape is on scree
         </div>
     </Story>
 
+    <Story Name="The rows are a component, so the two halves can be drawn apart"
+           Description="Everything the record states except its status is `MetadataFields` — the `dl` and the rows in it. A component of its own because the two halves of a record are not always drawn in the same place.
+
+In a document they are: the status closes the heading it describes and the rows hang under it, which is what `MetadataView` composes above. The file pane cannot do that. Its header is two lines by contract, and the rows are one row per stated field — so a file stating `related` and `depends-on` gave that header four lines, and nothing in the header could truncate its way out, because the rows are the content rather than an overflow of it. So `FileHeader` draws the status in the header and hands these to a strip beneath it, the way it already treats a file&#39;s frontmatter.
+
+Nothing here knows which of the two it is in. The order of the rows and the question each one asks about emptiness are `MetadataView`&#39;s, moved rather than rewritten, so a record renders the same rows in either host — and `HasAny` is asked by the host before it commits to the element that would wrap them, because an empty `dl` is a gap with a gap&#39;s spacing around it."
+           Code="@FieldsCode">
+        <div class="sb-stack" data-testid="knowledge-base-fields">
+            <p class="sb-label">MetadataFields over the same record, with no status and no wrapper</p>
+            <MetadataFields Metadata="@EveryFieldMetadata" TestId="knowledge-base-fields-view" />
+            <p class="sb-state" data-testid="knowledge-base-fields-state">@FieldsSummary</p>
+        </div>
+    </Story>
+
     <Story Name="A field is a row, and the row is a component"
            Description="Every field above is the same three elements — a row, the field&#39;s name, and a cell holding whatever its values draw as — and only the cell differs. `MetadataField` is those three elements, and the record renders one per field it has something to say about.
 
@@ -622,6 +636,27 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// with a stand-in.</summary>
     private static readonly KnowledgeReference FieldReference =
         KnowledgeReference.Parse(".tech/technology-graph.md#nodes")!;
+
+    private static readonly string FieldsSummary =
+        $"HasAny says {MetadataFields.HasAny(EveryFieldMetadata).ToString().ToLowerInvariant()} for this record, and "
+        + $"{MetadataFields.HasAny(MetadataRecord.Empty).ToString().ToLowerInvariant()} for one that states nothing.";
+
+    private const string FieldsCode = """
+        @* The rows on their own, for a host that draws the status somewhere the
+           rows cannot follow it to. *@
+        <MetadataFields Metadata="@metadata" OnNavigate="@Navigate" HrefFor="@HrefFor" />
+
+        @* Asked before the wrapper is committed to, because a record that states
+           only a status has no rows and an empty `dl` is a gap with a gap's
+           spacing around it. Static for that reason: the answer is needed where
+           there is no component yet. *@
+        @if (MetadataFields.HasAny(metadata))
+        {
+            <div class="file-view__record-fields">
+                <MetadataFields Metadata="@metadata" />
+            </div>
+        }
+        """;
 
     private const string FieldCode = """
         <dl class="knowledge-fields">
