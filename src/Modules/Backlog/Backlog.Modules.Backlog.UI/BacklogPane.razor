@@ -167,6 +167,7 @@
                        found by touch or by keyboard. *@
                     <TaskListView @ref="_list"
                                   Tasks="@EntryTasks()"
+                                  Universe="@DependencyUniverse()"
                                   SelectedId="@SelectedTaskId"
                                   OnSelectedTabForward="MoveFocusToDetailAsync"
                                   OnSelected="OnEntrySelectedAsync"
@@ -438,8 +439,28 @@
     /// not be the one they cannot act on.
     /// </para>
     /// </summary>
-    private IReadOnlyList<TaskRow> EntryTasks() =>
-        [.. State.FilteredRows.Select(row => new TaskRow(
+    private IReadOnlyList<TaskRow> EntryTasks() => ToTaskRows(State.FilteredRows);
+
+    /// <summary>
+    /// Every entry the store holds, in the same shape <see cref="EntryTasks"/>
+    /// hands the list — passed to <c>TaskListView</c> as <c>Universe</c> rather
+    /// than <c>Tasks</c>, so it is where a dependency id is looked up without
+    /// being where a row is drawn from.
+    /// <para>
+    /// The repository filter narrows <em>which entries this pane shows</em>; it
+    /// was never meant to narrow <em>what a shown entry's dependency resolves
+    /// against</em>, and <c>TaskChain</c> could not tell the two apart when both
+    /// arrived as the one list <see cref="EntryTasks"/> builds. An entry in repo
+    /// X naming one in repo Y wants the true answer to whether Y is done, and
+    /// <see cref="State"/>'s unfiltered <c>Rows</c> is exactly that answer: every
+    /// repository, every area, every status, all at once, because a wait does
+    /// not stop being real just because the reader scoped the list away from it.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<TaskRow> DependencyUniverse() => ToTaskRows(State.Rows);
+
+    private IReadOnlyList<TaskRow> ToTaskRows(IEnumerable<EntryRow> rows) =>
+        [.. rows.Select(row => new TaskRow(
             EntryTaskId(row),
             string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
             Done: row.PreviewStatus is EntryStatus.Done,
@@ -1856,6 +1877,13 @@
     /// offering one would let a reader write down a wait that TaskChain silently
     /// drops the moment it resolves the chain — the picker would look like it
     /// worked and the list row would look like it did not.
+    /// </para>
+    /// <para>
+    /// Each option also carries its repository as a hint, when it has one. The
+    /// repository filter can put the whole list of entries from every repository
+    /// on screen at once, and once it does, a title alone can no longer tell two
+    /// candidates apart — the chip only ever shows the title, but the open list
+    /// is exactly where the aside belongs.
     /// </para></summary>
     private IReadOnlyList<SelectorOption> DependencyOptions(EntryRow row) =>
         [.. State.FilteredRows
@@ -1864,7 +1892,8 @@
                 && candidate.PreviewStatus is not EntryStatus.Done)
             .Select(candidate => new SelectorOption(
                 candidate.Id!.Value.ToString(),
-                string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle))];
+                string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
+                string.IsNullOrWhiteSpace(candidate.PreviewArea) ? null : candidate.PreviewArea))];
 
     /// <summary>What the entry is waiting for, said by title. An id naming
     /// nothing in view is shown as the id rather than dropped — it still blocks,
