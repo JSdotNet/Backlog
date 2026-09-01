@@ -1,4 +1,6 @@
+using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions.Services;
@@ -57,6 +59,12 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         services.AddSingleton(store);
         services.AddSingleton<ITaskRepository>(_ => new RootedSqliteTaskRepository(() => store.RootDirectory));
         services.AddSingleton<IRoadmapPlanRepository>(_ => new RootedJsonRoadmapPlanRepository(() => store.RootDirectory));
+        // Both hosts register the GitHub settings store and then the Backlog
+        // adapter over it, so Import can resolve a plan's `repo:` names. It is
+        // here for the same reason everything else is: a graph missing it is not
+        // the graph a host builds, and ValidateOnBuild would say so.
+        services.AddSingleton(new GitHubSettingsStore(Path.Combine(_tempDir, "github", "github.json")));
+        services.AddBacklogAdapters();
         services.AddBacklogModule();
         services.AddRoadmapModule();
         services.AddRoadmapCrossContextAdapters();

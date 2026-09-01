@@ -15,7 +15,15 @@
     already supports per-entry repo: tokens, not a second way of expressing it.
     It travels alongside the raw text rather than getting spliced into it, so
     the module decides — per entry — whether an entry's own repo: token wins.
+
+    A plan that spans repositories gets one matching row per name it mentions
+    that the workspace does not already know, so somebody can say "the plan calls
+    it Fancy Widgets, I mean widgets" before anything is created. Those picks
+    travel alongside the text too. A name left unmatched is not an error: the
+    module registers it, which is the whole point of ADR 0004's import leniency.
 *@
+
+@using System.Text.RegularExpressions
 
 <Modal Open="@Open"
        OpenChanged="OnOpenChanged"
@@ -48,11 +56,32 @@
                        TestId="import-plan-file" />
             <TextArea Label="Or paste the plan text"
                       Value="@_text"
-                      ValueChanged="value => _text = value"
+                      ValueChanged="OnTextChanged"
                       AutoGrow="false"
                       Rows="10"
                       Placeholder="@Placeholder"
                       TestId="import-plan-text" />
+            @if (Options.Count > 0 && _unmatchedRepos.Count > 0)
+            {
+                <div class="import-plan-form__repo-matches">
+                    <p class="import-plan-form__note">
+                        This plan names @(_unmatchedRepos.Count == 1 ? "a repository" : "repositories")
+                        you have not configured. Match each one to a repository you already have, or
+                        leave it and it will be registered under the name the plan gave it.
+                    </p>
+                    @for (var index = 0; index < _unmatchedRepos.Count; index++)
+                    {
+                        var name = _unmatchedRepos[index];
+                        <RepositorySelector CurrentValue="@_repoMatches.GetValueOrDefault(name)"
+                                            Options="@Options"
+                                            Label="@($"Repo '{name}'")"
+                                            IncludeEmptyOption="true"
+                                            EmptyLabel="Register as new repository"
+                                            TestId="@($"import-plan-repo-match-{index}")"
+                                            OnChanged="value => _repoMatches[name] = value" />
+                    }
+                </div>
+            }
             <Alert Message="@_error" BaseClass="import-plan-form__error" Role="alert" />
         </div>
     </ChildContent>
@@ -69,9 +98,35 @@
         "# First prompt\n`prompt` `#myplan` `id:one`\n\nDo the first thing.\n\n"
         + "# Second prompt\n`prompt` `#myplan` `id:two` `after:one`\n\nDo the second thing.\n";
 
+    /// <summary>
+    /// The `repo:` token as `.design/content-editing.md#scheduling-and-dependency-tokens`
+    /// writes it: backtick-delimited, one repository per token, no comma splitting.
+    /// <para>
+    /// A display-only scan, and deliberately not a parse. This dialog knows nothing
+    /// about EntryTextParser and is not about to learn — the module's parser and its
+    /// repository directory remain the only authority on what a repo: name resolves
+    /// to. That is what makes an imperfect scan here safe by construction: a name this
+    /// misses is still resolved and, if need be, registered by the handler, and a name
+    /// it invents produces at worst one matching row nobody has to answer.
+    /// </para>
+    /// </summary>
+    private static readonly Regex RepoTokenPattern = new("`repo:([^`\r\n]+)`", RegexOptions.Compiled);
+
     private string _text = string.Empty;
     private string? _defaultRepo;
     private string? _error;
+
+    /// <summary>The distinct repository names the pasted plan mentions that no
+    /// configured repository already answers to, in the order they first appear.
+    /// A name that already matches an alias needs no decision from anybody, so it
+    /// never becomes a row — which is what keeps the ordinary single-repository
+    /// import exactly the two fields it always was.</summary>
+    private List<string> _unmatchedRepos = [];
+
+    /// <summary>What the reader said about each of those names. A missing or empty
+    /// value means they left it alone, which is a real answer — "register it" —
+    /// rather than an unfinished one, so it is never submitted as a match.</summary>
+    private readonly Dictionary<string, string?> _repoMatches = new(StringComparer.Ordinal);
 
     [Parameter]
     public bool Open { get; set; }
@@ -110,6 +165,8 @@
         _text = string.Empty;
         _defaultRepo = null;
         _error = null;
+        _repoMatches.Clear();
+        _unmatchedRepos = [];
         Open = true;
     }
 
@@ -154,9 +211,39 @@
     {
         _text = text;
         _error = null;
+        RefreshUnmatchedRepos();
     }
 
     private void OnFileRejected(string message) => _error = message;
+
+    private void OnTextChanged(string text)
+    {
+        _text = text;
+        RefreshUnmatchedRepos();
+    }
+
+    /// <summary>Works out which repository names in the text still want an answer.
+    /// Anything that already matches a configured alias is dropped — there is
+    /// nothing to ask about a name the workspace already understands — and a pick
+    /// for a name the text no longer mentions goes with it, so editing the paste
+    /// box cannot leave a stale match to be submitted.</summary>
+    private void RefreshUnmatchedRepos()
+    {
+        _unmatchedRepos =
+        [
+            .. RepoTokenPattern.Matches(_text)
+                .Select(match => match.Groups[1].Value.Trim())
+                .Where(name => name.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(name => !Options.Any(option =>
+                    string.Equals(option.Value, name, StringComparison.OrdinalIgnoreCase)))
+        ];
+
+        foreach (var stale in _repoMatches.Keys.Where(name => !_unmatchedRepos.Contains(name, StringComparer.Ordinal)).ToList())
+        {
+            _repoMatches.Remove(stale);
+        }
+    }
 
     private async Task SubmitAsync()
     {
@@ -168,6 +255,18 @@
 
         _error = null;
         var defaultRepo = string.IsNullOrWhiteSpace(_defaultRepo) ? null : _defaultRepo.Trim();
-        await OnImport.InvokeAsync(new ImportPlanSubmission(_text, defaultRepo));
+
+        // Only the names somebody actually matched. A row left on "Register as new
+        // repository" is deliberately absent rather than present-and-empty: the
+        // module treats an unmatched name as one to resolve and, failing that,
+        // register, and an empty mapping would be this dialog claiming otherwise.
+        var matches = _repoMatches
+            .Where(match => !string.IsNullOrWhiteSpace(match.Value))
+            .ToDictionary(match => match.Key, match => match.Value!.Trim(), StringComparer.Ordinal);
+
+        await OnImport.InvokeAsync(new ImportPlanSubmission(
+            _text,
+            defaultRepo,
+            matches.Count == 0 ? null : matches));
     }
 }

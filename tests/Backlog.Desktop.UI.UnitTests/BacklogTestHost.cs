@@ -33,6 +33,7 @@ internal static class BacklogTestHost
     public static ITaskItems EntriesFor(ITaskRepository repository) =>
         new ServiceCollection()
             .AddSingleton(repository)
+            .AddSingleton<IRepositoryDirectory, NoRepositoryDirectory>()
             .AddBacklogModule()
             .BuildServiceProvider()
             .GetRequiredService<ITaskItems>();
@@ -69,4 +70,27 @@ internal static class BacklogTestHost
         BacklogCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null) =>
         new(BacklogStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags);
+
+    /// <summary>
+    /// The repository directory a test host stands in with: it knows nothing and
+    /// registers nothing.
+    /// <para>
+    /// A workspace with no configured repositories is the state these tests are
+    /// actually in — none of them wires the Repositories screen — and under it an
+    /// imported <c>repo:</c> name simply stays as written, which is what every
+    /// existing assertion about entry text expects. The real settings-backed
+    /// directory is asserted on directly in
+    /// <c>BacklogRepositoryDirectoryTests</c>, and Import's use of it in
+    /// <c>ImportPlanTests</c>; standing one up here would only put a temporary
+    /// settings file behind every unrelated pane test.
+    /// </para>
+    /// </summary>
+    private sealed class NoRepositoryDirectory : IRepositoryDirectory
+    {
+        public IReadOnlyList<BacklogRepositoryRef> Repositories => [];
+
+        public BacklogRepositoryRef? Resolve(string name) => null;
+
+        public BacklogRepositoryRef Register(string name) => new(name, name, name);
+    }
 }
