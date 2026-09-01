@@ -1,6 +1,7 @@
 ﻿using AngleSharp.Dom;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -117,6 +118,228 @@ public sealed class HomeWorkspaceSurfaceTests
                 // structural rather than a rule this test happens to check pairwise.
                 Assert.Single(component.FindAll("main"));
             });
+        }
+    }
+
+    /// <summary>
+    /// Opening a surface has to be remembered, not just shown, or the shell has
+    /// nothing to reopen on the next launch.
+    /// </summary>
+    [Fact]
+    public void Opening_a_surface_remembers_it_for_next_launch()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.Find("[data-testid='sessions-toggle-button']").Click();
+
+            component.WaitForAssertion(() => Assert.Equal("Sessions", shellNavigation.LastSurface));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Closing a surface is itself a surface choice — back to the workspace — so
+    /// it has to overwrite whatever takeover was remembered, or the shell would
+    /// reopen on a surface the reader deliberately left.
+    /// </summary>
+    [Fact]
+    public void Closing_a_surface_remembers_the_workspace_instead()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.Find("[data-testid='tools-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.Equal("Tools", shellNavigation.LastSurface));
+
+            component.Find("[data-testid='tools-toggle-button']").Click();
+
+            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The bug this pins: the shell used to always open on the workspace panes,
+    /// even when the reader had a takeover open when they last closed the app.
+    /// </summary>
+    [Fact]
+    public void The_shell_reopens_on_the_surface_that_was_last_open()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("Sessions");
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
+                Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A name the current build does not recognise — an older or newer version's
+    /// surface, or a hand-edited file — must never stop the app from opening.
+    /// </summary>
+    [Fact]
+    public void An_unrecognised_remembered_surface_falls_back_to_the_workspace()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("SomeFutureSurface");
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace']")));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Switching to a pane has to be remembered, not just shown, or a fresh shell
+    /// instance — a relaunch, or the Router rebuilding this component after a trip
+    /// to Settings — has nothing to reopen on.
+    /// </summary>
+    [Fact]
+    public void Switching_to_a_pane_remembers_it_for_next_time()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.Find("[data-testid='knowledge-pane-option']").Click();
+
+            component.WaitForAssertion(() => Assert.Equal(["Knowledge"], shellNavigation.LastEnabledPanes));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The bug this pins: navigating to Settings and back tears down and rebuilds
+    /// this component — the Router disposes it on every route change — so a fresh
+    /// <c>GlobalPaneSelection</c> field initializer used to reopen on Backlog no
+    /// matter what the reader had been looking at. A brand-new shell instance backed
+    /// by the same store is the same situation without needing an actual Settings
+    /// round trip in the test.
+    /// </summary>
+    [Fact]
+    public void A_fresh_shell_instance_reopens_on_the_pane_that_was_last_open()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastPanes(["Knowledge"], []);
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A pin is part of "what the reader had open" too: restoring the panes without
+    /// it would silently downgrade a kept-open pane back to an ordinary one.
+    /// </summary>
+    [Fact]
+    public void A_fresh_shell_instance_restores_a_pinned_pane_too()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastPanes(["Backlog", "Knowledge"], ["Backlog"]);
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+                Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A name the current build does not recognise must never stop the app from
+    /// opening, the same guarantee the surface gets.
+    /// </summary>
+    [Fact]
+    public void An_unrecognised_remembered_pane_falls_back_to_the_default()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastPanes(["SomeFuturePane"], []);
+
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
         }
     }
 
@@ -856,18 +1079,32 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 
+    private static string NewShellNavigationPath() =>
+        Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"), "shell", "shell-navigation.json");
+
+    private static void DeleteShellNavigationDirectory(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory is null) return;
+
+        try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+    }
+
     private static IRenderedComponent<Home> Render(Harness harness)
     {
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
         return harness.Context.Render<Home>();
     }
 
-    private static Harness CreateHarness(Action<AppFeatureSettingsStore>? configureFeatures = null)
+    private static Harness CreateHarness(
+        Action<AppFeatureSettingsStore>? configureFeatures = null,
+        ShellNavigationStore? shellNavigation = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+        shellNavigation ??= new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
 
         // The three surfaces under test are on; everything that would put extra
         // chrome or a network call in the way is off.
@@ -901,6 +1138,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddSingleton(shellNavigation);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));

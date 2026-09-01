@@ -58,6 +58,9 @@ public static class MauiProgram
         // Its own per-user file beside the feature choices, for the same reason
         // theirs is not in settings.json.
         builder.Services.AddSingleton<IBacklogRefreshSettings, BacklogRefreshSettingsStore>();
+        // Which surface the shell was last showing, so it reopens there instead
+        // of always defaulting to the workspace panes.
+        builder.Services.AddSingleton<ShellNavigationStore>();
 
         // Composition: the Backlog module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the
