@@ -1767,9 +1767,10 @@ public sealed class TaskListTests
             .Add(l => l.TestId, "list"));
 
         // Ready rather than blocked, because the row it named turned out to be
-        // finished — not merely absent from this narrower view.
+        // finished — not merely absent from this narrower view. The row still
+        // carries its own "next" outline; no badge names it any more.
         Assert.Empty(view.FindAll(".task-item__detail--blocked"));
-        Assert.NotNull(view.Find("[data-testid='list-here-next']"));
+        Assert.Contains("task-item--next", view.Find("[data-testid='list-here']").ClassList);
     }
 
     /// <summary>The other half of the same proof: unfinished in the universe

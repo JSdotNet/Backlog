@@ -344,8 +344,11 @@ public sealed class TaskPromptTests
     }
 
     [Fact]
-    public void One_row_carries_the_next_marker_and_only_one()
+    public void No_row_in_a_linear_chain_wears_a_next_or_ready_marker()
     {
+        // The badges that used to name the row to pick up next, and the rows
+        // merely startable, are gone: a reader is left the "waiting for"
+        // detail on what is not ready and nothing at all on what is.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -354,21 +357,13 @@ public sealed class TaskPromptTests
             .Add(l => l.GroupCompleted, false)
             .Add(l => l.TestId, "list"));
 
-        var marker = Assert.Single(view.FindAll(".task-item__next"));
-        Assert.Equal("Next", marker.TextContent.Replace("▶", string.Empty, StringComparison.Ordinal).Trim());
-        Assert.NotNull(view.Find("[data-testid='list-draft-next']"));
-
-        // A linear chain has exactly one ready row, so it wears exactly one
-        // marker and nothing else is added to it. The second marker only ever
-        // appears in a fan-out.
+        Assert.Empty(view.FindAll(".task-item__next"));
         Assert.Empty(view.FindAll(".task-item__ready"));
     }
 
     [Fact]
-    public void A_fan_out_marks_the_row_to_start_with_and_every_other_row_it_freed()
+    public void A_fan_out_wears_no_marker_on_the_row_to_start_with_or_the_rows_it_freed()
     {
-        // Marking one of three freed rows would make the unlock visible only
-        // negatively, by two waiting lines disappearing.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
@@ -377,24 +372,8 @@ public sealed class TaskPromptTests
             .Add(l => l.GroupCompleted, false)
             .Add(l => l.TestId, "list"));
 
-        var next = Assert.Single(view.FindAll(".task-item__next"));
-        Assert.Equal("Next", next.TextContent.Replace("▶", string.Empty, StringComparison.Ordinal).Trim());
-        Assert.NotNull(view.Find("[data-testid='list-summarise-next']"));
-
-        Assert.Equal(2, view.FindAll(".task-item__ready").Count);
-        Assert.NotNull(view.Find("[data-testid='list-critique-ready']"));
-        Assert.NotNull(view.Find("[data-testid='list-translate-ready']"));
-
-        // One row, one marker: the row to start with does not also say Ready.
-        Assert.Empty(view.FindAll("[data-testid='list-summarise-ready']"));
-
-        var ready = view.Find("[data-testid='list-critique-ready']");
-
-        Assert.Equal("Ready", ready.TextContent.Replace("▷", string.Empty, StringComparison.Ordinal).Trim());
-
-        // The glyph is decoration on top of a word, the same rule the rest of the
-        // line follows.
-        Assert.Equal("true", ready.QuerySelector(".task-item__glyph")!.GetAttribute("aria-hidden"));
+        Assert.Empty(view.FindAll(".task-item__next"));
+        Assert.Empty(view.FindAll(".task-item__ready"));
 
         // Nothing is waiting any more, so no row says it is.
         Assert.Empty(view.FindAll(".task-item__detail--blocked"));
