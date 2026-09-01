@@ -219,6 +219,64 @@ public sealed class ImportPlanTests
         Assert.Equal(ImportPlanCommandHandler.EmptyPlan, result.Error);
     }
 
+    /// <summary>
+    /// Two entries in one document both claiming the same <c>id:</c> is a plan
+    /// nothing can act on: an <c>after:</c> naming that id has two answers, and on
+    /// a re-import both segments resolve to the one stored entry and overwrite
+    /// each other while the count claims two updates. Refused before anything is
+    /// written, naming the id so the text can be fixed.
+    /// </summary>
+    [Fact]
+    public async Task Two_entries_claiming_the_same_id_are_a_validation_error()
+    {
+        var store = new InMemoryBacklogRepository();
+
+        var directory = new FakeRepositoryDirectory();
+
+        const string plan =
+            "# First prompt\n`prompt` `#myplan` `id:same` `repo:brand-new`\n\n"
+            + "# Second prompt\n`prompt` `#myplan` `id:same` `repo:brand-new`\n";
+
+        var result = await new ImportPlanCommandHandler(store, directory).Handle(new ImportPlanCommand(plan));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);
+        Assert.Contains("same", result.Error.Message, StringComparison.Ordinal);
+
+        // Refused before the writing pass, so the plan leaves nothing half-imported.
+        Assert.Empty(store.Entries);
+
+        // And nothing half-registered either. Registering a repository is a write
+        // to the workspace like creating an entry is, so a plan Import refuses
+        // must not leave one behind for somebody to go and delete — which it did
+        // while repository resolution ran inside the parse pipeline, ahead of
+        // this guard.
+        Assert.Empty(directory.Registered);
+    }
+
+    /// <summary>The same refusal on a re-import, where the damage would be worse:
+    /// both segments match the one stored entry, so the second would silently
+    /// overwrite what the first just wrote.</summary>
+    [Fact]
+    public async Task Two_entries_claiming_the_same_id_are_refused_on_a_reimport_too()
+    {
+        var store = new InMemoryBacklogRepository();
+
+        await Import(store, "# First prompt\n`prompt` `#myplan` `id:same`\n");
+        var before = Assert.Single(store.Entries).Value.Title;
+
+        const string plan =
+            "# Renamed once\n`prompt` `#myplan` `id:same`\n\n"
+            + "# Renamed twice\n`prompt` `#myplan` `id:same`\n";
+
+        var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
+            .Handle(new ImportPlanCommand(plan));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);
+        Assert.Equal(before, Assert.Single(store.Entries).Value.Title);
+    }
+
     /// <summary>The Import dialog's "Target repository" field fills in for an
     /// entry that names none of its own — the same mechanism `repo:` already
     /// uses, sourced from the command instead of a parsed token.</summary>

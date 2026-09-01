@@ -312,6 +312,46 @@ public class EntryTextParserTests
     }
 
     [Fact]
+    public void WithRepoIds_writes_the_repo_tokens_on_to_the_metadata_line()
+    {
+        var raw = EntryTextParser.WithRepoIds("# Deploy SpecManager\n`task` `@repos`\n", ["specmanager"]);
+
+        // The area is untouched: it is the person's own pile, and naming a
+        // repository is not a filing decision about it.
+        Assert.Equal("`task` `@repos` `repo:specmanager`", raw.Split('\n')[1]);
+    }
+
+    [Fact]
+    public void WithRepoIds_replaces_the_whole_set_rather_than_adding_to_it()
+    {
+        var raw = EntryTextParser.WithRepoIds("# Title\n`task` `repo:alpha` `repo:beta`\n", ["gamma"]);
+
+        Assert.Equal("`task` `repo:gamma`", raw.Split('\n')[1]);
+    }
+
+    [Fact]
+    public void WithRepoIds_clears_the_tokens_when_handed_nothing()
+    {
+        var raw = EntryTextParser.WithRepoIds("# Title\n`task` `@repos` `repo:alpha`\n", []);
+
+        // Clearing has to be expressible for the reason every other named token
+        // gives: an unset field carries no token rather than an empty one, so
+        // "no repository" and "no token" are the same state.
+        Assert.Equal("`task` `@repos`", raw.Split('\n')[1]);
+    }
+
+    [Fact]
+    public void WithRepoIds_keeps_every_target_it_is_handed_and_drops_the_repeats()
+    {
+        var raw = EntryTextParser.WithRepoIds("# Title\n`task`\n", ["alpha", "beta", "alpha"]);
+
+        // An entry may target more than one repository, so this writes a set
+        // rather than a value. The de-duplication matches the parser's: two
+        // mentions of one repository are one target.
+        Assert.Equal("`task` `repo:alpha` `repo:beta`", raw.Split('\n')[1]);
+    }
+
+    [Fact]
     public void Id_and_repo_round_trip_through_a_parse_write_parse()
     {
         var once = EntryTextParser.Parse(

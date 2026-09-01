@@ -1279,6 +1279,75 @@ h1, h2, h3 {
     line-height: 1;
 }
 
+/* Typing the next entry and bringing in a plan are the same act at two speeds,
+   so they sit on one line rather than stacking into two identical dashed slabs.
+   `.entry-add` is `width: 100%` because it was the only thing in the row; inside
+   the row that becomes a flex basis instead, and only the primary button grows. */
+.entry-add-row {
+    display: flex;
+    align-items: stretch;
+    gap: var(--spacing-sm);
+}
+
+.entry-add-row > .entry-add {
+    width: auto;
+    flex: 1 1 auto;
+}
+
+/* Intrinsic width and centred, because it has no plus to hang its label off and
+   a half-width dashed box with one word adrift in it reads as an empty slot. */
+.entry-add-row > .entry-add--import {
+    flex: 0 0 auto;
+    justify-content: center;
+}
+
+/* --- Import a plan --------------------------------------------------------- */
+/*
+  The Import dialog's own form, and the sentence the pane shows once the dialog
+  has closed. The dialog's refusal is not styled here: it keeps `Alert`'s own
+  `app-error-message` and takes only a layout hook, because an import that would
+  not parse is the same kind of error every other surface already shows.
+*/
+
+.import-plan-form {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.import-plan-form__note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.import-plan-form__error {
+    margin: 0;
+}
+
+/* The repository names a pasted plan mentions that the workspace does not know,
+   one row each. Its own stack rather than inheriting the form's, because it is a
+   block that appears and disappears as somebody types: nested in the grid it
+   would space its own children by nothing at all, and the rows would run
+   together under the note that introduces them. */
+.import-plan-form__repo-matches {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* A result, not an alarm: it reports what the import produced and stays until
+   dismissed, so it reads at the weight of `.setting__status` rather than
+   borrowing the error surface. */
+.import-plan-result {
+    margin: var(--spacing-md) 0 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    overflow-wrap: anywhere;
+}
+
 /* --- Settings -------------------------------------------------------------- */
 
 /* The settings screen's own container. It was 720px wide and named `--narrow`

@@ -97,6 +97,22 @@
 /* Below this the 15rem gutter costs more than the index is worth: the examples
    were being squeezed to about a hundred pixels. The sidebar becomes a band
    above the content and scrolls with the page instead of pinning itself. */
+.sb-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: baseline;
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.sb-footer__separator {
+    color: var(--color-border);
+}
+
 @media (max-width: 60rem) {
     .sb-shell {
         grid-template-columns: 1fr;

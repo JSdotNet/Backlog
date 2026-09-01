@@ -82,7 +82,10 @@
                     }
                 </div>
             }
-            <Alert Message="@_error" BaseClass="import-plan-form__error" Role="alert" />
+            @* CssClass, not BaseClass: an import that would not parse is the same
+               kind of error every other surface shows, so it keeps Alert's own
+               `app-error-message` and takes only a layout hook on top. *@
+            <Alert Message="@_error" CssClass="import-plan-form__error" Role="alert" />
         </div>
     </ChildContent>
     <Footer>

@@ -24,6 +24,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
+using Backlog.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -152,6 +153,14 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // tool service above there is nothing for a local-development variant to differ
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
+
+// Which worktree served this harness. It is only ever started from a checkout,
+// so there is nothing to gate on beyond finding one — and when it is missing the
+// header simply keeps showing the version.
+if (DevelopmentWorkspace.Current is { } workspace)
+{
+    builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
+}
 
 var app = builder.Build();
 
