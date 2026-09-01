@@ -1,4 +1,4 @@
-﻿using Backlog.Desktop.Services;
+using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.BacklogManagement;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;

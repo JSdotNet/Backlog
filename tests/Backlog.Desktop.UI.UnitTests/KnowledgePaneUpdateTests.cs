@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 

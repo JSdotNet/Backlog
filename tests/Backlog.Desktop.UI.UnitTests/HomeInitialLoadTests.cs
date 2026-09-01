@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;

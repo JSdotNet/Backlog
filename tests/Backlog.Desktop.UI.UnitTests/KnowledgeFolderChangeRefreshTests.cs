@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;

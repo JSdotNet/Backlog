@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;

@@ -1,4 +1,4 @@
-﻿/*
+/*
   The design tokens live in the component library, in
   _content/Backlog.UI.Components/components.css, which every host links before
   this file. They used to be repeated here as well, identical value for

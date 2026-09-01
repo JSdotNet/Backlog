@@ -1,4 +1,4 @@
-﻿using AngleSharp.Dom;
+using AngleSharp.Dom;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;

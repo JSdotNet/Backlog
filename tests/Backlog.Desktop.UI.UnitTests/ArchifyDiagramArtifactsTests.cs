@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;

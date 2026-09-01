@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

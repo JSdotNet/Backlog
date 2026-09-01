@@ -1,4 +1,4 @@
-﻿namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Records what a chapter file said at the moment a knowledge store went looking
