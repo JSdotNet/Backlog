@@ -528,32 +528,18 @@
         })];
 
     /// <summary>
-    /// The area, for the quiet line under the title — unless the picker at the end
-    /// of the row is already set to it.
+    /// What the row shows for its area: the area, whatever it says.
     /// <para>
-    /// An area is one field with two readings. Most of them are piles somebody
-    /// typed, and nothing else on the row says "errands", so the line has to. Some
-    /// of them name a configured repository, and then the repository picker is
-    /// showing that alias two controls to the right — a metadata line repeating it
-    /// would be the same word twice on a row whose width the title is already
-    /// competing for.
-    /// </para>
-    /// <para>
-    /// Both halves of the test are needed, because the two <c>RepositoryFor</c>s
-    /// are not the same question. <c>State</c>'s resolves the row's own area;
-    /// the pane's is what the picker is set to, which with the
-    /// additional-repositories feature off is the first configured repository no
-    /// matter what the row says. Dropping the line on the pane's answer alone would
-    /// hide "errands" behind a picker reading "backlog".
+    /// It used to be dropped whenever it named a configured repository, because the
+    /// repository picker two controls to the right was showing the same word. That
+    /// suppression went with the conflation behind it: the picker reads the entry's
+    /// <c>`repo:`</c> targets and the area is the person's own pile
+    /// (<c>.domain/backlog/naming.md#area</c>), so they are two facts and an entry
+    /// filed under a pile that happens to be spelled like a repository is saying
+    /// something the picker is not.
     /// </para>
     /// </summary>
-    private string? EntryGroup(EntryRow row) =>
-        KnowledgeRepositories.Count > 0
-        && State.RepositoryFor(row) is { } filed
-        && RepositoryFor(row) is { } shown
-        && string.Equals(filed.Alias, shown.Alias, StringComparison.Ordinal)
-            ? null
-            : row.PreviewArea;
+    private string? EntryGroup(EntryRow row) => row.PreviewArea;
 
     private EntryRow? EntryFor(string id) =>
         State.Rows.FirstOrDefault(row => string.Equals(EntryTaskId(row), id, StringComparison.Ordinal));
@@ -641,7 +627,7 @@
                 <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                     Options="@RepositoryOptions()"
                                     Label="@($"Change repository of {title}")"
-                                    TestId="row-area-badge"
+                                    TestId="row-repo-badge"
                                     OnChanged="value => OnRepositoryChangedAsync(row, value)" />
             }
 
@@ -1240,7 +1226,7 @@
                     <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"
                                         Label="Change repository"
-                                        TestId="area-badge"
+                                        TestId="repo-badge"
                                         OnChanged="value => OnRepositoryChangedAsync(row, value)" />
                 }
 
@@ -1799,7 +1785,7 @@
     }
 
     private async Task OnRepositoryChangedAsync(EntryRow row, string? repositoryAlias) =>
-        await State.ChangeAreaAsync(row, repositoryAlias);
+        await State.ChangeRepositoryAsync(row, repositoryAlias);
 
     private async Task OnStatusChangedAsync(EntryRow row, string value)
     {
@@ -1960,7 +1946,16 @@
             .Select(candidate => new SelectorOption(
                 candidate.Id!.Value.ToString(),
                 string.IsNullOrWhiteSpace(candidate.PreviewTitle) ? "Untitled" : candidate.PreviewTitle,
-                string.IsNullOrWhiteSpace(candidate.PreviewArea) ? null : candidate.PreviewArea))];
+                DependencyAside(candidate)))];
+
+    /// <summary>What tells two same-titled candidates apart: the repository, since
+    /// the repository filter is what puts entries from more than one on screen at
+    /// once. Falls back to the area for a candidate targeting nothing configured —
+    /// a pile is a weaker answer than a repository, and still a better one than
+    /// nothing.</summary>
+    private string? DependencyAside(EntryRow candidate) =>
+        State.RepositoryFor(candidate)?.Alias
+        ?? (string.IsNullOrWhiteSpace(candidate.PreviewArea) ? null : candidate.PreviewArea);
 
     /// <summary>What the entry is waiting for, said by title. An id naming
     /// nothing in view is shown as the id rather than dropped — it still blocks,

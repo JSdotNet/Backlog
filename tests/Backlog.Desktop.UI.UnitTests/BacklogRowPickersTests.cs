@@ -38,13 +38,13 @@ public class BacklogRowPickersTests
     public async Task ARowCarriesBothPickersShowingWhereTheEntryStands()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@docs` `!in-progress`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:docs` `!in-progress`\n");
 
         var pane = host.Render();
 
         // Preselected, not merely present. A picker that opens on the first option
         // is a control that misreports the row until somebody touches it.
-        Assert.Equal("docs", Picker(pane, row, "row-area-badge").GetAttribute("value"));
+        Assert.Equal("docs", Picker(pane, row, "row-repo-badge").GetAttribute("value"));
         Assert.Equal(nameof(EntryStatus.InProgress), Picker(pane, row, "row-status-badge").GetAttribute("value"));
     }
 
@@ -59,7 +59,7 @@ public class BacklogRowPickersTests
         // A column of these reads as one control repeated unless each says whose it
         // is — the same reason the row's pencil is "Rename Provision the box".
         Assert.Equal("Change status of Provision the box", Picker(pane, row, "row-status-badge").GetAttribute("aria-label"));
-        Assert.Equal("Change repository of Provision the box", Picker(pane, row, "row-area-badge").GetAttribute("aria-label"));
+        Assert.Equal("Change repository of Provision the box", Picker(pane, row, "row-repo-badge").GetAttribute("aria-label"));
     }
 
     [Fact]
@@ -99,39 +99,89 @@ public class BacklogRowPickersTests
     }
 
     [Fact]
-    public async Task ChangingARowsRepositoryFilesItThereAndRepaintsTheMark()
+    public async Task ChangingARowsRepositoryRetargetsItAndRepaintsTheMark()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
         Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@errands` `repo:backlog`\n");
 
         var pane = host.Render();
         Assert.Contains("repo-mark--1", Row(pane, row).ClassName);
 
-        await Picker(pane, row, "row-area-badge").ChangeAsync(new() { Value = "docs" });
+        await Picker(pane, row, "row-repo-badge").ChangeAsync(new() { Value = "docs" });
 
-        // Filing is an area write, exactly as it is in the panel — and the stripe is
-        // derived from the area rather than set beside it, so it follows or the two
-        // disagree about which project the row belongs to.
-        Assert.Equal("docs", row.PreviewArea);
+        // Targeting is a `repo:` write, and the stripe is derived from it rather than
+        // set beside it, so it follows or the two disagree about which project the
+        // row belongs to. The area is untouched: which pile the reader filed this
+        // under is their decision and not one the repository picker gets to make.
+        Assert.Equal(["docs"], row.PreviewRepoIds);
+        Assert.Equal("errands", row.PreviewArea);
         Assert.Contains("repo-mark--2", Row(pane, row).ClassName);
     }
 
     [Fact]
-    public async Task ARowCanBeUnfiledFromTheList()
+    public async Task ARowCanBeUntargetedFromTheList()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
 
         var pane = host.Render();
-        await Picker(pane, row, "row-area-badge").ChangeAsync(new() { Value = string.Empty });
+        await Picker(pane, row, "row-repo-badge").ChangeAsync(new() { Value = string.Empty });
 
         // The empty option is "No repo", and it has to mean it: a picker that could
         // only ever move an entry between repositories would be one that made the
-        // first filing permanent.
-        Assert.Null(row.PreviewArea);
+        // first choice permanent.
+        Assert.Empty(row.PreviewRepoIds);
         Assert.DoesNotContain("repo-mark", Row(pane, row).ClassName);
+    }
+
+    /// <summary>
+    /// The regression: every entry an Import brought in read "No repo".
+    /// <para>
+    /// A plan files its entries under a pile — <c>@repos</c> in the generator's own
+    /// grammar sample — and names the repository in <c>repo:</c>, which is what
+    /// <c>.design/content-editing.md#scheduling-and-dependency-tokens</c> says that
+    /// token is for. The picker resolved the <em>area</em> instead, found no
+    /// configured repository called "repos", and reported the entry as targeting
+    /// nothing while its stored <c>repo_ids</c> said otherwise.
+    /// </para>
+    /// <para>
+    /// Written as an entry in the shape a plan produces rather than by running
+    /// Import, because Import is not what was broken: it parses, resolves and
+    /// stores the target correctly, and any save path — a hand-typed <c>repo:</c>
+    /// included — lands the same entry here.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task AnImportedEntrySaysWhichRepositoryItsPlanNamed()
+    {
+        using var host = await BacklogPaneHost.CreateAsync("backlog-desktop = JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(
+            "# Add the command\n`prompt` `*high` `!ready` `@repos` `id:add-command` `repo:backlog-desktop`\n");
+
+        var pane = host.Render();
+
+        Assert.Equal("backlog-desktop", Picker(pane, row, "row-repo-badge").GetAttribute("value"));
+
+        // And the pile it was filed under is still the pile it was filed under.
+        Assert.Equal("repos", row.PreviewArea);
+    }
+
+    [Fact]
+    public async Task ChangingTheRepositoryLeavesASecondTargetAlone()
+    {
+        using var host = await BacklogPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "specs = JSdotNet/Specs");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog` `repo:specs`\n");
+
+        var pane = host.Render();
+        await Picker(pane, row, "row-repo-badge").ChangeAsync(new() { Value = "docs" });
+
+        // One entry may target several repositories, and this control speaks about
+        // one of them. Replacing the whole list from a single-choice picker would
+        // silently drop the second repository somebody typed.
+        Assert.Equal(["docs", "specs"], row.PreviewRepoIds);
     }
 
     [Fact]
@@ -145,7 +195,7 @@ public class BacklogRowPickersTests
         // Nothing to pick. An empty picker offering only "No repo" would be a
         // control whose one option is the state it is already in — and the pane
         // makes the same call in the panel, from the same list.
-        Assert.Null(Row(pane, row).QuerySelector("[data-testid='row-area-badge']"));
+        Assert.Null(Row(pane, row).QuerySelector("[data-testid='row-repo-badge']"));
         Assert.NotNull(Row(pane, row).QuerySelector("[data-testid='row-status-badge']"));
     }
 
@@ -228,18 +278,20 @@ public class BacklogRowPickersTests
     }
 
     [Fact]
-    public async Task TheAreaLeavesTheMetadataLineOnlyWhenThePickerIsSayingIt()
+    public async Task TheAreaStaysOnTheMetadataLineWhateverThePickerSays()
     {
         using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var filed = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var targeted = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog` `repo:backlog`\n");
         var piled = await host.WriteEntryAsync("# Buy milk\n`task` `@errands`\n");
 
         var pane = host.Render();
 
-        // An area that names a repository is what the picker beside it is set to, so
-        // the metadata line drops it. An area that names a pile is not — nothing else
-        // on the row says "errands", so the line keeps saying it.
-        Assert.Null(Row(pane, filed).QuerySelector(".task-item__meta"));
+        // The line used to be dropped whenever the area was spelled like the
+        // repository the picker was showing. It is not dropped now, because the two
+        // are different facts: the first row is filed under a pile called "backlog"
+        // *and* targets the backlog repository, and only the row's own line says the
+        // first of those.
+        Assert.Contains("backlog", Row(pane, targeted).QuerySelector(".task-item__meta")!.TextContent);
         Assert.Contains("errands", Row(pane, piled).QuerySelector(".task-item__meta")!.TextContent);
     }
 }
