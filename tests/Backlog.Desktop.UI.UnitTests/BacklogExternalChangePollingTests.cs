@@ -244,6 +244,66 @@ public sealed class BacklogExternalChangePollingTests : IDisposable
         Assert.False(state.IsPollingForExternalChanges);
     }
 
+    /// <summary>Disposing the timer only stops ticks that have not started.
+    /// A tick already on a thread pool thread when the workspace closes has to
+    /// stand down by itself, which is what the lifetime token is for.</summary>
+    [Fact]
+    public async Task A_tick_that_starts_after_disposal_reloads_nothing()
+    {
+        var root = TempRoot();
+        var tags = new CountingRoadmapTags();
+
+        var state = State(root, roadmapTags: tags);
+        await state.InitializeAsync();
+
+        var reloadsWhileAlive = tags.Calls;
+        TouchDatabase(root);
+
+        state.Dispose();
+
+        await state.CheckForExternalChangesAsync();
+
+        Assert.Equal(reloadsWhileAlive, tags.Calls);
+    }
+
+    /// <summary>
+    /// The other half of the same fact. A reload is a trip to the store, and the
+    /// workspace can close while it is in flight — so the tick asks again on the
+    /// way out rather than only on the way in.
+    /// <para>
+    /// <c>Changed</c> is what is asserted because it is the part that leaves this
+    /// class: it is how the pane is told to render, and a render into a circuit
+    /// that has been torn down is the failure this guards.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_reload_disposed_before_it_finishes_does_not_announce_itself()
+    {
+        var root = TempRoot();
+        var tags = new GatedRoadmapTags();
+
+        var state = State(root, roadmapTags: tags);
+        await state.InitializeAsync();
+
+        var changed = 0;
+        state.Changed += () => Interlocked.Increment(ref changed);
+
+        tags.Close();
+        TouchDatabase(root);
+
+        var tick = state.CheckForExternalChangesAsync();
+
+        // The tick is inside the store now, past every guard on the way in.
+        await tags.Entered;
+
+        state.Dispose();
+
+        tags.Open();
+        await tick;
+
+        Assert.Equal(0, Volatile.Read(ref changed));
+    }
+
     /// <summary>A host that wires no refresh settings has said nothing about
     /// polling, and a list that started a timer anyway would be deciding for
     /// it.</summary>

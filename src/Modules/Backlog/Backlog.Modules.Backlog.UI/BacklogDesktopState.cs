@@ -73,9 +73,11 @@ public sealed class BacklogDesktopState : IDisposable
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
     /// <summary>Cancelled when this state is disposed. Every callback it left in
-    /// flight — an elapsed debounce, a save flash — asks this before touching
-    /// anything, because by then the store it would write to and the screen it
-    /// would re-render belong to a workspace nobody is looking at.</summary>
+    /// flight — an elapsed debounce, a save flash, a poll tick — asks this before
+    /// touching anything, because by then the store it would write to and the
+    /// screen it would re-render belong to a workspace nobody is looking at. The
+    /// poll asks twice: once on the way in, and again after its reload, which is
+    /// long enough for the workspace to have closed underneath it.</summary>
     private readonly CancellationTokenSource _lifetime = new();
 
     /// <summary><see cref="_lifetime"/>'s token, taken once. A token read off a
@@ -1249,6 +1251,13 @@ public sealed class BacklogDesktopState : IDisposable
     /// </summary>
     internal async Task CheckForExternalChangesAsync()
     {
+        // Disposing the timer does not stop a tick that has already begun — the
+        // same reason the debounce and the save flash read this token rather than
+        // trusting their own disposal. By the time a tick gets here the store it
+        // would read and the screen it would re-render can already belong to a
+        // workspace nobody is looking at.
+        if (_untilDisposed.IsCancellationRequested) return;
+
         // A reload replaces every row object, and doing that under a live caret
         // would take the editor out from under whoever is typing. The timestamp
         // is deliberately not recorded here, so the very next tick after the
@@ -1274,6 +1283,12 @@ public sealed class BacklogDesktopState : IDisposable
 
             // The reload records the new baseline itself, as every reload does.
             await ReloadRowsAsync();
+
+            // Asked again on the way out. A reload is a trip to the store, and a
+            // workspace can be closed while it is in flight — raising Changed then
+            // would render rows nobody asked for into a circuit that is gone.
+            if (_untilDisposed.IsCancellationRequested) return;
+
             Changed?.Invoke();
         }
         finally
