@@ -96,7 +96,11 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
     </Story>
 
     <Story Name="TagChip"
-           Description="Removable chips actually remove: the list below is the page's state and shrinks as you dismiss them."
+           Description="Removable chips actually remove: the list below is the page's state and shrinks as you dismiss them.
+
+There are two kinds of tag and one component. The chip reads its own kind off the text it is handed — a leading `@@` means a person, anything else is a general tag — so there is no parameter to set, no second component, and every caller that already drew tags got the person variant without being edited. The sigil is drawn rather than merely implied, which makes the pill behind a person tag the *second* carrier of the distinction and never the only one.
+
+The hash is still the caller's, as it always was here: `TagChip` draws exactly the text it is given. What the row and the panel pass through first is `TagText.Display`, which adds a hash to a general tag and leaves a person tag alone — because a person tag keeps its `@@` in the stored value while a general tag is stored bare. That asymmetry is what lets every tag written before people existed keep meaning “general” with no migration behind it."
            Code="@TagCode">
         <div class="sb-stack">
             <div>
@@ -105,6 +109,15 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
                     @foreach (var tag in FixedTags)
                     {
                         <TagChip Text="@tag" />
+                    }
+                </div>
+            </div>
+            <div>
+                <p class="sb-label">General and person</p>
+                <div class="sb-row" data-testid="person-tags">
+                    @foreach (var tag in SigilTags)
+                    {
+                        <TagChip Text="@tag" TestId="@($"sigil-tag-{tag.TrimStart('@', '#')}")" />
                     }
                 </div>
             </div>
@@ -152,6 +165,11 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
     private static readonly string[] PriorityValues = ["highest", "high", "medium", "low", "lowest"];
     private static readonly string[] FeatureStatusValues = ["dev", "beta"];
     private static readonly string[] FixedTags = ["ui", "markdown", "aspire"];
+
+    /// <summary>One of each kind, written the way each is actually stored: a
+    /// person tag keeps its sigil in the value, a general tag is stored bare and
+    /// only ever wears its hash on screen.</summary>
+    private static readonly string[] SigilTags = ["#deploy", "@bob", "#release", "@carol"];
 
     private List<string> _tags = ["ui", "markdown", "sync", "aspire", "docs"];
 

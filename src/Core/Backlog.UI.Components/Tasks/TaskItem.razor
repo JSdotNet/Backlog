@@ -402,7 +402,7 @@
                  data-testid="@Suffix("open")"
                  @onkeydown="OnRowKeyDownAsync"
                  @onclick="() => OnSelected.InvokeAsync(Task.Id)">
-            <span class="task-item__title" data-testid="@Suffix("title")">@Task.Title</span>
+            <span class="task-item__title" data-testid="@Suffix("title")">@RenderTitle()</span>
 
             @RenderStatus()
 
@@ -412,6 +412,45 @@
                 @RenderMeta()
             }
         </button>;
+
+    /// <summary>
+    /// The title, with any tags typed into it drawn as chips where they stand.
+    ///
+    /// <para>
+    /// Nothing is stripped and nothing is reordered: the segments concatenate back
+    /// to the title character for character, so the accessible name of the button
+    /// is still the whole title a person typed — <c>Ship the installer @bob
+    /// #deploy</c>, sigils and all. The chips are a reading of the text, not an
+    /// edit of it.
+    /// </para>
+    ///
+    /// <para>
+    /// The chips here are always inert, even when a host is listening for tags,
+    /// and that is not a decision so much as an arithmetic: the title <em>is</em>
+    /// the button that opens the row, and a button cannot hold a button. The
+    /// pressable copy of every tag is already on the metadata line below.
+    /// </para>
+    ///
+    /// <para>
+    /// Display only. The title also feeds the rename draft, the row's aria-labels
+    /// and the copy payload, and every one of those keeps the raw string: a chip
+    /// is something a reader sees, never something an editor or the clipboard
+    /// inherits.
+    /// </para></summary>
+    private RenderFragment RenderTitle() =>
+        @<text>
+        @foreach (var segment in TagText.Segments(Task.Title))
+        {
+            if (segment.IsTag)
+            {
+                <TagChip Text="@segment.Text" CssClass="task-item__title-tag" />
+            }
+            else
+            {
+                @segment.Text
+            }
+        }
+        </text>;
 
     /// <summary>
     /// Everything the row knows about itself, in the order a reader asks for it:
@@ -453,20 +492,27 @@
                 {
                     @* Inert unless a host is listening, which is the same rule the
                        circle and the pencil follow: a tag that looked pressable and
-                       did nothing would be worse than one that never offered. The
-                       inert form stays the span it always was rather than a
-                       disabled control, so every list that passes no callback keeps
-                       the markup — and the pointer cursor — it had. *@
+                       did nothing would be worse than one that never offered. Both
+                       forms are the shared chip: the inert one renders a span
+                       rather than a disabled control, so a list that passes no
+                       callback still gets no control — but it gets it from the
+                       component rather than from a hand-rolled span wearing the
+                       component's own class. *@
+                    @* The hash is drawn, never stored — but a person tag stores its
+                       `@` and must not be given a second sigil on top of it. One
+                       helper decides, so the pressable chip, its accessible name
+                       and the inert span cannot drift into disagreeing about how a
+                       tag is spelled. *@
                     @if (OnTagSelected.HasDelegate)
                     {
-                        <TagChip Text="@($"#{tag}")"
+                        <TagChip Text="@TagText.Display(tag)"
                                  CssClass="task-item__tag"
-                                 Label="@($"Filter by #{tag}")"
+                                 Label="@TagText.FilterLabel(tag)"
                                  OnClick="() => OnTagSelected.InvokeAsync(tag)" />
                     }
                     else
                     {
-                        <span class="tag-chip task-item__tag">#@tag</span>
+                        <TagChip Text="@TagText.Display(tag)" CssClass="task-item__tag" />
                     }
                 }
             </span>

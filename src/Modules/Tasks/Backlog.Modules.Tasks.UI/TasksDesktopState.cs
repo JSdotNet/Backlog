@@ -7,6 +7,7 @@ using Backlog.SharedKernel.Results;
 
 using System.Globalization;
 
+using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Tasks;
@@ -2054,11 +2055,17 @@ public sealed class TasksDesktopState : IDisposable
     /// holding one dead "All" chip would be charging every reader for a feature only
     /// the taggers use.
     /// <para>
-    /// Read off <c>PreviewTags</c>, which is the union of the metadata line and the
-    /// body: a <c>#tag</c> written mid-sentence is a tag the reader can see on the
-    /// row, so it is one they can filter by. Values stay bare and lower-cased the way
-    /// the parser stores them; the leading <c>#</c> is on the label only, because that
-    /// is how a tag reads everywhere else on this screen.
+    /// Read off <c>PreviewTags</c>, which is the union of the metadata line, the
+    /// title and the body: a <c>#tag</c> written mid-sentence, or an <c>@bob</c>
+    /// typed into the title, is a tag the reader can see on the row, so it is one
+    /// they can filter by. Values stay lower-cased exactly as the parser stores
+    /// them, which for a person tag includes its <c>@</c>.
+    /// </para>
+    /// <para>
+    /// The label is what the tag <em>reads</em> as, and that is no longer just the
+    /// value with a hash bolted on: a person tag already carries its own sigil, so
+    /// <c>TagText.Display</c> decides — the same helper the chips on the rows use,
+    /// so the filter and the row it filters cannot spell a tag differently.
     /// </para>
     /// </summary>
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
@@ -2085,7 +2092,7 @@ public sealed class TasksDesktopState : IDisposable
             // both of them, so the counts sum past the row count on purpose. Each one
             // answers "how much is over there", which is the only question a chip is
             // asked — see ScopedRows.
-            options.Add(new TagFilterOption($"#{group.Key}", group.Key, group.Count()));
+            options.Add(new TagFilterOption(TagText.Display(group.Key), group.Key, group.Count()));
         }
 
         var untagged = scopedRows.Count(r => r.PreviewTags.Count == 0);
@@ -2147,8 +2154,9 @@ public sealed record StatusFilterOption(string Label, string Wire);
 public sealed record AreaFilterOption(string Label, string Value, int Count);
 
 /// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
-/// leading <c>#</c> a tag reads with everywhere else on the screen;
-/// <paramref name="Value"/> is the bare, lower-cased tag the parser stores.
+/// sigil the tag reads with everywhere else on the screen — a hash for a general
+/// tag, and for a person the <c>@</c> that is already part of the value;
+/// <paramref name="Value"/> is the lower-cased tag exactly as the parser stores it.
 /// <paramref name="Count"/> is an occurrence count rather than a share of the
 /// rows — see <c>TasksDesktopState.TagFilters</c>.</summary>
 public sealed record TagFilterOption(string Label, string Value, int Count);

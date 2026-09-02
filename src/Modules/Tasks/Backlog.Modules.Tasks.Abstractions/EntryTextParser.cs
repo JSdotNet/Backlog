@@ -41,6 +41,18 @@ public static class EntryTextParser
     private static readonly Regex MetaLineRegex = new(@"^(\s*`[^`\n]+`\s*)+$", RegexOptions.Compiled);
     private static readonly Regex TokenRegex = new(@"`([^`]+)`", RegexOptions.Compiled);
     private static readonly Regex TagRegex = new(@"(?<!\S)#([A-Za-z][\w-]*)", RegexOptions.Compiled);
+    /// <summary>The entry title's own tag grammar, which is the body's plus a
+    /// second sigil: <c>#name</c> is a general tag and <c>@name</c> is a person.
+    /// Deliberately a separate expression from <see cref="TagRegex"/> rather than a
+    /// widening of it — body prose does not learn <c>@</c>, so the two positions
+    /// have to be able to disagree.
+    /// <para>
+    /// The <c>(?&lt;!\S)</c> guard is the load-bearing part: a sigil only opens a tag
+    /// when nothing is welded to its left, which is what keeps
+    /// <c>mail bob@example.com</c> from naming a person called
+    /// <c>example</c>.
+    /// </para></summary>
+    private static readonly Regex TitleTagRegex = new(@"(?<!\S)([@#])([A-Za-z][\w-]*)", RegexOptions.Compiled);
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.*)$", RegexOptions.Compiled);
     private static readonly Regex CheckboxPrefixRegex = new(@"^\[( |x|X)\][ \t]+", RegexOptions.Compiled);
     private static readonly Regex HeadingCheckboxMarkerRegex = new(@"^(?<prefix>[ \t]*#{2,3}[ \t]+)\[(?<marker> |x|X)\](?<suffix>[ \t]+.*)$", RegexOptions.Compiled);
@@ -273,8 +285,24 @@ public static class EntryTextParser
             .Select(m => m.Groups[1].Value.ToLowerInvariant())
             .ToList();
 
+        // Tags typed into the title. Derived, exactly like the body's: the title
+        // text stays verbatim and nothing here is ever written back on to the
+        // metadata line, so `MetadataTags` still means "authored on the backtick
+        // line" and remains the only thing ToRawText round-trips.
+        //
+        // Scanned off `title`, which has already had its own `# ` marker taken
+        // off, so the heading marker can never read as a general tag. Sub-item
+        // `##`/`###` headings live in the body and are not scanned by this at all.
+        var titleTags = TitleTagRegex.Matches(title)
+            .Select(m => (m.Groups[1].Value == "@" ? "@" : string.Empty) + m.Groups[2].Value.ToLowerInvariant())
+            .ToList();
+
         var distinctMetadataTags = metadataTags.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var tags = distinctMetadataTags.Concat(bodyTags).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var tags = distinctMetadataTags
+            .Concat(titleTags)
+            .Concat(bodyTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         return new ParsedEntry(
             title,
@@ -1162,7 +1190,18 @@ public static class EntryTextParser
 
         var meta = $"`{TypeToken(entry.Type)}` `*{PriorityToken(entry.Priority)}` `!{StatusToken(entry.Status)}`";
         if (!string.IsNullOrWhiteSpace(entry.Area)) meta += $" `@{entry.Area}`";
-        foreach (var tag in entry.Tags.Select(tag => tag.Trim().TrimStart('#')).Where(tag => tag.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        // Person tags are skipped, not written. This loop composes `#{tag}`, so an
+        // `@bob` arriving here would be emitted as the token `#@bob` — which is
+        // not a tag in any grammar, and sits on the one line where a bare `@`
+        // already means Area. Nothing is lost by leaving them off: a person tag is
+        // derived from the title, the title is preserved verbatim, and the next
+        // parse reads it straight back off the text that is still there.
+        foreach (var tag in entry.Tags
+            .Select(tag => tag.Trim())
+            .Where(tag => !IsPersonTag(tag))
+            .Select(tag => tag.TrimStart('#'))
+            .Where(tag => tag.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase))
         {
             meta += $" `#{tag.ToLowerInvariant()}`";
         }
@@ -1368,11 +1407,37 @@ public static class EntryTextParser
 
     public static string FormatTagsInput(IEnumerable<string> tags) => string.Join(" ", NormalizeTags(tags));
 
+    /// <summary>Whether a stored tag names a person. The sigil is kept in the
+    /// stored value — <c>["@bob", "deploy"]</c> — precisely so that an existing
+    /// unsigilled tag keeps meaning "general" with no migration behind it, which
+    /// makes the leading <c>@</c> the whole of the test.</summary>
+    private static bool IsPersonTag(string? tag) =>
+        tag is not null && tag.AsSpan().TrimStart().StartsWith("@");
+
+    /// <summary>
+    /// Cleans up hand-typed or stored tags: trimmed, lower-cased, de-duplicated,
+    /// and dropped when they are not a tag shape at all.
+    /// <para>
+    /// Person-aware, because it validates against <see cref="TagRegex"/> — the
+    /// general-tag expression, which does not accept a leading <c>@</c>. Testing
+    /// <c>"@bob"</c> against it directly fails, so a person tag would be silently
+    /// dropped here and the tag editor would lose one every time it saved. The
+    /// sigil is lifted off, the name is checked, and the sigil goes back on.
+    /// </para></summary>
     private static IReadOnlyList<string> NormalizeTags(IEnumerable<string> tags) =>
-        tags.Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
-            .Where(tag => TagRegex.IsMatch("#" + tag))
+        tags.Select(NormalizeTag)
+            .Where(tag => tag.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    private static string NormalizeTag(string? tag)
+    {
+        var trimmed = (tag ?? string.Empty).Trim();
+        var person = IsPersonTag(trimmed);
+        var name = (person ? trimmed[1..] : trimmed).TrimStart('#').ToLowerInvariant();
+
+        return TagRegex.IsMatch("#" + name) ? (person ? "@" + name : name) : string.Empty;
+    }
 
     /// <summary>
     /// Writes a status on to one sub-item chapter's metadata line, or on to every
@@ -1531,7 +1596,15 @@ public static class EntryTextParser
         if (tags is not null)
         {
             tokens.RemoveAll(token => token.StartsWith('#'));
-            tokens.AddRange(tags.Select(tag => "#" + tag.Trim().TrimStart('#').ToLowerInvariant()).Where(tag => tag.Length > 1));
+
+            // The same rule ToRawText's tag loop follows, and for the same two
+            // reasons: this composes `#{tag}`, so a person tag would land as the
+            // corrupt token `#@bob`, and `@` on this line already means Area.
+            // A person tag is carried by the preserved title text instead.
+            tokens.AddRange(tags
+                .Where(tag => !IsPersonTag(tag))
+                .Select(tag => "#" + tag.Trim().TrimStart('#').ToLowerInvariant())
+                .Where(tag => tag.Length > 1));
         }
 
         // The named tokens, each removed by name prefix and re-appended after the
