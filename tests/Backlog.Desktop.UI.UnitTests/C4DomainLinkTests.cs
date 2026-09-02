@@ -90,7 +90,13 @@ public sealed class C4DomainLinkTests : IDisposable
         var component = harness.Render(".domain/context-map.md", asked);
         harness.Settle(component);
 
-        component.Find("[data-testid='domain-c4-view']").Click();
+        // Awaited rather than fired and forgotten: the panel reaches this chapter
+        // through two awaited reads, so the renderer can still be draining their
+        // continuations when the click arrives and the dispatch queues behind them.
+        // The synchronous `Click()` returns without the handler having run, which
+        // left the assertion below racing the callback — green alone, intermittently
+        // empty under the parallel load of the whole suite.
+        await component.Find("[data-testid='domain-c4-view']").ClickAsync(new());
 
         var target = Assert.Single(asked);
         Assert.Equal("arc42", target.AreaKey);
