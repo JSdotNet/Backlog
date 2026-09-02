@@ -191,23 +191,35 @@ public sealed class TasksDesktopState : IDisposable
     /// knowledge, or empty for all configured repositories.</summary>
     public string SelectedRepositoryAlias { get; private set; } = string.Empty;
 
-    /// <summary>The selected area, or empty for all. <see cref="UnfiledArea"/>
-    /// selects the entries that have no area at all.</summary>
-    public string SelectedArea { get; private set; } = string.Empty;
-
-    /// <summary>Sentinel for "entries with no area" — a real area can never be
-    /// this because the parser lower-cases and would never produce a leading
-    /// space.</summary>
-    public const string UnfiledArea = " unfiled";
+    /// <summary>
+    /// True while the view is narrowed to the entries filed against no repository.
+    /// <para>
+    /// A scope of its own rather than a value <see cref="SelectedRepositoryAlias"/>
+    /// could hold, because "no repository" is not a repository and every reader of
+    /// that alias would have to be taught the exception. A sentinel there would be
+    /// handed to the knowledge pane, which answers an unresolvable alias with
+    /// "select a configured repository"; written into a new draft as
+    /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
+    /// next pass, which resolves an alias against settings and finds nothing. A bool
+    /// here is read by the one place that means it.
+    /// </para>
+    /// <para>
+    /// It narrows what the repository scope already left in view rather than
+    /// replacing it — the same composition My Day has. With a repository selected
+    /// the two ask for opposite things and the result is empty, which is honest:
+    /// the chip's count says zero before the reader presses it.
+    /// </para>
+    /// </summary>
+    public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>The selected tag, bare and lower-cased the way
     /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
     /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
     public string SelectedTag { get; private set; } = string.Empty;
 
-    /// <summary>Sentinel for "entries with no tags", on the same terms as
-    /// <see cref="UnfiledArea"/>: the parser strips the leading <c>#</c>,
-    /// lower-cases, and would never produce a leading space.</summary>
+    /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
+    /// because the parser strips the leading <c>#</c>, lower-cases, and would never
+    /// produce a leading space.</summary>
     public const string UntaggedTag = " untagged";
 
     /// <summary>
@@ -223,10 +235,6 @@ public sealed class TasksDesktopState : IDisposable
     /// </para>
     /// </summary>
     public DateOnly? MyDayOn { get; private set; }
-
-    /// <summary>The areas actually in use, in alphabetical order. There is no
-    /// fixed taxonomy: an area exists because somebody typed it.</summary>
-    public List<AreaFilterOption> AreaFilters { get; private set; } = [];
 
     /// <summary>
     /// The tags actually in use, in alphabetical order, and empty when nothing in
@@ -499,9 +507,12 @@ public sealed class TasksDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    public void SetAreaFilter(string? area)
+    /// <summary>Turns the "no repository" scope on or off. See
+    /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
+    /// value <see cref="SelectedRepositoryAlias"/> holds.</summary>
+    public void SetNoRepositoryFilter(bool only)
     {
-        SelectedArea = area ?? string.Empty;
+        NoRepositoryOnly = only;
         ApplyFilter();
     }
 
@@ -526,27 +537,31 @@ public sealed class TasksDesktopState : IDisposable
     /// <summary>Appends a new, unsaved draft row at the end of the list and opens
     /// it in the detail pane, on its title. It is only persisted once a title line
     /// exists (the domain requires a title), so what is typed before that is held
-    /// locally. When an area is being filtered, or a repository is scoped, the new
-    /// entry starts already filed there — otherwise it would vanish the moment it
-    /// saved, since each scope keeps exactly the rows that say they belong to it
-    /// (<see cref="RowBelongsToSelectedRepository"/>). Two seeds rather than one,
-    /// because the area and the repository are two facts: a scoped repository
-    /// writes <c>`repo:`</c>, a filtered area writes <c>`@area`</c>, and a reader
-    /// looking at both gets both.</summary>
+    /// locally. When a repository is scoped, the new entry starts already filed
+    /// there — otherwise it would vanish the moment it saved, since the scope keeps
+    /// exactly the rows that say they belong to it
+    /// (<see cref="RowBelongsToSelectedRepository"/>).
+    /// <para>
+    /// It used to seed a filtered area as <c>`@area`</c> alongside the
+    /// <c>`repo:`</c>, for the same reason. There is no area filter any more, so
+    /// there is no area to seed from: an entry created here starts unfiled and is
+    /// filed by typing, which is how areas have always been made.
+    /// </para>
+    /// <para>
+    /// The "no repository" scope seeds nothing either, and does not need to: an
+    /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
+    /// under it stays in view without being told to.
+    /// </para>
+    /// </summary>
     public void NewRow()
     {
         var row = new EntryRow();
 
-        var seedArea = SelectedArea.Length > 0 && SelectedArea != UnfiledArea ? SelectedArea : null;
         var seedRepository = SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
 
-        if (seedArea is not null || seedRepository is not null)
+        if (seedRepository is not null)
         {
-            var tokens = "`task` `*medium` `!draft`";
-            if (seedArea is not null) tokens += $" `@{seedArea}`";
-            if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
-
-            row.RawText = $"# \n{tokens}\n";
+            row.RawText = $"# \n`task` `*medium` `!draft` `repo:{seedRepository}`\n";
             row.SeedText = row.RawText;
         }
 
@@ -1925,17 +1940,27 @@ public sealed class TasksDesktopState : IDisposable
         }
 
         var repositoryScopedRows = rows.ToList();
-        RebuildAreaFilters(repositoryScopedRows);
+        ForgetStaleRepositoryScope();
         RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
-        // My Day narrows what area and status have already left in view rather
-        // than replacing either: it is a decision about today taken on top of
-        // wherever the reader is looking, so all three compose.
+        // My Day narrows what the repository scope and status have already left in
+        // view rather than replacing either: it is a decision about today taken on
+        // top of wherever the reader is looking, so all three compose.
         if (MyDayOn is { } myDay)
         {
             rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
+        }
+
+        // And so does the "no repository" scope, on the same terms — see
+        // NoRepositoryOnly. Asked as "resolves to no configured repository" rather
+        // than "carries no `repo:` token", because that is the question the row
+        // itself answers: a token naming something that is not configured shows no
+        // repository on the row, so the reader who filed it here is right.
+        if (NoRepositoryOnly)
+        {
+            rows = rows.Where(x => RepositoryFor(x) is null);
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
@@ -1943,16 +1968,7 @@ public sealed class TasksDesktopState : IDisposable
             rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
         }
 
-        if (SelectedArea == UnfiledArea)
-        {
-            rows = rows.Where(x => string.IsNullOrEmpty(x.PreviewArea));
-        }
-        else if (SelectedArea.Length > 0)
-        {
-            rows = rows.Where(x => x.PreviewArea == SelectedArea);
-        }
-
-        // Tags narrow inside the area the same way status does, and compose with
+        // Tags narrow inside the scope the same way status does, and compose with
         // both. An entry wears any number of them, so this asks whether the row
         // carries the selected one rather than whether it *is* that one — which is
         // the whole difference between a tag and an area.
@@ -2007,44 +2023,20 @@ public sealed class TasksDesktopState : IDisposable
             _gitHub.ResolveRepository(target) is { } repository
             && string.Equals(repository.Alias, SelectedRepositoryAlias, StringComparison.Ordinal));
 
-    /// <summary>Areas exist because somebody typed one, so the filter is
-    /// rebuilt from what is actually in the current repository scope. Every area is
-    /// offered, including one spelled like a configured repository: the two are
-    /// unrelated facts now that the repository is <c>repo_ids</c>, so an area that
-    /// happens to read "backlog" is a pile with that name and belongs on a chip
-    /// like any other.</summary>
-    private void RebuildAreaFilters(IReadOnlyList<EntryRow> scopedRows)
+    /// <summary>A repository stops existing when it is removed from settings, and a
+    /// scope pointing at one that is gone would filter the list down to nothing with
+    /// no chip on screen to say why. Dropping back to all repositories is the same
+    /// answer <see cref="SetRepositoryFilter"/> gives an alias it cannot resolve.
+    /// <para>
+    /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
+    /// so there is nothing settings can take away from it.
+    /// </para>
+    /// </summary>
+    private void ForgetStaleRepositoryScope()
     {
-        var options = new List<AreaFilterOption> { new("All", string.Empty, scopedRows.Count) };
-
-        var used = scopedRows
-            .Select(r => r.PreviewArea)
-            .Where(a => !string.IsNullOrEmpty(a))
-            .GroupBy(a => a!, StringComparer.Ordinal)
-            .OrderBy(g => g.Key, StringComparer.Ordinal);
-
-        foreach (var group in used)
-        {
-            options.Add(new AreaFilterOption(group.Key, group.Key, group.Count()));
-        }
-
-        var unfiled = scopedRows.Count(r => string.IsNullOrEmpty(r.PreviewArea));
-        if (unfiled > 0 && options.Count > 1)
-        {
-            options.Add(new AreaFilterOption("Unfiled", UnfiledArea, unfiled));
-        }
-
-        AreaFilters = options;
-
         if (SelectedRepositoryAlias.Length > 0 && _gitHub.Settings.Current.Find(SelectedRepositoryAlias) is null)
         {
             SelectedRepositoryAlias = string.Empty;
-        }
-
-        // An area stops existing when its last entry leaves it.
-        if (SelectedArea.Length > 0 && options.All(o => o.Value != SelectedArea))
-        {
-            SelectedArea = string.Empty;
         }
     }
 
@@ -2148,10 +2140,6 @@ public enum PendingCaret
 }
 
 public sealed record StatusFilterOption(string Label, string Wire);
-
-/// <summary>One entry in the area filter. <see cref="Count"/> is shown so the
-/// filter doubles as a sense of where the work actually is.</summary>
-public sealed record AreaFilterOption(string Label, string Value, int Count);
 
 /// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
 /// sigil the tag reads with everywhere else on the screen — a hash for a general

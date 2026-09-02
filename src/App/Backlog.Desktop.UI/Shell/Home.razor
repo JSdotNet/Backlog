@@ -40,12 +40,13 @@
        change — almost every behaviour below is the behaviour that was already
        here. *@
     <header class="app-header">
-        @* Region A. The wordmark is chrome, not a page title, so it sits at
-           `font-size-lg` here while the other screens' `.app-header h1` — a real
-           page title — keeps the 2xl default. *@
+        @* Region A. It used to open with a "Backlog" wordmark, set smaller than the
+           other screens' `.app-header h1` to say it was chrome rather than a page
+           title. The window border says the name already, so the wordmark was the
+           app telling you twice which app you were in and spending the width of the
+           word to do it — the region now opens on the repository scope, which is
+           what the identity region was actually for. *@
         <div class="app-header__identity">
-            <h1>Backlog</h1>
-
             @if (State.Repositories.Count > 0)
             {
                 <div class="app-header__repository-scope" role="group" aria-label="Repository scope">

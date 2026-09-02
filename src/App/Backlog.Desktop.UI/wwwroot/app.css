@@ -130,15 +130,6 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* The wordmark is chrome here, not a page title, so it steps down from the 2xl
-   that `.app-header h1` keeps on the screens where the heading really is the
-   page's title. */
-.app-header__identity h1 {
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-}
-
 .header-link {
     display: inline-flex;
     align-items: center;
@@ -264,29 +255,24 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* My Day keeps its room. It is the one chip in the bar that is not one of a set —
-   turning it off is only possible from the chip itself, so a scope squeezed out of
-   view would take the way back with it. */
+/* The scopes keep their room. They are the chips in the bar that are not one of a
+   set — turning one off is only possible from the chip itself, so a scope squeezed
+   out of view would take the way back with it. */
 .filter-group--scope {
     flex: 0 0 auto;
 }
 
-.filter-group--areas {
-    flex: 1 1 auto;
-}
-
-/* Tags are typed the same way areas are, so the two share the middle of the bar
-   rather than one of them being pinned. Tags gives ground first — an entry has one
-   area and any number of tags, so the tag strip is the longer of the two and the
-   one with slack to give.
+/* Tags take the middle of the bar, and all the slack in it. They used to share it
+   with the areas group, which is gone; nothing else in the bar wants the width,
+   because the two scopes are pinned and status sits against the right edge.
 
    Two ways it stops taking room at all. It is absent from the markup while nothing
-   in scope carries a tag, so the bar is three groups for anyone who does not tag;
-   and it is hidden below 38rem, where the rows' own tags are the better control —
-   see the container query at the bottom of this file. What is left here is the
-   width in between. */
+   in scope carries a tag, so the bar is two groups for anyone who does not tag; and
+   it is hidden below 38rem, where the rows' own tags are the better control — see
+   the container query at the bottom of this file. What is left here is the width in
+   between. */
 .filter-group--tags {
-    flex: 1 2 auto;
+    flex: 1 1 auto;
 }
 
 .filter-group--status {
