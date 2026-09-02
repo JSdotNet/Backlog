@@ -323,12 +323,12 @@ public sealed class MetadataViewTests
     public void Choosing_a_status_tells_a_host_that_asked_to_hear_about_it()
     {
         using var context = new BunitContext();
-        var chosen = new List<string>();
+        var chosen = new List<string?>();
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: draft"))
             .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog))
-            .Add(v => v.OnStatusChanged, EventCallback.Factory.Create<string>(this, chosen.Add)));
+            .Add(v => v.OnStatusChanged, EventCallback.Factory.Create<string?>(this, chosen.Add)));
 
         view.Find(".status-editor select").Change("in-progress");
 

@@ -155,7 +155,7 @@ public sealed class MetadataFileViewTests
         var file = context.Render<MetadataFileView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
             .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
-            .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string>(this, status => reported = status))
+            .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string?>(this, status => reported = status))
             .Add(view => view.Heading, Headline)
             .Add(view => view.HeadingAlone, Alone));
 

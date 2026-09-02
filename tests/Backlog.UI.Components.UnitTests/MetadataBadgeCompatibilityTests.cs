@@ -146,12 +146,12 @@ public sealed class MetadataBadgeCompatibilityTests
         // nowhere else. The record keeps the value showing either way, which is
         // exactly what made the gap invisible.
         using var context = new BunitContext();
-        var chosen = new List<string>();
+        var chosen = new List<string?>();
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Metadata, MetadataReader.Parse("status: draft"))
             .Add(b => b.Folder, KnowledgeFolder.Backlog)
-            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string>(this, chosen.Add)));
+            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string?>(this, chosen.Add)));
 
         badge.Find(".status-editor select").Change("in-progress");
 
@@ -170,7 +170,7 @@ public sealed class MetadataBadgeCompatibilityTests
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Status, "ready")
-            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string>(this, _ => { })));
+            .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string?>(this, _ => { })));
 
         Assert.NotNull(badge.Find(".knowledge-record"));
     }

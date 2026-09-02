@@ -131,7 +131,7 @@ public sealed class MetadataChapterViewTests
         var chapter = context.Render<MetadataChapterView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
             .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
-            .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string>(this, status => reported = status))
+            .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string?>(this, status => reported = status))
             .Add(view => view.Heading, Heading("The Runtime")));
 
         chapter.Find(".knowledge-record__headline .status-editor select").Change("hold");
