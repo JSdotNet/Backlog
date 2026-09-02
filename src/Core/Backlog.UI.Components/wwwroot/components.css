@@ -3797,6 +3797,13 @@ button.task-panel__check:focus-visible {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
+    /* Positioned because a disabled row carries an `.sr-only` copy of its reason.
+       `.sr-only` is absolutely positioned, so without a positioned ancestor its
+       containing block is the page: the hidden sentence then lands at page
+       coordinates and can drag a scrolled pane's width out with it, invisibly.
+       `.knowledge-fields` carries the same note for the same reason. Nothing
+       moves — the copy has no offsets to resolve against. */
+    position: relative;
     min-height: calc(
         (var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal)
         + var(--spacing-sm) * 2
@@ -3879,6 +3886,37 @@ button.task-panel__check:focus-visible {
     display: block;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+/* Icon-only, for an act that shares a row with another action instead of owning
+   one of its own — "Create follow-up" beside "Waiting for" is the case this was
+   built for. The two-column grid above exists to line a label up against a value
+   down every row of a group; a compact action carries neither, so there is
+   nothing left for the grid to reserve room for, and it collapses to the one
+   thing still in it — the button, sized to its icon rather than stretched to
+   fill a row it does not have to itself. */
+/* A row that has shrunk to its icon, for an act that shares a line with a row
+   that needs the width. The grid the full-size row uses is a label column and a
+   clear column, and a compact one has neither — no label to lay out and nothing
+   to clear — so it stops being a grid and becomes as wide as its glyph. The
+   2rem below is the same floor `.btn--icon` keeps, because a control the size of
+   its own glyph is smaller than a finger. `.task-action`'s own min-height is
+   sized to a label over a value and would hold this open to two lines it has no
+   text for, which is why it is dropped rather than overridden with a number. */
+.task-action--compact {
+    display: inline-flex;
+    width: auto;
+    min-height: 0;
+}
+
+.task-action--compact .task-action__main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: var(--spacing-xs);
 }
 
 .task-action__clear {

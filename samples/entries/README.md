@@ -34,7 +34,7 @@ which:
 
 | Sigil | Kind | Values |
 | --- | --- | --- |
-| *(none)* | type | `prompt` `task` `idea` `follow-up` |
+| *(none)* | type | `prompt` `task` `idea` |
 | `*` | priority | `*low` `*medium` `*high` `*critical` |
 | `!` | status | `!draft` `!ready` `!in-progress` `!done` `!archived` |
 | `@` | area | anything — `@repos`, `@inbox`, `@side-project` |

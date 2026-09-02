@@ -132,7 +132,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     [Fact]
     public async Task Scheduling_and_dependencies_round_trip()
     {
-        var task = new TaskItem("Renew the certificate", string.Empty, EntryType.FollowUp);
+        var task = new TaskItem("Renew the certificate", string.Empty, EntryType.Idea);
         task.SetDueOn(new DateOnly(2026, 8, 21));
         task.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
         task.SetRecurrence(new Recurrence(2, RecurrenceUnit.Week));
@@ -421,6 +421,50 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var again = await _repository.GetAsync(id);
 
         Assert.Equal(5, again!.Effort);
+    }
+
+    /// <summary>
+    /// A row written when <c>follow_up</c> was still a type reads back as a task
+    /// rather than throwing. <c>ParseType</c> no longer knows the word, so a file
+    /// carrying it would fail every read of that row — which is a person's entry
+    /// lost to a vocabulary change. Opening normalizes the retired value away
+    /// instead, once, in place.
+    /// </summary>
+    [Fact]
+    public async Task A_row_written_with_the_retired_follow_up_type_reads_back_as_a_task()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 8, 20, 9, 0, 0, TimeSpan.Zero);
+
+        // The table has to exist before the raw insert can put a retired value in
+        // it, and the repository's own open is what creates it.
+        await _repository.SaveAsync(Rehydrate("Something else entirely", createdAt));
+
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync();
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at)
+                VALUES ($id, $title, 'follow_up', 'ready', 'medium', $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Rework the onboarding email");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Rework the onboarding email", loaded.Title);
+        Assert.Equal(EntryType.Task, loaded.Type);
     }
 
     private static TaskItem Rehydrate(string title, DateTimeOffset createdAt) =>

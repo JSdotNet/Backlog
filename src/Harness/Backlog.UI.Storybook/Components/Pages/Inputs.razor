@@ -259,7 +259,11 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
     <Story Name="TaskAction — set it, see it, clear it"
            Description="The control that puts one of those values on something: an icon, a label, the value once it is set, and an ✕ to take it off. One component for all of them, because a row that is set says what it is set to and a row that is not says what it would do — that difference is the whole state model, which is why &quot;Remind me&quot; and &quot;Reminder · Monday 09:00&quot; are one control and not two.
 
-`Togglable` is for a value with nothing to pick: My Day is on or off, so pressing it again is how it comes off and there is no ✕. For the others, `OnSet` opens whichever field above this story fits, and `OnClear` unsets it. `Disabled` is for an act the host cannot perform yet."
+`Togglable` is for a value with nothing to pick: My Day is on or off, so pressing it again is how it comes off and there is no ✕. For the others, `OnSet` opens whichever field above this story fits, and `OnClear` unsets it.
+
+`Disabled` is for an act the host cannot perform yet, and it keeps its slot rather than disappearing — a reader who never sees an act concludes the product cannot do it. `DisabledReason` is the sentence that slot then owes: hover the last row for the pointer's copy, and a screen reader hears the same words through the button's `aria-describedby`. The title sits on the wrapper because a disabled button raises no pointer events of its own.
+
+`Compact` is for an act that shares a row with another rather than owning one of its own — no visible label, no value, sized to the icon. The label does not disappear, it becomes the button's `aria-label`: an icon alone says nothing to a screen reader. The last two rows show it plain and disabled, side by side the way the entry pane puts one next to &quot;Waiting for&quot;."
            Code="@ActionCode">
         <div class="sb-menu-wide sb-surface" data-testid="task-actions">
             <TaskAction Icon="+" Label="Add step" TestId="action-step" OnSet="() => { }" />
@@ -295,7 +299,26 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
                         OnClear="() => _repeats = false"
                         TestId="action-repeat" />
 
-            <TaskAction Icon="📎" Label="Add file" Disabled="true" TestId="action-file" />
+            <TaskAction Icon="📎"
+                        Label="Add file"
+                        Disabled="true"
+                        DisabledReason="Save this entry first — there is nothing yet to attach a file to."
+                        TestId="action-file" />
+
+            <div style="display: flex; gap: var(--spacing-xs);">
+                <TaskAction Icon="↳"
+                            Label="Create follow-up"
+                            Compact="true"
+                            OnSet="() => { }"
+                            TestId="action-followup-compact" />
+
+                <TaskAction Icon="↳"
+                            Label="Create follow-up"
+                            Compact="true"
+                            Disabled="true"
+                            DisabledReason="Save this task first, so something can wait for it."
+                            TestId="action-followup-compact-disabled" />
+            </div>
         </div>
     </Story>
 
@@ -485,6 +508,11 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
 
         <TaskAction Icon="☀" Label="Add to My Day" Togglable="true"
                     Set="@row.InMyDay" OnSet="() => ToggleMyDayAsync(row)" />
+
+        <TaskAction Icon="↳" Label="Create follow-up" Compact="true"
+                    Disabled="@(FollowUpReason(row) is not null)"
+                    DisabledReason="@FollowUpReason(row)"
+                    OnSet="() => State.NewFollowUpRow(row)" />
         """;
 
     private const string BareCode = """

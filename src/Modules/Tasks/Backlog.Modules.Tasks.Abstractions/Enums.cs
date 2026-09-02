@@ -5,8 +5,7 @@ public enum EntryType
 {
     Prompt,
     Task,
-    Idea,
-    FollowUp
+    Idea
 }
 
 /// <summary>Lifecycle state of a backlog entry.</summary>

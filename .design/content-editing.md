@@ -135,7 +135,7 @@ related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area",
 
 | Sigil | Kind | Example |
 |---|---|---|
-| *(none)* | type | `` `task` ``, `` `idea` ``, `` `follow-up` `` |
+| *(none)* | type | `` `prompt` ``, `` `task` ``, `` `idea` `` |
 | `!` | status | `` `!draft` ``, `` `!ready` ``, `` `!in-progress` `` |
 | `*` | priority | `` `*high` `` |
 | `@` | area | `` `@repos` `` |

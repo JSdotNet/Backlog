@@ -1648,6 +1648,116 @@ public sealed class TaskListTests
     }
 
     [Fact]
+    public void A_disabled_action_keeps_its_slot_and_carries_its_reason()
+    {
+        // Both routes, because neither one reaches everybody: the sentence hangs
+        // off the wrapper for the pointer, since a disabled button fires no hover
+        // of its own, and off the button through aria-describedby for a reader
+        // that never hovers anything.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskAction>(p => p
+            .Add(a => a.Icon, "↳")
+            .Add(a => a.Label, "Create follow-up")
+            .Add(a => a.Disabled, true)
+            .Add(a => a.DisabledReason, "Save this task first, so something can wait for it.")
+            .Add(a => a.TestId, "followup"));
+
+        Assert.Equal(
+            "Save this task first, so something can wait for it.",
+            view.Find("[data-testid='followup']").GetAttribute("title"));
+
+        var reason = view.Find("[data-testid='followup-reason']");
+        Assert.Equal("Save this task first, so something can wait for it.", reason.TextContent);
+        Assert.Equal(
+            reason.Id,
+            view.Find("[data-testid='followup-set']").GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void A_reason_on_an_action_that_is_not_disabled_says_nothing()
+    {
+        // The row is pressable, so there is nothing to explain — and a title on a
+        // working control would offer the excuse for refusing an act it performs.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskAction>(p => p
+            .Add(a => a.Icon, "↳")
+            .Add(a => a.Label, "Create follow-up")
+            .Add(a => a.DisabledReason, "Save this task first.")
+            .Add(a => a.TestId, "followup")
+            .Add(a => a.OnSet, () => { }));
+
+        Assert.Null(view.Find("[data-testid='followup']").GetAttribute("title"));
+        Assert.Empty(view.FindAll("[data-testid='followup-reason']"));
+        Assert.Null(view.Find("[data-testid='followup-set']").GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void A_compact_action_carries_its_label_as_the_accessible_name_instead_of_text()
+    {
+        // An icon alone says nothing to a screen reader, so the label that would
+        // otherwise sit beside it becomes the button's name instead of vanishing.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskAction>(p => p
+            .Add(a => a.Icon, "↳")
+            .Add(a => a.Label, "Create follow-up")
+            .Add(a => a.Compact, true)
+            .Add(a => a.OnSet, () => { })
+            .Add(a => a.TestId, "followup"));
+
+        var button = view.Find("[data-testid='followup-set']");
+        Assert.Equal("Create follow-up", button.GetAttribute("aria-label"));
+        Assert.Empty(view.FindAll(".task-action__label"));
+        Assert.DoesNotContain("Create follow-up", button.TextContent);
+    }
+
+    [Fact]
+    public void A_compact_action_ignores_its_value_because_there_is_no_line_left_to_put_it_on()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskAction>(p => p
+            .Add(a => a.Icon, "⏰")
+            .Add(a => a.Label, "Remind me")
+            .Add(a => a.Value, "Monday · 09:00")
+            .Add(a => a.Set, true)
+            .Add(a => a.Compact, true)
+            .Add(a => a.TestId, "remind"));
+
+        Assert.Empty(view.FindAll(".task-action__value"));
+        Assert.DoesNotContain("Monday · 09:00", view.Find("[data-testid='remind-set']").TextContent);
+    }
+
+    [Fact]
+    public void A_compact_disabled_action_still_carries_its_reason_through_both_routes()
+    {
+        // Compact only changes what the button says it is; it does not change what
+        // it owes a reader when it refuses to run.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskAction>(p => p
+            .Add(a => a.Icon, "↳")
+            .Add(a => a.Label, "Create follow-up")
+            .Add(a => a.Compact, true)
+            .Add(a => a.Disabled, true)
+            .Add(a => a.DisabledReason, "Save this task first, so something can wait for it.")
+            .Add(a => a.TestId, "followup"));
+
+        Assert.Equal(
+            "Save this task first, so something can wait for it.",
+            view.Find("[data-testid='followup']").GetAttribute("title"));
+
+        var reason = view.Find("[data-testid='followup-reason']");
+        Assert.Equal("Save this task first, so something can wait for it.", reason.TextContent);
+
+        var button = view.Find("[data-testid='followup-set']");
+        Assert.Equal(reason.Id, button.GetAttribute("aria-describedby"));
+        Assert.Equal("Create follow-up", button.GetAttribute("aria-label"));
+    }
+
+    [Fact]
     public void Alt_arrow_down_moves_the_focused_row_and_reports_where_it_went()
     {
         // A drag is a pointer gesture with no keyboard equivalent, so a list that

@@ -9,22 +9,36 @@
     and "Reminder, Monday 09:00" are the same control rather than two.
 *@
 
-<div class="@ClassValue" data-testid="@TestId">
+<div class="@ClassValue" data-testid="@TestId" title="@(HasReason ? DisabledReason : null)">
     <button type="button"
             class="task-action__main"
             aria-pressed="@(Togglable ? (Set ? "true" : "false") : null)"
+            aria-label="@(Compact ? Label : null)"
             data-testid="@Suffix("set")"
             disabled="@Disabled"
+            aria-describedby="@(HasReason ? _reasonId : null)"
             @onclick="() => OnSet.InvokeAsync()">
         <span class="task-action__icon" aria-hidden="true">@Icon</span>
-        <span class="task-action__label">
-            @Label
-            @if (Set && !string.IsNullOrWhiteSpace(Value))
-            {
-                <span class="task-action__value">@Value</span>
-            }
-        </span>
+        @if (!Compact)
+        {
+            <span class="task-action__label">
+                @Label
+                @if (Set && !string.IsNullOrWhiteSpace(Value))
+                {
+                    <span class="task-action__value">@Value</span>
+                }
+            </span>
+        }
     </button>
+
+    @if (HasReason)
+    {
+        @* The same sentence again, for the reader who never hovers anything. It
+           takes no line on screen — the `title` above is what the pointer gets —
+           and it exists because a title is not reliably announced and a
+           described-by is not visible, so neither route reaches everybody alone. *@
+        <span id="@_reasonId" class="sr-only" data-testid="@Suffix("reason")">@DisabledReason</span>
+    }
 
     @if (Set && OnClear.HasDelegate)
     {
@@ -85,6 +99,63 @@
     [Parameter]
     public bool Disabled { get; set; }
 
+    /// <summary>Icon-only, for an act that shares a row with another rather than
+    /// owning one of its own.
+    /// <para>
+    /// The label does not vanish, it moves: this button carries no visible text
+    /// while compact, so <see cref="Label"/> becomes its <c>aria-label</c> instead
+    /// — an icon alone says nothing to a screen reader, the same reasoning
+    /// <c>IconButton</c>'s header comment gives for the same trade. A sighted
+    /// reader still has the icon and whatever it sits beside for context; a
+    /// screen reader gets the word directly, because there is no line of text
+    /// next to the icon to fall back on here.
+    /// </para>
+    /// <para>
+    /// <see cref="Value"/> is dropped rather than shrunk to fit: there is no room
+    /// beside an icon for a second line, and the row this shape exists for is
+    /// one-shot — it has nothing to read back once it has run. A compact action
+    /// that also sets <see cref="Value"/> is asking for both a tight control and
+    /// a line under it, which is the row this parameter exists to avoid, so
+    /// <see cref="Value"/> is ignored while <see cref="Compact"/> is true rather
+    /// than honoured alongside it.
+    /// </para>
+    /// <para>
+    /// <see cref="Disabled"/> and <see cref="DisabledReason"/> are unchanged: a
+    /// compact action can still refuse, and it still owes the reason through both
+    /// routes — the wrapper's <c>title</c> and the button's <c>aria-describedby</c>.
+    /// The button then carries both an <c>aria-label</c> naming the act and an
+    /// <c>aria-describedby</c> naming why it will not run. That is not a clash —
+    /// a name and a reason are two different questions — so both stay.
+    /// </para></summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
+    /// <summary>Why the row cannot be pressed, in words fit to read.
+    /// <para>
+    /// A disabled row keeps its slot rather than disappearing — a reader who never
+    /// sees an act concludes the product cannot do it and files that as a missing
+    /// feature — and a slot that keeps its place owes the reader the reason it is
+    /// refusing. Greying a label out says only that something is wrong, which is
+    /// the state each host used to explain in its own way, or not at all.
+    /// </para>
+    /// <para>
+    /// Two routes for one sentence, because neither reaches everybody. The
+    /// pointer's route is a <c>title</c> on the wrapper rather than on the button:
+    /// a disabled button raises no pointer events of its own in most engines, so a
+    /// tooltip hung on it is a tooltip nobody can open. The other is
+    /// <c>aria-describedby</c> from the button to a screen-reader-only copy, since
+    /// a title is not announced reliably and a described-by is invisible. This is
+    /// the same pairing <c>IntegrationAction</c> makes for an unavailable act, and
+    /// it is one pattern rather than two on purpose.
+    /// </para>
+    /// <para>
+    /// Only read while <see cref="Disabled"/> is true. A reason on a row that works
+    /// would be an excuse for refusing something it goes ahead and does, so a host
+    /// may leave a standing reason bound and let the flag decide.
+    /// </para></summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
     [Parameter]
     public EventCallback OnSet { get; set; }
 
@@ -104,8 +175,16 @@
         "task-action",
         Set ? "task-action--set" : null,
         Prominent ? "task-action--prominent" : null,
+        Compact ? "task-action--compact" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>Unique per instance rather than derived from the label: two panes
+    /// on one page may legitimately hold the same row, and two elements with one id
+    /// would send aria-describedby to whichever the browser saw first.</summary>
+    private readonly string _reasonId = $"task-action-reason-{Guid.NewGuid():N}";
+
+    private bool HasReason => Disabled && !string.IsNullOrWhiteSpace(DisabledReason);
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
 }

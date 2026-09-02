@@ -1755,7 +1755,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "task-status",
           "level": 2,
-          "line": 72,
+          "line": 73,
           "status": "draft",
           "aliases": [
             "TaskStatus"
@@ -1775,7 +1775,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "area",
           "level": 2,
-          "line": 83,
+          "line": 84,
           "status": "draft",
           "aliases": [
             "area"
@@ -1795,7 +1795,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "due-date",
           "level": 2,
-          "line": 110,
+          "line": 111,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1817,7 +1817,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "reminder",
           "level": 2,
-          "line": 124,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1839,7 +1839,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "recurrence",
           "level": 2,
-          "line": 138,
+          "line": 139,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1864,7 +1864,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "my-day",
           "level": 2,
-          "line": 152,
+          "line": 153,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1886,7 +1886,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "dependency",
           "level": 2,
-          "line": 167,
+          "line": 168,
           "status": "proposed",
           "aliases": [
             "depends_on",

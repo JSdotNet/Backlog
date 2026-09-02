@@ -671,6 +671,70 @@ public sealed class TasksDesktopState : IDisposable
         ApplyFilter();
     }
 
+    /// <summary>Appends a new, unsaved draft row that waits on
+    /// <paramref name="parent"/>, and opens it the way <see cref="NewRow"/> opens any
+    /// new entry — on its title, with nothing typed in it yet.
+    /// <para>
+    /// A follow-up is a relationship rather than a kind of entry: an ordinary task
+    /// carrying <c>`after:`</c> pointing at the one it comes after. So this seeds the
+    /// same text a person would have typed, and <c>SaveFromTextAsync</c> reads it
+    /// through the same grammar as every other save — there is no follow-up command,
+    /// no follow-up use case, and nothing that could disagree with the token.
+    /// </para>
+    /// <para>
+    /// What it inherits is the parent's <em>filing</em>: the parent's own
+    /// <c>`@area`</c> and <c>`repo:`</c> targets, and deliberately not the reader's
+    /// current filter or scope the way <see cref="NewRow"/> uses. A follow-up belongs
+    /// beside the work it follows, and the reader may well be looking at the parent
+    /// from somewhere else entirely.
+    /// </para>
+    /// <para>
+    /// What it deliberately does not inherit is everything that was a judgement about
+    /// the parent rather than a fact about where it lives: tags, priority, due date,
+    /// reminder, and recurrence. Each of those would be a claim nobody made. A
+    /// deadline is the sharpest case — the parent's due date is the day the parent
+    /// stops being possible, and copying it onto the step that only starts once the
+    /// parent is done invents a deadline that is already wrong. A repeat is the same
+    /// mistake twice over, since it would spawn occurrences of a one-off step. The
+    /// new entry therefore starts as any other does: <c>`*medium`</c> and
+    /// <c>`!draft`</c>, which is what a silent entry means.
+    /// </para>
+    /// <para>
+    /// The title stays empty and the caret is owed to it. It is the one thing the new
+    /// entry cannot be saved without, so nothing about it is guessed from the parent
+    /// either — a follow-up titled "Ship the sync spike (follow-up)" would be a
+    /// sentence the product wrote and the reader has to delete.
+    /// </para></summary>
+    public void NewFollowUpRow(EntryRow parent)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        if (parent.Id is not { } parentId)
+        {
+            // Nothing to point at. The pane disables the act for exactly this and
+            // says why, so reaching here means the caller went around it.
+            return;
+        }
+
+        var row = new EntryRow();
+
+        var seedArea = string.IsNullOrWhiteSpace(parent.PreviewArea) ? null : parent.PreviewArea;
+
+        var tokens = "`task` `*medium` `!draft`";
+        if (seedArea is not null) tokens += $" `@{seedArea}`";
+        foreach (var repo in parent.PreviewRepoIds) tokens += $" `repo:{repo}`";
+        tokens += $" `after:{parentId}`";
+
+        row.RawText = $"# \n{tokens}\n";
+        row.SeedText = row.RawText;
+
+        Rows.Add(row);
+
+        SelectedRow = row;
+        PendingCaret = PendingCaret.EntryTitle;
+        ApplyFilter();
+    }
+
     /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
     /// turns it into backlog entries in one step. Per ADR 0004 this is a use case
