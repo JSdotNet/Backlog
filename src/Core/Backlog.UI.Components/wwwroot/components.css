@@ -3009,6 +3009,237 @@ button.task-panel__check:focus-visible {
     border-color: var(--color-primary-dark);
 }
 
+/*
+   The handle that starts a link drag: press it, move, and this row is being made
+   to wait for whichever row it is released on.
+
+   The row's second press origin, beside the grip, and the reason there are two of
+   them is that a drag has to know what it means before it starts. The version
+   before this one had no handle: a drop zone appeared inside every row and the
+   drop meant "wait for this" if the pointer happened to be over one at the
+   release. It was bistable — entering a zone retracted the reorder preview, the
+   retraction reflowed the list, the row being aimed at moved out from under the
+   pointer, and the mode flipped straight back. Deciding at press time is what
+   removes the feedback loop, and it is why this is a handle and why the drop
+   target is the whole of the other row.
+
+   Quiet at rest and lit when the row is reached, which is the bargain the copy
+   button and the pencil beside it already keep: an affordance that only appears
+   on hover cannot be found by anybody looking for it, and a column of lit ones
+   would read as the point of the list.
+
+   touch-action, because this is a press origin. The grip takes the pointer from
+   the scroller for the reason stated where it is set, and this needs the same: a
+   finger that could only ever scroll from here would leave touch with no way to
+   draw a chain at all.
+
+   44px in both directions without moving anything, which is what
+   `accessibility.md#target-sizes-and-text` asks of a handle. The negative block
+   margin is how: it reaches into the row's own padding instead of growing the
+   row, so it stays inside the row's border box — never over a neighbour, which
+   would start this row's link drag from a press on that one — and no row's height
+   depends on it, so no list changes pitch for having a handle. On a row with a
+   body the row wraps, and the few pixels below the title line belong to that
+   row's own fold rather than to another row.
+*/
+.task-item__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    margin-block: calc(-1 * var(--spacing-sm));
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-disabled);
+    user-select: none;
+    /* The one cursor that says "make a reference to this" rather than "move this
+       here", which is exactly the difference between this handle and the grip. */
+    cursor: alias;
+    touch-action: none;
+}
+
+.task-item:hover .task-item__link,
+.task-item__link:hover {
+    color: var(--color-text-primary);
+}
+
+/*
+   While a link drag is in flight every row says what it is to that drag. On the
+   rows, because the row is the drop target: the handle is sized for picking up
+   and the row for releasing, which is what
+   `interaction-guidelines.md#reliable-drop-targets-items` asks for.
+
+   Everything below is colour. Not one declaration may change a size, a border
+   width or a margin — a row that grew by a pixel at the wrong moment would move
+   the row out from under the pointer, which is the whole class of bug this design
+   exists to close. The list-level class deliberately does not bring the inset
+   `.task-list--dragging` puts on the rows around a moving one either, because in
+   a link drag nothing is moving.
+
+   Scoped under the list's state rather than left as bare row classes so they
+   outrank `.task-item:hover`. The pointer is by definition over one of these
+   rows, and a highlight the pointer erased would be no highlight at all.
+*/
+.task-list--linking {
+    user-select: none;
+    cursor: alias;
+}
+
+/* The row in flight. Still dashed and unsettled the way a dragged row is, but
+   drawn in the link's colour and at full strength: it is not a gap in the order —
+   nothing is moving — it is the row that is about to wait for another. */
+.task-list--linking .task-item--link-source {
+    border-color: var(--color-primary);
+    opacity: 1;
+}
+
+/* Release here and the link is written. Drawn in the colour a drop indicator is
+   asked to be, on the row itself rather than as a line between rows, because
+   there is no position being chosen. */
+.task-list--linking .task-item--link-target {
+    border-color: var(--color-primary);
+}
+
+/* Reached, so it is the row that will actually take the drop: the same offer,
+   filled in. Computed in C# from the position that already decides where the drop
+   lands rather than from :hover, so there is one answer to where the pointer is —
+   and it is the only form of it a test can see. */
+.task-list--linking .task-item--link-target.task-item--link-armed {
+    background: var(--color-background-raised);
+}
+
+/* Refusing: this row is finished, or the row in flight already waits for it. It
+   is drawn by what it does not do — no highlight, so a row that will take the
+   drop is the only kind that lights up — plus the cursor, which is the cue at the
+   moment the reader is actually about to release on it. */
+.task-list--linking .task-item--link-refused {
+    cursor: not-allowed;
+}
+
+/* Reached, and still refusing. The soft error surface a cycle badge already
+   wears, which is what these semantic tokens are for — and the sighted half of
+   the sentence the live region says on release. */
+.task-list--linking .task-item--link-refused.task-item--link-armed {
+    border-color: var(--color-error);
+    background: var(--color-error);
+}
+
+/*
+   The line the drag draws: from the handle the row was picked up by to wherever
+   the pointer is. The rows tinting themselves says which pair is involved and
+   what a release would do, and says nothing at all about the reader drawing a
+   dependency — which is the thing they are actually doing, so the gesture is
+   given the mark that shape has meant for as long as anybody has drawn one.
+
+   Not an insertion line, though it borrows that rule's tokens: color-primary at
+   border-width-2 for a drop that will land, per
+   `interaction-guidelines.md#drop-indicators`. What that rule reserves the
+   insertion line for is a drop that chooses a position, and this one chooses
+   neither a position nor a half of a row — so the same rule's "invalid targets
+   MUST NOT show an insertion line" is not a contradiction of the refused state
+   below. There is nowhere for this line to imply a row would go, which is why it
+   is allowed to be drawn at all over a row that will refuse it, and why the
+   refusal is dashed rather than merely recoloured.
+
+   Fixed to the viewport, and that is the load-bearing part rather than a
+   convenience. A link drag's one invariant is that nothing reflows for the whole
+   of it — the row the reader aimed at has to still be under the pointer when
+   they let go, which is what the whole feature was reworked to guarantee — so
+   this is positioned out of flow entirely. It takes no space in its parent, its
+   size comes from the viewport rather than from anything in the list, and a
+   fixed box is excluded from its ancestors' scrollable overflow, so it cannot so
+   much as provoke a scrollbar. It is also rendered outside the `<ul>`, so no row
+   is its sibling and nothing structural in here can see it. No row's layout is a
+   function of this element existing, which is the strongest available form of
+   "it cannot move a row".
+
+   pointer-events: none, on the overlay and on everything inside it. Not a
+   cosmetic detail: which row the pointer is over is resolved with
+   `document.elementFromPoint`, and a viewport-sized overlay that took one hit
+   would answer that question with itself for the rest of the gesture — the row
+   under the pointer would stop changing, the drop would land on whatever row was
+   last reported, and the gesture would be exactly as unaimable as the version
+   this one replaced. See `taskRowFromPoint` in components.js.
+
+   No transition on anything here, and so nothing for `prefers-reduced-motion` to
+   turn off. The line follows the cursor, which is as immediate as a thing can
+   be; a transition on a value rewritten every frame would only make it lag
+   behind the hand that is moving it.
+
+   The geometry is written by components.js, per animation frame — a curve that
+   tracked the pointer through C# would be a circuit round trip per frame. The
+   colour is the other way round: it is CSS, keyed off a class the script reads
+   from the row under the pointer, which C# put there from `RefusalFor`. So
+   "may these two rows be linked" keeps exactly one implementation, and the line
+   cannot promise a link the drop then refuses.
+*/
+.task-list__link-line {
+    position: fixed;
+    top: 0;
+    left: 0;
+    /* Stated rather than left to the insets: an `svg` is a replaced element, so
+       an auto width against a left and a right resolves to its intrinsic size
+       instead of stretching to fill. */
+    width: 100%;
+    height: 100%;
+    /* Over the rows and the panes around them, under the detail sheet and its
+       backdrop — a drawer that opens over the list is over the line too. */
+    z-index: 35;
+    /* The handle can be scrolled out of the box those percentages resolved
+       against, and the line back to it is still worth drawing. */
+    overflow: visible;
+    /* Quiet unless the pointer is on a row: over nothing in particular the line
+       says only where it came from, in the colour the handle wears at rest.
+       Both marks read this through currentColor, so a state below is one
+       property. */
+    color: var(--color-text-disabled);
+    pointer-events: none;
+}
+
+/* Belt as well as braces — pointer-events inherits, so the root already covers
+   these. It is repeated because a later rule that gave one of the marks its own
+   value would hand the overlay a hit, and with it every answer
+   `elementFromPoint` gives for the rest of the drag. */
+.task-list__link-line * {
+    pointer-events: none;
+}
+
+.task-list__link-line-path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--border-width-2);
+    stroke-linecap: round;
+}
+
+/* The end of the line, drawn only where it has a row to land on — the script
+   sets the radius, because whether there is one is a fact about the pointer
+   rather than about the stylesheet. */
+.task-list__link-line-dot {
+    fill: currentColor;
+}
+
+/* Over a row that will take the drop: the colour that row is already outlined
+   in, drawn solid, because the line and the row are saying one thing. */
+.task-list__link-line--valid {
+    color: var(--color-primary);
+}
+
+/* Over a row that will refuse it. Dashed as well as recoloured, so the refusal
+   survives being read by somebody who cannot tell the two colours apart — the
+   same reason the refusing row has a cursor and not only a surface.
+   color-error-text rather than color-error for the reason the inline error
+   message states where it picks the same token: the latter is a surface, and a
+   stroke drawn in it on this background is a stroke nobody can see. */
+.task-list__link-line--refused {
+    color: var(--color-error-text);
+}
+
+.task-list__link-line--refused .task-list__link-line-path {
+    stroke-dasharray: 0.375rem 0.25rem;
+}
+
 /* --- Renaming in place --------------------------------------------------- */
 
 /* A row whose title is a field keeps its status beside the field, for the reason

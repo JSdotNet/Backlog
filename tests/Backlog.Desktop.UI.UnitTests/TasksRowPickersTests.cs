@@ -256,6 +256,13 @@ public class TasksRowPickersTests
         Assert.NotNull(pickers);
         Assert.False(pickers.HasAttribute("draggable"));
 
+        // The link handle is the row's own, beside that slot rather than inside it.
+        // It has to be: the whole point of the slot is that a press landing in it
+        // is the host's, and a handle in there would be a press origin the gesture
+        // has already agreed to decline.
+        Assert.Null(Row(pane, first).QuerySelector(".task-item__actions .task-item__link"));
+        Assert.NotNull(Row(pane, first).QuerySelector(".task-item__link"));
+
         // And the row itself still opens, so what the picker is not reaching is a
         // live control rather than one that had already gone.
         await pane.Find($"[data-testid='{RowTestId(first)}-open']").ClickAsync(new());

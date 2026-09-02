@@ -457,6 +457,37 @@ public sealed class TaskListTests
     }
 
     [Fact]
+    public async Task Dragging_a_row_off_the_list_keeps_the_place_it_was_last_over()
+    {
+        // Pinned rather than newly decided. The script learned to say "over no row
+        // at all" so that a link drop could stop being aimed at a row the pointer
+        // had left — see TaskChainLinkTests — and this is the other gesture
+        // declining to hear it. A reorder preview that retracted every time the
+        // pointer crossed the gap between two rows would flicker, and the drop has
+        // always reported the last row the reader was shown the answer for rather
+        // than whatever the release technically landed on.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        TaskMove? move = null;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, m => move = m));
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver(null));
+
+        Assert.Equal(["Second", "Third", "First"], view.FindAll(".task-item__title").Select(t => t.TextContent));
+
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
+
+        Assert.Equal("a", move?.Id);
+        Assert.Equal("c", move?.TargetId);
+    }
+
+    [Fact]
     public async Task The_list_says_when_a_drag_is_in_flight_so_the_rest_can_make_room()
     {
         using var context = new BunitContext();

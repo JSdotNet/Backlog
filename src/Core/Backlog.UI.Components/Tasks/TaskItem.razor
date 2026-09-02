@@ -16,6 +16,14 @@
     host's — see OnDelete — and a row nobody is listening to has no bin at all,
     which is what keeps it off the lists that have no answer for it.
 
+    There are two handles on the row and they start two different gestures. The
+    grip picks the row up to move it; the link handle picks it up to make it wait
+    for another row. Order and dependency are independent facts about two rows, so
+    the gesture that writes each of them has to be aimable separately — and it is
+    aimed by the press, not by where the pointer ends up. Which gesture is in
+    flight, and whether this row will take its drop, are the list's answers: see
+    LinkHandle and LinkRole. A row cannot see what is being dragged over it.
+
     Read-only when nothing is listening. A row with no OnToggle renders its state
     as an image rather than a control, the same rule MarkdownView follows for a
     checklist — a checkbox that silently does nothing is worse than no checkbox.
@@ -209,6 +217,45 @@
     else
     {
         @RenderOpen()
+    }
+
+    @if (LinkHandle)
+    {
+        @* The second handle: press this and move, and the row is being made to
+           wait for whichever row it is dropped on rather than moved.
+
+           It is a handle and not a drop zone, and that distinction is the whole
+           design. A drop zone inside the row meant the mode of the gesture was
+           whatever the pointer happened to be over at the release, which turned
+           out to be bistable — the retracting reorder preview reflowed the list
+           out from under the aimed-at row, and the two modes traded places for as
+           long as the reader held still. A handle settles the question before the
+           gesture starts: see TaskListView's _linking, and taskRowFromPoint in
+           components.js. The drop target is the whole of the other row.
+
+           Visible at rest rather than on hover, for the reason the copy button is:
+           an affordance that only appears under the pointer cannot be found by
+           anyone looking for it. Quiet until the row is reached, so a column of
+           these does not read as the point of the list.
+
+           First of the row's controls, ahead of the pencil. It is the other half
+           of the grip at the row's other end — the two things you can pick a row
+           up by — and a handle you drag belongs beside what you are dragging
+           rather than filed among the buttons that act on it. Everything after it
+           is a click; this one is not.
+
+           aria-hidden and no tab stop, exactly as the grip is and for the same
+           reason: it is the pointer's affordance, and the keyboard has a route of
+           its own in Alt+Shift+Arrow. No handler either — the pointer listeners
+           are on the document and they find the row this sits in.
+
+           The glyph is a link and not the hourglass the metadata line wears: the
+           line says a row *is* waiting, which is a state, and this says a chain
+           can be drawn from here, which is a gesture. Wearing the state's mark on
+           a control would promise that pressing it is what makes a row wait. *@
+        <span class="task-item__link"
+              aria-hidden="true"
+              data-testid="@Suffix("link")">🔗</span>
     }
 
     @if (CanRename && !RenameOpen)
@@ -765,6 +812,90 @@
     public bool Dragging { get; set; }
 
     /// <summary>
+    /// Whether this row can be picked up to be made to wait for another one, and
+    /// so whether it draws the handle that does it.
+    /// <para>
+    /// The list's answer, on the same terms as <see cref="Draggable"/> and for the
+    /// same two reasons: whether anybody is listening for a link is the list's
+    /// parameter, and a handle that started a gesture nothing would come of is
+    /// worse than no handle. Off, this row's markup is exactly what it was before
+    /// links existed.
+    /// </para>
+    /// <para>
+    /// Not folded into <see cref="Draggable"/>, which also carries whether the
+    /// list reorders at all. A list whose order is not the reader's to choose can
+    /// still be a list whose chain is.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool LinkHandle { get; set; }
+
+    /// <summary>
+    /// What part this row is playing in the link drag in flight — including
+    /// whether releasing on it will do anything.
+    /// <para>
+    /// The whole row is the drop target, so the row is what has to say yes or no.
+    /// There is no sub-region to aim at: the mode of the gesture was settled by
+    /// the press that started it, which is what keeps the aiming and the meaning
+    /// from arguing with each other mid-drag.
+    /// </para>
+    /// <para>
+    /// The list's answer, because every input to it — is a link drag in flight,
+    /// is this the row that was picked up, does that row already wait for this
+    /// one — is a fact about the rows around this one.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public TaskLinkRole LinkRole { get; set; }
+
+    /// <summary>
+    /// Whether the pointer is on this row right now, so it can say it is the one
+    /// about to take the drop.
+    /// <para>
+    /// A parameter rather than <c>:hover</c>. Where the pointer is has already
+    /// been round-tripped to decide where the drop lands — see
+    /// <c>TaskListView.PointerDragOver</c> — and a second source of truth for it
+    /// would be one to get wrong on the frame they disagree. It is also the only
+    /// form of "armed" a test can see.
+    /// </para>
+    /// <para>
+    /// The class it produces is read back out of the DOM by the script that draws
+    /// the link line, which snaps to the row wearing it. That makes this the
+    /// published answer to "what will this drop do" rather than one row's
+    /// decoration, so a row that wore it without being the drop's target — or a
+    /// target that did not wear it — would put the line somewhere the drop is not
+    /// going. The list is the only thing that may set it.
+    /// </para>
+    /// <para>
+    /// A second axis rather than another <see cref="TaskLinkRole"/>, because it
+    /// crosses all of them: the row under the pointer may equally be the one
+    /// about to take the drop or the one about to refuse it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool LinkArmed { get; set; }
+
+    /// <summary>
+    /// The reader asked for this row to wait for a neighbour: -1 for the one
+    /// above, 1 for the one below.
+    /// <para>
+    /// A direction rather than a row, on the same terms as
+    /// <see cref="OnKeyboardMove"/> — this row cannot see its neighbours, and
+    /// which of them is a legal thing to wait for is the list's answer.
+    /// </para>
+    /// <para>
+    /// Deliberately not gated on <see cref="Draggable"/> the way the move is: a
+    /// list whose order is not the reader's to choose can still be a list whose
+    /// chain is, and there would be nothing to reorder either way. Nor on whether
+    /// this row is finished, even though a finished row has no handle: the chord
+    /// has no affordance to withhold, so the only way to tell the reader their
+    /// press was heard and refused is to report it and let the list say so.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnKeyboardLink { get; set; }
+
+    /// <summary>
     /// The id to put on the row's focusable element, so a caller that moved this
     /// row can give it the focus back.
     /// <para>
@@ -1210,15 +1341,28 @@
         await TryKeyboardMoveAsync(e);
     }
 
-    /// <summary>Alt+Arrow, wherever it was pressed. Shared by the row's line and by
-    /// the rename field, because "can this row be picked up" has one answer and a
-    /// second copy of the test would be a second chance for the two to disagree
-    /// about it.</summary>
+    /// <summary>
+    /// Alt+Arrow and Alt+Shift+Arrow, wherever either was pressed. Shared by the
+    /// row's line and by the rename field, because "can this row be picked up"
+    /// has one answer and a second copy of the test would be a second chance for
+    /// the two to disagree about it.
+    /// <para>
+    /// Shift is the whole difference between moving this row and making it wait
+    /// for a neighbour, and the link is tested first so that one press can only
+    /// ever do one of them. Chosen as the learnable sibling of Alt+Arrow;
+    /// Ctrl+Shift+Arrow was rejected outright, because it is select-by-word in
+    /// the rename field that shares this handler.
+    /// </para>
+    /// <para>
+    /// With nobody listening for links — or on a row nothing can wait for —
+    /// Alt+Shift+Arrow falls through and still moves the row, which is exactly
+    /// what it did before this existed. A list that has not asked for links does
+    /// not quietly lose a chord it already had.
+    /// </para>
+    /// </summary>
     private async Task TryKeyboardMoveAsync(KeyboardEventArgs e)
     {
-        // Gated on Draggable, which reads as "can be picked up" rather than as
-        // anything about pointers — so one predicate covers every gesture.
-        if (!Draggable || !e.AltKey || !OnKeyboardMove.HasDelegate) return;
+        if (!e.AltKey) return;
 
         var delta = e.Key switch
         {
@@ -1227,7 +1371,28 @@
             _ => 0
         };
 
-        if (delta != 0) await OnKeyboardMove.InvokeAsync(delta);
+        if (delta == 0) return;
+
+        // Not gated on Draggable: that folds in whether the list reorders at all,
+        // and a chained list that does not reorder must still be linkable.
+        //
+        // Not gated on Done either, and that is a fix rather than an oversight.
+        // A finished row draws no link handle, so it was tempting to refuse the
+        // chord here too — but refusing here meant falling through to the reorder
+        // branch, which declines a finished row as well, and the press vanished
+        // without a word. Every other refusal on this gesture says why, so this
+        // one is reported and the list answers it.
+        if (e.ShiftKey && OnKeyboardLink.HasDelegate)
+        {
+            await OnKeyboardLink.InvokeAsync(delta);
+            return;
+        }
+
+        // Gated on Draggable, which reads as "can be picked up" rather than as
+        // anything about pointers — so one predicate covers every gesture.
+        if (!Draggable || !OnKeyboardMove.HasDelegate) return;
+
+        await OnKeyboardMove.InvokeAsync(delta);
     }
 
     /// <summary>
@@ -1331,6 +1496,21 @@
         Next ? "task-item--next" : null,
         Selected ? "task-item--selected" : null,
         Dragging ? "task-item--dragging" : null,
+        // What this row is to the link drag in flight. On the row rather than on
+        // anything inside it, because the row is the drop target: there is nothing
+        // smaller than this to aim at, and nothing smaller to say yes or no.
+        LinkRole switch
+        {
+            TaskLinkRole.Source => "task-item--link-source",
+            TaskLinkRole.Target => "task-item--link-target",
+            TaskLinkRole.Refused => "task-item--link-refused",
+            _ => null
+        },
+        // Crossed with the role rather than folded into it: armed says the pointer
+        // is here, and the role says what will happen if it lets go here.
+        LinkArmed && LinkRole is not TaskLinkRole.None and not TaskLinkRole.Source
+            ? "task-item--link-armed"
+            : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 

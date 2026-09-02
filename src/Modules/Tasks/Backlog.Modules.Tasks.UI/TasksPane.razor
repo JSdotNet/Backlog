@@ -209,6 +209,7 @@
                                   OnRename="OnEntryRenamedAsync"
                                   Reorderable="true"
                                   OnReorder="OnEntryReorderedAsync"
+                                  OnLink="OnEntryLinkedAsync"
                                   OnTagSelected="OnRowTagSelected"
                                   GroupCompleted="true"
                                   RowCopyValue="@EntryCopyText"
@@ -736,6 +737,35 @@
     }
 
     /// <summary>
+    /// One entry dragged by its link handle onto another entry, written down as an
+    /// <c>after:</c> token on the entry that now waits.
+    /// <para>
+    /// Appended and never substituted. <c>ChangeDependsOnAsync</c> hands the whole
+    /// set to the parser, which rewrites every <c>after:</c> token in the text —
+    /// so the ids already there have to be carried through or a second drag would
+    /// silently drop the first one. <c>PreviewDependsOn</c> is read for them
+    /// because it is the same list the picker below the columns writes from, which
+    /// is what makes the two writers agree by construction rather than by
+    /// coincidence.
+    /// </para>
+    /// <para>
+    /// The duplicate guard is insurance against a stale render rather than
+    /// policy: the list refuses a row it already waits for, and the row wears that
+    /// refusal for the whole drag. Nothing is announced from here for the same
+    /// reason — the component owns what the reader is told, and a second sentence
+    /// from the pane would be the same fact said twice.
+    /// </para>
+    /// </summary>
+    private async Task OnEntryLinkedAsync(TaskLink link)
+    {
+        if (EntryFor(link.Id) is not { } row || EntryFor(link.DependsOnId) is null) return;
+
+        if (row.PreviewDependsOn.Contains(link.DependsOnId, StringComparer.Ordinal)) return;
+
+        await State.ChangeDependsOnAsync(row, [.. row.PreviewDependsOn, link.DependsOnId]);
+    }
+
+    /// <summary>
     /// Creating an entry is the same gesture as writing in one, so the control sits
     /// where the next entry will actually appear rather than up in the chrome.
     /// <para>
@@ -1042,6 +1072,16 @@
                           BaseClass="entry-detail__view">
                     @* Steps, as their own list. Reordering, renaming and completing
                        are the same three callbacks the entry list uses.
+
+                       No OnLink, so a drag here can only ever reorder — which is
+                       what a list that passes none gets, with no flag to remember
+                       and no link handle drawn on any row. A step has no identity
+                       to name:
+                       its TaskRow.Id *is* its index, so a dependency written against
+                       one would point at a different step the moment a step above it
+                       is added or deleted. Chaining steps needs somewhere stable to
+                       write the target down first, which is a decision about the data
+                       rather than about this list.
 
                        DirectRename, so a step's title is a field without a pencil
                        first — and that is why the rows are still reorderable by

@@ -480,6 +480,13 @@
     // Here rather than in a host's own script, because TaskListView owns the whole
     // gesture: a host that had to supply this would be a host that has to know the
     // list reorders at all.
+    //
+    // Two gestures share it. A press on the row or on its grip and then a move
+    // reorders the row; a press on the row's link handle and then a move makes the
+    // row wait for whichever row it is dropped on. Which of the two it is comes
+    // entirely from where the press landed and is fixed for the rest of the drag —
+    // the reason for that is on `taskRowFromPoint`, and it is the one thing in here
+    // not to redesign without reading it.
     const taskListRefs = new Map();
 
     window.taskListDrag = {
@@ -504,6 +511,10 @@
     // Everything inside a row that owns its own press. The row's title button is
     // deliberately absent: dragging a row by its title is the gesture people
     // actually make, and it stays a click when the pointer does not travel.
+    //
+    // The row's two handles — the grip and the link handle — are absent for the
+    // opposite reason. They are nothing but press origins, so the press is always
+    // the drag's; the pointerdown listener exempts them before it consults this.
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
         '.task-item__actions, .task-item__fold, .task-item__rename,' +
@@ -517,12 +528,251 @@
     let taskDragClickBlockedUntil = 0;
 
     function endTaskDrag() {
+        // Before the drag is forgotten, because clearing the line needs to know
+        // which list's overlay to clear. Every way a gesture can end comes through
+        // here — dropped, cancelled, Escape, the window losing focus — so there is
+        // one place the line has to be taken away and it is this one.
+        taskLinkClear();
+
         taskDrag = null;
     }
 
+    // Which row the pointer is over, and only that. What the drop is going to
+    // mean was settled when the press landed — see `taskDrag.link` — so nothing
+    // about where the pointer is now can change it, and this question has one
+    // answer again.
+    //
+    // It is worth saying why it is one answer, because the obvious extension is
+    // to make it two. An earlier version hit-tested a drop zone inside the row
+    // here and let that decide between reordering and linking, and the two states
+    // oscillated: entering the zone retracted the reorder preview, the retraction
+    // reflowed the list, the row the reader was aiming at moved out from under the
+    // pointer, the next pointermove hit-tested a different row and reported no
+    // zone, the preview came back — and which of the two the drop meant came down
+    // to the frame the release happened to land on. Deciding the mode at press
+    // time is what breaks that loop. Do not put a mode question back in here.
+    //
+    // One caller, and it is the pointermove that reports to C#. That is the second
+    // half of the same rule and it was learned the second time, the hard way: the
+    // link line used to ask this again for itself, so "which row is this gesture
+    // about" had two answers, they went out of step, and the line and the armed row
+    // told the reader different things about a drop that then wrote the row neither
+    // of them was still pointing at. Anything that needs to know which row a link
+    // drag is about reads it back off the DOM C# rendered — `--link-armed` — rather
+    // than asking here. This is a hit test, not a source of meaning.
     function taskRowFromPoint(x, y) {
         const element = document.elementFromPoint(x, y);
         return element instanceof Element ? element.closest('.task-item[data-task-id]') : null;
+    }
+
+    // ----- The line a link drag draws ---------------------------------------
+    //
+    // From the handle the row was picked up by to wherever the pointer is, so that
+    // the gesture looks like drawing a dependency rather than only tinting two
+    // rows.
+    //
+    // Here rather than in C# because it is a per-frame value. The row under the
+    // pointer already costs one circuit round trip each time it changes, which is
+    // a handful for a whole gesture; a curve following the cursor would cost one
+    // per frame on top of that, and on a remote circuit the line would trail the
+    // hand by however far the round trip is.
+    //
+    // So the split is: geometry is this file's, meaning is C#'s. Both halves of
+    // the meaning — which row the line ends on, and what a drop on it would do —
+    // are read off the classes C# has already put on the rows: `--link-armed` for
+    // the row the drop will land on, `--link-target` or `--link-refused` for
+    // whether it will be written, from `TaskListView.RefusalFor`. Neither is
+    // worked out again here. "Which row is this drop about" and "may these two
+    // rows be linked" each have one implementation, so the line cannot point at a
+    // row the drop will ignore, and cannot offer a link the drop then refuses —
+    // which would be the worst versions of this available.
+    //
+    // What it draws into is rendered by TaskListView, keyed by the same list id
+    // the drag callbacks are, and exists only while a link drag is in flight.
+    // Four attributes and a class; no element is created or destroyed here, so
+    // there is nothing to leak and nothing to tear down.
+
+    // The endpoint mark's radius, in px. The only size in here, and not a token
+    // because it is this mark's geometry rather than a step on a scale.
+    const TASK_LINK_DOT_R = 4;
+
+    let taskLinkFrame = 0;
+    let taskLinkX = 0;
+    let taskLinkY = 0;
+
+    // Where the pointer is, which is the only thing a move event has to say about
+    // the line now. The frame loop below does the drawing.
+    function taskLinkQueue(x, y) {
+        taskLinkX = x;
+        taskLinkY = y;
+        taskLinkTick();
+    }
+
+    // One paint per frame for as long as a link drag lasts — a loop rather than a
+    // repaint per pointermove, and that is a correctness requirement rather than a
+    // flourish. The row the line snaps to is published by C#, so it changes on a
+    // render and not on an input event: a reader who crosses into a row and then
+    // holds still produces no further pointermove, and a line repainted only on
+    // one would still be reaching for the cursor while the row under it had
+    // already lit up. That disagreement is the defect this loop exists to close,
+    // so the line asks again every frame instead of waiting to be told.
+    //
+    // Coalescing is still what it always was — a fast mouse delivers several moves
+    // inside one frame, and each of them would otherwise measure the handle and
+    // rewrite a curve nobody sees. And the loop costs no round trips whatever: it
+    // reads DOM C# has already rendered. It is also why there is no longer a
+    // countdown waiting for the overlay to appear; the overlay is a render behind
+    // the press, and a frame that has none simply draws nothing and comes back.
+    //
+    // It stops with the gesture. `taskLinkClear` cancels the pending frame, and a
+    // draw that runs once the drag has gone finds nothing to draw and schedules
+    // nothing further.
+    function taskLinkTick() {
+        if (taskLinkFrame) return;
+
+        taskLinkFrame = requestAnimationFrame(() => {
+            taskLinkFrame = 0;
+            taskLinkDraw();
+        });
+    }
+
+    // The overlay for the list this drag belongs to. By list id rather than by
+    // "the one on the page": two lists can be showing the same tasks, and the line
+    // belongs to the one whose handle was pressed.
+    function taskLinkOverlay() {
+        return taskDrag && taskDrag.ownerId
+            ? document.querySelector(`svg.task-list__link-line[data-link-line="${taskDrag.ownerId}"]`)
+            : null;
+    }
+
+    // Taking the line away, here rather than by waiting for the render that
+    // removes the overlay. A circuit that has gone away never sends that render,
+    // and a line still drawn across the page with no drag behind it is the one
+    // outcome this must not have.
+    function taskLinkClear() {
+        if (taskLinkFrame) {
+            cancelAnimationFrame(taskLinkFrame);
+            taskLinkFrame = 0;
+        }
+
+        const overlay = taskLinkOverlay();
+        if (!overlay) return;
+
+        overlay.classList.remove('task-list__link-line--valid', 'task-list__link-line--refused');
+        overlay.querySelector('.task-list__link-line-path')?.setAttribute('d', '');
+        overlay.querySelector('.task-list__link-line-dot')?.setAttribute('r', '0');
+    }
+
+    function taskLinkDraw() {
+        if (!taskDrag || !taskDrag.link || !taskDrag.active) return;
+
+        // Whatever this frame ends up drawing, there is a frame after it: the
+        // answer can change with the pointer standing still. Asked for here, ahead
+        // of everything that can return early, so that no missing element can end
+        // the loop while the drag is still in flight.
+        taskLinkTick();
+
+        // A render behind the press that started the drag, so the first frame or
+        // two of every link drag genuinely has nowhere to draw. There will be a
+        // frame that has one, and a drag that never gets one — a list with no
+        // OnLink, whose PointerLinkStart is dropped — draws nothing for the length
+        // of the gesture and stops with it.
+        const overlay = taskLinkOverlay();
+        if (!overlay) return;
+
+        const path = overlay.querySelector('.task-list__link-line-path');
+        const dot = overlay.querySelector('.task-list__link-line-dot');
+        if (!path || !dot) return;
+
+        // The overlay's own box, which turns viewport coordinates into the svg's
+        // user units. Measured rather than assumed to be the viewport: `position:
+        // fixed` is relative to the viewport only until some ancestor has a
+        // transform, and subtracting the box is right either way.
+        const box = overlay.getBoundingClientRect();
+
+        // The handle, found through the row rather than by id: the rows are keyed,
+        // so the row element survives the re-renders a drag causes, and a task id
+        // is the host's string rather than something to build a selector out of. A
+        // row whose handle has gone falls back to the row, which is where it was.
+        const handle = taskDrag.row.querySelector('.task-item__link') ?? taskDrag.row;
+        const from = handle.getBoundingClientRect();
+
+        const startX = from.left + from.width / 2 - box.left;
+        const startY = from.top + from.height / 2 - box.top;
+
+        // Where the line ends: the row C# has armed, and never a row this file
+        // worked out for itself.
+        //
+        // This hit-tested the pointer here and skipped the dragged row, which is
+        // the rule `DragOver` follows — one rule with two implementations, and they
+        // disagreed the moment either side went stale. A reader could hold a row's
+        // handle, cross a second row in transit, come back and release on the row
+        // in their hand, and the line went quiet while the second row stayed lit,
+        // because C# was still holding the last row it had been told about. The
+        // line moves with the hand, so the line is what the reader believes — and
+        // the drop wrote the row the line had already stopped pointing at.
+        //
+        // Reading the class instead makes the snapped row and the row the drop
+        // lands on the same row by construction: `task-item--link-armed` is worn by
+        // exactly the row `TaskListView._over` names. A quiet line is a drop that
+        // writes nothing; a snapped line is a drop that writes the link it is
+        // pointing at. There is no third possibility to get wrong.
+        //
+        // This is the second defect in this feature caused by re-deriving meaning
+        // from where the pointer is — the first is on `taskRowFromPoint`, which
+        // was a mode question asked of the pointer, and this was a target question
+        // asked of it. Both times two answers existed and the reader saw whichever
+        // one the release frame happened to hold. Pointer position is this file's
+        // for one purpose only: the line's free end while it is snapped to nothing.
+        //
+        // Scoped to this drag's list, because two lists can be showing the same
+        // tasks and only one of them is being dragged in.
+        const snap = document.querySelector(
+            `[data-list-owner="${taskDrag.ownerId}"] .task-item--link-armed`);
+
+        // The whole of the legality question, asked of the row rather than
+        // answered again here. A row wearing neither class — the frame before the
+        // round trip lands, or a row in some other list — leaves the line quiet,
+        // which is honest: nothing has said yet that a drop there would do
+        // anything.
+        overlay.classList.toggle(
+            'task-list__link-line--valid',
+            !!snap && snap.classList.contains('task-item--link-target'));
+
+        overlay.classList.toggle(
+            'task-list__link-line--refused',
+            !!snap && snap.classList.contains('task-item--link-refused'));
+
+        let endX = taskLinkX - box.left;
+        let endY = taskLinkY - box.top;
+
+        if (snap) {
+            const to = snap.getBoundingClientRect();
+
+            // The row's centre, so the line arrives at the row rather than at the
+            // pixel the pointer happens to be on: crossing a row anywhere gives the
+            // reader the same picture of what they are aiming at. The centre rather
+            // than an edge because the target of a link is the whole row — an edge
+            // reads as a position in the list, which is what the other drop means —
+            // and because a centre needs no answer to which edge leads, so a row
+            // that reads right-to-left needs no special case.
+            endX = to.left + to.width / 2 - box.left;
+            endY = to.top + to.height / 2 - box.top;
+        }
+
+        // A cubic with horizontal control points: it leaves the handle sideways and
+        // arrives at the row sideways, which is what makes it read as a cable
+        // between two rows rather than as an arrow at one of them.
+        const midX = (startX + endX) / 2;
+
+        path.setAttribute('d', `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`);
+
+        // The dot marks a row the line has snapped to and nothing else: off a row
+        // the end of the line is the cursor, and the cursor does not need a second
+        // mark drawn under it.
+        dot.setAttribute('cx', String(endX));
+        dot.setAttribute('cy', String(endY));
+        dot.setAttribute('r', snap ? String(TASK_LINK_DOT_R) : '0');
     }
 
     document.addEventListener('pointerdown', (event) => {
@@ -531,19 +781,33 @@
         if (event.button !== 0 || !event.isPrimary) return;
 
         const target = event.target instanceof Element ? event.target : null;
-        const row = target?.closest('.task-item[data-draggable="true"]');
+        if (!target) return;
+
+        // Which of the two gestures this press is starting, decided here and
+        // recorded for the rest of it. The link handle is its own element on the
+        // row, so "where did the press land" is the whole of the question.
+        const onLinkHandle = !!target.closest('.task-item__link');
+        const onGrip = !onLinkHandle && !!target.closest('.task-item__grip');
+
+        // A link drag starts from a handle the row carries whether or not the list
+        // reorders at all — a list whose order is not the reader's to choose can
+        // still be a list whose chain is. A reorder drag needs a row that can be
+        // picked up, which is what data-draggable says.
+        const row = onLinkHandle
+            ? target.closest('.task-item[data-task-id]')
+            : target.closest('.task-item[data-draggable="true"]');
         if (!row) return;
 
-        const onGrip = !!target.closest('.task-item__grip');
+        // A control inside the row keeps its own press, unless the press is on one
+        // of the row's handles — they are nothing but handles and sit inside the
+        // row with the controls.
+        if (!onGrip && !onLinkHandle && target.closest(TASK_DRAG_EXCLUDED)) return;
 
-        // A control inside the row keeps its own press, unless the press is on the
-        // grip — which is nothing but a handle and sits inside the row with them.
-        if (!onGrip && target.closest(TASK_DRAG_EXCLUDED)) return;
-
-        // Touch and pen drag from the grip only. A finger pressing anywhere else on
+        // Touch and pen drag from a handle only. A finger pressing anywhere else on
         // a row is how the list is scrolled, and taking that over would make a long
-        // list unreadable to get a row moved.
-        if (event.pointerType !== 'mouse' && !onGrip) return;
+        // list unreadable to get a row moved. The link handle is a press origin on
+        // the same terms as the grip, so it is the second place a finger may start.
+        if (event.pointerType !== 'mouse' && !onGrip && !onLinkHandle) return;
 
         const ownerId = row.closest('[data-list-owner]')?.getAttribute('data-list-owner');
         const ref = ownerId ? taskListRefs.get(ownerId) ?? null : null;
@@ -553,10 +817,20 @@
         taskDrag = {
             ref,
             taskId,
+            // Which list, and which element. Both are for the line a link drag
+            // draws: the overlay is found by the list id, and the handle it starts
+            // from is found inside this row rather than by a selector built out of
+            // a task id the host minted.
+            ownerId,
+            row,
             startX: event.clientX,
             startY: event.clientY,
             pointerId: event.pointerId,
             active: false,
+            // What the gesture is. Written once, from where the press landed, and
+            // read but never written for the rest of the drag: the mode is not
+            // something the pointer's later travels get a vote on.
+            link: onLinkHandle,
             lastOverId: null
         };
     });
@@ -569,17 +843,52 @@
             if (travelled < TASK_DRAG_THRESHOLD_PX) return;
 
             taskDrag.active = true;
-            taskDrag.ref.invokeMethodAsync('PointerDragStart', taskDrag.taskId).catch(() => {
+
+            // Two entry points rather than one with a mode argument, so the mode
+            // is structural: there is no way to start a link drag except by having
+            // pressed the link handle, and no way for anything later in the
+            // gesture to change its mind. It also degrades the right way — a stale
+            // copy of this script simply never links, rather than failing the
+            // invoke and taking reordering down with it.
+            const start = taskDrag.link ? 'PointerLinkStart' : 'PointerDragStart';
+
+            taskDrag.ref.invokeMethodAsync(start, taskDrag.taskId).catch(() => {
                 // The circuit can already be gone (navigation, disposal).
                 endTaskDrag();
             });
         }
 
+        // The line, if this drag is drawing one. Ahead of the block below, because
+        // that one returns as soon as the row has not changed — and the line
+        // follows the pointer within a row as well as between them.
+        if (taskDrag.link) taskLinkQueue(event.clientX, event.clientY);
+
         // Reported only when the answer changes. A pointer crossing a list produces
         // a move event per frame, and each one is a round trip to C# — the row under
         // the pointer is what the drop needs, not how often it was asked.
-        const overId = taskRowFromPoint(event.clientX, event.clientY)?.getAttribute('data-task-id');
-        if (!overId || overId === taskDrag.lastOverId) return;
+        //
+        // Null is one of the answers, and reporting it is the whole point. This
+        // used to fall silent when the hit test found no row, which left C# holding
+        // the last row the pointer had crossed for the rest of the gesture: a link
+        // released over empty space wrote a dependency on a row the reader had left
+        // behind, and the row stayed lit while the line went quiet. So "over no
+        // row" is a value here rather than the absence of one, and the memo below
+        // stores it like any other — leaving a list reports once, coming back
+        // reports once, and holding still off it reports nothing at all.
+        //
+        // Nullable through the existing call rather than a second `PointerDragOut`
+        // one, because "which row is the pointer over" is one question with one
+        // answer and one place it is answered. A second entry point would be a
+        // second thing to keep in step with this one, and — worse — would let a
+        // stale script report entering a row while never reporting leaving one,
+        // which is exactly the state the defect lived in. A stale script that has
+        // never heard of null simply reports as it always did.
+        //
+        // The dragged row is still reported by id. C# knows which row it handed
+        // out and turns it into "no target" itself, so the rule that a link cannot
+        // land on its own payload has one owner — see `TaskListView.DragOver`.
+        const overId = taskRowFromPoint(event.clientX, event.clientY)?.getAttribute('data-task-id') ?? null;
+        if (overId === taskDrag.lastOverId) return;
 
         taskDrag.lastOverId = overId;
         taskDrag.ref.invokeMethodAsync('PointerDragOver', overId).catch(() => {
