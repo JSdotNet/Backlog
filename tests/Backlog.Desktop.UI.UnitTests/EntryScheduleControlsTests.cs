@@ -5,8 +5,8 @@ using Bunit;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The five scheduling and dependency controls on an entry: due date, reminder,
-/// repeat, My Day, and what it waits on.
+/// The scheduling and dependency controls on an entry: due date, reminder, repeat,
+/// My Day, what it waits on, and the entry that waits on it.
 /// <para>
 /// Every one of them writes by rewriting the metadata line, which is why almost
 /// every assertion here is about <c>RawText</c>. That is not indirection: the text
@@ -20,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class EntryScheduleControlsTests
 {
     /// <summary>Writing an entry leaves it open in the detail pane, which is where
-    /// all five controls live. Body text is no longer load-bearing — see
+    /// all of them live. Body text is no longer load-bearing — see
     /// <see cref="A_title_only_entry_reaches_the_controls_too"/> — but it keeps this
     /// entry recognisable as the one the other tests are about.</summary>
     private const string ExpandedEntry =
@@ -32,7 +32,7 @@ public sealed class EntryScheduleControlsTests
         DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task The_open_entry_offers_all_five()
+    public async Task The_open_entry_offers_all_of_them()
     {
         using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExpandedEntry);
@@ -45,7 +45,8 @@ public sealed class EntryScheduleControlsTests
                      "entry-action-due",
                      "entry-action-remind",
                      "entry-action-repeat",
-                     "entry-action-depends"
+                     "entry-action-depends",
+                     "entry-action-followup"
                  })
         {
             Assert.Single(pane.FindAll($"[data-testid='{testId}']"));
@@ -78,7 +79,7 @@ public sealed class EntryScheduleControlsTests
 
     /// <summary>Nothing open, nothing offered. The controls belong to one entry, so
     /// a pane with no entry in it has none of them — and the list beside it stays a
-    /// list rather than becoming five rows per entry.</summary>
+    /// list rather than becoming a stack of control rows per entry.</summary>
     [Fact]
     public async Task A_closed_pane_offers_none_of_them()
     {

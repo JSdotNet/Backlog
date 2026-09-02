@@ -75,6 +75,32 @@ public class EntryTextParserTests
         Assert.Null(parsed.Status);
     }
 
+    /// <summary>
+    /// <c>follow-up</c> was a type once and is not one now, and the grammar still has
+    /// to recognise the word — not to mean anything by it, but so that rewriting an
+    /// entry that carries it takes it off the line. A parser that stopped seeing the
+    /// token would leave it in place and write the new type beside it, and the entry
+    /// would come out of a save claiming two types.
+    /// </summary>
+    [Fact]
+    public void A_retired_type_token_is_dropped_rather_than_kept_beside_the_new_one()
+    {
+        const string raw = "# Rework the onboarding email\n`follow-up` `*medium` `!ready` `@inbox`\n";
+
+        var parsed = EntryTextParser.Parse(raw);
+
+        // No mapping behind the word: it names no type, so the field stays unset and
+        // whatever reads it falls back the way it always did.
+        Assert.Null(parsed.Type);
+
+        var rewritten = EntryTextParser.WithType(raw, parsed.Type ?? EntryType.Task);
+        var metaLine = rewritten.Split('\n')[1];
+
+        Assert.Contains("`task`", metaLine);
+        Assert.DoesNotContain("follow-up", metaLine);
+        Assert.Equal(EntryType.Task, EntryTextParser.Parse(rewritten).Type);
+    }
+
     [Fact]
     public void Does_not_mistake_a_prose_line_for_a_meta_line()
     {
@@ -90,6 +116,148 @@ public class EntryTextParserTests
         var parsed = EntryTextParser.Parse("# Title\n\nSomething #alpha and later #beta and #alpha again.\n");
 
         Assert.Equal(["alpha", "beta"], parsed.Tags);
+    }
+
+    // --- Tags typed in the title -----------------------------------------
+    //
+    // A title may carry tags inline: `@name` is a person, `#name` is a general
+    // tag. The title text is kept exactly as typed — nothing is stripped or
+    // rewritten — so the sigils stay visible and the tags are *derived* from
+    // them, the same way body tags always have been.
+
+    [Fact]
+    public void Reads_a_person_tag_and_a_general_tag_from_the_title()
+    {
+        var parsed = EntryTextParser.Parse("# Ship the installer @bob #deploy\n");
+
+        // The title is preserved verbatim: the tags are read off it, not out of it.
+        Assert.Equal("Ship the installer @bob #deploy", parsed.Title);
+        Assert.Equal(["@bob", "deploy"], parsed.Tags);
+    }
+
+    [Fact]
+    public void Title_tags_are_derived_and_never_metadata_tags()
+    {
+        var parsed = EntryTextParser.Parse("# Ship the installer @bob #deploy\n`task` `#release`\n");
+
+        // Only what was authored on the backtick line is a metadata tag; the
+        // title's tags join the derived union beside the body's.
+        Assert.Equal(["release"], parsed.MetadataTags);
+        Assert.Equal(["release", "@bob", "deploy"], parsed.Tags);
+    }
+
+    [Fact]
+    public void A_person_tag_and_a_general_tag_of_the_same_name_are_distinct()
+    {
+        var parsed = EntryTextParser.Parse("# Ask @bob about #bob\n");
+
+        Assert.Equal(["@bob", "bob"], parsed.Tags);
+    }
+
+    [Fact]
+    public void An_email_address_in_the_title_is_not_a_tag()
+    {
+        // The `(?<!\S)` guard is the whole reason this holds: a sigil only starts
+        // a tag when nothing is welded to its left.
+        var parsed = EntryTextParser.Parse("# Mail bob@example.com about it\n");
+
+        Assert.Empty(parsed.Tags);
+    }
+
+    [Fact]
+    public void A_title_tag_is_lower_cased_like_every_other_tag()
+    {
+        var parsed = EntryTextParser.Parse("# Ship it @Bob #Deploy\n");
+
+        Assert.Equal(["@bob", "deploy"], parsed.Tags);
+    }
+
+    [Fact]
+    public void Stored_tags_without_a_sigil_still_read_as_general_tags()
+    {
+        // Everything written before person tags existed keeps its meaning: an
+        // unsigilled tag is a general tag, with no migration and no backfill.
+        var parsed = EntryTextParser.Parse("# Title\n`task` `#deploy` `#alpha`\n");
+
+        Assert.Equal(["deploy", "alpha"], parsed.MetadataTags);
+        Assert.Equal(["deploy", "alpha"], parsed.Tags);
+    }
+
+    [Fact]
+    public void A_sub_item_heading_is_not_scanned_for_person_tags()
+    {
+        // Entry title only. A `##` or `###` heading is a sub-item's own title and
+        // says nothing about who the entry is for.
+        var parsed = EntryTextParser.Parse("# Ship it\n\n## Deploy @bob\n\n### Verify @carol\n");
+
+        Assert.Empty(parsed.Tags);
+    }
+
+    [Fact]
+    public void Body_prose_does_not_learn_the_person_sigil()
+    {
+        // Body prose keeps recognising `#tag` and only `#tag`, exactly as before.
+        var parsed = EntryTextParser.Parse("# Ship it\n\nAsk @bob to look at #deploy.\n");
+
+        Assert.Equal(["deploy"], parsed.Tags);
+    }
+
+    [Fact]
+    public void Raw_text_never_writes_a_person_tag_on_to_the_metadata_line()
+    {
+        // `@` means Area on the metadata line, and the tag loop writes `#{tag}`.
+        // A person tag reaching it would come out as the corrupt token `#@bob`.
+        var entry = new TaskItem("Ship the installer @bob #deploy", string.Empty, EntryType.Task, Priority.Medium);
+        entry.SetTags(["@bob", "deploy"]);
+
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.DoesNotContain("@bob`", raw, StringComparison.Ordinal);
+        Assert.Contains("`#deploy`", raw, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_person_tag_round_trips_through_raw_text_without_being_dropped_or_doubled()
+    {
+        // Nothing is lost by keeping the person tag off the metadata line: the
+        // preserved title text is what carries it, and re-reading finds it again.
+        var entry = new TaskItem("Ship the installer @bob #deploy", string.Empty, EntryType.Task, Priority.Medium);
+        entry.SetTags(["@bob", "deploy"]);
+
+        var once = EntryTextParser.Parse(EntryTextParser.ToRawText(entry.ToDto()));
+
+        var reloaded = new TaskItem(once.Title, once.Body, EntryType.Task, Priority.Medium);
+        reloaded.SetTags(once.Tags);
+        var twice = EntryTextParser.Parse(EntryTextParser.ToRawText(reloaded.ToDto()));
+
+        Assert.Equal("Ship the installer @bob #deploy", once.Title);
+        Assert.Equal(["deploy", "@bob"], once.Tags);
+        Assert.Equal(once.Title, twice.Title);
+        Assert.Equal(once.Tags, twice.Tags);
+    }
+
+    [Fact]
+    public void The_tag_editor_round_trips_a_person_tag()
+    {
+        // NormalizeTags validates each tag against the general-tag shape, so a
+        // person tag has to be recognised there or the editor silently drops it.
+        var parsed = EntryTextParser.ParseTagsInput("@Bob, deploy #release");
+
+        Assert.Equal(["@bob", "deploy", "release"], parsed);
+        Assert.Equal("@bob deploy release", EntryTextParser.FormatTagsInput(parsed));
+    }
+
+    [Fact]
+    public void Writing_tags_on_to_the_metadata_line_leaves_the_person_tags_off_it()
+    {
+        // The person tag lives in the title; the metadata line only ever carries
+        // the general ones, so `@` on that line still means Area and nothing else.
+        var raw = EntryTextParser.WithTags("# Ship it @bob\n`task` `@repos`\n", "@bob deploy");
+
+        Assert.Contains("`#deploy`", raw, StringComparison.Ordinal);
+        Assert.Contains("`@repos`", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("#@bob", raw, StringComparison.Ordinal);
+        Assert.Equal("repos", EntryTextParser.Parse(raw).Area);
     }
 
     // --- Area -------------------------------------------------------------

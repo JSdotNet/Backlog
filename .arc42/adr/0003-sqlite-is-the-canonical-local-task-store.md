@@ -1,7 +1,7 @@
 # ADR 0003: SQLite is the canonical local task store; markdown is the content
 
 ```meta
-status: accepted
+status: active
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".domain/tasks/domain.md#task"]
 issue: null
 ```
@@ -70,7 +70,7 @@ to match the existing rank-then-recency rule.
 ### How values are written
 
 Enums are stored as the ubiquitous-language wire tokens already used by the old
-frontmatter (`follow_up`, `in_progress`), not as ordinals: the database should read
+frontmatter (`in_progress`), not as ordinals: the database should read
 the way the domain reads, and an ordinal would silently change meaning the day
 somebody inserts a member into the middle of an enum. `Recurrence` and `EntryView`
 go through `EntryTextParser`'s own token helpers, so the storage vocabulary and the

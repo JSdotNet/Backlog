@@ -422,6 +422,77 @@ public sealed class FileViewHeaderLayoutTests
     }
 
     /// <summary>
+    /// The file's status is as wide as the word in it, because in this header there
+    /// is no column for it to line up with.
+    ///
+    /// <para><c>.badge--status</c> is <c>7.5rem</c> wherever it appears — "a 7.5rem
+    /// column in a table of them", as the badge rules put it — and the body reads
+    /// its own reserve off that same number (<c>--md-status-column</c>). A file
+    /// view's header holds exactly one record, so the column it is a cell of does
+    /// not exist here, and in a knowledge side pane the 120px it charges is most of
+    /// a 272px row: the name gave what was left and was cut to a couple of
+    /// characters by the pill qualifying it. A header identifies; it is not a second
+    /// document (.design/design-principles.md#low-chrome-content-first).</para>
+    ///
+    /// <para>So the pill takes its content's width in this one header, on the terms
+    /// <c>.entry-row__pickers .badge--status</c> already narrows it on an entry
+    /// row — the same "there is no column here" argument. Scoped rather than taken
+    /// out of the badge: the table of statuses, the chapter records stacked in the
+    /// body and the entry rows all still want the width they have.</para>
+    /// </summary>
+    [Fact]
+    public void The_files_status_is_as_wide_as_its_word_and_not_a_column()
+    {
+        const string selector = ".file-view__header .knowledge-record__headline > .badge--status";
+
+        var pill = Rule(selector);
+
+        Assert.Contains("width: auto", pill, StringComparison.Ordinal);
+        Assert.Contains("min-width: 0", pill, StringComparison.Ordinal);
+
+        // Out of this header only. The badge keeps the column width, and so does
+        // the reserve the body reads off it — a status stacked under another status
+        // is still a column, and that is every chapter in the file underneath.
+        var badge = Rule(".badge--status {");
+
+        Assert.Contains("width: 7.5rem", badge, StringComparison.Ordinal);
+        Assert.Contains("min-width: 7.5rem", badge, StringComparison.Ordinal);
+        Assert.Contains(
+            "--md-status-column: 7.5rem",
+            Rule(".md-view--status-column {"),
+            StringComparison.Ordinal);
+
+        // Only the pill's left edge comes in. The right edge is the one a reader
+        // aligns against the chapters below, and it is the auto margin that puts it
+        // there — untouched here, so a narrower pill still closes the line.
+        Assert.Contains(
+            "margin-inline-start: auto",
+            Rule(".knowledge-record__headline > .badge--status:not(:first-child)"),
+            StringComparison.Ordinal);
+
+        // And the selector reaches both forms of the status this header can draw:
+        // the read-only badge, and the select a folder with a vocabulary offers.
+        // One of them narrowed and the other left at a column width would be the
+        // same pill in two sizes depending on whether the reader may change it.
+        using var context = new BunitContext();
+
+        var reading = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "shared-technologies.md")
+            .Add(v => v.Body, Knowledge)
+            .Add(v => v.RenderKnowledgeMetadata, true));
+
+        Assert.Equal("adopted", reading.Find(selector).TextContent);
+
+        var editing = context.Render<FileView>(parameters => parameters
+            .Add(v => v.Name, "shared-technologies.md")
+            .Add(v => v.Body, Knowledge)
+            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech));
+
+        Assert.Contains("status-editor", editing.Find(selector).ClassList);
+    }
+
+    /// <summary>
     /// The file's status and the chapters' statuses are one column.
     ///
     /// <para>The file's is drawn at the end of the header's first line and a

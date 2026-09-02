@@ -179,7 +179,11 @@ Lead is placement, not styling. A footer is a flex row that pushes its children 
     <Story Name="CopyButton"
            Description="Put something on the clipboard, and say whether it worked. Those are one component rather than two, because the second half is the part that keeps being dropped: the clipboard belongs to the browser and the browser is allowed to refuse — a WebView without permission, a page over plain http — and a button that reported nothing would leave a reader believing they had copied something they had not, which is how you lose whatever was on the clipboard before.
 
-The confirmation is a role=&quot;status&quot; line beside the button rather than a change to its label, so the button goes on saying what it does, and it clears itself after a few seconds. It is used by the code block, the read view, the document bar and every row in a task list — four places that would otherwise each have grown their own."
+The confirmation is a role=&quot;status&quot; line beside the button rather than a change to its label, so the button goes on saying what it does, and it clears itself after a few seconds. It is used by the code block, the read view, the document bar, the file header, the integration bar, a task row and the task panel — eight call sites, since a markdown chapter has one of its own as well as the document around it, that would otherwise each have grown their own.
+
+The glyph confirms it too: press the first one and the two sheets fade down into a check for as long as the sentence stands, then fade back. That is not a second copy of the message — a task row and the task panel hide the status line and keep only its announcement, so there the check is the whole confirmation a sighted reader gets, which is also why confirming promotes the glyph's colour rather than leaving a state indicator drawn in the disabled tone. Only a success is animated; a refusal keeps the sentence that says what to do instead, because motion here means &quot;that worked&quot;. Under prefers-reduced-motion the check still fades in — only the growing is dropped.
+
+The second sample puts words on the button instead. There is no glyph to swap, so it keeps them — but the wrapper still carries data-copied, which is the hook for a host that wants to dress its own confirmation."
            Code="@CopyButtonCode">
         <div class="sb-row">
             <CopyButton Text="Copied from the storybook." Label="Copy the sample text" TestId="copy-sample" />
@@ -196,7 +200,8 @@ The confirmation is a role=&quot;status&quot; line beside the button rather than
         new("accessibility.md#target-sizes-and-text", "How small a button is allowed to get."),
         new("accessibility.md#focus-visibility", "What a focused control has to show."),
         new("typography-and-layout.md#iconography", "When a button is an icon, and what the icon may be."),
-        new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click.")
+        new("design-principles.md#keyboard-first", "Why every act needs a key as well as a click."),
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How long a confirmation flash lasts, what it may animate, and what it does instead when motion is unwelcome.")
     ];
 
     private const string CopyButtonCode = """

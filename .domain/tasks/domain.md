@@ -264,9 +264,11 @@ An immutable record that an AI-assisted action contributed to the task:
 ```meta
 type: enum
 status: draft
+related: [.domain/tasks/naming.md#dependency]
 ```
 
-Classification of the task: `prompt`, `task`, `idea`, `follow_up`.
+Classification of the task: `prompt`, `task`, `idea`. A follow-up is a
+`Dependency` on the task it comes after rather than a type of its own.
 
 ### Task Status
 

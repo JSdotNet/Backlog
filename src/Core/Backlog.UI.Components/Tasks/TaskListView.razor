@@ -45,6 +45,51 @@
     declared a dependency derives nothing at all, so its markup is exactly what
     it was before chains existed.
 
+    A chain can also be drawn by dragging, and the drag that draws it is a
+    different gesture from the drag that reorders — decided by which handle the
+    press landed on, and fixed from there to the release. Press a row's link handle
+    and move, and every other row says whether it will take the drop; let go on one
+    and the row you picked up waits for it. Press the row or its grip and it is the
+    reorder it always was. Order and dependency are independent facts about the
+    same pair of rows, so one gesture must never write both — see CommitDragAsync,
+    where the two are one either-or, and _linking, which says why the mode is never
+    re-derived from where the pointer is.
+
+    Let go over the row you are holding, or over no row at all, and the link drag
+    writes nothing and says nothing: a link lands on the row under the pointer at
+    the release and on no other, which is a stricter rule than the reorder's and
+    exists because a dependency written about a pair the reader never aimed at is
+    not a mistake they can see. DragOver is where that is decided, and the only
+    place it may be.
+
+    Nothing moves during a link drag. There is no reorder to preview, so Preview is
+    Tasks for the whole gesture and the row the reader is aiming at stays where
+    they aimed. That is not a nicety: an earlier version decided the mode from a
+    drop zone under the pointer, and the reflow that came with retracting the
+    preview moved the target out from under the pointer and put the mode back —
+    which made the meaning of the drop a matter of the frame the release fell on.
+
+    What it draws instead is a line, from the handle the row was picked up by to
+    the armed row — or to the pointer, while no row is armed. This renders the
+    surface it is drawn on and not one pixel of the line itself: the curve follows
+    the cursor, and a curve that came back through here would be a round trip per
+    frame. What it does not decide is where it ends. The line snaps to whichever
+    row is wearing --link-armed, so it ends where this component says the drop will
+    land rather than wherever a second hit test in the script would have put it.
+    See the overlay below for what is handed over and what it costs, which is
+    nothing: it hangs outside the list's flow, so no row can be laid out against it.
+
+    And it is on the keyboard too, because a drag has no keyboard equivalent:
+    Alt+Shift+Arrow makes the focused row wait for the nearest row above or below
+    it, beside the Alt+Arrow that moves it. Each of the two says what happened
+    through the same live region a move already uses — including when it refuses,
+    since for a reader who cannot see the cursor change the sentence is the only
+    cue there is.
+
+    The handle is only there when a host is listening for OnLink. Writing the
+    dependency down is the host's, exactly as applying a move is, and this library
+    ships no dependency editor to write it in.
+
     Quick edit is retitling as one keystroke per row: Tab settles the rename in
     the field and opens the field on the next row, Shift+Tab walks back up. Which
     row that is has to be held here, exactly as the selected row is, because a
@@ -142,6 +187,42 @@
     }
 </ul>
 
+@* Where the line a link drag draws is drawn, and only while one is in flight.
+   Two empty marks and a name: components.js writes the curve, the endpoint and
+   the state class into them from the pointer stream, per animation frame, because
+   a line that tracked the cursor through this component would cost a circuit round
+   trip per frame — and the row under the pointer already costs one each time it
+   changes.
+
+   Rendered here rather than created in script, so that what the gesture attaches
+   to is this component's own markup and can be asserted rather than assumed: the
+   same list id the drag callbacks are keyed by, the two mark classes the script
+   writes into, and the fact that it is here for exactly the length of a link drag
+   and not one render longer. The script's half is four attributes and a class,
+   which is also why the diff cannot fight it — the values rendered here never
+   change, so Blazor never re-applies one over what the script put there.
+
+   Outside the <ul> and fixed to the viewport, which is the whole of its right to
+   exist during a gesture whose one invariant is that nothing reflows. It takes no
+   space, its size comes from the viewport, and no row is its sibling — so no
+   row's position is a function of it. The rule is in components.css with the
+   reason beside it, along with why nothing in here may ever take a pointer hit.
+
+   aria-hidden, like the handle that started the drag: it is the pointer's own
+   feedback, and a reader who cannot see it is told what is about to happen by the
+   live region instead. *@
+@if (_dragging is not null && _linking)
+{
+    <svg class="task-list__link-line"
+         data-link-line="@_listId"
+         data-testid="@Suffix("link-line")"
+         aria-hidden="true"
+         focusable="false">
+        <path class="task-list__link-line-path" d="" />
+        <circle class="task-list__link-line-dot" cx="0" cy="0" r="0" />
+    </svg>
+}
+
 @* The host's own place in the list, under the open rows and above the finished
    ones.
 
@@ -192,7 +273,49 @@
 @code {
     private string? _dragging;
     private string? _over;
+
+    /// <summary>
+    /// Whether the drag in flight is a link rather than a reorder — so whether
+    /// the drop writes a dependency or a position.
+    /// <para>
+    /// Written once, by the entry point the script called, and never again for the
+    /// rest of the gesture. That is the design and not an implementation detail,
+    /// so it is worth saying what happens when it is not.
+    /// </para>
+    /// <para>
+    /// The first version of this feature derived the mode from where the pointer
+    /// was: a "wait for this" zone inside each row, and a drop meant a link if the
+    /// pointer was over one. The two states oscillated. Entering a zone retracted
+    /// the reorder preview; retracting it reflowed the list; the reflow moved the
+    /// row the reader was aiming at out from under the pointer; the next
+    /// pointermove hit-tested a different row and reported no zone; the preview
+    /// came back — and what the drop meant came down to which half of the cycle
+    /// the release landed in. Synthetic events settled on one side of it and a
+    /// human hand on the other, which is why it passed its tests and failed the
+    /// first time somebody used it.
+    /// </para>
+    /// <para>
+    /// So the mode is decided by the press and is not a function of position at
+    /// any later point. Nothing here may reintroduce one: not this field, not
+    /// <see cref="Preview"/>, and not the script that feeds them. A future
+    /// simplification that "just" reads the pointer again is this bug.
+    /// </para>
+    /// </summary>
+    private bool _linking;
+
     private bool _showCompleted;
+
+    /// <summary>The picked rows, as a set, rebuilt whenever the host hands a new
+    /// one over. Never written to here: the host owns the selection.</summary>
+    private HashSet<string> _selected = [];
+
+    /// <summary>The last row whose box was pressed, and so where a Shift press
+    /// measures its range from. Held here because it is a fact about the gesture
+    /// rather than about the selection — a host given it to keep would be keeping
+    /// pointer state — and forgotten with the view, which is right: a range
+    /// anchored on a row from before a filter changed would take rows the reader
+    /// can no longer see.</summary>
+    private string? _selectionAnchor;
 
     /// <summary>What to say about the last keyboard move, if there was one.</summary>
     private string? _announcement;
@@ -299,6 +422,13 @@
     {
         ResolveDeleteFocus();
 
+        // Rebuilt once per parameter change rather than asked once per row: the
+        // set arrives as a collection, and a list of twenty rows would otherwise
+        // walk it twenty times to answer the same question.
+        _selected = SelectionEnabled
+            ? new HashSet<string>(SelectedIds, StringComparer.Ordinal)
+            : [];
+
         var statuses = new Dictionary<string, TaskChainStatus>(StringComparer.Ordinal);
         _nextId = null;
 
@@ -351,11 +481,19 @@
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
                    Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
+                   Selectable="@SelectionEnabled"
+                   SelectionChecked="@_selected.Contains(task.Id)"
+                   SelectionActive="@(_selected.Count > 0)"
+                   SelectionChanged="@SelectionRequest"
                    Draggable="@(Reorderable && !task.Done)"
                    Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"
+                   LinkHandle="@(OnLink.HasDelegate && !task.Done)"
+                   LinkRole="@LinkRoleFor(task)"
+                   LinkArmed="@(_linking && string.Equals(_over, task.Id, StringComparison.Ordinal))"
                    RowElementId="@RowElementId(task)"
                    OnTabForward="@TabForwardFor(task)"
                    OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
+                   OnKeyboardLink="@KeyboardLinkFor(task)"
                    CssClass="@RowCssClass?.Invoke(task)"
                    TestId="@RowTestId(task)" />;
 
@@ -376,6 +514,38 @@
 
     [Parameter]
     public string? SelectedId { get; set; }
+
+    /// <summary>
+    /// Whether the rows carry a selection gutter.
+    /// <para>
+    /// Off by default, and that is not caution: a gutter on every list in the
+    /// product would spend a tab stop and a column of chrome per row on lists
+    /// that have nothing to do with more than one thing at a time.
+    /// </para>
+    /// <para>
+    /// Independent of <see cref="SelectedId"/> on purpose. That one is "which row
+    /// is open beside the list", a single answer that drives a detail pane; this
+    /// is a set of rows a reader is about to act on together, and the two are
+    /// live at the same time.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool SelectionEnabled { get; set; }
+
+    /// <summary>Which rows are picked. The host's set, held by the host — a list
+    /// that kept its own copy would disagree with whatever the host is about to
+    /// write to.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> SelectedIds { get; set; } = [];
+
+    /// <summary>Raised with the whole set rather than the difference, on the
+    /// terms <see cref="OnReorder"/> already sets: what the reader asked for is
+    /// reported and the host applies it. The whole set because a Shift press
+    /// changes an unbounded number of rows at once, and a host asked to replay a
+    /// range would need the rendered order — which is exactly what it does not
+    /// have.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlyCollection<string>> SelectedIdsChanged { get; set; }
 
     [Parameter]
     public EventCallback<string> OnToggle { get; set; }
@@ -527,6 +697,35 @@
     public EventCallback<TaskMove> OnReorder { get; set; }
 
     /// <summary>
+    /// One row now waits for another: the row that was picked up, and the row it
+    /// was dropped on. Reported and never applied, on the terms
+    /// <see cref="OnReorder"/> already set — a chain is data the host keeps, and
+    /// this library ships no dependency editor to keep it in.
+    /// <para>
+    /// It is also what puts the link handle on the rows at all. With nobody
+    /// listening the markup is byte-identical to what it was before this existed
+    /// and a drag can only ever reorder — the same rule <see cref="OnDelete"/>
+    /// follows for the bin, and for the same reason: a handle that started a
+    /// gesture nothing would come of is worse than no handle.
+    /// </para>
+    /// <para>
+    /// Never raised alongside <see cref="OnReorder"/>. Order and dependency are
+    /// independent facts about the same two rows, and one drop that wrote both
+    /// would be a drop the reader cannot aim: see <see cref="CommitDragAsync"/>,
+    /// where the two are one either-or, taken on the mode the press decided.
+    /// </para>
+    /// <para>
+    /// Independent of <see cref="Reorderable"/>, which is the point of the link
+    /// having a handle of its own. A list whose rows cannot be picked up to be
+    /// moved can still have its chain drawn with a pointer, because the handle is
+    /// a press origin in its own right rather than a region of a row that has to
+    /// be draggable first.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<TaskLink> OnLink { get; set; }
+
+    /// <summary>
     /// The reader tabbed forward off the selected row.
     /// <para>
     /// Offered for the selected row alone, because it is the only row a host has
@@ -597,25 +796,15 @@
         "task-list",
         // Lets the rows that are not moving pull in while one is in flight, so
         // the list reads as having made room rather than as having a hole in it.
-        _dragging is not null ? "task-list--dragging" : null,
+        _dragging is not null && !_linking ? "task-list--dragging" : null,
+        // And the other gesture, which gets its own class rather than sharing
+        // that one: a link drag moves no rows at all, so it must not bring the
+        // inset with it. Nothing shifting is the invariant that makes the row
+        // under the pointer the row the reader aimed at — see _linking.
+        _dragging is not null && _linking ? "task-list--linking" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
-    /// <summary>
-    /// The order to draw right now: the real one, or — while a row is being
-    /// dragged over another — the order the drop would produce.
-    /// <para>
-    /// Previewing rather than drawing an insertion line is the difference
-    /// between showing where a row would go and describing it. The reader is
-    /// already looking at the list; moving it is the cheapest possible answer to
-    /// "where would this land".
-    /// </para>
-    /// <para>
-    /// It is a view and nothing more. Tasks is untouched, and if the drag is
-    /// abandoned the preview simply stops being computed — there is no state to
-    /// roll back because nothing was changed.
-    /// </para>
-    /// </summary>
     /// <summary>The rows in the top list: everything, or everything unfinished
     /// when the done ones have somewhere of their own to go.</summary>
     private IReadOnlyList<TaskRow> Open =>
@@ -630,10 +819,118 @@
 
     private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
 
+    /// <summary>
+    /// The order to draw right now: the real one, or — while a row is being
+    /// dragged over another to reorder it — the order the drop would produce.
+    /// <para>
+    /// Previewing rather than drawing an insertion line is the difference between
+    /// showing where a row would go and describing it. The reader is already
+    /// looking at the list; moving it is the cheapest possible answer to "where
+    /// would this land". It is a view and nothing more: Tasks is untouched, and an
+    /// abandoned drag simply stops it being computed, so there is no state to roll
+    /// back.
+    /// </para>
+    /// <para>
+    /// A link drag previews nothing, and that is structural rather than a
+    /// judgement about how much feedback is enough. <c>_linking</c> is fixed for
+    /// the whole gesture, so this is <c>Tasks</c> for the whole gesture: no
+    /// reflow, and the row the reader is holding the pointer over does not move
+    /// while they hold it. The bug that rule exists to prevent is written out on
+    /// <c>_linking</c>.
+    /// </para>
+    /// <para>
+    /// What a link drag shows instead is on the rows themselves — see
+    /// <see cref="LinkRoleFor"/>. A target that highlights and a target that
+    /// refuses are both more honest than an insertion line, which would be
+    /// describing a move that is not going to happen.
+    /// </para>
+    /// </summary>
     private IReadOnlyList<TaskRow> Preview =>
-        _dragging is { } moved && _over is { } target && !string.Equals(moved, target, StringComparison.Ordinal)
+        !_linking && _dragging is { } moved && _over is { } target && !string.Equals(moved, target, StringComparison.Ordinal)
             ? new TaskMove(moved, target).ApplyTo(Tasks, task => task.Id)
             : Tasks;
+
+    /// <summary>
+    /// What this row is to the link drag in flight: nothing, the row that was
+    /// picked up, a row that will take the drop, or a row that will not.
+    /// <para>
+    /// Nothing at all unless a link drag is in flight — a reorder drag leaves
+    /// every row's answer <see cref="TaskLinkRole.None"/>, which is what keeps the
+    /// two gestures from decorating each other. The row in flight is
+    /// <see cref="TaskLinkRole.Source"/> rather than a target: it is the payload,
+    /// and the drag ignores being dragged over itself, so a self-link needs no
+    /// refusal of its own.
+    /// </para>
+    /// <para>
+    /// Every other row is a whole drop target. There is no sub-region because
+    /// there is nothing left for one to disambiguate — the press already said
+    /// which gesture this is — and a row-sized target is what
+    /// <c>interaction-guidelines.md#reliable-drop-targets-items</c> asks for
+    /// anyway: the handle is sized for picking up, the row for releasing.
+    /// </para>
+    /// </summary>
+    private TaskLinkRole LinkRoleFor(TaskRow task)
+    {
+        if (!_linking || _dragging is not { } moved) return TaskLinkRole.None;
+
+        if (string.Equals(moved, task.Id, StringComparison.Ordinal)) return TaskLinkRole.Source;
+
+        if (RowFor(moved) is not { } waiter) return TaskLinkRole.Refused;
+
+        return RefusalFor(waiter, task) is null ? TaskLinkRole.Target : TaskLinkRole.Refused;
+    }
+
+    /// <summary>
+    /// Why this list will not write a link, in the words the reader would hear —
+    /// or <c>null</c> when it will.
+    /// <para>
+    /// One function doing both jobs on purpose. The row wears its refusal as a
+    /// class and the drop says the refusal out loud, and two copies of the rule
+    /// would be two chances for a row to refuse something the drop then accepted.
+    /// Every route in — the pointer, the keyboard chord — comes through here.
+    /// </para>
+    /// <para>
+    /// Three facts decide it, all already on the rows. A finished row cannot be
+    /// made to wait, because it has nothing left to wait for. A finished row
+    /// cannot be waited for either, because that dependency was satisfied before
+    /// it was written. And a row the waiter already waits for has nothing to add.
+    /// </para>
+    /// <para>
+    /// <see cref="TaskChainStatus"/> decides nothing here, deliberately. Ready,
+    /// blocked and in-a-cycle are all irrelevant to whether a row may be waited
+    /// on: blocking is transitive by design, and a cycle is accepted and named
+    /// rather than refused. <see cref="Universe"/> decides nothing either — it
+    /// widens where an id is looked up, and legality is about the two rows the
+    /// reader can see.
+    /// </para>
+    /// </summary>
+    private static string? RefusalFor(TaskRow waiter, TaskRow target) =>
+        waiter.Done ? FinishedWaiter(waiter)
+        : target.Done ? $"{target.Title} is finished, so nothing can wait for it."
+        : waiter.DependsOnList.Contains(target.Id, StringComparer.Ordinal)
+            ? $"{waiter.Title} already waits for {target.Title}."
+            : null;
+
+    /// <summary>Said in two places — here and before the keyboard route has a
+    /// target to refuse against — so the sentence is written once.</summary>
+    private static string FinishedWaiter(TaskRow waiter) =>
+        $"{waiter.Title} is finished, so it cannot be made to wait.";
+
+    /// <summary>The row an id names, or null when this list is not showing it.
+    /// <c>Tasks</c> and not <c>Universe</c>: a link is written between two rows
+    /// the reader has in front of them.</summary>
+    private TaskRow? RowFor(string id) =>
+        Tasks.FirstOrDefault(task => string.Equals(task.Id, id, StringComparison.Ordinal));
+
+    /// <summary>Which rows are offered the keyboard chord: all of them when a host
+    /// is listening, including the finished ones, which have no handle but do get
+    /// told why. Shaped like <see cref="DeleteRequest"/> so a row asked
+    /// <c>HasDelegate</c> answers for the host — a chord that reported nowhere
+    /// would be a chord that swallows Alt+Shift+Arrow for nothing.</summary>
+    private EventCallback<int> KeyboardLinkFor(TaskRow task) =>
+        OnLink.HasDelegate
+            ? EventCallback.Factory.Create<int>(this, delta => LinkByKeyboardAsync(task, delta))
+            : default;
 
     private string? RowTestId(TaskRow task) => TestId is null ? null : $"{TestId}-{task.Id}";
 
@@ -655,6 +952,86 @@
     /// wrapper, and a list with no <see cref="OnDelete"/> draws no bins at all.</summary>
     private EventCallback<string> DeleteRequest =>
         OnDelete.HasDelegate ? EventCallback.Factory.Create<string>(this, DeleteAsync) : default;
+
+    /// <summary>Which rows get a gutter, shaped exactly like
+    /// <see cref="DeleteRequest"/>: an empty callback rather than a method group,
+    /// so a row asking <c>HasDelegate</c> is asking about the host rather than
+    /// about this wrapper — and a list with nothing listening draws no boxes at
+    /// all.</summary>
+    private EventCallback<TaskSelectionToggle> SelectionRequest =>
+        SelectedIdsChanged.HasDelegate
+            ? EventCallback.Factory.Create<TaskSelectionToggle>(this, ToggleSelectionAsync)
+            : default;
+
+    /// <summary>
+    /// The rows a range may span: the ones actually on screen, in the order they
+    /// are drawn.
+    /// <para>
+    /// The rendered order rather than <c>Tasks</c>, because with finished rows
+    /// folded into their own section the two differ — the same reason the keyboard
+    /// move walks <see cref="Open"/>. A range measured against the underlying
+    /// order would take rows from between two the reader can see with nothing in
+    /// between them.
+    /// </para>
+    /// <para>
+    /// The Completed section counts only while it is open. A shut fold is rows
+    /// nobody can press, so a range that reached into it would pick up work the
+    /// reader has no way of knowing they had selected.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<TaskRow> SelectableOrder =>
+        _showCompleted ? [.. Open, .. Completed] : Open;
+
+    /// <summary>
+    /// A box having been pressed, turned into the set the host now holds.
+    /// <para>
+    /// Plain, it is this row. With Shift and an anchor behind it, every row from
+    /// the anchor to here takes the state this box now reads as — the state
+    /// rather than a flip, so the row the reader actually clicked agrees with its
+    /// own tick and the run comes out uniform instead of inverted down the
+    /// middle.
+    /// </para>
+    /// <para>
+    /// The anchor moves either way, because a range is itself a press: a reader
+    /// extending twice in a row means "from where I just got to", not "from where
+    /// I started three gestures ago".
+    /// </para>
+    /// </summary>
+    private async Task ToggleSelectionAsync(TaskSelectionToggle toggle)
+    {
+        var selected = new HashSet<string>(_selected, StringComparer.Ordinal);
+        var order = SelectableOrder;
+
+        var anchor = toggle.Range && _selectionAnchor is { } previous
+            ? IndexOf(order, previous)
+            : -1;
+
+        var pressed = IndexOf(order, toggle.Id);
+
+        if (anchor >= 0 && pressed >= 0)
+        {
+            var from = Math.Min(anchor, pressed);
+            var to = Math.Max(anchor, pressed);
+
+            for (var index = from; index <= to; index++)
+            {
+                if (toggle.Selected) selected.Add(order[index].Id);
+                else selected.Remove(order[index].Id);
+            }
+        }
+        else if (toggle.Selected)
+        {
+            selected.Add(toggle.Id);
+        }
+        else
+        {
+            selected.Remove(toggle.Id);
+        }
+
+        _selectionAnchor = toggle.Id;
+
+        await SelectedIdsChanged.InvokeAsync([.. selected]);
+    }
 
     /// <summary>
     /// A row the reader asked to be rid of. Reported, never applied — the host owns
@@ -1016,58 +1393,157 @@
         await OnAdd.InvokeAsync(title);
     }
 
-    private void StartDrag(string id)
+    /// <summary>A row has been picked up, and which of the two gestures that is.
+    /// The mode arrives here and is not touched again until the drag ends — see
+    /// <c>_linking</c> for what depends on that.
+    /// <para>
+    /// A link drag starts with no target at all, and a reorder drag starts on the
+    /// row it picked up. Both mean "nothing to commit yet", but a link drag says
+    /// it in one way only: <c>null</c> is the whole of "no target" for the rest of
+    /// that gesture, so there is one value to check and one thing a row can read
+    /// itself against. The reorder drag keeps the row because that is what its
+    /// preview and its drop have always been written against, and its
+    /// drop-on-self rule is not this change's business — see <see cref="DragOver"/>.
+    /// </para>
+    /// </summary>
+    private void StartDrag(string id, bool linking)
     {
         _dragging = id;
-        _over = id;
+        _over = linking ? null : id;
+        _linking = linking;
     }
 
     /// <summary>
-    /// Which row the pointer is over, and so where the drop would land.
+    /// Which row the pointer is over, and so where the drop would land — or
+    /// <c>null</c>, meaning no row: the pointer is over empty space, or over the
+    /// row the gesture is carrying. Only where; what the drop will do to that row
+    /// was settled by the press.
     /// <para>
-    /// Dragging over the moved row itself is ignored. In the previewed order
-    /// that row is already sitting where the pointer is, so honouring it would
-    /// mean "put it back", the preview would snap to the real order, the row
-    /// under the pointer would change, and the two would trade places for as
-    /// long as the reader held still.
+    /// A link drag publishes that answer whatever it is, including nothing. This
+    /// is the one place a link target is decided, and it is decided from the
+    /// current report and from nothing else — never from the last report that
+    /// happened to name a row, never from a hit test taken somewhere else. The
+    /// defect that rule closes: press a row's handle, cross a second row in
+    /// transit, come back and release on the row in your hand. The second row was
+    /// still held here, so the drop wrote "this waits for that" about a pair the
+    /// reader had never aimed at and said so out loud. Releasing off the list did
+    /// the same. A report that names no row has to be able to unarm the list, or
+    /// the drop is answering a question from several seconds ago.
+    /// </para>
+    /// <para>
+    /// It is also why the row's tint and the line the script draws cannot
+    /// disagree. Both are this one field rendered — the row wears
+    /// <c>--link-armed</c>, the line snaps to whichever row is wearing it — so a
+    /// quiet line means a drop that writes nothing, and there is no second answer
+    /// for the reader to be shown instead.
+    /// </para>
+    /// <para>
+    /// A reorder drag keeps the last real row it was told about instead, and that
+    /// is deliberately the behaviour it already had. Honouring the moved row would
+    /// mean "put it back": in the previewed order that row is already sitting
+    /// where the pointer is, so the preview would snap to the real order, the row
+    /// under the pointer would change, and the two would trade places for as long
+    /// as the reader held still. A report of nothing is dropped for the same
+    /// reason — a preview that retracted every time the pointer crossed the gap
+    /// between two rows would flicker — and <see cref="TaskMove"/>'s
+    /// drop-off-the-list semantics are settled, covered, and not in scope here.
     /// </para>
     /// </summary>
-    private void DragOver(string id)
+    private void DragOver(string? id)
     {
-        if (_dragging is null || string.Equals(id, _dragging, StringComparison.Ordinal)) return;
+        if (_dragging is not { } moved) return;
 
-        _over = id;
+        // The one row a link cannot land on is the row being dragged, and the
+        // script reports it by id rather than collapsing it: the rule lives here,
+        // with the field it governs, rather than in two places.
+        var target = id is null || string.Equals(id, moved, StringComparison.Ordinal) ? null : id;
+
+        if (_linking)
+        {
+            _over = target;
+            return;
+        }
+
+        if (target is null) return;
+
+        _over = target;
     }
 
     private void EndDrag()
     {
         _dragging = null;
         _over = null;
+        _linking = false;
     }
 
     /// <summary>
     /// The reader has pressed a row and moved far enough for it to be a drag —
     /// see `taskListDrag` in components.js, which owns the whole gesture.
     /// <para>
-    /// Three entry points rather than drag events bound on the row, because the
-    /// row is no longer <c>draggable</c>: the desktop head's WebView2 aborts a
-    /// native drag about five milliseconds after it opens and delivers neither
+    /// Entry points rather than drag events bound on the row, because the row is
+    /// no longer <c>draggable</c>: the desktop head's WebView2 aborts a native
+    /// drag about five milliseconds after it opens and delivers neither
     /// <c>dragover</c> nor <c>drop</c>, so there is nothing there for a row to
     /// bind. The state underneath is the same state the drag events drove.
+    /// </para>
+    /// <para>
+    /// This one starts a reorder, and it is the only thing it can start. The link
+    /// gesture has an entry point of its own rather than a mode argument here, so
+    /// that "which gesture is this" is answered by which method the press called
+    /// and can never be answered twice — see <see cref="PointerLinkStart"/>.
     /// </para>
     /// </summary>
     [JSInvokable]
     public void PointerDragStart(string id)
     {
-        StartDrag(id);
+        StartDrag(id, linking: false);
         StateHasChanged();
     }
 
-    /// <summary>Which row the pointer has moved over, and so where the drop would
-    /// land. Called only when that answer changes, so the preview costs one round
-    /// trip per row crossed rather than one per frame.</summary>
+    /// <summary>
+    /// The reader has pressed a row's link handle and moved far enough for it to
+    /// be a drag: this row is about to be made to wait for whichever row it is
+    /// dropped on.
+    /// <para>
+    /// A second entry point, and the mode's only source. It cannot be reached
+    /// except from a press on the handle, and nothing later in the gesture can
+    /// change what it decided — the reason that matters is on <c>_linking</c>.
+    /// </para>
+    /// <para>
+    /// With nobody listening for a link there is no handle to press, so this can
+    /// only be a script that has outlived the parameters it was rendered against.
+    /// It is dropped rather than turned into a reorder: a press the reader aimed
+    /// at a handle must never come back as a move.
+    /// </para>
+    /// </summary>
     [JSInvokable]
-    public void PointerDragOver(string id)
+    public void PointerLinkStart(string id)
+    {
+        if (!OnLink.HasDelegate) return;
+
+        StartDrag(id, linking: true);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Which row the pointer has moved over, and so where the drop would land —
+    /// or <c>null</c>, when it has moved over no row at all.
+    /// <para>
+    /// Called only when that answer changes, so the preview costs one round trip
+    /// per row crossed rather than one per frame. <c>null</c> is one of the answers
+    /// and counts as a change like any other: leaving the list reports once,
+    /// coming back reports once, and a pointer held still off the list reports
+    /// nothing. Without it the script could only ever say which row the pointer
+    /// had last been over, which is a different question and a stale one.
+    /// </para>
+    /// <para>
+    /// One argument, for both gestures: what the drop means is not a function of
+    /// position. What it does with a report of nothing is <see cref="DragOver"/>'s,
+    /// and the two gestures answer that differently.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public void PointerDragOver(string? id)
     {
         DragOver(id);
         StateHasChanged();
@@ -1100,18 +1576,111 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// What the drop does, which is what the press already decided.
+    /// <para>
+    /// The exclusivity between the two things a drag can write lives here and
+    /// nowhere else. A reorder drag reorders and nothing else; a link drag writes
+    /// a dependency or a refusal and nothing else. Neither branch can reach the
+    /// other, and the branch is taken on the mode the gesture started with — so a
+    /// reader who aimed at one of the two can neither get both nor get the other.
+    /// </para>
+    /// </summary>
     private async Task CommitDragAsync()
     {
         var moved = _dragging;
         var target = _over;
+        var linking = _linking;
         EndDrag();
 
-        // Never left the row it started on: a drag the reader thought better of,
-        // not a move. Raising it would put a no-op into whatever the host does
-        // with these, including its undo stack.
+        // Nowhere to land: a drag the reader thought better of, not a drop.
+        // Raising it would put a no-op into whatever the host does with these,
+        // including its undo stack.
+        //
+        // For a link drag this is also how the gesture is abandoned. The target is
+        // whichever row the pointer was over when the reader let go and nothing
+        // else — released on the row in their hand, or off the list altogether,
+        // and there is no row, so nothing is written. Nothing is announced either:
+        // an abandoned gesture is not a refusal, the reader watched the line go
+        // quiet as they left the last row, and a sentence here would be the app
+        // explaining a decision they had already made. See DragOver for why the
+        // target is never the last row that happened to be reported.
         if (moved is null || target is null || string.Equals(moved, target, StringComparison.Ordinal)) return;
 
-        await OnReorder.InvokeAsync(new TaskMove(moved, target));
+        if (!linking)
+        {
+            await OnReorder.InvokeAsync(new TaskMove(moved, target));
+            return;
+        }
+
+        if (RowFor(moved) is { } waiter && RowFor(target) is { } predecessor)
+        {
+            await LinkAsync(waiter, predecessor);
+        }
+    }
+
+    /// <summary>
+    /// Writes down that one row waits for another, or says why it will not.
+    /// <para>
+    /// Both routes end here — the drop and the keyboard chord — and both ask
+    /// <see cref="RefusalFor"/>, which is the same question the rows are wearing
+    /// the answer to. A row that refused visually and then took the drop would be
+    /// the worst outcome available, so there is one rule and one place it lives.
+    /// </para>
+    /// <para>
+    /// A refusal raises nothing and announces instead. It reaches the same live
+    /// region a keyboard move already uses, because for a reader who cannot see
+    /// the not-allowed cursor the sentence is the only cue there is — and a drop
+    /// that silently did nothing would be indistinguishable from one the app
+    /// missed.
+    /// </para>
+    /// <para>
+    /// A link that closes a loop is accepted and said out loud. Which edge in a
+    /// loop is the wrong one is a question only the person who wrote them can
+    /// answer, exactly as <see cref="TaskChain"/> already has it — so the link
+    /// lands, the rows grow the cycle mark on the next render, and the sentence
+    /// is that mark for anyone who cannot see it.
+    /// </para>
+    /// </summary>
+    private async Task LinkAsync(TaskRow waiter, TaskRow target)
+    {
+        if (RefusalFor(waiter, target) is { } refusal)
+        {
+            _announcement = refusal;
+            return;
+        }
+
+        _announcement = ClosesLoop(waiter, target)
+            ? $"{waiter.Title} now waits for {target.Title}. This closes a loop."
+            : $"{waiter.Title} now waits for {target.Title}.";
+
+        await OnLink.InvokeAsync(new TaskLink(waiter.Id, target.Id));
+    }
+
+    /// <summary>
+    /// Whether adding this dependency would put the waiting row in a cycle.
+    /// <para>
+    /// Asked of a copy of the list with the edge already in it, through the same
+    /// <see cref="TaskChain.Cycles"/> a host would call. Reusing that rather than
+    /// writing a reachability walk here means the sentence and the badge the row
+    /// is about to grow are the same answer computed once, rather than two that
+    /// can disagree.
+    /// </para>
+    /// <para>
+    /// Against <c>Tasks</c> and not <see cref="Universe"/>: a loop running through
+    /// a row this list does not draw is not a loop this list can honestly narrate.
+    /// </para>
+    /// </summary>
+    private bool ClosesLoop(TaskRow waiter, TaskRow target)
+    {
+        var speculative = Tasks
+            .Select(task => string.Equals(task.Id, waiter.Id, StringComparison.Ordinal)
+                ? task with { DependsOn = [.. task.DependsOnList, target.Id] }
+                : task)
+            .ToList();
+
+        return TaskChain.Cycles(speculative)
+            .Any(row => string.Equals(row.Id, waiter.Id, StringComparison.Ordinal));
     }
 
     /// <summary>This row's focusable element, named so the focus can be put back
@@ -1197,6 +1766,78 @@
         _focusAfterChange = RowElementId(task);
 
         await OnReorder.InvokeAsync(new TaskMove(task.Id, order[to].Id));
+    }
+
+    /// <summary>
+    /// The keyboard's half of the gesture: make this row wait for the nearest row
+    /// above or below it. It is not a convenience — a drag has no keyboard
+    /// equivalent at all, so a chain that could only be drawn with a pointer
+    /// would be a chain some readers cannot write.
+    /// <para>
+    /// The neighbour comes from the order on screen, exactly as a keyboard move's
+    /// does, so it is the row above or below the one the reader can see.
+    /// </para>
+    /// <para>
+    /// Finished rows are walked past rather than offered. A list that folds them
+    /// away never sees one here, but a list that leaves them inline — the desktop
+    /// pane's steps — would otherwise hand the reader a neighbour nothing can
+    /// wait for, and answer their request with a refusal.
+    /// </para>
+    /// <para>
+    /// Clamped rather than wrapped, for the reason a move is: the row at the top
+    /// suddenly waiting on the last row in the list would be a change nobody
+    /// asked for and would have to be noticed before it could be undone. Off
+    /// either end it says so, because silence and success sound identical to
+    /// somebody who cannot see the list.
+    /// </para>
+    /// <para>
+    /// A finished row is refused here and not left to <see cref="RefusalFor"/>,
+    /// because a finished row is not in <c>Open</c> at all when the list folds its
+    /// done rows away — the search below would come back empty-handed and the
+    /// reader would get nothing at all. Which is what this chord used to do on a
+    /// finished row: the row declined to report it, the press fell through to the
+    /// reorder branch, and that declines a finished row too.
+    /// </para>
+    /// </summary>
+    private async Task LinkByKeyboardAsync(TaskRow task, int delta)
+    {
+        if (task.Done)
+        {
+            _announcement = FinishedWaiter(task);
+            return;
+        }
+
+        var order = Open;
+        var from = IndexOf(order, task.Id);
+
+        if (from < 0) return;
+
+        TaskRow? target = null;
+
+        for (var index = from + delta; index >= 0 && index < order.Count; index += delta)
+        {
+            if (order[index].Done) continue;
+
+            target = order[index];
+            break;
+        }
+
+        if (target is null)
+        {
+            _announcement = delta < 0
+                ? $"Nothing above {task.Title} to wait for."
+                : $"Nothing below {task.Title} to wait for.";
+
+            return;
+        }
+
+        // Asked for before the callback rather than after it, on the same terms
+        // as a keyboard move: once the host has applied the link this row has
+        // been re-rendered, and whether the element survived that is the host's
+        // business rather than something this can assume.
+        _focusAfterChange = RowElementId(task);
+
+        await LinkAsync(task, target);
     }
 
     public async ValueTask DisposeAsync()

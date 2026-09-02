@@ -1,0 +1,215 @@
+﻿@inject IAppUpdateService Updates
+@inject IServiceProvider Services
+
+@*
+    The app-shell footer, mounted once by MainLayout and therefore outside every
+    routed page. It carries the two controls that are not about the page in front
+    of you: which build this window is running, and how to say that something in
+    it is wrong.
+
+    Both used to live in Home's header, in among the repository scope, the view
+    switcher and the pane strip — a region that is entirely about the work on
+    screen. That arrangement made two window-wide concerns into a page's
+    property, and the cost showed up twice. Settings had to mount
+    FeedbackReportButton a second time to have a Report issue button at all, and
+    the version was simply not reachable from Settings, which is the screen a
+    reader is most likely to be on when they want to know what they are running.
+    Neither is a page's fact, so neither belongs to a page: the layout mounts
+    this once, and a third route gets both without saying anything.
+
+    Nothing interactive here is hand-rolled. The version is AppButton wearing
+    `.header-util` — the utility-button shape, which is what that class has
+    always described rather than "a button in the header" — and the update window
+    is the shared Modal. This component is only the composition, and the
+    composition is why it lives in Backlog.Desktop.UI rather than in the shared
+    library: it needs IAppUpdateService and DevelopmentWorkspaceLabel, and
+    UiLibraryBoundaryTests holds the library to referencing no application code.
+*@
+
+<footer class="app-footer" data-testid="app-footer">
+    @* The footer keeps the current version visible. Checking and installing
+       updates happen in the separate update window opened from this control,
+       which is what keeps a band this thin down to one line of text.
+
+       When the host runs out of a checkout it registers which one, and that
+       takes the version's place rather than sitting beside it: several worktrees
+       are run side by side and which window belongs to which is the thing you
+       cannot tell by looking, so it gets the whole control. The version is still
+       one click away, in the update window this opens. The harness footers show
+       both at once because they have a whole band for fine print and no header
+       to fall back on; this one has two live controls to fit instead. *@
+    <AppButton BaseClass="header-util app-version"
+               Variant="ButtonVariant.None"
+               TestId="app-version"
+               title="Open update window"
+               aria-label="@VersionControlLabel"
+               OnClick="OpenUpdateWindow">
+        @if (_workspace is null)
+        {
+            <text>Version <code>@Updates.CurrentVersion</code></text>
+        }
+        else
+        {
+            <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
+        }
+    </AppButton>
+
+    @* Its own component, and it stays that way: the trigger and its dialog are
+       one state machine, and it is the component that owns it. What changed is
+       how many places mount it — one, here — not what it is. *@
+    <FeedbackReportButton />
+</footer>
+
+@* The update window is a sibling of the band rather than a child of it, exactly
+   as it was a sibling of the header before. Modal renders `position: fixed`, so
+   it is out of flow either way, but a fixed descendant of a 40-pixel flex row is
+   one stray `transform` on that row away from being clipped to it — see the note
+   on `.app-footer` in app.css.
+
+   It stays in this component regardless, because the trigger and the dialog are
+   one state machine and splitting them across two components would only mean
+   passing the state between them. Keeping them together is also what a focus
+   restore needs: .design/accessibility.md requires closing a dialog to return
+   focus to the control that opened it, and a restore has nowhere to return to
+   unless the trigger is still rendered.
+
+   That restore does not happen yet, and not because of anything here. Modal
+   moves focus into itself when it opens and has no restore path at all, so
+   Escape leaves focus on the document body — measured, and true of every Modal
+   in the app, this one no more than the rest. Fixing it belongs in Modal, where
+   every dialog gets it at once. What is new is only that the control focus
+   should come back to is now at the bottom of the document rather than the top,
+   which makes the missing restore cost a reader more than it used to. *@
+<Modal Open="_appUpdateWindowOpen"
+       OpenChanged="value => { if (!value) CloseUpdateWindow(); }"
+       Element="section"
+       BaseClass="app-update-dialog"
+       BackdropCssClass="app-update-backdrop"
+       BackdropRole="presentation"
+       UseBodyWrapper="false"
+       CloseOnBackdropClick="false"
+       CloseOnEscape="@(!_updateBusy)"
+       TestId="app-update-dialog"
+       aria-labelledby="app-update-title"
+       aria-describedby="app-update-description">
+    <Header>
+        <header class="app-update-dialog__header">
+            <div>
+                <p class="app-update-dialog__eyebrow">Application updates</p>
+                <h2 id="app-update-title">Update Backlog</h2>
+            </div>
+            <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
+        </header>
+    </Header>
+    <ChildContent>
+        <p id="app-update-description" class="app-update-dialog__description">
+            You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the footer.
+        </p>
+        <div class="app-update-dialog__actions">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       data-testid="check-for-updates"
+                       Disabled="@_updateBusy"
+                       OnClick="CheckForUpdatesAsync">
+                @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
+            </AppButton>
+            @if (_appUpdateReady)
+            {
+                <AppButton Variant="ButtonVariant.Primary"
+                           data-testid="install-update"
+                           Disabled="@_updateBusy"
+                           OnClick="InstallUpdateAsync">
+                    @(_installingAppUpdate ? "Installing..." : "Install update")
+                </AppButton>
+            }
+        </div>
+        <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
+    </ChildContent>
+</Modal>
+
+@code {
+    // Null in an installed build, where no host registers one and the footer
+    // shows the version instead.
+    private DevelopmentWorkspaceLabel? _workspace;
+
+    private string? _appUpdateMessage;
+    private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
+    private bool _checkingForAppUpdate;
+    private bool _installingAppUpdate;
+    private bool _appUpdateReady;
+    private bool _appUpdateWindowOpen;
+
+    private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
+
+    private string VersionControlLabel => _workspace is null
+        ? AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)
+        : AppUpdatePresentation.WorkspaceWindowLabel(_workspace.Marker);
+
+    protected override void OnInitialized()
+    {
+        // Asked for rather than injected, so a host that registers nothing —
+        // every installed build — still resolves this component. An @inject would
+        // fail to construct the layout's footer, which is now every page.
+        _workspace = Services.GetService<DevelopmentWorkspaceLabel>();
+    }
+
+    private void OpenUpdateWindow() => _appUpdateWindowOpen = true;
+
+    private void CloseUpdateWindow()
+    {
+        if (_updateBusy) return;
+
+        _appUpdateWindowOpen = false;
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_updateBusy) return;
+
+        _checkingForAppUpdate = true;
+        _appUpdateMessage = null;
+        _appUpdateReady = false;
+
+        try
+        {
+            var result = await Updates.CheckForUpdateAsync();
+            _appUpdateReady = result.UpdateReady;
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(result.Availability);
+        }
+        catch
+        {
+            _appUpdateReady = false;
+            _appUpdateMessage = "The update check could not be completed.";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _checkingForAppUpdate = false;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updateBusy) return;
+
+        _installingAppUpdate = true;
+
+        try
+        {
+            var result = await Updates.StartUpdateAsync();
+            _appUpdateMessage = result.Message;
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(
+                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
+            if (!result.Started) _appUpdateReady = false;
+        }
+        catch
+        {
+            _appUpdateMessage = "The update could not be installed.";
+            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
+        }
+        finally
+        {
+            _installingAppUpdate = false;
+        }
+    }
+}

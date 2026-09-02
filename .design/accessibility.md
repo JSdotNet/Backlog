@@ -205,10 +205,10 @@ What holds today:
 | Rule | Materialized as |
 |---|---|
 | Names & roles | Composite widgets declare theirs — `role="tree"`/`treeitem` (TreeView), `role="tablist"`/`tab` (Tabs), `role="menu"`/`menuitem` (MenuList), `role="switch"` (Toggle, because a checkbox role would announce the wrong control), `role="separator"` (SplitPane resizer), `role="search"` (SearchBox), `role="region"` with a label (FileView, CodeView, GraphView) |
-| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label |
+| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label, and `CopyButton` draws that same result as a glyph as well, because a task row and the task panel hide the line and keep only its announcement |
 | Focus visibility | Every interactive component sets its own `:focus-visible` outline in `color-border-focus` at `border-width-2` with a 2 px offset — `outline`, never a shadow |
 | Non-native focus targets | Scrollable regions that take focus say so and show it (`FileView` body, `CodeView` body) |
-| Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, the skeleton stops altogether rather than substituting one, graph cards keep colour transitions only |
+| Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, the skeleton stops altogether rather than substituting one, graph cards keep colour transitions only, and the copy confirmation keeps its cross-fade but stops scaling |
 | Not by colour alone | Save state carries text, not just a dot; badges carry their label; the inert-link style is a dotted underline as well as a colour |
 
 Gaps, tracked rather than assumed:

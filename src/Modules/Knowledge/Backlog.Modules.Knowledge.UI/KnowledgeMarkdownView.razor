@@ -22,7 +22,13 @@
         case KnowledgeHeadingBlock heading:
             <section class="knowledge-heading knowledge-heading--@heading.Level">
                 @RenderHeading(heading)
-                @if (heading.Metadata.Status != "draft" || heading.Metadata.Related.Count > 0)
+                @* A stated status, or a reference, is worth a line. This used to
+                   read `!= "draft"`, because an absent status was parsed as
+                   "draft" and the two could not be told apart — which meant an
+                   explicitly drafted chapter went unmarked to hide the ones that
+                   had simply said nothing. Absent is now absent, so the test is
+                   what it always meant: did this chapter state a status at all. *@
+                @if (!string.IsNullOrWhiteSpace(heading.Metadata.Status) || heading.Metadata.Related.Count > 0)
                 {
                     <p class="knowledge-meta-line">
                         <StatusBadge BaseClass="knowledge-status" Kind="" Status="@heading.Metadata.Status" />

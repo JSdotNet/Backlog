@@ -84,7 +84,13 @@ public sealed class TaskPanelTests
 
         Assert.Equal("checkbox", check.GetAttribute("role"));
         Assert.Equal("false", check.GetAttribute("aria-checked"));
-        Assert.Equal("Wire the pane into the shell", check.GetAttribute("aria-label"));
+
+        // Named by the act rather than by the task, the same way the row in the
+        // list is: the panel is already named after the title by its heading, so
+        // a circle called after it too would be the second thing in this header
+        // answering to one name.
+        Assert.Equal("Complete Wire the pane into the shell", check.GetAttribute("aria-label"));
+        Assert.Equal("Wire the pane into the shell", view.Find("h2.task-panel__title").TextContent.Trim());
 
         check.Click();
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
     Styles owned by the shared component library, served from
     _content/Backlog.UI.Components/components.css. A host links this file before
     its own stylesheet, so everything here is the base an app may then extend.
@@ -930,6 +930,28 @@ button.badge:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/*
+  A person tag — `@bob` — beside a general one. Two kinds of tag now share this
+  chip, so the difference has to be visible without being read.
+
+  It is drawn as a quiet pill rather than a second hue. No colour value is
+  introduced and no token is borrowed from a theme that reserves its names: the
+  ink is text-primary and the surface is a mix of it against whatever the chip
+  sits on, which is the same construction .tag-chip__remove:hover already uses.
+  That leaves the brand gold meaning "general tag" and nothing else.
+
+  Three carriers, not one: the `@` sigil is drawn in the label, the shape changes,
+  and the colour changes. .design/color-scheme.md is explicit that a fill may
+  never be the sole carrier of a distinction, and the sigil is the carrier that
+  survives being unable to see either.
+*/
+.tag-chip--person {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    border-radius: var(--border-radius-full);
+    padding: 0 var(--spacing-xs);
 }
 
 /* --- Save-state indicator ------------------------------------------------ */
@@ -2099,6 +2121,46 @@ button.md-check {
     white-space: nowrap;
 }
 
+/* A row's leading mark. A fixed column like the twisty rather than a shrinking
+   one, so the labels of a folder's files start on the same vertical line whether
+   or not the row above drew a mark. */
+.knowledge-menu__mark,
+.folder-tree__mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+/* --- Knowledge type marker ------------------------------------------------ */
+/*
+   The eighteen domain-type glyphs. Sized in em by the component so the mark
+   scales with the heading level it leads, which is also what makes this rule
+   necessary: an inline SVG sits on the text baseline by its bottom edge, and a
+   16-grid glyph drawn at 0.82em then rides visibly high against the cap height
+   beside it. The translate is measured in the same em, so it holds at every
+   heading level rather than being right at one of them.
+
+   No colour of its own. The marker inherits whatever ink it is drawn in — see
+   the component's header for why the four families it groups into are not
+   allowed to become four hues.
+*/
+.knowledge-type-marker {
+    display: inline-block;
+    flex: none;
+    vertical-align: baseline;
+    transform: translateY(0.055em);
+}
+
+/* A mark that leads a line of text with no space between them in the markup —
+   which is how a heading's mark has to be written, since a space is a text node
+   and the heading's text has to stay exactly what it was. So the gap is drawn
+   rather than typed, and it is in em for the same reason the mark is: it holds at
+   every heading level. */
+.knowledge-type-marker--leads {
+    margin-right: 0.38em;
+}
+
 /* --- Copy button --------------------------------------------------------- */
 /*
    The button and the line that says whether it worked. The line is laid out
@@ -2118,6 +2180,84 @@ button.md-check {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     white-space: nowrap;
+}
+
+/*
+   The confirmation the button itself gives: the two sheets fade down into a
+   check, and back again when the status clears. Two hosts hide the status line
+   and keep only its announcement, so this is the only confirmation a sighted
+   reader gets in a task row.
+
+   A stack rather than a swap: both glyphs are always in the markup and one
+   cross-fades into the other, because an element that first appears when the
+   state changes has nothing to transition from. The box holds one glyph's worth
+   of space and the glyphs are laid into it, so the button never changes width
+   mid-fade.
+*/
+.copy-button__glyphs {
+    position: relative;
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    transition: color var(--transition-base);
+}
+
+/*
+   Only opacity and transform move — never layout — and the timing is the
+   confirmation-flash pairing from interaction-guidelines.md: transition-base,
+   which already carries the ease-out this product chose over the org guide's
+   ease-bounce.
+
+   The size is restated here so it comes from CSS rather than the svg's own
+   width/height attributes: those are in px and the box is in rem, so a reader
+   who has raised their browser's default font size would otherwise get a glyph
+   pinned to the corner of a box that grew around it.
+*/
+.copy-button__glyph {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity var(--transition-base), transform var(--transition-base);
+}
+
+.copy-button__glyph--check,
+.copy-button__glyphs[data-copied="true"] .copy-button__glyph--sheets {
+    opacity: 0;
+    transform: scale(0.7);
+}
+
+.copy-button__glyphs[data-copied="true"] .copy-button__glyph--check {
+    opacity: 1;
+    transform: none;
+}
+
+/*
+   A graphic that carries state has to be legible as one, and WCAG 1.4.11 asks
+   3:1 of it. A task row and the task panel draw their resting copy affordance in
+   --color-text-disabled, which is right for something that should stay quiet —
+   but on the panel's raised surface it measures 2.58:1, and in exactly those two
+   hosts this glyph is the whole confirmation a sighted reader gets. So
+   confirming promotes it, which is the same promotion both of those hosts
+   already make on hover.
+*/
+.copy-button__glyphs[data-copied="true"] {
+    color: var(--color-text-primary);
+}
+
+/* The check still appears, and it still fades in; only the growing is dropped,
+   which is the same bargain the graph card a few thousand lines down makes.
+   Opacity is motion the guidelines allow under reduce; scale is not. The
+   confirmation is the state, and the state is never what gets turned off. */
+@media (prefers-reduced-motion: reduce) {
+    .copy-button__glyph {
+        transition: opacity var(--transition-base);
+    }
+
+    .copy-button__glyph--check,
+    .copy-button__glyphs[data-copied="true"] .copy-button__glyph--sheets {
+        transform: none;
+    }
 }
 
 /* --- Markdown read actions ----------------------------------------------- */
@@ -2571,6 +2711,67 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* --- Selection bar ------------------------------------------------------- */
+/*
+   The bar a surface puts up once more than one row is picked. It wears the same
+   accent edge the picked rows do, so the bar and the rows it acts on read as one
+   thing rather than as chrome that happened to appear.
+
+   One flex line that wraps, like every other bar in this library: the host fills
+   the middle with an unbounded number of acts, and a bar that refused to wrap
+   would push the way out of the selection off the end of the row.
+*/
+.selection-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-focus);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.selection-bar__all {
+    flex: none;
+}
+
+/* Named by aria-label rather than by a visible word, the same as the gutter's
+   box — so the empty label span is dropped rather than left holding room. */
+.selection-bar__all .checkbox__label {
+    display: none;
+}
+
+/* The count is the subject of the bar, so it carries the weight the acts beside
+   it do not, and it never wraps: "3 items" on one line and "selected" on the
+   next is a number a reader has to reassemble. */
+.selection-bar__count {
+    flex: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+/* The acts take what is left and wrap inside their own group, so a crowded bar
+   grows downwards instead of pushing the count or the way out off the end. */
+.selection-bar__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Pushed to the far end: it is the one control here whose result is that there
+   is no selection, the same argument that puts the bin last on a task row. */
+.selection-bar__clear {
+    flex: none;
+    margin-inline-start: auto;
+}
+
 /* --- Task list ----------------------------------------------------------- */
 /*
    Rows on the raised surface, separated by space rather than by rules. A list
@@ -2618,6 +2819,58 @@ button.md-check {
 .task-item--selected {
     border-color: var(--color-border-strong);
     background: var(--color-background-raised);
+}
+
+/*
+   The selection gutter. On every selectable row so the column does not shift
+   sideways the first time one is picked, and quiet until the pointer or the
+   keyboard reaches it — the resting state of a long list is the work rather than
+   a column of empty boxes
+   (.design/design-principles.md#low-chrome-content-first).
+
+   Opacity rather than display or a conditional render: a box that left the
+   layout would move the whole row on hover, and one that left the DOM could not
+   be tabbed to at all. It stays a named control to a screen reader either way,
+   which is the half of this that opacity gets right and display does not.
+*/
+.task-item__gutter {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.task-item:hover .task-item__gutter,
+.task-item__gutter:focus-within,
+.task-item--selecting .task-item__gutter,
+.task-item--picked .task-item__gutter {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-item__gutter {
+        transition: none;
+    }
+}
+
+/* The gutter's box is named by aria-label rather than by a visible word, so the
+   empty label span is dropped instead of left holding the row open. */
+.task-item__select .checkbox__label {
+    display: none;
+}
+
+/*
+   Picked, and distinct from both hover and focus —
+   .design/interaction-guidelines.md#focus-and-selection asks for exactly that,
+   and names the accent strip as the way to draw it. Hover is a border and focus
+   is an outline, so neither is touched here: a picked row that also holds the
+   focus still shows its ring.
+*/
+.task-item--picked {
+    border-color: var(--color-border-focus);
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--color-primary);
 }
 
 /* The grip says the row can be moved before anyone tries. It is the only thing
@@ -2677,9 +2930,9 @@ button.md-check {
 
 .task-item {
     transition:
-        margin var(--duration-fast, 120ms) ease,
-        transform var(--duration-fast, 120ms) ease,
-        opacity var(--duration-fast, 120ms) ease;
+        margin var(--transition-fast),
+        transform var(--transition-fast),
+        opacity var(--transition-fast);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2732,6 +2985,15 @@ button.task-panel__check:focus-visible {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px;
+    /* position: relative because this carries an sr-only descendant — the word
+       "Open", which is how the button says what it does without an aria-label
+       taking the status and the metadata line out of its name. .sr-only is
+       position: absolute, so without a positioned ancestor its containing block
+       is the page and the hidden text lands at page coordinates, dragging the
+       document's scroll width out with it. Same reason .status-editor and
+       .metric-heatmap__cell carry it. Nothing moves visually: the hidden span is
+       out of flow, so it takes no grid cell, and it has no offsets to resolve. */
+    position: relative;
     /* The only child that gives up room. min-width:0 is what lets it, since a
        flex item will not shrink below its content without it — and the title's
        ellipsis depends on being allowed to. */
@@ -2758,6 +3020,23 @@ button.task-panel__check:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/*
+  A tag typed into the title is drawn where it stands, so it is inline rather
+  than a block on a line of its own: the sentence has to keep reading as one.
+
+  It inherits the title's font size instead of dropping to the metadata line's,
+  because it is part of a sentence and not part of that line — a chip a step
+  smaller than the words either side of it reads as a footnote wedged into the
+  title. The chip's own max-width is released for the same reason: the title
+  already ellipses as a whole, and a second clamp inside it would truncate one
+  word while the rest of the line still had room.
+*/
+.task-item__title-tag {
+    font-size: inherit;
+    max-width: none;
+    vertical-align: baseline;
 }
 
 .task-item__meta {
@@ -3007,6 +3286,237 @@ button.task-panel__check:focus-visible {
    itself is still worth finding from across the list. */
 .task-item--next {
     border-color: var(--color-primary-dark);
+}
+
+/*
+   The handle that starts a link drag: press it, move, and this row is being made
+   to wait for whichever row it is released on.
+
+   The row's second press origin, beside the grip, and the reason there are two of
+   them is that a drag has to know what it means before it starts. The version
+   before this one had no handle: a drop zone appeared inside every row and the
+   drop meant "wait for this" if the pointer happened to be over one at the
+   release. It was bistable — entering a zone retracted the reorder preview, the
+   retraction reflowed the list, the row being aimed at moved out from under the
+   pointer, and the mode flipped straight back. Deciding at press time is what
+   removes the feedback loop, and it is why this is a handle and why the drop
+   target is the whole of the other row.
+
+   Quiet at rest and lit when the row is reached, which is the bargain the copy
+   button and the pencil beside it already keep: an affordance that only appears
+   on hover cannot be found by anybody looking for it, and a column of lit ones
+   would read as the point of the list.
+
+   touch-action, because this is a press origin. The grip takes the pointer from
+   the scroller for the reason stated where it is set, and this needs the same: a
+   finger that could only ever scroll from here would leave touch with no way to
+   draw a chain at all.
+
+   44px in both directions without moving anything, which is what
+   `accessibility.md#target-sizes-and-text` asks of a handle. The negative block
+   margin is how: it reaches into the row's own padding instead of growing the
+   row, so it stays inside the row's border box — never over a neighbour, which
+   would start this row's link drag from a press on that one — and no row's height
+   depends on it, so no list changes pitch for having a handle. On a row with a
+   body the row wraps, and the few pixels below the title line belong to that
+   row's own fold rather than to another row.
+*/
+.task-item__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    margin-block: calc(-1 * var(--spacing-sm));
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-disabled);
+    user-select: none;
+    /* The one cursor that says "make a reference to this" rather than "move this
+       here", which is exactly the difference between this handle and the grip. */
+    cursor: alias;
+    touch-action: none;
+}
+
+.task-item:hover .task-item__link,
+.task-item__link:hover {
+    color: var(--color-text-primary);
+}
+
+/*
+   While a link drag is in flight every row says what it is to that drag. On the
+   rows, because the row is the drop target: the handle is sized for picking up
+   and the row for releasing, which is what
+   `interaction-guidelines.md#reliable-drop-targets-items` asks for.
+
+   Everything below is colour. Not one declaration may change a size, a border
+   width or a margin — a row that grew by a pixel at the wrong moment would move
+   the row out from under the pointer, which is the whole class of bug this design
+   exists to close. The list-level class deliberately does not bring the inset
+   `.task-list--dragging` puts on the rows around a moving one either, because in
+   a link drag nothing is moving.
+
+   Scoped under the list's state rather than left as bare row classes so they
+   outrank `.task-item:hover`. The pointer is by definition over one of these
+   rows, and a highlight the pointer erased would be no highlight at all.
+*/
+.task-list--linking {
+    user-select: none;
+    cursor: alias;
+}
+
+/* The row in flight. Still dashed and unsettled the way a dragged row is, but
+   drawn in the link's colour and at full strength: it is not a gap in the order —
+   nothing is moving — it is the row that is about to wait for another. */
+.task-list--linking .task-item--link-source {
+    border-color: var(--color-primary);
+    opacity: 1;
+}
+
+/* Release here and the link is written. Drawn in the colour a drop indicator is
+   asked to be, on the row itself rather than as a line between rows, because
+   there is no position being chosen. */
+.task-list--linking .task-item--link-target {
+    border-color: var(--color-primary);
+}
+
+/* Reached, so it is the row that will actually take the drop: the same offer,
+   filled in. Computed in C# from the position that already decides where the drop
+   lands rather than from :hover, so there is one answer to where the pointer is —
+   and it is the only form of it a test can see. */
+.task-list--linking .task-item--link-target.task-item--link-armed {
+    background: var(--color-background-raised);
+}
+
+/* Refusing: this row is finished, or the row in flight already waits for it. It
+   is drawn by what it does not do — no highlight, so a row that will take the
+   drop is the only kind that lights up — plus the cursor, which is the cue at the
+   moment the reader is actually about to release on it. */
+.task-list--linking .task-item--link-refused {
+    cursor: not-allowed;
+}
+
+/* Reached, and still refusing. The soft error surface a cycle badge already
+   wears, which is what these semantic tokens are for — and the sighted half of
+   the sentence the live region says on release. */
+.task-list--linking .task-item--link-refused.task-item--link-armed {
+    border-color: var(--color-error);
+    background: var(--color-error);
+}
+
+/*
+   The line the drag draws: from the handle the row was picked up by to wherever
+   the pointer is. The rows tinting themselves says which pair is involved and
+   what a release would do, and says nothing at all about the reader drawing a
+   dependency — which is the thing they are actually doing, so the gesture is
+   given the mark that shape has meant for as long as anybody has drawn one.
+
+   Not an insertion line, though it borrows that rule's tokens: color-primary at
+   border-width-2 for a drop that will land, per
+   `interaction-guidelines.md#drop-indicators`. What that rule reserves the
+   insertion line for is a drop that chooses a position, and this one chooses
+   neither a position nor a half of a row — so the same rule's "invalid targets
+   MUST NOT show an insertion line" is not a contradiction of the refused state
+   below. There is nowhere for this line to imply a row would go, which is why it
+   is allowed to be drawn at all over a row that will refuse it, and why the
+   refusal is dashed rather than merely recoloured.
+
+   Fixed to the viewport, and that is the load-bearing part rather than a
+   convenience. A link drag's one invariant is that nothing reflows for the whole
+   of it — the row the reader aimed at has to still be under the pointer when
+   they let go, which is what the whole feature was reworked to guarantee — so
+   this is positioned out of flow entirely. It takes no space in its parent, its
+   size comes from the viewport rather than from anything in the list, and a
+   fixed box is excluded from its ancestors' scrollable overflow, so it cannot so
+   much as provoke a scrollbar. It is also rendered outside the `<ul>`, so no row
+   is its sibling and nothing structural in here can see it. No row's layout is a
+   function of this element existing, which is the strongest available form of
+   "it cannot move a row".
+
+   pointer-events: none, on the overlay and on everything inside it. Not a
+   cosmetic detail: which row the pointer is over is resolved with
+   `document.elementFromPoint`, and a viewport-sized overlay that took one hit
+   would answer that question with itself for the rest of the gesture — the row
+   under the pointer would stop changing, the drop would land on whatever row was
+   last reported, and the gesture would be exactly as unaimable as the version
+   this one replaced. See `taskRowFromPoint` in components.js.
+
+   No transition on anything here, and so nothing for `prefers-reduced-motion` to
+   turn off. The line follows the cursor, which is as immediate as a thing can
+   be; a transition on a value rewritten every frame would only make it lag
+   behind the hand that is moving it.
+
+   The geometry is written by components.js, per animation frame — a curve that
+   tracked the pointer through C# would be a circuit round trip per frame. The
+   colour is the other way round: it is CSS, keyed off a class the script reads
+   from the row under the pointer, which C# put there from `RefusalFor`. So
+   "may these two rows be linked" keeps exactly one implementation, and the line
+   cannot promise a link the drop then refuses.
+*/
+.task-list__link-line {
+    position: fixed;
+    top: 0;
+    left: 0;
+    /* Stated rather than left to the insets: an `svg` is a replaced element, so
+       an auto width against a left and a right resolves to its intrinsic size
+       instead of stretching to fill. */
+    width: 100%;
+    height: 100%;
+    /* Over the rows and the panes around them, under the detail sheet and its
+       backdrop — a drawer that opens over the list is over the line too. */
+    z-index: 35;
+    /* The handle can be scrolled out of the box those percentages resolved
+       against, and the line back to it is still worth drawing. */
+    overflow: visible;
+    /* Quiet unless the pointer is on a row: over nothing in particular the line
+       says only where it came from, in the colour the handle wears at rest.
+       Both marks read this through currentColor, so a state below is one
+       property. */
+    color: var(--color-text-disabled);
+    pointer-events: none;
+}
+
+/* Belt as well as braces — pointer-events inherits, so the root already covers
+   these. It is repeated because a later rule that gave one of the marks its own
+   value would hand the overlay a hit, and with it every answer
+   `elementFromPoint` gives for the rest of the drag. */
+.task-list__link-line * {
+    pointer-events: none;
+}
+
+.task-list__link-line-path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--border-width-2);
+    stroke-linecap: round;
+}
+
+/* The end of the line, drawn only where it has a row to land on — the script
+   sets the radius, because whether there is one is a fact about the pointer
+   rather than about the stylesheet. */
+.task-list__link-line-dot {
+    fill: currentColor;
+}
+
+/* Over a row that will take the drop: the colour that row is already outlined
+   in, drawn solid, because the line and the row are saying one thing. */
+.task-list__link-line--valid {
+    color: var(--color-primary);
+}
+
+/* Over a row that will refuse it. Dashed as well as recoloured, so the refusal
+   survives being read by somebody who cannot tell the two colours apart — the
+   same reason the refusing row has a cursor and not only a surface.
+   color-error-text rather than color-error for the reason the inline error
+   message states where it picks the same token: the latter is a surface, and a
+   stroke drawn in it on this background is a stroke nobody can see. */
+.task-list__link-line--refused {
+    color: var(--color-error-text);
+}
+
+.task-list__link-line--refused .task-list__link-line-path {
+    stroke-dasharray: 0.375rem 0.25rem;
 }
 
 /* --- Renaming in place --------------------------------------------------- */
@@ -3287,6 +3797,13 @@ button.task-panel__check:focus-visible {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
+    /* Positioned because a disabled row carries an `.sr-only` copy of its reason.
+       `.sr-only` is absolutely positioned, so without a positioned ancestor its
+       containing block is the page: the hidden sentence then lands at page
+       coordinates and can drag a scrolled pane's width out with it, invisibly.
+       `.knowledge-fields` carries the same note for the same reason. Nothing
+       moves — the copy has no offsets to resolve against. */
+    position: relative;
     min-height: calc(
         (var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal)
         + var(--spacing-sm) * 2
@@ -3369,6 +3886,37 @@ button.task-panel__check:focus-visible {
     display: block;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+/* Icon-only, for an act that shares a row with another action instead of owning
+   one of its own — "Create follow-up" beside "Waiting for" is the case this was
+   built for. The two-column grid above exists to line a label up against a value
+   down every row of a group; a compact action carries neither, so there is
+   nothing left for the grid to reserve room for, and it collapses to the one
+   thing still in it — the button, sized to its icon rather than stretched to
+   fill a row it does not have to itself. */
+/* A row that has shrunk to its icon, for an act that shares a line with a row
+   that needs the width. The grid the full-size row uses is a label column and a
+   clear column, and a compact one has neither — no label to lay out and nothing
+   to clear — so it stops being a grid and becomes as wide as its glyph. The
+   2rem below is the same floor `.btn--icon` keeps, because a control the size of
+   its own glyph is smaller than a finger. `.task-action`'s own min-height is
+   sized to a label over a value and would hold this open to two lines it has no
+   text for, which is why it is dropped rather than overridden with a number. */
+.task-action--compact {
+    display: inline-flex;
+    width: auto;
+    min-height: 0;
+}
+
+.task-action--compact .task-action__main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: var(--spacing-xs);
 }
 
 .task-action__clear {
@@ -4138,6 +4686,67 @@ button.task-panel__check:focus-visible {
     border: 0;
     border-radius: var(--border-radius-md);
     background: transparent;
+}
+
+/* Scenery in a chapter and the screen itself in fullscreen. The stage exists
+   for one reason: fullscreen is requested on it rather than on the frame, because
+   only the element in the top layer and its descendants are painted, and an
+   artifact frame is sandboxed into an opaque origin and can carry nothing of
+   ours. Wrapping the frame is what gives the way back out somewhere to live.
+
+   A positioning context and nothing else while it is in the chapter — the frame
+   is still the whole of what a reader sees there, at the height it measured for
+   itself. */
+.diagram-view__stage {
+    position: relative;
+    display: block;
+}
+
+/* On the screen it is the app's own surface rather than the browser's black
+   backdrop, and the frame takes all of it: the measured inline height has just
+   been removed by components.js, and the 28rem opening bid above would otherwise
+   leave a fullscreen diagram sitting in a letterbox. The radius goes with it —
+   there is no card here to round off, only screen. */
+.diagram-view__stage:fullscreen {
+    background: var(--color-background);
+}
+
+.diagram-view__stage:fullscreen .diagram-view__artifact {
+    height: 100%;
+    border-radius: 0;
+}
+
+/* The way out. Off screen in a chapter, where the header already carries the
+   button that asks for fullscreen and a second control laid over the diagram
+   would be clutter across the one thing the block exists to show.
+
+   `:fullscreen` is what decides, rather than a state field in the component:
+   Esc, F11 and the button all leave the same consistent screen behind, and
+   nothing in .NET has to be told which of them happened. */
+.diagram-view__exit {
+    display: none;
+}
+
+/* Bottom left, which is the one corner the artifact does not use. Its own
+   chrome is fixed in the other three — the title top left, `Classic | Live |
+   Export` top right, and the zoom and lens controls bottom right — and this
+   started out over the toolbar, where it did not merely look crowded: being
+   above the frame, it won the hit test and made Export unreachable for as long
+   as the diagram was full screen. That is the same menu `allow-downloads` was
+   granted for.
+
+   A raised surface and a shadow because it is laid over a drawing rather than
+   sat on a panel. The button's own background is transparent, and a transparent
+   control over a diagram is exactly as findable as the one this whole change
+   exists to provide. */
+.diagram-view__stage:fullscreen .diagram-view__exit {
+    display: inline-flex;
+    position: absolute;
+    bottom: var(--spacing-md);
+    left: var(--spacing-md);
+    z-index: 1;
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-md);
 }
 
 /* The offers, under the diagram rather than in the header: they are about what
@@ -4981,6 +5590,48 @@ select.field__input option {
     outline-offset: 2px;
 }
 
+/*
+   The mixed state, drawn on the box itself.
+
+   It used to be the label in italics and nothing else, which was a cue exactly
+   one kind of caller could see: a box with no visible label — the select-all in
+   SelectionBar, the gutter box on a task row — hides `.checkbox__label`, so a
+   partial selection looked simply unchecked to anybody who was not using a
+   screen reader. `aria-checked="mixed"` was carrying the whole third state on
+   its own.
+
+   `appearance: none` scoped to the mixed state, not to `.checkbox__input`
+   generally. The platform box has no way to be told "mixed" from markup, so the
+   only way to draw the dash is to draw the box — but every settled checkbox in
+   the product keeps the native control it has always had, and only the third
+   state is ours. That is the containment: nothing outside `.checkbox--mixed`
+   renders differently than it did.
+
+   A background-image rather than a pseudo-element, because an `<input>` is a
+   replaced element and `::before` on one is not something a browser owes us.
+   The bar is `--color-text-inverse` on `--color-primary`, which is what the
+   checked state already reads as under `accent-color` — so ticked and mixed are
+   the same family, one with a tick and one with a bar, and the difference
+   between them is not a difference in weight.
+*/
+.checkbox--mixed .checkbox__input {
+    appearance: none;
+    -webkit-appearance: none;
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-primary);
+    background-image: linear-gradient(
+        to right,
+        var(--color-text-inverse) 0%,
+        var(--color-text-inverse) 100%);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 0.5rem var(--border-width-2);
+}
+
+/* And the label too, where there is one — a second cue for the callers that do
+   show words beside the box, which is where "some of them" is a sentence rather
+   than a shape. */
 .checkbox--mixed .checkbox__label {
     font-style: italic;
 }
@@ -5669,6 +6320,48 @@ select.field__input option {
    (.design/design-principles.md#low-chrome-content-first). */
 .file-view__record .knowledge-fields {
     grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+}
+
+/*
+   And the one other thing the header changes about the record: how wide the
+   status is.
+
+   `.badge--status` is 7.5rem wherever it appears — "a 7.5rem column in a table of
+   them", as the badge rules put it — because a stack of statuses under one another
+   has to line up, and the reading body reserves its own strip off that same number
+   (see --md-status-column). This header holds exactly one record, so the column
+   the pill would be a cell of does not exist here: the 7.5rem buys no alignment
+   and costs the name most of the row. In a knowledge side pane the header is about
+   272px and the pill was 120px of it, which left the name — the thing the pill is
+   qualifying — a couple of characters and an ellipsis. A header identifies; it is
+   not a second document (.design/design-principles.md#low-chrome-content-first).
+
+   So here it is as wide as the word in it. `min-width` as well as `width`: the
+   floor is the half that was actually holding the box open, and one without the
+   other changes nothing.
+
+   This is a visible change to every file view header and not only a narrow one — a
+   wide pane's pill is now the width of its word rather than of the column — and
+   that is the point rather than a side effect, because there is no column in a
+   header at any width. What a reader does align against the chapters below is the
+   trailing edge, and that does not move: the status still closes the line by its
+   own `margin-inline-start: auto`, so only its left edge comes in.
+
+   The same argument, scoped the same way, as `.entry-row__pickers .badge--status`
+   in the desktop shell's app.css, which narrows the pill on an entry row for
+   exactly this reason. That one keeps a fixed width because a list of entries does
+   stack; this one has nothing to stack with, so it takes its content's.
+
+   Both forms of the status are covered, because the selector names the class the
+   two share: a pill that changed size depending on whether the reader may edit it
+   would be a worse header than the wide one. They do not land on the same number —
+   the read-only badge is as wide as the word it shows, and the StatusSelector's
+   select is as wide as the longest word it offers, since that is what a control
+   holding a choice has to fit. Both are content, and neither clips.
+*/
+.file-view__header .knowledge-record__headline > .badge--status {
+    width: auto;
+    min-width: 0;
 }
 
 /* The path earns the monospace: it is a machine string, and the reader is

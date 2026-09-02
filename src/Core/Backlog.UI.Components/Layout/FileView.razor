@@ -99,6 +99,7 @@
        between the header and the scroll region. Where the lines fall in this file
        is not something the shipped markup should record. *@
     <FileHeader Name="@Name"
+                NameMark="@FileTypeMark"
                 Path="@Path"
                 Source="@Source"
                 Kind="@KindValue"
@@ -491,6 +492,14 @@
     private MarkdownFileMetadata.FileRecord? _fileRecord;
     private string? _readRecordFrom;
     private bool _readRecord;
+    private KnowledgeFolder _readRecordFolder = KnowledgeFolder.Unknown;
+
+    /// <summary>The file's own <c>type</c>, when the folder this was read from
+    /// draws that value as a mark. Held beside the record because the record no
+    /// longer carries it: <see cref="ReadFileRecord"/> takes the field out at the
+    /// same moment it decides the mark is drawn, so the two answers cannot
+    /// disagree and the value cannot be shown twice.</summary>
+    private string? _fileType;
 
     // The comparison, held rather than derived, for the reason the blocks below
     // are: aligning two documents by heading walks both of them, and a pane
@@ -553,13 +562,21 @@
         if (!RenderKnowledgeMetadata || !RendersMarkdown)
         {
             _fileRecord = null;
+            _fileType = null;
             _readRecordFrom = null;
             _readRecord = false;
             return;
         }
 
         var text = BodyMarkdown;
-        if (_readRecord && _readRecordFrom == text) return;
+
+        // The folder joins the text in the guard because the reading now depends on
+        // it: which of the record's fields is drawn as a mark instead of as a row is
+        // a question about the folder, and the same bytes read as `.domain` and as
+        // `.tech` are two different headers.
+        if (_readRecord && _readRecordFrom == text && _readRecordFolder == KnowledgeFolder) return;
+
+        _readRecordFolder = KnowledgeFolder;
 
         // A block that states nothing is not a record. It matters here more than
         // anywhere else this is asked: the identity column is drawn *inside* the
@@ -572,10 +589,50 @@
         // what IdentityClass reads: whether the column has a record in it decides
         // whether it takes the header's free space, and that is a fact about the
         // layout rather than about what the record draws.
-        _fileRecord = MarkdownFileMetadata.Read(text) is { Metadata.IsEmpty: false } read ? read : null;
+        var record = MarkdownFileMetadata.Read(text) is { Metadata.IsEmpty: false } read ? read : null;
+
+        // The file's own `type`, decided here and only here. Where the mark is
+        // drawn the field comes out of the record in the same breath, so the header
+        // cannot end up stating it twice — once as the glyph in front of the name
+        // and once as a row in the strip under it. Where it is not drawn — another
+        // folder, or a value this library has no glyph for — the record is handed on
+        // exactly as it was read, which is what keeps `.tech`'s own `type` row on
+        // screen and what keeps a `.domain` type nobody has drawn yet visible as the
+        // word it is.
+        _fileType = KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, record?.Metadata.Type);
+        _fileRecord = record is not null && _fileType is not null
+            ? record with { Metadata = record.Metadata.WithoutType() }
+            : record;
+
         _readRecordFrom = text;
         _readRecord = true;
     }
+
+    /// <summary>
+    /// The mark the header's name leads with: what kind of <c>.domain</c> file this
+    /// is, drawn as the glyph for it. Nothing at all in every other case, and
+    /// nothing is the common case.
+    ///
+    /// <para>Named, and with the tooltip declined, on exactly the terms a chapter
+    /// heading takes it — see <c>MarkdownView.ChapterMark</c>. The row that used to
+    /// state this is gone from the strip, so the mark is the only place the fact is
+    /// left, and a listener has to be able to reach it; a <c>title</c> would put the
+    /// word back into the name's own text, which is the one thing the header's
+    /// <c>h3</c> may not gain.</para>
+    ///
+    /// <para>Not the same as <see cref="Kind"/>. That is a phrase the host wrote for
+    /// a reader — "Structural model", "Path-specific instructions" — and it is
+    /// printed on the detail line; this is the file's own <c>type</c> field, read
+    /// out of the block under its title.</para>
+    /// </summary>
+    private RenderFragment? FileTypeMark =>
+        _fileType is null
+            ? null
+            : @<KnowledgeTypeMarker Value="@_fileType"
+                                    CssClass="knowledge-type-marker--leads"
+                                    Labelled="true"
+                                    ShowTooltip="false"
+                                    TestId="@(TestId is null ? null : $"{TestId}-file-type-mark")" />;
 
     /// <summary>
     /// The file's own status, reported the way a chapter's is.
@@ -587,7 +644,7 @@
     /// see <see cref="KnowledgeStatusChange"/>.
     /// </para>
     /// </summary>
-    private Task ReportFileStatusAsync(string status) =>
+    private Task ReportFileStatusAsync(string? status) =>
         OnKnowledgeStatusChanged.InvokeAsync(new KnowledgeStatusChange(0, _fileRecord?.Title, status));
 
     private void ParseBody()

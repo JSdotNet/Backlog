@@ -71,7 +71,7 @@ evidence for the ledger; it never becomes the ledger.
 
 ```meta
 type: sub-feature
-status: idea
+status: draft
 related: [.domain/productivity/features.md#ai-vendor-usage-import]
 ```
 

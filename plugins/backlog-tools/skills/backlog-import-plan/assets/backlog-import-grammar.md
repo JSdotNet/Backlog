@@ -24,13 +24,13 @@ Each entry, in this order:
 
 Sigils (no colon; order sigils before named tokens):
 
-| Sigil | Kind | Example |
+| Sigil | Kind | Values |
 |---|---|---|
-| *(none)* | type | `` `prompt` `` |
-| `!` | status | `` `!ready` `` |
-| `*` | priority | `` `*high` `` |
-| `@` | area | `` `@repos` `` |
-| `#` | tag | `` `#vscode-desktop-rollout` `` |
+| *(none)* | type | `prompt`, `task`, `idea` |
+| `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` |
+| `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
+| `@` | area | any slug, e.g. `@repos` |
+| `#` | tag | any slug, e.g. `#vscode-desktop-rollout` |
 
 Named tokens (`name:value`):
 
@@ -58,7 +58,7 @@ Add an export command to the command palette that serializes the current view to
 
 # Wire the export command into the toolbar
 
-`prompt` `@repos` `#vscode-desktop-rollout` `after:add-command` `repo:backlog-desktop`
+`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `after:add-command` `repo:backlog-desktop`
 
 Wire the command from the previous prompt into the toolbar as a button.
 
@@ -84,6 +84,8 @@ Wire the command from the previous prompt into the toolbar as a button.
 - Reusing the exact same tag on a later regeneration of the same plan lets Backlog's
   import upsert by `(tag, id:)`: an entry not yet `done`/`archived` is updated in place,
   a `done`/`archived` one is left untouched, and an `id:` not seen before is created new.
+- A stored `done`/`archived` entry stays untouched whatever status a later plan version
+  states for it — restating a status leaves finished work finished.
 - An entry with no `id:` is always created new — it can never be matched by a later
   re-import, because there is nothing to match it against.
 - `after:` and `repo:` may each repeat on one entry; order among repeats carries no

@@ -7,6 +7,7 @@ using Backlog.SharedKernel.Results;
 
 using System.Globalization;
 
+using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Tasks;
@@ -190,23 +191,35 @@ public sealed class TasksDesktopState : IDisposable
     /// knowledge, or empty for all configured repositories.</summary>
     public string SelectedRepositoryAlias { get; private set; } = string.Empty;
 
-    /// <summary>The selected area, or empty for all. <see cref="UnfiledArea"/>
-    /// selects the entries that have no area at all.</summary>
-    public string SelectedArea { get; private set; } = string.Empty;
-
-    /// <summary>Sentinel for "entries with no area" — a real area can never be
-    /// this because the parser lower-cases and would never produce a leading
-    /// space.</summary>
-    public const string UnfiledArea = " unfiled";
+    /// <summary>
+    /// True while the view is narrowed to the entries filed against no repository.
+    /// <para>
+    /// A scope of its own rather than a value <see cref="SelectedRepositoryAlias"/>
+    /// could hold, because "no repository" is not a repository and every reader of
+    /// that alias would have to be taught the exception. A sentinel there would be
+    /// handed to the knowledge pane, which answers an unresolvable alias with
+    /// "select a configured repository"; written into a new draft as
+    /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
+    /// next pass, which resolves an alias against settings and finds nothing. A bool
+    /// here is read by the one place that means it.
+    /// </para>
+    /// <para>
+    /// It narrows what the repository scope already left in view rather than
+    /// replacing it — the same composition My Day has. With a repository selected
+    /// the two ask for opposite things and the result is empty, which is honest:
+    /// the chip's count says zero before the reader presses it.
+    /// </para>
+    /// </summary>
+    public bool NoRepositoryOnly { get; private set; }
 
     /// <summary>The selected tag, bare and lower-cased the way
     /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
     /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
     public string SelectedTag { get; private set; } = string.Empty;
 
-    /// <summary>Sentinel for "entries with no tags", on the same terms as
-    /// <see cref="UnfiledArea"/>: the parser strips the leading <c>#</c>,
-    /// lower-cases, and would never produce a leading space.</summary>
+    /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
+    /// because the parser strips the leading <c>#</c>, lower-cases, and would never
+    /// produce a leading space.</summary>
     public const string UntaggedTag = " untagged";
 
     /// <summary>
@@ -222,10 +235,6 @@ public sealed class TasksDesktopState : IDisposable
     /// </para>
     /// </summary>
     public DateOnly? MyDayOn { get; private set; }
-
-    /// <summary>The areas actually in use, in alphabetical order. There is no
-    /// fixed taxonomy: an area exists because somebody typed it.</summary>
-    public List<AreaFilterOption> AreaFilters { get; private set; } = [];
 
     /// <summary>
     /// The tags actually in use, in alphabetical order, and empty when nothing in
@@ -343,6 +352,95 @@ public sealed class TasksDesktopState : IDisposable
 
         Changed?.Invoke();
     }
+
+    // --- The rows picked out to be changed together ------------------------
+    //
+    // A set beside SelectedRow rather than an extension of it. The two are
+    // different questions and are live at the same time: SelectedRow is "which
+    // entry am I reading", a single answer that drives the detail pane, and this
+    // is "which entries am I about to retag", which is a set and drives no pane
+    // at all. Folding them together would mean opening an entry every time a box
+    // was ticked, or losing the open one every time a second row joined.
+    //
+    // Held by the list's own id — `Id ?? Key` — rather than by row object, so a
+    // reload that replaces every EntryRow does not silently empty the selection
+    // of everything already persisted. See EntryRow.TaskId.
+
+    private readonly HashSet<string> _selection = new(StringComparer.Ordinal);
+
+    /// <summary>The picked rows, as the list names them.</summary>
+    public IReadOnlyCollection<string> SelectedIds => _selection;
+
+    public int SelectionCount => _selection.Count;
+
+    /// <summary>
+    /// The picked rows themselves, in the order the list is drawing them.
+    /// <para>
+    /// In list order because a bulk edit is N saves and each one re-ranks nothing
+    /// — but a reader watching the save indicator flicker down a column expects it
+    /// to go down the column. It is also a snapshot: the loop that writes them
+    /// calls <see cref="ApplyFilter"/> per row, which may take a row out of view
+    /// and so out of the selection, and a foreach over the live set would throw
+    /// halfway through the batch.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<EntryRow> SelectedRows =>
+        [.. FilteredRows.Where(row => _selection.Contains(row.TaskId))];
+
+    /// <summary>Whether every row in view is picked. Zero of zero is an empty
+    /// list rather than a full one.</summary>
+    public bool AllVisibleSelected =>
+        FilteredRows.Count > 0 && _selection.Count >= FilteredRows.Count;
+
+    /// <summary>
+    /// Replaces the selection with what the list reported.
+    /// <para>
+    /// The whole set rather than a toggle, because the list owns the gesture: a
+    /// Shift press changes an unbounded number of rows at once and only the list
+    /// knows the rendered order it measured that against.
+    /// </para>
+    /// <para>
+    /// Pruned on the way in. An id naming a row that is not in view is not a row
+    /// this state will write to, so keeping it would leave a count that promises
+    /// more than the next edit delivers.
+    /// </para>
+    /// </summary>
+    public void SetSelection(IEnumerable<string> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var visible = FilteredRows.Select(row => row.TaskId).ToHashSet(StringComparer.Ordinal);
+
+        _selection.Clear();
+
+        foreach (var id in ids.Where(visible.Contains))
+        {
+            _selection.Add(id);
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes every row in view, or gives them all back. Everything in
+    /// view rather than everything the store holds: "select all" on a filtered
+    /// list means the list, which is also what the count beside it is
+    /// counting.</summary>
+    public void SetSelectAllVisible(bool selected)
+    {
+        _selection.Clear();
+
+        if (selected)
+        {
+            foreach (var row in FilteredRows)
+            {
+                _selection.Add(row.TaskId);
+            }
+        }
+
+        Changed?.Invoke();
+    }
+
+    public void ClearSelection() => SetSelectAllVisible(false);
 
     /// <summary>
     /// Whether the selected entry is showing its canonical markdown rather than
@@ -498,9 +596,12 @@ public sealed class TasksDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    public void SetAreaFilter(string? area)
+    /// <summary>Turns the "no repository" scope on or off. See
+    /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
+    /// value <see cref="SelectedRepositoryAlias"/> holds.</summary>
+    public void SetNoRepositoryFilter(bool only)
     {
-        SelectedArea = area ?? string.Empty;
+        NoRepositoryOnly = only;
         ApplyFilter();
     }
 
@@ -525,27 +626,31 @@ public sealed class TasksDesktopState : IDisposable
     /// <summary>Appends a new, unsaved draft row at the end of the list and opens
     /// it in the detail pane, on its title. It is only persisted once a title line
     /// exists (the domain requires a title), so what is typed before that is held
-    /// locally. When an area is being filtered, or a repository is scoped, the new
-    /// entry starts already filed there — otherwise it would vanish the moment it
-    /// saved, since each scope keeps exactly the rows that say they belong to it
-    /// (<see cref="RowBelongsToSelectedRepository"/>). Two seeds rather than one,
-    /// because the area and the repository are two facts: a scoped repository
-    /// writes <c>`repo:`</c>, a filtered area writes <c>`@area`</c>, and a reader
-    /// looking at both gets both.</summary>
+    /// locally. When a repository is scoped, the new entry starts already filed
+    /// there — otherwise it would vanish the moment it saved, since the scope keeps
+    /// exactly the rows that say they belong to it
+    /// (<see cref="RowBelongsToSelectedRepository"/>).
+    /// <para>
+    /// It used to seed a filtered area as <c>`@area`</c> alongside the
+    /// <c>`repo:`</c>, for the same reason. There is no area filter any more, so
+    /// there is no area to seed from: an entry created here starts unfiled and is
+    /// filed by typing, which is how areas have always been made.
+    /// </para>
+    /// <para>
+    /// The "no repository" scope seeds nothing either, and does not need to: an
+    /// entry with no <c>`repo:`</c> token already belongs to it, so a draft created
+    /// under it stays in view without being told to.
+    /// </para>
+    /// </summary>
     public void NewRow()
     {
         var row = new EntryRow();
 
-        var seedArea = SelectedArea.Length > 0 && SelectedArea != UnfiledArea ? SelectedArea : null;
         var seedRepository = SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
 
-        if (seedArea is not null || seedRepository is not null)
+        if (seedRepository is not null)
         {
-            var tokens = "`task` `*medium` `!draft`";
-            if (seedArea is not null) tokens += $" `@{seedArea}`";
-            if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
-
-            row.RawText = $"# \n{tokens}\n";
+            row.RawText = $"# \n`task` `*medium` `!draft` `repo:{seedRepository}`\n";
             row.SeedText = row.RawText;
         }
 
@@ -561,6 +666,70 @@ public sealed class TasksDesktopState : IDisposable
         // The caret goes in the title instead. It is the one thing a new entry
         // cannot do without — nothing saves until there is a title line — so it is
         // also the field a reader was going to type in next either way.
+        SelectedRow = row;
+        PendingCaret = PendingCaret.EntryTitle;
+        ApplyFilter();
+    }
+
+    /// <summary>Appends a new, unsaved draft row that waits on
+    /// <paramref name="parent"/>, and opens it the way <see cref="NewRow"/> opens any
+    /// new entry — on its title, with nothing typed in it yet.
+    /// <para>
+    /// A follow-up is a relationship rather than a kind of entry: an ordinary task
+    /// carrying <c>`after:`</c> pointing at the one it comes after. So this seeds the
+    /// same text a person would have typed, and <c>SaveFromTextAsync</c> reads it
+    /// through the same grammar as every other save — there is no follow-up command,
+    /// no follow-up use case, and nothing that could disagree with the token.
+    /// </para>
+    /// <para>
+    /// What it inherits is the parent's <em>filing</em>: the parent's own
+    /// <c>`@area`</c> and <c>`repo:`</c> targets, and deliberately not the reader's
+    /// current filter or scope the way <see cref="NewRow"/> uses. A follow-up belongs
+    /// beside the work it follows, and the reader may well be looking at the parent
+    /// from somewhere else entirely.
+    /// </para>
+    /// <para>
+    /// What it deliberately does not inherit is everything that was a judgement about
+    /// the parent rather than a fact about where it lives: tags, priority, due date,
+    /// reminder, and recurrence. Each of those would be a claim nobody made. A
+    /// deadline is the sharpest case — the parent's due date is the day the parent
+    /// stops being possible, and copying it onto the step that only starts once the
+    /// parent is done invents a deadline that is already wrong. A repeat is the same
+    /// mistake twice over, since it would spawn occurrences of a one-off step. The
+    /// new entry therefore starts as any other does: <c>`*medium`</c> and
+    /// <c>`!draft`</c>, which is what a silent entry means.
+    /// </para>
+    /// <para>
+    /// The title stays empty and the caret is owed to it. It is the one thing the new
+    /// entry cannot be saved without, so nothing about it is guessed from the parent
+    /// either — a follow-up titled "Ship the sync spike (follow-up)" would be a
+    /// sentence the product wrote and the reader has to delete.
+    /// </para></summary>
+    public void NewFollowUpRow(EntryRow parent)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        if (parent.Id is not { } parentId)
+        {
+            // Nothing to point at. The pane disables the act for exactly this and
+            // says why, so reaching here means the caller went around it.
+            return;
+        }
+
+        var row = new EntryRow();
+
+        var seedArea = string.IsNullOrWhiteSpace(parent.PreviewArea) ? null : parent.PreviewArea;
+
+        var tokens = "`task` `*medium` `!draft`";
+        if (seedArea is not null) tokens += $" `@{seedArea}`";
+        foreach (var repo in parent.PreviewRepoIds) tokens += $" `repo:{repo}`";
+        tokens += $" `after:{parentId}`";
+
+        row.RawText = $"# \n{tokens}\n";
+        row.SeedText = row.RawText;
+
+        Rows.Add(row);
+
         SelectedRow = row;
         PendingCaret = PendingCaret.EntryTitle;
         ApplyFilter();
@@ -1113,18 +1282,204 @@ public sealed class TasksDesktopState : IDisposable
         Changed?.Invoke();
     }
 
-    private async Task RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
+    /// <remarks>
+    /// The one choke point every field on this pane goes through, and now the one
+    /// place that can say whether the write landed. Nothing that changes for the
+    /// single-row callers: a rewrite that was refused still leaves the text held
+    /// locally and the indicator saying Saved, exactly as it did. The result is
+    /// there for the bulk methods, which have to count.
+    /// <para>
+    /// A skipped rewrite — read-only, or text that did not change — answers
+    /// success, because nothing failed. Telling the two apart is the caller's job
+    /// and the bulk methods do it before they get here, since only they know
+    /// whether "no change" is a row to count or a row to ignore.
+    /// </para>
+    /// </remarks>
+    private async Task<Result> RewriteMetadataAsync(EntryRow row, string rewritten, bool forceWhenEqual = false)
     {
-        if (row.IsReadOnly) return;
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && !forceWhenEqual) return;
+        if (row.IsReadOnly) return Result.Success();
+        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal) && !forceWhenEqual) return Result.Success();
 
         CancelDebounce(row);
         row.RawText = rewritten;
 
-        await SaveRowAsync(row, isFlush: true);
+        var saved = await SaveRowAsync(row, isFlush: true);
 
         ApplyFilter();
         Changed?.Invoke();
+
+        return saved;
+    }
+
+    // --- One field, across the picked rows ---------------------------------
+    //
+    // Every one of these is the matching single-row method run down a list, and
+    // that shape is the whole point rather than a shortcut. There is no field
+    // setter anywhere behind this pane: a change rewrites the entry's metadata
+    // line and saves the text (ADR 0002 — the module owns the entry text
+    // language), and TaskEntryFields.ApplyToExisting reads an absent token as
+    // "clear that field". So each row is rewritten from *its own* RawText. One
+    // metadata line built once and applied to twenty rows would silently wipe
+    // every other field on nineteen of them, which is the single most expensive
+    // mistake available here.
+    //
+    // N saves, deliberately. There is no batch write and no new module command:
+    // the store is local SQLite for one person, and a bulk path of its own would
+    // be a second way to write an entry — a second place for the parse, the
+    // recurrence spawn and the rank to be got right.
+
+    /// <summary>Points every picked entry at one repository, replacing whatever
+    /// each of them targeted before.
+    /// <para>
+    /// Replace and not edit, which is the one place this differs from
+    /// <see cref="ChangeRepositoryAsync"/>. That control speaks about the single
+    /// target it is showing and leaves any others as the text wrote them; this one
+    /// says "these all belong to this project now", and leaving a second target
+    /// behind would make that false on exactly the rows that had one.
+    /// </para>
+    /// <para>
+    /// Nothing at all when handed nothing. Clearing every target is not one of the
+    /// changes this bar offers — a repository is set-only here — so an empty pick
+    /// is a reader who has not chosen yet rather than one asking to unfile
+    /// twenty entries.
+    /// </para></summary>
+    public Task<BulkEditOutcome> BulkChangeRepositoryAsync(string? repositoryAlias)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryAlias)) return Task.FromResult(BulkEditOutcome.Nothing);
+
+        var chosen = repositoryAlias.Trim();
+
+        return ApplyToSelectionAsync(row => EntryTextParser.WithRepoIds(row.RawText, [chosen]));
+    }
+
+    /// <summary>Moves every picked entry to one status. Cascades to each row's own
+    /// steps exactly as the single-row control does, and forces the write on a row
+    /// whose text already says the status but whose last save did not — the same
+    /// term <see cref="ChangeStatusAsync"/> passes, for the same reason.</summary>
+    public Task<BulkEditOutcome> BulkChangeStatusAsync(EntryStatus status) =>
+        ApplyToSelectionAsync(
+            row => EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true),
+            forceWhenEqual: row => row.Status != status);
+
+    public Task<BulkEditOutcome> BulkChangePriorityAsync(Priority priority) =>
+        ApplyToSelectionAsync(row => EntryTextParser.WithPriority(row.RawText, priority));
+
+    public Task<BulkEditOutcome> BulkChangeTypeAsync(EntryType type) =>
+        ApplyToSelectionAsync(row => EntryTextParser.WithType(row.RawText, type));
+
+    /// <summary>Stamps every picked entry for a day, or clears the stamp. Which
+    /// day it is stays the caller's to know, the same as it is for one row.</summary>
+    public Task<BulkEditOutcome> BulkChangeMyDayAsync(DateOnly? inMyDayOn) =>
+        ApplyToSelectionAsync(row => EntryTextParser.WithMyDay(row.RawText, inMyDayOn));
+
+    public Task<BulkEditOutcome> BulkChangeDueAsync(DateOnly? dueOn) =>
+        ApplyToSelectionAsync(row => EntryTextParser.WithDue(row.RawText, dueOn));
+
+    public Task<BulkEditOutcome> BulkChangeReminderAsync(DateTime? remindAt) =>
+        ApplyToSelectionAsync(row => EntryTextParser.WithReminder(row.RawText, remindAt));
+
+    /// <summary>
+    /// Adds tags to every picked entry, leaving each row's own where they were.
+    /// <para>
+    /// Union rather than replace, and this is the field where that matters most: a
+    /// bulk edit that wrote the picked set would take every other tag off every
+    /// row, and tags are how this backlog is cross-cut. The target set is worked
+    /// out here, per row, and handed to the parser's existing
+    /// <c>WithTags</c> — the UI composes no token of its own (ADR 0002).
+    /// </para>
+    /// </summary>
+    public Task<BulkEditOutcome> BulkAddTagsAsync(IEnumerable<string> tags)
+    {
+        ArgumentNullException.ThrowIfNull(tags);
+
+        var added = tags
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Trim())
+            .ToList();
+
+        if (added.Count == 0) return Task.FromResult(BulkEditOutcome.Nothing);
+
+        return ApplyToSelectionAsync(row => EntryTextParser.WithTags(
+            row.RawText,
+            row.PreviewMetadataTags
+                .Concat(added)
+                .Distinct(StringComparer.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>Takes one named tag off every picked entry. A row that never had
+    /// it is unchanged rather than rewritten, which is what keeps the count
+    /// honest when a tag is only on half the selection.</summary>
+    public Task<BulkEditOutcome> BulkRemoveTagAsync(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return Task.FromResult(BulkEditOutcome.Nothing);
+
+        var removed = tag.Trim();
+
+        return ApplyToSelectionAsync(row => EntryTextParser.WithTags(
+            row.RawText,
+            row.PreviewMetadataTags.Where(existing =>
+                !string.Equals(existing, removed, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    /// <summary>
+    /// One field's rewrite, run down the picked rows.
+    /// <para>
+    /// <paramref name="rewrite"/> is handed a row and returns that row's text with
+    /// the field changed — never a line, never a template. A row whose text comes
+    /// back identical is counted as unchanged and not saved, the skip-if-unchanged
+    /// the <c>ReorderTasks</c> and <c>ReconcileRepositoryIds</c> handlers both do:
+    /// a save per row over twenty rows where nothing moved is twenty writes, a
+    /// count that overstates itself, and twenty saved-flashes for nothing.
+    /// </para>
+    /// <para>
+    /// A refusal on one row does not stop the rest and does not throw. There is no
+    /// transaction over N saves here and inventing one would mean either holding
+    /// twenty entries in memory to roll back or refusing the whole batch because of
+    /// one bad row — so the honest answer is the one that comes back: this many
+    /// written, this many skipped, these ones refused (guideline 0004).
+    /// </para>
+    /// </summary>
+    private async Task<BulkEditOutcome> ApplyToSelectionAsync(
+        Func<EntryRow, string> rewrite,
+        Func<EntryRow, bool>? forceWhenEqual = null)
+    {
+        // Snapshotted before the first write. Each save calls ApplyFilter, which
+        // may take a row out of view and so out of the selection, and a foreach
+        // over the live set would throw part-way through the batch.
+        var rows = SelectedRows;
+
+        if (rows.Count == 0) return BulkEditOutcome.Nothing;
+
+        var updated = 0;
+        var unchanged = 0;
+        var failures = new List<BulkEditFailure>();
+
+        foreach (var row in rows)
+        {
+            if (row.IsReadOnly)
+            {
+                unchanged++;
+                continue;
+            }
+
+            var rewritten = rewrite(row);
+            var force = forceWhenEqual?.Invoke(row) ?? false;
+
+            if (!force && string.Equals(rewritten, row.RawText, StringComparison.Ordinal))
+            {
+                unchanged++;
+                continue;
+            }
+
+            var saved = await RewriteMetadataAsync(row, rewritten, force);
+
+            if (saved.IsSuccess) updated++;
+            else failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, saved.Error));
+        }
+
+        Changed?.Invoke();
+
+        return new BulkEditOutcome(updated, unchanged, failures);
     }
 
     /// <summary>
@@ -1711,7 +2066,10 @@ public sealed class TasksDesktopState : IDisposable
     /// heading is split off into its own entries — doing that only on flush
     /// keeps the list from rearranging itself under the caret mid-sentence.
     /// </summary>
-    private async Task SaveRowAsync(EntryRow row, bool isFlush)
+    /// <remarks>The result is this row's own. An overflow segment is a different
+    /// entry, so a refusal on one of those is not a refusal of the save the
+    /// caller asked for — reporting it here would blame the wrong row.</remarks>
+    private async Task<Result> SaveRowAsync(EntryRow row, bool isFlush)
     {
         var segments = EntryTextParser.SplitSegments(row.RawText);
         List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
@@ -1721,12 +2079,12 @@ public sealed class TasksDesktopState : IDisposable
             row.RawText = segments[0];
         }
 
-        await ApplySegmentAsync(row, segments.Count > 0 ? segments[0] : row.RawText, rewriteText: isFlush);
+        var saved = await ApplySegmentAsync(row, segments.Count > 0 ? segments[0] : row.RawText, rewriteText: isFlush);
 
         if (!isFlush || overflow.Count == 0)
         {
             await ShowSpawnedOccurrenceAsync();
-            return;
+            return saved;
         }
 
         var insertAt = Rows.IndexOf(row) + 1;
@@ -1740,13 +2098,15 @@ public sealed class TasksDesktopState : IDisposable
         await NormalizeOrderAsync();
         ApplyFilter();
         await ShowSpawnedOccurrenceAsync();
+
+        return saved;
     }
 
     /// <summary>Hands one entry's text to the module and takes back whatever it
     /// made of it. Everything about what a token means, which fields change, and
     /// what a new entry starts as lives behind that call — this only has to know
     /// how to show the answer and how to say "saving".</summary>
-    private async Task ApplySegmentAsync(EntryRow row, string text, bool rewriteText)
+    private async Task<Result> ApplySegmentAsync(EntryRow row, string text, bool rewriteText)
     {
         SetSaveState(AppSaveState.Saving);
 
@@ -1755,19 +2115,28 @@ public sealed class TasksDesktopState : IDisposable
         {
             saved = await _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0));
         }
-        catch
+        catch (Exception exception)
         {
             SetSaveState(AppSaveState.Error);
-            return;
+
+            // Reported rather than rethrown, and only to a caller that asked.
+            // A save is a background act everywhere else on this pane — the
+            // indicator above is the whole of what a typist is told — but a
+            // reader who just asked for one field on twenty rows is owed a count
+            // of the ones that did not take (guideline 0004).
+            return Result.Failure(Error.Unexpected("entry.save_failed", exception.Message));
         }
 
         if (saved.IsFailure)
         {
-            // Nothing has gone wrong: an entry still being typed has no title
-            // yet, and one deleted from under us has nowhere to go. Neither is
-            // worth alarming anybody about, so the text is simply held locally.
+            // Nothing has gone wrong *for a typist*: an entry still being typed
+            // has no title yet, and one deleted from under us has nowhere to go.
+            // Neither is worth alarming anybody about, so the indicator stays
+            // Saved and the text is simply held locally — but the refusal is
+            // still handed back, because a caller writing a whole batch has to
+            // be able to say which rows did not land.
             SetSaveState(AppSaveState.Saved);
-            return;
+            return saved;
         }
 
         var entry = saved.Value.Entry;
@@ -1782,6 +2151,8 @@ public sealed class TasksDesktopState : IDisposable
         // successor is not that row — so the save has to say a spawn happened, and
         // it does.
         if (saved.Value.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
+
+        return Result.Success();
     }
 
     /// <summary>
@@ -1924,17 +2295,27 @@ public sealed class TasksDesktopState : IDisposable
         }
 
         var repositoryScopedRows = rows.ToList();
-        RebuildAreaFilters(repositoryScopedRows);
+        ForgetStaleRepositoryScope();
         RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
-        // My Day narrows what area and status have already left in view rather
-        // than replacing either: it is a decision about today taken on top of
-        // wherever the reader is looking, so all three compose.
+        // My Day narrows what the repository scope and status have already left in
+        // view rather than replacing either: it is a decision about today taken on
+        // top of wherever the reader is looking, so all three compose.
         if (MyDayOn is { } myDay)
         {
             rows = rows.Where(x => x.PreviewInMyDayOn == myDay);
+        }
+
+        // And so does the "no repository" scope, on the same terms — see
+        // NoRepositoryOnly. Asked as "resolves to no configured repository" rather
+        // than "carries no `repo:` token", because that is the question the row
+        // itself answers: a token naming something that is not configured shows no
+        // repository on the row, so the reader who filed it here is right.
+        if (NoRepositoryOnly)
+        {
+            rows = rows.Where(x => RepositoryFor(x) is null);
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
@@ -1942,16 +2323,7 @@ public sealed class TasksDesktopState : IDisposable
             rows = rows.Where(x => StatusWire(x.PreviewStatus) == SelectedStatusFilterWire);
         }
 
-        if (SelectedArea == UnfiledArea)
-        {
-            rows = rows.Where(x => string.IsNullOrEmpty(x.PreviewArea));
-        }
-        else if (SelectedArea.Length > 0)
-        {
-            rows = rows.Where(x => x.PreviewArea == SelectedArea);
-        }
-
-        // Tags narrow inside the area the same way status does, and compose with
+        // Tags narrow inside the scope the same way status does, and compose with
         // both. An entry wears any number of them, so this asks whether the row
         // carries the selected one rather than whether it *is* that one — which is
         // the whole difference between a tag and an area.
@@ -1995,6 +2367,16 @@ public sealed class TasksDesktopState : IDisposable
         {
             SelectedRow = null;
         }
+
+        // And so does the picked set, for the same reason and by the same rule. A
+        // selection holding rows nobody can see would apply the next field change
+        // to work the reader has lost track of — which is worse than the open
+        // pane this closes above, because that one at least stays on screen.
+        if (_selection.Count > 0)
+        {
+            var visible = FilteredRows.Select(row => row.TaskId).ToHashSet(StringComparer.Ordinal);
+            _selection.RemoveWhere(id => !visible.Contains(id));
+        }
     }
 
     /// <summary>A row is in the scoped repository when one of its targets names it.
@@ -2006,44 +2388,20 @@ public sealed class TasksDesktopState : IDisposable
             _gitHub.ResolveRepository(target) is { } repository
             && string.Equals(repository.Alias, SelectedRepositoryAlias, StringComparison.Ordinal));
 
-    /// <summary>Areas exist because somebody typed one, so the filter is
-    /// rebuilt from what is actually in the current repository scope. Every area is
-    /// offered, including one spelled like a configured repository: the two are
-    /// unrelated facts now that the repository is <c>repo_ids</c>, so an area that
-    /// happens to read "backlog" is a pile with that name and belongs on a chip
-    /// like any other.</summary>
-    private void RebuildAreaFilters(IReadOnlyList<EntryRow> scopedRows)
+    /// <summary>A repository stops existing when it is removed from settings, and a
+    /// scope pointing at one that is gone would filter the list down to nothing with
+    /// no chip on screen to say why. Dropping back to all repositories is the same
+    /// answer <see cref="SetRepositoryFilter"/> gives an alias it cannot resolve.
+    /// <para>
+    /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
+    /// so there is nothing settings can take away from it.
+    /// </para>
+    /// </summary>
+    private void ForgetStaleRepositoryScope()
     {
-        var options = new List<AreaFilterOption> { new("All", string.Empty, scopedRows.Count) };
-
-        var used = scopedRows
-            .Select(r => r.PreviewArea)
-            .Where(a => !string.IsNullOrEmpty(a))
-            .GroupBy(a => a!, StringComparer.Ordinal)
-            .OrderBy(g => g.Key, StringComparer.Ordinal);
-
-        foreach (var group in used)
-        {
-            options.Add(new AreaFilterOption(group.Key, group.Key, group.Count()));
-        }
-
-        var unfiled = scopedRows.Count(r => string.IsNullOrEmpty(r.PreviewArea));
-        if (unfiled > 0 && options.Count > 1)
-        {
-            options.Add(new AreaFilterOption("Unfiled", UnfiledArea, unfiled));
-        }
-
-        AreaFilters = options;
-
         if (SelectedRepositoryAlias.Length > 0 && _gitHub.Settings.Current.Find(SelectedRepositoryAlias) is null)
         {
             SelectedRepositoryAlias = string.Empty;
-        }
-
-        // An area stops existing when its last entry leaves it.
-        if (SelectedArea.Length > 0 && options.All(o => o.Value != SelectedArea))
-        {
-            SelectedArea = string.Empty;
         }
     }
 
@@ -2054,28 +2412,61 @@ public sealed class TasksDesktopState : IDisposable
     /// holding one dead "All" chip would be charging every reader for a feature only
     /// the taggers use.
     /// <para>
-    /// Read off <c>PreviewTags</c>, which is the union of the metadata line and the
-    /// body: a <c>#tag</c> written mid-sentence is a tag the reader can see on the
-    /// row, so it is one they can filter by. Values stay bare and lower-cased the way
-    /// the parser stores them; the leading <c>#</c> is on the label only, because that
-    /// is how a tag reads everywhere else on this screen.
+    /// Read off <c>PreviewTags</c>, which is the union of the metadata line, the
+    /// title and the body: a <c>#tag</c> written mid-sentence, or an <c>@bob</c>
+    /// typed into the title, is a tag the reader can see on the row, so it is one
+    /// they can filter by. Values stay lower-cased exactly as the parser stores
+    /// them, which for a person tag includes its <c>@</c>.
+    /// </para>
+    /// <para>
+    /// The label is what the tag <em>reads</em> as, and that is no longer just the
+    /// value with a hash bolted on: a person tag already carries its own sigil, so
+    /// <c>TagText.Display</c> decides — the same helper the chips on the rows use,
+    /// so the filter and the row it filters cannot spell a tag differently.
+    /// </para>
+    /// <para>
+    /// Offered off the entries still in play, though — a tag whose every entry is
+    /// finished is not a place anyone is going to file anything, so it is not one of
+    /// the places the bar names. It would be a dead end wearing the same shape as a
+    /// destination, and a backlog accumulates them: every tag ever typed would stay
+    /// on the bar forever, and the ones worth pressing would be the minority.
+    /// </para>
+    /// <para>
+    /// The counts do not follow it down, and the difference is the point. Which
+    /// entries a tag is <em>offered for</em> is a question about the reader's
+    /// attention; how many rows the tag <em>has</em> is a question about the list,
+    /// and the list is unchanged — finished entries are still there under "All", so a
+    /// chip promising fewer rows than pressing it produces would simply be wrong. A
+    /// count still answers "how much is over there" over the whole repository scope,
+    /// the way the area and My Day counts beside it do.
     /// </para>
     /// </summary>
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
-        var used = scopedRows
-            .SelectMany(r => r.PreviewTags)
-            .Where(tag => !string.IsNullOrEmpty(tag))
-            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .ToList();
+        var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
-        if (used.Count == 0)
+        // What the bar is allowed to name. Built from the live rows, then used to
+        // pick which groups survive below — so the decision about *whether* a tag
+        // appears is taken here and the decision about *what it counts* is taken over
+        // the full scope, which is the whole distinction this method draws.
+        var offered = live
+            .SelectMany(row => row.PreviewTags)
+            .Where(tag => !string.IsNullOrEmpty(tag))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (offered.Count == 0)
         {
             TagFilters = [];
             SelectedTag = string.Empty;
             return;
         }
+
+        var used = scopedRows
+            .SelectMany(row => row.PreviewTags)
+            .Where(offered.Contains)
+            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
 
         var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
 
@@ -2085,23 +2476,37 @@ public sealed class TasksDesktopState : IDisposable
             // both of them, so the counts sum past the row count on purpose. Each one
             // answers "how much is over there", which is the only question a chip is
             // asked — see ScopedRows.
-            options.Add(new TagFilterOption($"#{group.Key}", group.Key, group.Count()));
+            options.Add(new TagFilterOption(TagText.Display(group.Key), group.Key, group.Count()));
         }
 
-        var untagged = scopedRows.Count(r => r.PreviewTags.Count == 0);
-        if (untagged > 0)
+        // "Untagged" is a chip like any other and earns its place the same way, off a
+        // live entry carrying no tag — while counting every such entry once it does.
+        if (live.Any(row => row.PreviewTags.Count == 0))
         {
-            options.Add(new TagFilterOption("Untagged", UntaggedTag, untagged));
+            options.Add(new TagFilterOption(
+                "Untagged",
+                UntaggedTag,
+                scopedRows.Count(row => row.PreviewTags.Count == 0)));
         }
 
         TagFilters = options;
 
-        // A tag stops existing when the last entry wearing it drops it.
+        // A tag leaves the bar when the last entry wearing it drops it — or finishes
+        // it, which is the same event as far as the bar is concerned. Either way the
+        // selection cannot stay on a chip that is no longer there.
         if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
         {
             SelectedTag = string.Empty;
         }
     }
+
+    /// <summary>Done and archived are one state — "there is nothing left to do
+    /// here" — which is the pair <c>ImportPlanCommand</c> already reads together.
+    /// Off <c>PreviewStatus</c> rather than the stored status, the same reader the
+    /// status filter uses, so a status just typed into the editor counts before it is
+    /// saved.</summary>
+    private static bool IsFinished(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.Done or EntryStatus.Archived;
 
     private static string StatusWire(EntryStatus status) => status switch
     {
@@ -2142,13 +2547,10 @@ public enum PendingCaret
 
 public sealed record StatusFilterOption(string Label, string Wire);
 
-/// <summary>One entry in the area filter. <see cref="Count"/> is shown so the
-/// filter doubles as a sense of where the work actually is.</summary>
-public sealed record AreaFilterOption(string Label, string Value, int Count);
-
 /// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
-/// leading <c>#</c> a tag reads with everywhere else on the screen;
-/// <paramref name="Value"/> is the bare, lower-cased tag the parser stores.
+/// sigil the tag reads with everywhere else on the screen — a hash for a general
+/// tag, and for a person the <c>@</c> that is already part of the value;
+/// <paramref name="Value"/> is the lower-cased tag exactly as the parser stores it.
 /// <paramref name="Count"/> is an occurrence count rather than a share of the
 /// rows — see <c>TasksDesktopState.TagFilters</c>.</summary>
 public sealed record TagFilterOption(string Label, string Value, int Count);
@@ -2176,6 +2578,19 @@ public sealed class EntryRow
     public Guid Key { get; } = Guid.NewGuid();
 
     public Guid? Id { get; set; }
+
+    /// <summary>
+    /// How a list names this row: its stored id once it has one, and its
+    /// per-instance key until then.
+    /// <para>
+    /// Here rather than in the pane because more than one thing now keys off it —
+    /// the list's rows, the detail pane's selection, and the picked set — and two
+    /// answers to "what is this row called" would be two sets that never
+    /// intersect. The stored id first, deliberately: it is the half that survives
+    /// a reload, so a persisted row stays picked across one.
+    /// </para>
+    /// </summary>
+    public string TaskId => (Id ?? Key).ToString();
 
     public string RawText { get; set; } = string.Empty;
 

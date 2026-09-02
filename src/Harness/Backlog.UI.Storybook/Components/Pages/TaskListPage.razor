@@ -120,6 +120,22 @@ Which facts come forward, which stay quiet, and what happens to the line on a fi
         </div>
     </Story>
 
+    <Story Name="Tags typed into the title"
+           Description="A tag can be written straight into a title: `@@name` is a person, `#name` is a general tag. The row draws them as chips **where they stand**, and that is the whole of what it does — the title text is preserved character for character in storage and on screen, so nothing is stripped, nothing is rewritten, and the sigils stay visible. Read the accessible name of any row here and the whole title is still in it, sigils and all, after the word “Open” that says what the button does — the circle beside it is named “Complete” and then the title, so no two controls on one row answer to the same name.
+
+The chips in a title are never controls, and that is arithmetic rather than a decision: the title *is* the button that opens the row, and a button cannot hold a button. The pressable copy of every tag is already on the metadata line underneath — which is why the last row below draws each of its tags twice, once in the sentence and once as something you can filter by.
+
+A sigil only opens a tag when nothing is welded to its left, so `bob@@example.com` names no one and the `#` in `C#` is not a tag. That guard is the same expression the parser uses; the two are separate copies that the tests on each side pin to the same examples."
+           Code="@TitleTagCode">
+        <div class="sb-menu-wide" data-testid="task-list-title-tags">
+            <TaskListView Tasks="@TitleTags"
+                          OnToggle="_ => { }"
+                          OnTagSelected="_ => { }"
+                          AriaLabel="Tasks with tags in their titles"
+                          TestId="title-tags" />
+        </div>
+    </Story>
+
     <Story Name="Done moves to Completed"
            Description="`TaskListView` owns the Completed section: a finished row leaves the list and joins it, behind a count that folds. Folded by default.
 
@@ -357,6 +373,19 @@ It exists for the row that was projected from a document the task itself does no
         new("f7", "Finished, so nothing competes", Done: true, Group: "Tasks", Due: "Yesterday", Reminder: "08:00", Tags: ["ui"])
     ];
 
+    /// <summary>Titles carrying their own tags. The <c>Tags</c> on the last row are
+    /// what the parser derives from that title, which is why the same two tags
+    /// appear twice on it — inert in the sentence, pressable on the line below.
+    /// The middle rows are the two ways a sigil is <em>not</em> a tag.</summary>
+    private static readonly IReadOnlyList<TaskRow> TitleTags =
+    [
+        new("t1", "Ship the installer @bob #deploy", Group: "Tasks"),
+        new("t2", "Mail bob@example.com about it", Group: "Tasks"),
+        new("t3", "Upgrade to C# 14", Group: "Tasks"),
+        new("t4", "Ask @bob about #bob", Group: "Tasks"),
+        new("t5", "Ship the installer @bob #deploy", Group: "Tasks", Tags: ["@bob", "deploy"])
+    ];
+
     private static readonly TaskRow Single =
         new("single", "One row, no list around it", Group: "Tasks", Due: "Today");
 
@@ -570,6 +599,15 @@ It exists for the row that was projected from a document the task itself does no
             Group: "Tasks", Due: "Friday", Reminder: "09:00",
             Repeats: true, Tags: ["ui", "storybook"])
         { RepeatLabel = "Weekly" }
+        """;
+
+    private const string TitleTagCode = """
+        // Nothing to switch on: the row reads the title it was given.
+        new TaskRow("id", "Ship the installer @bob #deploy", Group: "Tasks")
+
+        // A person tag keeps its sigil in the stored value; a general one is bare.
+        new TaskRow("id", "Ship the installer @bob #deploy",
+            Group: "Tasks", Tags: ["@bob", "deploy"])
         """;
 
     private const string CompletedCode = """

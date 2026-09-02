@@ -1,0 +1,162 @@
+@*
+    The bar a surface puts up once a reader has picked more than one of
+    something: how many, a way back out, a box that takes the rest, and whatever
+    the host can do to them all at once.
+
+    Chrome and nothing else. The bar knows a count and a total; it does not know
+    what was selected, what the acts are, or what any of them would do — that is
+    the Actions slot, exactly as `TaskItem.Actions` is. One implementation of
+    "3 items selected" therefore serves every list in the product rather than
+    one per list, which is the whole reason it is here rather than in a pane.
+
+    `.design/interaction-guidelines.md#focus-and-selection` writes the rule down:
+    a live count, a clear-selection control, and a select-all that shows the
+    indeterminate state on a partial selection. All three are structural, so all
+    three are drawn here rather than left to a host to remember.
+
+    The count is a live region because it changes without the reader having
+    touched it — a shift-click takes eight rows, and a number that changed
+    silently is a number only somebody watching it can read. It is in the DOM from
+    the first render for the same reason the task list's move announcement is: a
+    live region has to exist before it changes, or the first change is the one
+    nobody hears.
+
+    Checkbox, not a checkbox. `Inputs/Checkbox.razor` already carries the
+    tri-state as `aria-checked="mixed"` where assistive technology reads it; a
+    second box here would be a second place to get the one thing this bar is
+    specifically required to get right.
+
+    AppButton for the clear, for the same reason: a ghost button at small size is
+    what a quiet control on a bar looks like everywhere else in the product, and
+    the bar has no argument for a different one.
+
+    The noun is the host's. "3 items selected" is what a component with no
+    vocabulary can honestly say, and a list of entries wants "tasks" — so the
+    singular is a parameter and the plural is derived from it unless a host has an
+    irregular one to hand over.
+*@
+
+<div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
+    <Checkbox Checked="@AllSelected"
+              Indeterminate="@Indeterminate"
+              CheckedChanged="SelectAllChanged"
+              Disabled="@(Total == 0)"
+              CssClass="selection-bar__all"
+              TestId="@Suffix("select-all")"
+              aria-label="@SelectAllLabel"
+              title="@SelectAllLabel" />
+
+    <span class="selection-bar__count"
+          role="status"
+          aria-live="polite"
+          data-testid="@Suffix("count")">@CountText</span>
+
+    @if (Actions is not null)
+    {
+        @* A group of its own, so a host's acts sit together between the count and
+           the way out rather than being flexed apart from each other. Named, for
+           the reason every other group in this library is: a reader tabbing into
+           a row of controls should hear what the row is for. *@
+        <span class="selection-bar__actions"
+              role="group"
+              aria-label="@ActionsLabel"
+              data-testid="@Suffix("actions")">
+            @Actions
+        </span>
+    }
+
+    @* Last, and deliberately: everything to the left of it acts on the selection
+       and this one ends it. The same order the task row puts its bin in. *@
+    <AppButton Variant="ButtonVariant.Ghost"
+               Size="ButtonSize.Small"
+               CssClass="selection-bar__clear"
+               TestId="@Suffix("clear")"
+               OnClick="OnClear">
+        @ClearLabel
+    </AppButton>
+</div>
+
+@code {
+    /// <summary>How many things are selected. The one number the bar is about.</summary>
+    [Parameter]
+    public int Count { get; set; }
+
+    /// <summary>
+    /// How many there are to select — the rows the reader can currently see, not
+    /// everything the host holds.
+    /// <para>
+    /// It is here because the select-all box cannot be honest without it: "all"
+    /// and "some" are the same count until something says what the whole is, and
+    /// a bar that took <c>AllSelected</c> and <c>Indeterminate</c> as separate
+    /// flags would let a host hand over a pair that contradict each other.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public int Total { get; set; }
+
+    /// <summary>Raised by the leading box: true for "take the rest", false for
+    /// "let them all go". The bar never decides which rows those are.</summary>
+    [Parameter]
+    public EventCallback<bool> SelectAllChanged { get; set; }
+
+    /// <summary>Raised by the way out. Always offered: a reader who can get into
+    /// a selection has to be able to get out of one without hunting for the row
+    /// they started on.</summary>
+    [Parameter]
+    public EventCallback OnClear { get; set; }
+
+    /// <summary>What the host can do to everything selected, handed the room to
+    /// draw it in. Unfilled, the bar draws no group at all — an element with an
+    /// aria-label about nothing is worse than no element.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    /// <summary>What one of the selected things is called, in the singular.</summary>
+    [Parameter]
+    public string ItemNoun { get; set; } = "item";
+
+    /// <summary>What several of them are called, when an <c>-s</c> will not do.
+    /// Unset, the plural is derived, which is right for every noun this product
+    /// actually counts.</summary>
+    [Parameter]
+    public string? ItemNounPlural { get; set; }
+
+    [Parameter]
+    public string SelectAllLabel { get; set; } = "Select all";
+
+    [Parameter]
+    public string ClearLabel { get; set; } = "Clear selection";
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Selection";
+
+    [Parameter]
+    public string ActionsLabel { get; set; } = "Apply to selection";
+
+    /// <summary>Replaces <c>selection-bar</c>, for a host that already dresses a
+    /// bar of its own.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "selection-bar";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Everything is selected only when there is something to select.
+    /// Zero of zero is an empty list rather than a full one, and a box that read
+    /// as checked over nothing would offer to clear a selection nobody made.</summary>
+    private bool AllSelected => Total > 0 && Count >= Total;
+
+    private bool Indeterminate => Count > 0 && Count < Total;
+
+    private string CountText =>
+        $"{Count} {(Count == 1 ? ItemNoun : ItemNounPlural ?? ItemNoun + "s")} selected";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
+        ? BaseClass
+        : $"{BaseClass} {CssClass}";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+}

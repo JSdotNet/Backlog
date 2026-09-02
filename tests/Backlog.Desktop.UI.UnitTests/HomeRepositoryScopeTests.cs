@@ -26,6 +26,30 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class HomeRepositoryScopeTests
 {
+    /// <summary>
+    /// The identity region opens on the scope chips, because there is nothing in
+    /// front of them any more.
+    /// <para>
+    /// It used to open with a "Backlog" wordmark. The window border carries the name,
+    /// so the wordmark was the app saying twice which app you were in and spending
+    /// the width of the word on it — and it left the shell owning an <c>h1</c> that
+    /// was chrome rather than the page's title, which is a heading every other screen
+    /// supplies for itself.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_header_carries_no_wordmark()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Assert.Empty(component.FindAll(".app-header h1"));
+
+        // And the region is still there, still holding the scope: the wordmark went,
+        // not the region around it.
+        Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
+    }
+
     [Fact]
     public void Each_scope_chip_carries_its_repositorys_mark()
     {

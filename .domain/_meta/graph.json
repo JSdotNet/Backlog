@@ -6,30 +6,29 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 515,
-    "edges": 847,
+    "nodes": 516,
+    "edges": 858,
     "nodesByFolder": {
-      "domain": 500,
+      "domain": 501,
       "arc42": 13,
       "design": 2
     },
     "nodesByType": {
       "file": 75,
-      "chapter": 439,
+      "chapter": 440,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 415,
+      "draft": 417,
       "proposed": 39,
-      "idea": 1,
       "active": 55,
       "deprecated": 4,
       "none": 1
     },
     "edgesByType": {
-      "contains": 428,
-      "related": 377,
-      "depends-on": 42
+      "contains": 429,
+      "related": 386,
+      "depends-on": 43
     }
   },
   "problems": [],
@@ -2526,7 +2525,7 @@
           "slug": "local-usage-accumulation",
           "level": 3,
           "line": 70,
-          "status": "idea",
+          "status": "draft",
           "related": [
             ".domain/productivity/features.md#ai-vendor-usage-import"
           ]
@@ -6053,7 +6052,10 @@
           "slug": "task-type",
           "level": 3,
           "line": 262,
-          "status": "draft"
+          "status": "draft",
+          "related": [
+            ".domain/tasks/naming.md#dependency"
+          ]
         }
       },
       {
@@ -6065,7 +6067,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-status",
           "level": 3,
-          "line": 271,
+          "line": 273,
           "status": "draft"
         }
       },
@@ -6078,7 +6080,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 280,
+          "line": 282,
           "status": "draft"
         }
       },
@@ -6091,7 +6093,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 289,
+          "line": 291,
           "status": "draft"
         }
       },
@@ -6104,7 +6106,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 298,
+          "line": 300,
           "status": "draft"
         }
       },
@@ -6117,7 +6119,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 307,
+          "line": 309,
           "status": "draft"
         }
       },
@@ -6130,7 +6132,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 317,
+          "line": 319,
           "status": "draft"
         }
       },
@@ -6143,7 +6145,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 336,
+          "line": 338,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -6160,7 +6162,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 350,
+          "line": 352,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6178,7 +6180,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 392,
+          "line": 394,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6195,7 +6197,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskprojected",
           "level": 2,
-          "line": 419,
+          "line": 421,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6213,7 +6215,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskcompleted",
           "level": 2,
-          "line": 447,
+          "line": 449,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6231,7 +6233,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 473,
+          "line": 475,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6249,7 +6251,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 502,
+          "line": 504,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6266,7 +6268,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 537,
+          "line": 539,
           "status": "draft"
         }
       },
@@ -6363,6 +6365,28 @@
       },
       {
         "data": {
+          "id": ".domain/tasks/features.md#bulk-editing",
+          "label": "Bulk editing",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/features.md",
+          "slug": "bulk-editing",
+          "level": 2,
+          "line": 112,
+          "status": "draft",
+          "depends-on": [
+            ".domain/tasks/features.md#refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/tasks/features.md#search-filter-and-organize",
+            ".domain/tasks/features.md#my-day",
+            ".domain/tasks/features.md#recurring-tasks",
+            ".domain/tasks/features.md#multi-repo-targeting"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/tasks/features.md#effort-registration",
           "label": "Effort registration",
           "type": "chapter",
@@ -6370,7 +6394,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "effort-registration",
           "level": 2,
-          "line": 112,
+          "line": 148,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6390,7 +6414,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "scheduling-and-recurrence",
           "level": 2,
-          "line": 144,
+          "line": 180,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6409,7 +6433,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "due-dates",
           "level": 3,
-          "line": 169,
+          "line": 205,
           "status": "proposed"
         }
       },
@@ -6422,7 +6446,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "reminders",
           "level": 3,
-          "line": 181,
+          "line": 217,
           "status": "proposed"
         }
       },
@@ -6435,7 +6459,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "recurring-tasks",
           "level": 3,
-          "line": 197,
+          "line": 233,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#occurrence-spawning",
@@ -6452,7 +6476,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "my-day",
           "level": 2,
-          "line": 217,
+          "line": 253,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6471,7 +6495,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "task-dependencies",
           "level": 2,
-          "line": 237,
+          "line": 273,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6491,7 +6515,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "readiness-and-chain-order",
           "level": 3,
-          "line": 256,
+          "line": 292,
           "status": "proposed"
         }
       },
@@ -6504,7 +6528,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-repo-targeting",
           "level": 2,
-          "line": 281,
+          "line": 317,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -6523,7 +6547,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "projection",
           "level": 2,
-          "line": 294,
+          "line": 330,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-repo-targeting"
@@ -6542,7 +6566,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "issue-projection-and-state-read-back",
           "level": 3,
-          "line": 307,
+          "line": 343,
           "status": "draft",
           "feature-flag": [
             "github-integration"
@@ -6562,7 +6586,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "search-filter-and-organize",
           "level": 2,
-          "line": 324,
+          "line": 360,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#bi-directional-linking"
@@ -6578,7 +6602,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "manual-ordering",
           "level": 3,
-          "line": 337,
+          "line": 373,
           "status": "draft"
         }
       },
@@ -6591,7 +6615,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "prompt-features",
           "level": 2,
-          "line": 348,
+          "line": 384,
           "status": "draft"
         }
       },
@@ -6604,7 +6628,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "hand-off-to-copilot-cli",
           "level": 3,
-          "line": 358,
+          "line": 394,
           "status": "draft",
           "feature-flag": [
             "copilot-cli"
@@ -6623,7 +6647,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "import",
           "level": 2,
-          "line": 372,
+          "line": 408,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#task-creation",
@@ -6634,6 +6658,8 @@
             ".domain/tasks/features.md#prompt-features",
             ".domain/tasks/features.md#sub-items-and-steps",
             ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/domain.md#task-status",
             ".domain/repository-management/features.md#repository-registration"
           ]
         }
@@ -6647,7 +6673,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 418,
+          "line": 473,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -6664,7 +6690,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 448,
+          "line": 503,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6681,7 +6707,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 474,
+          "line": 534,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -6701,8 +6727,11 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 491,
-          "status": "draft"
+          "line": 551,
+          "status": "draft",
+          "related": [
+            ".domain/tasks/flow.md"
+          ]
         }
       },
       {
@@ -6714,7 +6743,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 501,
+          "line": 568,
           "status": "deprecated",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -6732,7 +6761,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-device-sync",
           "level": 2,
-          "line": 522,
+          "line": 589,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -6754,7 +6783,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 546,
+          "line": 613,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
@@ -6774,7 +6803,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 561,
+          "line": 628,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6795,7 +6824,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 592,
+          "line": 659,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -6908,7 +6937,8 @@
             "TaskType"
           ],
           "related": [
-            ".domain/tasks/domain.md#task-type"
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/naming.md#dependency"
           ]
         }
       },
@@ -6921,7 +6951,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "task-status",
           "level": 2,
-          "line": 72,
+          "line": 73,
           "status": "draft",
           "aliases": [
             "TaskStatus"
@@ -6940,7 +6970,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "area",
           "level": 2,
-          "line": 83,
+          "line": 84,
           "status": "draft",
           "aliases": [
             "area"
@@ -6959,7 +6989,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "ai-work-log",
           "level": 2,
-          "line": 97,
+          "line": 98,
           "status": "draft",
           "aliases": [
             "AIWorkLog",
@@ -6979,7 +7009,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "due-date",
           "level": 2,
-          "line": 110,
+          "line": 111,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -7000,7 +7030,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "reminder",
           "level": 2,
-          "line": 124,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -7021,7 +7051,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "recurrence",
           "level": 2,
-          "line": 138,
+          "line": 139,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -7045,7 +7075,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "my-day",
           "level": 2,
-          "line": 152,
+          "line": 153,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -7066,7 +7096,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "dependency",
           "level": 2,
-          "line": 167,
+          "line": 168,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -7088,7 +7118,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "attachment",
           "level": 2,
-          "line": 181,
+          "line": 182,
           "status": "proposed",
           "aliases": [
             "attachment",
@@ -7111,7 +7141,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "readiness",
           "level": 2,
-          "line": 197,
+          "line": 198,
           "status": "proposed",
           "aliases": [
             "TaskReadiness",
@@ -7132,7 +7162,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "occurrence",
           "level": 2,
-          "line": 210,
+          "line": 211,
           "status": "proposed",
           "aliases": [
             "recurrence_source_id",
@@ -7152,7 +7182,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "effort",
           "level": 2,
-          "line": 224,
+          "line": 225,
           "status": "draft",
           "aliases": [
             "effort",
@@ -7174,7 +7204,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "roadmap-tag",
           "level": 2,
-          "line": 241,
+          "line": 242,
           "status": "draft",
           "aliases": [
             "roadmap tag",
@@ -7195,7 +7225,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "roadmap",
           "level": 2,
-          "line": 258,
+          "line": 259,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -7216,7 +7246,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "device",
           "level": 2,
-          "line": 274,
+          "line": 275,
           "status": "draft",
           "aliases": [
             "machine",
@@ -7237,7 +7267,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "tombstone",
           "level": 2,
-          "line": 292,
+          "line": 293,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -10857,6 +10887,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#bulk-editing",
+          "source": ".domain/tasks/features.md",
+          "target": ".domain/tasks/features.md#bulk-editing",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#effort-registration",
           "source": ".domain/tasks/features.md",
           "target": ".domain/tasks/features.md#effort-registration",
@@ -13905,6 +13943,14 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/domain.md#task-type->.domain/tasks/naming.md#dependency",
+          "source": ".domain/tasks/domain.md#task-type",
+          "target": ".domain/tasks/naming.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/tasks/domain.md#projection->.domain/monitoring/domain.md#progress-signal",
           "source": ".domain/tasks/domain.md#projection",
           "target": ".domain/monitoring/domain.md#progress-signal",
@@ -14084,6 +14130,46 @@
           "id": "related:.domain/tasks/features.md#attached-material->.domain/tasks/domain.md#attachment",
           "source": ".domain/tasks/features.md#attached-material",
           "target": ".domain/tasks/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#refinement-and-prioritization",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#search-filter-and-organize",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#my-day",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#my-day",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#recurring-tasks",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#recurring-tasks",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#multi-repo-targeting",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#multi-repo-targeting",
           "type": "related"
         }
       },
@@ -14297,6 +14383,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/features.md#import->.domain/tasks/domain.md#task-type",
+          "source": ".domain/tasks/features.md#import",
+          "target": ".domain/tasks/domain.md#task-type",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#import->.domain/tasks/domain.md#task-status",
+          "source": ".domain/tasks/features.md#import",
+          "target": ".domain/tasks/domain.md#task-status",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/tasks/features.md#import->.domain/repository-management/features.md#repository-registration",
           "source": ".domain/tasks/features.md#import",
           "target": ".domain/repository-management/features.md#repository-registration",
@@ -14348,6 +14450,14 @@
           "id": "related:.domain/tasks/features.md#ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#ai-productivity-tracking",
           "source": ".domain/tasks/features.md#ai-assistance-over-the-visible-backlog",
           "target": ".domain/productivity/features.md#ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#archive-and-lifecycle->.domain/tasks/flow.md",
+          "source": ".domain/tasks/features.md#archive-and-lifecycle",
+          "target": ".domain/tasks/flow.md",
           "type": "related"
         }
       },
@@ -14508,6 +14618,14 @@
           "id": "related:.domain/tasks/naming.md#task-type->.domain/tasks/domain.md#task-type",
           "source": ".domain/tasks/naming.md#task-type",
           "target": ".domain/tasks/domain.md#task-type",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#task-type->.domain/tasks/naming.md#dependency",
+          "source": ".domain/tasks/naming.md#task-type",
+          "target": ".domain/tasks/naming.md#dependency",
           "type": "related"
         }
       },

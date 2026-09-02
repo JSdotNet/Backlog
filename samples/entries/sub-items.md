@@ -1,5 +1,5 @@
 # Rework the onboarding email
-`follow-up` `*medium` `!ready` `@inbox`
+`task` `*medium` `!ready` `@inbox`
 
 ## Cut it to three sentences
 Nobody reads the fourth. The current draft has eleven, and the call to action is

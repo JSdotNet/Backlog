@@ -83,7 +83,7 @@ else if (HasFields)
     /// a caller wiring up a status change is asking for the record, and the
     /// legacy strip has no control to raise it from.</para></summary>
     [Parameter]
-    public EventCallback<string> OnStatusChanged { get; set; }
+    public EventCallback<string?> OnStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]

@@ -246,6 +246,22 @@ public sealed class SqliteTaskRepository : ITaskRepository
             await EnsureColumnAsync(connection, "import_plan_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
+            // And one value the vocabulary retired. `follow_up` was a task type until
+            // a follow-up became a relationship between two entries instead of a
+            // classification of one, and `EnumMap.ParseType` no longer knows the
+            // word — so a row still carrying it would throw on every read, which is
+            // somebody's entry lost to a rename. This rewrites the retired value to
+            // the type those entries always were.
+            //
+            // Deliberately not the start of a migration system: there is no version
+            // column, no ordered script list, and nothing here reads what ran
+            // before. It is the same shape as the additive columns above — a
+            // statement that is true after it runs and true again the next time, so
+            // it is safe on every open. An UPDATE that matches no row is a scan of a
+            // one-table local file and costs nothing, which is what makes running it
+            // unconditionally cheaper than remembering whether it has run.
+            await NormalizeRetiredTypeAsync(connection, cancellationToken).ConfigureAwait(false);
+
             return connection;
         }
         catch
@@ -253,6 +269,19 @@ public sealed class SqliteTaskRepository : ITaskRepository
             await connection.DisposeAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    /// <summary>Rewrites the one retired <c>type</c> value to the type it became.
+    /// Idempotent by construction: after it runs, no row matches it again. See the
+    /// comment at the call site for why this is a normalization rather than a
+    /// migration.</summary>
+    private static async Task NormalizeRetiredTypeAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE tasks SET type = 'task' WHERE type = 'follow_up';";
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Adds a column to the tasks table when it is not already there, and

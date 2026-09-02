@@ -1,8 +1,18 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
 @*
     A dialog is only a dialog while it is open: when closed it renders nothing at
     all, so nothing behind it is reachable through a hidden node. Escape is
     handled on the container rather than on the document, which means it works
     without a document-wide listener and cannot outlive the dialog.
+
+    Focus is borrowed, not taken: the control that opened the dialog is recorded
+    before the focus moves in, and gets it back when the dialog closes. That is
+    the accessibility rule for every overlay, and it cannot be done with an
+    `ElementReference` — the trigger belongs to another component and may not be
+    rendered any more by the time the dialog goes. So `components.js` holds it,
+    keyed by this dialog's id.
 
     The dialog element is written through the render tree because a host that
     already renders its dialog as a `section` should not have to give that up to
@@ -20,8 +30,8 @@
 @code {
     private readonly string _id = "modal-" + Guid.NewGuid().ToString("N");
     private ElementReference _dialog;
-    private bool _focusPending;
-    private bool _wasOpen;
+    private bool _holdsFocus;
+    private bool _captured;
 
     [Parameter]
     public bool Open { get; set; }
@@ -56,6 +66,12 @@
 
     [Parameter]
     public EventCallback OnClosed { get; set; }
+
+    /// <summary>The id of the element focus returns to on close. Named rather than
+    /// captured so it survives the opener being re-rendered while the dialog is up;
+    /// without it, focus goes back to whatever held it when the dialog opened.</summary>
+    [Parameter]
+    public string? RestoreFocusToId { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -163,29 +179,86 @@
             }
         </text>;
 
-    protected override void OnParametersSet()
-    {
-        // Focus has to land inside the dialog the moment it appears, or the
-        // keyboard is still out in the page behind it. Armed only on the
-        // false->true transition: OnParametersSet runs on every render, and a
-        // host that re-renders while a field inside the dialog is being typed
-        // into re-passes Open="true" unchanged — arming on that too would drag
-        // focus back onto the dialog container on every keystroke.
-        if (Open && !_wasOpen) _focusPending = true;
-        _wasOpen = Open;
-    }
-
+    /// <summary>Takes the focus as the dialog appears and gives it back as the
+    /// dialog goes. Driven by comparing <c>Open</c> against what the focus is
+    /// actually doing rather than by a parameter transition, for two reasons: the
+    /// dialog has to be in the DOM before anything in it can be focused, and
+    /// Escape and the close button set <c>Open</c> from in here, where no
+    /// parameter changes at all.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Open || !_focusPending) return;
+        // A host that re-renders while a field inside the dialog is being typed
+        // into re-passes Open="true" unchanged. That is not the dialog opening
+        // again, and acting on it would drag focus back onto the dialog container
+        // on every keystroke.
+        if (Open == _holdsFocus) return;
 
-        _focusPending = false;
+        _holdsFocus = Open;
+
+        if (!Open)
+        {
+            await RestoreFocusAsync();
+            return;
+        }
+
+        // Captured before the focus moves, because until it does, `activeElement`
+        // is still the control that opened the dialog — and nothing else knows
+        // which one that was.
+        await CaptureFocusAsync();
 
         try
         {
             await _dialog.FocusAsync();
         }
         catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>A host that tears the dialog out while it is open has closed it as
+    /// surely as Escape does, and no further render will run to notice — so the
+    /// focus goes back from here too.</summary>
+    public async ValueTask DisposeAsync() => await RestoreFocusAsync();
+
+    private async Task CaptureFocusAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogCaptureFocus", _id);
+            _captured = true;
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: no document to read the active element from.
+        }
+    }
+
+    /// <summary>Only a dialog that took the focus gives it back. One that never
+    /// opened has nothing to return, and returning anyway would move a focus the
+    /// reader put somewhere else themselves.</summary>
+    private async Task RestoreFocusAsync()
+    {
+        if (!_captured) return;
+
+        _captured = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogRestoreFocus", _id, RestoreFocusToId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
         {
         }
     }

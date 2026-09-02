@@ -20,10 +20,9 @@
       "heading": 7
     },
     "nodesByStatus": {
-      "active": 95,
+      "active": 96,
       "none": 7,
       "draft": 6,
-      "accepted": 1,
       "adopted": 3,
       "proposed": 6
     },
@@ -1638,7 +1637,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",
@@ -1757,7 +1756,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "task-status",
           "level": 2,
-          "line": 72,
+          "line": 73,
           "status": "draft",
           "aliases": [
             "TaskStatus"
@@ -1777,7 +1776,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "area",
           "level": 2,
-          "line": 83,
+          "line": 84,
           "status": "draft",
           "aliases": [
             "area"
@@ -1797,7 +1796,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "due-date",
           "level": 2,
-          "line": 110,
+          "line": 111,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1819,7 +1818,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "reminder",
           "level": 2,
-          "line": 124,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1841,7 +1840,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "recurrence",
           "level": 2,
-          "line": 138,
+          "line": 139,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1866,7 +1865,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "my-day",
           "level": 2,
-          "line": 152,
+          "line": 153,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1888,7 +1887,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "dependency",
           "level": 2,
-          "line": 167,
+          "line": 168,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -1911,7 +1910,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "import",
           "level": 2,
-          "line": 372,
+          "line": 408,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#task-creation",
@@ -1922,6 +1921,8 @@
             ".domain/tasks/features.md#prompt-features",
             ".domain/tasks/features.md#sub-items-and-steps",
             ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/domain.md#task-status",
             ".domain/repository-management/features.md#repository-registration"
           ],
           "outOfScope": true

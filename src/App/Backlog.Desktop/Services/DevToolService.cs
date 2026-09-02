@@ -177,6 +177,7 @@ public sealed class DevToolService : IDevToolService
         }
 
         var claudeCli = await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false);
+        var refreshed = new RefreshState();
         var claudeMarketplaces = (IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var claudePlugins = (IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>)
             new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
@@ -188,6 +189,29 @@ public sealed class DevToolService : IDevToolService
         else
         {
             claudeMarketplaces = await GetClaudeMarketplacesAsync(claudeCli, log, ct).ConfigureAwait(false);
+
+            // Every configured marketplace pulled before Claude is asked what it
+            // has. Claude answers that question out of its own clone of a
+            // marketplace and installs out of that same clone, so a listing that
+            // read first was a listing about whichever refresh somebody last
+            // happened to run - and the update it then offered was one this pane
+            // could not deliver, however many times it was pressed.
+            foreach (var name in DevToolConfiguration.MarketplaceEntries(root)
+                .Select(marketplace => GetString(marketplace, "name"))
+                .Where(name => !string.IsNullOrWhiteSpace(name) && claudeMarketplaces.Contains(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var pull = await RunAsync(DevToolCommands.ClaudeMarketplaceUpdate(claudeCli, name), log, ct).ConfigureAwait(false);
+                if (pull.ExitCode == 0)
+                {
+                    refreshed.Marketplaces.Add(name);
+                }
+                else
+                {
+                    messages.Add($"The {name} marketplace could not be refreshed, so its plugins read as version unknown.");
+                }
+            }
+
             claudePlugins = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
         }
 
@@ -240,6 +264,7 @@ public sealed class DevToolService : IDevToolService
                 claudeCli,
                 claudePlugins,
                 defaultMarketplace,
+                refreshed,
                 log,
                 ct).ConfigureAwait(false));
         }
@@ -316,6 +341,7 @@ public sealed class DevToolService : IDevToolService
         string? claudeCli,
         IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> claudePlugins,
         string? defaultMarketplace,
+        RefreshState refreshed,
         CommandLog log,
         CancellationToken ct)
     {
@@ -344,9 +370,21 @@ public sealed class DevToolService : IDevToolService
             {
                 notes.Add(CopilotCliMissing);
             }
+            else if (repositoryBacked)
+            {
+                // Its own branch rather than the CLI listing's, because it is its
+                // own authority: both of this row's versions are commits in a
+                // mirror this host manages. Read through the listing first - as it
+                // was - the installed side could come from Copilot's plugin list
+                // and the available side from a sha, which is two units and a
+                // permanent update.
+                var repository = await DescribeRepositoryStateAsync(plugin, enabled, kind, refreshed, log, ct).ConfigureAwait(false);
+                states.Add(repository.State);
+                notes.AddRange(repository.Notes);
+            }
             else
             {
-                var installedVersion = await GetPluginInstalledVersionAsync(plugin, installedPlugins, log, ct).ConfigureAwait(false);
+                var installedVersion = GetPluginInstalledVersion(plugin, installedPlugins);
                 var installed = !installedVersion.Equals(DevToolOutput.NotInstalled, StringComparison.OrdinalIgnoreCase);
                 var available = await AvailableAsync().ConfigureAwait(false);
 
@@ -355,7 +393,15 @@ public sealed class DevToolService : IDevToolService
                     installed,
                     installedVersion,
                     available,
-                    DescribeStatus(enabled, installed, DevToolInfo.VersionDiffers(installedVersion, available), string.IsNullOrWhiteSpace(kind) ? "plugin" : kind)));
+                    DescribeStatus(enabled, installed, DevToolInfo.VersionDiffers(installedVersion, available), string.IsNullOrWhiteSpace(kind) ? "plugin" : kind))
+                {
+                    // Both sides are the source repository at its default branch,
+                    // which is what "copilot plugin install" and "plugin update"
+                    // pull - so the two columns are one authority and comparing
+                    // them means something.
+                    InstalledAuthority = DevToolVersionAuthority.CopilotSource,
+                    AvailableAuthority = DevToolVersionAuthority.CopilotSource
+                });
             }
         }
 
@@ -382,7 +428,24 @@ public sealed class DevToolService : IDevToolService
             {
                 var state = claudePlugins.GetValueOrDefault(pluginId);
                 var installedVersion = state?.Version ?? DevToolOutput.NotInstalled;
-                var available = await AvailableAsync().ConfigureAwait(false);
+
+                // Only a marketplace this refresh actually pulled may answer the
+                // Available column. Claude's installed version and Claude's update
+                // both come out of that clone, so a published version read while
+                // the clone was behind is a number about a ref Claude cannot
+                // install from - which is the reported defect: claude-desktop at
+                // 0.7.0 against 0.8.0, permanently, with an Update that changed
+                // nothing.
+                var marketplace = ClaudeMarketplaceOf(pluginId);
+                var pulled = refreshed.Marketplaces.Contains(marketplace);
+                var available = DevToolRefresh.ClaudeAvailable(
+                    pulled,
+                    pulled ? KnownOrNull(await AvailableAsync().ConfigureAwait(false)) : null);
+
+                if (!pulled)
+                {
+                    notes.Add($"The {marketplace} marketplace was not refreshed, so Claude's published version is unknown.");
+                }
 
                 states.Add(new DevToolHostState(
                     DevToolHosts.Claude,
@@ -391,7 +454,11 @@ public sealed class DevToolService : IDevToolService
                     available,
                     state is { Enabled: false }
                         ? "Installed but switched off in Claude"
-                        : DescribeStatus(enabled, state is not null, DevToolInfo.VersionDiffers(installedVersion, available), "Claude plugin")));
+                        : DescribeStatus(enabled, state is not null, DevToolInfo.VersionDiffers(installedVersion, available), "Claude plugin"))
+                {
+                    InstalledAuthority = DevToolVersionAuthority.ClaudeMarketplace,
+                    AvailableAuthority = DevToolVersionAuthority.ClaudeMarketplace
+                });
             }
         }
 
@@ -968,6 +1035,19 @@ public sealed class DevToolService : IDevToolService
                 : DevToolActionResult.Failed(CommandFailure(pluginId, uninstall));
         }
 
+        // The marketplace before either install or update. Claude installs out of
+        // its own clone of one, so an update against a clone nobody pulled runs,
+        // exits 0 and changes nothing — which is how a row came to offer the same
+        // update forever. Failing here rather than reporting success names the one
+        // reason the press could not have worked.
+        var marketplace = ClaudeMarketplaceOf(pluginId);
+        var pull = await RunAsync(DevToolCommands.ClaudeMarketplaceUpdate(cli, marketplace), log, ct).ConfigureAwait(false);
+        if (pull.ExitCode != 0)
+        {
+            return DevToolActionResult.Failed(
+                $"the {marketplace} marketplace could not be refreshed, so {pluginId} can only reach what Claude already has. {CommandFailure(marketplace, pull)}");
+        }
+
         if (state is null)
         {
             var install = await RunAsync(cli, ["plugin", "install", pluginId, "--scope", "user"], log, ct).ConfigureAwait(false);
@@ -1231,6 +1311,17 @@ public sealed class DevToolService : IDevToolService
             }
             else
             {
+                // The local source index, before either listing reads it. Both of
+                // them answer out of that index and nothing was refreshing it, so
+                // a machine whose index predated a package's new manifest reported
+                // the old version in the Available column and dropped the package
+                // out of the upgrade listing entirely.
+                var sourceUpdate = await RunAsync(DevToolCommands.WingetSourceUpdate(), log, ct).ConfigureAwait(false);
+                if (sourceUpdate.ExitCode != 0)
+                {
+                    messages.Add("The winget source could not be refreshed, so package versions may be stale.");
+                }
+
                 var list = await RunAsync(DevToolCommands.WingetList(), log, ct).ConfigureAwait(false);
                 if (list.ExitCode == 0)
                 {
@@ -2136,7 +2227,7 @@ public sealed class DevToolService : IDevToolService
         CommandLog log,
         CancellationToken ct)
     {
-        var result = await RunAsync(cli, ["plugin", "list", "--json"], log, ct).ConfigureAwait(false);
+        var result = await RunAsync(DevToolCommands.ClaudePluginList(cli), log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
             ? DevToolOutput.ParseClaudePluginList(result.Output)
@@ -2146,7 +2237,7 @@ public sealed class DevToolService : IDevToolService
     /// <inheritdoc cref="GetInstalledClaudePluginsAsync" />
     private static async Task<IReadOnlySet<string>> GetClaudeMarketplacesAsync(string cli, CommandLog log, CancellationToken ct)
     {
-        var result = await RunAsync(cli, ["plugin", "marketplace", "list", "--json"], log, ct).ConfigureAwait(false);
+        var result = await RunAsync(DevToolCommands.ClaudeMarketplaceList(cli), log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
             ? DevToolOutput.ParseClaudeMarketplaceList(result.Output)
@@ -2195,35 +2286,19 @@ public sealed class DevToolService : IDevToolService
             : DevToolOutput.Unknown;
     }
 
-    /// <summary>What the plugin's source publishes today.
+    /// <summary>What the plugin's source publishes today, read from the plugin's
+    /// manifest through the GitHub API.
     ///
-    /// <para>A repository-backed tool is asked what its remote's HEAD is, not what
-    /// its clone's is: the clone is the installed side, and asking git the same
-    /// question twice made every such tool equal to itself and hid real pending
-    /// updates.</para>
+    /// <para>The manifest and not a release: the repository these plugins ship
+    /// from cuts no releases, so the release lookup this replaces answered
+    /// "release not found" for all of them.</para>
     ///
-    /// <para>Everything else reads the plugin's manifest through the GitHub API.
-    /// The repository these plugins ship from cuts no releases, so the release
-    /// lookup this replaces answered "release not found" for all of them.</para></summary>
+    /// <para>Repository-backed entries never reach here. They are versioned by
+    /// commit in a mirror this host manages, and a sha compared against a semver
+    /// reported an update on every check forever — see
+    /// <see cref="DescribeRepositoryStateAsync" />.</para></summary>
     private static async Task<string> GetPluginAvailableVersionAsync(JsonNode plugin, CommandLog log, CancellationToken ct)
     {
-        // A repository-backed tool is versioned by commit and never falls back to
-        // the manifest: the two are not the same unit, and a sha compared against
-        // a semver would report an update on every check forever.
-        if (IsRepositoryBacked(plugin))
-        {
-            if (ExistingRepositoryPath(plugin) is not { } repoPath)
-            {
-                return DevToolOutput.Unknown;
-            }
-
-            var head = await RunAsync("git", ["-C", repoPath, "ls-remote", "origin", "HEAD"], log, ct).ConfigureAwait(false);
-
-            return head.ExitCode == 0 && FirstField(head.Output) is { Length: > 0 } sha
-                ? DevToolOutput.ShortCommit(sha)
-                : DevToolOutput.Unknown;
-        }
-
         if (DevToolOutput.ParsePluginSource(GetString(plugin, "source")) is not { } source)
         {
             return DevToolOutput.Unknown;
@@ -2240,28 +2315,144 @@ public sealed class DevToolService : IDevToolService
             : DevToolOutput.Unknown;
     }
 
-    private static async Task<string> GetPluginInstalledVersionAsync(JsonNode plugin, IReadOnlyDictionary<string, string> installedPlugins, CommandLog log, CancellationToken ct)
+    /// <summary>What the host CLI says it has. Repository-backed entries do not
+    /// come here: their installed side is a commit in the mirror, and answering
+    /// one row's two columns from two mechanisms is what
+    /// <see cref="DevToolVersionAuthority" /> exists to stop.</summary>
+    private static string GetPluginInstalledVersion(JsonNode plugin, IReadOnlyDictionary<string, string> installedPlugins) =>
+        installedPlugins.TryGetValue(GetRequiredString(plugin, "name"), out var version)
+            ? version
+            : DevToolOutput.NotInstalled;
+
+    /// <summary>
+    /// One repository-backed row, both of whose versions are commits in the local
+    /// mirror.
+    ///
+    /// <para>Fetched first, then read twice: the local tip and the tip that fetch
+    /// just wrote. Neither was happening. The listing asked git for the remote
+    /// HEAD without fetching and for the clone's HEAD beside it, unscoped, so the
+    /// row moved every time anything at all changed in a repository carrying
+    /// twenty plugins — which is the reported <c>copilot-app-canvases</c>
+    /// case.</para>
+    ///
+    /// <para>The scope comes from the entry's own <c>extensionsPath</c> or
+    /// <c>skillsPath</c>, the two catalog fields nothing used to read. Each names
+    /// the folder this row's artifacts are copied out of, which is exactly the
+    /// scope its version question has.</para>
+    /// </summary>
+    private static async Task<(DevToolHostState State, IReadOnlyList<string> Notes)> DescribeRepositoryStateAsync(
+        JsonNode plugin,
+        bool enabled,
+        string kind,
+        RefreshState refreshed,
+        CommandLog log,
+        CancellationToken ct)
     {
-        var name = GetRequiredString(plugin, "name");
-        if (installedPlugins.TryGetValue(name, out var version))
+        var label = string.IsNullOrWhiteSpace(kind) ? "plugin" : kind;
+        var artifactPath = DevToolRefresh.ArtifactPath(GetString(plugin, "extensionsPath"), GetString(plugin, "skillsPath"));
+        var notes = new List<string> { DevToolRefresh.MirrorNote(artifactPath) };
+
+        if (ExistingRepositoryPath(plugin) is not { } repoPath)
         {
-            return version;
+            return (
+                new DevToolHostState(
+                    DevToolHosts.Copilot,
+                    Installed: false,
+                    DevToolOutput.NotInstalled,
+                    DevToolOutput.Unknown,
+                    DescribeStatus(enabled, installed: false, updateAvailable: false, label))
+                {
+                    InstalledAuthority = DevToolVersionAuthority.RepositoryMirror,
+                    AvailableAuthority = DevToolVersionAuthority.RepositoryMirror
+                },
+                notes);
         }
 
-        if (!IsRepositoryBacked(plugin) || ExistingRepositoryPath(plugin) is not { } repoPath)
+        var fetched = await FetchRepositoryAsync(repoPath, refreshed, log, ct).ConfigureAwait(false);
+        if (!fetched)
         {
-            return DevToolOutput.NotInstalled;
+            notes.Add("The source mirror could not be fetched, so the published commit is unknown.");
         }
 
-        // The full sha, cut to the same width as the remote one it will be
-        // compared against. Asking git for the short form here and taking the
-        // remote's full one would make the two differ on length alone.
-        var result = await RunAsync("git", ["-C", repoPath, "rev-parse", "HEAD"], log, ct).ConfigureAwait(false);
+        var local = await RunAsync(DevToolRefresh.InstalledCommit(repoPath, artifactPath), log, ct).ConfigureAwait(false);
+        var installedVersion = DevToolRefresh.RepositoryCommit(local.ExitCode == 0, local.Output);
 
-        return result.ExitCode == 0 && FirstField(result.Output) is { Length: > 0 } sha
-            ? DevToolOutput.ShortCommit(sha)
-            : "source";
+        // Only read when the fetch wrote it. FETCH_HEAD left over from some
+        // earlier run is exactly the stale answer this whole path is about.
+        var remote = fetched
+            ? await RunAsync(DevToolRefresh.AvailableCommit(repoPath, artifactPath), log, ct).ConfigureAwait(false)
+            : null;
+        var availableVersion = DevToolRefresh.RepositoryCommit(remote is { ExitCode: 0 }, remote?.Output ?? string.Empty);
+
+        var installed = !installedVersion.Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase);
+
+        return (
+            new DevToolHostState(
+                DevToolHosts.Copilot,
+                installed,
+                installedVersion,
+                availableVersion,
+                DescribeStatus(enabled, installed, DevToolInfo.VersionDiffers(installedVersion, availableVersion), label))
+            {
+                InstalledAuthority = DevToolVersionAuthority.RepositoryMirror,
+                AvailableAuthority = DevToolVersionAuthority.RepositoryMirror
+            },
+            notes);
     }
+
+    /// <summary>One mirror fetched once per listing, whatever the outcome.
+    ///
+    /// <para>Several catalog entries share one <c>repoPath</c> — the guidelines
+    /// repository carries two of them — and fetching per row would be the same
+    /// network round trip twice, with the second one able to answer about a
+    /// different tip than the first.</para></summary>
+    private static async Task<bool> FetchRepositoryAsync(string repoPath, RefreshState refreshed, CommandLog log, CancellationToken ct)
+    {
+        if (refreshed.Repositories.TryGetValue(repoPath, out var already))
+        {
+            return already;
+        }
+
+        var fetch = await RunAsync(DevToolCommands.GitFetch(repoPath), log, ct).ConfigureAwait(false);
+        var fetched = fetch.ExitCode == 0;
+        refreshed.Repositories[repoPath] = fetched;
+
+        return fetched;
+    }
+
+    /// <summary>
+    /// What one listing has already pulled.
+    ///
+    /// <para>Passed by hand like <see cref="CommandLog" /> beside it, and for the
+    /// same reason: this class is static, several of its callers run concurrently,
+    /// and an ambient collector would be a shared mutable no call site mentions.
+    /// A method that refreshes a source says so in its signature.</para>
+    /// </summary>
+    private sealed class RefreshState
+    {
+        /// <summary>The marketplaces <c>plugin marketplace update</c> actually
+        /// pulled. Only those may answer a Claude row's Available column.</summary>
+        public HashSet<string> Marketplaces { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <inheritdoc cref="FetchRepositoryAsync" />
+        public Dictionary<string, bool> Repositories { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The marketplace half of a <c>&lt;name&gt;@&lt;marketplace&gt;</c>
+    /// plugin id. Split at the last separator, because a plugin name may carry
+    /// one and a marketplace name may not.</summary>
+    private static string ClaudeMarketplaceOf(string pluginId)
+    {
+        var separator = pluginId.LastIndexOf('@');
+
+        return separator >= 0 ? pluginId[(separator + 1)..] : pluginId;
+    }
+
+    /// <summary>A version, or nothing when the lookup came back with the word for
+    /// "nobody answered". Passing that word on as a version is how it ends up in
+    /// a column being compared against a real one.</summary>
+    private static string? KnownOrNull(string version) =>
+        version.Equals(DevToolOutput.Unknown, StringComparison.OrdinalIgnoreCase) ? null : version;
 
     private static bool IsRepositoryBacked(JsonNode plugin)
     {
@@ -2283,12 +2474,6 @@ public sealed class DevToolService : IDevToolService
 
         return Directory.Exists(expanded) ? expanded : null;
     }
-
-    /// <summary>The first whitespace-separated field of a command's output.
-    /// <c>ls-remote</c> answers "&lt;sha&gt;\tHEAD" and <c>rev-parse</c> answers a
-    /// bare sha, so one reader covers both.</summary>
-    private static string FirstField(string output) =>
-        output.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries) is [var first, ..] ? first : string.Empty;
 
     private static async Task<string> RefreshRepositorySourceAsync(JsonNode plugin, CommandLog log, CancellationToken ct)
     {
@@ -2421,7 +2606,7 @@ public sealed class DevToolService : IDevToolService
             : DescribeStatus(
                 enabled,
                 states.All(state => state.Installed),
-                states.Any(state => DevToolInfo.VersionDiffers(state.InstalledVersion, state.AvailableVersion)),
+                states.Any(state => state.ReportsUpdate),
                 kind);
 
         return notes.Count == 0 ? headline : $"{headline} · {string.Join(" · ", notes)}";

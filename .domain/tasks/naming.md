@@ -64,10 +64,11 @@ recorded projection target is the `ProjectionRef` value object.
 type: term
 status: draft
 aliases: [TaskType]
-related: [.domain/tasks/domain.md#task-type]
+related: [.domain/tasks/domain.md#task-type, .domain/tasks/naming.md#dependency]
 ```
 
-Classification of a task as prompt, task, idea, or follow-up.
+Classification of a task as prompt, task, or idea. A follow-up is not a type: it
+is an ordinary task carrying a `Dependency` on the task it comes after.
 
 ## Task Status
 
