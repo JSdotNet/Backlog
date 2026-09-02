@@ -2060,22 +2060,49 @@ public sealed class TasksDesktopState : IDisposable
     /// the parser stores them; the leading <c>#</c> is on the label only, because that
     /// is how a tag reads everywhere else on this screen.
     /// </para>
+    /// <para>
+    /// Offered off the entries still in play, though — a tag whose every entry is
+    /// finished is not a place anyone is going to file anything, so it is not one of
+    /// the places the bar names. It would be a dead end wearing the same shape as a
+    /// destination, and a backlog accumulates them: every tag ever typed would stay
+    /// on the bar forever, and the ones worth pressing would be the minority.
+    /// </para>
+    /// <para>
+    /// The counts do not follow it down, and the difference is the point. Which
+    /// entries a tag is <em>offered for</em> is a question about the reader's
+    /// attention; how many rows the tag <em>has</em> is a question about the list,
+    /// and the list is unchanged — finished entries are still there under "All", so a
+    /// chip promising fewer rows than pressing it produces would simply be wrong. A
+    /// count still answers "how much is over there" over the whole repository scope,
+    /// the way the area and My Day counts beside it do.
+    /// </para>
     /// </summary>
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
-        var used = scopedRows
-            .SelectMany(r => r.PreviewTags)
-            .Where(tag => !string.IsNullOrEmpty(tag))
-            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .ToList();
+        var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
-        if (used.Count == 0)
+        // What the bar is allowed to name. Built from the live rows, then used to
+        // pick which groups survive below — so the decision about *whether* a tag
+        // appears is taken here and the decision about *what it counts* is taken over
+        // the full scope, which is the whole distinction this method draws.
+        var offered = live
+            .SelectMany(row => row.PreviewTags)
+            .Where(tag => !string.IsNullOrEmpty(tag))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (offered.Count == 0)
         {
             TagFilters = [];
             SelectedTag = string.Empty;
             return;
         }
+
+        var used = scopedRows
+            .SelectMany(row => row.PreviewTags)
+            .Where(offered.Contains)
+            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
 
         var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
 
@@ -2088,20 +2115,34 @@ public sealed class TasksDesktopState : IDisposable
             options.Add(new TagFilterOption($"#{group.Key}", group.Key, group.Count()));
         }
 
-        var untagged = scopedRows.Count(r => r.PreviewTags.Count == 0);
-        if (untagged > 0)
+        // "Untagged" is a chip like any other and earns its place the same way, off a
+        // live entry carrying no tag — while counting every such entry once it does.
+        if (live.Any(row => row.PreviewTags.Count == 0))
         {
-            options.Add(new TagFilterOption("Untagged", UntaggedTag, untagged));
+            options.Add(new TagFilterOption(
+                "Untagged",
+                UntaggedTag,
+                scopedRows.Count(row => row.PreviewTags.Count == 0)));
         }
 
         TagFilters = options;
 
-        // A tag stops existing when the last entry wearing it drops it.
+        // A tag leaves the bar when the last entry wearing it drops it — or finishes
+        // it, which is the same event as far as the bar is concerned. Either way the
+        // selection cannot stay on a chip that is no longer there.
         if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
         {
             SelectedTag = string.Empty;
         }
     }
+
+    /// <summary>Done and archived are one state — "there is nothing left to do
+    /// here" — which is the pair <c>ImportPlanCommand</c> already reads together.
+    /// Off <c>PreviewStatus</c> rather than the stored status, the same reader the
+    /// status filter uses, so a status just typed into the editor counts before it is
+    /// saved.</summary>
+    private static bool IsFinished(EntryRow row) =>
+        row.PreviewStatus is EntryStatus.Done or EntryStatus.Archived;
 
     private static string StatusWire(EntryStatus status) => status switch
     {
