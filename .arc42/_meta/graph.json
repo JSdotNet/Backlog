@@ -19,10 +19,9 @@
       "chapter": 70
     },
     "nodesByStatus": {
-      "active": 71,
+      "active": 74,
       "proposed": 9,
       "draft": 21,
-      "accepted": 3,
       "adopted": 7
     },
     "edgesByType": {
@@ -971,7 +970,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",
@@ -986,7 +985,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".domain/tasks/domain.md",
             ".domain/context-map.md",
@@ -1001,7 +1000,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",

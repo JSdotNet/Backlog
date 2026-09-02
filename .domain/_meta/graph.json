@@ -19,9 +19,8 @@
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 412,
+      "draft": 413,
       "proposed": 36,
-      "idea": 1,
       "active": 55,
       "deprecated": 3,
       "none": 1
@@ -2526,7 +2525,7 @@
           "slug": "local-usage-accumulation",
           "level": 3,
           "line": 70,
-          "status": "idea",
+          "status": "draft",
           "related": [
             ".domain/productivity/features.md#ai-vendor-usage-import"
           ]
