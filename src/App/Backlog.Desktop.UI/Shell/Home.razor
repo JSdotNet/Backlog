@@ -1,5 +1,5 @@
 ﻿@page "/"
-@implements IDisposable
+@implements IAsyncDisposable
 @using Backlog.Infrastructure.FileSystem
 @inject TasksDesktopState State
 @inject IJSRuntime JS
@@ -1095,10 +1095,48 @@
     private void OnResizerKeyDown(KeyboardEventArgs e) =>
         _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
 
-    public void Dispose()
+    // Asynchronous, because leaving the shell has an interop call to make on the
+    // way out. The resizer holds a map of owners and invokes every one of them on
+    // each window resize, so a Home that registered and never unregistered is a
+    // dead reference the next resize calls into — the page still on screen throws
+    // on a window drag because a page that is gone is still in the map.
+    public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
         Features.Changed -= HandleFeaturesChanged;
+
+        // Unregistered before the reference is disposed, so the map can never hold
+        // one that is already dead. The other order leaves a window between the two
+        // in which a resize finds a registration it cannot invoke.
+        if (_selfReference is not null)
+        {
+            try
+            {
+                // No key, matching the keyless initialize above: the resizer reads
+                // an omitted key as the empty slot, which is the app's own layout —
+                // it carries no data-pane-owner because it predates the key. A key
+                // invented here would delete nothing and leave this owner in place.
+                //
+                // The empty slot is shared with any future Home, so this would take
+                // a newer instance's registration out if disposal of the old one ran
+                // after the new one registered. The router disposes the outgoing page
+                // before rendering the incoming one, so it does not — stated here so
+                // that a change to that ordering is read as breaking this.
+                await JS.InvokeVoidAsync("backlogPaneResizer.dispose");
+            }
+            catch (JSException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+                // Disposed from a prerender: the resizer was never initialized,
+                // so there is nothing to dispose.
+            }
+        }
+
         _selfReference?.Dispose();
         _selfReference = null;
     }

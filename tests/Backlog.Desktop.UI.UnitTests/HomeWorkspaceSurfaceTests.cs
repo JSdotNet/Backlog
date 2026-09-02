@@ -1058,6 +1058,41 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// A disposed shell takes its registration out of the resizer with it.
+    /// <para>
+    /// The resizer keeps a map of owners and invokes every one of them on each
+    /// window resize. Home registers on its first render and used to leave the
+    /// registration behind, so a shell that had been navigated away from was still
+    /// in the map: the next resize called into a disposed component and threw. The
+    /// registration is keyless — Home's own <c>initialize</c> passes no key — so
+    /// the unregister is asserted keyless too, because a key here would delete
+    /// nothing and leave the dead owner in place.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Disposing_the_shell_unregisters_its_pane_owner_from_the_resizer()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        // Both calls are filtered on their argument count, because the backlog
+        // pane's SplitPane registers through the same two interop names. It passes
+        // a minted key; the shell passes none, so the shell's registration is the
+        // one-argument initialize and the shell's unregister is the argument-less
+        // dispose. Counting the identifier alone would pass on the split's calls.
+        component.WaitForAssertion(() =>
+            Assert.Single(
+                harness.Context.JSInterop.Invocations["backlogPaneResizer.initialize"],
+                invocation => invocation.Arguments.Count == 1));
+
+        await harness.Context.DisposeAsync();
+
+        Assert.Single(
+            harness.Context.JSInterop.Invocations["backlogPaneResizer.dispose"],
+            invocation => invocation.Arguments.Count == 0);
+    }
+
     /// <summary>An option's own label, with any maturity flag inside it removed.
     /// The badge is a child of the control rather than a sibling, so plain
     /// TextContent now returns "Roadmap dev".</summary>
