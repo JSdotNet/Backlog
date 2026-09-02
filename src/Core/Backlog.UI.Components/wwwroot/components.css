@@ -1,4 +1,4 @@
-﻿/*
+/*
     Styles owned by the shared component library, served from
     _content/Backlog.UI.Components/components.css. A host links this file before
     its own stylesheet, so everything here is the base an app may then extend.
@@ -2593,6 +2593,67 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* --- Selection bar ------------------------------------------------------- */
+/*
+   The bar a surface puts up once more than one row is picked. It wears the same
+   accent edge the picked rows do, so the bar and the rows it acts on read as one
+   thing rather than as chrome that happened to appear.
+
+   One flex line that wraps, like every other bar in this library: the host fills
+   the middle with an unbounded number of acts, and a bar that refused to wrap
+   would push the way out of the selection off the end of the row.
+*/
+.selection-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-focus);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.selection-bar__all {
+    flex: none;
+}
+
+/* Named by aria-label rather than by a visible word, the same as the gutter's
+   box — so the empty label span is dropped rather than left holding room. */
+.selection-bar__all .checkbox__label {
+    display: none;
+}
+
+/* The count is the subject of the bar, so it carries the weight the acts beside
+   it do not, and it never wraps: "3 items" on one line and "selected" on the
+   next is a number a reader has to reassemble. */
+.selection-bar__count {
+    flex: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+/* The acts take what is left and wrap inside their own group, so a crowded bar
+   grows downwards instead of pushing the count or the way out off the end. */
+.selection-bar__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Pushed to the far end: it is the one control here whose result is that there
+   is no selection, the same argument that puts the bin last on a task row. */
+.selection-bar__clear {
+    flex: none;
+    margin-inline-start: auto;
+}
+
 /* --- Task list ----------------------------------------------------------- */
 /*
    Rows on the raised surface, separated by space rather than by rules. A list
@@ -2640,6 +2701,58 @@ button.md-check {
 .task-item--selected {
     border-color: var(--color-border-strong);
     background: var(--color-background-raised);
+}
+
+/*
+   The selection gutter. On every selectable row so the column does not shift
+   sideways the first time one is picked, and quiet until the pointer or the
+   keyboard reaches it — the resting state of a long list is the work rather than
+   a column of empty boxes
+   (.design/design-principles.md#low-chrome-content-first).
+
+   Opacity rather than display or a conditional render: a box that left the
+   layout would move the whole row on hover, and one that left the DOM could not
+   be tabbed to at all. It stays a named control to a screen reader either way,
+   which is the half of this that opacity gets right and display does not.
+*/
+.task-item__gutter {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.task-item:hover .task-item__gutter,
+.task-item__gutter:focus-within,
+.task-item--selecting .task-item__gutter,
+.task-item--picked .task-item__gutter {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-item__gutter {
+        transition: none;
+    }
+}
+
+/* The gutter's box is named by aria-label rather than by a visible word, so the
+   empty label span is dropped instead of left holding the row open. */
+.task-item__select .checkbox__label {
+    display: none;
+}
+
+/*
+   Picked, and distinct from both hover and focus —
+   .design/interaction-guidelines.md#focus-and-selection asks for exactly that,
+   and names the accent strip as the way to draw it. Hover is a border and focus
+   is an outline, so neither is touched here: a picked row that also holds the
+   focus still shows its ring.
+*/
+.task-item--picked {
+    border-color: var(--color-border-focus);
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 0 var(--color-primary);
 }
 
 /* The grip says the row can be moved before anyone tries. It is the only thing
@@ -5020,6 +5133,48 @@ select.field__input option {
     outline-offset: 2px;
 }
 
+/*
+   The mixed state, drawn on the box itself.
+
+   It used to be the label in italics and nothing else, which was a cue exactly
+   one kind of caller could see: a box with no visible label — the select-all in
+   SelectionBar, the gutter box on a task row — hides `.checkbox__label`, so a
+   partial selection looked simply unchecked to anybody who was not using a
+   screen reader. `aria-checked="mixed"` was carrying the whole third state on
+   its own.
+
+   `appearance: none` scoped to the mixed state, not to `.checkbox__input`
+   generally. The platform box has no way to be told "mixed" from markup, so the
+   only way to draw the dash is to draw the box — but every settled checkbox in
+   the product keeps the native control it has always had, and only the third
+   state is ours. That is the containment: nothing outside `.checkbox--mixed`
+   renders differently than it did.
+
+   A background-image rather than a pseudo-element, because an `<input>` is a
+   replaced element and `::before` on one is not something a browser owes us.
+   The bar is `--color-text-inverse` on `--color-primary`, which is what the
+   checked state already reads as under `accent-color` — so ticked and mixed are
+   the same family, one with a tick and one with a bar, and the difference
+   between them is not a difference in weight.
+*/
+.checkbox--mixed .checkbox__input {
+    appearance: none;
+    -webkit-appearance: none;
+    border: var(--border-width) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--color-primary);
+    background-image: linear-gradient(
+        to right,
+        var(--color-text-inverse) 0%,
+        var(--color-text-inverse) 100%);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 0.5rem var(--border-width-2);
+}
+
+/* And the label too, where there is one — a second cue for the callers that do
+   show words beside the box, which is where "some of them" is a sentence rather
+   than a shape. */
 .checkbox--mixed .checkbox__label {
     font-style: italic;
 }

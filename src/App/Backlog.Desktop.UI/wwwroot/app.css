@@ -545,6 +545,34 @@ h1, h2, h3 {
    and a viewport query fires at the wrong moment or not at all. It used to be a
    fixed 30rem, which made the mismatch total; it is a remainder now, which makes
    it variable, and a container query is the only thing that reads either. */
+/*
+  The bulk-action bar, between the filters and the rows it acts on.
+
+  Sticky, because the selection it reports on is spread down a column the reader
+  scrolls: a bar that left the top of the screen would take the count and the
+  only way out of the selection with it. The list is the scroll container, so
+  top: 0 is the top of the rows rather than the top of the window.
+
+  flex: none, so a bar whose acts have wrapped onto three lines grows downwards
+  instead of stealing height from the list.
+*/
+.backlog-bulk-bar {
+    flex: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* An act and the control that undoes it, kept together: "a date and its ✕" is
+   one decision, and a bar that wrapped between the two would leave a clear
+   button under a field it no longer looks attached to. */
+.backlog-bulk__pair {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 .backlog-list {
     display: flex;
     flex-direction: column;

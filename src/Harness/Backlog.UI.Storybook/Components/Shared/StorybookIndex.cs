@@ -93,7 +93,14 @@ internal static class StorybookIndex
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
-            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is.")
+            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is."),
+
+            // Last in the group, because it is the one page here made out of the
+            // others: the bar is a Checkbox from Inputs, an AppButton from
+            // Buttons and a slot the host fills with whatever selectors it
+            // needs. Nothing is shown before its parts, so it reads after all
+            // three.
+            new("selection-bar", "Selection bar", "SelectionBar: the count, the select-all, the way out of a selection, and a slot for whatever a host can do to every picked row at once.")
         ]),
 
         new("Structure and navigation",

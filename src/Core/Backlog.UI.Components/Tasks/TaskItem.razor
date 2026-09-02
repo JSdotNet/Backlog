@@ -92,6 +92,37 @@
     data-draggable="@(Draggable ? "true" : null)"
     aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)">
 
+    @if (CanSelect)
+    {
+        @* Ahead of everything, including the grip: a gutter is a gutter, and a
+           column of boxes that started at three different x positions depending
+           on whether the row was draggable would not read as one.
+
+           Checkbox, and a square one. The circle beside it is round because
+           finishing a task is this product's one shape convention; picking a row
+           out to be acted on with others is the plainest checkbox in the product
+           and looks it, which is the whole of how a reader tells the two apart.
+
+           Its own event rather than the box's CheckedChanged, because the
+           gesture carries a modifier: Shift is what turns one press into a range,
+           and a ChangeEventArgs has no keys on it. The click is what the box's
+           own change would have followed anyway — a checkbox fires click before
+           change — so nothing is lost by hearing the earlier one.
+
+           No keyboard handling of its own, deliberately. The row's Tab
+           hand-off is raised from the circle and from the line, and a third
+           control claiming Shift+Tab would put the circle behind a key that no
+           longer reaches it. Space still ticks the box, because that is what
+           Space does to a checkbox. *@
+        <span class="task-item__gutter">
+            <Checkbox Checked="@SelectionChecked"
+                      CssClass="task-item__select"
+                      TestId="@Suffix("select")"
+                      aria-label="@($"Select {Task.Title}")"
+                      @onclick="OnSelectionClickAsync" />
+        </span>
+    }
+
     @if (Draggable)
     {
         @* A handle as well as the row: dragging the whole row is what a pointer
@@ -801,6 +832,44 @@
     [Parameter]
     public bool Selected { get; set; }
 
+    /// <summary>
+    /// Whether the row carries a selection box in front of it.
+    /// <para>
+    /// The list's answer and not the row's, exactly like <see cref="Draggable"/>:
+    /// picking rows out to act on together is a fact about the list they are in,
+    /// and a row that decided for itself would put a gutter on some rows of one
+    /// list and not others.
+    /// </para>
+    /// <para>
+    /// Nothing without <see cref="SelectionChanged"/>, the rule the circle, the
+    /// pencil and the bin all follow — a box whose press would go nowhere is
+    /// worse than no box.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Selectable { get; set; }
+
+    /// <summary>Whether this row is one of the picked ones. Deliberately not
+    /// <see cref="Selected"/>: that one means "this is the row whose detail is
+    /// open", and one class carrying both meanings would make the row a reader is
+    /// reading and the rows they are about to retag look identical.</summary>
+    [Parameter]
+    public bool SelectionChecked { get; set; }
+
+    /// <summary>Raised when the box is pressed: this row, what it now reads as,
+    /// and whether Shift was down. What a range means is the list's, because only
+    /// the list can see the rows in between.</summary>
+    [Parameter]
+    public EventCallback<TaskSelectionToggle> SelectionChanged { get; set; }
+
+    /// <summary>Whether anything in the list is picked. The gutter is a hover and
+    /// focus affordance until then; once a selection exists every box stays on
+    /// screen, because boxes that came and went under the pointer would leave the
+    /// reader unable to see what they had already picked. A fact about the list,
+    /// so the list says it and the row wears it.</summary>
+    [Parameter]
+    public bool SelectionActive { get; set; }
+
     /// <summary>Whether this row can be picked up. The list turns it on; a row on
     /// its own has nothing to be reordered within.</summary>
     [Parameter]
@@ -880,6 +949,17 @@
     /// do. Nobody listening, or a row that cannot honestly be completed yet,
     /// and it is state instead.</summary>
     private bool CanToggle => OnToggle.HasDelegate && !Blocked;
+
+    /// <summary>Whether there is a gutter. Both halves matter: the list has to
+    /// have asked for one, and something has to be listening to the press —
+    /// a box that quietly did nothing is the one shape this component refuses
+    /// everywhere else.
+    /// <para>
+    /// Unlike the circle, a done row is still selectable. Retagging a finished
+    /// task or moving a batch of them to another repository is ordinary work, and
+    /// a gutter that skipped the Completed section would make it impossible.
+    /// </para></summary>
+    private bool CanSelect => Selectable && SelectionChanged.HasDelegate;
 
     /// <summary>The circle's element id, derived from the row's rather than named
     /// separately: a host that supplied one handle for this row should not have to
@@ -1366,6 +1446,26 @@
     private Task OnBodyTypedAsync(string value) =>
         OnBodyChanged.InvokeAsync(new TaskBodyChange(Task.Id, value));
 
+    /// <summary>
+    /// The gutter box, pressed.
+    /// <para>
+    /// What is reported is the state the box now reads as, worked out from the
+    /// parameter rather than from the element: the host owns the selection, so
+    /// <c>!SelectionChecked</c> is what the browser has just done to the box and
+    /// what the host is being asked to agree with. The row holds nothing of its
+    /// own, exactly as it holds no body — which is what keeps the tick the reader
+    /// sees and the set the host is acting on the same fact.
+    /// </para>
+    /// <para>
+    /// Heard on click rather than on change so the modifier survives. Shift is
+    /// the difference between one row and eight, and it is on
+    /// <c>MouseEventArgs</c> only.
+    /// </para>
+    /// </summary>
+    private Task OnSelectionClickAsync(MouseEventArgs e) =>
+        SelectionChanged.InvokeAsync(
+            new TaskSelectionToggle(Task.Id, !SelectionChecked, e.ShiftKey));
+
     private string ClassValue => string.Join(' ', new[]
     {
         "task-item",
@@ -1376,6 +1476,12 @@
         Blocked ? "task-item--blocked" : null,
         Next ? "task-item--next" : null,
         Selected ? "task-item--selected" : null,
+        // Picked, not open. Two states with two meanings, so two classes:
+        // .design/interaction-guidelines.md#focus-and-selection asks for
+        // selection to be distinct from hover and from focus, and borrowing the
+        // open row's paint would make it indistinguishable from a third thing.
+        CanSelect && SelectionChecked ? "task-item--picked" : null,
+        CanSelect && SelectionActive ? "task-item--selecting" : null,
         Dragging ? "task-item--dragging" : null,
         CssClass
     }.Where(part => !string.IsNullOrWhiteSpace(part)));
