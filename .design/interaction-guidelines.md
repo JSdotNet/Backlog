@@ -451,6 +451,7 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 |---|---|---|
 | Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `TasksDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Entry edit*, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
 | Toasts and feedback | `Toast`, `ToastHost`, `Alert`, `EmptyState`, `Spinner` | Storybook → *Feedback* |
+| Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
 | Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `TasksPane.razor`, state in `TasksDesktopState` | none — see the gap below |
