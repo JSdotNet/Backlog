@@ -56,8 +56,11 @@
 
 <div class="shell shell--settings">
     <header class="app-header">
+        @* The title and the way back, and nothing else. The Report issue button
+           was here because a per-page mount was the only kind there was, and this
+           page needing one of its own is exactly the duplication the app-shell
+           footer removes: MainLayout mounts it once, below this page too. *@
         <h1>Settings</h1>
-        <FeedbackReportButton />
         <a class="icon-link" href="" data-testid="back-link" title="Back to your tasks" aria-label="Back to your tasks">←</a>
     </header>
 

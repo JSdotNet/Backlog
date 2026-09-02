@@ -4,15 +4,20 @@
 @inject TasksDesktopState State
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
-@inject IAppUpdateService Updates
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
-@inject IServiceProvider Services
 @inject ShellNavigationStore ShellNavigation
 
 @*
-    The shell. It owns the app chrome — header, update and feedback windows, the
-    AI panel — and decides which surface sits below it.
+    This page. It owns the header and the AI panel, and decides which surface sits
+    below them.
+
+    It used to be called the shell, and it owned the update and feedback windows
+    too. Those were never about this page — MainLayout mounts them below every
+    route now, in AppFooter — and what is left here is genuinely this screen's:
+    the repository scope, the view switcher, the pane strip, and the surfaces they
+    choose between. The `.shell` class on the wrapper is the older name and stays,
+    because it is what every layout rule in app.css is written against.
 
     There are four, and exactly one of them renders: the workspace, which is the
     roadmap band above the global panes; the tools surface; the dashboard; and the
@@ -393,85 +398,15 @@
                 </AppButton>
             }
 
-            <FeedbackReportButton />
-
-            @* The header keeps the current version visible. Checking and installing
-               updates happen in the separate update window opened from this control.
-               It sits at the right edge with settings after it, where the other
-               things that are not about the work on screen live.
-
-               When the host runs out of a checkout it registers which one, and
-               that takes the version's place: several worktrees are run side by
-               side and which window belongs to which is the thing you cannot
-               tell by looking. The version is still one click away, in the
-               update window this control opens. *@
-            <AppButton BaseClass="header-util app-version"
-                       Variant="ButtonVariant.None"
-                       TestId="app-version"
-                       title="Open update window"
-                       aria-label="@VersionControlLabel"
-                       OnClick="OpenUpdateWindow">
-                @if (_workspace is null)
-                {
-                    <text>Version <code>@Updates.CurrentVersion</code></text>
-                }
-                else
-                {
-                    <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
-                }
-            </AppButton>
-
+            @* Two utilities left, and they are the two that are still about this
+               screen: Ask AI opens a panel beside its content, and settings is
+               where this screen's own configuration lives. The version control
+               and the Report issue button were neither, and they are now in the
+               app-shell footer MainLayout mounts below every route. *@
             <a class="icon-link" href="settings" id="settings-link" data-testid="settings-link" title="Settings" aria-label="Settings">⚙</a>
         </div>
     </header>
 
-    @* The update and feedback shells are the shared Modal wearing their own
-       classes: same focus, Escape and open/close handling, same DOM. *@
-    <Modal Open="_appUpdateWindowOpen"
-           OpenChanged="value => { if (!value) CloseUpdateWindow(); }"
-           Element="section"
-           BaseClass="app-update-dialog"
-           BackdropCssClass="app-update-backdrop"
-           BackdropRole="presentation"
-           UseBodyWrapper="false"
-           CloseOnBackdropClick="false"
-           CloseOnEscape="@(!_updateBusy)"
-           TestId="app-update-dialog"
-           aria-labelledby="app-update-title"
-           aria-describedby="app-update-description">
-        <Header>
-            <header class="app-update-dialog__header">
-                <div>
-                    <p class="app-update-dialog__eyebrow">Application updates</p>
-                    <h2 id="app-update-title">Update Backlog</h2>
-                </div>
-                <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
-            </header>
-        </Header>
-        <ChildContent>
-            <p id="app-update-description" class="app-update-dialog__description">
-                You are running Version <code>@Updates.CurrentVersion</code>. Check for a newer build here without crowding the header.
-            </p>
-            <div class="app-update-dialog__actions">
-                <AppButton Variant="ButtonVariant.Secondary"
-                           data-testid="check-for-updates"
-                           Disabled="@_updateBusy"
-                           OnClick="CheckForUpdatesAsync">
-                    @AppUpdatePresentation.CheckLabel(_checkingForAppUpdate)
-                </AppButton>
-                @if (_appUpdateReady)
-                {
-                    <AppButton Variant="ButtonVariant.Primary"
-                               data-testid="install-update"
-                               Disabled="@_updateBusy"
-                               OnClick="InstallUpdateAsync">
-                        @(_installingAppUpdate ? "Installing..." : "Install update")
-                    </AppButton>
-                }
-            </div>
-            <Alert Message="@_appUpdateMessage" BaseClass="@_appUpdateStatusClass" TestId="app-update-status" Role="status" />
-        </ChildContent>
-    </Modal>
     @if (IsFeatureEnabled(AppFeatures.AiAssistant) && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
@@ -623,10 +558,6 @@
     private GlobalPaneSelection _globalPanes = new();
     private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
 
-    // Null in an installed build, where no host registers one and the header
-    // shows the version instead.
-    private DevelopmentWorkspaceLabel? _workspace;
-
     // Whether the roadmap band is on screen. Session-only and deliberately so:
     // WorkspaceSettingsStore scopes itself to where the backlog lives, which GitHub
     // repository backs that folder and which knowledge folders are configured —
@@ -654,18 +585,10 @@
     private bool _workspaceWasHidden;
 
     private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
-    private string? _appUpdateMessage;
-    private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
-    private bool _checkingForAppUpdate;
-    private bool _installingAppUpdate;
-    private bool _appUpdateReady;
-    private bool _appUpdateWindowOpen;
     private string _aiQuestion = string.Empty;
     private string? _aiAnswer;
     private string? _aiError;
     private bool _aiBusy;
-
-    private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
 
     // The shell's save state in the library's vocabulary. The two enums are
     // deliberately not the same type: AppSaveState is the backlog's, named for
@@ -684,16 +607,8 @@
         _ => SaveState.Saved
     };
 
-    private string VersionControlLabel => _workspace is null
-        ? AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)
-        : AppUpdatePresentation.WorkspaceWindowLabel(_workspace.Marker);
-
     protected override async Task OnInitializedAsync()
     {
-        // Asked for rather than injected, so a host that registers nothing —
-        // every installed build — still resolves this component.
-        _workspace = Services.GetService<DevelopmentWorkspaceLabel>();
-
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
         // value — first launch included — leaves the field default in place.
@@ -977,67 +892,6 @@
         SynchronizePaneAvailability();
         StateHasChanged();
     });
-
-    private void OpenUpdateWindow() => _appUpdateWindowOpen = true;
-
-    private void CloseUpdateWindow()
-    {
-        if (_updateBusy) return;
-
-        _appUpdateWindowOpen = false;
-    }
-
-    private async Task CheckForUpdatesAsync()
-    {
-        if (_updateBusy) return;
-
-        _checkingForAppUpdate = true;
-        _appUpdateMessage = null;
-        _appUpdateReady = false;
-
-        try
-        {
-            var result = await Updates.CheckForUpdateAsync();
-            _appUpdateReady = result.UpdateReady;
-            _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(result.Availability);
-        }
-        catch
-        {
-            _appUpdateReady = false;
-            _appUpdateMessage = "The update check could not be completed.";
-            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
-        }
-        finally
-        {
-            _checkingForAppUpdate = false;
-        }
-    }
-
-    private async Task InstallUpdateAsync()
-    {
-        if (_updateBusy) return;
-
-        _installingAppUpdate = true;
-
-        try
-        {
-            var result = await Updates.StartUpdateAsync();
-            _appUpdateMessage = result.Message;
-            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(
-                result.Started ? AppUpdateAvailability.UpToDate : AppUpdateAvailability.Failed);
-            if (!result.Started) _appUpdateReady = false;
-        }
-        catch
-        {
-            _appUpdateMessage = "The update could not be installed.";
-            _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Failed);
-        }
-        finally
-        {
-            _installingAppUpdate = false;
-        }
-    }
 
     /// <summary>What the Inbox has to show, in the Inbox's own contract. The
     /// shell only passes it along; the projection itself belongs to the context
