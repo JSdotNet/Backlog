@@ -207,10 +207,12 @@ public sealed class MetadataViewTests
     }
 
     [Fact]
-    public void A_block_with_a_folder_but_no_status_still_offers_nothing()
+    public void A_folder_that_requires_a_status_offers_nothing_when_none_is_stated()
     {
         // Nothing in, nothing out. A select defaulted to the first value would
-        // be inventing a state the file never stated.
+        // be inventing a state the file never stated — and in `.tech` there is no
+        // honest fourth option to offer instead, because a missing rung on an
+        // adoption ladder could not be told apart from the bottom one.
         using var context = new BunitContext();
 
         var view = context.Render<MetadataView>(parameters => parameters
@@ -220,6 +222,78 @@ public sealed class MetadataViewTests
         Assert.Empty(view.FindAll("select"));
         Assert.Empty(view.FindAll(".badge--status"));
         Assert.Empty(view.Find(".knowledge-record__headline").Children);
+    }
+
+    [Fact]
+    public void A_folder_that_allows_none_offers_the_control_when_no_status_is_stated()
+    {
+        // The other half of the rule above, and what keeps clearing reversible:
+        // where stating no status is legitimate, "No status" is a real option and
+        // showing it selected invents nothing.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("type: design"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)));
+
+        var select = view.Find(".status-editor select");
+
+        // Absent rather than `value=""`: a null status renders no attribute at
+        // all, which leaves the browser on the first option — and the first
+        // option is the blank one, so what shows is "No status".
+        Assert.True(string.IsNullOrEmpty(select.GetAttribute("value")));
+        Assert.Equal(
+            ["No status", "draft", "active", "deprecated"],
+            select.QuerySelectorAll("option").Select(option => option.TextContent));
+        Assert.Equal(string.Empty, select.QuerySelectorAll("option")[0].GetAttribute("value"));
+
+        // And it wears the plain badge — not `archived`, which is what an
+        // unrecognised word gets, and not `draft`, which is a real state.
+        Assert.Equal("status-editor badge badge--status", view.Find("label.status-editor").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_status_can_be_cleared_and_set_again_without_the_control_disappearing()
+    {
+        // The one-way-door regression. Judged on the vocabulary's word list alone
+        // the select vanished the moment it was used, because a blank is in no
+        // folder's list — leaving a reader who cleared a status no way to state
+        // one again.
+        using var context = new BunitContext();
+
+        var heard = new List<string?>();
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active"))
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42))
+            .Add(v => v.OnStatusChanged, status => heard.Add(status)));
+
+        view.Find(".status-editor select").Change(string.Empty);
+
+        Assert.Equal(string.Empty, view.Find(".status-editor select").GetAttribute("value"));
+
+        view.Find(".status-editor select").Change("deprecated");
+
+        Assert.Equal("deprecated", view.Find(".status-editor select").GetAttribute("value"));
+
+        // Null, not "": the empty string is a DOM artifact and MetadataView is
+        // where it stops.
+        Assert.Equal([null, "deprecated"], heard);
+    }
+
+    [Fact]
+    public void A_cleared_chapter_keeps_its_record_so_the_control_survives_a_reload()
+    {
+        // After the host writes the removal and re-reads the file, the block comes
+        // back empty. A record that stood down for an empty block would take the
+        // heading and the select off the page with it — the same one-way door, one
+        // reload later.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataRecord.Empty)
+            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42)));
+
+        Assert.NotEmpty(view.FindAll(".status-editor select"));
     }
 
     [Fact]

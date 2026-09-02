@@ -87,28 +87,27 @@
                        it is current, and the fields printed back as rows are the
                        fence again with the fence taken off.
 
-                       An empty block draws nothing at all — MetadataView
-                       renders nothing for one — so the heading has to be drawn
-                       on its own in that case rather than handed to a record
-                       that is going to stand down and take it off the page. *@
+                       An empty block used to draw nothing at all, so the heading
+                       had to be drawn on its own rather than handed to a record
+                       that was going to stand down and take it off the page. It
+                       no longer does: `.design` states a status only while a
+                       guideline is unsettled, so an empty block is now the
+                       ordinary resting shape of a current one, and MetadataView
+                       draws the heading and a "No status" select for it. Handing
+                       every file to the record is what keeps clearing a status
+                       reversible here — the bare heading had no control on it,
+                       so a reader who cleared one could not set it again. *@
                     @if (EditableChapter(file) is null)
                     {
                         <header class="design-document__header">
                             <p class="design-document__file">@file.FileName</p>
-                            @if (file.Meta.IsEmpty)
-                            {
-                                <h3>@file.Title</h3>
-                            }
-                            else
-                            {
-                                <MetadataView Metadata="@file.Meta"
-                                                   Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
-                                                   ShowFields="false"
-                                                   AriaLabel="@($"{file.Title} metadata")"
-                                                   CssClass="design-document__record"
-                                                   Heading="@DocumentHeading(file)"
-                                                   OnStatusChanged="status => ChangeFileStatusAsync(file, status)" />
-                            }
+                            <MetadataView Metadata="@file.Meta"
+                                               Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
+                                               ShowFields="false"
+                                               AriaLabel="@($"{file.Title} metadata")"
+                                               CssClass="design-document__record"
+                                               Heading="@DocumentHeading(file)"
+                                               OnStatusChanged="status => ChangeFileStatusAsync(file, status)" />
                         </header>
                     }
 
@@ -403,7 +402,7 @@
     /// A status picked on a document in the folder overview, written to the fence
     /// under that file's title.
     /// </summary>
-    private Task ChangeFileStatusAsync(DesignKnowledgeFile file, string status) =>
+    private Task ChangeFileStatusAsync(DesignKnowledgeFile file, string? status) =>
         WriteStatusAsync($".design/{file.FileName}", status);
 
     /// <summary>
@@ -412,7 +411,7 @@
     /// than by the section's anchor: the anchor is prefixed for uniqueness across
     /// the whole folder, and the writer goes looking for the heading itself.
     /// </summary>
-    private Task ChangeSectionStatusAsync(DesignKnowledgeFile file, DesignKnowledgeSection section, string status) =>
+    private Task ChangeSectionStatusAsync(DesignKnowledgeFile file, DesignKnowledgeSection section, string? status) =>
         WriteStatusAsync($".design/{file.FileName}#{Slug(section.Heading)}", status);
 
     /// <summary>
@@ -451,14 +450,24 @@
     /// are read from the parsed folder, so without it the pane would keep showing
     /// what the file said before the write.
     /// </summary>
-    private async Task WriteStatusAsync(string itemPath, string status)
+    /// <param name="status">The word to write, or null where the reader chose to
+    /// state none — which removes the field instead of writing one. The two are
+    /// different operations all the way down to the file, so they are two calls
+    /// here rather than one call with a blank.</param>
+    private async Task WriteStatusAsync(string itemPath, string? status)
     {
-        if (string.IsNullOrWhiteSpace(status)) return;
-
         _statusError = null;
         try
         {
-            await DesignKnowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                await DesignKnowledge.ClearStatusAsync(RepositoryAlias, itemPath);
+            }
+            else
+            {
+                await DesignKnowledge.UpdateStatusAsync(RepositoryAlias, itemPath, status);
+            }
+
             await ReloadAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)

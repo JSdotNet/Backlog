@@ -153,6 +153,21 @@ The first pair is the point of the story and reads left to right. On the left, t
                               TestId="knowledge-shapes-file-bare"
                               Heading="@BareFileHeading"
                               HeadingAlone="@BareFileIdentity" />
+
+            @* The same nothing, in a folder that means something by it. `.tech`
+               above states no status and gets no record, because a missing rung on
+               an adoption ladder cannot be told apart from the bottom one. In
+               `.design` an absent status is the resting state of a current
+               guideline, so the record stays and offers "No status" — which is
+               what keeps clearing one reversible. The two stories sit together
+               because the difference between them is the whole convention. *@
+            <p class="sb-label">The same absence in <code>.design</code>, where stating no status is an answer — the record stays, and offers it</p>
+            <MetadataChapterView Metadata="@StatuslessDesignRecord"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
+                                 AriaLabel="Keyboard Navigation metadata"
+                                 CssClass="file-view__record"
+                                 TestId="knowledge-shapes-chapter-statusless"
+                                 Heading="@StatuslessDesignHeading" />
         </div>
     </Story>
 
@@ -280,6 +295,14 @@ The first pair is the point of the story and reads left to right. On the left, t
             <h3 class="file-view__name">shared.md</h3>
             <p class="file-view__meta">.tech · Technology stack</p>
         </text>;
+
+    /// <summary>A `.design` chapter that states its type and no status — the
+    /// resting shape of a guideline that is simply current, now that the folder
+    /// writes a status only while one is unsettled or superseded.</summary>
+    private static readonly MetadataRecord StatuslessDesignRecord = MetadataReader.Parse("type: design-guideline");
+
+    private readonly RenderFragment StatuslessDesignHeading =
+        @<h4 class="file-view__name">Keyboard Navigation</h4>;
 
     private readonly RenderFragment BareFileHeading =
         @<div class="file-view__headline">

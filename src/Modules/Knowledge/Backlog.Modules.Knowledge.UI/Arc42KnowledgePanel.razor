@@ -563,7 +563,7 @@
     /// </summary>
     private async Task ChangeChapterStatusAsync(KnowledgeStatusChange change)
     {
-        if (_chapterDocument is not { } document || change.Heading is not { } heading || string.IsNullOrWhiteSpace(change.Status)) return;
+        if (_chapterDocument is not { } document || change.Heading is not { } heading) return;
 
         var itemPath = string.Equals(heading, document.Title, StringComparison.OrdinalIgnoreCase)
             ? document.Path
@@ -579,7 +579,19 @@
             // and the ordering must not depend on it.
             await FlushEditorAsync();
 
-            await Knowledge.UpdateStatusAsync(RepositoryAlias, itemPath, change.Status);
+            // A null status is the reader choosing to state none, which removes the
+            // field rather than writing a word into it. The two are separate verbs
+            // all the way down to the file: an `.arc42` chapter that is simply
+            // current says so by saying nothing.
+            if (string.IsNullOrWhiteSpace(change.Status))
+            {
+                await Knowledge.ClearStatusAsync(RepositoryAlias, itemPath);
+            }
+            else
+            {
+                await Knowledge.UpdateStatusAsync(RepositoryAlias, itemPath, change.Status);
+            }
+
             await RefreshAsync(document.Path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)

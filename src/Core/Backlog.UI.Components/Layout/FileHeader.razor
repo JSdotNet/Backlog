@@ -359,7 +359,7 @@
     /// writes it, and nothing here knows which block it came from — the pane does,
     /// and reports it as the change it is.</summary>
     [Parameter]
-    public EventCallback<string> OnStatusChanged { get; set; }
+    public EventCallback<string?> OnStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated in the record.</summary>
     [Parameter]

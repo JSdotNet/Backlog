@@ -69,6 +69,29 @@ public sealed class DomainKnowledgeStore
         KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".domain/", status);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
+    /// every other field intact.
+    ///
+    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
+    /// null: the guard above is right to refuse a blank, because a blank is not one
+    /// of <c>.domain</c>'s words, and a folder that must keep its status is then
+    /// exempt by having no such method at all rather than by a guard someone can
+    /// copy wrongly.</para>
+    /// </summary>
+    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+
+        var location = source.Resolve(".domain", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Domain knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Domain knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".domain/");
+        return Task.CompletedTask;
+    }
     /// <summary>
     /// Builds the bounded contexts from the generated <c>_meta/index.json</c>:
     /// the slug, the display name, and the status of each come from the index,

@@ -91,7 +91,26 @@ public static class KnowledgeStatus
     /// <see cref="MetadataStatusVocabulary"/> — so this is the tone mapping and
     /// nothing else.</summary>
     private static MetadataStatusVocabulary For(KnowledgeFolder folder) =>
-        new(Values(folder), status => Modifier(Tone(folder, status)));
+        new(Values(folder), status => Modifier(Tone(folder, status)), AllowsNone(folder));
+
+    /// <summary>
+    /// Whether the folder lets a chapter state no status at all.
+    ///
+    /// <para>It splits on what the field is doing, which is not the same job in
+    /// every folder. In <c>.arc42</c>, <c>.domain</c> and <c>.design</c> it records
+    /// how settled the writing is, and <c>active</c> is a resting value — content
+    /// that is simply current says nothing by saying nothing, so the field is worth
+    /// writing only while a chapter is in transition or carries a standing warning.
+    /// In <c>.tech</c> it is a position on an adoption ladder and in
+    /// <c>.backlog</c> a work state; there every value is a claim the reader needs,
+    /// and an absent one would be indistinguishable from <c>candidate</c> or from
+    /// untracked. So those two keep it required.</para>
+    /// </summary>
+    private static bool AllowsNone(KnowledgeFolder folder) => folder switch
+    {
+        KnowledgeFolder.Arc42 or KnowledgeFolder.Domain or KnowledgeFolder.Design => true,
+        _ => false
+    };
 
     /// <summary>Which of the application's status badges a tone wears.
     ///
