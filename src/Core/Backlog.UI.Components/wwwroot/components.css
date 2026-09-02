@@ -2121,6 +2121,46 @@ button.md-check {
     white-space: nowrap;
 }
 
+/* A row's leading mark. A fixed column like the twisty rather than a shrinking
+   one, so the labels of a folder's files start on the same vertical line whether
+   or not the row above drew a mark. */
+.knowledge-menu__mark,
+.folder-tree__mark {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+/* --- Knowledge type marker ------------------------------------------------ */
+/*
+   The eighteen domain-type glyphs. Sized in em by the component so the mark
+   scales with the heading level it leads, which is also what makes this rule
+   necessary: an inline SVG sits on the text baseline by its bottom edge, and a
+   16-grid glyph drawn at 0.82em then rides visibly high against the cap height
+   beside it. The translate is measured in the same em, so it holds at every
+   heading level rather than being right at one of them.
+
+   No colour of its own. The marker inherits whatever ink it is drawn in — see
+   the component's header for why the four families it groups into are not
+   allowed to become four hues.
+*/
+.knowledge-type-marker {
+    display: inline-block;
+    flex: none;
+    vertical-align: baseline;
+    transform: translateY(0.055em);
+}
+
+/* A mark that leads a line of text with no space between them in the markup —
+   which is how a heading's mark has to be written, since a space is a text node
+   and the heading's text has to stay exactly what it was. So the gap is drawn
+   rather than typed, and it is in em for the same reason the mark is: it holds at
+   every heading level. */
+.knowledge-type-marker--leads {
+    margin-right: 0.38em;
+}
+
 /* --- Copy button --------------------------------------------------------- */
 /*
    The button and the line that says whether it worked. The line is laid out

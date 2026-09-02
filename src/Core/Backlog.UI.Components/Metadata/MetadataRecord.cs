@@ -91,6 +91,57 @@ public sealed record MetadataRecord
     public IReadOnlyDictionary<string, IReadOnlyList<string>> Extra { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>();
 
+    /// <summary>
+    /// The <c>type</c> the block states, as authored.
+    ///
+    /// <para>Read out of <see cref="Extra"/> rather than parsed into a field of its
+    /// own, and deliberately so. <c>type</c> is not one vocabulary: <c>.domain</c>
+    /// spells it <c>aggregate</c>, <c>entity</c>, <c>term</c>, and <c>.tech</c>
+    /// spells it <c>format</c>, <c>library</c>, <c>tool</c>. Promoting it would put
+    /// it in <see cref="MetadataReader"/>'s known fields, which is what decides
+    /// whether the row is drawn — and every <c>.tech</c> chapter states one and is
+    /// showing it today. A named accessor gives a caller the value without changing
+    /// what any surface renders; which of the two vocabularies applies is the
+    /// caller's question, because the folder is the caller's fact.</para>
+    ///
+    /// <para>Absent, blank, or <c>null</c> in the file all read back as
+    /// <see langword="null"/> here, because <see cref="MetadataReader"/> drops a
+    /// field that states nothing before it ever reaches <see cref="Extra"/>.</para>
+    /// </summary>
+    public string? Type =>
+        Extra.TryGetValue(TypeField, out var values) && values.Count > 0 ? values[0] : null;
+
+    /// <summary>
+    /// The same record with its <c>type</c> taken out.
+    ///
+    /// <para>For the one surface that has drawn the value somewhere better — a mark
+    /// in the heading the block describes — where leaving the row as well would be
+    /// the same fact said twice, once as a picture and once as the raw field it
+    /// replaced. The caller that drew the mark is the caller that asks; nothing here
+    /// decides that a mark was drawn.</para>
+    ///
+    /// <para>The same instance back when there is no <c>type</c> to remove, which is
+    /// not only an allocation saved: <see cref="MetadataView"/> reseeds a reader's
+    /// unsaved status choice whenever the record it was given stops comparing equal,
+    /// and this record's collections compare by reference. A caller that asks on
+    /// every render must therefore be handed the same object on every render — see
+    /// the callers, which all ask once and cache.</para>
+    /// </summary>
+    public MetadataRecord WithoutType() =>
+        Extra.ContainsKey(TypeField)
+            ? this with
+            {
+                Extra = Extra
+                    .Where(pair => !string.Equals(pair.Key, TypeField, StringComparison.Ordinal))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)
+            }
+            : this;
+
+    /// <summary>The key both of the two above look up. Lower case because
+    /// <see cref="MetadataReader"/> lower-cases every key it reads, so
+    /// <c>Type:</c> in a file is <c>type</c> here.</summary>
+    private const string TypeField = "type";
+
     /// <summary>A block that stated nothing.</summary>
     public static MetadataRecord Empty { get; } = new();
 

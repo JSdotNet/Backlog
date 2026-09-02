@@ -82,6 +82,25 @@
     [Parameter]
     public Func<TreeNode, string>? NodeClass { get; set; }
 
+    /// <summary>
+    /// A mark drawn at the head of a row, before its label.
+    /// <para>
+    /// A function returning a fragment rather than a <c>RenderFragment&lt;TreeNode&gt;</c>,
+    /// so a host can answer "nothing for this row" and have nothing rendered — not
+    /// even the wrapper. Half the rows in a knowledge menu are folders with no mark
+    /// to draw, and an empty span on each of them would be a column of nothing that
+    /// every existing markup expectation would have to grow to accommodate.
+    /// </para>
+    /// <para>
+    /// It takes the library's own <see cref="TreeNode"/> and gives back markup the
+    /// host owns, which is the only shape that keeps this generic: the tree is used
+    /// by more than one folder and by more than one app vocabulary, so what a mark
+    /// means is never decided here.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TreeNode, RenderFragment?>? NodeMark { get; set; }
+
     [Parameter]
     public Func<TreeNode, bool> IsFolderOpening { get; set; } = static _ => false;
 
@@ -159,6 +178,10 @@
                     @if (node.HasChildren)
                     {
                         <span class="@(ClassPrefix)__twisty" aria-hidden="true">@(IsNodeExpanded(node) ? "-" : "+")</span>
+                    }
+                    @if (NodeMark?.Invoke(node) is { } mark)
+                    {
+                        <span class="@(ClassPrefix)__mark">@mark</span>
                     }
                     <span class="@(ClassPrefix)__label">@node.Label</span>
                 </button>
