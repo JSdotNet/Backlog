@@ -1,7 +1,24 @@
 @*
-    Indeterminate is a DOM property, not an attribute, so the markup alone cannot
-    express it — the tri-state is carried in `aria-checked` where assistive tech
-    reads it, and only mirrored onto the element for the eye.
+    Three states out of a control the DOM only gives two of.
+
+    `indeterminate` is a DOM property with no attribute behind it, so no markup
+    this component renders can set it and Blazor has no way to reach it without
+    JavaScript. The third state is therefore carried in two places that markup
+    *can* reach, and both of them are load-bearing:
+
+    - `aria-checked="mixed"`, which is what assistive technology reads. It also
+      overrides the native checkedness for a screen reader, so nothing is lost
+      by the property being unreachable.
+    - `checkbox--mixed` on the root, which is what the eye reads. The stylesheet
+      draws the box itself in that state — see `.checkbox--mixed .checkbox__input`
+      in components.css — because the platform box cannot be told to show a dash.
+
+    The class used to italicise the label and nothing more, which was a cue only
+    a caller with a visible label could show. A bare box — SelectionBar's
+    select-all, a task row's gutter — hides `.checkbox__label`, so a partial
+    selection looked plainly unchecked and `aria-checked` was carrying the whole
+    state on its own. `.design/interaction-guidelines.md#focus-and-selection`
+    asks for the indeterminate state by name, so it has to be visible.
 *@
 
 <label class="@ClassValue" data-testid="@TestId">
@@ -38,6 +55,10 @@
     [Parameter]
     public bool Disabled { get; set; }
 
+    /// <summary>Some but not all of whatever this box stands for. It wins over
+    /// <see cref="Checked"/> in both places the state is expressed — the
+    /// aria-checked value and the root's class — because "some" is an answer
+    /// to the same question "all" is, not a qualifier on it.</summary>
     [Parameter]
     public bool Indeterminate { get; set; }
 

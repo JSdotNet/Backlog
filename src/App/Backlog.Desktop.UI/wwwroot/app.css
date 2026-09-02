@@ -62,12 +62,58 @@ h1, h2, h3 {
 
 /* --- Layout ------------------------------------------------------------ */
 
+/*
+  The app shell: the routed page, and the footer band under it. MainLayout is what
+  renders both, so this is the outermost element the application owns.
+
+  `height`, not `min-height`, and both halves of that matter.
+
+  It is `height` because the workspace below depends on a definite one. `.workspace`
+  is a grid with `grid-template-rows: fit-content(30%) minmax(0, 1fr)`, and both of
+  those track functions need a resolvable container height to mean anything — with an
+  indefinite height `fit-content(30%)` degrades to `max-content` and the roadmap band
+  grows to whatever it contains, taking the panes' `minmax(0, 1fr)` and every
+  `overflow: auto` underneath it down with it. The whole overflow discipline of this
+  app rests on the height being definite from here down.
+
+  It is `100vh` rather than `100%` because there is nothing above this to be a
+  percentage of. The MAUI head mounts the Blazor root into a bare `div#app` that
+  carries no CSS at all, so a percentage height resolves against an auto-height
+  parent and collapses. The viewport is the only honest reference at this level.
+
+  `overflow: hidden` is here for the same reason `.shell` has always had it, and it
+  is safe to have: the two dialogs rendered from the footer are `position: fixed`,
+  and an untransformed ancestor's overflow does not clip a fixed descendant. What
+  would clip them is this element becoming their containing block — see the warning
+  on `.app-footer` below, which applies to any ancestor on this chain.
+
+  There is no `gap`. A rule between the page and the footer is the footer's
+  `border-top`, and a gap above that border would separate it from the page it is
+  supposed to be drawn against.
+*/
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/*
+  The page inside that column. This used to carry `height: 100vh` itself, back when
+  it was the only thing on screen and "the page" and "the window" were the same
+  element. With the footer as a sibling they are not: the window's height belongs to
+  `.app-shell` above, and this takes what the footer leaves — which is what
+  `flex: 1 1 auto` beside `min-height: 0` says. The `min-height: 0` is the older and
+  more important half: without it a flex item refuses to shrink below its content and
+  every scrolling region inside would push the footer off the bottom instead.
+*/
 .shell {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
     width: 100%;
-    height: 100vh;
+    flex: 1 1 auto;
     min-height: 0;
     max-width: none;
     margin: 0 auto;
@@ -78,6 +124,49 @@ h1, h2, h3 {
 .shell--wide {
     max-width: none;
     margin: 0;
+}
+
+/*
+  The footer band. Two controls that are about the application rather than about
+  whatever page is above them: which build this is, and how to report that it is
+  wrong.
+
+  The horizontal padding repeats `.shell`'s deliberately rather than inheriting it.
+  The footer is a sibling of the page now, so it sits outside the page's padding box
+  entirely, and the only way its contents line up with the header's left and right
+  edges is by paying the same `--spacing-lg` itself.
+
+  It does not step down to `--font-size-xs` the way the harness build footers do,
+  and the difference is what is in the band. Those carry fine print; this carries
+  two things a reader clicks. `.design/accessibility.md` puts the floor for readable
+  text at `--font-size-sm`, and it applies to a control wherever on the page that
+  control happens to sit — so the two keep `.header-util`'s own type and its
+  `min-height: 2.25rem` rather than shrinking to match a footer they only resemble.
+  (2.25rem is short of that document's 44px target rule, which is the gap it already
+  records for every utility button in this app. Being in a footer neither creates
+  that gap nor excuses widening it.)
+
+  Nothing in this block may ever grow a `transform`, `filter`, `backdrop-filter`,
+  `contain`, `perspective` or `will-change`. Any one of them makes this element the
+  containing block for `position: fixed` descendants, and the update window and the
+  feedback dialog are both fixed Modals rendered from inside here — they would be
+  clipped from the whole viewport down to the height of this band.
+*/
+.app-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The version leads at the left edge and pushes everything after it to the right,
+   which is the same auto-margin idiom `.app-header__status` uses one level up. The
+   margin sits on the version rather than on the Report issue button because the
+   button is feature-gated and may not be rendered at all. */
+.app-footer .app-version {
+    margin-right: auto;
 }
 
 .app-header {
@@ -128,15 +217,6 @@ h1, h2, h3 {
 
 .app-header__utilities {
     gap: var(--spacing-xs);
-}
-
-/* The wordmark is chrome here, not a page title, so it steps down from the 2xl
-   that `.app-header h1` keeps on the screens where the heading really is the
-   page's title. */
-.app-header__identity h1 {
-    font-size: var(--font-size-lg);
-    font-weight: 600;
-    color: var(--color-text-secondary);
 }
 
 .header-link {
@@ -204,9 +284,10 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* The version control is one of the header utilities now and wears
-   `.header-util` for its shape, so only the version number's own type is left
-   here. It sits at the right edge with settings after it. */
+/* The version control wears `.header-util` for its shape, so only the version
+   number's own type is left here. It is no longer in the header at all — it leads
+   the app-shell footer, where `.app-footer` above places it. `.header-util` is the
+   shape a utility button has, not a statement about where it lives. */
 .app-version code {
     font-family: var(--font-family-mono);
     color: var(--color-text-primary);
@@ -264,29 +345,24 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* My Day keeps its room. It is the one chip in the bar that is not one of a set —
-   turning it off is only possible from the chip itself, so a scope squeezed out of
-   view would take the way back with it. */
+/* The scopes keep their room. They are the chips in the bar that are not one of a
+   set — turning one off is only possible from the chip itself, so a scope squeezed
+   out of view would take the way back with it. */
 .filter-group--scope {
     flex: 0 0 auto;
 }
 
-.filter-group--areas {
-    flex: 1 1 auto;
-}
-
-/* Tags are typed the same way areas are, so the two share the middle of the bar
-   rather than one of them being pinned. Tags gives ground first — an entry has one
-   area and any number of tags, so the tag strip is the longer of the two and the
-   one with slack to give.
+/* Tags take the middle of the bar, and all the slack in it. They used to share it
+   with the areas group, which is gone; nothing else in the bar wants the width,
+   because the two scopes are pinned and status sits against the right edge.
 
    Two ways it stops taking room at all. It is absent from the markup while nothing
-   in scope carries a tag, so the bar is three groups for anyone who does not tag;
-   and it is hidden below 38rem, where the rows' own tags are the better control —
-   see the container query at the bottom of this file. What is left here is the
-   width in between. */
+   in scope carries a tag, so the bar is two groups for anyone who does not tag; and
+   it is hidden below 38rem, where the rows' own tags are the better control — see
+   the container query at the bottom of this file. What is left here is the width in
+   between. */
 .filter-group--tags {
-    flex: 1 2 auto;
+    flex: 1 1 auto;
 }
 
 .filter-group--status {
@@ -469,6 +545,34 @@ h1, h2, h3 {
    and a viewport query fires at the wrong moment or not at all. It used to be a
    fixed 30rem, which made the mismatch total; it is a remainder now, which makes
    it variable, and a container query is the only thing that reads either. */
+/*
+  The bulk-action bar, between the filters and the rows it acts on.
+
+  Sticky, because the selection it reports on is spread down a column the reader
+  scrolls: a bar that left the top of the screen would take the count and the
+  only way out of the selection with it. The list is the scroll container, so
+  top: 0 is the top of the rows rather than the top of the window.
+
+  flex: none, so a bar whose acts have wrapped onto three lines grows downwards
+  instead of stealing height from the list.
+*/
+.backlog-bulk-bar {
+    flex: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* An act and the control that undoes it, kept together: "a date and its ✕" is
+   one decision, and a bar that wrapped between the two would leave a clear
+   button under a field it no longer looks attached to. */
+.backlog-bulk__pair {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 .backlog-list {
     display: flex;
     flex-direction: column;
@@ -2088,9 +2192,15 @@ h1, h2, h3 {
 }
 
 /*
-  The cross-cutting utilities: borderless and secondary at rest so they sit
-  behind the navigation and the accent, growing a border only when reached for.
-  Chrome that appears on approach rather than shouting the whole time.
+  The utility-button shape: borderless and secondary at rest, growing a border only
+  when reached for. Chrome that appears on approach rather than shouting the whole
+  time, which is how it stays behind whatever the loud thing on its row is.
+
+  The name outlived its own claim and is kept anyway. Both controls that wear it —
+  the version and Report issue — are in the app-shell footer now, so nothing in a
+  header uses this at all, and the accent they used to sit behind (Ask AI) is a row
+  away. What the class describes is "quiet utility", never "in the header", so the
+  shape is unchanged by the move and renaming it would buy nothing.
 */
 .header-util {
     display: inline-flex;
@@ -4399,7 +4509,14 @@ h1, h2, h3 {
     align-content: start;
     grid-auto-rows: max-content;
     gap: var(--spacing-sm);
-    max-height: calc(100vh - (var(--spacing-lg) * 3));
+    /* Same reason as the inbox pane and the side pane stack above: this no longer
+       starts below the header alone — the roadmap band can sit above it and the
+       app-shell footer now sits below it — so a cap measured off the viewport
+       overruns the row it is in by however tall those are, and
+       `.knowledge-layout`'s `overflow: hidden` clips the bottom of the menu
+       silently. The row is already a sized grid track, so its own height is the
+       honest ceiling. */
+    max-height: 100%;
     overflow: auto;
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);

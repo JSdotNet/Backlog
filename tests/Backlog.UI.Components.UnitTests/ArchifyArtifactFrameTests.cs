@@ -288,7 +288,7 @@ public sealed class ArchifyArtifactFrameTests
     {
         var watch = ArtifactHeightWatcher();
 
-        Assert.Contains("if (document.fullscreenElement === element) return;", watch, StringComparison.Ordinal);
+        Assert.Contains("if (isOnScreen()) return;", watch, StringComparison.Ordinal);
         Assert.Contains("element.style.removeProperty('height');", watch, StringComparison.Ordinal);
         Assert.Contains("channel: 'backlog-artifact-fullscreen', on: mine", watch, StringComparison.Ordinal);
 
@@ -296,6 +296,122 @@ public sealed class ArchifyArtifactFrameTests
         var render = RenderArtifact();
         Assert.Contains("backlog-artifact-fullscreen", render, StringComparison.Ordinal);
         Assert.Contains("data-host-fullscreen", render, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Containment rather than identity, which is the assertion that keeps the way
+    /// out of fullscreen from quietly costing the artifact its sizing. The frame is
+    /// no longer the element that goes fullscreen, because a frame is the one thing
+    /// in this component that can hold nothing of ours: the document inside is
+    /// sandboxed into an opaque origin, so it can be neither scripted into nor
+    /// reached back from. A stage around it goes instead.
+    /// <para>
+    /// So both halves of the handshake now ask whether the frame is <em>inside</em>
+    /// the screen rather than whether it <em>is</em> the screen. An identity check
+    /// here would answer no while the reader is looking at a fullscreen diagram,
+    /// and the document would never be told that present mode's <c>100dvh</c> may
+    /// apply — which is the whole point of going fullscreen.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_sizing_handshake_asks_whether_the_frame_is_inside_the_screen_rather_than_is_the_screen()
+    {
+        var watch = ArtifactHeightWatcher();
+
+        Assert.Contains(
+            "document.fullscreenElement?.contains(element) === true",
+            watch,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain("document.fullscreenElement === element", watch, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The way out, which for a while there was not one of. Fullscreen was
+    /// requested on the frame itself, so everything this app draws around the
+    /// diagram — the header, the renderer switch, the very button that asked for
+    /// fullscreen — sat outside the element in the top layer and was therefore not
+    /// painted. Esc was the only way back and nothing on screen said so.
+    /// <para>
+    /// So the frame is wrapped in a stage and the stage takes the screen, precisely
+    /// so that it can carry the way out beside the diagram.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_element_handed_the_screen_is_the_stage_around_the_frame_rather_than_the_frame_itself()
+    {
+        var view = View.Value;
+
+        Assert.Contains("<div @ref=\"_stage\" class=\"diagram-view__stage\"", view, StringComparison.Ordinal);
+        Assert.Contains("toggleArtifactFullscreen\", _stage", view, StringComparison.Ordinal);
+        Assert.DoesNotContain("toggleArtifactFullscreen\", _frame", view, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the way out is on screen only where it is needed. In a chapter the
+    /// header already carries the button that asks for fullscreen, and a second
+    /// control sitting on top of the diagram there would be clutter over the one
+    /// thing the block exists to show — so the stylesheet decides rather than a
+    /// state field. <c>:fullscreen</c> is the question being asked, which is why
+    /// Esc, F11 and the button all leave the same consistent screen behind without
+    /// anything in .NET having to be told they happened.
+    /// </summary>
+    [Fact]
+    public void The_way_out_is_on_screen_only_while_the_stage_is_the_screen()
+    {
+        Assert.Contains("display: none;", Rule(".diagram-view__exit"), StringComparison.Ordinal);
+
+        var shown = Rule(".diagram-view__stage:fullscreen .diagram-view__exit");
+
+        Assert.Contains("position: absolute;", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("display: none", shown, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And it may not be laid over the artifact's own chrome. The generated
+    /// artifacts pin theirs to three corners — the title top left, <c>Classic |
+    /// Live | Export</c> top right, and the zoom and lens controls bottom right —
+    /// which leaves exactly one for a control of ours.
+    /// <para>
+    /// Top right is the corner this is pinned against, and it is the one that
+    /// actually broke something: the exit button is above the frame, so it won the
+    /// hit test and Export could not be reached at all while the diagram was full
+    /// screen. That is the very menu <c>allow-downloads</c> was granted for, so the
+    /// collision undid a deliberate earlier decision rather than just looking
+    /// crowded.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_way_out_keeps_off_the_corners_the_artifact_puts_its_own_chrome_in()
+    {
+        var shown = Rule(".diagram-view__stage:fullscreen .diagram-view__exit");
+
+        Assert.Contains("bottom: var(--spacing-md);", shown, StringComparison.Ordinal);
+        Assert.Contains("left: var(--spacing-md);", shown, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("top:", shown, StringComparison.Ordinal);
+        Assert.DoesNotContain("right:", shown, StringComparison.Ordinal);
+
+        // And it is legible where it lands. The button's own background is
+        // transparent, which over a drawing is as findable as the nothing this
+        // whole change exists to replace.
+        Assert.Contains("background: var(--color-background-raised);", shown, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The stage is scenery and nothing more while it is in the chapter: the frame
+    /// is what the reader sees, at the height it measured for itself. On the screen
+    /// the frame takes the whole stage instead — its inline height has just been
+    /// removed, and the stylesheet's 28rem opening bid would otherwise leave a
+    /// fullscreen diagram sitting in a letterbox.
+    /// </summary>
+    [Fact]
+    public void Fullscreen_gives_the_frame_the_whole_stage_rather_than_its_opening_bid()
+    {
+        Assert.Contains(
+            "height: 100%;",
+            Rule(".diagram-view__stage:fullscreen .diagram-view__artifact"),
+            StringComparison.Ordinal);
     }
 
     /// <summary>The body of <c>backlogDiagrams.renderArtifact</c>, so an assertion

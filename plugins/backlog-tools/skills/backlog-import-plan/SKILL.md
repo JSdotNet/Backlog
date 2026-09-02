@@ -1,6 +1,6 @@
 ---
 name: backlog-import-plan
-description: Turn an agreed specification (a .domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of prompt entries in Backlog's entry-text grammar, ready to paste or upload.
+description: Turn an agreed specification (a .domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload.
 disable-model-invocation: true
 ---
 
@@ -12,8 +12,8 @@ Backlog import plan document, and stops — it never talks to the Backlog app, e
 generated prompt, or touches GitHub.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
-entry/sub-item shape, the metadata tokens, and the plan-identity/re-import mechanics; do
-not invent syntax beyond it.
+entry/sub-item shape, every metadata token and its values, and the plan-identity/re-import
+mechanics; do not invent syntax beyond it.
 
 ## Inputs
 
@@ -31,8 +31,8 @@ not invent syntax beyond it.
 2. Derive the plan's `#tag`: one slug from the plan subject. Reuse the exact same slug if
    this plan is later regenerated, so Backlog's upsert-by-`(tag, id:)` re-import recognizes
    it as an update instead of a duplicate.
-3. Break the work into ordered prompt entries, one per repository-scoped unit of work. For
-   each entry, in this order:
+3. Break the work into ordered entries, one per repository-scoped unit of work. For each
+   entry, in this order:
    - **Instructions first.** The body right after the metadata line — concise, no padding —
      is the entry's primary content.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
@@ -42,12 +42,13 @@ not invent syntax beyond it.
    - **Knowledge/devbook reminder.** One more `##` sub-item reminding whoever runs the
      prompt to update the target repository's own knowledge folders or devbook once it is
      done. Every entry carries this; never skip it.
-   - **Metadata line.** Bare `prompt` type; `repo:<name>` once per target repository;
-     `id:<slug>` when a later entry in this plan depends on it; `after:<id>` once per
-     prerequisite, including across repositories; the shared `#tag`; and only the sigils
-     (`*priority`, `!status`, `@area`) or `due:` the source material actually implies.
-4. Assemble the entries into one Markdown document per `assets/backlog-import-grammar.md`
-   — a second `# Title` starts the next entry, no wrapper heading, no front matter.
+   - **Metadata line.** The type the source material describes, `prompt` by default for a
+     prompt to run; always an explicit `!status` — `!ready` once its prerequisites are
+     satisfied, `!draft` while it is still being shaped; `repo:<name>` once per target
+     repository; `id:<slug>` when a later entry in this plan depends on it; `after:<id>` once
+     per prerequisite, including across repositories; the shared `#tag`; and only the
+     `*priority`, `@area` or `due:` the source material actually implies.
+4. Assemble the entries into one Markdown document per `assets/backlog-import-grammar.md`.
 5. Produce the output: write it to the given path (default `<plan-slug>-import-plan.md` in
    the current working directory) when a file was asked for or implied, and show the full
    text inline either way so it is ready to paste directly.
@@ -58,8 +59,7 @@ not invent syntax beyond it.
 ## Output expectations
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
-- Every entry carries `repo:` and the plan's shared `#tag`.
-- Every entry carries the knowledge/devbook reminder sub-item, with no exception.
+- Every entry states a type and a `!status`, plus `repo:` and the plan's shared `#tag`.
 - `id:`/`after:` correctly express the plan's dependency order, including cross-repository
   dependencies.
 - No file changes outside the produced plan document; no call to the Backlog app or GitHub.

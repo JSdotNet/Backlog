@@ -64,7 +64,30 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tag-chip" : $"tag-chip {CssClass}";
+    /// <summary>
+    /// The chip reads its own kind off the text it was handed: a leading <c>@</c>
+    /// means a person, anything else is a general tag.
+    /// <para>
+    /// Derived rather than a parameter on purpose. The sigil is already in the
+    /// stored value — that is what makes an unsigilled tag still mean "general"
+    /// with no migration — so a separate flag would be a second copy of a fact the
+    /// text already carries, and the two would eventually disagree. It also means
+    /// every existing caller gets the variant for free rather than having to be
+    /// found and updated.
+    /// </para>
+    /// <para>
+    /// Colour is never the only carrier: the <c>@</c> is drawn, so the distinction
+    /// survives a reader who cannot see the surface behind it.
+    /// </para></summary>
+    private string ClassValue
+    {
+        get
+        {
+            var classes = TagText.IsPerson(Text) ? "tag-chip tag-chip--person" : "tag-chip";
+
+            return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
+        }
+    }
 
     private Task OnRemoveClicked() => OnRemove.InvokeAsync(Text);
 }

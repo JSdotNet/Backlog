@@ -58,8 +58,8 @@ public sealed record AppUpdateCheckResult(AppUpdateAvailability Availability, st
 }
 
 /// <summary>
-/// How the UI presents update actions. The header version opens the update window,
-/// and the window owns checking, installing, and status wording.
+/// How the UI presents update actions. The footer's version control opens the update
+/// window, and the window owns checking, installing, and status wording.
 /// </summary>
 public static class AppUpdatePresentation
 {
@@ -67,7 +67,7 @@ public static class AppUpdatePresentation
     public static string CheckLabel(bool isChecking) =>
         isChecking ? "Checking..." : "Check for updates";
 
-    /// <summary>The accessible name for the header version control that opens the update window.</summary>
+    /// <summary>The accessible name for the version control that opens the update window.</summary>
     public static string VersionWindowLabel(string? currentVersion)
     {
         var version = string.IsNullOrWhiteSpace(currentVersion) ? "unknown" : currentVersion.Trim();

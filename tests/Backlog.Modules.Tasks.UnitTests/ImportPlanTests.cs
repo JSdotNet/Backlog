@@ -72,6 +72,133 @@ public sealed class ImportPlanTests
         Assert.Equal(["some-existing-real-id"], Assert.Single(result.Entries).DependsOn!);
     }
 
+    /// <summary>
+    /// A plan states what each of its entries is, not only that it is a prompt.
+    /// The type token is read off each entry's own metadata line, so one plan can
+    /// mix a prompt to run, ordinary work to do, a captured idea and a follow-up
+    /// without Import flattening them into one kind.
+    /// </summary>
+    [Fact]
+    public async Task Each_entrys_type_comes_from_its_own_metadata_line()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string plan =
+            "# A prompt to run\n`prompt` `#myplan`\n\n"
+            + "# Work to do by hand\n`task` `#myplan`\n\n"
+            + "# Something to consider\n`idea` `#myplan`\n\n"
+            + "# Something to come back to\n`follow-up` `#myplan`\n";
+
+        var result = await Import(store, plan);
+
+        Assert.Equal(EntryType.Prompt, TypeOf(store, result, "A prompt to run"));
+        Assert.Equal(EntryType.Task, TypeOf(store, result, "Work to do by hand"));
+        Assert.Equal(EntryType.Idea, TypeOf(store, result, "Something to consider"));
+        Assert.Equal(EntryType.FollowUp, TypeOf(store, result, "Something to come back to"));
+    }
+
+    /// <summary>
+    /// The readiness a plan declares is the readiness the entry is created at.
+    /// Every status the grammar knows is reachable from the plan text, including
+    /// the two settled ones — per <c>TaskEntryFields.CreateFrom</c> a status on
+    /// the metadata line is applied as the direct value rather than stepped
+    /// through the lifecycle, so writing it on a fresh entry means what it says.
+    /// </summary>
+    [Fact]
+    public async Task Each_entrys_status_comes_from_its_own_metadata_line()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string plan =
+            "# Still being shaped\n`prompt` `!draft` `#myplan`\n\n"
+            + "# Ready to pick up\n`prompt` `!ready` `#myplan`\n\n"
+            + "# Already under way\n`prompt` `!in-progress` `#myplan`\n\n"
+            + "# Already finished\n`prompt` `!done` `#myplan`\n\n"
+            + "# Already filed away\n`prompt` `!archived` `#myplan`\n";
+
+        var result = await Import(store, plan);
+
+        Assert.Equal(EntryStatus.Draft, StatusOf(store, result, "Still being shaped"));
+        Assert.Equal(EntryStatus.Ready, StatusOf(store, result, "Ready to pick up"));
+        Assert.Equal(EntryStatus.InProgress, StatusOf(store, result, "Already under way"));
+        Assert.Equal(EntryStatus.Done, StatusOf(store, result, "Already finished"));
+        Assert.Equal(EntryStatus.Archived, StatusOf(store, result, "Already filed away"));
+    }
+
+    /// <summary>An entry whose metadata line states neither is born at the
+    /// defaults a hand-typed entry gets — <see cref="EntryStatus.Draft"/> and
+    /// <see cref="EntryType.Task"/> — because Import applies the tokens the plan
+    /// wrote and invents nothing where it wrote none.</summary>
+    [Fact]
+    public async Task An_entry_stating_no_type_or_status_takes_the_ordinary_defaults()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var result = await Import(store, "# Says nothing about itself\n`#myplan`\n\nJust a body.\n");
+
+        var entry = store.Entries[Assert.Single(result.Entries).Id];
+        Assert.Equal(EntryType.Task, entry.Type);
+        Assert.Equal(EntryStatus.Draft, entry.Status);
+    }
+
+    /// <summary>A later version of a plan is allowed to move an entry still in
+    /// flight on: restating its type and status rewrites both, the same way the
+    /// title and body are rewritten.</summary>
+    [Fact]
+    public async Task Reimporting_applies_a_restated_type_and_status_to_an_entry_still_in_flight()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Step one\n`prompt` `!draft` `#myplan` `id:step-one`\n");
+        var firstId = Assert.Single(first.Entries).Id;
+
+        var second = await Import(store, "# Step one\n`task` `!in-progress` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(1, second.Updated);
+        var updated = store.Entries[firstId];
+        Assert.Equal(EntryType.Task, updated.Type);
+        Assert.Equal(EntryStatus.InProgress, updated.Status);
+    }
+
+    /// <summary>Dropping the status token from a later plan version is not an
+    /// instruction to send the entry back to Draft. Status is the one field
+    /// <c>TaskEntryFields.ApplyToExisting</c> deliberately leaves alone, so
+    /// progress made on an entry since it was imported survives a re-import that
+    /// says nothing about it.</summary>
+    [Fact]
+    public async Task Reimporting_without_a_status_token_leaves_the_entrys_own_progress_alone()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
+        var firstId = Assert.Single(first.Entries).Id;
+        store.Entries[firstId].SetStatus(EntryStatus.InProgress);
+
+        await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
+
+        Assert.Equal(EntryStatus.InProgress, store.Entries[firstId].Status);
+    }
+
+    /// <summary>A status a later plan version states cannot reopen finished
+    /// work: the match is settled, so the whole entry is skipped and the status
+    /// it already holds is the one that stays. The companion to
+    /// <see cref="Reimporting_against_a_done_entry_leaves_it_untouched_and_counts_it_skipped"/>,
+    /// which covers the same rule for title and body.</summary>
+    [Fact]
+    public async Task Reimporting_cannot_restate_the_status_of_a_settled_entry()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
+        var firstId = Assert.Single(first.Entries).Id;
+        store.Entries[firstId].SetStatus(EntryStatus.Done);
+
+        var second = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(1, second.Skipped);
+        Assert.Equal(EntryStatus.Done, store.Entries[firstId].Status);
+    }
+
     [Fact]
     public async Task The_shared_tag_every_entry_carries_becomes_the_import_plan_id()
     {
@@ -381,6 +508,12 @@ public sealed class ImportPlanTests
         Assert.True(result.IsSuccess);
         return result.Value;
     }
+
+    private static EntryType TypeOf(InMemoryTaskRepository store, ImportPlanResultDto result, string title) =>
+        store.Entries[Assert.Single(result.Entries, e => e.Title == title).Id].Type;
+
+    private static EntryStatus StatusOf(InMemoryTaskRepository store, ImportPlanResultDto result, string title) =>
+        store.Entries[Assert.Single(result.Entries, e => e.Title == title).Id].Status;
 
     /// <summary>The same small hand-written fake <c>RecurringTaskTests</c> uses,
     /// kept local to this file for the same reason: what is under test is
