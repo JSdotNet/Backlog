@@ -7,7 +7,7 @@
   ],
   "stats": {
     "nodes": 509,
-    "edges": 835,
+    "edges": 836,
     "nodesByFolder": {
       "domain": 497,
       "arc42": 10,
@@ -27,7 +27,7 @@
     },
     "edgesByType": {
       "contains": 425,
-      "related": 369,
+      "related": 370,
       "depends-on": 41
     }
   },
@@ -6726,7 +6726,10 @@
           "slug": "archive-and-lifecycle",
           "level": 2,
           "line": 551,
-          "status": "draft"
+          "status": "draft",
+          "related": [
+            ".domain/tasks/flow.md"
+          ]
         }
       },
       {
@@ -6738,7 +6741,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 561,
+          "line": 568,
           "status": "draft",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
@@ -6754,7 +6757,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 575,
+          "line": 582,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6775,7 +6778,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 606,
+          "line": 613,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -14256,6 +14259,14 @@
           "id": "related:.domain/tasks/features.md#ai-assistance-over-the-visible-backlog->.domain/productivity/features.md#ai-productivity-tracking",
           "source": ".domain/tasks/features.md#ai-assistance-over-the-visible-backlog",
           "target": ".domain/productivity/features.md#ai-productivity-tracking",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#archive-and-lifecycle->.domain/tasks/flow.md",
+          "source": ".domain/tasks/features.md#archive-and-lifecycle",
+          "target": ".domain/tasks/flow.md",
           "type": "related"
         }
       },

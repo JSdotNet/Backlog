@@ -553,10 +553,17 @@ capability and the product remains fully usable with it switched off.
 ```meta
 type: feature
 status: draft
+related: [.domain/tasks/flow.md]
 ```
 
 Move tasks between active and archived states; archived tasks are excluded
 from default views but always accessible and restorable.
+
+Completing a task and then reopening it returns it to `in_progress`, whatever
+status it held before it was finished; the earlier status is deliberately not
+kept. Finishing is a recorded fact rather than a step that rewinds, so
+reopening starts the work again rather than restoring where it stood before.
+`flow.md` holds the lifecycle this follows.
 
 ## Refresh from shared storage
 
