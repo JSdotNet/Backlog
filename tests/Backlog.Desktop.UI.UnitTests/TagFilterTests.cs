@@ -366,8 +366,11 @@ public sealed class TagFilterTests
 
     /// <summary>What the chips leave out, the list keeps. Narrowing the bar was a
     /// decision about which tags are worth offering, not about which entries
-    /// exist — the areas, the status chips and the rows are all where they
-    /// were.</summary>
+    /// exist — the status chips, the scope and the rows are all where they
+    /// were. The areas this test once checked alongside them are gone from the
+    /// bar entirely, traded for the No repo scope — see
+    /// <c>MyDayScopeTests.The_scope_group_holds_both_scopes_and_the_bar_holds_no_areas</c>,
+    /// which owns that expectation now.</summary>
     [Fact]
     public async Task The_rest_of_the_screen_is_untouched_by_what_the_chips_leave_out()
     {
@@ -377,17 +380,14 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
-        // The area the finished entry filed itself under is still a place to look,
-        // and still counts it. Areas were left alone.
-        Assert.Equal(["All", "platform", "qa"], host.State.AreaFilters.Select(option => option.Label));
-        Assert.Equal(2, host.State.AreaFilters[0].Count);
-
+        // The finished entry is still an entry: narrowing the chips changed what the
+        // bar offers, not what the list holds.
         Assert.Equal(2, host.State.FilteredRows.Count);
         Assert.Equal(2, host.State.ScopedRows.Count);
 
         var pane = host.Render();
 
-        Assert.Single(pane.FindAll("[aria-label='Filter by area']"));
+        Assert.Single(pane.FindAll("[aria-label='Filter by tag']"));
         Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
         Assert.Single(pane.FindAll("[aria-label='Scope']"));
     }
