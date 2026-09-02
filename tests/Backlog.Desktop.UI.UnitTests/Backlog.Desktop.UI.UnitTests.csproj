@@ -67,6 +67,13 @@
     <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
+    <!-- The desktop web harness, for its IDevToolService adapter. The harness is
+         the only place a browser can reach the tools pane, so its adapter is the
+         only one a browser session ever exercises — and it answers from JSON
+         alone, which makes it testable here rather than only through Playwright.
+         Referencing a harness from a test project is allowed; only shipping
+         projects under src/ may not (HarnessIsNotDeployedTests). -->
+    <ProjectReference Include="..\..\src\Harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
