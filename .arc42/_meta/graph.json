@@ -1665,6 +1665,8 @@
             ".domain/tasks/features.md#prompt-features",
             ".domain/tasks/features.md#sub-items-and-steps",
             ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/domain.md#task-status",
             ".domain/repository-management/features.md#repository-registration"
           ],
           "outOfScope": true

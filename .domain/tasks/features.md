@@ -411,23 +411,42 @@ that AI was put to work on it.
 type: feature
 status: proposed
 depends-on: [.domain/tasks/features.md#task-creation, .domain/tasks/features.md#task-dependencies, .domain/tasks/features.md#multi-repo-targeting]
-related: [.domain/tasks/features.md#prompt-features, .domain/tasks/features.md#sub-items-and-steps, .domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .domain/repository-management/features.md#repository-registration]
+related: [.domain/tasks/features.md#prompt-features, .domain/tasks/features.md#sub-items-and-steps, .domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .domain/tasks/domain.md#task-type, .domain/tasks/domain.md#task-status, .domain/repository-management/features.md#repository-registration]
 ```
 
-Bring in a plan that lists a sequence of AI prompts to run across one or more
-repositories, in the order they depend on each other, and turn the whole plan
-into tasks in one step instead of typing each one in by hand. A plan
-can be brought in as an uploaded file or pasted directly, whichever is faster
-in the moment — both read the same plan. Import builds nothing that task
+Bring in a plan that lists a sequence of work to do across one or more
+repositories, in the order its entries depend on each other, and turn the whole
+plan into tasks in one step instead of typing each one in by hand. Most plans
+are sequences of AI prompts to run, which is the case Import was written for. A
+plan can be brought in as an uploaded file or pasted directly, whichever is
+faster in the moment — both read the same plan. Import builds nothing that task
 creation does not already offer — it is a faster way of filling the backlog,
 not a second way of holding work.
 
-Each prompt in the plan becomes one `prompt`-type
-[Task](domain.md#task). The prompt's own instructions become
-that task's body, and the order the plan declares between prompts becomes an
-ordinary [task dependency](#task-dependencies) between the tasks import
+Each entry in the plan becomes one [Task](domain.md#task) of the
+[type](domain.md#task-type) the plan states for it — the same four types
+[task creation](#task-creation) already offers, with `prompt` the common case
+because an AI prompt to run is what a plan mostly holds. An entry that states no
+type becomes a plain `task`, the default a hand-typed task gets. So one plan can
+legitimately mix kinds without announcing that it does: the prompts to run
+alongside the step only a person can do and the thing worth coming back to
+later. Import reads the type off the entry rather than deciding for the plan
+that its entries are all of a kind.
+
+An entry may also state the [status](domain.md#task-status) it should arrive at,
+so a plan whose opening steps are already agreed can bring them in `ready`
+rather than leaving somebody to promote each one out of `draft` by hand. What
+the plan states is the status the task is created with — the value directly,
+not a lifecycle step applied on top of a new task — so every status is
+reachable this way, the settled ones included, and a plan can record a step
+that was finished before the plan was ever imported. An entry stating no status
+starts at `draft`, like any other new task.
+
+The entry's own instructions become that task's body, and the order the plan
+declares between entries becomes an ordinary
+[task dependency](#task-dependencies) between the tasks import
 creates — the same relationship a person would have typed by hand, resolved
-from the plan's own local prompt references to the real task ids as the
+from the plan's own local entry references to the real task ids as the
 tasks are created. "What's next" for an imported chain reads no differently
 than for any other: by [Readiness](domain.md#readiness), grouped by
 [repository](#multi-repo-targeting). The plan itself becomes one of the
@@ -441,13 +460,13 @@ setup or dependency step the repository needs before the prompt can run —
 installing a plugin, say — a reminder to update that repository's knowledge
 docs or devbook, and a task only a person can do. None of these are a new
 kind of thing. They land as ordinary [sub-items](#sub-items-and-steps) on the
-task they belong to, ordered ahead of the prompt they gate. A step is a step
+task they belong to, ordered ahead of the entry they gate. A step is a step
 whichever list it came from; import adds no second vocabulary for what a
 sub-item already says, and a sub-item created by import is indistinguishable
 from one a person typed by hand, because it is the same thing.
 
 Every task import creates carries where it came from — see
-[Task](domain.md#task) — so a batch of prompts brought in
+[Task](domain.md#task) — so a batch of entries brought in
 together stays traceable back to the plan and the specific item that produced
 each one.
 
@@ -459,7 +478,7 @@ status: proposed
 related: [.domain/repository-management/features.md#repository-registration, .domain/repository-management/domain.md#repository-registry]
 ```
 
-Resolve each prompt's target repository by the name the plan's author wrote,
+Resolve each entry's target repository by the name the plan's author wrote,
 against the same [Repository Registry](../repository-management/domain.md#repository-registry)
 [multi-repo targeting](#multi-repo-targeting) already resolves `repo_ids`
 against. A name the registry already knows resolves to its `repo_id` as
@@ -478,7 +497,7 @@ ability to ask for it.
 
 The Import dialog also offers a "Target repository" field for the whole
 batch: when filled in, it is applied as the resolved repository for any
-prompt in the plan that names none of its own, without touching a prompt that
+entry in the plan that names none of its own, without touching an entry that
 already carries its own `repo:` token.
 
 ### Re-importing an updated plan
@@ -490,20 +509,25 @@ related: [.domain/tasks/domain.md#task, .domain/tasks/domain.md#task-status]
 ```
 
 Bring in a later version of a plan already imported once, and have it adjust
-the tasks still in flight rather than duplicate them. Each prompt in a plan
+the tasks still in flight rather than duplicate them. Each entry in a plan
 keeps the same id across versions, so a later import recognizes "this is the
-same prompt, updated" instead of "this is a new prompt" — the plan's id
-together with the prompt's id inside it is what a task remembers about
+same entry, updated" instead of "this is a new entry" — the plan's id
+together with the entry's id inside it is what a task remembers about
 where it came from, and what a later import matches against.
 
 A task a previous import produced, and that is not yet `done` or
 `archived`, is updated in place from the new version: its instructions, its
-dependencies, its target repository, and its setup/knowledge/manual sub-items
-are replaced with what the new version says. A prompt the plan no longer
-mentions is left as it is — import removes nothing on its own. A task
-already `done` or `archived` is never touched by a later import, the same way
-finishing a recurring task leaves that occurrence as the settled record of
-what was done rather than something a later change reopens. A prompt id the
+type, its dependencies, its target repository, and its setup/knowledge/manual
+sub-items are replaced with what the new version says. Status is the one field
+a later version moves only when it asks to: restate it and the task moves
+there, leave it out and the task keeps whatever progress it has made since it
+was imported — a plan that says nothing about where an entry stands is not
+asking for work already under way to be sent back to `draft`. An entry the plan
+no longer mentions is left as it is — import removes nothing on its own. A
+task already `done` or `archived` is never touched by a later import: the whole
+entry is skipped, a restated status included, the same way finishing a
+recurring task leaves that occurrence as the settled record of
+what was done rather than something a later change reopens. An entry id the
 first import never produced a task for is simply created new, whichever
 version of the plan introduced it.
 

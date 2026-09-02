@@ -7,7 +7,7 @@
   ],
   "stats": {
     "nodes": 509,
-    "edges": 834,
+    "edges": 836,
     "nodesByFolder": {
       "domain": 497,
       "arc42": 10,
@@ -28,7 +28,7 @@
     },
     "edgesByType": {
       "contains": 425,
-      "related": 368,
+      "related": 370,
       "depends-on": 41
     }
   },
@@ -6654,6 +6654,8 @@
             ".domain/tasks/features.md#prompt-features",
             ".domain/tasks/features.md#sub-items-and-steps",
             ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/domain.md#task-status",
             ".domain/repository-management/features.md#repository-registration"
           ]
         }
@@ -6667,7 +6669,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 454,
+          "line": 473,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -6684,7 +6686,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 484,
+          "line": 503,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6701,7 +6703,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 510,
+          "line": 534,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -6721,7 +6723,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 527,
+          "line": 551,
           "status": "draft",
           "related": [
             ".domain/tasks/flow.md"
@@ -6737,7 +6739,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 544,
+          "line": 568,
           "status": "draft",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
@@ -6753,7 +6755,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 558,
+          "line": 582,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6774,7 +6776,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 589,
+          "line": 613,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -14174,6 +14176,22 @@
           "id": "related:.domain/tasks/features.md#import->.domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
           "source": ".domain/tasks/features.md#import",
           "target": ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#import->.domain/tasks/domain.md#task-type",
+          "source": ".domain/tasks/features.md#import",
+          "target": ".domain/tasks/domain.md#task-type",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#import->.domain/tasks/domain.md#task-status",
+          "source": ".domain/tasks/features.md#import",
+          "target": ".domain/tasks/domain.md#task-status",
           "type": "related"
         }
       },
