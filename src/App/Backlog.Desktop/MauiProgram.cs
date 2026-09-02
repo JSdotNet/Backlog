@@ -86,7 +86,18 @@ public static class MauiProgram
         // capture services the modules register as Scoped, so they are Scoped too —
         // registered in one place both hosts share so the lifetimes cannot drift.
         builder.Services.AddRoadmapCrossContextAdapters();
-        builder.Services.AddSingleton<GitHubSettingsStore>();
+        // Half of a repository's configuration is workspace data and lives under
+        // the backlog folder, so it follows that folder the way the task database
+        // and the roadmap plan already do: the root is read per call rather than
+        // pinned at startup, and moving the workspace re-reads the registry
+        // instead of leaving the old one's repositories on screen.
+        builder.Services.AddSingleton(sp =>
+        {
+            var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
+            var store = new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, () => workspace.RootDirectory);
+            workspace.RootChanged += store.Reload;
+            return store;
+        });
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that

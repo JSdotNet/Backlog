@@ -278,6 +278,22 @@ public class EntryTextParserTests
         Assert.Equal(["specmanager"], parsed.RepoIds);
     }
 
+    /// <summary>
+    /// A <c>repo:</c> value containing a <c>/</c> lexes verbatim, because the
+    /// token grammar splits on the FIRST colon only. That is what lets
+    /// <c>repo_ids</c> hold an <c>owner/name</c> identity without the parser
+    /// needing a grammar change or an opinion about the value — which per ADR 0002
+    /// it may not have, living in <c>.Abstractions</c> where no registry is
+    /// visible.
+    /// </summary>
+    [Fact]
+    public void A_repo_token_carrying_an_owner_and_name_lexes_verbatim()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `repo:JSdotNet/Backlog`\n");
+
+        Assert.Equal(["JSdotNet/Backlog"], parsed.RepoIds);
+    }
+
     [Fact]
     public void Repo_tokens_repeat_and_collect_in_the_order_written()
     {

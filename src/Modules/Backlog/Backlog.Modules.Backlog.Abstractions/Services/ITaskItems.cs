@@ -57,6 +57,26 @@ public interface ITaskItems
     /// <summary>Notes that an entry was actually used for something.</summary>
     Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Brings every entry's <c>repo_ids</c> up to the identity the registry
+    /// states, and answers how many entries changed.
+    /// <para>
+    /// A host calls this before it first reads the list, and again after the
+    /// workspace root moves. It is on the port rather than left to a screen
+    /// because what a stored repository value means is the module's rule, and
+    /// because the alias-shaped values it settles were written by this module in
+    /// the first place.
+    /// </para>
+    /// <para>
+    /// Safe to call on every start: the pass is idempotent by construction, so a
+    /// second run over a reconciled workspace is a pure read and needs no
+    /// once-flag. That also makes it immune to ordering — a run against a
+    /// registry that has not been reloaded yet settles fewer values and leaves the
+    /// rest for the next run, which is a performance question rather than a
+    /// correctness one.
+    /// </para></summary>
+    Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Brings in a plan — a block of entry text naming more than one
     /// prompt — and turns it into backlog entries in one step. See
     /// <c>ImportPlanCommand</c> and ADR 0004 for what "brings in" means: the

@@ -1,7 +1,6 @@
 using Backlog.Modules.Backlog;
 using Backlog.Modules.Backlog.Abstractions;
 using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
-using Backlog.Modules.Backlog.Abstractions.Services;
 using Backlog.Modules.Backlog.DomainModels;
 using Backlog.Modules.Backlog.Features.ImportPlan;
 
@@ -279,7 +278,12 @@ public sealed class ImportPlanTests
 
     /// <summary>The Import dialog's "Target repository" field fills in for an
     /// entry that names none of its own — the same mechanism `repo:` already
-    /// uses, sourced from the command instead of a parsed token.</summary>
+    /// uses, sourced from the command instead of a parsed token.
+    /// <para>
+    /// Stored as an id, like every other repository value: the empty registry
+    /// here has never heard of "widgets", so Import registers it, and a bare name
+    /// registers with owner and name standing in as the alias.
+    /// </para></summary>
     [Fact]
     public async Task An_entry_with_no_repo_token_picks_up_the_default_repo()
     {
@@ -287,7 +291,7 @@ public sealed class ImportPlanTests
 
         var result = await Import(store, "# Only prompt\n`prompt`\n", defaultRepo: "widgets");
 
-        Assert.Equal(["widgets"], Assert.Single(result.Entries).RepoIds!);
+        Assert.Equal(["widgets/widgets"], Assert.Single(result.Entries).RepoIds!);
     }
 
     /// <summary>An entry's own `repo:` token is the power-user override and
@@ -300,13 +304,13 @@ public sealed class ImportPlanTests
 
         var result = await Import(store, "# Only prompt\n`prompt` `repo:its-own-repo`\n", defaultRepo: "widgets");
 
-        Assert.Equal(["its-own-repo"], Assert.Single(result.Entries).RepoIds!);
+        Assert.Equal(["its-own-repo/its-own-repo"], Assert.Single(result.Entries).RepoIds!);
     }
 
-    /// <summary>A name the registry already knows resolves to its alias and
-    /// nothing is registered — per ADR 0004 auto-registration is what happens to
-    /// an <em>unrecognized</em> name, so a plan naming repositories that already
-    /// exist must leave the registry exactly as it found it.</summary>
+    /// <summary>A name the registry already knows resolves to that repository's
+    /// id and nothing is registered — per ADR 0004 auto-registration is what
+    /// happens to an <em>unrecognized</em> name, so a plan naming repositories
+    /// that already exist must leave the registry exactly as it found it.</summary>
     [Fact]
     public async Task A_repo_name_the_registry_already_knows_resolves_without_registering_anything()
     {
@@ -315,7 +319,7 @@ public sealed class ImportPlanTests
 
         var result = await Import(store, "# Only prompt\n`prompt` `repo:widgets`\n", directory: directory);
 
-        Assert.Equal(["widgets"], Assert.Single(result.Entries).RepoIds!);
+        Assert.Equal(["someone/widgets"], Assert.Single(result.Entries).RepoIds!);
         Assert.Empty(directory.Registered);
     }
 
@@ -335,7 +339,10 @@ public sealed class ImportPlanTests
             directory: directory,
             repoMatches: new Dictionary<string, string> { ["Fancy Widgets"] = "widgets" });
 
-        Assert.Equal(["widgets"], Assert.Single(result.Entries).RepoIds!);
+        // The answer they gave is resolved through the registry like any other
+        // name, so both branches end at an id rather than one ending at whatever
+        // the dialog happened to put in the map.
+        Assert.Equal(["someone/widgets"], Assert.Single(result.Entries).RepoIds!);
         Assert.Empty(directory.Registered);
         Assert.DoesNotContain("Fancy Widgets", directory.Resolved);
     }
@@ -358,7 +365,7 @@ public sealed class ImportPlanTests
         var result = await Import(store, plan, directory: directory);
 
         Assert.Equal(["newcomer"], directory.Registered);
-        Assert.All(result.Entries, entry => Assert.Equal(["newcomer"], entry.RepoIds!));
+        Assert.All(result.Entries, entry => Assert.Equal(["newcomer/newcomer"], entry.RepoIds!));
     }
 
     private static async Task<ImportPlanResultDto> Import(
@@ -399,51 +406,5 @@ public sealed class ImportPlanTests
 
         public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values]);
-    }
-
-    /// <summary>A registry that starts with whatever aliases a test hands it and
-    /// records what Import asked of it. The recordings are the point: what these
-    /// tests are about is <em>whether</em> a name was resolved or registered at
-    /// all, which a directory that only returned answers could not show.</summary>
-    private sealed class FakeRepositoryDirectory(params string[] known) : IRepositoryDirectory
-    {
-        private readonly List<BacklogRepositoryRef> _repositories =
-            [.. known.Select(alias => new BacklogRepositoryRef(alias, "someone", alias))];
-
-        public List<string> Resolved { get; } = [];
-
-        public List<string> Registered { get; } = [];
-
-        public IReadOnlyList<BacklogRepositoryRef> Repositories => _repositories;
-
-        public BacklogRepositoryRef? Resolve(string name)
-        {
-            Resolved.Add(name);
-            return Find(name);
-        }
-
-        public BacklogRepositoryRef Register(string name)
-        {
-            // Every call is recorded, not every addition. A second call for a
-            // name already registered is exactly the thing the handler's
-            // memoization exists to prevent, and a fake that swallowed it would
-            // make the test pass whether the memoization was there or not.
-            Registered.Add(Normalize(name));
-
-            var existing = Find(name);
-            if (existing is not null) return existing;
-
-            var added = new BacklogRepositoryRef(Normalize(name), Normalize(name), Normalize(name));
-            _repositories.Add(added);
-            return added;
-        }
-
-        private BacklogRepositoryRef? Find(string name) =>
-            _repositories.FirstOrDefault(repository =>
-                string.Equals(repository.Alias, Normalize(name), StringComparison.Ordinal));
-
-        /// <summary>The same lower-cased trim the real adapter applies, so a test
-        /// asserting on an alias asserts on the form the workspace stores.</summary>
-        private static string Normalize(string name) => name.Trim().ToLowerInvariant();
     }
 }
