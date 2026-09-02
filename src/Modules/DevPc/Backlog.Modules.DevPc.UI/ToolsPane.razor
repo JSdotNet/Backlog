@@ -59,292 +59,318 @@
     </header>
 
     <div class="tools-panel__content" id="installed-tools-content">
-        <div class="tools-panel__toolbar">
-            @* The library's alert wearing this pane's message class. The fallback
-               behind ToolMessage keeps it non-empty, so it never takes the alert's
-               hidden shape: a toolbar that loses its status line collapses. *@
-            <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
-            <div class="tools-panel__toolbar-actions">
-                @* Checking and updating both read the catalog, so neither is offered
-                   while there is no catalog to read. *@
-                <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
-                    @(_toolsLoading ? "Checking..." : "Check for updates")
-                </AppButton>
-                <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
-                    @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
-                </AppButton>
-                @if (CanEdit && _catalogExists && _tools.Count > 0)
-                {
-                    @* Only alongside a populated table. The two empty states carry
-                       their own copies of these, where they are the point of the
-                       screen rather than one more button on a toolbar. *@
-                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
-                        Add tool
+        @* Two columns rather than one stack, at the widths that have room
+           for them. The transcript used to be the last thing in the pane,
+           which on a fifty-row inventory put it a scroll and a half below
+           the button that produced it — so the one thing a failed install
+           left behind was the one thing nobody saw. The list keeps the
+           column it always had and the transcript takes a rail beside it;
+           below the width where both fit, the rail simply falls back under
+           the list and this is the stack it was. *@
+        <div class="tools-panel__main">
+            <div class="tools-panel__toolbar">
+                @* The library's alert wearing this pane's message class. The fallback
+                   behind ToolMessage keeps it non-empty, so it never takes the alert's
+                   hidden shape: a toolbar that loses its status line collapses. *@
+                <Alert Message="@ToolMessage" BaseClass="tools-panel__message" Role="status" />
+                <div class="tools-panel__toolbar-actions">
+                    @* Checking and updating both read the catalog, so neither is offered
+                       while there is no catalog to read. *@
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
+                        @(_toolsLoading ? "Checking..." : "Check for updates")
                     </AppButton>
-                    <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
-                        Import
+                    <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
+                        @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
                     </AppButton>
-                }
-            </div>
-        </div>
-
-        @if (_toolsLoading && _tools.Count == 0)
-        {
-            @* The first read walks the machine — plugin manifests, marketplaces,
-               a version probe per application — and on a cold cache that is
-               several seconds of a pane with nothing in it. One grey sentence
-               there was indistinguishable from a pane that had failed to draw,
-               so what stands in for the inventory is the inventory's own shape:
-               the same kind sections, the same four-column grid, the same frame,
-               with bars where the rows will be.
-
-               It reuses this pane's row classes rather than describing a table of
-               its own, which is what keeps the placeholder honest — it restacks
-               with the real rows when the pane is narrow, because it is laid out
-               by the same container query.
-
-               Hidden from assistive technology in one piece. A reader who cannot
-               see the bars gains nothing from forty of them; the toolbar's status
-               line above already says the catalog is being checked, and it says
-               it once. *@
-            <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
-                @foreach (var section in SkeletonSections)
-                {
-                    <section class="tools-kind">
-                        <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
-                        <div class="tools-table">
-                            <div class="tools-table__row tools-table__row--head">
-                                <Skeleton Width="2.5rem" />
-                                <Skeleton Width="4rem" />
-                                <Skeleton Width="4rem" />
-                                <Skeleton Width="3.5rem" />
-                            </div>
-                            @foreach (var name in section)
-                            {
-                                <div class="tools-table__row">
-                                    <div class="tools-table__tool">
-                                        <Skeleton Width="@name" />
-                                        <Skeleton Width="55%" />
-                                    </div>
-                                    <Skeleton Width="3rem" />
-                                    <Skeleton Width="3rem" />
-                                    <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
-                                </div>
-                            }
-                        </div>
-                    </section>
-                }
-            </div>
-        }
-        else if (!_catalogExists)
-        {
-            <EmptyState Title="No tool catalog yet"
-                        Description="@NoCatalogDescription"
-                        Action="@NoCatalogActions"
-                        TestId="tools-empty-no-catalog" />
-        }
-        else if (_tools.Count == 0)
-        {
-            <EmptyState Title="No tools in the catalog yet"
-                        Description="@EmptyCatalogDescription"
-                        Action="@EmptyCatalogActions"
-                        TestId="tools-empty-no-entries" />
-        }
-        else
-        {
-            @* Grouped rather than one list, because the catalog stopped being six
-               rows of AI tooling and became this machine's whole software
-               inventory. Fifty-odd ungrouped rows lose the structure the setup
-               guide they come from is made of — and the kind heading is the first
-               thing a reader needs, because "a plugin is missing" and "an
-               application is missing" are two different afternoons. *@
-            @foreach (var kind in ToolKinds)
-            {
-                <section class="tools-kind" data-tool-kind="@kind.Kind" data-testid="tools-kind">
-                    <SectionHeader Level="3"
-                                   Title="@kind.Title"
-                                   Description="@KindCount(kind)"
-                                   CssClass="tools-kind__header" />
-
-                    @foreach (var group in kind.Groups)
+                    @if (CanEdit && _catalogExists && _tools.Count > 0)
                     {
-                        <div class="tools-group" data-tool-group="@group.Key">
-                            @if (group.Title is { Length: > 0 } groupTitle)
-                            {
-                                @* Only the sub-groups fold. A kind with one
-                                   unnamed group is the three plugins and the
-                                   three MCP servers this pane started as, and a
-                                   disclosure over three rows is a control that
-                                   costs more than it saves. *@
-                                <FoldControl CssClass="tools-group__fold"
-                                             Expanded="@IsExpanded(group)"
-                                             ExpandedChanged="expanded => SetExpanded(group, expanded)"
-                                             Controls="@group.RegionId"
-                                             Label="@GroupLabel(group, groupTitle)"
-                                             TestId="tools-group-toggle" />
-                            }
+                        @* Only alongside a populated table. The two empty states carry
+                           their own copies of these, where they are the point of the
+                           screen rather than one more button on a toolbar. *@
+                        <AppButton Variant="ButtonVariant.Secondary" Disabled="@ToolActionBusy" OnClick="OpenAddDialog" TestId="tools-add-open">
+                            Add tool
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Ghost" Disabled="@ToolActionBusy" OnClick="OpenImportDialog" TestId="tools-import-open">
+                            Import
+                        </AppButton>
+                    }
+                </div>
+            </div>
 
-                            <div class="tools-table"
-                                 role="table"
-                                 aria-label="@group.AriaLabel(kind.Title)"
-                                 id="@group.RegionId"
-                                 hidden="@(!IsExpanded(group))">
-                                <div class="tools-table__row tools-table__row--head" role="row">
-                                    <span role="columnheader">Tool</span>
-                                    <span role="columnheader">Installed</span>
-                                    <span role="columnheader">Available</span>
-                                    <span role="columnheader">Actions</span>
+            @if (_toolsLoading && _tools.Count == 0)
+            {
+                @* The first read walks the machine — plugin manifests, marketplaces,
+                   a version probe per application — and on a cold cache that is
+                   several seconds of a pane with nothing in it. One grey sentence
+                   there was indistinguishable from a pane that had failed to draw,
+                   so what stands in for the inventory is the inventory's own shape:
+                   the same kind sections, the same four-column grid, the same frame,
+                   with bars where the rows will be.
+
+                   It reuses this pane's row classes rather than describing a table of
+                   its own, which is what keeps the placeholder honest — it restacks
+                   with the real rows when the pane is narrow, because it is laid out
+                   by the same container query.
+
+                   Hidden from assistive technology in one piece. A reader who cannot
+                   see the bars gains nothing from forty of them; the toolbar's status
+                   line above already says the catalog is being checked, and it says
+                   it once. *@
+                <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
+                    @foreach (var section in SkeletonSections)
+                    {
+                        <section class="tools-kind">
+                            <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
+                            <div class="tools-table">
+                                <div class="tools-table__row tools-table__row--head">
+                                    <Skeleton Width="2.5rem" />
+                                    <Skeleton Width="4rem" />
+                                    <Skeleton Width="4rem" />
+                                    <Skeleton Width="3.5rem" />
                                 </div>
-
-                                @foreach (var tool in group.Tools)
+                                @foreach (var name in section)
                                 {
-                                    <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
-                                        <div role="cell" class="tools-table__tool">
-                                            <strong>@tool.Name</strong>
-                                            @* The library's badge wearing this table's host class.
-                                               Which hosts an entry is for decides what its Update
-                                               actually does, and a catalog that drives two of them
-                                               with one row is unreadable without it being said.
-
-                                               An application has no host at all — it is machine
-                                               software, not a registration with an AI tool — so it
-                                               gets no badge rather than a badge reading "No host",
-                                               which answered a question the row never asked. *@
-                                            @if (tool.Hosts is not DevToolHosts.None)
-                                            {
-                                                <Badge BaseClass="tools-table__hosts"
-                                                       Kind=""
-                                                       Title="@HostTitle(tool)"
-                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
-                                            }
-                                            <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
-                                            @if (NoteOf(tool) is { Length: > 0 } note)
-                                            {
-                                                @* The catalog's own warning, on a line of its own
-                                                   rather than run together with the status. Several
-                                                   of these are the only reason a row reads the way it
-                                                   does — a version that legitimately reads backwards,
-                                                   a probe that is a heuristic, a package that does not
-                                                   exist — and appended to the status they were a
-                                                   sentence nobody finished reading. *@
-                                                <span class="tools-table__note" data-testid="tools-row-note">@note</span>
-                                            }
+                                    <div class="tools-table__row">
+                                        <div class="tools-table__tool">
+                                            <Skeleton Width="@name" />
+                                            <Skeleton Width="55%" />
                                         </div>
-                                        @* Each version cell names itself. The row's four columns only
-                                           fit while the pane is wide enough for them — it is a surface
-                                           beside a workspace, so it often is not — and below that the
-                                           row stacks and the heading row goes. Two bare version strings
-                                           in a column say nothing about which is which, so the label is
-                                           in the markup at every width and the stylesheet decides when
-                                           it shows. *@
-                                        <span role="cell" class="tools-table__version" data-testid="tools-row-installed">
-                                            <span class="tools-table__cell-label">Installed</span>@InstalledLabel(tool)
-                                        </span>
-                                        <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
-                                            <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
-                                        </span>
-                                        <div role="cell" class="tools-table__actions">
-                                            @if (tool.Kind is DevToolKind.Marketplace)
-                                            {
-                                                @* A marketplace has no version to be behind, so it
-                                                   never earns an Update through CanUpdate the way a
-                                                   tool does. What it has is two states — Claude
-                                                   knows it or does not — and one verb for each. *@
-                                                <AppButton Variant="ButtonVariant.Secondary"
-                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                    @(tool.Installed ? "Update" : "Add")
-                                                </AppButton>
-                                            }
-                                            else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
-                                            {
-                                                @* The one row whose control is not a verb. Nothing
-                                                   can check it, so the only honest answer on it is
-                                                   somebody's word — and a box, unlike a button, can
-                                                   be taken back. It went through Update once, and
-                                                   that was the defect: ticking it removed the only
-                                                   control the row had, so a mis-click was permanent
-                                                   short of hand-editing the per-PC file.
-
-                                                   Only while the machine wants the row at all. A
-                                                   switched-off row has nothing to confirm, and a
-                                                   tick on one would be a statement about something
-                                                   this machine has said it is not doing. *@
-                                                <Checkbox Checked="@tool.Acknowledged"
-                                                          CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
-                                                          Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                          Label="Done here"
-                                                          CssClass="tools-table__ack"
-                                                          TestId="tools-row-acknowledge" />
-                                            }
-                                            else if (tool.CanUpdate)
-                                            {
-                                                <AppButton Variant="ButtonVariant.Secondary"
-                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                    Update
-                                                </AppButton>
-                                            }
-                                            else if (tool.CanInstall)
-                                            {
-                                                @* The same action as an update. The port has one
-                                                   verb for "make this machine match the config",
-                                                   and behind it the host already runs
-                                                   "plugin install" or "tool install" for a tool
-                                                   that is enabled and absent — what changes here
-                                                   is only that the row now offers it.
-
-                                                   CanInstall is false for a row with no mechanism
-                                                   behind it, which is what keeps the checklist rows
-                                                   and the install-by-hand packages from being given
-                                                   a button with nothing to run. *@
-                                                <AppButton Variant="ButtonVariant.Secondary"
-                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                           OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
-                                                    Install
-                                                </AppButton>
-                                            }
-                                            else
-                                            {
-                                                <span class="tools-table__action-note">@ActionNote(tool)</span>
-                                            }
-                                            @if (tool.Kind is not DevToolKind.Marketplace)
-                                            {
-                                                @* Not for a marketplace. It is not a tool this
-                                                   machine opts into — it is where the Claude
-                                                   plugins that do come from — so the only way to
-                                                   stop wanting one is to remove it. *@
-                                                <AppButton Variant="ButtonVariant.Ghost"
-                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                           OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
-                                                    @(tool.ConfiguredEnabled ? "Disable" : "Enable")
-                                                </AppButton>
-                                            }
-                                            @if (CanEdit)
-                                            {
-                                                @* The row's test id is shared by every row, so a driver
-                                                   scopes it through the row's data-tool-key. One id per
-                                                   row would be an id nobody could write a selector for
-                                                   without knowing the catalog first. *@
-                                                <DeleteButton Label="Remove"
-                                                              AriaLabel="@($"Remove {tool.Name} from the catalog")"
-                                                              Size="ButtonSize.Small"
-                                                              ShowIcon="false"
-                                                              Disabled="@(_toolsLoading || ToolActionBusy)"
-                                                              TestId="tools-row-remove"
-                                                              OnClick="() => AskToRemove(tool)" />
-                                            }
-                                        </div>
+                                        <Skeleton Width="3rem" />
+                                        <Skeleton Width="3rem" />
+                                        <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
                                     </div>
                                 }
                             </div>
-                        </div>
-
+                        </section>
                     }
-                </section>
+                </div>
             }
+            else if (!_catalogExists)
+            {
+                <EmptyState Title="No tool catalog yet"
+                            Description="@NoCatalogDescription"
+                            Action="@NoCatalogActions"
+                            TestId="tools-empty-no-catalog" />
+            }
+            else if (_tools.Count == 0)
+            {
+                <EmptyState Title="No tools in the catalog yet"
+                            Description="@EmptyCatalogDescription"
+                            Action="@EmptyCatalogActions"
+                            TestId="tools-empty-no-entries" />
+            }
+            else
+            {
+                @* Grouped rather than one list, because the catalog stopped being six
+                   rows of AI tooling and became this machine's whole software
+                   inventory. Fifty-odd ungrouped rows lose the structure the setup
+                   guide they come from is made of — and the kind heading is the first
+                   thing a reader needs, because "a plugin is missing" and "an
+                   application is missing" are two different afternoons. *@
+                @foreach (var kind in ToolKinds)
+                {
+                    <section class="tools-kind" data-tool-kind="@kind.Kind" data-testid="tools-kind">
+                        <SectionHeader Level="3"
+                                       Title="@kind.Title"
+                                       Description="@KindCount(kind)"
+                                       CssClass="tools-kind__header" />
 
-        }
+                        @foreach (var group in kind.Groups)
+                        {
+                            <div class="tools-group" data-tool-group="@group.Key">
+                                @if (group.Title is { Length: > 0 } groupTitle)
+                                {
+                                    @* Only the sub-groups fold. A kind with one
+                                       unnamed group is the three plugins and the
+                                       three MCP servers this pane started as, and a
+                                       disclosure over three rows is a control that
+                                       costs more than it saves. *@
+                                    <FoldControl CssClass="tools-group__fold"
+                                                 Expanded="@IsExpanded(group)"
+                                                 ExpandedChanged="expanded => SetExpanded(group, expanded)"
+                                                 Controls="@group.RegionId"
+                                                 Label="@GroupLabel(group, groupTitle)"
+                                                 TestId="tools-group-toggle" />
+                                }
+
+                                <div class="tools-table"
+                                     role="table"
+                                     aria-label="@group.AriaLabel(kind.Title)"
+                                     id="@group.RegionId"
+                                     hidden="@(!IsExpanded(group))">
+                                    <div class="tools-table__row tools-table__row--head" role="row">
+                                        <span role="columnheader">Tool</span>
+                                        <span role="columnheader">Installed</span>
+                                        <span role="columnheader">Available</span>
+                                        <span role="columnheader">Actions</span>
+                                    </div>
+
+                                    @foreach (var tool in group.Tools)
+                                    {
+                                        <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
+                                            <div role="cell" class="tools-table__tool">
+                                                <strong>@tool.Name</strong>
+                                                @* The library's badge wearing this table's host class.
+                                                   Which hosts an entry is for decides what its Update
+                                                   actually does, and a catalog that drives two of them
+                                                   with one row is unreadable without it being said.
+
+                                                   An application has no host at all — it is machine
+                                                   software, not a registration with an AI tool — so it
+                                                   gets no badge rather than a badge reading "No host",
+                                                   which answered a question the row never asked. *@
+                                                @if (tool.Hosts is not DevToolHosts.None)
+                                                {
+                                                    <Badge BaseClass="tools-table__hosts"
+                                                           Kind=""
+                                                           Title="@HostTitle(tool)"
+                                                           TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
+                                                }
+                                                <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
+                                                @if (NoteOf(tool) is { Length: > 0 } note)
+                                                {
+                                                    @* The catalog's own warning, on a line of its own
+                                                       rather than run together with the status. Several
+                                                       of these are the only reason a row reads the way it
+                                                       does — a version that legitimately reads backwards,
+                                                       a probe that is a heuristic, a package that does not
+                                                       exist — and appended to the status they were a
+                                                       sentence nobody finished reading. *@
+                                                    <span class="tools-table__note" data-testid="tools-row-note">@note</span>
+                                                }
+                                            </div>
+                                            @* Each version cell names itself. The row's four columns only
+                                               fit while the pane is wide enough for them — it is a surface
+                                               beside a workspace, so it often is not — and below that the
+                                               row stacks and the heading row goes. Two bare version strings
+                                               in a column say nothing about which is which, so the label is
+                                               in the markup at every width and the stylesheet decides when
+                                               it shows. *@
+                                            <span role="cell" class="tools-table__version" data-testid="tools-row-installed">
+                                                <span class="tools-table__cell-label">Installed</span>@InstalledLabel(tool)
+                                            </span>
+                                            <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
+                                                <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
+                                            </span>
+                                            <div role="cell" class="tools-table__actions">
+                                                @* One slot per thing the row lets you do: the action
+                                                   or the status, the toggle, and Remove. Each names
+                                                   its own column in the stylesheet rather than taking
+                                                   the one its order would give it, because a
+                                                   marketplace has no toggle and a read-only host no
+                                                   Remove — and under auto-placement the survivors
+                                                   would slide into the empty track, misaligning
+                                                   exactly the rows that differ from the ones around
+                                                   them. Why the tracks are the widths they are is in
+                                                   `.tools-table__actions`. *@
+                                                <span class="tools-table__action">
+                                                    @if (tool.Kind is DevToolKind.Marketplace)
+                                                    {
+                                                        @* A marketplace has no version to be behind, so it
+                                                           never earns an Update through CanUpdate the way a
+                                                           tool does. What it has is two states — Claude
+                                                           knows it or does not — and one verb for each. *@
+                                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                            @(tool.Installed ? "Update" : "Add")
+                                                        </AppButton>
+                                                    }
+                                                    else if (tool.ConfirmedByHand && tool.ConfiguredEnabled)
+                                                    {
+                                                        @* The one row whose control is not a verb. Nothing
+                                                           can check it, so the only honest answer on it is
+                                                           somebody's word — and a box, unlike a button, can
+                                                           be taken back. It went through Update once, and
+                                                           that was the defect: ticking it removed the only
+                                                           control the row had, so a mis-click was permanent
+                                                           short of hand-editing the per-PC file.
+
+                                                           Only while the machine wants the row at all. A
+                                                           switched-off row has nothing to confirm, and a
+                                                           tick on one would be a statement about something
+                                                           this machine has said it is not doing. *@
+                                                        <Checkbox Checked="@tool.Acknowledged"
+                                                                  CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
+                                                                  Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                  Label="Done here"
+                                                                  CssClass="tools-table__ack"
+                                                                  TestId="tools-row-acknowledge" />
+                                                    }
+                                                    else if (tool.CanUpdate)
+                                                    {
+                                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                            Update
+                                                        </AppButton>
+                                                    }
+                                                    else if (tool.CanInstall)
+                                                    {
+                                                        @* The same action as an update. The port has one
+                                                           verb for "make this machine match the config",
+                                                           and behind it the host already runs
+                                                           "plugin install" or "tool install" for a tool
+                                                           that is enabled and absent — what changes here
+                                                           is only that the row now offers it.
+
+                                                           CanInstall is false for a row with no mechanism
+                                                           behind it, which is what keeps the checklist rows
+                                                           and the install-by-hand packages from being given
+                                                           a button with nothing to run. *@
+                                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)">
+                                                            Install
+                                                        </AppButton>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="tools-table__action-note">@ActionNote(tool)</span>
+                                                    }
+                                                </span>
+                                                @if (tool.Kind is not DevToolKind.Marketplace)
+                                                {
+                                                    <span class="tools-table__toggle">
+                                                        @* Not for a marketplace. It is not a tool this
+                                                           machine opts into — it is where the Claude
+                                                           plugins that do come from — so the only way to
+                                                           stop wanting one is to remove it. *@
+                                                        <AppButton Variant="ButtonVariant.Ghost"
+                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                   OnClick="() => ApplyToolActionAsync(tool, tool.ConfiguredEnabled ? DevToolAction.Disable : DevToolAction.Enable)">
+                                                            @(tool.ConfiguredEnabled ? "Disable" : "Enable")
+                                                        </AppButton>
+                                                    </span>
+                                                }
+                                                @if (CanEdit)
+                                                {
+                                                    <span class="tools-table__remove">
+                                                        @* The row's test id is shared by every row, so a driver
+                                                           scopes it through the row's data-tool-key. One id per
+                                                           row would be an id nobody could write a selector for
+                                                           without knowing the catalog first. *@
+                                                        <DeleteButton Label="Remove"
+                                                                      AriaLabel="@($"Remove {tool.Name} from the catalog")"
+                                                                      Size="ButtonSize.Small"
+                                                                      ShowIcon="false"
+                                                                      Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                      TestId="tools-row-remove"
+                                                                      OnClick="() => AskToRemove(tool)" />
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                        }
+                    </section>
+                }
+
+            }
+        </div>
 
         @if (_commands.Count > 0)
         {
@@ -355,14 +381,25 @@
                nowhere left to be read.
 
                Folded, because it is diagnostics and not the pane's subject: it
-               matters exactly when the one-line summary is not enough. *@
-            <FoldControl CssClass="tools-panel__log"
-                         Expanded="_commandsShown"
-                         ExpandedChanged="shown => _commandsShown = shown"
-                         Label="@($"Command output ({_commands.Count})")"
-                         TestId="tools-command-log">
-                <CodeView Source="@CommandLog" Language="console" TestId="tools-command-log-output" />
-            </FoldControl>
+               matters exactly when the one-line summary is not enough — and a
+               rail is what lets it be both: closed it is a line of text beside
+               the list, open it is a column the list is read against rather than
+               a block the list has been pushed off the screen by.
+
+               A plain element and not a landmark: an aside with a name of its own
+               would file a complementary region inside the app's main one and
+               announce it as a word nothing on screen says. FoldControl already
+               gives the transcript a labelled region and its trigger already names
+               it, so a third wrapper here would be structure without content. *@
+            <div class="tools-panel__side">
+                <FoldControl CssClass="tools-panel__log"
+                             Expanded="_commandsShown"
+                             ExpandedChanged="shown => _commandsShown = shown"
+                             Label="@($"Command output ({_commands.Count})")"
+                             TestId="tools-command-log">
+                    <CodeView Source="@CommandLog" Language="console" TestId="tools-command-log-output" />
+                </FoldControl>
+            </div>
         }
     </div>
 </section>
@@ -702,7 +739,7 @@
     /// <para>Uneven on purpose. Bars of one length read as a pattern — a loading
     /// graphic — where a ragged right edge reads as names, which is the whole
     /// point of standing in for the content rather than announcing its absence.
-    /// Two sections rather than the real five: enough to show the pane arrives
+    /// Two sections rather than the real four: enough to show the pane arrives
     /// grouped, without a screenful of grey where a short catalog is coming.</para></summary>
     private static readonly string[][] SkeletonSections =
     [

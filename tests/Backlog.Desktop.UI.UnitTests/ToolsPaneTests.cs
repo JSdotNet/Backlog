@@ -319,6 +319,79 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("exit code 0", transcript, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The transcript is a rail beside the inventory rather than the last block
+    /// under it: it sits in its own element outside the column the tools are in,
+    /// so the stylesheet can put it down the side at the widths that have room.
+    /// <para>A plain element and not a landmark: an aside with a name of its own
+    /// would file a complementary region inside the app's main one and announce it
+    /// as a word nothing on screen says. FoldControl already gives the transcript a
+    /// labelled region, and its trigger already names it.</para>
+    /// </summary>
+    [Fact]
+    public void The_transcript_sits_beside_the_inventory_and_not_inside_it()
+    {
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture")) with
+        {
+            Commands = [new("copilot --version", 0, "GitHub Copilot CLI 1.2.3")]
+        };
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+
+        var rail = pane.Find(".tools-panel__side");
+        Assert.NotNull(rail.QuerySelector("[data-testid='tools-command-log']"));
+
+        // No landmark and no name of its own: the disclosure inside it is both.
+        Assert.Null(rail.GetAttribute("aria-label"));
+        Assert.Empty(pane.FindAll("aside"));
+
+        // Two children of the content grid, and the tools are in the other one.
+        var main = pane.Find(".tools-panel__main");
+        Assert.Null(main.QuerySelector(".tools-panel__side"));
+        Assert.NotNull(main.QuerySelector("[data-testid='tools-kind']"));
+    }
+
+    /// <summary>
+    /// Three slots, so the stylesheet can give each one a column of its own and
+    /// line them up down the group. They were three loose children of a wrapping
+    /// row, which put the toggle and Remove wherever the status happened to end.
+    /// </summary>
+    [Fact]
+    public void Each_thing_a_row_lets_you_do_is_in_a_slot_of_its_own()
+    {
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
+
+        var actions = context.Render<ToolsPane>().Find(".tools-table__actions");
+
+        Assert.NotNull(actions.QuerySelector(".tools-table__action"));
+        Assert.NotNull(actions.QuerySelector(".tools-table__toggle"));
+
+        var remove = actions.QuerySelector(".tools-table__remove");
+        Assert.NotNull(remove);
+        Assert.NotNull(remove!.QuerySelector("[data-testid='tools-row-remove']"));
+    }
+
+    /// <summary>
+    /// The slot a row does not offer is absent rather than empty — and the row
+    /// that proves it is the marketplace, which has no Enable or Disable at all.
+    /// <para>This is the case the stylesheet's explicit columns exist for. The
+    /// track stays reserved so the status slot ends where it does in every other
+    /// row, but nothing is drawn in it: a row that offers two things must not
+    /// carry an element for the third.</para>
+    /// </summary>
+    [Fact]
+    public void A_row_with_nothing_to_toggle_carries_no_toggle_slot()
+    {
+        using var context = Context(FakeDevToolService.With(Marketplace(known: true)));
+
+        var actions = context.Render<ToolsPane>().Find(".tools-table__actions");
+
+        Assert.Null(actions.QuerySelector(".tools-table__toggle"));
+        Assert.NotNull(actions.QuerySelector(".tools-table__action"));
+        Assert.NotNull(actions.QuerySelector(".tools-table__remove"));
+    }
+
     /// <summary>A host that starts no processes — the browser's unsupported
     /// service, or a check that failed before it ran anything — has nothing to
     /// show, and an empty disclosure is worse than none.</summary>

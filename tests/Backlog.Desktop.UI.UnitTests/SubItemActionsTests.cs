@@ -150,7 +150,10 @@ public sealed class SubItemActionsTests
                  {
                      "subitem-type-badge",
                      "subitem-priority-badge",
-                     "subitem-area-badge",
+                     // `repo-badge`, not `area-badge`: the picker writes `repo:`
+                     // rather than `@area` now, and a guard naming the id the
+                     // control used to carry could not fail if it came back.
+                     "subitem-repo-badge",
                      "subitem-status-badge",
                      "subitem-tags-input"
                  })

@@ -239,9 +239,11 @@
     /// </summary>
     private readonly string _listId = "task-list-" + Guid.NewGuid().ToString("N");
 
-    /// <summary>This list's registration with the document-level dragend
-    /// fallback in components.js — see the comment on `taskListDrag` there for
-    /// why a row's own dragend binding cannot be trusted alone.</summary>
+    /// <summary>This list's registration with `taskListDrag` in components.js,
+    /// which owns the reorder gesture outright — the rows are not `draggable` and
+    /// bind no drag events, so the document-level pointer listeners call back
+    /// through this reference. See the comment on `taskListDrag` there for why the
+    /// gesture cannot be built on native drag at all.</summary>
     private DotNetObjectReference<TaskListView>? _dragSelf;
 
     /// <summary>The row with the editor open, while quick edit is on. Held here
