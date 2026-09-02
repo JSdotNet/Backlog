@@ -369,7 +369,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 275,
+          "line": 279,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -386,7 +386,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 335,
+          "line": 339,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
