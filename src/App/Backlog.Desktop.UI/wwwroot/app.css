@@ -2222,11 +2222,21 @@ h1, h2, h3 {
 
 /* --- Installed tools side pane ------------------------------------------- */
 
+/* The pane, and the container its own content answers to.
+
+   container-type sits here rather than on .tools-panel__content because a
+   container query styles descendants of its container and never the container
+   itself — and it is the content grid that has to decide whether there is room
+   for a second column. The pane is a takeover filling the window below the
+   header, so its inline size is set by the surface and not by what is in it,
+   which is what inline-size containment already assumes. */
 .tools-panel {
     display: grid;
     gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-lg);
+    container-type: inline-size;
+    container-name: tools-panel;
     border: var(--border-width) solid rgba(242, 193, 78, 0.45);
     border-left: 4px solid var(--color-primary);
     border-radius: var(--border-radius-lg);
@@ -2290,10 +2300,84 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
+/* One column until there is room for two: the inventory, and then the transcript
+   under it. This is the shape the pane keeps at every width below the threshold
+   further down, and the shape it had everywhere before the rail existed. */
 .tools-panel__content {
     display: grid;
     gap: var(--spacing-md);
     min-width: 0;
+}
+
+/* The inventory column: the toolbar, and whichever of the three states the
+   catalog is in. It is a grid of its own rather than a bare wrapper, because it
+   inherited the row gap the content grid used to give these children directly. */
+.tools-panel__main {
+    display: grid;
+    gap: var(--spacing-md);
+    align-content: start;
+    min-width: 0;
+}
+
+/* The diagnostics rail. Below the two-column threshold it is what it always was:
+   the last block in the pane, separated from the table by a rule above it. */
+.tools-panel__side {
+    min-width: 0;
+    border-top: var(--border-width) solid rgba(242, 193, 78, 0.22);
+    padding-top: var(--spacing-sm);
+}
+
+/*
+  Wide enough for both, so the transcript stops being a footer and becomes a
+  column.
+
+  `fit-content(26rem)` is what makes the rail cost only what it is currently
+  showing. FoldControl keeps its region in the DOM and merely `hidden` when it is
+  closed, and a `display: none` subtree contributes nothing to track sizing — so
+  the track measures the disclosure alone while it is folded, and the transcript
+  clamped to 26rem once it is open. A fixed track would have reserved the wide
+  column for a single line of trigger text; `auto` would have let a long console
+  line set the width of the whole pane — the code view clips and scrolls its own
+  content, so nothing inside it pushes back.
+
+  Which is also why the floor is written on the rail rather than on the transcript
+  inside it: the track's minimum is the grid item's contribution, and this item
+  says `min-width: 0`. A floor on the code view is a declaration nothing reads. On
+  the rail, and only while it is open, it stops a two-line transcript from drawing
+  a column barely wider than its own heading — the rail is 20 to 26rem or it is
+  the trigger, never an arbitrary width in between.
+
+  70rem is chosen against the table's own restack threshold rather than for its
+  own sake: the rail takes at most 26rem and the grid gap 1rem, which leaves the
+  table 43rem — above the 41rem where its four tracks stop fitting. Any lower gate
+  would buy a second column by restacking every row in the first.
+
+  Sticky, because the pane is the scrollport and the rail is at the top of it.
+  Without it the column would be correct and still unreadable: fifty rows of
+  inventory scroll the transcript off the screen exactly when a failed row is the
+  reason somebody is scrolling. It sticks a --spacing-sm down rather than at 0,
+  because the pane's own padding scrolls away with everything else and a rail
+  parked on the frame's border reads as a rendering fault. `align-items: start` is
+  what gives it room to travel — stretched to the row it would have no distance to
+  move within. */
+@container tools-panel (min-width: 70rem) {
+    .tools-panel__content {
+        grid-template-columns: minmax(0, 1fr) fit-content(26rem);
+        align-items: start;
+    }
+
+    .tools-panel__side {
+        position: sticky;
+        top: var(--spacing-sm);
+        border-top: 0;
+        border-inline-start: var(--border-width) solid rgba(242, 193, 78, 0.22);
+        padding-top: 0;
+        padding-inline-start: var(--spacing-md);
+    }
+
+    .tools-panel__side:has(.fold--open) {
+        min-width: 20rem;
+    }
 }
 
 .tools-panel__toolbar {
@@ -2370,9 +2454,14 @@ h1, h2, h3 {
     container-name: tools-table;
 }
 
+/* The actions track's minimum is the sum of what the cell below actually places
+   in it — a status, a toggle and a Remove side by side — rather than the 8rem it
+   was while those three could wrap onto a second line. A track narrower than its
+   own cell is how the Available column and every action in the row came to be
+   clipped in the first place. */
 .tools-table__row {
     display: grid;
-    grid-template-columns: minmax(10rem, 1.3fr) minmax(5.5rem, 0.65fr) minmax(5.5rem, 0.65fr) minmax(8rem, 0.8fr);
+    grid-template-columns: minmax(10rem, 1.3fr) minmax(5.5rem, 0.65fr) minmax(5.5rem, 0.65fr) minmax(17.5rem, 0.8fr);
     gap: var(--spacing-sm);
     align-items: center;
     padding: var(--spacing-sm);
@@ -2446,16 +2535,58 @@ h1, h2, h3 {
     font-weight: 700;
 }
 
+/*
+  What the row lets you do, on one line and in the same three places in every row.
+
+  A wrapping flex row put all three items wherever the one before them ended, so
+  Update, Up to date and Disabled — three different widths of the same slot —
+  moved the toggle and Remove with them, and a status long enough to fill the cell
+  dropped both onto a second line. Neither reads as a column of controls.
+
+  The two fixed tracks at the end are what align them, and fixed is the point:
+  every row is its own grid, so nothing synchronises a content-sized track across
+  rows — three rows whose toggles happen to measure the same are aligned by
+  coincidence, and a marketplace row, which has no toggle at all, would collapse
+  that track to nothing and move the status slot's edge 6rem right. Reserved
+  tracks are the same width whether the row fills them or not.
+
+  6rem holds Disable and Enable at one width; 4rem holds the small Remove and
+  gives `justify-self: end` on it something to end against. The first track takes
+  what is left and keeps `minmax(0, …)` so a long status wraps inside its own slot
+  instead of widening the cell.
+*/
 .tools-table__actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6rem 4rem;
     gap: var(--spacing-xs);
+    align-items: center;
+    min-width: 0;
+}
+
+/* Each slot names its own column. Auto-placement would have been enough for a
+   row that has all three, and wrong for the two that do not: a marketplace has
+   no toggle and a read-only host has no Remove, and the survivors would slide
+   left into the empty track — misaligning precisely the rows that differ from
+   the ones around them. */
+.tools-table__action {
+    grid-column: 1;
+    min-width: 0;
+}
+
+.tools-table__toggle {
+    grid-column: 2;
+}
+
+.tools-table__remove {
+    grid-column: 3;
+    justify-self: end;
 }
 
 .tools-table__action-note {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 /* What the catalog had to say about the row, on a line of its own under the
@@ -2483,10 +2614,22 @@ h1, h2, h3 {
 /*
   Below the width its own columns need, the table stops being a table.
 
-  32rem is the row's own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5 + 8
-  is 29rem of track minimums, three --spacing-sm gaps and two of row padding bring
-  it to 31.5rem, and under that the four tracks cannot all be drawn. Above it they
-  fit; there is no band left where the row is wider than its box.
+  41rem is the row's own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5 +
+  17.5 is 38.5rem of track minimums, three --spacing-sm gaps and two of row padding
+  bring it to 41rem, and under that the four tracks cannot all be drawn. Above it
+  they fit; there is no band left where the row is wider than its box.
+
+  It moved up from 32rem when the actions cell stopped wrapping: three controls
+  guaranteed to stay on one line need 17.5rem of track — 6rem of toggle, 4rem of
+  Remove, two gaps and 7rem left for the status — where three that could fall onto
+  a second line needed 8. The floor matters more than it looks: the actions track
+  sits at it for every table width up to about 70rem, which is most of them, so the
+  status slot's room is this number minus the two reserved tracks and nothing else.
+  A slot too small does not scroll or clip — it silently overlaps the toggle.
+
+  The threshold is derived from the track list rather than chosen, so it has to move
+  with it — and the two-column gate on the pane is set against this number so the
+  rail can never squeeze the table below it.
 
   A stack rather than a scroll box, because this pane is a list of tools and not a
   grid of figures — the reader is looking down it for one entry and then acting on
@@ -2498,7 +2641,7 @@ h1, h2, h3 {
   nothing, and each version cell puts its own label up instead. Precisely one of the
   two is live at any width.
 */
-@container tools-table (max-width: 32rem) {
+@container tools-table (max-width: 41rem) {
     .tools-table__row--head {
         display: none;
     }
@@ -2514,9 +2657,17 @@ h1, h2, h3 {
         display: inline;
     }
 
-    /* The actions were the point of the fix: full width, wrapping, and last in the
-       row rather than beside a column that pushed them out of the box. */
+    /* The actions were the point of the fix: full width, and last in the row
+       rather than beside a column that pushed them out of the box.
+
+       The slots keep their reserved widths, but the group packs to the start
+       rather than spanning the row. Right-aligning Remove is what lines it up with
+       the rows above and below it in a table; in a stack there is no row above to
+       line up with, and a cell as wide as the pane puts ten rem of nothing between
+       a status and the buttons that act on it. */
     .tools-table__actions {
+        grid-template-columns: max-content 6rem 4rem;
+        justify-content: start;
         margin-block-start: var(--spacing-xs);
     }
 
@@ -2548,22 +2699,19 @@ h1, h2, h3 {
 }
 
 /* The transcript of what the pane ran. It is FoldControl wearing this class on
-   top of its own, so the disclosure keeps the library's shape and only the
-   quieter, set-apart-from-the-table part is written here. The trigger reads at
-   the same weight as the table's meta text: it is the least important thing in
-   the pane right up until it is the only thing that matters. */
-.tools-panel__log {
-    border-top: var(--border-width) solid rgba(242, 193, 78, 0.22);
-    padding-top: var(--spacing-sm);
-}
-
+   top of its own, so the disclosure keeps the library's shape and its own box is
+   left alone: setting it apart is the rail's job now, at whichever edge the
+   current layout puts one, and what is written below is the code view inside it
+   rather than the fold. The trigger reads at the same weight as the table's meta
+   text: it is the least important thing in the pane right up until it is the only
+   thing that matters. */
 .tools-panel__log .fold__trigger {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
 /* The library caps a code block at 32rem, which is written for a full-width
-   reading surface. This is a side pane sharing its height with a table, so the
+   reading surface. This is a rail sharing its height with a table, so the
    transcript scrolls sooner rather than pushing the tools off the top. */
 .tools-panel__log .code-view__body {
     max-height: 22rem;
