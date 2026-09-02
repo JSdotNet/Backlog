@@ -72,7 +72,17 @@ builder.Services.AddRoadmapModule();
 // services the modules register as Scoped, so they are Scoped too — registered in
 // one place both hosts share so the lifetimes cannot drift apart.
 builder.Services.AddRoadmapCrossContextAdapters();
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
+// The same arrangement the desktop host makes: the shared registry follows the
+// workspace root, and moving the workspace re-reads it.
+builder.Services.AddSingleton(sp =>
+{
+    var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
+    var store = CreateLocalDevelopmentGitHubSettingsStore(
+        builder.Environment.ContentRootPath,
+        () => workspace.RootDirectory);
+    workspace.RootChanged += store.Reload;
+    return store;
+});
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
@@ -183,7 +193,7 @@ app.MapRazorComponents<App>()
 
 app.Run();
 
-static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string contentRootPath)
+static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string contentRootPath, Func<string> rootDirectory)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_GITHUB_SETTINGS_PATH");
     if (string.IsNullOrWhiteSpace(settingsPath))
@@ -191,7 +201,10 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "github.settings.json");
     }
 
-    var settings = new GitHubSettingsStore(settingsPath);
+    // The machine half goes in the harness's own build output, so a development
+    // session never touches a real per-user file; the shared registry goes where
+    // the workspace root says, because that is what the app under test reads.
+    var settings = new GitHubSettingsStore(settingsPath, rootDirectory);
     var repositoryRoot = ResolveRepositoryRoot(contentRootPath);
     if (repositoryRoot is null)
     {

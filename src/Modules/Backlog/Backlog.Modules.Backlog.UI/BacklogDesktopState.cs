@@ -465,6 +465,7 @@ public sealed class BacklogDesktopState : IDisposable
     /// </para></summary>
     public async Task InitializeAsync()
     {
+        await ReconcileRepositoryIdsAsync();
         await ReloadRowsAsync();
         Changed?.Invoke();
     }
@@ -1596,8 +1597,40 @@ public sealed class BacklogDesktopState : IDisposable
         _editingSubItemCount = -1;
         _entries.Clear();
 
+        // The new folder brings its own registry and its own entries, so the pass
+        // runs again before anything is read: a value that was an alias in the old
+        // workspace may name a different repository in this one, or none.
+        await ReconcileRepositoryIdsAsync();
         await ReloadRowsAsync();
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Settles every entry's stored repository identity before the rows are read.
+    /// <para>
+    /// Before the list rather than after it, so the first render already shows the
+    /// resolved repository on every chip instead of showing "No repo" and
+    /// correcting itself. <c>ReloadRowsAsync</c> rewrites each row's text from the
+    /// entry, so a value this pass changed is on screen the moment the rows arrive.
+    /// </para>
+    /// <para>
+    /// A failure is deliberately not surfaced. The pass is a tidy-up of stored
+    /// values, not something the person asked for, and every unreconciled value
+    /// still reads exactly as it did before — so the honest response to a store
+    /// that would not answer is to open the list anyway and try again next start.
+    /// </para>
+    /// </summary>
+    private async Task ReconcileRepositoryIdsAsync()
+    {
+        try
+        {
+            _ = await _entryUseCases.ReconcileRepositoryIdsAsync();
+        }
+        catch (Exception)
+        {
+            // A store that cannot be read or written must never be the reason the
+            // backlog will not open.
+        }
     }
 
     // --- Internals ------------------------------------------------------
