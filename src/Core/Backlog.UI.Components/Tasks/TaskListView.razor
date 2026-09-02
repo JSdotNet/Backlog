@@ -194,6 +194,18 @@
     private string? _over;
     private bool _showCompleted;
 
+    /// <summary>The picked rows, as a set, rebuilt whenever the host hands a new
+    /// one over. Never written to here: the host owns the selection.</summary>
+    private HashSet<string> _selected = [];
+
+    /// <summary>The last row whose box was pressed, and so where a Shift press
+    /// measures its range from. Held here because it is a fact about the gesture
+    /// rather than about the selection — a host given it to keep would be keeping
+    /// pointer state — and forgotten with the view, which is right: a range
+    /// anchored on a row from before a filter changed would take rows the reader
+    /// can no longer see.</summary>
+    private string? _selectionAnchor;
+
     /// <summary>What to say about the last keyboard move, if there was one.</summary>
     private string? _announcement;
 
@@ -299,6 +311,13 @@
     {
         ResolveDeleteFocus();
 
+        // Rebuilt once per parameter change rather than asked once per row: the
+        // set arrives as a collection, and a list of twenty rows would otherwise
+        // walk it twenty times to answer the same question.
+        _selected = SelectionEnabled
+            ? new HashSet<string>(SelectedIds, StringComparer.Ordinal)
+            : [];
+
         var statuses = new Dictionary<string, TaskChainStatus>(StringComparer.Ordinal);
         _nextId = null;
 
@@ -351,6 +370,10 @@
                    BodyLabel="@BodyLabel"
                    Status="@StatusOf(task)"
                    Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
+                   Selectable="@SelectionEnabled"
+                   SelectionChecked="@_selected.Contains(task.Id)"
+                   SelectionActive="@(_selected.Count > 0)"
+                   SelectionChanged="@SelectionRequest"
                    Draggable="@(Reorderable && !task.Done)"
                    Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"
                    RowElementId="@RowElementId(task)"
@@ -376,6 +399,38 @@
 
     [Parameter]
     public string? SelectedId { get; set; }
+
+    /// <summary>
+    /// Whether the rows carry a selection gutter.
+    /// <para>
+    /// Off by default, and that is not caution: a gutter on every list in the
+    /// product would spend a tab stop and a column of chrome per row on lists
+    /// that have nothing to do with more than one thing at a time.
+    /// </para>
+    /// <para>
+    /// Independent of <see cref="SelectedId"/> on purpose. That one is "which row
+    /// is open beside the list", a single answer that drives a detail pane; this
+    /// is a set of rows a reader is about to act on together, and the two are
+    /// live at the same time.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool SelectionEnabled { get; set; }
+
+    /// <summary>Which rows are picked. The host's set, held by the host — a list
+    /// that kept its own copy would disagree with whatever the host is about to
+    /// write to.</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> SelectedIds { get; set; } = [];
+
+    /// <summary>Raised with the whole set rather than the difference, on the
+    /// terms <see cref="OnReorder"/> already sets: what the reader asked for is
+    /// reported and the host applies it. The whole set because a Shift press
+    /// changes an unbounded number of rows at once, and a host asked to replay a
+    /// range would need the rendered order — which is exactly what it does not
+    /// have.</summary>
+    [Parameter]
+    public EventCallback<IReadOnlyCollection<string>> SelectedIdsChanged { get; set; }
 
     [Parameter]
     public EventCallback<string> OnToggle { get; set; }
@@ -655,6 +710,86 @@
     /// wrapper, and a list with no <see cref="OnDelete"/> draws no bins at all.</summary>
     private EventCallback<string> DeleteRequest =>
         OnDelete.HasDelegate ? EventCallback.Factory.Create<string>(this, DeleteAsync) : default;
+
+    /// <summary>Which rows get a gutter, shaped exactly like
+    /// <see cref="DeleteRequest"/>: an empty callback rather than a method group,
+    /// so a row asking <c>HasDelegate</c> is asking about the host rather than
+    /// about this wrapper — and a list with nothing listening draws no boxes at
+    /// all.</summary>
+    private EventCallback<TaskSelectionToggle> SelectionRequest =>
+        SelectedIdsChanged.HasDelegate
+            ? EventCallback.Factory.Create<TaskSelectionToggle>(this, ToggleSelectionAsync)
+            : default;
+
+    /// <summary>
+    /// The rows a range may span: the ones actually on screen, in the order they
+    /// are drawn.
+    /// <para>
+    /// The rendered order rather than <c>Tasks</c>, because with finished rows
+    /// folded into their own section the two differ — the same reason the keyboard
+    /// move walks <see cref="Open"/>. A range measured against the underlying
+    /// order would take rows from between two the reader can see with nothing in
+    /// between them.
+    /// </para>
+    /// <para>
+    /// The Completed section counts only while it is open. A shut fold is rows
+    /// nobody can press, so a range that reached into it would pick up work the
+    /// reader has no way of knowing they had selected.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<TaskRow> SelectableOrder =>
+        _showCompleted ? [.. Open, .. Completed] : Open;
+
+    /// <summary>
+    /// A box having been pressed, turned into the set the host now holds.
+    /// <para>
+    /// Plain, it is this row. With Shift and an anchor behind it, every row from
+    /// the anchor to here takes the state this box now reads as — the state
+    /// rather than a flip, so the row the reader actually clicked agrees with its
+    /// own tick and the run comes out uniform instead of inverted down the
+    /// middle.
+    /// </para>
+    /// <para>
+    /// The anchor moves either way, because a range is itself a press: a reader
+    /// extending twice in a row means "from where I just got to", not "from where
+    /// I started three gestures ago".
+    /// </para>
+    /// </summary>
+    private async Task ToggleSelectionAsync(TaskSelectionToggle toggle)
+    {
+        var selected = new HashSet<string>(_selected, StringComparer.Ordinal);
+        var order = SelectableOrder;
+
+        var anchor = toggle.Range && _selectionAnchor is { } previous
+            ? IndexOf(order, previous)
+            : -1;
+
+        var pressed = IndexOf(order, toggle.Id);
+
+        if (anchor >= 0 && pressed >= 0)
+        {
+            var from = Math.Min(anchor, pressed);
+            var to = Math.Max(anchor, pressed);
+
+            for (var index = from; index <= to; index++)
+            {
+                if (toggle.Selected) selected.Add(order[index].Id);
+                else selected.Remove(order[index].Id);
+            }
+        }
+        else if (toggle.Selected)
+        {
+            selected.Add(toggle.Id);
+        }
+        else
+        {
+            selected.Remove(toggle.Id);
+        }
+
+        _selectionAnchor = toggle.Id;
+
+        await SelectedIdsChanged.InvokeAsync([.. selected]);
+    }
 
     /// <summary>
     /// A row the reader asked to be rid of. Reported, never applied — the host owns

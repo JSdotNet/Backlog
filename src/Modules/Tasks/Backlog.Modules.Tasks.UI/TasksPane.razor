@@ -158,6 +158,38 @@
                     </div>
                 </div>
 
+                @* Between the filters and the list, and only once something is
+                   picked. Above the rows rather than floating over them: the bar is
+                   about a set the reader assembled out of that column, and a
+                   docked bar keeps the column's own scroll intact.
+
+                   Nothing at all with nothing picked, which is what makes the
+                   gutter the way in: a bar that was always there would be a row of
+                   controls that apply to nothing, at the top of the surface a
+                   reader came to scan.
+
+                   SelectionBar and not a bar of this pane's own. The count, the
+                   live region, the way out and the indeterminate select-all are
+                   the four things `.design/interaction-guidelines.md#focus-and-selection`
+                   asks for by name, and they are the same four for every list in
+                   the product. *@
+                @if (State.SelectionCount > 0)
+                {
+                    <SelectionBar Count="@State.SelectionCount"
+                                  Total="@State.FilteredRows.Count"
+                                  ItemNoun="task"
+                                  AriaLabel="Selected tasks"
+                                  ActionsLabel="Apply to the selected tasks"
+                                  SelectAllChanged="OnSelectAllChanged"
+                                  OnClear="OnClearSelection"
+                                  CssClass="backlog-bulk-bar"
+                                  TestId="bulk-bar">
+                        <Actions>
+                            @RenderBulkActions()
+                        </Actions>
+                    </SelectionBar>
+                }
+
                 @if (State.FilteredRows.Count == 0)
                 {
                     @* "You have written nothing" and "your filters match nothing" are
@@ -203,6 +235,9 @@
                                   Tasks="@EntryTasks()"
                                   Universe="@DependencyUniverse()"
                                   SelectedId="@SelectedTaskId"
+                                  SelectionEnabled="true"
+                                  SelectedIds="@State.SelectedIds"
+                                  SelectedIdsChanged="OnSelectionChanged"
                                   OnSelectedTabForward="MoveFocusToDetailAsync"
                                   OnSelected="OnEntrySelectedAsync"
                                   OnToggle="OnEntryToggledAsync"
@@ -260,6 +295,16 @@
        reports; not auto-dismissed, because "3 created, 1 updated" is exactly the
        kind of line somebody opened the dialog to go and check against the list. *@
     <Alert Message="@_importMessage" BaseClass="import-plan-result" Role="status" TestId="import-plan-result" />
+
+    @* What the last bulk change did, in the same shape and the same place the
+       import result already reports from — one field on twenty rows is a batch
+       like an import is, and a reader who asked for one is owed the same
+       sentence.
+
+       Its own alert rather than a shared one, because the two outlive each other:
+       an import result is something the reader opened a dialog to go and check
+       against the list, and a bulk edit landing meanwhile must not wipe it. *@
+    <Alert Message="@_bulkMessage" BaseClass="import-plan-result" Role="status" TestId="bulk-result" />
 </section>
 
 <ImportPlanDialog @ref="_importDialog"
@@ -482,7 +527,11 @@
     /// wait on it, so nothing will ever look it up.
     /// </para>
     /// </summary>
-    private static string EntryTaskId(EntryRow row) => (row.Id ?? row.Key).ToString();
+    /// <summary>The row's own answer now, not the pane's. It moved onto
+    /// <c>EntryRow</c> when the picked set started keying off it: the list's rows,
+    /// the detail pane's selection and the bulk selection all name a row this way,
+    /// and two spellings of it would be two sets that never intersect.</summary>
+    private static string EntryTaskId(EntryRow row) => row.TaskId;
 
     private string? SelectedTaskId => State.SelectedRow is { } row ? EntryTaskId(row) : null;
 
@@ -665,6 +714,310 @@
                             OnChanged="value => OnStatusChangedAsync(row, value)" />
         </span>;
 
+    // --- The bulk bar ------------------------------------------------------
+
+    /// <summary>
+    /// The eight fields a reader can change across a whole selection, in the
+    /// order the detail pane states them: what it is filed against, where it has
+    /// got to, how it ranks, what kind of thing it is, then the three dates, then
+    /// its labels.
+    /// <para>
+    /// Every one of them is a control the library already ships and the pane
+    /// already uses elsewhere — nothing here is a second implementation of a
+    /// selector (`.github/instructions/ui-components.instructions.md`). Three of
+    /// them are <c>SelectField</c> rather than the ready-made
+    /// <c>StatusSelector</c>, <c>PrioritySelector</c> and <c>EnumSelect</c>: those
+    /// three draw the value they currently hold, and this bar holds none — a
+    /// select opening on "medium" would be claiming a ranking the selection does
+    /// not have, and the value already showing could not then be picked. The
+    /// detail pane reaches for <c>SelectField</c> for type, priority and effort
+    /// for a related reason, so this is the pane's own convention rather than a
+    /// departure from it.
+    /// </para>
+    /// <para>
+    /// Clearing is offered on exactly the three fields that have an absent state:
+    /// due date, reminder and My Day. Status, priority and type are set-only,
+    /// because there is no "no status" for an entry to be in — the same argument
+    /// that leaves the detail pane's priority row without a ✕.
+    /// </para>
+    /// <para>
+    /// Repository is set-only too, and it <em>replaces</em> every target rather
+    /// than editing one. See <c>TasksDesktopState.BulkChangeRepositoryAsync</c>.
+    /// </para>
+    /// <para>
+    /// Tags are the one field with two acts, because they are the one field that
+    /// is a set: adding to twenty rows and taking one name off twenty rows are
+    /// different questions, and neither is "replace what is there". The removal
+    /// options are scoped to what the selection actually wears — an option that
+    /// could not remove anything is an option that does nothing.
+    /// </para>
+    /// </summary>
+    private RenderFragment RenderBulkActions() =>
+        @<text>
+        @if (KnowledgeRepositories.Count > 0)
+        {
+            <RepositorySelector CurrentValue=""
+                                Options="@RepositoryOptions()"
+                                Label="Set the repository of the selected tasks"
+                                EmptyLabel="Repository"
+                                TestId="bulk-repo"
+                                OnChanged="OnBulkRepositoryAsync" />
+        }
+
+        <SelectField CurrentValue=""
+                     Options="@StatusSelectorOptions()"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Status"
+                     Label="Set the status of the selected tasks"
+                     TestId="bulk-status"
+                     CssClass="entry-doc__schedule-select"
+                     OnChanged="OnBulkStatusAsync" />
+
+        <SelectField CurrentValue=""
+                     Options="@PrioritySelectorOptions()"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Priority"
+                     Label="Set the priority of the selected tasks"
+                     TestId="bulk-priority"
+                     CssClass="entry-doc__schedule-select"
+                     OnChanged="OnBulkPriorityAsync" />
+
+        <SelectField CurrentValue=""
+                     Options="@TypeSelectorOptions()"
+                     IncludeEmptyOption="true"
+                     EmptyLabel="Type"
+                     Label="Set the type of the selected tasks"
+                     TestId="bulk-type"
+                     CssClass="entry-doc__schedule-select"
+                     OnChanged="OnBulkTypeAsync" />
+
+        @* Two buttons rather than a toggle, and that is the difference between a
+           row and a set: a toggle has to read as pressed or not, and half a
+           selection being in My Day is neither. So the reader says which way
+           rather than being shown a state that cannot be true. *@
+        <span class="backlog-bulk__pair">
+            <AppButton Size="ButtonSize.Small"
+                       TestId="bulk-myday-set"
+                       OnClick="OnBulkMyDaySetAsync">
+                Add to My Day
+            </AppButton>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="bulk-myday-clear"
+                       OnClick="OnBulkMyDayClearAsync">
+                Remove from My Day
+            </AppButton>
+        </span>
+
+        @* @onchange rather than ValueChanged, for the reason the detail pane's own
+           date field gives: a half-typed date raises input events that read as
+           empty, and empty here would clear the date on every selected row while
+           somebody was still typing it. A date commits when it is a date. *@
+        <span class="backlog-bulk__pair">
+            <TextField Bare="true"
+                       Type="date"
+                       AriaLabel="Set the due date of the selected tasks"
+                       InputCssClass="entry-doc__schedule-input"
+                       data-testid="bulk-due-input"
+                       Value=""
+                       @onchange="OnBulkDuePickedAsync" />
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       AriaLabel="Clear the due date of the selected tasks"
+                       TestId="bulk-due-clear"
+                       OnClick="OnBulkDueClearAsync">
+                Clear due date
+            </AppButton>
+        </span>
+
+        <span class="backlog-bulk__pair">
+            <TextField Bare="true"
+                       Type="datetime-local"
+                       AriaLabel="Set the reminder on the selected tasks"
+                       InputCssClass="entry-doc__schedule-input"
+                       data-testid="bulk-remind-input"
+                       Value=""
+                       @onchange="OnBulkReminderPickedAsync" />
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       AriaLabel="Clear the reminder on the selected tasks"
+                       TestId="bulk-remind-clear"
+                       OnClick="OnBulkReminderClearAsync">
+                Clear reminder
+            </AppButton>
+        </span>
+
+        @* Picked first, applied on the button. Unlike every other control here,
+           adding tags is naturally more than one answer — so the chips
+           accumulate and one press writes them, rather than the reader paying a
+           save per row per tag. *@
+        <span class="backlog-bulk__pair">
+            <TagMultiSelect Options="@BulkTagOptions()"
+                            SelectedValues="@_bulkTags"
+                            SelectedValuesChanged="tags => _bulkTags = tags"
+                            AllowCreate="true"
+                            Placeholder="Add tags"
+                            CssClass="entry-doc__tag-picker"
+                            TestId="bulk-tags-add" />
+            <AppButton Size="ButtonSize.Small"
+                       Disabled="@(_bulkTags.Count == 0)"
+                       TestId="bulk-tags-apply"
+                       OnClick="OnBulkAddTagsAsync">
+                Add tags
+            </AppButton>
+        </span>
+
+        @if (SelectionTagOptions() is { Count: > 0 } removable)
+        {
+            <SelectField CurrentValue=""
+                         Options="@removable"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="Remove tag"
+                         Label="Remove a tag from the selected tasks"
+                         TestId="bulk-tag-remove"
+                         CssClass="entry-doc__schedule-select"
+                         OnChanged="OnBulkRemoveTagAsync" />
+        }
+        </text>;
+
+    /// <summary>What the list reported, handed straight to the state — which
+    /// prunes it to the rows actually in view on the way in.</summary>
+    private void OnSelectionChanged(IReadOnlyCollection<string> ids) => State.SetSelection(ids);
+
+    private void OnSelectAllChanged(bool selected) => State.SetSelectAllVisible(selected);
+
+    /// <summary>Leaving the selection puts the bar's own sentence away with it.
+    /// A result about rows nobody is looking at any more is a line the reader has
+    /// to work out the subject of.</summary>
+    private void OnClearSelection()
+    {
+        State.ClearSelection();
+        _bulkMessage = null;
+        _bulkTags = [];
+    }
+
+    /// <summary>Every tag anything in the backlog uses, plus the roadmap's — the
+    /// same vocabulary the detail pane's picker offers, without the one-entry
+    /// scoping that picker has, because a bulk add is not about one entry.</summary>
+    private IReadOnlyList<SelectorOption> BulkTagOptions() =>
+        [.. State.Rows
+            .SelectMany(row => row.PreviewMetadataTags)
+            .Concat(State.RoadmapTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .Select(tag => new SelectorOption(tag, tag))];
+
+    /// <summary>The tags the selection is actually wearing, which is the only set
+    /// removing one from it can honestly offer.</summary>
+    private IReadOnlyList<SelectorOption> SelectionTagOptions() =>
+        [.. State.SelectedRows
+            .SelectMany(row => row.PreviewMetadataTags)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .Select(tag => new SelectorOption(tag, tag))];
+
+    private Task OnBulkRepositoryAsync(string? alias) =>
+        ApplyBulkAsync(() => State.BulkChangeRepositoryAsync(alias));
+
+    private Task OnBulkStatusAsync(string? value) =>
+        Enum.TryParse<EntryStatus>(value, out var status)
+            ? ApplyBulkAsync(() => State.BulkChangeStatusAsync(status))
+            : Task.CompletedTask;
+
+    private Task OnBulkPriorityAsync(string? value) =>
+        Enum.TryParse<Priority>(value, out var priority)
+            ? ApplyBulkAsync(() => State.BulkChangePriorityAsync(priority))
+            : Task.CompletedTask;
+
+    private Task OnBulkTypeAsync(string? value) =>
+        Enum.TryParse<EntryType>(value, out var type)
+            ? ApplyBulkAsync(() => State.BulkChangeTypeAsync(type))
+            : Task.CompletedTask;
+
+    private Task OnBulkMyDaySetAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(Today));
+
+    private Task OnBulkMyDayClearAsync() => ApplyBulkAsync(() => State.BulkChangeMyDayAsync(null));
+
+    private Task OnBulkDuePickedAsync(ChangeEventArgs e) =>
+        DateOnly.TryParseExact(
+            e.Value?.ToString() ?? string.Empty,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var due)
+            ? ApplyBulkAsync(() => State.BulkChangeDueAsync(due))
+            : Task.CompletedTask;
+
+    private Task OnBulkDueClearAsync() => ApplyBulkAsync(() => State.BulkChangeDueAsync(null));
+
+    private Task OnBulkReminderPickedAsync(ChangeEventArgs e) =>
+        DateTime.TryParseExact(
+            e.Value?.ToString() ?? string.Empty,
+            ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"],
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var remindAt)
+            ? ApplyBulkAsync(() => State.BulkChangeReminderAsync(remindAt))
+            : Task.CompletedTask;
+
+    private Task OnBulkReminderClearAsync() => ApplyBulkAsync(() => State.BulkChangeReminderAsync(null));
+
+    private async Task OnBulkAddTagsAsync()
+    {
+        var picked = _bulkTags;
+
+        await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked));
+
+        // Emptied once the write has happened rather than before it: the chips are
+        // what the reader is looking at while the batch runs, and clearing first
+        // would take the subject of the sentence away mid-save.
+        _bulkTags = [];
+    }
+
+    private Task OnBulkRemoveTagAsync(string? tag) =>
+        string.IsNullOrWhiteSpace(tag)
+            ? Task.CompletedTask
+            : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
+
+    /// <summary>Runs one bulk change and says what it did. Nothing selected
+    /// leaves the last sentence alone rather than replacing it with a line about
+    /// no rows.</summary>
+    private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
+    {
+        var outcome = await change();
+
+        if (outcome.Total == 0) return;
+
+        _bulkMessage = BulkMessage(outcome);
+    }
+
+    /// <summary>
+    /// What a bulk change did, in one sentence.
+    /// <para>
+    /// Three clauses because there are three honest outcomes, and a reader who
+    /// asked for one field on twenty rows is owed all of them: "8 tasks updated"
+    /// on a batch where twelve were skipped would be the pane claiming work it did
+    /// not do. A refusal is its own clause rather than a different sentence, so
+    /// the count of what <em>did</em> land never goes missing behind an error.
+    /// </para>
+    /// </summary>
+    private static string BulkMessage(BulkEditOutcome outcome)
+    {
+        var clauses = new List<string>
+        {
+            outcome.Updated > 0
+                ? $"{outcome.Updated} {TaskWord(outcome.Updated)} updated"
+                : "No tasks changed"
+        };
+
+        if (outcome.Unchanged > 0) clauses.Add($"{outcome.Unchanged} already up to date");
+        if (outcome.Failures.Count > 0) clauses.Add($"{outcome.Failures.Count} could not be saved");
+
+        return string.Join(", ", clauses) + ".";
+    }
+
+    private static string TaskWord(int count) => count == 1 ? "task" : "tasks";
+
     /// <summary>
     /// Which repository a row belongs to, as the identity mark's classes.
     /// <para>
@@ -777,6 +1130,17 @@
     private bool _importOpen;
     private bool _importBusy;
     private string? _importMessage;
+
+    // --- The bulk bar's own two pieces of state ----------------------------
+
+    /// <summary>What the last bulk change did. Held here rather than in the state
+    /// object because it is a sentence about a gesture on this surface, not a fact
+    /// about the entries — the same reason the import result is held here.</summary>
+    private string? _bulkMessage;
+
+    /// <summary>The tags picked but not yet applied. A draft, so it lives with the
+    /// control that is collecting it.</summary>
+    private IReadOnlyList<string> _bulkTags = [];
 
     private void OnOpenImport()
     {

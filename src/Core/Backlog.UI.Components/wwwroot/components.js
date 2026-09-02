@@ -507,6 +507,10 @@
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
         '.task-item__actions, .task-item__fold, .task-item__rename,' +
+        // The whole gutter and not just the input inside it. The box is padded
+        // out to a comfortable target, and a press landing on that padding would
+        // start dragging the row a reader was trying to tick.
+        '.task-item__gutter,' +
         // A tag that filters is a control, and a press on a control is a press on
         // that control. Only the button form is named: an inert tag is text on the
         // row like the title is, and text on the row is draggable.

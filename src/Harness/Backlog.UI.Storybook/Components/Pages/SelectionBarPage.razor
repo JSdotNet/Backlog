@@ -1,0 +1,128 @@
+@page "/selection-bar"
+
+<PageTitle>Selection bar — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Selection bar"
+           Summary="What a list puts up once a reader has picked more than one row: how many, a box that takes the rest, a way back out, and a slot the host fills with whatever it can do to them all at once. Chrome only — the bar knows a count and a total and nothing about what was selected, which is what lets one implementation serve every list in the product."
+           Guidelines="@Rules">
+
+    <Story Name="SelectionBar"
+           Description="A partial selection, which is the state the bar spends most of its life in. The count is a live region because it changes without the reader having touched it — one Shift press takes eight rows — and the select-all box reads as mixed rather than as either state.
+
+The acts are the host's. Nothing about them is this component's business, which is why they arrive as a render fragment rather than as a list of fields."
+           Code="@BarCode">
+        <div class="sb-stack" data-testid="selection-bar-partial">
+            <SelectionBar Count="@_count"
+                          Total="8"
+                          ItemNoun="task"
+                          AriaLabel="Selected tasks"
+                          ActionsLabel="Apply to the selected tasks"
+                          SelectAllChanged="OnSelectAll"
+                          OnClear="() => _count = 0"
+                          TestId="selection-bar-demo">
+                <Actions>
+                    <SelectField CurrentValue=""
+                                 Options="@Statuses"
+                                 IncludeEmptyOption="true"
+                                 EmptyLabel="Status"
+                                 Label="Set the status of the selected tasks"
+                                 TestId="selection-bar-demo-status"
+                                 OnChanged="value => _last = value" />
+                    <AppButton Size="ButtonSize.Small" OnClick="OnMyDay">
+                        Add to My Day
+                    </AppButton>
+                </Actions>
+            </SelectionBar>
+            <p class="sb-state" data-testid="selection-bar-demo-echo">@Echo</p>
+        </div>
+    </Story>
+
+    <Story Name="Partial and whole"
+           Description="The two states of the select-all box, one under the other so the boxes can be compared rather than described. Some of them shows a bar across a filled box — the indeterminate state `.design/interaction-guidelines.md#focus-and-selection` asks for by name; all of them shows an ordinary tick.
+
+Worth looking at the box and not only the count, because these two were indistinguishable until the mixed state was drawn on the box: `aria-checked=“mixed”` was correct all along, and the only rule keyed off `checkbox--mixed` italicised a label that a bar with no visible label never renders. A partial selection therefore looked plainly unchecked to anybody not using a screen reader.
+
+The count also reads in the singular at one — “1 items selected” is the shape of a number nobody proof-read — and the noun is the host's: the library counts “items” because it has no vocabulary of its own, so a list of entries says “tasks” and a list of files says “files”."
+           Code="@CountCode">
+        <div class="sb-stack">
+            <p class="sb-state">1 of 8 — partial, so the box shows a bar</p>
+            <SelectionBar Count="1" Total="8" ItemNoun="task" TestId="selection-bar-one" />
+
+            <p class="sb-state">4 of 8 — still partial, whatever the count</p>
+            <SelectionBar Count="4" Total="8" ItemNoun="task" TestId="selection-bar-some" />
+
+            <p class="sb-state">8 of 8 — whole, so the box shows a tick</p>
+            <SelectionBar Count="8" Total="8" ItemNoun="task" TestId="selection-bar-all" />
+
+            <p class="sb-state">3 of 9, with no noun given</p>
+            <SelectionBar Count="3" Total="9" TestId="selection-bar-default" />
+        </div>
+    </Story>
+
+    <Story Name="Nothing but the chrome"
+           Description="With no Actions the bar draws no group for them at all, rather than an empty element with an aria-label about nothing. It is still a usable bar: the count and the way out of the selection are structural, so a surface that has no bulk acts yet still tells the reader what they have picked and lets them put it down."
+           Code="@BareCode">
+        <SelectionBar Count="2" Total="5" ItemNoun="row" TestId="selection-bar-bare" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private int _count = 3;
+    private string? _last;
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#focus-and-selection", "The four things a bulk selection owes a reader — a live count, a clear-selection control, an indeterminate select-all, and selection drawn distinctly from hover and focus."),
+        new("accessibility.md#screen-reader--announcements", "Why the count is a live region rather than a number that changes quietly."),
+        new("design-principles.md#low-chrome-content-first", "Why the bar is not on screen until something is picked.")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> Statuses =
+    [
+        new("draft", "draft"),
+        new("ready", "ready"),
+        new("in-progress", "in progress"),
+        new("done", "done")
+    ];
+
+    private string Echo => _last is null
+        ? "(nothing applied yet)"
+        : $"the host was handed \"{_last}\"";
+
+    private void OnSelectAll(bool selected) => _count = selected ? 8 : 0;
+
+    private void OnMyDay() => _last = "Add to My Day";
+
+    private const string BarCode = """
+        <SelectionBar Count="@_selected.Count"
+                      Total="@_rows.Count"
+                      ItemNoun="task"
+                      SelectAllChanged="OnSelectAll"
+                      OnClear="ClearSelection">
+            <Actions>
+                <SelectField CurrentValue="" Options="@Statuses" IncludeEmptyOption="true"
+                             EmptyLabel="Status" Label="Set the status of the selected tasks"
+                             OnChanged="OnBulkStatusAsync" />
+                <AppButton Size="ButtonSize.Small" OnClick="OnBulkMyDayAsync">Add to My Day</AppButton>
+            </Actions>
+        </SelectionBar>
+        """;
+
+    private const string CountCode = """
+        @* Partial: Count is above zero and under Total, so the select-all box is
+           drawn with a bar rather than a tick. *@
+        <SelectionBar Count="1" Total="8" ItemNoun="task" />
+        <SelectionBar Count="4" Total="8" ItemNoun="task" />
+
+        @* Whole. *@
+        <SelectionBar Count="8" Total="8" ItemNoun="task" />
+
+        @* No noun given, so the library counts what it can honestly call them. *@
+        <SelectionBar Count="3" Total="9" />
+        """;
+
+    private const string BareCode = """
+        <SelectionBar Count="2" Total="5" ItemNoun="row" />
+        """;
+}
