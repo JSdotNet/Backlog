@@ -347,6 +347,14 @@ html, body {
     max-width: 28rem;
 }
 
+/* A knowledge side pane's real width, which is where a file header runs out of
+   room first: the pane is a 24rem–36rem track and an open knowledge menu takes
+   a bite out of it, so the header the file's own record is drawn in lands around
+   here. `.sb-narrow` is over half again as wide and flattered the header. */
+.sb-knowledge-pane {
+    max-width: 17rem;
+}
+
 /* A navigation pane's real width. A menu shown at the full width of this page is
    a menu nobody will ever see: in the app it lives in a gutter beside the thing
    it opens, and how a row truncates at 16rem is most of what there is to review
