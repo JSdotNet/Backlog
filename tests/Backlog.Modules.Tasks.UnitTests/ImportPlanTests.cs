@@ -75,8 +75,8 @@ public sealed class ImportPlanTests
     /// <summary>
     /// A plan states what each of its entries is, not only that it is a prompt.
     /// The type token is read off each entry's own metadata line, so one plan can
-    /// mix a prompt to run, ordinary work to do, a captured idea and a follow-up
-    /// without Import flattening them into one kind.
+    /// mix a prompt to run, ordinary work to do and a captured idea without Import
+    /// flattening them into one kind.
     /// </summary>
     [Fact]
     public async Task Each_entrys_type_comes_from_its_own_metadata_line()
@@ -86,15 +86,42 @@ public sealed class ImportPlanTests
         const string plan =
             "# A prompt to run\n`prompt` `#myplan`\n\n"
             + "# Work to do by hand\n`task` `#myplan`\n\n"
-            + "# Something to consider\n`idea` `#myplan`\n\n"
-            + "# Something to come back to\n`follow-up` `#myplan`\n";
+            + "# Something to consider\n`idea` `#myplan`\n";
 
         var result = await Import(store, plan);
 
         Assert.Equal(EntryType.Prompt, TypeOf(store, result, "A prompt to run"));
         Assert.Equal(EntryType.Task, TypeOf(store, result, "Work to do by hand"));
         Assert.Equal(EntryType.Idea, TypeOf(store, result, "Something to consider"));
-        Assert.Equal(EntryType.FollowUp, TypeOf(store, result, "Something to come back to"));
+    }
+
+    /// <summary>
+    /// A plan written before <c>follow-up</c> stopped being a type still imports.
+    /// <para>
+    /// Import reuses the entry text grammar rather than parsing a language of its
+    /// own (ADR 0004), so it inherits the retired token along with everything else:
+    /// the word names no type any more, and the entry falls to the default the way
+    /// it would for any word the grammar does not know. A plan is the most likely
+    /// place for that text to survive — it is written once, pasted later, and
+    /// nobody re-reads it in between, so importing one must not fail or produce an
+    /// entry nobody asked for.
+    /// </para>
+    /// <para>
+    /// That the token is also dropped from the metadata line rather than left
+    /// beside the one that replaced it is the grammar's job and is asserted where
+    /// the grammar is, in <c>EntryTextParserTests</c>. There is nothing to assert
+    /// here: <c>TaskItem</c> holds no raw text, so this level can only see the type
+    /// the word resolved to.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_plan_carrying_the_retired_follow_up_token_imports_as_a_task()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var result = await Import(store, "# Something to come back to\n`follow-up` `#myplan`\n");
+
+        Assert.Equal(EntryType.Task, TypeOf(store, result, "Something to come back to"));
     }
 
     /// <summary>

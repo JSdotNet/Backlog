@@ -26,7 +26,7 @@ Sigils (no colon; order sigils before named tokens):
 
 | Sigil | Kind | Values |
 |---|---|---|
-| *(none)* | type | `prompt`, `task`, `idea`, `follow-up` |
+| *(none)* | type | `prompt`, `task`, `idea` |
 | `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` |
 | `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
 | `@` | area | any slug, e.g. `@repos` |

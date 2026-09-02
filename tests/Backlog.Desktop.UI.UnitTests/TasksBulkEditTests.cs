@@ -261,10 +261,13 @@ public sealed class TasksBulkEditTests
         using var host = await TasksPaneHost.CreateAsync();
         var (pane, one, two) = await TwoPickedAsync(host);
 
-        await Select(pane, "bulk-type").ChangeAsync(new() { Value = nameof(EntryType.FollowUp) });
+        // Prompt because the two rows start as a task and an idea, so neither is
+        // already what the bulk change sets — an assertion that passed on a row
+        // the edit never had to touch would prove nothing about that row.
+        await Select(pane, "bulk-type").ChangeAsync(new() { Value = nameof(EntryType.Prompt) });
 
-        Assert.Equal(EntryType.FollowUp, one.PreviewType);
-        Assert.Equal(EntryType.FollowUp, two.PreviewType);
+        Assert.Equal(EntryType.Prompt, one.PreviewType);
+        Assert.Equal(EntryType.Prompt, two.PreviewType);
 
         Assert.Equal(Priority.High, one.PreviewPriority);
         Assert.Equal(Priority.Low, two.PreviewPriority);
