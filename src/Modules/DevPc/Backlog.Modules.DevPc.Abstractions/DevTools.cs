@@ -218,6 +218,30 @@ public static class DevToolCommands
             "--nowarn"
         ]);
 
+    /// <summary>
+    /// The local source index, pulled before either listing reads it.
+    ///
+    /// <para>Both batched listings answer out of that index and nothing was ever
+    /// refreshing it, so a machine whose index predated a package's new manifest
+    /// reported the old version in the Available column and omitted the package
+    /// from <c>winget upgrade</c> entirely — a row that read as current about a
+    /// package that was not.</para>
+    ///
+    /// <para>Named to the same source every other call here names, because
+    /// updating every configured source is a per-source network round trip for
+    /// answers no row asks about.</para>
+    ///
+    /// <para>Spelled out rather than spread from <see cref="WingetQuiet"/>:
+    /// <c>source update</c> takes only <c>--wait</c>, <c>--logs</c>,
+    /// <c>--verbose</c>, <c>--nowarn</c>, <c>--disable-interactivity</c>,
+    /// <c>--proxy</c> and <c>--no-proxy</c>. The
+    /// <c>--accept-source-agreements</c> that every other winget call here needs
+    /// is rejected outright by this one — argument parsing fails before the pull
+    /// is attempted, which would fail the refresh on every run.</para>
+    /// </summary>
+    public static DevToolCommandSpec WingetSourceUpdate() =>
+        new("winget", ["source", "update", "--name", WingetSource, "--disable-interactivity"]);
+
     /// <inheritdoc cref="DevToolCommandSpec.FileName" />
     public static DevToolCommandSpec VsCodeVersion() => new("code", ["--version"], Shell: true);
 
@@ -231,6 +255,60 @@ public static class DevToolCommands
     /// have to know which of the two it is doing.</summary>
     public static DevToolCommandSpec VsCodeInstallExtension(string id) =>
         new("code", ["--install-extension", id], Shell: true);
+
+    /// <summary>Which marketplaces Claude knows, which is what names the ones a
+    /// refresh has anything to pull.</summary>
+    public static DevToolCommandSpec ClaudeMarketplaceList(string cli) =>
+        new(cli, ["plugin", "marketplace", "list", "--json"]);
+
+    /// <summary>
+    /// One marketplace pulled to its remote tip.
+    ///
+    /// <para>The missing step behind the reported defect. Claude answers
+    /// <see cref="ClaudePluginList"/> out of its own clone of a marketplace and
+    /// installs out of that same clone, so a listing that never pulled it is a
+    /// listing about whatever the clone happened to hold — and an update offered
+    /// against a newer published version could not be delivered by the very
+    /// button that offered it.</para>
+    /// </summary>
+    public static DevToolCommandSpec ClaudeMarketplaceUpdate(string cli, string name) =>
+        new(cli, ["plugin", "marketplace", "update", name]);
+
+    /// <summary>What Claude has installed, at any scope, read after every
+    /// marketplace behind it has been pulled.</summary>
+    public static DevToolCommandSpec ClaudePluginList(string cli) =>
+        new(cli, ["plugin", "list", "--json"]);
+
+    /// <summary>
+    /// One mirror brought up to date with its remote, without touching the
+    /// working tree.
+    ///
+    /// <para>A fetch and not a pull: this runs inside a listing, and a listing
+    /// that moved the checkout would be changing the machine while reporting on
+    /// it. What the fetch leaves behind is <c>FETCH_HEAD</c>, which is the ref
+    /// <see cref="GitCommit"/> reads the available side out of.</para>
+    /// </summary>
+    public static DevToolCommandSpec GitFetch(string repoPath) =>
+        new("git", ["-C", repoPath, "fetch", "origin", "--quiet"]);
+
+    /// <summary>
+    /// The newest commit of one revision, optionally scoped to one subtree.
+    ///
+    /// <para>The scope is what makes a repository-backed row's two versions about
+    /// the row. Such an entry installs one folder out of a repository that carries
+    /// twenty of them, and unscoped the comparison moved every time anything at
+    /// all in that repository did — a pending update on a row whose artifacts had
+    /// not changed since the last one.</para>
+    ///
+    /// <para><paramref name="artifactPath"/> is expected in git's own form,
+    /// forward slashes and all: a backslash in a pathspec is an escape rather than
+    /// a separator. <see cref="DevToolRefresh.ArtifactPath"/> is what converts the
+    /// catalog's Windows spelling into it.</para>
+    /// </summary>
+    public static DevToolCommandSpec GitCommit(string repoPath, string revision, string? artifactPath) =>
+        new("git", string.IsNullOrWhiteSpace(artifactPath)
+            ? ["-C", repoPath, "log", "-1", "--format=%H", revision]
+            : ["-C", repoPath, "log", "-1", "--format=%H", revision, "--", artifactPath]);
 
     /// <summary>Where the marketplace answers what the CLI cannot: an extension's
     /// latest published version. There is no <c>code --list-outdated</c>, no
@@ -401,7 +479,39 @@ public sealed record DevToolHostState(
     bool Installed,
     string InstalledVersion,
     string AvailableVersion,
-    string Status);
+    string Status)
+{
+    /// <summary>Which mechanism answered <see cref="InstalledVersion" />.
+    ///
+    /// <para>Init-only with a default for the reason <see cref="DevToolInfo.Hosts" />
+    /// is: every state built positionally — the harness, the unsupported service,
+    /// every fixture — keeps compiling and keeps comparing exactly as it
+    /// did.</para></summary>
+    public DevToolVersionAuthority InstalledAuthority { get; init; } = DevToolVersionAuthority.Unattributed;
+
+    /// <inheritdoc cref="InstalledAuthority" />
+    public DevToolVersionAuthority AvailableAuthority { get; init; } = DevToolVersionAuthority.Unattributed;
+
+    /// <summary>Whether the two columns are about the same thing at all.
+    ///
+    /// <para><see cref="DevToolVersionAuthority.Unattributed" /> on either side is
+    /// "nobody said" and answers yes, so a state that predates attribution behaves
+    /// as it always did. Two authorities that were both named and differ answer no:
+    /// that is the <c>claude-desktop</c> row, where Installed came from Claude's
+    /// marketplace clone and Available from a live read of the source repository's
+    /// default branch, and the difference between them was two refs rather than a
+    /// pending update.</para></summary>
+    public bool ComparableAuthorities =>
+        InstalledAuthority is DevToolVersionAuthority.Unattributed
+        || AvailableAuthority is DevToolVersionAuthority.Unattributed
+        || InstalledAuthority == AvailableAuthority;
+
+    /// <summary>Whether this host has an update to offer: a real version
+    /// difference, on one authority. Anything else is a defect to report rather
+    /// than a button to press.</summary>
+    public bool ReportsUpdate =>
+        ComparableAuthorities && DevToolInfo.VersionDiffers(InstalledVersion, AvailableVersion);
+}
 
 public enum DevToolAction
 {
@@ -487,14 +597,14 @@ public sealed record DevToolInfo(
     public bool Installable { get; init; } = true;
 
     public bool UpdateAvailable => HostStates.Count > 0
-        ? HostStates.Any(state => VersionDiffers(state.InstalledVersion, state.AvailableVersion))
+        ? HostStates.Any(state => state.ReportsUpdate)
         : VersionDiffers(InstalledVersion, AvailableVersion);
 
     /// <summary>An update on <em>any</em> targeted host is an update to offer. One
     /// press acts on every host the entry targets, so a Claude plugin that is a
     /// version behind is worth a button even when the Copilot copy is current.</summary>
     public bool CanUpdate => Installable && ConfiguredEnabled && (HostStates.Count > 0
-        ? HostStates.Any(state => state.Installed && VersionDiffers(state.InstalledVersion, state.AvailableVersion))
+        ? HostStates.Any(state => state.Installed && state.ReportsUpdate)
         : Installed && UpdateAvailable);
 
     /// <summary>A tool this machine is configured to have and does not.
@@ -515,9 +625,15 @@ public sealed record DevToolInfo(
     ///
     /// <para>"Up to date" is a claim about something somebody found. When the
     /// lookup failed there is no version to have matched, and saying so is the
-    /// difference between a checked tool and an unchecked one.</para></summary>
+    /// difference between a checked tool and an unchecked one.</para>
+    ///
+    /// <para>A version read from an authority the installed column did not come
+    /// from does not count either. Two numbers that were never about the same ref
+    /// are not a lookup that answered — they are the row that reported an update
+    /// forever and could not have cleared it — so such a row says nothing was
+    /// looked up rather than picking whichever of the two suits it.</para></summary>
     public bool AvailableVersionKnown => HostStates.Count > 0
-        ? HostStates.Any(state => IsKnownVersion(state.AvailableVersion))
+        ? HostStates.Any(state => state.ComparableAuthorities && IsKnownVersion(state.AvailableVersion))
         : IsKnownVersion(AvailableVersion);
 
     /// <summary>Whether a string in a version column is a version somebody

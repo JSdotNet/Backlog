@@ -548,3 +548,148 @@ public class DevToolApplicationTests
         Assert.Equal(["/c", "code", "--install-extension", "x"], application.Install.LaunchArguments);
     }
 }
+
+/// <summary>
+/// The order a refresh reads its sources in, which is the half of "Check for
+/// updates" that decides whether either version column means anything.
+///
+/// <para>The pane re-read every source and refreshed none of them: no
+/// <c>plugin marketplace update</c> before <c>plugin list --json</c>, no
+/// <c>source update</c> before <c>winget list</c>, and no <c>fetch</c> before a
+/// repository row's two commits. Every column was therefore as old as whatever
+/// cache last happened to be written, and pressing the button changed nothing
+/// about that.</para>
+///
+/// <para>Asserted as an ordered sequence of specs rather than through the
+/// service, for the reason the argument lists above are: the ordering is the
+/// whole fix, and it is exactly the thing a mocked process would have agreed
+/// with either way.</para>
+/// </summary>
+public class DevToolRefreshPlanTests
+{
+    /// <summary>Every configured marketplace is pulled before Claude is asked what
+    /// it has installed. Claude answers that question out of its own marketplace
+    /// clone, so asking first is asking about the last refresh somebody else
+    /// happened to run.</summary>
+    [Fact]
+    public void A_claude_refresh_pulls_every_marketplace_before_asking_what_is_installed()
+    {
+        var steps = DevToolRefresh.ClaudePlugins("claude", ["jsdotnet-copilot", "anthropic-skills"]);
+
+        Assert.Equal(
+            [
+                "claude plugin marketplace list --json",
+                "claude plugin marketplace update jsdotnet-copilot",
+                "claude plugin marketplace update anthropic-skills",
+                "claude plugin list --json"
+            ],
+            steps.Select(Line));
+    }
+
+    /// <summary>A machine with no marketplace configured still reads what Claude
+    /// has, and still spends no call refreshing nothing.</summary>
+    [Fact]
+    public void A_claude_refresh_with_no_marketplaces_still_reads_what_is_installed() =>
+        Assert.Equal(
+            ["claude plugin marketplace list --json", "claude plugin list --json"],
+            DevToolRefresh.ClaudePlugins("claude", []).Select(Line));
+
+    /// <summary>
+    /// The source is updated before either listing is read. Both listings answer
+    /// out of the local source index, so a stale index reports a stale Available
+    /// column for every package at once.
+    ///
+    /// <para>The refresh step is asserted whole rather than by prefix, because a
+    /// prefix is what let it ship carrying <c>--accept-source-agreements</c>.
+    /// That flag is fine on every other winget call in
+    /// <see cref="DevToolCommands"/> and rejected outright by this one — the only
+    /// options <c>winget source update</c> takes are <c>--wait</c>,
+    /// <c>--logs</c>, <c>--verbose</c>, <c>--nowarn</c>,
+    /// <c>--disable-interactivity</c>, <c>--proxy</c> and <c>--no-proxy</c> — so
+    /// argument parsing failed before the pull was attempted and the winget half
+    /// of the refresh never happened, while
+    /// <c>StartsWith("winget source update")</c> passed.</para>
+    /// </summary>
+    [Fact]
+    public void A_winget_refresh_updates_the_source_before_reading_either_listing()
+    {
+        var steps = DevToolRefresh.WingetInventory().Select(Line).ToArray();
+
+        Assert.Equal("winget --version", steps[0]);
+        Assert.Equal("winget source update --name winget --disable-interactivity", steps[1]);
+        Assert.StartsWith("winget list", steps[2], StringComparison.Ordinal);
+        Assert.StartsWith("winget upgrade", steps[3], StringComparison.Ordinal);
+        Assert.Equal(4, steps.Length);
+    }
+
+    /// <summary>The remote is fetched before either commit is read, and the
+    /// remote side is read from what that fetch just wrote rather than from a
+    /// second network call that could answer about a different tip.</summary>
+    [Fact]
+    public void A_repository_refresh_fetches_before_it_compares_two_commits()
+    {
+        var steps = DevToolRefresh.Repository(@"C:\repos\copilot", artifactPath: null).Select(Line).ToArray();
+
+        Assert.Equal(
+            [
+                @"git -C C:\repos\copilot fetch origin --quiet",
+                @"git -C C:\repos\copilot log -1 --format=%H HEAD",
+                @"git -C C:\repos\copilot log -1 --format=%H FETCH_HEAD"
+            ],
+            steps);
+    }
+
+    /// <summary>
+    /// The subtree the row's artifacts actually come from scopes both commits.
+    ///
+    /// <para>This is the reported defect: <c>copilot-app-canvases</c> installs one
+    /// folder out of a repository that carries twenty plugins, and the mirror's
+    /// HEAD moves on every commit to any of them. Compared whole, the row
+    /// announced an update whenever anything at all changed in that repository —
+    /// which is why the machine "already had" the newer version.</para>
+    /// </summary>
+    [Fact]
+    public void A_repository_row_is_versioned_by_the_subtree_its_artifacts_come_from()
+    {
+        var steps = DevToolRefresh
+            .Repository(@"C:\repos\copilot", @"plugins\copilot-app\extensions")
+            .Select(Line)
+            .ToArray();
+
+        // Forward slashes: a backslash in a pathspec is an escape to git, not a
+        // separator, and the catalog is hand-written in Windows form.
+        Assert.Equal(@"git -C C:\repos\copilot log -1 --format=%H HEAD -- plugins/copilot-app/extensions", steps[1]);
+        Assert.Equal(@"git -C C:\repos\copilot log -1 --format=%H FETCH_HEAD -- plugins/copilot-app/extensions", steps[2]);
+    }
+
+    /// <summary>The two catalog fields nothing read. Whichever of them an entry
+    /// carries is the subtree its artifacts come from, and a row that reads
+    /// neither is comparing the whole repository against itself.</summary>
+    [Theory]
+    [InlineData(@"plugins\copilot-app\extensions", null, "plugins/copilot-app/extensions")]
+    [InlineData(null, @"plugins\guidelines\skills", "plugins/guidelines/skills")]
+    [InlineData(null, null, null)]
+    [InlineData("", "   ", null)]
+    public void The_artifact_subtree_comes_from_whichever_path_the_entry_declares(
+        string? extensionsPath,
+        string? skillsPath,
+        string? expected) =>
+        Assert.Equal(expected, DevToolRefresh.ArtifactPath(extensionsPath, skillsPath));
+
+    /// <summary>Every step of every plan is a spec, which is what puts its
+    /// arguments, exit code and captured output in the pane's transcript — the
+    /// only place a column that looks stale can be explained.</summary>
+    [Fact]
+    public void Every_refresh_step_is_a_loggable_command_spec()
+    {
+        var steps = DevToolRefresh.ClaudePlugins("claude", ["jsdotnet-copilot"])
+            .Concat(DevToolRefresh.WingetInventory())
+            .Concat(DevToolRefresh.Repository(@"C:\repos\copilot", "plugins"))
+            .ToArray();
+
+        Assert.All(steps, step => Assert.False(string.IsNullOrWhiteSpace(step.FileName)));
+        Assert.All(steps, step => Assert.NotEmpty(step.LaunchArguments));
+    }
+
+    private static string Line(DevToolCommandSpec spec) => string.Join(' ', new[] { spec.Command }.Concat(spec.Args));
+}

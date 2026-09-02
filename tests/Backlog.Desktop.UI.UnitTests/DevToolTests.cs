@@ -1150,13 +1150,39 @@ public class DevToolVersionComparisonTests
     public void A_version_that_is_not_a_dotted_number_compares_as_text(string installed, string available, bool expected) =>
         Assert.Equal(expected, DevToolInfo.VersionDiffers(installed, available));
 
-    /// <summary>A repository-backed row puts two short commits in the version
-    /// columns, and a commit that happens to be all digits is not a number: the
-    /// remote one sorting lower than the local one is a pending update, not a
-    /// machine that is ahead.</summary>
-    [Fact]
-    public void Two_commits_that_are_all_digits_still_differ() =>
-        Assert.True(DevToolInfo.VersionDiffers("9921470", "1234560"));
+    /// <summary>
+    /// The intended direction for two commits, stated rather than inferred.
+    ///
+    /// <para>Commits have no order, so "newer" is not a question this comparison
+    /// can answer about two of them. The rule is therefore inequality in either
+    /// direction: two different commits on the same authority mean the installed
+    /// artifacts are not the ones the source publishes, whichever sha happens to
+    /// sort lower. A commit that is all digits is included precisely so it does
+    /// not fall into the dotted-number ordering beside it — the remote one sorting
+    /// lower than the local one is still a pending update, not a machine ahead.
+    /// </para>
+    ///
+    /// <para>What keeps that from announcing an update forever is not this
+    /// comparison — it is that both commits now come from the same git mirror and
+    /// are scoped to the subtree the row's artifacts come from, so an unchanged
+    /// row's two shas are genuinely equal. See
+    /// <see cref="DevToolVersionAuthorityTests.A_repository_row_compares_the_mirror_against_itself" />.</para>
+    /// </summary>
+    [Theory]
+    [InlineData("9921470", "1234560")]
+    [InlineData("1234560", "9921470")]
+    [InlineData("c4652f3", "04a4a85")]
+    public void Two_different_commits_differ_in_either_direction(string installed, string available) =>
+        Assert.True(DevToolInfo.VersionDiffers(installed, available));
+
+    /// <summary>And the other half of that rule: the same commit twice is one
+    /// version. This is what an unchanged repository-backed row now reads, and
+    /// what it could not read while the two sides were the whole repository.</summary>
+    [Theory]
+    [InlineData("c4652f3")]
+    [InlineData("9921470")]
+    public void The_same_commit_twice_is_not_an_update(string sha) =>
+        Assert.False(DevToolInfo.VersionDiffers(sha, sha));
 
     [Theory]
     [InlineData("unknown", "1.2.3")]
@@ -1684,4 +1710,166 @@ public class ClaudeDesktopHostTests
 
         Assert.Equal(["claude", "claude-desktop"], hosts);
     }
+}
+
+/// <summary>
+/// Which mechanism answered each version column, and what a row is allowed to
+/// conclude from two of them.
+///
+/// <para>The reported defect: a Claude plugin's Installed came from
+/// <c>claude plugin list --json</c> — Claude's own marketplace clone — while its
+/// Available came from a live read of the source repository's default branch.
+/// Two different refs, so <c>claude-desktop</c> read 0.7.0 against 0.8.0
+/// permanently, and pressing Update could not clear it: the update installs from
+/// the clone, which is the side that said 0.7.0.</para>
+///
+/// <para>So a column now says where it came from, and two columns that did not
+/// come from the same authority are not a comparison. A row like that is a defect
+/// to report, never a pending update to offer.</para>
+/// </summary>
+public class DevToolVersionAuthorityTests
+{
+    /// <summary>The <c>claude-desktop</c> case, as it was: the two numbers differ
+    /// and they were never about the same thing.</summary>
+    [Fact]
+    public void Two_columns_from_two_authorities_are_never_an_update()
+    {
+        var tool = Plugin(new DevToolHostState(DevToolHosts.Claude, Installed: true, "0.7.0", "0.8.0", "Configured plugin")
+        {
+            InstalledAuthority = DevToolVersionAuthority.ClaudeMarketplace,
+            AvailableAuthority = DevToolVersionAuthority.CopilotSource
+        });
+
+        Assert.False(tool.UpdateAvailable);
+        Assert.False(tool.CanUpdate);
+
+        // And it does not read as agreement either. Nothing on this row's own
+        // authority answered what the available version is, so the row says that
+        // rather than picking whichever of the two suits it.
+        Assert.False(tool.AvailableVersionKnown);
+    }
+
+    /// <summary>AC3. Installed equals what the freshly refreshed marketplace
+    /// publishes, so there is nothing to press and nothing to badge.</summary>
+    [Fact]
+    public void A_claude_plugin_at_the_version_its_refreshed_marketplace_publishes_is_up_to_date()
+    {
+        var tool = Plugin(new DevToolHostState(DevToolHosts.Claude, Installed: true, "0.8.0", "0.8.0", "Configured plugin")
+        {
+            InstalledAuthority = DevToolVersionAuthority.ClaudeMarketplace,
+            AvailableAuthority = DevToolVersionAuthority.ClaudeMarketplace
+        });
+
+        Assert.False(tool.UpdateAvailable);
+        Assert.False(tool.CanUpdate);
+        Assert.True(tool.AvailableVersionKnown);
+    }
+
+    /// <summary>The other half of AC3: one authority and a genuinely newer
+    /// published version is still an update, so the rule suppresses phantoms
+    /// rather than updates.</summary>
+    [Fact]
+    public void A_claude_plugin_behind_its_refreshed_marketplace_still_offers_an_update()
+    {
+        var tool = Plugin(new DevToolHostState(DevToolHosts.Claude, Installed: true, "0.7.0", "0.8.0", "Configured plugin")
+        {
+            InstalledAuthority = DevToolVersionAuthority.ClaudeMarketplace,
+            AvailableAuthority = DevToolVersionAuthority.ClaudeMarketplace
+        });
+
+        Assert.True(tool.UpdateAvailable);
+        Assert.True(tool.CanUpdate);
+    }
+
+    /// <summary>A repository-backed row compares the mirror against itself, so
+    /// its two commits are one authority and a real difference still counts.</summary>
+    [Fact]
+    public void A_repository_row_compares_the_mirror_against_itself()
+    {
+        var behind = Plugin(new DevToolHostState(DevToolHosts.Copilot, Installed: true, "c4652f3", "04a4a85", "Configured plugin")
+        {
+            InstalledAuthority = DevToolVersionAuthority.RepositoryMirror,
+            AvailableAuthority = DevToolVersionAuthority.RepositoryMirror
+        });
+
+        var current = behind with { HostStates = [behind.HostStates[0] with { AvailableVersion = "c4652f3" } ] };
+
+        Assert.True(behind.UpdateAvailable);
+        Assert.False(current.UpdateAvailable);
+    }
+
+    /// <summary>Every row written before attribution existed — the harness, the
+    /// unsupported service, every positional fixture — keeps comparing exactly as
+    /// it did. Unattributed is "nobody said", not a third authority that disagrees
+    /// with both.</summary>
+    [Fact]
+    public void An_unattributed_row_compares_exactly_as_it_always_did()
+    {
+        var tool = Plugin(new DevToolHostState(DevToolHosts.Copilot, Installed: true, "0.7.0", "0.8.0", "Configured plugin"));
+
+        Assert.True(tool.UpdateAvailable);
+        Assert.True(tool.CanUpdate);
+    }
+
+    /// <summary>AC6. A marketplace the refresh could not pull leaves the column
+    /// reading unknown, which the pane renders as "Version unknown" — not as an
+    /// agreement nobody checked, and not as an update nobody can clear.</summary>
+    [Theory]
+    [InlineData(true, "0.8.0", "0.8.0")]
+    [InlineData(false, "0.8.0", DevToolOutput.Unknown)]
+    [InlineData(true, null, DevToolOutput.Unknown)]
+    [InlineData(false, null, DevToolOutput.Unknown)]
+    public void A_marketplace_that_could_not_be_refreshed_reads_as_unknown(bool refreshed, string? published, string expected) =>
+        Assert.Equal(expected, DevToolRefresh.ClaudeAvailable(refreshed, published));
+
+    /// <summary>AC6 again, on the repository side: a fetch or a commit lookup that
+    /// failed is unknown rather than a sha somebody could compare.</summary>
+    [Theory]
+    [InlineData(true, "92f9b2bc987cb1b1db2c32741774ba5e43ddffac\n", "92f9b2b")]
+    [InlineData(true, "  add2b0e0f9351d080b10ca2447f241bd8e87be17  ", "add2b0e")]
+    [InlineData(true, "", DevToolOutput.Unknown)]
+    [InlineData(false, "92f9b2bc987cb1b1db2c32741774ba5e43ddffac", DevToolOutput.Unknown)]
+    public void A_commit_lookup_that_did_not_answer_reads_as_unknown(bool succeeded, string output, string expected) =>
+        Assert.Equal(expected, DevToolRefresh.RepositoryCommit(succeeded, output));
+
+    /// <summary>AC8. Two consecutive refreshes over an unchanged machine read the
+    /// same way, because every reading is a function of the command output and of
+    /// nothing else — no clock, no cache, no order dependence.</summary>
+    [Fact]
+    public void The_same_command_output_reads_the_same_way_twice()
+    {
+        const string head = "92f9b2bc987cb1b1db2c32741774ba5e43ddffac";
+
+        Assert.Equal(DevToolRefresh.RepositoryCommit(true, head), DevToolRefresh.RepositoryCommit(true, head));
+        Assert.Equal(DevToolRefresh.ClaudeAvailable(true, "0.8.0"), DevToolRefresh.ClaudeAvailable(true, "0.8.0"));
+        Assert.Equal(DevToolRefresh.ClaudeAvailable(false, "0.8.0"), DevToolRefresh.ClaudeAvailable(false, "0.8.0"));
+    }
+
+    /// <summary>What the row says about reporting the mirror rather than the
+    /// copied artifacts. AC4: the row does not get to imply it inspected an
+    /// install it never looked at.</summary>
+    [Fact]
+    public void A_repository_row_says_it_reports_the_mirror_rather_than_the_installed_copy()
+    {
+        var note = DevToolRefresh.MirrorNote(@"plugins\copilot-app\extensions");
+
+        Assert.Contains("mirror", note, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("plugins/copilot-app/extensions", note, StringComparison.Ordinal);
+        Assert.Contains("mirror", DevToolRefresh.MirrorNote(null), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DevToolInfo Plugin(DevToolHostState state) => new(
+        "plugin:claude-desktop",
+        DevToolKind.Plugin,
+        "claude-desktop",
+        "JSdotNet/Copilot:plugins/claude-desktop",
+        ConfiguredEnabled: true,
+        Installed: state.Installed,
+        state.InstalledVersion,
+        state.AvailableVersion,
+        state.Status)
+    {
+        Hosts = state.Host,
+        HostStates = [state]
+    };
 }

@@ -1076,6 +1076,70 @@ public sealed class ToolsPaneTests
             ConfirmedByHand = true
         };
 
+    // ------------------------------------------------------------ stale versions
+
+    /// <summary>AC3. The reported <c>claude-desktop</c> row, once its Available
+    /// column comes from the same marketplace its Installed column does: nothing
+    /// to press, no highlight on the version, and the plain word for it.</summary>
+    [Fact]
+    public void A_claude_plugin_at_its_marketplace_version_is_up_to_date_with_no_update_offered()
+    {
+        var tool = HostedTool("0.8.0", "0.8.0", DevToolVersionAuthority.ClaudeMarketplace, DevToolVersionAuthority.ClaudeMarketplace);
+
+        using var context = Context(FakeDevToolService.With(tool));
+        var pane = context.Render<ToolsPane>();
+
+        var actions = pane.Find(".tools-table__actions").TextContent;
+        Assert.Contains("Up to date", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Update", actions, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll(".tools-table__version--new"));
+
+        // And nothing for "Update all" to act on either, which is the toolbar's
+        // half of the same claim.
+        var updateAll = pane.FindAll(".tools-panel__toolbar-actions button")
+            .Single(button => button.TextContent.Contains("Update all", StringComparison.Ordinal));
+        Assert.True(updateAll.HasAttribute("disabled"));
+    }
+
+    /// <summary>AC2 and AC9. Two numbers that never came from the same authority
+    /// are not an update the row may offer, and not an agreement either: the cell
+    /// says nothing looked it up rather than badging an update that pressing
+    /// Update could not possibly clear.</summary>
+    [Fact]
+    public void A_row_whose_two_columns_came_from_two_authorities_offers_nothing_to_press()
+    {
+        var tool = HostedTool("0.7.0", "0.8.0", DevToolVersionAuthority.ClaudeMarketplace, DevToolVersionAuthority.CopilotSource);
+
+        using var context = Context(FakeDevToolService.With(tool));
+        var pane = context.Render<ToolsPane>();
+
+        var actions = pane.Find(".tools-table__actions").TextContent;
+        Assert.Contains("Version unknown", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll(".tools-table__version--new"));
+    }
+
+    /// <summary>AC4. A repository-backed row reports the local mirror rather than
+    /// the artifacts copied out of it, and says so on its own line instead of
+    /// letting the version columns imply an install it never inspected.</summary>
+    [Fact]
+    public void A_repository_row_says_on_the_row_that_it_reports_the_mirror()
+    {
+        var note = DevToolRefresh.MirrorNote(@"plugins\copilot-app\extensions");
+        var tool = HostedTool(
+            "c4652f3",
+            "c4652f3",
+            DevToolVersionAuthority.RepositoryMirror,
+            DevToolVersionAuthority.RepositoryMirror,
+            $"Configured plugin \u00b7 {note}");
+
+        using var context = Context(FakeDevToolService.With(tool));
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal(note, pane.Find("[data-testid='tools-row-note']").TextContent);
+        Assert.Contains("Up to date", pane.Find(".tools-table__actions").TextContent, StringComparison.Ordinal);
+    }
+
     private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
@@ -1150,6 +1214,38 @@ public sealed class ToolsPaneTests
             installedVersion,
             availableVersion,
             "Configured plugin");
+
+    /// <summary>A plugin row with one host's answer behind it, so a test can say
+    /// which mechanism each version column came from — the thing the row's own
+    /// two columns cannot carry.</summary>
+    private static DevToolInfo HostedTool(
+        string installedVersion,
+        string availableVersion,
+        DevToolVersionAuthority installedAuthority,
+        DevToolVersionAuthority availableAuthority,
+        string status = "Configured plugin")
+    {
+        var state = new DevToolHostState(DevToolHosts.Claude, Installed: true, installedVersion, availableVersion, status)
+        {
+            InstalledAuthority = installedAuthority,
+            AvailableAuthority = availableAuthority
+        };
+
+        return new DevToolInfo(
+            "plugin:claude-desktop",
+            DevToolKind.Plugin,
+            "claude-desktop",
+            "JSdotNet/Copilot:plugins/claude-desktop",
+            ConfiguredEnabled: true,
+            Installed: true,
+            installedVersion,
+            availableVersion,
+            status)
+        {
+            Hosts = DevToolHosts.Claude,
+            HostStates = [state]
+        };
+    }
 
     /// <summary>A port that records what it was asked and answers from a fixed
     /// catalog. A record so a test can vary one field of it without a builder.</summary>
