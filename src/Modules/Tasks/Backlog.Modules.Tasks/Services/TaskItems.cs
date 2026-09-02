@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
+using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
@@ -24,7 +25,8 @@ internal sealed class TaskItems(
     ICommandHandler<DeleteTaskCommand> delete,
     ICommandHandler<ReorderTasksCommand> reorder,
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
-    ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan) : ITaskItems
+    ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan,
+    ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>> reconcileRepositoryIds) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -52,6 +54,9 @@ internal sealed class TaskItems(
 
     public Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default) =>
         recordUsage.Handle(new RecordTaskUsageCommand(id, action), cancellationToken);
+
+    public Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default) =>
+        reconcileRepositoryIds.Handle(new ReconcileRepositoryIdsCommand(), cancellationToken);
 
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,

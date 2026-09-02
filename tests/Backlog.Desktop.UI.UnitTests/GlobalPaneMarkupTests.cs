@@ -552,6 +552,25 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
+    public void The_version_control_shows_the_worktree_when_the_host_registers_one()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+
+        // The control keeps its test id and its click either way; only what it
+        // reads changes, so a host that registers nothing is unaffected.
+        Assert.Contains("Services.GetService<DevelopmentWorkspaceLabel>()", home, StringComparison.Ordinal);
+        Assert.Contains("@if (_workspace is null)", home, StringComparison.Ordinal);
+        Assert.Contains("Version <code>@Updates.CurrentVersion</code>", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"app-workspace\"", home, StringComparison.Ordinal);
+
+        var chipIndex = home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal);
+        var workspaceIndex = home.IndexOf("data-testid=\"app-workspace\"", StringComparison.Ordinal);
+
+        Assert.True(chipIndex >= 0);
+        Assert.True(workspaceIndex > chipIndex);
+    }
+
+    [Fact]
     public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
@@ -768,6 +787,47 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(start >= 0, $"`{block}` is not a rule of its own in the stylesheet.");
 
         return css[start..css.IndexOf('}', start)];
+    }
+
+    /// <summary>
+    /// The import result reads as a footer under the list rather than as a band.
+    /// <para>
+    /// <c>Alert</c> renders a <c>&lt;p&gt;</c>, and this one is the last child of a
+    /// flex column. With no rule of its own it kept the browser's default paragraph
+    /// margins and the surrounding body type, so "3 created, 1 updated" arrived as a
+    /// tall full-width slab under the entries. It is a status line: a rule above it,
+    /// the pane's own secondary ink, and no margins.
+    /// </para>
+    /// <para>
+    /// Tokens only, and no new ones — <c>.arc42/adr/guidelines/0011</c> keeps the
+    /// custom properties in <c>components.css</c>, which
+    /// <c>Backlog.ArchitectureTests.DesignTokenTests</c> enforces. What is pinned
+    /// here is that the values are token references at all.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_import_result_is_a_compact_footer_rather_than_a_band()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var footer = RuleFor(css, ".import-plan-result {");
+
+        // The default paragraph margins are the whole reason the band was tall.
+        Assert.Contains("margin: 0;", footer, StringComparison.Ordinal);
+
+        Assert.Contains("border-top: var(--border-width) solid var(--color-border);", footer, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--font-size-xs);", footer, StringComparison.Ordinal);
+        Assert.Contains("color: var(--color-text-secondary);", footer, StringComparison.Ordinal);
+        Assert.Contains("text-align: left;", footer, StringComparison.Ordinal);
+
+        // Padding is the compaction, and it is expressed in the same spacing scale
+        // the workspace around it is padded with.
+        Assert.Contains("padding: var(--spacing-xs) var(--spacing-sm);", footer, StringComparison.Ordinal);
+
+        // No literal colour, length or font anywhere in the rule.
+        Assert.DoesNotContain("#", footer, StringComparison.Ordinal);
+        Assert.DoesNotContain("px", footer, StringComparison.Ordinal);
+        Assert.DoesNotContain("rem", footer, StringComparison.Ordinal);
     }
 
     /// <summary>

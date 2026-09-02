@@ -231,7 +231,10 @@ public sealed class RecurringTaskTests
 
     private static async Task<SavedTaskDto> SaveResult(InMemoryTaskRepository store, Guid? id, string rawText)
     {
-        var result = await new SaveTaskFromTextCommandHandler(store)
+        // A registry that knows nothing, because none of these entries names a
+        // repository: what is under test is the spawn, and resolution has to be
+        // handed something either way.
+        var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
             .Handle(new SaveTaskFromTextCommand(id, rawText, 0));
 
         Assert.True(result.IsSuccess);

@@ -3,6 +3,7 @@ using Backlog.Modules.Tasks.Features.DeleteTask;
 using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
+using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
@@ -38,6 +39,7 @@ public static class TasksModuleRegistration
         services.AddScoped<ICommandHandler<ReorderTasksCommand>, ReorderTasksCommandHandler>();
         services.AddScoped<ICommandHandler<RecordTaskUsageCommand>, RecordTaskUsageCommandHandler>();
         services.AddScoped<ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>, ImportPlanCommandHandler>();
+        services.AddScoped<ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>>, ReconcileRepositoryIdsCommandHandler>();
 
         services.AddScoped<ITaskItems, TaskItems>();
 

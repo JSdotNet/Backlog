@@ -24,6 +24,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
+using Backlog.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,7 +72,17 @@ builder.Services.AddRoadmapModule();
 // services the modules register as Scoped, so they are Scoped too — registered in
 // one place both hosts share so the lifetimes cannot drift apart.
 builder.Services.AddRoadmapCrossContextAdapters();
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath));
+// The same arrangement the desktop host makes: the shared registry follows the
+// workspace root, and moving the workspace re-reads it.
+builder.Services.AddSingleton(sp =>
+{
+    var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
+    var store = CreateLocalDevelopmentGitHubSettingsStore(
+        builder.Environment.ContentRootPath,
+        () => workspace.RootDirectory);
+    workspace.RootChanged += store.Reload;
+    return store;
+});
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
@@ -123,6 +134,11 @@ builder.Services.AddSingleton<KnowledgeAtlasService>();
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
 builder.Services.AddSingleton<KnowledgeMenu>();
 builder.Services.AddSingleton<Arc42KnowledgeStore>();
+// The C4 model beside the architecture chapters. Registered next to the
+// arc42 store because it answers the same scope question against the same
+// clone; it reads its own feature key and hands back nothing when that key
+// is off, so registering it does not turn it on.
+builder.Services.AddSingleton<C4KnowledgeStore>();
 builder.Services.AddSingleton<KnowledgeChapterWriter>();
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<KnowledgeFolderOpenService>();
@@ -153,6 +169,14 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
 
+// Which worktree served this harness. It is only ever started from a checkout,
+// so there is nothing to gate on beyond finding one — and when it is missing the
+// header simply keeps showing the version.
+if (DevelopmentWorkspace.Current is { } workspace)
+{
+    builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
+}
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -169,7 +193,7 @@ app.MapRazorComponents<App>()
 
 app.Run();
 
-static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string contentRootPath)
+static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string contentRootPath, Func<string> rootDirectory)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_GITHUB_SETTINGS_PATH");
     if (string.IsNullOrWhiteSpace(settingsPath))
@@ -177,7 +201,10 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "github.settings.json");
     }
 
-    var settings = new GitHubSettingsStore(settingsPath);
+    // The machine half goes in the harness's own build output, so a development
+    // session never touches a real per-user file; the shared registry goes where
+    // the workspace root says, because that is what the app under test reads.
+    var settings = new GitHubSettingsStore(settingsPath, rootDirectory);
     var repositoryRoot = ResolveRepositoryRoot(contentRootPath);
     if (repositoryRoot is null)
     {

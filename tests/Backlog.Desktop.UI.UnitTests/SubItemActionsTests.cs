@@ -32,7 +32,7 @@ public sealed class SubItemActionsTests
 {
     private const string EntryWithSubItem =
         "# Ship the sync spike\n" +
-        "`task` `*high` `!ready` `@backlog`\n\n" +
+        "`task` `*high` `!ready` `repo:backlog`\n\n" +
         "Notes on the parent.\n\n" +
         "## Wire up the store\n" +
         "How the store gets wired.\n";

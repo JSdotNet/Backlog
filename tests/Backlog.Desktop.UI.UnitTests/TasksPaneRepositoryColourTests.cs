@@ -21,12 +21,12 @@ public class TasksPaneRepositoryColourTests
     private static string RowTestId(EntryRow row) => $"entry-list-{(row.Id ?? row.Key)}";
 
     [Fact]
-    public async Task ARowCarriesTheMarkOfTheRepositoryItsAreaNames()
+    public async Task ARowCarriesTheMarkOfTheRepositoryItTargets()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
         Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
-        var first = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
-        var second = await host.WriteEntryAsync("# Write it up\n`task` `@docs`\n");
+        var first = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        var second = await host.WriteEntryAsync("# Write it up\n`task` `repo:docs`\n");
 
         var pane = host.Render();
 
@@ -39,7 +39,7 @@ public class TasksPaneRepositoryColourTests
     public async Task AChosenColourReachesTheRow()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
         Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
         Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
 
@@ -51,17 +51,19 @@ public class TasksPaneRepositoryColourTests
     }
 
     [Fact]
-    public async Task ARowFiledUnderNothingConfiguredWearsNoMark()
+    public async Task ARowTargetingNothingConfiguredWearsNoMark()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         Assert.Null(host.GitHub.Settings.SetShowRepositoryColours(true));
         var unfiled = await host.WriteEntryAsync("# Provision the box\n`task`\n");
-        var elsewhere = await host.WriteEntryAsync("# Buy milk\n`task` `@errands`\n");
+        var elsewhere = await host.WriteEntryAsync("# Buy milk\n`task` `@backlog`\n");
 
         var pane = host.Render();
 
-        // An area is a pile somebody typed, and most of them are not repositories.
-        // Colouring one would be inventing a project.
+        // An area is a pile somebody typed and never a repository, even when it is
+        // spelled like one — the second row is filed under a pile called "backlog"
+        // and targets nothing. Colouring it would be inventing a project out of a
+        // word.
         Assert.DoesNotContain("repo-mark", pane.Find($"[data-testid='{RowTestId(unfiled)}']").ClassName);
         Assert.DoesNotContain("repo-mark", pane.Find($"[data-testid='{RowTestId(elsewhere)}']").ClassName);
     }
@@ -70,7 +72,7 @@ public class TasksPaneRepositoryColourTests
     public async Task NoRowIsMarkedWhileTheVisualizationIsOff()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
         Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
 
         var pane = host.Render();
@@ -86,7 +88,7 @@ public class TasksPaneRepositoryColourTests
     public async Task TurningTheVisualizationOnBringsTheMarkBack()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
         Assert.Null(host.GitHub.Settings.SetRepositoryColour("backlog", 4));
 
         var pane = host.Render();
@@ -102,7 +104,7 @@ public class TasksPaneRepositoryColourTests
     public async Task TheMarkIsNeverTheOnlyThingSayingWhichRepository()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
 
         var pane = host.Render();
 

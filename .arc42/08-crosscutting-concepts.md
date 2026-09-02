@@ -60,8 +60,11 @@ How every channel reads the knowledge a repository carries alongside its code.
   git, which is what keeps two branches editing different chapters from conflicting
   on a file neither of them authored.
 - **The authored half stays text** — each directory's reading order and root
-  document, and the hand-written Archify specifications, are committed and reviewed
-  in diffs. Only what a generator produces goes into the database.
+  document, the hand-written Archify specifications, and the Structurizr C4
+  workspace under `.arc42/_c4/`, are committed and reviewed in diffs. Only what a
+  generator produces goes into the database. The C4 workspace has no derived half
+  at all: it is not attached to a fence and nothing is rendered from it ahead of
+  time, so there is nothing about it for an index to hold or to go stale.
 - **Structural first, semantic optional** — the structural tier is deterministic and
   builds offline; embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,

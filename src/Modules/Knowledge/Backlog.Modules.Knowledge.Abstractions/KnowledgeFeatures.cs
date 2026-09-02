@@ -29,4 +29,16 @@ public static class KnowledgeFeatures
     /// that answers it lives with the panels that render the chapters.
     /// </para></summary>
     public const string ArchifyDiagrams = "archify-diagrams";
+
+    /// <summary>Show the C4 model that sits beside the architecture chapters, and
+    /// the references between the two.
+    /// <para>
+    /// Its own key rather than a second meaning for <see cref="ArchifyDiagrams"/>,
+    /// because the two switch unrelated things. Archify changes how a chapter's own
+    /// mermaid fence is drawn; this adds views that are not in any chapter and are
+    /// authored somewhere else entirely — in c4hero, as Structurizr DSL under
+    /// <c>.arc42/_c4/</c>. Someone who wants richer pictures of the fences they
+    /// have should not have to take a whole second model with them.
+    /// </para></summary>
+    public const string C4Diagrams = "c4-diagrams";
 }

@@ -103,12 +103,21 @@ internal static class TasksTestHost
     /// settings file behind every unrelated pane test.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A registry with nothing configured, which is the first-run state and the
+    /// state every test here wants: none of them is about repository resolution,
+    /// and a name that resolves to nothing is stored exactly as it was typed.
+    /// </summary>
     private sealed class NoRepositoryDirectory : IRepositoryDirectory
     {
         public IReadOnlyList<TasksRepositoryRef> Repositories => [];
 
         public TasksRepositoryRef? Resolve(string name) => null;
 
+        /// <summary>Answers the way the real adapter answers a bare name — owner
+        /// and name standing in as the alias — so the <c>Id</c> it hands back is
+        /// the same <c>name/name</c> placeholder Settings would show. It forgets
+        /// immediately, which is the one thing it is for.</summary>
         public TasksRepositoryRef Register(string name) => new(name, name, name);
     }
 }

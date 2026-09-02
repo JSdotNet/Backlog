@@ -1,4 +1,4 @@
-﻿using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Tasks.DomainModels;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
 
@@ -703,7 +703,7 @@ public sealed class TasksDetailPaneTests
     public async Task Every_selector_and_the_tag_editor_still_edit_the_open_entry()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        var row = await host.WriteEntryAsync("# Ship it\n`task` `*medium` `!draft` `@backlog`\n");
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `*medium` `!draft` `repo:backlog`\n");
 
         var pane = host.Render();
 
@@ -737,7 +737,7 @@ public sealed class TasksDetailPaneTests
         Assert.DoesNotContain("`#sync`", row.RawText, StringComparison.Ordinal);
         Assert.Contains("`#desktop`", row.RawText, StringComparison.Ordinal);
 
-        Assert.Single(pane.FindAll("[data-testid='area-badge']"));
+        Assert.Single(pane.FindAll("[data-testid='repo-badge']"));
     }
 
     /// <summary>Types a tag into the picker and commits it, which is the gesture the
@@ -967,9 +967,9 @@ public sealed class TasksDetailPaneTests
             "repox = JSdotNet/RepoX",
             "repoy = JSdotNet/RepoY");
 
-        var acrossRepo = await host.WriteEntryAsync("# Ship the library\n`task` `!done` `@repoy`\n");
+        var acrossRepo = await host.WriteEntryAsync("# Ship the library\n`task` `!done` `repo:repoy`\n");
         var scoped = await host.WriteEntryAsync(
-            $"# Ship the app\n`task` `@repox` `after:{acrossRepo.Id!.Value}`\n");
+            $"# Ship the app\n`task` `repo:repox` `after:{acrossRepo.Id!.Value}`\n");
 
         host.State.SetRepositoryFilter("repox");
 

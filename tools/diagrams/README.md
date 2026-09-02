@@ -17,6 +17,13 @@ default.
 
 [archify]: https://github.com/tt-a1i/archify
 
+> **Not the only diagram arrangement here.** `C4.md` beside this file describes a
+> C4 model kept under `.arc42/_c4/` as Structurizr DSL, authored in c4hero and
+> drawn from the DSL at read time. The two are easy to confuse and are different
+> kinds of thing: an Archify artifact re-authors one fence and must be matched back
+> to it by hash, while a C4 workspace is attached to no fence, has no committed
+> rendering, and therefore has no index and nothing that can go stale.
+
 ## Where things live
 
 ```

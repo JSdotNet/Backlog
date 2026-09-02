@@ -2416,27 +2416,65 @@ button.md-check {
 
    One markup, two layouts. The margin cell is always emitted and simply follows
    its block until the grid picks it up, so the two cannot drift apart.
+
+   18rem and not the 16rem this was, because the column now pays for its own
+   furniture: a rule and the padding either side of it, which is the 2rem. The
+   remark inside is the width it always was, and one width everywhere — a gutter
+   that were wider in the file pane than on a document page would be the same
+   thing drawn two sizes, and the remark inside it would change size as a reader
+   moved between two surfaces that both call it a margin.
+
+   No gap, and the cell stretched. Both are for the rule below: a border is drawn
+   at the cell's own edge, so a gap puts the prose that far from a line that is
+   not against it, and a cell sized to its content leaves the line short wherever
+   a remark is shorter than its block. The separation the gap used to give is
+   spent as padding inside the column instead, where the rule can sit in it.
 */
 .md-view--margin .md-block-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 16rem;
-    gap: var(--spacing-md);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    gap: 0;
+    align-items: stretch;
 }
 
-/* Level with the block it belongs to, and no rule down its left — the column is
-   already the thing that says these are asides. */
+/*
+   What makes the column read as a margin rather than as a second column of the
+   document.
+
+   It was neither, and that was the complaint: a remark sat inside the reading
+   body's own padding with the scrollbar outside it and nothing drawn between it
+   and the prose, so the only edge in the pane was the remark's own border — which
+   is how a callout looks, not how a margin note looks. The rule is the boundary
+   the column was relying on the reader to infer.
+*/
+.md-view--margin .md-block-row__notes {
+    padding-inline: var(--spacing-md);
+    border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+/* Level with the block it belongs to, and no rule down its left — the column's
+   own rule is the thing that says these are asides now, and a second one inside
+   it would be a rule around a rule. */
 .md-view--margin .md-block-row__notes .md-comments {
     margin: 0;
     padding: 0;
     border-left: none;
 }
 
+/* No box around a remark, and no ground under it. Both were doing the job the
+   column's own rule does now, and doing it wrongly: a bordered panel on its own
+   fill reads as a callout — something inserted into the document — which is
+   exactly what a margin note is not. What separates these from the prose is that
+   they are on the other side of the rule. Inside the gutter they are just text,
+   spaced apart. */
 .md-view--margin .md-comment {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
+    padding: 0;
+}
+
+/* Which puts the spacing back where the inline layout keeps it: between one
+   remark and the next, rather than as the gap between two boxes. */
+.md-view--margin .md-comment + .md-comment {
+    margin-top: var(--spacing-sm);
 }
 
 /*
@@ -2449,17 +2487,28 @@ button.md-check {
         display: block;
     }
 
+    /* The column's furniture goes with the column. The cell is a block under its
+       block here, and the inline layout's own rule down the left of a remark is
+       restored below — a leftover border would draw a second one outside it, on
+       the side the prose is on. */
+    .md-view--margin .md-block-row__notes {
+        padding-inline: 0;
+        border-inline-start: none;
+    }
+
     .md-view--margin .md-block-row__notes .md-comments {
         margin: 0 0 var(--spacing-sm) var(--spacing-md);
         padding-left: var(--spacing-md);
         border-left: var(--border-width-2) solid var(--color-border);
     }
 
-    .md-view--margin .md-comment {
-        border: none;
-        background: transparent;
-        padding: 0;
+    /* The gutter's own spacing goes with it too. Stacked, a remark is spaced by
+       the margin every remark carries, and the rule above would add the column's
+       gap on top of it. */
+    .md-view--margin .md-comment + .md-comment {
+        margin-top: 0;
     }
+
 }
 
 /* --- Markdown document --------------------------------------------------- */
@@ -2794,6 +2843,39 @@ button.task-panel__check:focus-visible {
 .task-item__tag {
     font-size: var(--font-size-xs);
     padding: 0 var(--spacing-xs);
+}
+
+/*
+   A row whose tags lead somewhere draws its metadata line beside the button
+   rather than inside it, because a control cannot live in a button. This is the
+   box that makes that invisible.
+
+   It stands exactly where the button stood — the one flex item on the row that
+   gives up room, which is what `flex: 1 1 auto` and `min-width: 0` were saying
+   there — and stacks the button and the line inside itself. So the row keeps one
+   flex line, the pickers at the end of it keep their place, the metadata starts at
+   the same left edge the grid's first column gave it, and the row is the same
+   height it was.
+
+   Not `flex-wrap` on the row. That was tried and it is the wrong tool: wrapping
+   promotes the line to a row of its own, and everything after it in source order
+   — the pencil, the host's actions, the copy button — goes with it.
+
+   The gap is the button's own 2px, said in the token that is worth 2px, so the
+   line sits under the title exactly as far as it did when the grid drew it.
+*/
+.task-item__line {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The button is no longer the item that flexes — the box around it is — and a
+   grow left on it here would be a request to stretch downwards instead. */
+.task-item__line > .task-item__body {
+    flex: 0 0 auto;
 }
 
 /* --- A body under the row ------------------------------------------------ */
@@ -4434,6 +4516,47 @@ button.tag-chip__label {
     }
 }
 
+/* --- Skeleton ------------------------------------------------------------ */
+/*
+  A bar where a piece of content is about to be. It borrows the border ramp
+  rather than a surface colour: the placeholder has to read as a hole in the
+  layout, and a filled panel-coloured block reads as content that arrived and
+  turned out to be blank.
+
+  The bars are laid out by whoever is waiting - this owns the shape only, so a
+  host can drop them into the grid its real rows already use and have the
+  placeholder land on the same columns.
+*/
+
+.skeleton {
+    display: block;
+    min-width: 1rem;
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-border-strong) 40%, transparent);
+    animation: skeleton-pulse 2s ease-in-out infinite;
+}
+
+/* Sized against the type they stand in for rather than in bare pixels, so a
+   placeholder line stays a line's worth of space if the type scale moves. */
+.skeleton--text { height: var(--font-size-sm); }
+.skeleton--heading { height: var(--font-size-lg); }
+.skeleton--block { height: var(--spacing-xl); }
+
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* Unlike the spinner, this one does not get a substitute animation. A spinner
+   stopping altogether would claim the work had finished; a skeleton says the
+   same thing standing still as it does pulsing, so under reduced motion it
+   simply stops. */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton {
+        animation: none;
+    }
+}
+
 /* --- Save-state indicator: settled state --------------------------------- */
 
 .save-indicator--saved .save-indicator__dot {
@@ -4929,6 +5052,51 @@ select.field__input option {
     box-shadow: var(--shadow-lg);
 }
 
+/* A section of the open list. It is a plain run of options with a caption over
+   it — no box, no inset, nothing that would make the options inside it read as a
+   different kind of row from the ungrouped ones beside them. */
+.tag-select__group {
+    display: block;
+}
+
+/* The label is a caption, not a heading the reader has to read past: quiet
+   enough that the options stay the thing being scanned.
+
+   Set to the right, not flush with the option text. Left-aligned it shared a
+   column with the options and a reader scanning that column met it as one more
+   row — smaller and quieter than its neighbours, but in the same place, which is
+   the one cue that decides what a list row is. Off the column it cannot be
+   mistaken for one.
+
+   The right edge is also where this text used to be. Every option carried its
+   repository as a hint at the end of its row; the section says it once for the
+   whole run instead, and says it where the eye already went looking. The opacity
+   is the hint's, for the same reason. */
+.tag-select__group-label {
+    display: block;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-align: right;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+/* The run itself carries no box — only the hairline that says where the previous
+   one ended, and only between sections, so the first draws no rule above it. */
+.tag-select__group + .tag-select__group {
+    margin-top: var(--spacing-2xs);
+    padding-top: var(--spacing-2xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.tag-select__group-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 .tag-select__option {
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius-sm);
@@ -5310,13 +5478,21 @@ select.field__input option {
    fact about the file from a thing you can do to it.
 
    So the acts drop to their own line and stay right-aligned there
-   (see .file-view__aside). What a reader is here to read holds the full width of
+   (see .file-view__summary). What a reader is here to read holds the full width of
    the pane; what a reader may do to it sits under, where the eye lands after the
    line rather than inside it. `stretch` rather than the row's `baseline`, which
    is a cross-axis declaration and in a column would size the two lines to their
    content instead of to the header; `--spacing-xs` rather than the row's
    `--spacing-md`, because the gap is now between two lines of one block and not
    between two columns.
+
+   Two lines is a count this had stopped keeping. It was written when the identity
+   column was one line, and the detail line — source · kind · size — is drawn
+   inside that column, so any file stating one of the three had three lines and
+   the acts made four; a comparison with a choice of baselines made five. The
+   details are an item of the second line now rather than of the column, and every
+   other way a line could arrive is closed below: the name truncates, the details
+   truncate, and neither group of controls wraps.
 
    FolderView and MarkdownCompare keep the row. Neither has a growing path on the
    name's line — both keep theirs in an aside — so neither has the collision this
@@ -5346,12 +5522,29 @@ select.field__input option {
     overflow-wrap: anywhere;
 }
 
+/* The last way the file pane's header could still grow a line, and the one
+   nobody looks for: the shared rule above breaks a name anywhere it has to, so a
+   long file name in a narrow pane wrapped to two lines, or three, and took the
+   count with it. Truncated here on the same terms the path beside it took — cut
+   in the drawing, whole in the DOM, no title attribute standing in for it, see
+   .file-view__path — and scoped to this pane, because FolderView and
+   MarkdownCompare share the rule above and neither promises a header height. */
+.file-view__name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .file-view__meta,
 .folder-view__meta,
 .md-compare__meta {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    /* For the file pane, where the details are an item of a row and have to be
+       allowed under their own content before they will truncate; harmless to the
+       other two, where they are a block that already fills its line. */
+    min-width: 0;
 }
 
 /*
@@ -5385,6 +5578,55 @@ select.field__input option {
 */
 .file-view__identity {
     flex: 1 1 auto;
+}
+
+/*
+   Where the header's trailing edge sits, as the two things that decide it.
+
+   The file's status is drawn at the end of the header's first line, and a
+   chapter's status is drawn at the end of its own heading in the body — one above
+   the other, and a reader takes them as one column of the same answer. They were
+   not one column: a block that offers a remark holds its trailing corner clear
+   for the affordance, so every chapter's status stopped 48px short of where the
+   file's did, and the two read as very slightly misfiled rather than as a column.
+
+   So the header reserves what the body reserves. Terms rather than one number,
+   because they move for different reasons, and each of them was a way of getting
+   this wrong:
+
+   - the body's own trailing padding, which it gives away entirely when a gutter
+     of remarks takes that edge (.file-view__body--notes);
+   - the scrollbar track the reading body holds open whether or not the file is
+     long enough to need it (scrollbar-gutter: stable, below). Ten pixels, and the
+     one that survived the first go at this: with remarks the body is not a scroll
+     box at all and reserves nothing, so the two statuses lined up, and every file
+     nobody had remarked on was quietly out by exactly that track;
+   - the affordance the blocks hold their trailing corner clear for, which depends
+     on how many controls a block offers and is nothing at all when it offers
+     none.
+
+   Asked with `:has()` for the reason the gutter is: what the body drew is the
+   body's business, and the header has no other way to hear about it.
+*/
+.file-view {
+    /* What scrollbar-gutter: stable holds open. Tied to the width the pane's own
+       scrollbar rules set rather than restated, so the reservation and the
+       scrollbar cannot end up different sizes. */
+    --file-view-scrollbar: 0.625rem;
+    --file-view-content-end: calc(var(--spacing-md) + var(--file-view-scrollbar));
+    --file-view-affordance-end: 0px;
+}
+
+.file-view:has(.md-block--affordance) {
+    --file-view-affordance-end: calc(2.5rem + var(--spacing-sm));
+}
+
+.file-view:has(.md-block--affordance-pair) {
+    --file-view-affordance-end: calc(2 * 2.5rem + var(--spacing-sm));
+}
+
+.file-view > .file-view__header {
+    padding-inline-end: calc(var(--file-view-content-end) + var(--file-view-affordance-end));
 }
 
 /*
@@ -5496,11 +5738,16 @@ select.field__input option {
     scrollbar-color: var(--color-border) transparent;
 }
 
+/* The width the reading body's own scrollbar takes, and so the width
+   scrollbar-gutter holds open for it whether or not the file is long enough to
+   need one. Read from the same property the header reserves it by — see
+   .file-view > .file-view__header, where being out by this exact track is what
+   left every unannotated file's status a step off its chapters'. */
 .file-view__body::-webkit-scrollbar,
 .folder-view__body::-webkit-scrollbar,
 .md-compare__body::-webkit-scrollbar {
-    width: 0.625rem;
-    height: 0.625rem;
+    width: var(--file-view-scrollbar, 0.625rem);
+    height: var(--file-view-scrollbar, 0.625rem);
 }
 
 .file-view__body::-webkit-scrollbar-track,
@@ -5576,15 +5823,226 @@ select.field__input option {
     min-height: 0;
 }
 
-/* The header's second line: the file's own actions, and the baseline picker
-   while a comparison is running. Held to the right edge — `flex-end` on a full
-   width line, which is the whole of what "right-aligned" means here — so the acts
-   sit under the end of the identity line rather than under its start, and the
-   line reads as the trailing edge of the header rather than as a toolbar of its
-   own.
+/*
+   The reading body while it is carrying a margin of remarks: the trailing edge
+   is the gutter's, not the body's.
 
-   Still a column, because both children can be showing at once and the picker
-   belongs under the toggle that summoned it, not beside it.
+   Here for the reason the editor's rule above is here — a modifier withdrawing
+   the padding set further up has to come after it — and it withdraws only the one
+   side. The prose keeps its leading padding, which is what holds it off the
+   pane's border. What the trailing padding was doing was holding the remarks off
+   an edge they should have been against: measured on the storybook the body's
+   content ran to 1506 with 16px of padding and 10px of scrollbar outside it, so
+   the remarks were the only thing in the pane that stopped short, and a column
+   that stops short of the edge reads as content that happens to be on the right
+   rather than as a margin.
+
+   The padding is not lost, it moves inside the column, where the rule down the
+   gutter's leading edge sits in it and the far side keeps the remark off the
+   scrollbar. Which is also what pays for the wider track: the 2rem the column
+   grew by is the 1rem this rule hands over plus the 1rem of trailing padding the
+   body was spending on nothing, so the prose measures exactly what it measured
+   before — 920px at the width this was read at, either way. Making the gutter
+   legible was not supposed to cost the document its measure.
+
+   Scoped to a body that has a margin to draw. FileContent decides that once —
+   see BodyCommentLayout, which falls back to inline when there is nothing to put
+   in the margin — and says so in the class list, so this cannot disagree with
+   what MarkdownView actually drew.
+*/
+.file-view__body--notes {
+    padding-inline-end: 0;
+
+    /*
+       And it stops scrolling inside itself.
+
+       A scroll box draws its scrollbar at its own trailing edge, and the gutter
+       is inside it — so the bar lands beyond the remarks, between them and the
+       pane's border, which reads as the annotations being what scrolls. There is
+       no arrangement of one scroll box that puts the bar between the two columns:
+       the notes cell would have to sit outside the box to be beside the bar, and
+       everything outside a scroll box is clipped by it.
+
+       So the pane hands the scrolling up. Whatever the pane sits in is what
+       scrolls, the prose and its margin move together because they are one grid,
+       and the gutter never has a bar of its own. That is already how every
+       surface in this product that draws remarks behaves — Arc42KnowledgePanel
+       and DomainKnowledgePanel both pass no MaxHeight and say in as many words
+       that the pane around them is what decides — so this makes the rule true
+       wherever a margin is drawn, rather than true wherever the caller
+       remembered.
+
+       `visible` and not `hidden`: the point is to have no scroll box, not to have
+       one that cuts the file off. The cap that would have made it scroll is not
+       overridden here but never written — see FileContent's BodyStyle, because an
+       inline max-height would beat this rule anyway.
+    */
+    overflow: visible;
+}
+
+/*
+   And the pane stops looking like a pane where the gutter starts, so the remarks
+   read as being outside the file rather than in a column of it.
+
+   The card is repainted rather than rebuilt. Its border, its ground and its
+   corners come off the element and onto a layer drawn across the content column
+   only — `inset: 0 18rem 0 0`, which lands its trailing border exactly on the
+   track the notes cell occupies. Everything else is unchanged: the remarks are
+   still the second cell of their block's row, which is what keeps each one level
+   with the block it belongs to and costs nothing to maintain. What changed is
+   only what the pane paints.
+
+   Painting it rather than restructuring is the whole point. To genuinely put the
+   remarks outside the pane they would have to leave the body, and once they are
+   not in the block's row nothing lines them up with it — their offsets and the
+   scrolling would both have to be measured and set in script, on every resize
+   and every edit. The picture is the requirement; a layout engine is not.
+
+   `:has()` because the pane genuinely cannot know. Which layout the body drew is
+   FileContent's decision and it is recorded on the body — see
+   .file-view__body--notes — and the alternative to asking is for FileView to
+   compute the same condition a second time, which is the drift that class exists
+   to prevent.
+*/
+.file-view:has(> .file-view__body--notes) {
+    /* Nothing stands between the prose and this edge: the gutter took the
+       padding, and a body that hands its scrolling up is not a scroll box and so
+       holds no track open either. The header measures from the same value. */
+    --file-view-content-end: 0px;
+
+    position: relative;
+    border-color: transparent;
+    background: transparent;
+    /* The box keeps its metrics — a transparent border still occupies its width,
+       so nothing inside shifts by the border it no longer paints. */
+    overflow: visible;
+}
+
+.file-view:has(> .file-view__body--notes)::before {
+    content: "";
+    position: absolute;
+    inset: 0 18rem 0 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    /* Behind the file, in front of nothing: this is the surface the prose is
+       written on, so it has to be under the content and over whatever the pane
+       itself sits on. */
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Which the content then has to sit on top of, rather than under. */
+.file-view:has(> .file-view__body--notes) > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* The header's own rule ends at the card's edge for the same reason the card
+   does. A margin and not the padding this used to be: padding would keep the
+   header's box — and so the border under it — running the full width of the pane
+   and straight across the gutter, which is the line this is trying not to draw. */
+.file-view:has(> .file-view__body--notes) > .file-view__header,
+.file-view:has(> .file-view__body--notes) > .file-view__record-fields {
+    margin-inline-end: 18rem;
+}
+
+/* And the gutter's own rule goes, because the card's trailing border is now
+   drawn in that exact place and two lines a pixel apart is a seam. Only inside a
+   file pane: MarkdownDocument draws the same margin with no card to take the
+   edge from, and keeps its rule. */
+.file-view__body--notes .md-view--margin .md-block-row__notes {
+    border-inline-start: none;
+}
+
+/* Withdrawn where the gutter is, at the same breakpoint and for the same reason.
+   Below it the remarks stack under their blocks and there is no second column, so
+   the reservation is the header holding 18rem clear for nothing — which at these
+   widths is most of the header: at 560px it left the name and the status fighting
+   over what was left while half the line stood empty.
+
+   Here rather than beside the layout it answers, because the rule it withdraws is
+   directly above and the two have to be read together. */
+@media (max-width: 60rem) {
+    .file-view:has(> .file-view__body--notes) > .file-view__header,
+    .file-view:has(> .file-view__body--notes) > .file-view__record-fields {
+        margin-inline-end: 0;
+    }
+
+    /* And the card goes back to being the pane, because there is no column
+       beside it to stop short of — including the trailing edge it had given
+       away, which the header reads too. */
+    .file-view:has(> .file-view__body--notes) {
+        --file-view-content-end: var(--spacing-md);
+
+        border-color: var(--color-border);
+        background: var(--color-background);
+        overflow: hidden;
+    }
+
+    .file-view:has(> .file-view__body--notes)::before {
+        content: none;
+    }
+
+    /* The stacked layout draws the inline rule down the left of a remark, which
+       is its own separator and not the card's edge. */
+    .file-view__body--notes .md-view--margin .md-block-row__notes {
+        border-inline-start: none;
+    }
+
+    /* And the body takes its trailing padding back with the edge, or the prose
+       runs into the border it was holding clear of before there was a gutter to
+       give that space to. */
+    .file-view__body--notes {
+        padding-inline-end: var(--spacing-md);
+    }
+}
+
+/* The header's second line: what is known about the file on the left, what may
+   be done to it on the right.
+
+   Both are trailing matter — neither answers "which file is this", which is the
+   line above — and a header that claims two lines has one line for them. They
+   were two: the details were drawn under the name inside the identity column and
+   the acts had a line to themselves under that.
+
+   `baseline` and not `center`, so the detail text and the marks opposite it sit
+   on one line rather than each centring inside the taller of the two. The details
+   are the item that gives: they are the only one with text to lose, and they lose
+   it to an ellipsis (below) rather than to a second line. */
+.file-view__summary {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The details, once they are an item of that line rather than a block under the
+   name: no top margin to hold them off a name that is no longer above them, and
+   the truncation that keeps them on one line. */
+.file-view__summary .file-view__meta {
+    margin: 0;
+    flex: 0 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The file's own actions, and the baseline picker while a comparison is running.
+   Held to the right edge so the acts sit under the end of the identity line
+   rather than under its start, and the line reads as the trailing edge of the
+   header rather than as a toolbar of its own.
+
+   The auto margin is what right-aligns it, not the line's own justification: with
+   no details to sit opposite — a plain file states none — the acts are the line's
+   only item, and `space-between` has nothing to spread. Same device the status
+   badge uses to close the line above, and for the same reason.
+
+   A row and no longer a column. Both children can be showing at once, and the
+   picker under the toggle that summoned it was a second line of aside and so a
+   third of header; beside it they read as one trailing group, which is what they
+   are. `flex: 0 0 auto` because the details are what shrinks here.
 
    The path used to share this space back when it was a column, which is what the
    two rules below were written for. It is an item of the name's line now, and
@@ -5592,9 +6050,12 @@ select.field__input option {
    way a nowrap string did. */
 .file-view__aside {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
     gap: var(--spacing-xs);
+    flex: 0 0 auto;
+    margin-inline-start: auto;
     min-width: 0;
 }
 
@@ -5606,15 +6067,26 @@ select.field__input option {
    drew over the name, with the ellipsis it declares never engaging. A cap is the
    one constraint the cross axis honours here, and it is what finally gives
    overflow: hidden something to truncate against. The actions and the baselines
-   take it too: they wrap rather than reach past the column that holds them. */
+   take it too: they wrap rather than reach past the column that holds them.
+
+   The aside is a row now, so its main axis is the one these are measured on and
+   the cap is no longer the only constraint they answer to. It stays: it is what
+   the two groups fall back on if either is ever given something wider than a mark
+   to hold, and it costs a row of buttons nothing. */
 .file-view__aside > * {
     max-width: 100%;
 }
 
+/* Neither group wraps, because wrapping is the other way a line becomes two — and
+   on a shared line it is the way that arrives without anyone changing the markup.
+   They wrapped by choice while the aside was a column, where a group reaching past
+   the column was the worse of the two outcomes. On one line the cap above already
+   answers that, and what a narrow header takes off the line is the detail text
+   beside these: a handful of 2rem marks is not what is costing the width. */
 .file-view__actions,
 .file-view__baselines {
     display: inline-flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-xs);
@@ -5629,6 +6101,20 @@ select.field__input option {
 .file-view__action:hover,
 .file-view__action:focus-visible {
     color: var(--color-text-primary);
+}
+
+/* The one act in the row that is a state rather than an event says so in the
+   mark's own colour. It used to say it as a toggle's pressed box — a tint and a
+   border, on a control already wider than the glyphs either side of it — which
+   made comparing look like the important one of the three rather than the one
+   that is currently on. Colour is what the rest of this row already changes on
+   hover, so it is the register the row is written in.
+
+   Left to lose to the hover rule above on purpose: a control that stopped
+   responding to the pointer once it was on would read as disabled, which is the
+   opposite of what it is. */
+.file-view__action--on {
+    color: var(--color-primary);
 }
 
 .file-view__copy-status {
@@ -5676,6 +6162,21 @@ select.field__input option {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+/* The rest of what the file's own record states, in a band under the header on
+   the same terms as the frontmatter strip above — a fact about the file that is
+   not the file, between the line that names it and the body that is it.
+
+   This is what makes the two-line header a rule rather than an aspiration. The
+   fields are a row per stated field and they were drawn inside the identity
+   column, so a file stating `related` and `depends-on` had a four-line header and
+   nothing in the header could have truncated its way out: the rows are the
+   content. See FileHeader, which draws the status in the header and hands the
+   rest here. */
+.file-view__record-fields {
     padding: var(--spacing-sm) var(--spacing-md);
     border-bottom: var(--border-width) solid var(--color-border);
 }
@@ -9788,5 +10289,601 @@ select.field__input option {
 
     .detail-sheet[data-open="true"] {
         opacity: 1;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   The C4 explorer.
+
+   A three-part frame: a bar of controls, a body of Views panel / stage /
+   Highlighter, and a foot of drill targets and references. Presentation mode is
+   one class on the root that takes everything except the stage off screen, which
+   is why the parts are siblings rather than nested.
+
+   Every colour and space is a token (guideline 0011). The one place a raw value
+   appears is the minimap's size, which is a deliberate physical dimension rather
+   than a spacing step.
+   --------------------------------------------------------------------------- */
+
+.c4-explorer {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: var(--spacing-sm);
+    min-height: 0;
+}
+
+.c4-explorer__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-explorer__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.c4-explorer__body {
+    display: grid;
+    grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    min-height: 0;
+}
+
+/* Presentation mode: the picture, and nothing else. Panels are hidden rather
+   than collapsed so the stage takes the whole width in one step. */
+.c4-explorer--presenting .c4-explorer__body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.c4-explorer--presenting .c4-views,
+.c4-explorer--presenting .c4-highlighter,
+.c4-explorer--presenting .c4-explorer__foot,
+.c4-explorer--presenting .c4-breadcrumb {
+    display: none;
+}
+
+/* ---- views panel ---- */
+
+.c4-views {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    align-content: start;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.c4-views__level {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-views__item {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-views__item:hover,
+.c4-views__item:focus-visible,
+.c4-views__item--active {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    background: var(--color-background-raised);
+}
+
+/* ---- breadcrumb ---- */
+
+.c4-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-size: var(--font-size-sm);
+}
+
+.c4-breadcrumb__step {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-breadcrumb__step:hover,
+.c4-breadcrumb__step:focus-visible {
+    text-decoration: underline;
+}
+
+/* The trail's separator is drawn rather than written, so it is never read out as
+   content by a screen reader walking the buttons. */
+.c4-breadcrumb__step + .c4-breadcrumb__step::before {
+    content: "›";
+    margin-right: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.c4-breadcrumb__step[disabled] {
+    color: var(--color-text-primary);
+    cursor: default;
+}
+
+.c4-breadcrumb__step[disabled]:hover {
+    text-decoration: none;
+}
+
+/* ---- stage ---- */
+
+.c4-explorer__stage {
+    position: relative;
+    min-height: 24rem;
+    min-width: 0;
+}
+
+.c4-explorer__frame {
+    height: 100%;
+    min-height: 0;
+}
+
+/* The diagram fills the stage and stops scrolling: panning replaced the
+   scrollbars, and leaving both would fight for the same drag. */
+.c4-explorer__frame .c4-diagram-host {
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+}
+
+.c4-explorer__frame .c4-diagram-host.is-panning {
+    cursor: grabbing;
+}
+
+/* A node that can be drilled into says so, and one that cannot says nothing.
+   The hand cursor is an offer, and most elements have nothing below them — a
+   component is a leaf, and a container with no component view has nothing
+   declared — so offering on all of them made the gesture read as broken. */
+.c4-explorer__frame g.node.c4-drillable {
+    cursor: pointer;
+}
+
+.c4-explorer__frame g.node.c4-drillable:hover rect,
+.c4-explorer__frame g.node.c4-drillable:hover path {
+    stroke: var(--color-primary);
+    stroke-width: 2px;
+}
+
+/* ---- the C4 diagram ------------------------------------------------------
+
+   Drawn by this product now, not by mermaid, so every mark here is reachable —
+   which is the whole reason the renderer was written. Mermaid sized its own
+   boxes, drew no icon, routed its own edges and wrote every colour inline where
+   no rule could reach.
+
+   Depth on one hue, not a hue per level. `color-scheme.md#chart-roles` says the
+   palette carries exactly one saturated hue and that a second hue claims "this is
+   a different kind of quantity". A C4 level is not a different kind of thing, it
+   is the same architecture seen closer — so a level is a position on the ramp,
+   with the glyph carrying what the ramp cannot. That is the rule the technology
+   atlas already follows.                                                        */
+
+.c4-diagram-host {
+    height: 100%;
+    min-height: 0;
+}
+
+.c4-diagram {
+    display: block;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-family-base);
+}
+
+.c4-diagram__empty {
+    fill: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* ---- cards ----
+
+   Three tiers, not four shades.
+
+   Four steps of one ramp was the first attempt and it read as one colour: the
+   palette's hue mixed with the surface at 45/60/80/100% gives four golds that are
+   only tellable apart side by side, which is not how anybody reads a diagram. So
+   the code is weight rather than lightness — solid for what the view is about,
+   solid-but-quieter for its peers, and outline-only for what is outside it. That
+   is three tiers a reader can name at a glance, and it still spends exactly one
+   hue, which is what `color-scheme.md#chart-roles` requires.
+
+   The glyph carries the rest. A person, a store and a service differ by mark
+   before they differ by anything else — the rule the technology atlas follows for
+   the same reason.                                                              */
+
+.c4-diagram__node rect {
+    fill: var(--chart-ramp-2);
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1;
+}
+
+/* The deepest level on screen is the subject, so it takes the strongest step. */
+.c4-diagram__node--component rect,
+.c4-diagram__node--container rect,
+.c4-diagram__node--infrastructure rect {
+    fill: var(--chart-ramp-3);
+}
+
+/* A person is an actor rather than a part of the system, and reads as one:
+   quieter fill, full-strength border. */
+.c4-diagram__node--person rect {
+    fill: var(--chart-track);
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1.5;
+}
+
+/* Outside what the view is of, and it should read that way before a single label
+   is read: no fill at all. An outline against the page is the strongest
+   distinction one hue can buy, and it costs no second hue to make it. */
+.c4-diagram__node--external rect {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1;
+    stroke-dasharray: 5 4;
+}
+
+.c4-diagram__glyph {
+    fill: var(--chart-ink);
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+/* The actor. Drawn rather than typed: a head and shoulders reads as a person at
+   any size and in any font, where a character depends on both. */
+.c4-diagram__figure {
+    fill: none;
+    stroke: var(--chart-ramp-4);
+    stroke-width: 1.6;
+}
+
+.c4-diagram__node--external .c4-diagram__figure {
+    stroke: var(--chart-ink-muted);
+}
+
+/* "EXTERNAL", in words. The dashed outline says it to a reader who knows the
+   notation; the chip says it to one who does not. */
+.c4-diagram__chip {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1;
+}
+
+.c4-diagram__chip-text {
+    fill: var(--chart-ink-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.c4-diagram__name {
+    fill: var(--chart-ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.c4-diagram__kind,
+.c4-diagram__descr {
+    fill: var(--chart-ink-muted);
+    font-size: 10.5px;
+}
+
+.c4-diagram__node--external .c4-diagram__name {
+    fill: var(--chart-ink-muted);
+}
+
+.c4-diagram__node--external .c4-diagram__glyph {
+    fill: var(--chart-ink-muted);
+    opacity: 0.55;
+}
+
+/* ---- frames ---- */
+
+.c4-diagram__boundary rect {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 6 5;
+}
+
+.c4-diagram__boundary-name {
+    fill: var(--chart-ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.c4-diagram__boundary-kind {
+    fill: var(--chart-ink-muted);
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* ---- edges ---- */
+
+.c4-diagram__edge path {
+    fill: none;
+    stroke: var(--chart-axis);
+    stroke-width: 1.25;
+}
+
+.c4-diagram__arrowhead {
+    fill: var(--chart-axis);
+}
+
+.c4-diagram__edge-label text {
+    fill: var(--chart-ink-muted);
+    font-size: 10.5px;
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.c4-diagram__edge-tech {
+    opacity: 0.75;
+}
+
+.c4-diagram__edge-order {
+    fill: var(--color-primary);
+    font-weight: 700;
+}
+
+/* The Highlighter's answer. Dimmed rather than hidden, so the shape of the
+   diagram is still readable and the match reads as an emphasis rather than as a
+   different picture. */
+.c4-explorer__frame g.node.c4-dimmed {
+    opacity: 0.18;
+}
+
+.c4-explorer__frame g.node.c4-focused rect,
+.c4-explorer__frame g.node.c4-focused path {
+    stroke: var(--color-primary);
+    stroke-width: 3px;
+}
+
+/* ---- minimap ---- */
+
+.c4-minimap {
+    position: absolute;
+    right: var(--spacing-xs);
+    bottom: var(--spacing-xs);
+    width: 9rem;
+    height: 6rem;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+.c4-minimap svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.c4-minimap__lens {
+    fill: var(--color-primary);
+    fill-opacity: 0.15;
+    stroke: var(--color-primary);
+    stroke-width: 4px;
+    vector-effect: non-scaling-stroke;
+}
+
+/* ---- zoom ---- */
+
+.c4-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.c4-zoom__level {
+    min-width: 3.5rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* ---- search ---- */
+
+.c4-search {
+    position: relative;
+    min-width: 14rem;
+}
+
+.c4-search__hits {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    margin: var(--spacing-2xs) 0 0;
+    padding: var(--spacing-2xs);
+    list-style: none;
+    max-height: 16rem;
+    overflow-y: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-search__hits--empty {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-search__hit {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-search__hit:hover,
+.c4-search__hit:focus-visible {
+    background: var(--color-background-alt);
+}
+
+.c4-search__hit-detail {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* ---- highlighter ---- */
+
+/* A bar under the diagram rather than a column beside it, which is where c4hero
+   puts the same four facets. It reads better here too: the picture keeps the
+   full width, and four short rows of chips are easier to scan across than down a
+   narrow rail. */
+.c4-highlighter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+    max-height: 9rem;
+    overflow-y: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-facet {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    max-width: 100%;
+}
+
+.c4-facet__label {
+    margin: 0 var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.c4-facet__value {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+
+.c4-facet__value--on {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* ---- foot ---- */
+
+.c4-explorer__foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-drill {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.c4-drill__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-drill__item {
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-drill__item:hover,
+.c4-drill__item:focus-visible {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.c4-problems {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-problems li + li {
+    margin-top: var(--spacing-2xs);
+}
+
+/* Narrow: the panels stack above the stage rather than squeezing it. */
+@media (max-width: 60rem) {
+    .c4-explorer__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-views {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+}
+
+/* Motion is not used here, but the focus ring is: a reduced-motion reader still
+   needs to see which box the search found. */
+@media (prefers-reduced-motion: reduce) {
+    .c4-explorer__frame g.node.c4-dimmed {
+        opacity: 0.3;
     }
 }

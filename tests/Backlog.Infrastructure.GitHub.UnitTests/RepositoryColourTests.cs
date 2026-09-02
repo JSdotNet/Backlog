@@ -314,6 +314,36 @@ public class RepositoryColourTests : IDisposable
         Assert.True(Store().Current.ShowRepositoryColours);
     }
 
+    /// <summary>
+    /// The hue is part of what a repository is, so it is kept with the identity in
+    /// the workspace folder rather than per machine. Two installs are two per-user
+    /// files over one synced root, which is exactly the arrangement the split
+    /// exists for.
+    /// <para>
+    /// It could not be otherwise: <see cref="RepositoryColours.Resolve"/> takes an
+    /// unchosen hue from list position, so the answer already depends on the
+    /// shared ordered list. A per-install hue would mean the same repository
+    /// wearing two colours, which is the several-answers-to-one-question that
+    /// <c>.design/color-scheme.md#band-identity-tokens</c> exists to forbid.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_colour_chosen_here_is_the_colour_on_another_install()
+    {
+        var here = Store();
+        Assert.Null(here.SetRepositories([Repository("backlog"), Repository("docs")]));
+        Assert.Null(here.SetRepositoryColour("docs", 4));
+
+        // A second install: its own per-user file, the same workspace folder.
+        var there = new GitHubSettingsStore(Path.Combine(_root, "another-install", "github.json"), () => _root);
+
+        Assert.Equal(4, there.Current.Find("docs")!.Colour);
+
+        // And the whole resolved answer matches, not only the one chosen hue — the
+        // automatic hues depend on list position, which is shared too.
+        Assert.Equal(here.Current.Colours(), there.Current.Colours());
+    }
+
     [Fact]
     public void TheChoiceItselfIsStillReadableWhileTheVisualizationIsOff()
     {

@@ -46,7 +46,7 @@ public sealed class FileFieldTests
 
         var field = context.Render<FileField>(parameters => parameters
             .Add(f => f.Label, "Catalog file")
-            .Add(f => f.HelpText, "A copilot-tools.json.")
+            .Add(f => f.HelpText, "An ai-tools.json.")
             .Add(f => f.ErrorMessage, "That is not a tool catalog."));
 
         var input = field.Find("input[type=file]");

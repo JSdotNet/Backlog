@@ -3,11 +3,32 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// <summary>One repository the registry knows about, in the terms Backlog
 /// Management needs it in.</summary>
 /// <param name="Alias">The short name a person types in a <c>`repo:`</c> token,
-/// and the value an entry's <c>repo_ids</c> ends up holding.</param>
+/// and the label every chip, picker and colour mark reads. A display and typing
+/// label only — it is mutable by design, and it is no longer the value an
+/// entry's <c>repo_ids</c> ends up holding; <see cref="TasksRepositoryRef.Id"/>
+/// is.</param>
 /// <param name="Owner">The GitHub account or organisation the repository sits
 /// under.</param>
 /// <param name="Name">The repository's own name under that owner.</param>
-public sealed record TasksRepositoryRef(string Alias, string Owner, string Name);
+public sealed record TasksRepositoryRef(string Alias, string Owner, string Name)
+{
+    /// <summary>
+    /// The <c>owner/name</c> identity an entry's <c>repo_ids</c> holds.
+    /// <para>
+    /// Computed rather than a fourth positional parameter, deliberately. A
+    /// parameter would be a second source of truth for a value that owner and
+    /// name already determine, and every construction site — the adapter over
+    /// Settings, the fakes, a plan's registration — would have to be trusted to
+    /// keep the two in step. Derived, it cannot drift.
+    /// </para>
+    /// <para>
+    /// The alias used to be what an entry stored. Moving the stored identity
+    /// here is what lets somebody rename an alias without every entry filed
+    /// against that repository losing its target.
+    /// </para>
+    /// </summary>
+    public string Id => $"{Owner}/{Name}";
+}
 
 /// <summary>
 /// PORT — which repositories exist, and how a name a plan wrote becomes one of
@@ -34,10 +55,19 @@ public interface IRepositoryDirectory
     /// holds them. Empty when none is configured.</summary>
     IReadOnlyList<TasksRepositoryRef> Repositories { get; }
 
-    /// <summary>The repository a name refers to, matched on alias without regard
-    /// to case, or null when the registry has never seen it. Null is an ordinary
-    /// answer and not a failure: outside Import an unrecognized <c>repo:</c>
-    /// simply stays unresolved, which is the token's general rule.</summary>
+    /// <summary>The repository a name refers to, or null when the registry has
+    /// never seen it. Null is an ordinary answer and not a failure: outside
+    /// Import an unrecognized <c>repo:</c> simply stays unresolved, which is the
+    /// token's general rule.
+    /// <para>
+    /// Matched on shape, because a stored <c>repo_id</c> and a hand-typed
+    /// <c>repo:</c> are the same input arriving in two spellings. A name
+    /// containing a <c>/</c> is an <see cref="TasksRepositoryRef.Id"/> and is
+    /// matched against that, without regard to case — GitHub is
+    /// case-preserving but not case-sensitive, so the registry's casing is the
+    /// answer either way. Anything else is an alias and is matched exactly,
+    /// because both sides have been through the same normalization.
+    /// </para></summary>
     TasksRepositoryRef? Resolve(string name);
 
     /// <summary>Registers a repository under the name a plan gave it and returns

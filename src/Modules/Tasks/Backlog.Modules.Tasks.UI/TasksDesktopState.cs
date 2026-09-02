@@ -197,6 +197,16 @@ public sealed class TasksDesktopState : IDisposable
     /// space.</summary>
     public const string UnfiledArea = " unfiled";
 
+    /// <summary>The selected tag, bare and lower-cased the way
+    /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
+    /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
+    public string SelectedTag { get; private set; } = string.Empty;
+
+    /// <summary>Sentinel for "entries with no tags", on the same terms as
+    /// <see cref="UnfiledArea"/>: the parser strips the leading <c>#</c>,
+    /// lower-cases, and would never produce a leading space.</summary>
+    public const string UntaggedTag = " untagged";
+
     /// <summary>
     /// The date the My Day scope is narrowing to, or null while the scope is off.
     /// <para>
@@ -214,6 +224,19 @@ public sealed class TasksDesktopState : IDisposable
     /// <summary>The areas actually in use, in alphabetical order. There is no
     /// fixed taxonomy: an area exists because somebody typed it.</summary>
     public List<AreaFilterOption> AreaFilters { get; private set; } = [];
+
+    /// <summary>
+    /// The tags actually in use, in alphabetical order, and empty when nothing in
+    /// scope carries one — which is what takes the whole group off the bar rather
+    /// than leaving a lone "All" chip filtering nothing.
+    /// <para>
+    /// Unlike an area, an entry has any number of tags, so a row is counted under
+    /// every tag it wears. The counts are occurrences rather than a partition; only
+    /// "All" is a row count, and it is the same pool the area and My Day chips count
+    /// against — see <see cref="ScopedRows"/>.
+    /// </para>
+    /// </summary>
+    public List<TagFilterOption> TagFilters { get; private set; } = [];
 
     public IReadOnlyList<GitHubRepositoryRef> Repositories => _gitHub.Repositories;
 
@@ -255,8 +278,8 @@ public sealed class TasksDesktopState : IDisposable
         return error;
     }
 
-    /// <summary>The identity mark for a row, as classes, or null when the row's area
-    /// names no configured repository. The classes are the shared
+    /// <summary>The identity mark for a row, as classes, or null when the row targets
+    /// no configured repository. The classes are the shared
     /// <c>repo-mark</c> utility; nothing here knows what colour that turns out to
     /// be.</summary>
     public string? RepositoryMarkClass(EntryRow row) =>
@@ -442,6 +465,7 @@ public sealed class TasksDesktopState : IDisposable
     /// </para></summary>
     public async Task InitializeAsync()
     {
+        await ReconcileRepositoryIdsAsync();
         await ReloadRowsAsync();
         Changed?.Invoke();
     }
@@ -478,6 +502,15 @@ public sealed class TasksDesktopState : IDisposable
         ApplyFilter();
     }
 
+    /// <summary>Selects a tag, bare and lower-cased the way the parser stores one.
+    /// <see cref="UntaggedTag"/> asks for the entries with no tags; null or empty
+    /// asks for all of them.</summary>
+    public void SetTagFilter(string? tag)
+    {
+        SelectedTag = tag ?? string.Empty;
+        ApplyFilter();
+    }
+
     /// <summary>Turns the My Day scope on for a date, or off when handed null. The
     /// caller supplies the date because the caller is what has the clock; see
     /// <see cref="MyDayOn"/>.</summary>
@@ -492,19 +525,25 @@ public sealed class TasksDesktopState : IDisposable
     /// exists (the domain requires a title), so what is typed before that is held
     /// locally. When an area is being filtered, or a repository is scoped, the new
     /// entry starts already filed there — otherwise it would vanish the moment it
-    /// saved, since a repository's rows are exactly the rows whose area names it
-    /// (<see cref="RowBelongsToSelectedRepository"/>).</summary>
+    /// saved, since each scope keeps exactly the rows that say they belong to it
+    /// (<see cref="RowBelongsToSelectedRepository"/>). Two seeds rather than one,
+    /// because the area and the repository are two facts: a scoped repository
+    /// writes <c>`repo:`</c>, a filtered area writes <c>`@area`</c>, and a reader
+    /// looking at both gets both.</summary>
     public void NewRow()
     {
         var row = new EntryRow();
 
-        var seedArea = SelectedArea.Length > 0 && SelectedArea != UnfiledArea
-            ? SelectedArea
-            : SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
+        var seedArea = SelectedArea.Length > 0 && SelectedArea != UnfiledArea ? SelectedArea : null;
+        var seedRepository = SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
 
-        if (seedArea is not null)
+        if (seedArea is not null || seedRepository is not null)
         {
-            row.RawText = $"# \n`task` `*medium` `!draft` `@{seedArea}`\n";
+            var tokens = "`task` `*medium` `!draft`";
+            if (seedArea is not null) tokens += $" `@{seedArea}`";
+            if (seedRepository is not null) tokens += $" `repo:{seedRepository}`";
+
+            row.RawText = $"# \n{tokens}\n";
             row.SeedText = row.RawText;
         }
 
@@ -946,6 +985,50 @@ public sealed class TasksDesktopState : IDisposable
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
 
+    /// <summary>
+    /// Points the entry at a repository, or at none when handed nothing. A
+    /// <c>`repo:`</c> write rather than an <c>`@area`</c> one — see
+    /// <see cref="RepositoryFor"/> for why those are different facts.
+    /// <para>
+    /// Only the target the picker is showing changes. An entry may name several
+    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>) while the control
+    /// speaks about one, so the rest are left exactly as the text wrote them: a
+    /// single-choice control is not a reason to silently drop the second
+    /// repository somebody typed.
+    /// </para>
+    /// </summary>
+    public async Task ChangeRepositoryAsync(EntryRow row, string? repositoryAlias)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var chosen = string.IsNullOrWhiteSpace(repositoryAlias) ? null : repositoryAlias.Trim();
+        var shown = RepositoryFor(row);
+
+        var targets = new List<string>();
+        var replaced = false;
+
+        foreach (var target in row.PreviewRepoIds)
+        {
+            if (!replaced
+                && shown is not null
+                && _gitHub.ResolveRepository(target) is { } resolved
+                && string.Equals(resolved.Alias, shown.Alias, StringComparison.Ordinal))
+            {
+                replaced = true;
+                if (chosen is not null) targets.Add(chosen);
+                continue;
+            }
+
+            targets.Add(target);
+        }
+
+        // Nothing to replace means the entry named no repository this workspace
+        // knows, so the choice is an addition rather than an edit.
+        if (!replaced && chosen is not null) targets.Add(chosen);
+
+        await RewriteMetadataAsync(row, EntryTextParser.WithRepoIds(row.RawText, targets));
+    }
+
     public async Task ChangeTagsAsync(EntryRow row, IEnumerable<string> tags) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithTags(row.RawText, tags));
 
@@ -1308,10 +1391,35 @@ public sealed class TasksDesktopState : IDisposable
     /// list shows nothing about GitHub at all.</summary>
     public bool GitHubConfigured => _gitHub.IsConfigured;
 
-    /// <summary>The repository this row's area names, or null when the area is
-    /// just a pile. What makes an entry pushable is that its <c>`@area`</c>
-    /// matches a repository configured in Settings.</summary>
-    public GitHubRepositoryRef? RepositoryFor(EntryRow row) => _gitHub.ResolveRepository(row.PreviewArea);
+    /// <summary>
+    /// The repository this row targets, or null when it names none the workspace
+    /// knows. What makes an entry pushable is its <c>`repo:`</c> token naming a
+    /// repository configured in Settings.
+    /// <para>
+    /// The entry's <c>`@area`</c> is deliberately not consulted. An area is "a
+    /// self-chosen grouping the person files an entry under — the taxonomy belongs
+    /// to the person, not the product" (<c>.domain/backlog/naming.md#area</c>), and
+    /// <c>repo_ids</c> is the field that targets repositories
+    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>). Reading the area
+    /// instead is what made every imported entry read "No repo": a plan files its
+    /// entries under a pile such as <c>@repos</c> and names the repository in
+    /// <c>repo:</c>, exactly as the grammar says to.
+    /// </para>
+    /// <para>
+    /// The first target that resolves, because an entry may name several and the
+    /// controls that ask this — the picker, the colour mark, the push button — each
+    /// speak about one. Which repositories an entry targets in full is the text's
+    /// answer, and the text is where a second one is written.
+    /// </para>
+    /// </summary>
+    public GitHubRepositoryRef? RepositoryFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return row.PreviewRepoIds
+            .Select(_gitHub.ResolveRepository)
+            .FirstOrDefault(repository => repository is not null);
+    }
 
     /// <summary>True when the rows currently on screen include anything linked
     /// to GitHub, which is what makes a whole-list sync worth offering.</summary>
@@ -1489,8 +1597,40 @@ public sealed class TasksDesktopState : IDisposable
         _editingSubItemCount = -1;
         _entries.Clear();
 
+        // The new folder brings its own registry and its own entries, so the pass
+        // runs again before anything is read: a value that was an alias in the old
+        // workspace may name a different repository in this one, or none.
+        await ReconcileRepositoryIdsAsync();
         await ReloadRowsAsync();
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Settles every entry's stored repository identity before the rows are read.
+    /// <para>
+    /// Before the list rather than after it, so the first render already shows the
+    /// resolved repository on every chip instead of showing "No repo" and
+    /// correcting itself. <c>ReloadRowsAsync</c> rewrites each row's text from the
+    /// entry, so a value this pass changed is on screen the moment the rows arrive.
+    /// </para>
+    /// <para>
+    /// A failure is deliberately not surfaced. The pass is a tidy-up of stored
+    /// values, not something the person asked for, and every unreconciled value
+    /// still reads exactly as it did before — so the honest response to a store
+    /// that would not answer is to open the list anyway and try again next start.
+    /// </para>
+    /// </summary>
+    private async Task ReconcileRepositoryIdsAsync()
+    {
+        try
+        {
+            _ = await _entryUseCases.ReconcileRepositoryIdsAsync();
+        }
+        catch (Exception)
+        {
+            // A store that cannot be read or written must never be the reason the
+            // backlog will not open.
+        }
     }
 
     // --- Internals ------------------------------------------------------
@@ -1770,6 +1910,7 @@ public sealed class TasksDesktopState : IDisposable
 
         var repositoryScopedRows = rows.ToList();
         RebuildAreaFilters(repositoryScopedRows);
+        RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
@@ -1793,6 +1934,19 @@ public sealed class TasksDesktopState : IDisposable
         else if (SelectedArea.Length > 0)
         {
             rows = rows.Where(x => x.PreviewArea == SelectedArea);
+        }
+
+        // Tags narrow inside the area the same way status does, and compose with
+        // both. An entry wears any number of them, so this asks whether the row
+        // carries the selected one rather than whether it *is* that one — which is
+        // the whole difference between a tag and an area.
+        if (SelectedTag == UntaggedTag)
+        {
+            rows = rows.Where(x => x.PreviewTags.Count == 0);
+        }
+        else if (SelectedTag.Length > 0)
+        {
+            rows = rows.Where(x => x.PreviewTags.Contains(SelectedTag, StringComparer.OrdinalIgnoreCase));
         }
 
         // A row being written right now always stays put, even if what was just
@@ -1828,22 +1982,28 @@ public sealed class TasksDesktopState : IDisposable
         }
     }
 
+    /// <summary>A row is in the scoped repository when one of its targets names it.
+    /// Any rather than the first, because an entry that targets two repositories
+    /// belongs to both scopes — hiding it from one would be the scope disagreeing
+    /// with the entry's own text.</summary>
     private bool RowBelongsToSelectedRepository(EntryRow row) =>
-        string.Equals(row.PreviewArea, SelectedRepositoryAlias, StringComparison.Ordinal);
+        row.PreviewRepoIds.Any(target =>
+            _gitHub.ResolveRepository(target) is { } repository
+            && string.Equals(repository.Alias, SelectedRepositoryAlias, StringComparison.Ordinal));
 
     /// <summary>Areas exist because somebody typed one, so the filter is
-    /// rebuilt from what is actually in the current repository scope. Configured
-    /// repository aliases are hidden here because repository selection is a
-    /// global scope, not another area/tag chip.</summary>
+    /// rebuilt from what is actually in the current repository scope. Every area is
+    /// offered, including one spelled like a configured repository: the two are
+    /// unrelated facts now that the repository is <c>repo_ids</c>, so an area that
+    /// happens to read "backlog" is a pile with that name and belongs on a chip
+    /// like any other.</summary>
     private void RebuildAreaFilters(IReadOnlyList<EntryRow> scopedRows)
     {
-        var repositoryAliases = _gitHub.Repositories.Select(repository => repository.Alias).ToHashSet(StringComparer.Ordinal);
         var options = new List<AreaFilterOption> { new("All", string.Empty, scopedRows.Count) };
 
         var used = scopedRows
             .Select(r => r.PreviewArea)
             .Where(a => !string.IsNullOrEmpty(a))
-            .Where(a => !repositoryAliases.Contains(a!))
             .GroupBy(a => a!, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal);
 
@@ -1869,6 +2029,62 @@ public sealed class TasksDesktopState : IDisposable
         if (SelectedArea.Length > 0 && options.All(o => o.Value != SelectedArea))
         {
             SelectedArea = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Tags exist for the same reason areas do — somebody typed one — so the group
+    /// is rebuilt from what is in the current repository scope, and disappears
+    /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
+    /// holding one dead "All" chip would be charging every reader for a feature only
+    /// the taggers use.
+    /// <para>
+    /// Read off <c>PreviewTags</c>, which is the union of the metadata line and the
+    /// body: a <c>#tag</c> written mid-sentence is a tag the reader can see on the
+    /// row, so it is one they can filter by. Values stay bare and lower-cased the way
+    /// the parser stores them; the leading <c>#</c> is on the label only, because that
+    /// is how a tag reads everywhere else on this screen.
+    /// </para>
+    /// </summary>
+    private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
+    {
+        var used = scopedRows
+            .SelectMany(r => r.PreviewTags)
+            .Where(tag => !string.IsNullOrEmpty(tag))
+            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToList();
+
+        if (used.Count == 0)
+        {
+            TagFilters = [];
+            SelectedTag = string.Empty;
+            return;
+        }
+
+        var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
+
+        foreach (var group in used)
+        {
+            // Counted per tag rather than per row: a row wearing two tags is under
+            // both of them, so the counts sum past the row count on purpose. Each one
+            // answers "how much is over there", which is the only question a chip is
+            // asked — see ScopedRows.
+            options.Add(new TagFilterOption($"#{group.Key}", group.Key, group.Count()));
+        }
+
+        var untagged = scopedRows.Count(r => r.PreviewTags.Count == 0);
+        if (untagged > 0)
+        {
+            options.Add(new TagFilterOption("Untagged", UntaggedTag, untagged));
+        }
+
+        TagFilters = options;
+
+        // A tag stops existing when the last entry wearing it drops it.
+        if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
+        {
+            SelectedTag = string.Empty;
         }
     }
 
@@ -1914,6 +2130,13 @@ public sealed record StatusFilterOption(string Label, string Wire);
 /// <summary>One entry in the area filter. <see cref="Count"/> is shown so the
 /// filter doubles as a sense of where the work actually is.</summary>
 public sealed record AreaFilterOption(string Label, string Value, int Count);
+
+/// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
+/// leading <c>#</c> a tag reads with everywhere else on the screen;
+/// <paramref name="Value"/> is the bare, lower-cased tag the parser stores.
+/// <paramref name="Count"/> is an occurrence count rather than a share of the
+/// rows — see <c>TasksDesktopState.TagFilters</c>.</summary>
+public sealed record TagFilterOption(string Label, string Value, int Count);
 
 /// <summary>One thing the app read out of an entry's meta line. <paramref
 /// name="Explicit"/> distinguishes what was actually typed from what is merely
@@ -2071,6 +2294,15 @@ public sealed class EntryRow
     public string? PreviewArea
     {
         get { Render(); return _parsed!.Area ?? Area; }
+    }
+
+    /// <summary>The repositories this entry targets, read from its <c>`repo:`</c>
+    /// tokens. No saved value to fall back to the way <see cref="PreviewArea"/>
+    /// has: a row loaded from the store is rewritten from the canonical text,
+    /// which carries the tokens, so the text is the whole answer.</summary>
+    public IReadOnlyList<string> PreviewRepoIds
+    {
+        get { Render(); return _parsed!.RepoIds ?? []; }
     }
 
     // The scheduling and dependency fields, read from the text and nowhere else.

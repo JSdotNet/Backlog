@@ -1,0 +1,217 @@
+@*
+    Everything a record states except its status: the labelled rows under the
+    headline.
+
+    A component of its own because the two halves of a record are not always drawn
+    in the same place. In a document they are — the status closes the heading and
+    the fields hang under it, which is what MetadataView composes. In the file
+    pane's header they cannot be: the header is two lines by contract, and a
+    record stating `related` and `depends-on` would add a row per field inside it.
+    So the pane draws the status in the header and these below it, in a strip of
+    their own, the way it already treats a file's frontmatter.
+
+    Which is the whole of the split. Nothing here knows where it is being drawn.
+    The list is the record's own order, and the questions about emptiness are the
+    ones MetadataView was already asking — moved rather than rewritten, so a record
+    renders the same rows in either host.
+
+    ---
+
+    The list below is indented as though it were still inside MetadataView's
+    `@if`, and it has to stay that way. A newline between two sibling expressions
+    is a text node in the rendered output, indentation included — Razor only trims
+    the whitespace at an element's edges and around a code block — so the source
+    indentation here is the whitespace between every row of every record this
+    product ships. MetadataViewMarkupTests asserts those bytes exactly, which is
+    how this was caught when the list first moved out and was re-indented to its
+    new home. There is no visual difference either way; there is a diff, and a
+    diff in shipped markup should mean somebody changed the markup.
+*@
+
+            <dl class="knowledge-fields" data-testid="@TestId">
+                @RenderReferences("related", Metadata.Related)
+                @RenderReferences("depends-on", Metadata.DependsOn)
+                @RenderReferences("implements", Metadata.Implements)
+                @RenderAliases()
+                @RenderStrings("alternatives", Metadata.Alternatives)
+                @RenderKind()
+                @RenderVersion()
+                @RenderIssue()
+                @RenderEffort()
+                @RenderKeys("roadmap", Metadata.Roadmap, "knowledge-roadmap-tags")
+                @RenderKeys("feature-flag", Metadata.FeatureFlag, "knowledge-feature-flag-tags")
+
+                @* Fields the schema does not define are shown as themselves. A
+                   viewer that dropped them would make a genuine schema addition
+                   look like a file that says nothing.
+
+                   Inside a code block on purpose. Razor emits the whitespace
+                   between two sibling expressions as content, and trims it either
+                   side of a block, so the rows above are separated by their source
+                   indentation and these are not — which is the markup this record
+                   has always rendered. *@
+                @if (Metadata.Extra.Count > 0)
+                {
+                    <MetadataExtraFields Extra="@Metadata.Extra" />
+                }
+            </dl>
+
+@code {
+    // Each field asks its own question about emptiness and then hands its value
+    // to the component for that value's shape: an absent list, a blank scalar and
+    // an estimate of zero are three different answers, and only the field knows
+    // which it is looking at. What a row *is* — the pair, the label, the value
+    // cell — is MetadataField's, and what a value *looks like* belongs to the
+    // one component per shape beside this one. What is left here is the only thing
+    // that is genuinely about the record: which fields are present, and in what
+    // order the rows appear.
+    //
+    // The value component is written hard against the row's opening tag. Razor
+    // emits the whitespace between an element's tag and a child element as
+    // content, so a newline there would add it to every value cell in the product.
+    private RenderFragment RenderReferences(string label, IReadOnlyList<KnowledgeReference> references) =>
+        @<text>
+            @if (references.Count > 0)
+            {
+                <MetadataField Label="@label"><MetadataReferenceList References="@references" HrefFor="@HrefFor" OnNavigate="@OnNavigate" /></MetadataField>
+            }
+        </text>;
+
+    // Alternatives are plain strings by design — a technology that was weighed and
+    // rejected has no chapter to point at — so they never become links, and they
+    // must not be dressed as one either. MetadataValueList is the component that
+    // cannot: it takes no href and no handler.
+    //
+    // Aliases used to be drawn through here too, and are not any more: the term an
+    // alias names *is* modelled somewhere, so unlike an alternative it is a word a
+    // host can be asked to place. See RenderAliases.
+    private RenderFragment RenderStrings(string label, IReadOnlyList<string> values) =>
+        @<text>
+            @if (values.Count > 0)
+            {
+                <MetadataField Label="@label"><MetadataValueList Values="@values" /></MetadataField>
+            }
+        </text>;
+
+    // An alias applies to a name rather than standing on its own, so it is drawn as
+    // a qualifier: a badge set above the baseline and a step smaller than the text
+    // it belongs to.
+    //
+    // The record wires no resolver. HrefFor answers for a KnowledgeReference and an
+    // alias is not one — an alias is a word, which is the whole reason the field
+    // holds plain strings — so there is nothing here to hand down. What a host would
+    // resolve an alias *to* is a question no file in this repository answers today,
+    // and a parameter for it would be this component claiming to know. The
+    // capability lives on MetadataAliasList, where it can be looked at and tested,
+    // until a naming index exists to wire it to.
+    private RenderFragment RenderAliases() =>
+        @<text>
+            @if (Metadata.Aliases.Count > 0)
+            {
+                <MetadataField Label="aliases"><MetadataAliasList Aliases="@Metadata.Aliases" /></MetadataField>
+            }
+        </text>;
+
+    // A closed vocabulary drawn as the classification it is, and the first of the
+    // three rows that state their own field. The label is hidden rather than
+    // dropped: a chip reading `framework` says what it is to somebody looking at it,
+    // and says nothing at all to somebody listening.
+    private RenderFragment RenderKind() =>
+        @<text>
+            @if (!string.IsNullOrWhiteSpace(Metadata.Kind))
+            {
+                <MetadataField Label="kind" ShowLabel="false"><MetadataKindBadge Kind="@Metadata.Kind" /></MetadataField>
+            }
+        </text>;
+
+    // The same authored-scalar shape it has always been, with the `v` that makes it
+    // legible without a label. Still a code element: `10.0` is a version string and
+    // not the number ten, and the monospace face is what stops a reader rounding it.
+    private RenderFragment RenderVersion() =>
+        @<text>
+            @if (!string.IsNullOrWhiteSpace(Metadata.Version))
+            {
+                <MetadataField Label="version" ShowLabel="false"><MetadataScalar Value="@Metadata.Version" Prefix="v" Title="@($"version: {Metadata.Version}")" /></MetadataField>
+            }
+        </text>;
+
+    // An issue is a URL or the `owner/repo#number` shorthand, and which of the two
+    // it is decides whether it can be followed. That question belongs to the value
+    // component, so the record only asks whether the field was stated at all.
+    private RenderFragment RenderIssue() =>
+        @<text>
+            @if (!string.IsNullOrWhiteSpace(Metadata.Issue))
+            {
+                <MetadataField Label="issue"><MetadataIssueLink Issue="@Metadata.Issue" /></MetadataField>
+            }
+        </text>;
+
+    // Absent when there is no estimate; 0 is an estimate and still shows. The
+    // record asks that question here rather than leaving the badge to answer it,
+    // because it is the row that must not appear — a badge that drew nothing would
+    // leave a labelled empty cell.
+    //
+    // The third labelless row. "5 pts" names its own field; "5" would not, which is
+    // why the unit was already spelled out before the label went.
+    private RenderFragment RenderEffort() =>
+        @<text>
+            @if (Metadata.Effort is not null)
+            {
+                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="@Metadata.Effort" /></MetadataField>
+            }
+        </text>;
+
+    // Roadmap keys and feature-flag keys are the same shape: identifiers something
+    // outside these files answers to, drawn in the feature-badge family and never
+    // links. One fragment for both, so the two fields cannot drift apart — and the
+    // test id lands on the value cell, which is what MetadataField's TestId is
+    // for.
+    private RenderFragment RenderKeys(string label, IReadOnlyList<string> keys, string testId) =>
+        @<text>
+            @if (keys.Count > 0)
+            {
+                <MetadataField Label="@label" TestId="@testId"><MetadataKeyList Keys="@keys" /></MetadataField>
+            }
+        </text>;
+
+    /// <summary>The record whose fields these are.</summary>
+    [Parameter, EditorRequired]
+    public MetadataRecord Metadata { get; set; } = MetadataRecord.Empty;
+
+    /// <summary>Raised with the reference a reader activated.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+
+    /// <summary>Resolves a reference to a link target; null leaves that reference
+    /// as text rather than a broken link.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+
+    /// <summary>The list's own test id. Null leaves the attribute off, which is
+    /// what <see cref="MetadataView"/> wants — the record it is inside is already
+    /// identified.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Whether a record states anything but its status, and so whether
+    /// this would draw any row at all.
+    ///
+    /// <para>Static, and asked by the host rather than answered by a component that
+    /// renders nothing: an empty <c>&lt;dl&gt;</c> is a gap with a gap's spacing
+    /// around it, and the hosts need the answer before they commit to the element
+    /// that would wrap it — a record's own group in
+    /// <see cref="MetadataView"/>, a strip of its own in the file pane.</para></summary>
+    public static bool HasAny(MetadataRecord metadata) =>
+        metadata.Related.Count > 0
+        || metadata.DependsOn.Count > 0
+        || metadata.Implements.Count > 0
+        || metadata.Aliases.Count > 0
+        || metadata.Alternatives.Count > 0
+        || !string.IsNullOrWhiteSpace(metadata.Kind)
+        || !string.IsNullOrWhiteSpace(metadata.Version)
+        || !string.IsNullOrWhiteSpace(metadata.Issue)
+        || metadata.Effort is not null
+        || metadata.Roadmap.Count > 0
+        || metadata.FeatureFlag.Count > 0
+        || metadata.Extra.Count > 0;
+}

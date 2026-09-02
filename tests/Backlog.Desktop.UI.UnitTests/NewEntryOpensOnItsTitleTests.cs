@@ -178,25 +178,29 @@ public sealed class NewEntryOpensOnItsTitleTests
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
 
-    /// <summary>With a repository scoped, a new entry starts already filed there —
+    /// <summary>With a repository scoped, a new entry starts already targeting it —
     /// the same bargain <see cref="Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with"/>
     /// documents for an area filter, extended to the other scope
     /// <see cref="TasksDesktopState.RowBelongsToSelectedRepository"/> reads the
     /// same field to decide. Without the seed, a repository's rows are exactly the
-    /// rows whose area names it — so an entry created with no area would pass the
-    /// filter only while pinned as an unpersisted draft, then drop out of
+    /// rows whose `repo:` names it — so an entry created targeting nothing would
+    /// pass the filter only while pinned as an unpersisted draft, then drop out of
     /// <c>FilteredRows</c> the moment its title saved and closed the pane on it.</summary>
     [Fact]
-    public async Task A_new_entry_is_seeded_with_the_scoped_repositorys_area()
+    public async Task A_new_entry_is_seeded_with_the_scoped_repository()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
+        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `repo:backlog`\n");
         host.State.SetRepositoryFilter("backlog");
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);
 
-        Assert.Contains("`@backlog`", row.RawText, StringComparison.Ordinal);
+        // A `repo:` seed rather than an `@area` one: the scope reads the entry's
+        // targets, and filing it under a pile named after the repository would be
+        // the list writing the reader's own taxonomy for them.
+        Assert.Contains("`repo:backlog`", row.RawText, StringComparison.Ordinal);
+        Assert.Null(row.PreviewArea);
     }
 
     /// <summary>The regression itself: typing the title on a repository-scoped draft
@@ -209,7 +213,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     public async Task Typing_the_title_keeps_a_repository_scoped_entry_visible()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
-        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
+        await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `repo:backlog`\n");
         host.State.SetRepositoryFilter("backlog");
 
         var pane = host.Render();
@@ -219,7 +223,7 @@ public sealed class NewEntryOpensOnItsTitleTests
         await pane.Find("[data-testid='entry-panel-rename']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.True(row.IsPersisted);
-        Assert.Equal("backlog", row.PreviewArea);
+        Assert.Equal(["backlog"], row.PreviewRepoIds);
         Assert.Same(row, host.State.SelectedRow);
         Assert.Contains(row, host.State.FilteredRows);
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));

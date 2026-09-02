@@ -82,12 +82,13 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         if (parsedEntries.Count == 0) return EmptyPlan;
         if (FirstDuplicateItemId(parsedEntries) is { } duplicate) return DuplicateItemId(duplicate);
 
-        // One memo for the whole run, keyed on the name exactly as the plan wrote
-        // it. A plan that names the same repository in ten entries is one
-        // question about one repository, and asking the registry ten times is
-        // how an unrecognized name would get offered for registration ten times.
-        var resolvedRepos = new Dictionary<string, string>(StringComparer.Ordinal);
-        parsedEntries = [.. parsedEntries.Select(parsed => ResolveRepos(parsed, command.RepoMatches, resolvedRepos))];
+        // One resolver for the whole run, because the memo it holds is a
+        // within-run answer: a plan that names the same repository in ten entries
+        // is one question about one repository, and asking the registry ten times
+        // is how an unrecognized name would get offered for registration ten
+        // times.
+        var resolver = new RepositoryIdResolver(repositories);
+        parsedEntries = [.. parsedEntries.Select(parsed => ResolveRepos(parsed, resolver, command.RepoMatches))];
 
         var planId = SharedTag(parsedEntries);
         var existing = await entries.ListAsync(cancellationToken);
@@ -229,8 +230,8 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     }
 
     /// <summary>
-    /// Turns the repository names an entry wrote into the aliases the workspace
-    /// actually knows, registering any it does not.
+    /// Turns the repository names an entry wrote into the ids the workspace
+    /// actually stores, registering any the registry does not know.
     /// <para>
     /// Runs over every entry, not only the ones the dialog flagged. A name that
     /// already matches a configured repository costs one lookup and changes
@@ -238,48 +239,21 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     /// as fast as it was; the interesting cases are only ever the leftovers.
     /// </para>
     /// <para>
-    /// Two names can resolve to one repository — "Widgets" matched to
-    /// <c>widgets</c> beside a literal <c>widgets</c> — so the result is
-    /// de-duplicated. The parser already guarantees an entry names each
-    /// repository once, and resolution should not be the step that breaks it.
+    /// The rule itself lives in <see cref="RepositoryIdResolver"/>, shared with
+    /// the ordinary text-save path so the two cannot disagree about what a
+    /// <c>repo:</c> value means. What is left here is only Import's own concern:
+    /// which entries to run it over, and that an entry naming none is left
+    /// untouched rather than given an empty list.
     /// </para>
     /// </summary>
-    private EntryTextParser.ParsedEntry ResolveRepos(
+    private static EntryTextParser.ParsedEntry ResolveRepos(
         EntryTextParser.ParsedEntry parsed,
-        IReadOnlyDictionary<string, string>? matches,
-        Dictionary<string, string> resolved)
+        RepositoryIdResolver resolver,
+        IReadOnlyDictionary<string, string>? matches)
     {
         if ((parsed.RepoIds?.Count ?? 0) == 0) return parsed;
 
-        return parsed with
-        {
-            RepoIds =
-            [
-                .. parsed.RepoIds!
-                    .Select(name => ResolveRepo(name, matches, resolved))
-                    .Distinct(StringComparer.Ordinal)
-            ]
-        };
-    }
-
-    /// <summary>One name, resolved once per run. The reader's own answer from the
-    /// dialog first, then the registry, and only a name neither knows is
-    /// registered — the leniency ADR 0004 grants Import and nothing else.</summary>
-    private string ResolveRepo(
-        string name,
-        IReadOnlyDictionary<string, string>? matches,
-        Dictionary<string, string> resolved)
-    {
-        if (resolved.TryGetValue(name, out var already)) return already;
-
-        var alias = matches is not null
-            && matches.TryGetValue(name, out var matched)
-            && !string.IsNullOrWhiteSpace(matched)
-                ? matched
-                : (repositories.Resolve(name) ?? repositories.Register(name)).Alias;
-
-        resolved[name] = alias;
-        return alias;
+        return parsed with { RepoIds = resolver.ResolveOrRegister(parsed.RepoIds, matches) };
     }
 
     private enum OutcomeKind { Create, Update, Skip }

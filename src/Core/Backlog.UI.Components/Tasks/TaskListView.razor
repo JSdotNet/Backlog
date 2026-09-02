@@ -335,6 +335,7 @@
                    OnToggle="OnToggle"
                    OnSelected="OnSelected"
                    OnRename="OnRename"
+                   OnTagSelected="OnTagSelected"
                    DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
                    Actions="@RowActions"
@@ -483,6 +484,18 @@
     /// decided it per row would be deciding which tasks are actionable.</summary>
     [Parameter]
     public RenderFragment<TaskRow>? RowActions { get; set; }
+
+    /// <summary>
+    /// Raised when a tag on a row is pressed, carrying the bare tag. Handed
+    /// straight to every row; see <c>TaskItem.OnTagSelected</c> for what it costs a
+    /// row to have one and what it changes about the markup.
+    /// <para>
+    /// Unset, which is what every list that has no answer for a tag leaves it as —
+    /// and then the tags are the plain text they were before this existed.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnTagSelected { get; set; }
 
     /// <summary>Whether finished rows move to a section of their own at the
     /// bottom. On by default: a list whose done rows stay in place is a list you

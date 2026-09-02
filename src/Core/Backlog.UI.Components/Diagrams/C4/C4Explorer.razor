@@ -1,0 +1,594 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The exploration layer over a C4 workspace.
+
+    The diagram itself is still a mermaid render through DiagramView, the same as a
+    chapter fence. What this adds is everything c4hero calls Explore: a Views panel
+    over the four levels, drilling into a system or container by clicking it, a
+    breadcrumb that says where that left you, search, the Highlighter, and a viewer
+    with pan, zoom, a minimap and a presentation mode.
+
+    Two things are worth knowing before reading it.
+
+    The bridge from the picture back to the model is the node alias. Mermaid writes
+    each element as `<g class="node" id="<svg id>-<alias>">`, and that alias came from
+    this repository's own writer — so a click resolves by identifier, never by
+    matching label text.
+
+    And every pointer affordance has a control beside it. `.design/accessibility.md`
+    requires that, and here it is not a concession: clicking a box to drill in is
+    discoverable but invisible to a keyboard, so the same moves are also buttons —
+    the Views panel, the drill list under the diagram, the zoom controls. Unplug the
+    mouse and nothing is lost but the dragging.
+*@
+
+<div class="c4-explorer @(_presenting ? "c4-explorer--presenting" : null)"
+     data-testid="@TestId"
+     aria-label="C4 model explorer">
+
+    @if (_view is null)
+    {
+        <EmptyState Title="No C4 views here yet." role="status">
+            <DescriptionContent>
+                The workspace declares no views. Add one in c4hero and it appears here.
+            </DescriptionContent>
+        </EmptyState>
+    }
+    else
+    {
+        <header class="c4-explorer__bar">
+            @* Where you are, and the way back out. The trail is derived from the
+               view's own scope rather than from history: it answers "where am I",
+               and Back answers "how did I get here". Two different questions, so
+               two controls. *@
+            <nav class="c4-breadcrumb" aria-label="View trail" data-testid="c4-breadcrumb">
+                @foreach (var step in C4Exploration.Trail(Workspace, _view))
+                {
+                    var current = string.Equals(step.Key, _view.Key, StringComparison.OrdinalIgnoreCase);
+                    <AppButton BaseClass="c4-breadcrumb__step"
+                               Variant="ButtonVariant.None"
+                               Disabled="current"
+                               aria-current="@(current ? "page" : null)"
+                               TestId="c4-breadcrumb-step"
+                               OnClick="() => Open(step.Key, remember: true)">@C4Exploration.Label(Workspace, step)</AppButton>
+                }
+            </nav>
+
+            <div class="c4-explorer__tools">
+                <AppButton Size="ButtonSize.Small"
+                           Variant="ButtonVariant.Ghost"
+                           Disabled="_history.Count == 0"
+                           title="Back to the previous view"
+                           TestId="c4-back"
+                           OnClick="Back">Back</AppButton>
+
+                @* Search. Not a shortcut only: ⌘F belongs to the browser inside a
+                   web harness, so the field is the primary way in and the shortcut
+                   is the accelerator. *@
+                <div class="c4-search">
+                    <TextField AriaLabel="Search the model"
+                               Placeholder="Search elements and views"
+                               Value="@_query"
+                               ValueChanged="OnQueryChanged"
+                               CssClass="c4-search__field"
+                               TestId="c4-search" />
+
+                    @if (_hits.Count > 0)
+                    {
+                        <ul class="c4-search__hits" data-testid="c4-search-hits">
+                            @foreach (var hit in _hits)
+                            {
+                                <li>
+                                    <AppButton BaseClass="c4-search__hit"
+                                               Variant="ButtonVariant.None"
+                                               TestId="c4-search-hit"
+                                               OnClick="() => GoTo(hit)">
+                                        <span class="c4-search__hit-label">@hit.Label</span>
+                                        <span class="c4-search__hit-detail">@hit.Detail</span>
+                                    </AppButton>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_query) && _query.Trim().Length >= 2)
+                    {
+                        <p class="c4-search__hits c4-search__hits--empty" role="status" data-testid="c4-search-empty">Nothing matches.</p>
+                    }
+                </div>
+
+                @if (_facets.Any)
+                {
+                    <ToggleButton Pressed="_highlighting"
+                                  PressedChanged="value => _highlighting = value"
+                                  BaseClass="btn btn--toggle btn--small"
+                                  Title="Filter by tag, status, technology or team"
+                                  TestId="c4-highlighter-toggle">Highlighter@(SelectedFacetCount is var n and > 0 ? $" ({n})" : string.Empty)</ToggleButton>
+                }
+
+                <span class="c4-zoom" role="group" aria-label="Zoom">
+                    <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" title="Zoom out" TestId="c4-zoom-out" OnClick="() => ZoomAsync(1 / 1.25)">−</AppButton>
+                    <span class="c4-zoom__level" data-testid="c4-zoom-level">@_zoom%</span>
+                    <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" title="Zoom in" TestId="c4-zoom-in" OnClick="() => ZoomAsync(1.25)">+</AppButton>
+                    <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" title="Fit the whole diagram" TestId="c4-fit" OnClick="FitAsync">Fit</AppButton>
+                </span>
+
+                <ToggleButton Pressed="_presenting"
+                              PressedChanged="OnPresentingChanged"
+                              BaseClass="btn btn--toggle btn--small"
+                              Title="Hide the panels for a clean canvas"
+                              TestId="c4-present">Present</ToggleButton>
+            </div>
+        </header>
+
+        <div class="c4-explorer__body">
+            @* The Views panel: the four levels, in the order a reader descends
+               them. Hidden in presentation mode along with everything else that is
+               not the picture. *@
+            <nav class="c4-views" aria-label="C4 views" data-testid="c4-views">
+                @foreach (var level in C4Exploration.Levels)
+                {
+                    var inLevel = _views.Where(candidate => candidate.Kind == level).ToList();
+                    if (inLevel.Count == 0) continue;
+
+                    <p class="c4-views__level">@C4Exploration.LevelLabel(level)</p>
+
+                    @foreach (var candidate in inLevel)
+                    {
+                        var active = string.Equals(candidate.Key, _view.Key, StringComparison.OrdinalIgnoreCase);
+                        <AppButton BaseClass="c4-views__item"
+                                   CssClass="@(active ? "c4-views__item--active" : null)"
+                                   Variant="ButtonVariant.None"
+                                   aria-current="@(active ? "page" : null)"
+                                   title="@candidate.Key"
+                                   TestId="c4-view-option"
+                                   OnClick="() => Open(candidate.Key, remember: true)">@C4Exploration.Label(Workspace, candidate)</AppButton>
+                    }
+                }
+            </nav>
+
+            <div class="c4-explorer__stage">
+                <div class="c4-explorer__frame" id="@_frameId" data-testid="c4-frame">
+                    <C4DiagramView Diagram="@C4LayoutEngine.Build(Workspace, _view)"
+                                   Id="@_svgId"
+                                   AriaLabel="@C4Exploration.Label(Workspace, _view)"
+                                   TestId="c4-diagram" />
+                </div>
+
+                @* The minimap. Filled by the viewer with a copy of the same SVG at
+                   full extent plus a lens for the current viewBox — so it is a
+                   picture of the picture, not a second rendering. *@
+                <div class="c4-minimap" data-c4-minimap aria-hidden="true" data-testid="c4-minimap"></div>
+            </div>
+
+        </div>
+
+        @* The four facets as a bar under the diagram, which is where c4hero puts
+           them and the better place for them here: the picture keeps the full
+           width, and four short rows of chips scan across more easily than down a
+           narrow rail. The names are c4hero's — Tag, Status, Tech, Team. *@
+        @if (_highlighting && _facets.Any)
+        {
+            <div class="c4-highlighter" role="group" aria-label="Highlighter" data-testid="c4-highlighter">
+                @Facet("Tag", _facets.Tags, _tags)
+                @Facet("Status", _facets.Statuses, _statuses)
+                @Facet("Tech", _facets.Technologies, _technologies)
+                @Facet("Team", _facets.Owners, _owners)
+
+                @if (SelectedFacetCount > 0)
+                {
+                    <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" TestId="c4-highlighter-clear" OnClick="ClearFacetsAsync">Clear filters</AppButton>
+                }
+            </div>
+        }
+
+        <footer class="c4-explorer__foot">
+            @* The keyboard companion to clicking a box, and the discoverable form of
+               a gesture nothing on screen advertises. Only elements that have
+               somewhere to go appear. *@
+            @if (_nodes.Where(node => node.DrillViewKey is not null).ToList() is { Count: > 0 } drillable)
+            {
+                <nav class="c4-drill" aria-label="Drill into" data-testid="c4-drill">
+                    <span class="c4-drill__label">Drill into</span>
+                    @foreach (var node in drillable)
+                    {
+                        <AppButton BaseClass="c4-drill__item"
+                                   Variant="ButtonVariant.None"
+                                   title="@($"Open the {C4Exploration.LevelLabel(node.Kind is C4ElementKind.SoftwareSystem ? C4ViewKind.Container : C4ViewKind.Component)} view of {node.Name}")"
+                                   TestId="c4-drill-item"
+                                   OnClick="() => Open(node.DrillViewKey, remember: true)">@node.Name</AppButton>
+                    }
+                </nav>
+            }
+
+            @if (ViewFooter is not null)
+            {
+                @ViewFooter(_view)
+            }
+
+            @if (ProblemsFor(_view) is { Count: > 0 } problems)
+            {
+                <Alert Message="@($"{problems.Count} thing{(problems.Count == 1 ? string.Empty : "s")} in this workspace could not be read, so the pictures may be incomplete.")"
+                       TestId="c4-problems"
+                       Role="status" />
+                <ul class="c4-problems" data-testid="c4-problem-list">
+                    @foreach (var problem in problems)
+                    {
+                        <li><code>@problem.Construct</code> (line @problem.Line) — @problem.Message</li>
+                    }
+                </ul>
+            }
+        </footer>
+    }
+</div>
+
+@code {
+    private readonly List<string> _history = [];
+    private readonly HashSet<string> _tags = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _technologies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _owners = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _statuses = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly string _frameId = "c4-frame-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The svg's own id, which every card's id is built from. Stable for the
+    /// life of the component: the viewer strips it off a clicked shape's id to get the
+    /// alias, so a new one per render would break every click.</summary>
+    private readonly string _svgId = "c4-svg-" + Guid.NewGuid().ToString("N");
+
+    private DotNetObjectReference<C4Explorer>? _self;
+    private IReadOnlyList<C4View> _views = [];
+    private IReadOnlyList<C4Node> _nodes = [];
+    private IReadOnlyList<C4SearchHit> _hits = [];
+    private C4Facets _facets = C4Facets.Empty;
+    private C4View? _view;
+    private string? _loadedFor;
+    private string? _query;
+    private string? _focusAlias;
+    private bool _highlighting;
+    private bool _presenting;
+    private int _zoom = 100;
+
+    [Parameter, EditorRequired]
+    public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
+
+    /// <summary>Everything the reader could not be shown. Passed in rather than taken
+    /// from <see cref="Workspace"/> so a host that collects problems across several
+    /// files can show them all.</summary>
+    [Parameter]
+    public IReadOnlyList<C4Problem> Problems { get; set; } = [];
+
+    /// <summary>Which view is open. Two-way, so a host that has to open a particular
+    /// view — a chapter reference naming one — sets it and is told when the reader
+    /// moves on.</summary>
+    [Parameter]
+    public string? ViewKey { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ViewKeyChanged { get; set; }
+
+    /// <summary>Drawn under the diagram, given the open view. What the host puts
+    /// there is the host's business — in the app it is the chapters this view
+    /// documents, which this library has no way to know about.</summary>
+    [Parameter]
+    public RenderFragment<C4View>? ViewFooter { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-explorer";
+
+    private int SelectedFacetCount => _tags.Count + _technologies.Count + _owners.Count + _statuses.Count;
+
+    /// <summary>Forgets a chosen value the new view has no chip for. Leaving it set
+    /// would dim the whole diagram against a filter with nothing on screen to
+    /// toggle it back off with.</summary>
+    private void DropSelectionsNotOn(C4Facets facets)
+    {
+        Keep(_tags, facets.Tags);
+        Keep(_technologies, facets.Technologies);
+        Keep(_owners, facets.Owners);
+        Keep(_statuses, facets.Statuses);
+
+        static void Keep(HashSet<string> selected, IReadOnlyList<C4FacetValue> available)
+        {
+            selected.RemoveWhere(value =>
+                !available.Any(candidate => string.Equals(candidate.Value, value, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_view is not null) await AttachAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Keyed on the workspace's identity rather than compared field by field: a
+        // reload hands over a fresh record, and re-deriving the views and facets is
+        // cheaper than working out whether it had to.
+        var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
+        if (!string.Equals(_loadedFor, key, StringComparison.Ordinal))
+        {
+            _loadedFor = key;
+            _views = C4Exploration.OrderedViews(Workspace);
+            _history.Clear();
+            _view = null;
+        }
+
+        // A key the host asked for wins; otherwise the first view in level order,
+        // which is the big picture.
+        var wanted = Workspace.View(ViewKey) ?? _view ?? _views.FirstOrDefault();
+        if (wanted is not null && !ReferenceEquals(wanted, _view))
+        {
+            _view = wanted;
+            _nodes = C4Exploration.Nodes(Workspace, _view);
+            _facets = C4Exploration.Facets(_nodes);
+        }
+    }
+
+    // ---- moving between views --------------------------------------------------
+
+    private async Task Open(string? key, bool remember)
+    {
+        if (Workspace.View(key) is not { } next) return;
+        if (_view is not null && string.Equals(next.Key, _view.Key, StringComparison.OrdinalIgnoreCase)) return;
+
+        if (remember && _view is not null) _history.Add(_view.Key);
+
+        _view = next;
+        _nodes = C4Exploration.Nodes(Workspace, next);
+
+        // The facets are a question about the picture in front of the reader, so they
+        // are re-derived with it. A selection that no longer exists on this view is
+        // dropped rather than left filtering against nothing.
+        _facets = C4Exploration.Facets(_nodes);
+        DropSelectionsNotOn(_facets);
+
+        _query = null;
+        _hits = [];
+
+        // The focus mark belongs to the view it was set on. Carrying it across would
+        // ring a box that is not the one the reader searched for.
+        _focusAlias = null;
+
+        await ViewKeyChanged.InvokeAsync(next.Key);
+    }
+
+    private async Task Back()
+    {
+        if (_history.Count == 0) return;
+
+        var key = _history[^1];
+        _history.RemoveAt(_history.Count - 1);
+
+        // remember: false, or Back would push the view it just left and never get
+        // anywhere.
+        await Open(key, remember: false);
+    }
+
+    /// <summary>
+    /// A click on a box in the diagram, arriving from the viewer with the node's
+    /// alias and the view it was drawn on.
+    /// <para>
+    /// The view is checked because a click is about the picture that was on screen
+    /// when it happened. Between the click and this method the explorer may already
+    /// have moved — a fast second click, a search hit, the reader pressing Back — and
+    /// applying it to whatever is showing now would drill somewhere nobody pointed
+    /// at. The viewer suppresses the common case itself; this is the half that cannot
+    /// be done there, because only this side knows where the explorer got to.
+    /// </para>
+    /// <para>
+    /// A box with nothing below it says nothing: c4hero drills where there is a level
+    /// to drill to, and a click that did nothing visible is a better answer than a
+    /// message about a view that does not exist.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public async Task NodeActivated(string alias, string? viewKey)
+    {
+        if (_view is null) return;
+        if (viewKey is not null && !string.Equals(viewKey, _view.Key, StringComparison.OrdinalIgnoreCase)) return;
+
+        var node = _nodes.FirstOrDefault(candidate => string.Equals(candidate.Alias, alias, StringComparison.Ordinal));
+        if (node?.DrillViewKey is null) return;
+
+        await Open(node.DrillViewKey, remember: true);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task ZoomChanged(int percent)
+    {
+        if (_zoom == percent) return Task.CompletedTask;
+
+        _zoom = percent;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    // ---- search ----------------------------------------------------------------
+
+    private void OnQueryChanged(string? value)
+    {
+        _query = value;
+        _hits = C4Exploration.Search(Workspace, value);
+    }
+
+    private async Task GoTo(C4SearchHit hit)
+    {
+        if (hit.ViewKey is not null) await Open(hit.ViewKey, remember: true);
+
+        _query = null;
+        _hits = [];
+        _focusAlias = hit.Alias;
+
+        // The view may not have changed, in which case nothing re-renders and the
+        // reveal has to be asked for here.
+        if (hit.Alias is not null) await ApplyHighlightAsync();
+        if (hit.Alias is not null) await Js.InvokeVoidAsync("backlogC4Explorer.reveal", _frameId, hit.Alias);
+    }
+
+    // ---- highlighter -----------------------------------------------------------
+
+    private RenderFragment Facet(string label, IReadOnlyList<C4FacetValue> values, HashSet<string> selected) => builder =>
+    {
+        if (values.Count == 0) return;
+
+        var sequence = 0;
+        builder.OpenElement(sequence++, "section");
+        builder.AddAttribute(sequence++, "class", "c4-facet");
+        builder.AddAttribute(sequence++, "aria-label", label);
+
+        builder.OpenElement(sequence++, "p");
+        builder.AddAttribute(sequence++, "class", "c4-facet__label");
+        builder.AddContent(sequence++, label);
+        builder.CloseElement();
+
+        foreach (var value in values)
+        {
+            var pressed = selected.Contains(value.Value);
+            builder.OpenComponent<ToggleButton>(sequence++);
+            builder.AddAttribute(sequence++, "Pressed", pressed);
+            builder.AddAttribute(sequence++, "BaseClass", "c4-facet__value");
+            builder.AddAttribute(sequence++, "PressedCssClass", "c4-facet__value--on");
+            builder.AddAttribute(sequence++, "TestId", "c4-facet-value");
+            builder.AddAttribute(sequence++, "Title", $"{value.Count} element{(value.Count == 1 ? string.Empty : "s")}");
+            builder.AddAttribute(sequence++, "PressedChanged", EventCallback.Factory.Create<bool>(this, on => ToggleFacetAsync(selected, value.Value, on)));
+            builder.AddAttribute(sequence++, "ChildContent", (RenderFragment)(inner => inner.AddContent(0, value.Value)));
+            builder.CloseComponent();
+        }
+
+        builder.CloseElement();
+    };
+
+    private async Task ToggleFacetAsync(HashSet<string> selected, string value, bool on)
+    {
+        if (on) selected.Add(value);
+        else selected.Remove(value);
+
+        await ApplyHighlightAsync();
+    }
+
+    private async Task ClearFacetsAsync()
+    {
+        _tags.Clear();
+        _technologies.Clear();
+        _owners.Clear();
+        _statuses.Clear();
+
+        await ApplyHighlightAsync();
+    }
+
+    /// <summary>
+    /// Tells the viewer which nodes matched.
+    /// <para>
+    /// Null when nothing is selected, which is how the viewer knows to dim nothing
+    /// rather than to dim everything — an empty list and "no filter" are different
+    /// answers and would look the same as an array.
+    /// </para>
+    /// </summary>
+    private async Task ApplyHighlightAsync()
+    {
+        if (_view is null) return;
+
+        string[]? matched = SelectedFacetCount == 0
+            ? null
+            : [.. _nodes
+                .Where(node => C4Exploration.Matches(node, _tags, _technologies, _owners, _statuses))
+                .Select(node => node.Alias)];
+
+        string[] focused = _focusAlias is null ? [] : [_focusAlias];
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogC4Explorer.highlight", _frameId, matched, focused);
+        }
+        catch (JSException)
+        {
+            // The viewer is not attached yet. The next attach applies the same state,
+            // so there is nothing to recover here.
+        }
+    }
+
+    // ---- the viewer ------------------------------------------------------------
+
+    /// <summary>
+    /// Takes over the drawn SVG after every render.
+    /// <para>
+    /// From <c>OnAfterRenderAsync</c> rather than from a render callback, because this
+    /// renderer is synchronous: by the time Blazor has put the markup in the DOM the
+    /// picture is complete. The mermaid path needed an event because mermaid draws
+    /// later, on its own schedule.
+    /// </para>
+    /// <para>
+    /// Re-attaching on every pass is deliberate and cheap — the viewer disposes the
+    /// previous attachment itself, so this does not have to track whether one is live
+    /// across a view change.
+    /// </para>
+    /// </summary>
+    private async Task AttachAsync()
+    {
+        _self ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            string[] drillable = [.. _nodes.Where(node => node.DrillViewKey is not null).Select(node => node.Alias)];
+
+            await Js.InvokeVoidAsync(
+                "backlogC4Explorer.attach",
+                _frameId,
+                $"#{_frameId} .c4-diagram-host",
+                _self,
+                _view?.Key,
+                drillable);
+            await ApplyHighlightAsync();
+        }
+        catch (JSException)
+        {
+            // No viewer. The diagram is still on screen and every control that does
+            // not need it — the Views panel, the breadcrumb, the drill list — still
+            // works, which is the degradation worth having.
+        }
+    }
+
+    private async Task ZoomAsync(double factor)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogC4Explorer.zoom", _frameId, factor);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task FitAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogC4Explorer.fit", _frameId);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private void OnPresentingChanged(bool value) => _presenting = value;
+
+    private List<C4Problem> ProblemsFor(C4View view) => [.. Problems];
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogC4Explorer.dispose", _frameId);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            // The circuit is already gone, which is the usual way a component is
+            // disposed. There is nothing left to detach from.
+        }
+
+        _self?.Dispose();
+    }
+}

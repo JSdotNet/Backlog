@@ -589,6 +589,18 @@
                 {
                     <span class="setting__status--error">@_repoError</span>
                 }
+                else if (GitHub.Settings.RegistryError is { } registryError)
+                {
+                    @* Said on load rather than only when somebody tries to write.
+                       An unreadable registry composes to an empty list, and the
+                       empty-list message below would read as "nobody has
+                       configured one yet" - which is the opposite of the truth and
+                       invites reconfiguring from scratch over a file that is
+                       intact and simply unparseable. Naming the file is the
+                       actionable half: it is the one thing to go and look at. *@
+                    <span class="setting__status--error">@registryError</span>
+                    <span>The registry is <code>@GitHub.Settings.RegistryPath</code>. Repositories stay as they are until it can be read.</span>
+                }
                 else if (!VisibleRepositories.Any())
                 {
                     <span>Nothing configured - entries show no repository controls until one is.</span>

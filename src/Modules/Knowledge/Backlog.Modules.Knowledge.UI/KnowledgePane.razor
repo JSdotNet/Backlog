@@ -337,9 +337,29 @@
         _atlasOpen = false;
     }
 
+    /// <summary>The C4 view a reference from another section asked for, handed to the
+    /// architecture panel. Held here because it is a selection and the pane is what
+    /// holds selections; the panel cannot be reached any other way from a
+    /// <c>.domain</c> chapter, since a view is not a file in the knowledge
+    /// menu.</summary>
+    private string? _selectedC4View;
+
     private void SelectChapter(KnowledgeChapterLink target)
     {
         if (target is null) return;
+
+        // A C4 view is not in the menu tree, so the containment check below would
+        // refuse it. It is not a chapter either: what the reader gets is the
+        // architecture section with that view open.
+        if (target.IsC4View)
+        {
+            _selectedSection = target.AreaKey;
+            _selectedC4View = target.Reference;
+            _folderOpenError = null;
+            return;
+        }
+
+        _selectedC4View = null;
 
         var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
         if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
@@ -588,7 +608,7 @@
                are not: the target is a repository path either way and the selection
                this pane holds is the same selection. *@
             "design" => @<DesignKnowledgeView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
-            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "arc42" => @<Arc42KnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainKnowledgePanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsKnowledgePanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,

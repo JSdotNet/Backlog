@@ -4,6 +4,7 @@ using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Desktop.UI.Shell;
+using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -85,7 +86,18 @@ public static class MauiProgram
         // capture services the modules register as Scoped, so they are Scoped too —
         // registered in one place both hosts share so the lifetimes cannot drift.
         builder.Services.AddRoadmapCrossContextAdapters();
-        builder.Services.AddSingleton<GitHubSettingsStore>();
+        // Half of a repository's configuration is workspace data and lives under
+        // the backlog folder, so it follows that folder the way the task database
+        // and the roadmap plan already do: the root is read per call rather than
+        // pinned at startup, and moving the workspace re-reads the registry
+        // instead of leaving the old one's repositories on screen.
+        builder.Services.AddSingleton(sp =>
+        {
+            var workspace = sp.GetRequiredService<WorkspaceSettingsStore>();
+            var store = new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, () => workspace.RootDirectory);
+            workspace.RootChanged += store.Reload;
+            return store;
+        });
         builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
@@ -153,6 +165,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
+        // The C4 model beside the architecture chapters. Registered next to the
+        // arc42 store because it answers the same scope question against the same
+        // clone; it reads its own feature key and hands back nothing when that key
+        // is off, so registering it does not turn it on.
+        builder.Services.AddSingleton<C4KnowledgeStore>();
         builder.Services.AddSingleton<KnowledgeChapterWriter>();
         builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
@@ -172,6 +189,14 @@ public static class MauiProgram
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
+
+        // Which worktree this window came from, for the header. Debug builds are
+        // the ones run out of a checkout, often several at once; an installed
+        // build registers nothing and the header shows the version.
+        if (DevelopmentWorkspace.Current is { } workspace)
+        {
+            builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
+        }
 #endif
 
         return builder.Build();

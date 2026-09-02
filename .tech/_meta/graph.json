@@ -6,32 +6,32 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 115,
-    "edges": 312,
+    "nodes": 117,
+    "edges": 316,
     "nodesByFolder": {
-      "tech": 98,
+      "tech": 99,
       "arc42": 15,
-      "design": 1,
+      "design": 2,
       "domain": 1
     },
     "nodesByType": {
       "file": 16,
-      "chapter": 98,
+      "chapter": 100,
       "heading": 1
     },
     "nodesByStatus": {
-      "adopted": 83,
+      "adopted": 84,
       "candidate": 13,
       "hold": 1,
       "none": 1,
-      "active": 13,
+      "active": 14,
       "accepted": 2,
       "draft": 2
     },
     "edgesByType": {
-      "contains": 89,
-      "related": 121,
-      "depends-on": 102
+      "contains": 90,
+      "related": 123,
+      "depends-on": 103
     }
   },
   "problems": [],
@@ -1841,6 +1841,27 @@
       },
       {
         "data": {
+          "id": ".tech/tooling.md#c4hero",
+          "label": "c4hero",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/tooling.md",
+          "slug": "c4hero",
+          "level": 2,
+          "line": 307,
+          "status": "adopted",
+          "version": "0.4.0",
+          "depends-on": [
+            ".tech/shared.md#nodejs"
+          ],
+          "related": [
+            ".tech/tooling.md#archify",
+            ".design/component-libraries.md#c4-workspaces"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/tooling.md#ajv",
           "label": "Ajv",
           "type": "chapter",
@@ -1848,7 +1869,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 307,
+          "line": 340,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -1866,7 +1887,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 324,
+          "line": 357,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [
@@ -2158,6 +2179,25 @@
           "status": "draft",
           "related": [
             ".arc42/01-introduction-and-goals.md#quality-goals"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".design/component-libraries.md#c4-workspaces",
+          "label": "C4 workspaces",
+          "type": "chapter",
+          "folder": "design",
+          "path": ".design/component-libraries.md",
+          "slug": "c4-workspaces",
+          "level": 3,
+          "line": 213,
+          "status": "active",
+          "related": [
+            ".tech/tooling.md#c4hero",
+            ".design/content-editing.md",
+            ".design/accessibility.md"
           ],
           "outOfScope": true
         }
@@ -2849,6 +2889,14 @@
           "id": "contains:.tech/tooling.md->.tech/tooling.md#archify",
           "source": ".tech/tooling.md",
           "target": ".tech/tooling.md#archify",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/tooling.md->.tech/tooling.md#c4hero",
+          "source": ".tech/tooling.md",
+          "target": ".tech/tooling.md#c4hero",
           "type": "contains"
         }
       },
@@ -4633,6 +4681,30 @@
           "id": "related:.tech/tooling.md#archify->.tech/tooling.md#simple-icons",
           "source": ".tech/tooling.md#archify",
           "target": ".tech/tooling.md#simple-icons",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/tooling.md#c4hero->.tech/shared.md#nodejs",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".tech/shared.md#nodejs",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#c4hero->.tech/tooling.md#archify",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".tech/tooling.md#archify",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/tooling.md#c4hero->.design/component-libraries.md#c4-workspaces",
+          "source": ".tech/tooling.md#c4hero",
+          "target": ".design/component-libraries.md#c4-workspaces",
           "type": "related"
         }
       },

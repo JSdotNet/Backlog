@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel.Handlers;
@@ -20,7 +21,7 @@ namespace Backlog.Modules.Tasks.Features.SaveTaskFromText;
 /// </summary>
 public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order);
 
-public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries)
+public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
     : ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>
 {
     /// <summary>An entry needs a title before it can exist. Somebody halfway
@@ -40,11 +41,36 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var parsed = EntryTextParser.Parse(command.RawText);
+        var parsed = ResolveRepos(EntryTextParser.Parse(command.RawText));
 
         return command.Id is { } id
             ? await UpdateAsync(id, parsed, cancellationToken)
             : await CreateAsync(parsed, command.Order, cancellationToken);
+    }
+
+    /// <summary>
+    /// Replaces the repository names the text wrote with the ids the registry
+    /// says they are, before any of them reaches the aggregate.
+    /// <para>
+    /// Here rather than in <see cref="TaskEntryFields"/> or the parser, because
+    /// this is the one step that needs to ask something outside the text. The
+    /// parser may not see a registry (ADR 0002) and the field applier is about
+    /// what a parsed value means to an entry, not about what a name means to the
+    /// workspace — so the value that arrives at <c>SetRepoIds</c> is already
+    /// canonical and that line stays exactly as it was.
+    /// </para>
+    /// <para>
+    /// This path never registers. That is the guard that keeps ADR 0004's
+    /// sentence true: Import triggers registration, and a `repo:` token somebody
+    /// typed does not. A name the registry has never seen is stored as it was
+    /// typed and reads as "No repo" until somebody configures it.
+    /// </para>
+    /// </summary>
+    private EntryTextParser.ParsedEntry ResolveRepos(EntryTextParser.ParsedEntry parsed)
+    {
+        if ((parsed.RepoIds?.Count ?? 0) == 0) return parsed;
+
+        return parsed with { RepoIds = new RepositoryIdResolver(repositories).Resolve(parsed.RepoIds) };
     }
 
     private async Task<Result<SavedTaskDto>> CreateAsync(

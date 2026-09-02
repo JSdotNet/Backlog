@@ -276,6 +276,51 @@ public class ModuleBoundaryTests
         }
     }
 
+    /// <summary>
+    /// The dependency between the two adapters runs one way:
+    /// <c>Backlog.Infrastructure.FileSystem</c> knows about
+    /// <c>Backlog.Infrastructure.GitHub</c>, and never the reverse.
+    ///
+    /// <para>Nothing asserted this until the repository registry moved into the
+    /// workspace folder. The GitHub adapter now has to know where that folder is,
+    /// and the obvious way to tell it — hand it the <c>WorkspaceSettingsStore</c>
+    /// that owns the root — would close the loop and fail the build with a
+    /// circular reference. It takes a <c>Func&lt;string&gt;</c> root provider
+    /// instead, the same shape both hosts already use for the task database and
+    /// the roadmap plan.</para>
+    ///
+    /// <para>The build would catch the cycle, so this is not what stops it. What
+    /// it stops is the fix somebody would reach for next: moving
+    /// <c>WorkspaceSettingsStore</c>, or splitting a shared project out from
+    /// under both, to make the reference legal. This says the direction is the
+    /// decision, not an accident of who was written first.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_GitHub_never_reaches_for_the_file_system_adapter()
+    {
+        const string github = "Backlog.Infrastructure.GitHub";
+        const string fileSystem = "Backlog.Infrastructure.FileSystem";
+
+        var projects = Repository.ProjectsUnder("src", "Infrastructure")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(projects.ContainsKey(github), $"{github} is not under src/Infrastructure any more.");
+        Assert.True(projects.ContainsKey(fileSystem), $"{fileSystem} is not under src/Infrastructure any more.");
+
+        Assert.DoesNotContain(
+            fileSystem,
+            Repository.ReferencedProjectNames(projects[github]),
+            StringComparer.OrdinalIgnoreCase);
+
+        // And the edge this rule is about still runs the other way. Without this
+        // the rule would keep passing after somebody inverted the dependency,
+        // green for exactly the wrong reason.
+        Assert.Contains(
+            github,
+            Repository.ReferencedProjectNames(projects[fileSystem]),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>The projects that own the decision: the module library and its
     /// published contract. Everything the module rules were written for.</summary>
     private static IEnumerable<FileInfo> DomainProjects() =>
