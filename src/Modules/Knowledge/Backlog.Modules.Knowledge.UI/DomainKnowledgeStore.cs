@@ -283,8 +283,19 @@ public sealed class DomainKnowledgeStore
 
     private static string Status(IReadOnlyDictionary<string, string> metadata) => metadata.TryGetValue("status", out var status) && !string.IsNullOrWhiteSpace(status) ? status.Trim().ToLowerInvariant() : "none";
 
-    private static DomainKnowledgeDocumentKind KindFromFile(string file) => file.ToLowerInvariant() switch
+    /// <summary>
+    /// What a <c>.domain</c> file is, read off its name. Internal rather than
+    /// private because the knowledge menu asks the same question of the same
+    /// filenames — a tree row is a file, and the mark it carries has to be the one
+    /// the panel would draw for that file. Two copies of this list would be two
+    /// answers the moment either gained a filename.
+    /// <para><c>context-map.md</c> is here even though the loader passes its kind
+    /// in directly: the map is a file like any other to a caller holding only a
+    /// name, and leaving it out made this mapping right for six of the seven.</para>
+    /// </summary>
+    internal static DomainKnowledgeDocumentKind KindFromFile(string file) => file.ToLowerInvariant() switch
     {
+        "context-map.md" => DomainKnowledgeDocumentKind.ContextMap,
         "domain.md" => DomainKnowledgeDocumentKind.Domain,
         "index.md" => DomainKnowledgeDocumentKind.Other,
         "features.md" => DomainKnowledgeDocumentKind.Features,
@@ -346,4 +357,41 @@ public enum DomainKnowledgeDocumentKind
     Dependencies,
     Naming,
     Other
+}
+
+/// <summary>
+/// The bridge between this module's document kind and the shared library's
+/// <c>type</c> vocabulary — the seven file-type marks
+/// <see cref="Backlog.UI.Components.Knowledge.KnowledgeTypeMarkers.FileTypes"/>
+/// draws.
+/// <para>
+/// The two lists say the same thing in two vocabularies, and this is the single
+/// place they meet. The alternative — a second filename-to-slug switch wherever a
+/// mark is wanted — is how the tree and the panel would come to disagree about
+/// what <c>flow.md</c> is.
+/// </para>
+/// <para>
+/// <see cref="DomainKnowledgeDocumentKind.Other"/> has no mark, deliberately. It
+/// is what an <c>index.md</c> and every unrecognised filename fall to, and the
+/// marker's own rule is that an unknown value draws nothing rather than guessing.
+/// </para>
+/// </summary>
+public static class DomainKnowledgeFileTypes
+{
+    /// <summary>The mark for a file, from its name alone.</summary>
+    public static string? Of(string fileName) =>
+        string.IsNullOrWhiteSpace(fileName) ? null : Of(DomainKnowledgeStore.KindFromFile(fileName));
+
+    /// <summary>The mark for a document whose kind is already known.</summary>
+    public static string? Of(DomainKnowledgeDocumentKind kind) => kind switch
+    {
+        DomainKnowledgeDocumentKind.ContextMap => "context-map",
+        DomainKnowledgeDocumentKind.Domain => "domain",
+        DomainKnowledgeDocumentKind.Features => "features",
+        DomainKnowledgeDocumentKind.Model => "model",
+        DomainKnowledgeDocumentKind.Flow => "flow",
+        DomainKnowledgeDocumentKind.Dependencies => "dependencies",
+        DomainKnowledgeDocumentKind.Naming => "naming",
+        _ => null
+    };
 }

@@ -13,27 +13,51 @@
 
     The status is a role="status" line rather than a change of the button's
     label, so the button goes on saying what it does.
+
+    The glyph confirms it too, by fading into a check for as long as the status
+    line stands. That is not decoration and not a second copy of the message: two
+    hosts — a task row and the task panel — hide the status line and keep only its
+    announcement, so for a sighted reader there the check is the whole
+    confirmation. It says nothing on a refusal; motion here means "that worked",
+    and a failure has a sentence for it.
 *@
 
-<span class="@ClassValue" data-testid="@TestId">
+<span class="@ClassValue" data-testid="@TestId" data-copied="@(IsCopied ? "true" : "false")">
     <IconButton CssClass="@ButtonCssClass"
                 AriaLabel="@Label"
                 OnClick="CopyAsync"
                 TestId="@ButtonTestId">
         @if (ChildContent is not null)
         {
+            @* A host that put words on the button keeps them: there is no glyph to
+               swap. The state is on the wrapper either way, so it can dress its own
+               confirmation rather than have one guessed for it. *@
             @ChildContent
         }
         else
         {
-            @* Two overlapping sheets. Drawn rather than fetched: a button that
-               needed the network to show itself is no use in a WebView with no
-               egress. *@
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
-                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
-                <path d="M10.25 5.75V4.25a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
-            </svg>
+            @* Both glyphs, stacked, because the swap is a cross-fade: an element
+               that only appears once the state changes has nothing to transition
+               from. Drawn rather than fetched — a button that needed the network to
+               show itself is no use in a WebView with no egress.
+
+               The state is repeated here rather than read off the wrapper so the
+               rules keep working for a host that replaced BaseClass. *@
+            <span class="copy-button__glyphs" data-copied="@(IsCopied ? "true" : "false")">
+                @* Two overlapping sheets. *@
+                <svg class="copy-button__glyph copy-button__glyph--sheets"
+                     viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1.5" />
+                    <path d="M10.25 5.75V4.25a1.5 1.5 0 0 0-1.5-1.5h-4.5a1.5 1.5 0 0 0-1.5 1.5v4.5a1.5 1.5 0 0 0 1.5 1.5h1.5" />
+                </svg>
+                @* The check the sheets become. *@
+                <svg class="copy-button__glyph copy-button__glyph--check"
+                     viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M3.25 8.5 6.5 11.75l6.25-7" />
+                </svg>
+            </span>
         }
     </IconButton>
 
@@ -88,6 +112,14 @@
     public string? StatusTestId { get; set; }
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+
+    /// <summary>
+    /// Whether the check is showing. Derived from the status rather than stored
+    /// beside it, so the one timer that clears the sentence clears the glyph with
+    /// it and the two can never disagree — and so a refusal, which also sets a
+    /// status, does not get a confirmation it has not earned.
+    /// </summary>
+    private bool IsCopied => _status == Copied;
 
     /// <summary>
     /// The clipboard belongs to the browser, and it is allowed to refuse. The

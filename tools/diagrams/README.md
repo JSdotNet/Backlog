@@ -154,12 +154,19 @@ Match the diagram's own tag instead:
 grep -o '<svg viewBox[^>]*>' .arc42/_archify/06-runtime-view.1.sequence.html
 ```
 
-Motion stays reader-controlled. The trace runs once, finitely; reduced-motion,
-page hiding, print and canonical export all preserve the complete static
-meaning, and the artifact's own Live/Still control keeps the last word. Inside
-the app, `backlogDiagrams.renderArtifact` lifts embed mode's blanket
-`animation: none` so the artifact's governor can decide — without that lift, a
-correctly generated artifact still would not move.
+Motion stays reader-controlled, and the trace loops. Archify's own default is a
+single pass, which is no use to a reader who scrolls into a chapter after it has
+finished — so `tools/archify/assets/template.html` is patched to loop and
+`tools/archify/UPSTREAM.md` records exactly what was changed, because a re-copy
+at a newer revision would silently revert it.
+
+Reduced-motion, page hiding, print and canonical export all preserve the complete
+static meaning, and the artifact's own Live/Still control keeps the last word;
+what the patch adds is that lifting any of those puts the loop back, instead of
+settling the diagram for the life of the document. Inside the app,
+`backlogDiagrams.renderArtifact` lifts embed mode's blanket `animation: none` so
+the artifact's governor can decide — without that lift, a correctly generated
+artifact still would not move.
 
 ## Re-rendering after editing a specification
 

@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+﻿namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The filter bar answers to its column rather than to the window.
@@ -7,15 +7,15 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// wide the window is. Its responsive rules used to be viewport queries, so at a
 /// 1400px viewport none of them fired and <c>.filter-bar { overflow: hidden }</c>
 /// clipped the bar in silence instead: measured there, the six status chips took 369
-/// of the column's 480px and squeezed the area group down to a single chip. A
+/// of the column's 480px and squeezed the group beside them down to a single chip. A
 /// viewport query cannot see that case, which is why these are container queries and
 /// why this test exists — the failure mode is invisible rather than obviously
 /// broken.
 /// </para>
 /// <para>
-/// Status collapses and areas do not. An area exists because somebody typed it and
-/// its count is where the work is; status is one of a fixed six and only the chosen
-/// one has to stay legible.
+/// Status collapses and tags do not, until tags leave altogether. A tag exists
+/// because somebody typed it and its count is where the work is; status is one of a
+/// fixed six and only the chosen one has to stay legible.
 /// </para>
 /// </summary>
 public sealed class FilterBarLayoutTests
@@ -49,15 +49,13 @@ public sealed class FilterBarLayoutTests
             collapse,
             StringComparison.Ordinal);
 
-        // The rule this replaced was unscoped, so it hid the area chips as well —
-        // the group whose room the collapse is supposed to be buying.
+        // The rule this replaced was unscoped, so it hid every other group's chips
+        // as well — the room the collapse is supposed to be buying.
         Assert.DoesNotContain(".filter-group .chip", css, StringComparison.Ordinal);
-        Assert.DoesNotContain(".filter-group--areas .chip:not", css, StringComparison.Ordinal);
 
         // One decision per group: status loses its unchosen chips, tags loses the
         // group, and nothing else on the bar is touched at this step.
         Assert.DoesNotContain(".filter-group--scope", collapse, StringComparison.Ordinal);
-        Assert.DoesNotContain(".filter-group--areas", collapse, StringComparison.Ordinal);
 
         var tighten = Block(css, TightenStep);
 
@@ -72,28 +70,32 @@ public sealed class FilterBarLayoutTests
     }
 
     /// <summary>
-    /// The tags group shares the middle of the bar with the areas, and yields first.
+    /// The tags group takes the middle of the bar, and is the only group that takes
+    /// any of it.
     /// <para>
-    /// It is the one group whose length has no ceiling: an entry wears any number of
-    /// tags and every distinct one gets a chip, so left alone it would take the room
-    /// the areas need in a bar that does not wrap.
+    /// It shared the middle with an area group until that group was removed, and it
+    /// is the one whose length has no ceiling: an entry wears any number of tags and
+    /// every distinct one gets a chip. The scopes are pinned and status sits against
+    /// the right edge, so there is nothing left to share the slack with — which is
+    /// also why the group's own chips are never collapsed to buy room. It leaves the
+    /// bar whole instead, one step down.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_tags_group_shares_the_middle_and_yields_before_the_areas()
+    public void The_tags_group_takes_the_middle_of_the_bar()
     {
         var css = Css();
 
         var tags = Block(css, ".filter-group--tags {");
-        var areas = Block(css, ".filter-group--areas {");
 
-        Assert.Contains("flex: 1 1 auto;", areas, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", tags, StringComparison.Ordinal);
 
-        // Same grow, higher shrink: both take the leftover, tags gives it back first.
-        Assert.Contains("flex: 1 2 auto;", tags, StringComparison.Ordinal);
+        // Nothing else grows into it: the scopes hold their room, status only shrinks.
+        Assert.Contains("flex: 0 0 auto;", Block(css, ".filter-group--scope {"), StringComparison.Ordinal);
+        Assert.Contains("flex: 0 1 auto;", Block(css, ".filter-group--status {"), StringComparison.Ordinal);
 
-        // And the areas are never collapsed to buy that room, at either step.
-        Assert.DoesNotContain(".filter-group--areas .chip", css, StringComparison.Ordinal);
+        // And the tag chips are never collapsed one by one, at either step.
+        Assert.DoesNotContain(".filter-group--tags .chip", css, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -101,7 +103,7 @@ public sealed class FilterBarLayoutTests
     /// allowed to.
     /// <para>
     /// Every other group is the whole of its own question — there is nowhere else to
-    /// pick an area, a status or My Day, so hiding one would take the answer with it.
+    /// pick a status, My Day or No repo, so hiding one would take the answer with it.
     /// A tag is also on the rows, and <c>TagFilterTests</c> pins the half of this
     /// that makes it safe: pressing a row's tag filters by it and pressing the one
     /// already chosen clears it, so the way back does not go with the group.

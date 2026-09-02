@@ -507,6 +507,10 @@
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
         '.task-item__actions, .task-item__fold, .task-item__rename,' +
+        // The whole gutter and not just the input inside it. The box is padded
+        // out to a comfortable target, and a press landing on that padding would
+        // start dragging the row a reader was trying to tick.
+        '.task-item__gutter,' +
         // A tag that filters is a control, and a press on a control is a press on
         // that control. Only the button form is named: an inert tag is text on the
         // row like the title is, and text on the row is draggable.
@@ -2194,6 +2198,18 @@
         the receiving half.
     */
     const backlogWatchArtifactHeight = (element, id) => {
+        /*
+            Whether this frame is what the reader is looking at, full screen.
+
+            Containment rather than identity, because the element that goes
+            fullscreen is the stage around the frame rather than the frame itself.
+            It has to be: the way back out has to be inside whatever is in the top
+            layer, and a frame sandboxed into an opaque origin can carry nothing of
+            this app's. So the frame is inside the screen rather than being it, and
+            an identity check here would answer no for every fullscreen diagram.
+        */
+        const isOnScreen = () => document.fullscreenElement?.contains(element) === true;
+
         const onMessage = (event) => {
             /*
                 The window reference is the identity check, not the origin.
@@ -2211,10 +2227,10 @@
             const height = Number(message.height);
             if (!Number.isFinite(height) || height <= 0) return;
 
-            // Not while the frame is the whole screen. There the height is the
+            // Not while the frame is on the screen. There the height is the
             // screen's and the browser owns it; writing a measured pixel value onto
             // a fullscreen element is how you get a diagram in a letterbox.
-            if (document.fullscreenElement === element) return;
+            if (isOnScreen()) return;
 
             // Bounded at both ends. The floor stops a frame that reports something
             // absurd from collapsing to a sliver, and the ceiling sits far above the
@@ -2229,12 +2245,12 @@
             a height this host chose. So it is told, both ways.
 
             Listening on the document rather than the element because that is where
-            `fullscreenchange` is dispatched, and checking identity rather than
-            assuming: several artifact frames share this page and only one of them
-            is ever the screen.
+            `fullscreenchange` is dispatched, and asking rather than assuming:
+            several artifact frames share this page and only one of them is ever on
+            the screen.
         */
         const onFullscreenChange = () => {
-            const mine = document.fullscreenElement === element;
+            const mine = isOnScreen();
 
             // The inline height goes while fullscreen so the browser can size the
             // element, and comes back on exit from the frame's next measurement.
@@ -2608,8 +2624,10 @@
             The native Fullscreen API rather than a pop-out of this app's own: the
             artifact is already a self-contained document with its own viewer, so
             what it needs is room, not a second frame around it. Requested on the
-            iframe element by this page - the frame itself is sandboxed and asks for
-            nothing.
+            stage around the frame rather than on the frame - only the element in
+            the top layer and its descendants are painted, so the way back out has
+            to be in there with the diagram, and a frame sandboxed into an opaque
+            origin can hold nothing of ours. The frame itself asks for nothing.
 
             Presentation mode is what makes the room count. It is always on inside
             the artifact, and the stylesheet injected with it lets present mode's own

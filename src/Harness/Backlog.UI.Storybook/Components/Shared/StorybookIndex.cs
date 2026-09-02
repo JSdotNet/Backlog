@@ -93,7 +93,14 @@ internal static class StorybookIndex
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
             new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
-            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is.")
+            new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is."),
+
+            // Last in the group, because it is the one page here made out of the
+            // others: the bar is a Checkbox from Inputs, an AppButton from
+            // Buttons and a slot the host fills with whatever selectors it
+            // needs. Nothing is shown before its parts, so it reads after all
+            // three.
+            new("selection-bar", "Selection bar", "SelectionBar: the count, the select-all, the way out of a selection, and a slot for whatever a host can do to every picked row at once.")
         ]),
 
         new("Structure and navigation",
@@ -252,7 +259,15 @@ internal static class StorybookIndex
             // by the time this page borrows it. It is also the reason this page no
             // longer precedes File view — the file pane moved above the whole
             // Knowledge base chapter, and the note on Content says why.
-            new("knowledge-base/chapter-and-file", "Chapter and file", "The two shapes a whole record takes: a chapter's block folded into its heading, and a file's drawn wherever the surface says which file this is — bare, and in the header it was drawn for.")
+            new("knowledge-base/chapter-and-file", "Chapter and file", "The two shapes a whole record takes: a chapter's block folded into its heading, and a file's drawn wherever the surface says which file this is — bare, and in the header it was drawn for."),
+
+            // After Chapter and file rather than beside Fields, and that is the
+            // ordering rule holding rather than bending. A type marker is a field's
+            // value drawn as a mark, so Fields introduces the field; but where the
+            // mark lands is a chapter's heading and a file's kind line, which is
+            // exactly the pair the page above documents. A reader who has not met
+            // both shapes would be looking at a mark with nowhere to put it.
+            new("knowledge-base/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded
