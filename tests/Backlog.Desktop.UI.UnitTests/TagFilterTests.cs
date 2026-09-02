@@ -366,7 +366,7 @@ public sealed class TagFilterTests
 
     /// <summary>What the chips leave out, the list keeps. Narrowing the bar was a
     /// decision about which tags are worth offering, not about which entries
-    /// exist — the areas, the status chips and the rows are all where they
+    /// exist — the scope, the status chips and the rows are all where they
     /// were.</summary>
     [Fact]
     public async Task The_rest_of_the_screen_is_untouched_by_what_the_chips_leave_out()
@@ -377,17 +377,12 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
-        // The area the finished entry filed itself under is still a place to look,
-        // and still counts it. Areas were left alone.
-        Assert.Equal(["All", "platform", "qa"], host.State.AreaFilters.Select(option => option.Label));
-        Assert.Equal(2, host.State.AreaFilters[0].Count);
-
+        // The finished entry is still an entry. Only the tag chips were narrowed.
         Assert.Equal(2, host.State.FilteredRows.Count);
         Assert.Equal(2, host.State.ScopedRows.Count);
 
         var pane = host.Render();
 
-        Assert.Single(pane.FindAll("[aria-label='Filter by area']"));
         Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
         Assert.Single(pane.FindAll("[aria-label='Scope']"));
     }
