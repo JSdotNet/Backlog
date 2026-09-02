@@ -88,8 +88,8 @@ public class DevToolTests
     public async Task Pc_config_overrides_matching_catalog_tools_only()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
-        var pcConfigPath = Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "ai-tools.json");
+        var pcConfigPath = Path.Combine(root, ".tools", "dev-pc", "ai-tools.json");
         Directory.CreateDirectory(Path.GetDirectoryName(pcConfigPath)!);
         await File.WriteAllTextAsync(catalogPath, """
             {
@@ -127,7 +127,7 @@ public class DevToolTests
     public async Task Enabled_override_writes_minimal_pc_config()
     {
         var root = CreateTempToolConfigRoot();
-        var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
+        var catalogPath = Path.Combine(root, ".tools", "ai-tools.json");
         await File.WriteAllTextAsync(catalogPath, """
             {
               "plugins": [
@@ -465,7 +465,7 @@ public class DevToolTests
     }
 
     [Fact]
-    public void A_catalog_with_only_one_of_the_two_arrays_is_accepted()
+    public void A_catalog_with_only_one_of_the_four_arrays_is_accepted()
     {
         // The bar is deliberately low. A hand-edited catalog that has only
         // grown plugins so far is a real file, not a malformed one.

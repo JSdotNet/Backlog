@@ -154,6 +154,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
+        // The C4 model beside the architecture chapters. Registered next to the
+        // arc42 store because it answers the same scope question against the same
+        // clone; it reads its own feature key and hands back nothing when that key
+        // is off, so registering it does not turn it on.
+        builder.Services.AddSingleton<C4KnowledgeStore>();
         builder.Services.AddSingleton<KnowledgeChapterWriter>();
         builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 

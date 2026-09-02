@@ -304,6 +304,39 @@ A JSON-IR diagram renderer, vendored under `tools/archify/`.
   repository render at the `standard` profile instead of `showcase`, and say so
   in their filename.
 
+## c4hero
+
+```meta
+status: adopted
+type: tool
+version: "0.4.0"
+depends-on: [".tech/shared.md#nodejs"]
+related: [".tech/tooling.md#archify", ".design/component-libraries.md#c4-workspaces"]
+```
+
+A browser-based visual editor for C4 architecture diagrams that saves Structurizr
+DSL. Apache-2.0. **Not vendored and not a runtime dependency** — see below.
+
+- **Used for** — authoring `.arc42/_c4/*.dsl`, the C4 model kept beside the
+  architecture chapters. The desktop app reads that DSL and explores it on the
+  Architecture panel's C4 tab behind the `c4-diagrams` flag — Views panel,
+  click-to-drill, breadcrumb, search, Highlighter, pan and zoom, minimap and
+  presentation mode, over a picture the app draws itself. c4hero is what a person
+  opens to change the model.
+- **Why** — the model wanted a real editor and this repository wanted no new build.
+  c4hero is local-first and saves plain `.dsl` through the File System Access API,
+  so the authored artifact is reviewable text in git and the editor never has to be
+  part of the product. Structurizr DSL rather than a format of our own because it
+  is what Structurizr Lite, Studio and the JSON exporters already read.
+- **How** — opened at `app.c4hero.com` or run from a clone (Node 22+), pointed at
+  the `_c4` folder. Nothing here installs it, vendors it, or shells out to it: it
+  has no CLI, and the app reads the DSL with its own reader
+  (`src/Core/Backlog.UI.Components/Diagrams/C4/`) rather than through anything
+  c4hero ships. That reader is therefore a second implementation of c4hero's
+  dialect, pinned against c4hero's own conformance fixture and required to report
+  rather than guess — `tools/diagrams/C4.md` says why.
+
+
 ## Ajv
 
 ```meta

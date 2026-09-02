@@ -80,6 +80,43 @@
         </div>
     </Story>
 
+    <Story Name="Skeleton"
+           Description="Three shapes, and the way they are meant to be used: laid out on the grid of the rows they stand in for. A spinner says work is happening; a skeleton says what is about to arrive and where, which is why lists, cards and tables get one instead. The bars are aria-hidden — the surface waiting for them says once, in a live region, what is being waited for. Under reduced motion the pulse stops altogether rather than degrading to a slower one."
+           Code="@SkeletonCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                <span class="sb-label">Text</span>
+                <Skeleton Width="12rem" />
+            </div>
+            <div class="sb-row">
+                <span class="sb-label">Heading</span>
+                <Skeleton Shape="SkeletonShape.Heading" Width="9rem" />
+            </div>
+            <div class="sb-row">
+                <span class="sb-label">Block</span>
+                <Skeleton Shape="SkeletonShape.Block" Width="6rem" />
+            </div>
+
+            @* The point of the component, rather than a third size of bar: three
+               rows of a table that has not answered yet, on the grid its real
+               rows will use, with a ragged right edge so it reads as names. *@
+            <div style="display: grid; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm)">
+                @foreach (var row in SkeletonRows)
+                {
+                    <div style="display: grid; grid-template-columns: 1.4fr 0.6fr 0.6fr 5rem; gap: 0.75rem; align-items: center">
+                        <div style="display: grid; gap: 0.25rem">
+                            <Skeleton Width="@row" />
+                            <Skeleton Width="50%" />
+                        </div>
+                        <Skeleton Width="3rem" />
+                        <Skeleton Width="3rem" />
+                        <Skeleton Shape="SkeletonShape.Block" />
+                    </div>
+                }
+            </div>
+        </div>
+    </Story>
+
     <Story Name="SaveIndicator"
            Description="All four states, plus a run through the sequence the product actually produces: Idle, Saving, Saved."
            Code="@SaveCode">
@@ -132,9 +169,15 @@
         new("interaction-guidelines.md#feedback-and-toasts", "When something is a toast, an alert, or neither."),
         new("interaction-guidelines.md#save-state-indicator-vocabulary", "The words the save state is allowed to say."),
         new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty, loading or failed surface shows."),
+        new("accessibility.md#reduced-motion", "What the pulse and the spin do when motion is unwelcome."),
         new("accessibility.md#save-state-announcements", "What a save announces, and how often."),
         new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in.")
     ];
+
+    /// <summary>Name-bar widths for the placeholder table. Deliberately uneven:
+    /// bars of one length read as a loading graphic, a ragged edge reads as
+    /// content.</summary>
+    private static readonly string[] SkeletonRows = ["62%", "78%", "45%"];
 
     private static readonly SaveState[] SaveStates =
         [SaveState.Idle, SaveState.Saving, SaveState.Saved, SaveState.Failed];
@@ -216,6 +259,18 @@
 
     private const string SpinnerCode = """
         <Spinner Size="SpinnerSize.Small" Label="Loading" />
+        """;
+
+    private const string SkeletonCode = """
+        <div class="tools-table__row" aria-hidden="true">
+            <div class="tools-table__tool">
+                <Skeleton Width="62%" />
+                <Skeleton Width="50%" />
+            </div>
+            <Skeleton Width="3rem" />
+            <Skeleton Width="3rem" />
+            <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
+        </div>
         """;
 
     private const string SaveCode = """

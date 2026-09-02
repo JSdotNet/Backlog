@@ -1,0 +1,365 @@
+@page "/diagrams/c4"
+
+<PageTitle>C4 from Structurizr DSL — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="C4 from Structurizr DSL"
+           Summary="One workspace, authored once in c4hero, explored here. The source below is Structurizr DSL; every picture is produced from it at render time by C4DslReader, C4LayoutEngine and C4SvgWriter — this product's own renderer, not mermaid — and C4Explorer adds the layer c4hero calls Explore — a Views panel over the four levels, drilling in by clicking a box, a breadcrumb, search, the Highlighter, pan and zoom, a minimap and a presentation mode."
+           Guidelines="@Rules">
+
+    <Alert Message="@StandingRule" Role="note" CssClass="sb-callout" />
+
+    <Story Name="The explorer"
+           Description="Everything on one surface, because exploring is one activity. Start on the landscape and work down: **click a system** to open its container view, **click a container** to open its components. Only the cards that lead somewhere invite the click — the rest keep the pan cursor, because an offer is a promise. Each card is a `g.node` whose id ends in the element's alias, so a click resolves by identifier and never by matching the label text.
+
+Every pointer gesture has a control beside it, which `.design/accessibility.md` requires and which here is not a concession: clicking a box is discoverable and invisible to a keyboard, so the same moves are the Views panel, the **Drill into** row under the diagram, and the zoom buttons. Unplug the mouse and only the dragging is gone.
+
+The breadcrumb and Back answer different questions on purpose. The breadcrumb is derived from the open view's own scope — *where am I* — and Back walks the history — *how did I get here*. One is not a worse version of the other."
+           Code="@ExplorerUsage"
+           SourceLabel="workspace.dsl"
+           Source="@Workspace"
+           SourceLanguage="text">
+        <div class="sb-c4-stage">
+            <C4Explorer Workspace="@Parsed" Problems="@Parsed.Problems" TestId="sb-c4-explorer" />
+        </div>
+    </Story>
+
+    <Story Name="The diagram on its own"
+           Description="`C4DiagramView` without the explorer around it: the picture, and nothing that navigates it. This is what replaced the mermaid rendering.
+
+Mermaid could not be made to look like the tool the model is authored in. It sizes its boxes from their own text, draws no icon, routes edges its own way, and writes every colour inline where no stylesheet can reach — so a C4 view was always going to look like a mermaid diagram however it was themed. Everything here is drawn by this product: the card, the glyph, the dashed frame, the curved edges.
+
+The palette is depth on one hue rather than a hue per level. `color-scheme.md#chart-roles` says the palette carries exactly one saturated hue, and that a second hue claims *this is a different kind of quantity* — a C4 level is not a different kind of thing, it is the same architecture seen closer. The glyph carries what the ramp cannot, which is the rule the technology atlas already follows.
+
+The DOM contract is mermaid's on purpose. Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what the explorer's viewer reads for click-to-drill, dimming and the search ring — so the renderer was swapped underneath the viewer without changing a line of it."
+           Code="@DiagramUsage"
+           SourceLabel="emitted svg"
+           Source="@Emitted"
+           SourceLanguage="html">
+        <div class="sb-c4-figure">
+            <C4DiagramView Diagram="@ContainerDiagram" Id="sb-c4-standalone" AriaLabel="Container Diagram" TestId="sb-c4-diagram" />
+        </div>
+    </Story>
+
+    <Story Name="What a level means"
+           Description="`include *` does not mean every element in the model — it means the default set for that kind of view, which is what keeps a container view of one system from being a drawing of all of them. All people and top-level systems for a landscape; the scope plus its direct neighbours for a context; the scope's own containers plus the neighbours of those, with other systems left closed, for a container view.
+
+Drilling is offered only where a view exists to drill to. c4hero picks a level and frames it; this reader cannot invent a view the workspace never declared, so a system with no container view gets no drill affordance — an offer is a promise, the same rule the Archify button follows."
+           Code="@LevelsCode"
+           Language="csharp">
+        <DataTable TItem="LevelRow"
+                   Columns="@LevelColumns"
+                   Items="@LevelRows"
+                   AriaLabel="What each level draws"
+                   RowNoun="level"
+                   TestId="sb-c4-levels">
+            <Row>
+                <td>@context.Level</td>
+                <td>@context.Mermaid</td>
+                <td>@context.Draws</td>
+            </Row>
+        </DataTable>
+    </Story>
+
+    <Story Name="The Highlighter's four facets"
+           Description="Tag, technology, team and status — and only the ones **the open view actually draws**. Offering everything in the model was the first version and it was wrong in the way that matters: most of a workspace-wide list matches nothing on the picture in front of you, so almost every chip dimmed the whole diagram. A filter that is mostly dead options is a catalogue. The values below are the container view's; drill into a component and they change, because the picture did.
+
+A facet with nothing in it is absent rather than an empty dropdown, so a view that names no owner gets no Team facet at all.
+
+Team and status come from an element's `properties` block, which is where c4hero keeps what Structurizr has no field for. Several spellings are accepted for each (`owner`, `team`, `Owner`) because there is no standard key and asking for one would silently find nothing.
+
+Across facets it is AND and within a facet it is OR, which is what lets it answer a real question: the containers owned by either of two teams that are also .NET. Non-matching elements are dimmed rather than hidden — the shape of the diagram stays readable, and the match reads as an emphasis instead of a different picture."
+           Code="@FacetsCode"
+           Language="csharp">
+        <DataTable TItem="C4FacetSummary"
+                   Columns="@FacetColumns"
+                   Items="@FacetRows"
+                   AriaLabel="Facets found in this workspace"
+                   RowNoun="facet"
+                   TestId="sb-c4-facets">
+            <Row>
+                <td>@context.Facet</td>
+                <td>@context.Values</td>
+            </Row>
+        </DataTable>
+    </Story>
+
+    <Story Name="What could not be read"
+           Description="The reader never guesses. This workspace opens with a `!docs` directive, which pulls in content it has no way to honour, and names an element that does not exist — so both are reported with the line they were on, and the rest of the file is still read.
+
+That behaviour is the whole safeguard. This reader is a second implementation of a dialect whose first implementation is c4hero's own TypeScript parser, in another repository, where no test here can compare the two. The failure that matters is not a workspace that will not open; it is one that opens, draws a confident picture, and silently leaves out whatever could not be parsed. In the app this list appears under the diagram."
+           Code="@Unreadable"
+           Language="text"
+           SourceLabel="partly-readable.dsl">
+        <CodeView Source="@Unreadable" Language="text" Title="partly-readable.dsl" ShowLineNumbers="true" />
+
+        <DataTable TItem="C4Problem"
+                   Columns="@ProblemColumns"
+                   Items="@C4DslReader.Read(Unreadable).Problems"
+                   AriaLabel="What the reader could not read"
+                   RowNoun="problem"
+                   TestId="c4-problems">
+            <Row>
+                <td>@context.Line</td>
+                <td><code>@context.Construct</code></td>
+                <td>@context.Message</td>
+            </Row>
+        </DataTable>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DataTableColumn[] ProblemColumns = [new("Line"), new("Construct"), new("Message")];
+
+    private static readonly DataTableColumn[] LevelColumns = [new("Level"), new("Mermaid"), new("Draws")];
+
+    private static readonly DataTableColumn[] FacetColumns = [new("Facet"), new("Values in this workspace")];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("component-libraries.md#c4-workspaces", "How a C4 view is expected to behave inside a knowledge section — its own tab, both directions of the reference drawn, and saying what it could not read."),
+        new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws which kind of picture, and why a C4 view is the one case this product draws itself."),
+        new("accessibility.md#target-sizes-and-text", "Why every pointer gesture here has a control beside it. A box in an SVG is not a focusable target, so clicking to drill in cannot be the only way to drill in."),
+        new("color-scheme.md#chart-roles", "One saturated hue, by rule — which is why a C4 level is told apart by weight and glyph here rather than by a hue of its own.")
+    ];
+
+    private const string StandingRule =
+        "The C4 model lives beside the architecture chapters in `.arc42/_c4/`, authored in c4hero and referenced from the chapters "
+        + "it documents. It does not replace the `C4Context` and `C4Container` mermaid fences those chapters carry — "
+        + "those stay canonical, and this is a parallel, richer drawing of the same facts. Behind the `c4-diagrams` feature key, off by default.";
+
+    private const string DiagramUsage = """
+        <C4DiagramView Diagram="@C4LayoutEngine.Build(workspace, view)"
+                       Id="@svgId"
+                       AriaLabel="@C4Exploration.Label(workspace, view)" />
+        """;
+
+    /// <summary>
+    /// Parsed once and held, unlike the earlier version of this page which re-read
+    /// the DSL on every access. The explorer is handed the workspace as a parameter
+    /// and compares it to decide whether to re-derive its views, so a fresh record
+    /// per render would have reset the reader's position on every keystroke.
+    /// </summary>
+    private static readonly C4Workspace Parsed = C4DslReader.Read(Workspace);
+
+    /// <summary>
+    /// Laid out once, lazily.
+    /// <para>
+    /// Lazy as well as declared after <c>Parsed</c>, because it reads it. Static
+    /// fields initialise in declaration order, and the first version of this sat above
+    /// <c>Parsed</c> and threw a <c>NullReferenceException</c> out of the type
+    /// initialiser on the very first request. The order is now right and the laziness
+    /// means reordering these lines cannot bring that back.
+    /// </para>
+    /// </summary>
+    private static readonly Lazy<C4Diagram> LazyContainerDiagram = new(() =>
+    {
+        var view = Parsed.View("containers-backlog");
+
+        // The sample declares it, so its absence would mean the DSL above was edited
+        // and this story quietly lost its subject. Better to say so than to draw the
+        // empty-view placeholder and look like the renderer failed.
+        ArgumentNullException.ThrowIfNull(view, "The storybook workspace no longer declares 'containers-backlog'.");
+
+        return C4LayoutEngine.Build(Parsed, view);
+    });
+
+    private static C4Diagram ContainerDiagram => LazyContainerDiagram.Value;
+
+    private static readonly Lazy<string> LazyEmitted =
+        new(() => C4SvgWriter.Write(ContainerDiagram, "sb-c4-standalone", "Container Diagram"));
+
+    private static string Emitted => LazyEmitted.Value;
+
+    private const string ExplorerUsage = """
+        <C4Explorer Workspace="@workspace"
+                    Problems="@problems"
+                    ViewKey="@_viewKey"
+                    ViewKeyChanged="key => _viewKey = key"
+                    ViewFooter="@ViewReferences" />
+        """;
+
+    private const string LevelsCode = """
+        // Which view opens an element, or null when there is nothing deeper.
+        C4Exploration.DrillViewKey(workspace, elementId, fromViewKey);
+
+        // Every node the view draws, each with its drill target. Read off
+        // C4MermaidWriter.VisibleElements so the index and the picture cannot
+        // disagree about what is on screen.
+        C4Exploration.Nodes(workspace, view);
+        """;
+
+    private const string FacetsCode = """
+        var facets = C4Exploration.Facets(workspace);
+
+        // AND across facets, OR within one.
+        C4Exploration.Matches(node, tags, technologies, owners, statuses);
+        """;
+
+    /// <summary>
+    /// The sample. Shaped like the committed one and small enough to read whole:
+    /// hierarchical identifiers, a tagged database, an external system, element
+    /// properties for the Highlighter's team and status facets, two deployment
+    /// environments, and one view of every level so drilling has somewhere to go.
+    /// </summary>
+    private const string Workspace = """
+        workspace "Prompt Backlog" "A sample workspace for the storybook" {
+
+            !identifiers hierarchical
+
+            model {
+                me = person "ME" "Personal owner of the system." "Internal"
+
+                backlog = softwareSystem "Prompt Backlog" "Local-first work management." {
+                    properties {
+                        "owner" "Platform"
+                        "status" "Active"
+                    }
+
+                    desktop = container "Desktop App" "Windows client." ".NET MAUI Blazor Hybrid" {
+                        properties {
+                            "owner" "Platform"
+                            "status" "Active"
+                        }
+
+                        shell = component "Shell" "Holds the panes." "Blazor"
+                        knowledge = component "Knowledge" "Draws the knowledge folders." "Razor Class Library"
+                        workers = component "Fetch Workers" "Polling and sync." "Background services"
+                    }
+
+                    cloud = container "Cloud Service" "Optional sync layer." "ASP.NET Core" {
+                        properties {
+                            "owner" "Cloud"
+                            "status" "Preview"
+                        }
+                    }
+
+                    store = container "Local Task Store" "Canonical store for tasks." "SQLite" "Database" {
+                        properties {
+                            "owner" "Platform"
+                            "status" "Active"
+                        }
+                    }
+                }
+
+                github = softwareSystem "GitHub" "Issues and webhooks." "External"
+
+                me -> backlog.desktop "Captures and organises work" "local"
+                backlog.desktop.shell -> backlog.desktop.knowledge "Offers the pane"
+                backlog.desktop.workers -> backlog.desktop.knowledge "Delivers captured items"
+                backlog.desktop -> backlog.store "Reads and writes" "file system"
+                backlog.desktop -> github "Syncs issues" "HTTPS"
+                backlog.cloud -> github "Forwards webhooks" "HTTPS"
+
+                deploymentEnvironment "Local machine" {
+                    pc = deploymentNode "Windows PC" "The canonical deployment." "Windows 11" {
+                        msix = deploymentNode "MSIX package" "" "MSIX" {
+                            containerInstance backlog.desktop
+                        }
+                        userRoot = deploymentNode "User-owned root" "" "File system" {
+                            containerInstance backlog.store
+                            disk = infrastructureNode "Local disk" "" "NTFS"
+                        }
+                    }
+                }
+
+                deploymentEnvironment "Staging" {
+                    vm = deploymentNode "Test VM" "Not on the local diagram." "Linux"
+                }
+            }
+
+            views {
+                systemLandscape "landscape" "Everything Prompt Backlog touches" {
+                    include *
+                    autolayout lr
+                }
+
+                systemContext backlog "context-backlog" "System Context — Prompt Backlog" {
+                    include *
+                    autolayout lr
+                }
+
+                container backlog "containers-backlog" "Container Diagram — Prompt Backlog" {
+                    include *
+                    autolayout tb
+                }
+
+                component backlog.desktop "components-desktop" "Component Diagram — Desktop App" {
+                    include *
+                    autolayout tb
+                }
+
+                dynamic backlog "capture-to-issue" "Capturing an item and pushing it to GitHub" {
+                    me -> backlog.desktop "Captures an entry"
+                    backlog.desktop -> backlog.store "Writes the entry"
+                    backlog.desktop -> github "Creates the issue"
+                    autolayout lr
+                }
+
+                deployment backlog "Local machine" "deployment-local" "Local Deployment" {
+                    include *
+                    autolayout tb
+                }
+
+                styles {
+                    element "External" {
+                        background #7a7a7a
+                        color #ffffff
+                    }
+                    element "Database" {
+                        shape Cylinder
+                    }
+                }
+            }
+        }
+        """;
+
+    private const string Unreadable = """
+        workspace "Partly readable" {
+            !docs docs
+            model {
+                backlog = softwareSystem "Prompt Backlog" "The system"
+                backlog -> ghost "Calls something that does not exist"
+            }
+            views {
+                systemContext backlog "context" "System Context" { include * }
+            }
+        }
+        """;
+
+
+    private sealed record LevelRow(string Level, string Mermaid, string Draws);
+
+    private static readonly LevelRow[] LevelRows =
+    [
+        new("System landscape", "C4Context", "Every person and top-level software system. Nothing is external — a landscape is of the whole model."),
+        new("System context", "C4Context", "The scoped system plus whatever is directly related to it, with everything outside the scope drawn as external."),
+        new("Container", "C4Container", "The scope as a boundary around its own containers, with the systems it talks to left closed."),
+        new("Component", "C4Component", "The scoped container as a boundary around its components."),
+        new("Dynamic", "C4Dynamic", "The declared steps, in order, and nothing else."),
+        new("Deployment", "C4Deployment", "Nested deployment nodes for one environment, with the instances that run inside them.")
+    ];
+
+    private sealed record C4FacetSummary(string Facet, string Values);
+
+    private static C4FacetSummary[] FacetRows
+    {
+        get
+        {
+            // The container view, because the facets are per view now: they are a
+            // question about the picture in front of the reader, not a catalogue of
+            // the whole model.
+            var facets = C4Exploration.Facets(Parsed, Parsed.View("containers-backlog")!);
+
+            return
+            [
+                new("Tag", Join(facets.Tags)),
+                new("Technology", Join(facets.Technologies)),
+                new("Team", Join(facets.Owners)),
+                new("Status", Join(facets.Statuses))
+            ];
+
+            static string Join(IReadOnlyList<C4FacetValue> values) =>
+                values.Count == 0 ? "—" : string.Join(", ", values.Select(value => $"{value.Value} ({value.Count})"));
+        }
+    }
+}

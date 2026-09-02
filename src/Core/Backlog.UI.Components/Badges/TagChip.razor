@@ -6,7 +6,17 @@
 <span class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     @if (OnClick.HasDelegate)
     {
-        <button type="button" class="tag-chip__label" @onclick="OnClick" disabled="@Disabled">@Text</button>
+        @* The label is the tag; the name is what pressing it does. "#sync" alone
+           names the thing under the pointer and not the act, and a column of them
+           reads as a list of tags rather than as a set of controls — so a caller
+           that has an act in mind says so and the word is still what is drawn. *@
+        <button type="button"
+                class="tag-chip__label"
+                aria-label="@Label"
+                title="@Label"
+                @onclick="OnClick"
+                @onclick:stopPropagation="true"
+                disabled="@Disabled">@Text</button>
     }
     else
     {
@@ -38,6 +48,12 @@
 
     [Parameter]
     public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    /// <summary>What pressing the chip does, for the accessible name and the
+    /// tooltip — "Filter by #sync" rather than "#sync". Null leaves the drawn text
+    /// as the name, which is what a chip that only reads as a tag wants.</summary>
+    [Parameter]
+    public string? Label { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

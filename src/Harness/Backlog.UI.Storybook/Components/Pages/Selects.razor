@@ -180,6 +180,20 @@
         </div>
     </Story>
 
+    <Story Name="TagMultiSelect sections"
+           Description="An option can name the section it belongs to, and the open list draws the sections in the order the options arrive in — the control never sorts them. Here the sections are repositories, with the one the reader is currently in leading and the entries filed nowhere trailing, which is how the backlog pane offers dependencies across every repository at once.
+
+                        Sections are runs, not a grouping the control derives, so filtering the list narrows and removes sections for free: type &quot;the&quot; and the sections with no surviving option disappear along with their headings. An option that names no section stays an unwrapped row, so a list nobody grouped looks exactly as it did before sections existed."
+           Code="@TagSectionCode">
+        <TagMultiSelect Options="Dependencies"
+                        SelectedValues="_dependencies"
+                        SelectedValuesChanged="v => _dependencies = v"
+                        Label="Waiting for"
+                        Placeholder="Pick an entry"
+                        TestId="tags-sectioned" />
+        <p class="sb-state" data-testid="tags-sectioned-value">[@string.Join(", ", _dependencies)]</p>
+    </Story>
+
     <Story Name="SearchBox"
            Description="Debounced: the bound value only changes once typing pauses, so a filter does not re-run per keystroke."
            Code="@SearchCode">
@@ -256,6 +270,19 @@
         new("aspire-harness", "Aspire harness")
     ];
 
+    /// <summary>Candidates for a dependency, the shape the backlog pane hands
+    /// over: every entry in the product, sectioned by the repository it is filed
+    /// under, with the unfiled ones last. The order here is the order on screen —
+    /// the control renders the runs it is given.</summary>
+    private static readonly IReadOnlyList<SelectorOption> Dependencies =
+    [
+        new("1", "Carve the shared components out", null, "backlog"),
+        new("2", "Storybook for Backlog.UI.Components", null, "backlog"),
+        new("3", "Refresh the knowledge indexes", null, "knowledge-base"),
+        new("4", "Pin the Aspire version", null, "aspire-harness"),
+        new("5", "Decide where the harness lives", null, "Unfiled")
+    ];
+
     private static readonly IReadOnlyList<SelectorOption> Tags =
     [
         new("ui", "ui"),
@@ -287,6 +314,7 @@
     private string? _repository = "backlog";
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
+    private IReadOnlyList<string> _dependencies = [];
     private string _query = string.Empty;
 
     private IEnumerable<string> Matches => string.IsNullOrWhiteSpace(_query)
@@ -336,6 +364,19 @@
         <TagMultiSelect Options="Tags" SelectedValues="_tags"
                         SelectedValuesChanged="v => _tags = v"
                         AllowCreate="true" Label="Tags" />
+        """;
+
+    private const string TagSectionCode = """
+        private static readonly IReadOnlyList<SelectorOption> Dependencies =
+        [
+            new("1", "Carve the shared components out", null, "backlog"),
+            new("2", "Storybook for Backlog.UI.Components", null, "backlog"),
+            new("5", "Decide where the harness lives", null, "Unfiled")
+        ];
+
+        <TagMultiSelect Options="Dependencies" SelectedValues="_dependencies"
+                        SelectedValuesChanged="v => _dependencies = v"
+                        Label="Waiting for" Placeholder="Pick an entry" />
         """;
 
     private const string SearchCode = """

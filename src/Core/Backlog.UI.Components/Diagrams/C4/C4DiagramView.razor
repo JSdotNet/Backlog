@@ -1,0 +1,37 @@
+@*
+    A C4 view, drawn by this product rather than by mermaid.
+
+    The component is thin on purpose: the whole picture is a string from
+    C4SvgWriter, emitted as markup. Razor reserves `<text>` as its own
+    markup-transition tag, so SVG text cannot be written inline here at all — and
+    building it as a string makes the rendering testable without a renderer, the same
+    way the mermaid writer is.
+
+    What it is for is on C4SvgWriter. The short version: mermaid sizes its own boxes,
+    draws no icon, routes edges its own way and writes every colour inline, so a C4
+    view was always going to look like a mermaid diagram however it was themed.
+*@
+
+<div class="c4-diagram-host" data-testid="@TestId">
+    @((MarkupString)C4SvgWriter.Write(Diagram, Id, AriaLabel))
+</div>
+
+@code {
+    /// <summary>The laid-out view. Built by <see cref="C4LayoutEngine"/> from the same
+    /// element and edge selection the mermaid writer uses, so the two renderings never
+    /// disagree about what a view contains.</summary>
+    [Parameter, EditorRequired]
+    public C4Diagram Diagram { get; set; } = C4Diagram.Empty;
+
+    /// <summary>The svg element's id. Every card's id is this plus the node's alias,
+    /// which is the thread the explorer's viewer follows back to the model — so it has
+    /// to be stable for as long as the diagram is on screen.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-diagram";
+}

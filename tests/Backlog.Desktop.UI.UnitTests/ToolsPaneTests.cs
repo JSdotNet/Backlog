@@ -1,4 +1,4 @@
-using Backlog.Modules.DevPc.UI;
+﻿using Backlog.Modules.DevPc.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,12 +28,12 @@ public sealed class ToolsPaneTests
     [Fact]
     public void No_catalog_offers_creating_one_and_names_where_it_goes()
     {
-        using var context = Context(FakeDevToolService.WithoutCatalog(@"C:\tools\copilot-tools.json"));
+        using var context = Context(FakeDevToolService.WithoutCatalog(@"C:\tools\ai-tools.json"));
 
         var pane = context.Render<ToolsPane>();
 
         var empty = pane.Find("[data-testid='tools-empty-no-catalog']");
-        Assert.Contains(@"C:\tools\copilot-tools.json", empty.TextContent, StringComparison.Ordinal);
+        Assert.Contains(@"C:\tools\ai-tools.json", empty.TextContent, StringComparison.Ordinal);
         Assert.NotNull(pane.Find("[data-testid='tools-create-catalog']"));
         Assert.NotNull(pane.Find("[data-testid='tools-import-open']"));
 
@@ -56,6 +56,83 @@ public sealed class ToolsPaneTests
         Assert.NotNull(pane.Find("[data-testid='tools-add-open']"));
         Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-catalog']"));
         Assert.Empty(pane.FindAll("[data-testid='tools-create-catalog']"));
+    }
+
+    [Fact]
+    public void A_first_read_draws_the_inventory_it_is_waiting_for_rather_than_a_sentence()
+    {
+        // The read walks the machine, so this pane is empty for seconds at a time.
+        // A line of grey text there was indistinguishable from a pane that had
+        // failed to draw - the defect this placeholder exists for.
+        var reading = new TaskCompletionSource();
+        using var context = Context(FakeDevToolService.With() with { Reading = reading });
+
+        var pane = context.Render<ToolsPane>();
+
+        var loading = pane.Find("[data-testid='tools-loading']");
+        Assert.NotEmpty(loading.QuerySelectorAll(".skeleton"));
+
+        // In the shape of the thing that is coming: the pane's own kind sections
+        // and its own four-column rows, not a placeholder layout of its own.
+        Assert.NotEmpty(loading.QuerySelectorAll(".tools-kind"));
+        Assert.NotEmpty(loading.QuerySelectorAll(".tools-table__row"));
+
+        // And neither empty state, which is the other half of the confusion: a
+        // pane still reading has not established that there is nothing to show.
+        Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-catalog']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-entries']"));
+
+        // And the badge does not answer a question the pane has not asked yet.
+        // _catalogExists starts false, so this used to open on "No catalog" -
+        // a verdict, beside a placeholder promising rows were on their way.
+        Assert.Equal("Checking", pane.Find(".tools-panel__count").TextContent.Trim());
+
+        reading.SetResult();
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-loading']")));
+        Assert.NotNull(pane.Find("[data-testid='tools-empty-no-entries']"));
+        Assert.Equal("Check tools", pane.Find(".tools-panel__count").TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_placeholder_is_one_wait_rather_than_forty_announcements()
+    {
+        var reading = new TaskCompletionSource();
+        using var context = Context(FakeDevToolService.With() with { Reading = reading });
+
+        var pane = context.Render<ToolsPane>();
+
+        // The bars say nothing. What is being waited for is said once, by the
+        // toolbar's status line above them.
+        Assert.Equal("true", pane.Find("[data-testid='tools-loading']").GetAttribute("aria-hidden"));
+        var status = pane.Find(".tools-panel__message");
+        Assert.Equal("status", status.GetAttribute("role"));
+        Assert.Contains("Checking configured tools", status.TextContent, StringComparison.Ordinal);
+
+        reading.SetResult();
+    }
+
+    [Fact]
+    public void Re_checking_a_populated_pane_keeps_the_rows_and_says_so_in_the_header()
+    {
+        var service = FakeDevToolService.With(Tool("plugin:architecture", "architecture"));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        Assert.Empty(pane.FindAll("[data-testid='tools-refreshing']"));
+
+        var reading = new TaskCompletionSource();
+        service.Reading = reading;
+        pane.Find("[data-testid='tools-refresh']").Click();
+
+        // A re-check over versions already on screen must not blank them: what is
+        // there is still true until a newer answer arrives, so the rows stay and
+        // the header carries the only sign that anything is running.
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='tools-refreshing']")));
+        Assert.NotEmpty(pane.FindAll("[data-tool-key]"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-loading']"));
+
+        reading.SetResult();
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='tools-refreshing']")));
     }
 
     [Fact]
@@ -1084,7 +1161,7 @@ public sealed class ToolsPaneTests
 
         public bool CatalogExists { get; init; } = true;
 
-        public string CatalogPath { get; init; } = @"C:\tools\copilot-tools.json";
+        public string CatalogPath { get; init; } = @"C:\tools\ai-tools.json";
 
         public bool CanEdit { get; init; } = true;
 
@@ -1117,13 +1194,25 @@ public sealed class ToolsPaneTests
             return service;
         }
 
-        public static FakeDevToolService WithoutCatalog(string catalogPath = @"C:\tools\copilot-tools.json") =>
+        public static FakeDevToolService WithoutCatalog(string catalogPath = @"C:\tools\ai-tools.json") =>
             new() { CatalogExists = false, CatalogPath = catalogPath };
 
-        public Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
+        /// <summary>Held open by a test that wants to look at the pane mid-read.
+        /// The real port walks the machine and takes seconds over it; every other
+        /// test here wants that over before the first render, so this is null
+        /// unless a test says otherwise.</summary>
+        public TaskCompletionSource? Reading { get; set; }
+
+        public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
         {
             Reads++;
-            return Task.FromResult(new DevToolCatalog(
+
+            if (Reading is not null)
+            {
+                await Reading.Task;
+            }
+
+            return new DevToolCatalog(
                 CatalogExists ? _tools : [],
                 CatalogExists ? "Showing tools." : $"Tool catalog was not found at {CatalogPath}.",
                 CatalogExists,
@@ -1131,7 +1220,7 @@ public sealed class ToolsPaneTests
                 CanEdit)
             {
                 Commands = Commands
-            });
+            };
         }
 
         public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => Answer();

@@ -44,6 +44,14 @@
             <p class="tools-panel__subtitle">What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.</p>
         </div>
         <div class="tools-panel__header-actions">
+            @* A re-check over rows that are already on screen does not blank them
+               — the versions below stay readable while the newer ones are being
+               looked up — so the only place left to say that something is running
+               is here, beside the count it is about to change. *@
+            @if (_toolsLoading && _tools.Count > 0)
+            {
+                <Spinner Size="SpinnerSize.Small" Label="Checking tools" TestId="tools-refreshing" />
+            }
             @* The library's badge wearing this pane's count class. *@
             <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
@@ -68,7 +76,7 @@
                 <div class="tools-panel__toolbar-actions">
                     @* Checking and updating both read the catalog, so neither is offered
                        while there is no catalog to read. *@
-                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync">
+                    <AppButton Variant="ButtonVariant.Secondary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy)" OnClick="RefreshToolsAsync" TestId="tools-refresh">
                         @(_toolsLoading ? "Checking..." : "Check for updates")
                     </AppButton>
                     <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
@@ -91,7 +99,51 @@
 
             @if (_toolsLoading && _tools.Count == 0)
             {
-                <p class="tools-panel__empty">Loading installed tool versions.</p>
+                @* The first read walks the machine — plugin manifests, marketplaces,
+                   a version probe per application — and on a cold cache that is
+                   several seconds of a pane with nothing in it. One grey sentence
+                   there was indistinguishable from a pane that had failed to draw,
+                   so what stands in for the inventory is the inventory's own shape:
+                   the same kind sections, the same four-column grid, the same frame,
+                   with bars where the rows will be.
+
+                   It reuses this pane's row classes rather than describing a table of
+                   its own, which is what keeps the placeholder honest — it restacks
+                   with the real rows when the pane is narrow, because it is laid out
+                   by the same container query.
+
+                   Hidden from assistive technology in one piece. A reader who cannot
+                   see the bars gains nothing from forty of them; the toolbar's status
+                   line above already says the catalog is being checked, and it says
+                   it once. *@
+                <div class="tools-panel__skeleton" data-testid="tools-loading" aria-hidden="true">
+                    @foreach (var section in SkeletonSections)
+                    {
+                        <section class="tools-kind">
+                            <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
+                            <div class="tools-table">
+                                <div class="tools-table__row tools-table__row--head">
+                                    <Skeleton Width="2.5rem" />
+                                    <Skeleton Width="4rem" />
+                                    <Skeleton Width="4rem" />
+                                    <Skeleton Width="3.5rem" />
+                                </div>
+                                @foreach (var name in section)
+                                {
+                                    <div class="tools-table__row">
+                                        <div class="tools-table__tool">
+                                            <Skeleton Width="@name" />
+                                            <Skeleton Width="55%" />
+                                        </div>
+                                        <Skeleton Width="3rem" />
+                                        <Skeleton Width="3rem" />
+                                        <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+                </div>
             }
             else if (!_catalogExists)
             {
@@ -572,7 +624,7 @@
             </p>
             <FileField Label="Catalog file"
                        Accept=".json"
-                       HelpText="An ai-tools.json with a plugins, mcpServers or claude.marketplaces array."
+                       HelpText="An ai-tools.json with a plugins, mcpServers, claude.marketplaces or applications array."
                        ErrorMessage="@_importError"
                        OnTextRead="OnImportFileRead"
                        OnRejected="OnImportFileRejected"
@@ -681,19 +733,44 @@
     /// most needs to say.</summary>
     private string ToolMessage => _toolMessage ?? "Checking configured tools...";
 
+    /// <summary>The placeholder inventory: two kind sections of three and two
+    /// rows, and the width of each row's name bar.
+    ///
+    /// <para>Uneven on purpose. Bars of one length read as a pattern — a loading
+    /// graphic — where a ragged right edge reads as names, which is the whole
+    /// point of standing in for the content rather than announcing its absence.
+    /// Two sections rather than the real five: enough to show the pane arrives
+    /// grouped, without a screenful of grey where a short catalog is coming.</para></summary>
+    private static readonly string[][] SkeletonSections =
+    [
+        ["62%", "78%", "45%"],
+        ["70%", "52%"]
+    ];
+
     /// <summary>"No catalog" is a different fact from "no tools", and the badge is
-    /// where it is said in one glance.</summary>
-    private string CountLabel => !_catalogExists
-        ? "No catalog"
-        : _tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools";
+    /// where it is said in one glance.
+    ///
+    /// <para>Three facts, not two: until the first read comes back, neither of the
+    /// others is known. <c>_catalogExists</c> starts false, so the badge used to
+    /// open on "No catalog" and correct itself — a claim the pane had not checked,
+    /// beside a placeholder promising rows were coming.</para></summary>
+    private string CountLabel => _toolsLoading && _tools.Count == 0
+        ? "Checking"
+        : !_catalogExists
+            ? "No catalog"
+            : _tools.Count == 0 ? "Check tools" : $"{_tools.Count} tools";
 
     private string NoCatalogDescription => _catalogPath.Length == 0
         ? "This machine has no tool catalog. Create one, or import a catalog you already have."
         : $"Nothing has been configured on this machine yet. The catalog will be written to {_catalogPath}.";
 
+    /// <summary>Names all four kinds a catalog can hold, because this fires only
+    /// when every one of them is empty. It said "no plugins or MCP servers" while
+    /// those were the only two, and a person who had just added an applications
+    /// array read a sentence that did not mention the thing they were editing.</summary>
     private string EmptyCatalogDescription => _catalogPath.Length == 0
-        ? "The catalog is there but has no plugins or MCP servers in it yet."
-        : $"{_catalogPath} has no plugins or MCP servers in it yet.";
+        ? "The catalog is there but has no plugins, marketplaces, MCP servers or applications in it yet."
+        : $"{_catalogPath} has no plugins, marketplaces, MCP servers or applications in it yet.";
 
     private string RemoveMessage => _removing is null
         ? string.Empty

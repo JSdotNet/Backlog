@@ -942,3 +942,21 @@ html, body {
 .sb-stack > .graph-atlas {
     height: 34rem;
 }
+
+/* The explorer needs room to be explorable. A story panel sizes to its content,
+   and a pan-and-zoom canvas has none to size to. */
+.sb-c4-stage {
+    height: 40rem;
+    min-height: 0;
+}
+
+.sb-c4-stage .c4-explorer {
+    height: 100%;
+}
+
+/* The diagram on its own needs a height for the same reason the explorer does: an
+   SVG sized at 100% has nothing to be 100% of otherwise. */
+.sb-c4-figure {
+    height: 26rem;
+    min-height: 0;
+}
