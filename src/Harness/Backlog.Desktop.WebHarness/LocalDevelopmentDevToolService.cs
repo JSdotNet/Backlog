@@ -7,7 +7,15 @@ using Backlog.Modules.Backlog.Abstractions.Services;
 
 namespace Backlog.Desktop.WebHarness;
 
-internal sealed class LocalDevelopmentDevToolService : IDevToolService
+/// <summary>
+/// The harness's own answer to the tools port, read out of the catalog JSON and
+/// nothing else.
+/// <para>Public rather than internal, like <c>LocalAzureFoundryCompletion</c> in
+/// the harness beside it, so the unit tests can drive it directly. Everything it
+/// answers comes from files, so the half of the pane a browser is slowest to
+/// reach is the half a test can pin in milliseconds.</para>
+/// </summary>
+public sealed class LocalDevelopmentDevToolService : IDevToolService
 {
     /// <summary>
     /// Stand-ins for the dozen processes the desktop head runs to answer a
@@ -23,6 +31,10 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
         new("dotnet tool search JSdotNet.MCP.Guidelines", 1, "Sample failure: nothing was searched.")
     ];
 
+    /// <summary>What a row this machine does not want reports, in the one
+    /// spelling the desktop head uses for it.</summary>
+    private const string DisabledStatus = "Disabled in config";
+
     private readonly IBacklogStore _store;
 
     /// <summary>What has been ticked this session, for the sample rows below.
@@ -31,6 +43,18 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
     /// checkbox that forgot the moment the pane re-read would be the one shape
     /// this harness exists to let somebody actually operate.</summary>
     private readonly Dictionary<string, bool> _acknowledged = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>What has been switched off — or back on — this session, for the
+    /// same rows and the same reason as <see cref="_acknowledged"/> above.
+    ///
+    /// <para>A catalog row needs nothing here: its override goes into the per-PC
+    /// file and <see cref="DevToolConfiguration.ReadAsync"/> merges it back over
+    /// the catalog on the next read, which is how the desktop head resolves one
+    /// too. The sample rows are in no catalog, so that merge finds nothing to
+    /// merge into and drops the write — leaving Disable as a button that reported
+    /// success and changed nothing, on the only rows a browser can reach.</para>
+    /// </summary>
+    private readonly Dictionary<string, bool> _enabled = new(StringComparer.OrdinalIgnoreCase);
 
     public LocalDevelopmentDevToolService(IBacklogStore store)
     {
@@ -103,7 +127,7 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
                 enabled,
                 installedVersion,
                 availableVersion,
-                enabled ? "Configured from local JSON" : "Disabled in config")
+                enabled ? "Configured from local JSON" : DisabledStatus)
             {
                 Hosts = hosts,
                 HostStates = HostStates(hosts, enabled, installedVersion, availableVersion)
@@ -153,7 +177,7 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
                 enabled,
                 installedVersion,
                 availableVersion,
-                enabled ? "Configured from local JSON" : "Disabled in config")
+                enabled ? "Configured from local JSON" : DisabledStatus)
             {
                 Hosts = hosts,
                 HostStates = states
@@ -228,6 +252,8 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
     private async Task<DevToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct)
     {
         await DevToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
+        _enabled[key] = enabled;
+
         return DevToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
     }
 
@@ -334,7 +360,7 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
             "Visual Studio family", DevToolOutput.NotInstalled, DevToolOutput.Unknown, installed: false,
             enabled: false, installable: false,
             note: "Marked \"if your team uses it\" in the HowTo.",
-            status: "Disabled in config");
+            status: DisabledStatus);
 
         yield return Application(
             "ms-dotnettools.csdevkit", "C# Dev Kit", DevToolProvider.VsCodeExtension,
@@ -459,6 +485,22 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
         // one back out of the per-PC file for them.
         var confirmed = _acknowledged.TryGetValue(key, out var recorded) ? recorded : acknowledged;
 
+        // And the same for the switch beside it. A catalog row arrives here with
+        // the override already merged in, so this agrees with what it was passed;
+        // a sample row would otherwise be re-seeded from its literal on every
+        // read, which is the whole of what Disable used to do.
+        var wanted = _enabled.TryGetValue(key, out var chosen) ? chosen : enabled;
+
+        // The seeded status says what was found, and that stays true when the
+        // machine switches the row off — but the desktop head reports a row it
+        // does not want as disabled and nothing else, so this does too, and so do
+        // the plugin and MCP branches above. The other direction matters for the
+        // one sample row seeded switched off: re-enabled, its status must stop
+        // saying it is disabled.
+        var reported = wanted
+            ? status == DisabledStatus ? "Not installed" : status
+            : DisabledStatus;
+
         return new DevToolInfo(
             key,
             DevToolKind.Application,
@@ -467,14 +509,14 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
             // head: for an application, that is what "where does this come from"
             // means.
             DevToolConfiguration.ProviderName(provider),
-            enabled,
+            wanted,
             provider is DevToolProvider.Manual ? confirmed : installed,
             installedVersion,
             availableVersion,
             // The note travels appended to the status behind a middle dot, which
             // is the shape the pane splits on. It is the port's one string for
             // "what was found, and what the entry wanted said about it".
-            string.IsNullOrWhiteSpace(note) ? status : $"{status} · {note}")
+            string.IsNullOrWhiteSpace(note) ? reported : $"{reported} · {note}")
         {
             // Not a host's tool: an application is installed into the machine, and
             // claiming Copilot or Claude would put an Install for it on a host that
