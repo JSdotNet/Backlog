@@ -77,18 +77,20 @@
                MinRem="24">
         <Start>
             <div class="backlog-list">
-                @* Areas are local piles inside the selected repository scope, and tags
-                   are the second label on an entry that already has one — so the two
-                   sit together in the middle and both are built from what people
-                   typed. Status narrows what is already in view, so it sits on the
-                   right. *@
+                @* Tags are the second label on an entry that already has one, so the
+                   group is built from what people typed and sits in the middle.
+                   Status narrows what is already in view, so it sits on the right. *@
                 <div class="filter-bar">
-                    @* My Day is a scope rather than one of a set, so it holds a
-                       state of its own: it narrows whatever area and status have
-                       already left in view instead of replacing either. That is
-                       what makes it a ToggleButton with aria-pressed beside two
-                       radiogroups — the difference is in the semantics, not just
-                       in the shape. *@
+                    @* Two scopes rather than one of a set, so each holds a state of
+                       its own: both narrow whatever the repository scope, the tags
+                       and the status have already left in view instead of replacing
+                       any of them. That is what makes them ToggleButtons with
+                       aria-pressed beside two radiogroups — the difference is in the
+                       semantics, not just in the shape.
+
+                       They are not exclusive with each other either. "In today's My
+                       Day and filed nowhere" is a real question, and it is the one
+                       both chips pressed asks. *@
                     <div class="filter-group filter-group--scope" role="group" aria-label="Scope">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -98,31 +100,32 @@
                                       PressedChanged="OnMyDayFilterChanged">
                             My Day<span class="chip__count">@MyDayCount</span>
                         </ToggleButton>
-                    </div>
 
-                    <div class="filter-group filter-group--areas" role="radiogroup" aria-label="Filter by area">
-                        @foreach (var area in State.AreaFilters)
-                        {
-                            @* A radio in a radiogroup, so aria-checked rather than the
-                               aria-pressed ToggleButton would bring: these chips pick one
-                               of a set, they do not each hold a state of their own. *@
-                            <AppButton BaseClass="chip chip--filter"
-                                       Variant="ButtonVariant.None"
-                                       CssClass="@(State.SelectedArea == area.Value ? "chip--active" : null)"
-                                       TestId="area-filter-option"
-                                       role="radio"
-                                       aria-checked="@(State.SelectedArea == area.Value ? "true" : "false")"
-                                       OnClick="() => State.SetAreaFilter(area.Value)">
-                                @area.Label<span class="chip__count">@area.Count</span>
-                            </AppButton>
-                        }
+                        @* The one scope the header's repository chips cannot express:
+                           they name the repositories that exist, and this names their
+                           absence. It wears no identity hue for the same reason —
+                           there is no repository here whose colour it could be.
+
+                           With a repository selected in the header the two ask for
+                           opposite things and this count reads 0, which is the chip
+                           saying so before it is pressed rather than an empty list
+                           afterwards. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NoRepositoryOnly"
+                                      TestId="norepo-filter-option"
+                                      Title="@(State.NoRepositoryOnly ? "Show everything again" : "Show only what is filed against no repository")"
+                                      PressedChanged="State.SetNoRepositoryFilter">
+                            No repo<span class="chip__count">@NoRepositoryCount</span>
+                        </ToggleButton>
                     </div>
 
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
-                       no fourth group rather than a dead "All" chip filtering nothing.
-                       Same shape as the areas beside it — one of a set, so aria-checked
-                       — because a tag narrows the same view an area does. *@
+                       no third group rather than a dead "All" chip filtering nothing.
+                       Same shape as the statuses beside it — one of a set, so
+                       aria-checked — because picking a tag replaces the tag that was
+                       picked before rather than adding to it. *@
                     @if (State.TagFilters.Count > 0)
                     {
                         <div class="filter-group filter-group--tags" role="radiogroup" aria-label="Filter by tag">
@@ -823,15 +826,21 @@
 
     private void OnFilterChanged(string wire) => State.SetStatusFilter(wire);
 
-    // --- The My Day scope --------------------------------------------------
+    // --- The scopes ---------------------------------------------------------
 
     private bool MyDayOnly => State.MyDayOn is not null;
 
     /// <summary>How many entries are in today's My Day, counted off the rows the
-    /// repository scope leaves in view — the same pool the area chips count, so the
-    /// number does not change meaning when a status is picked. Derived here because
-    /// this is where the clock is.</summary>
+    /// repository scope leaves in view — the same pool the No repo chip counts, so
+    /// neither number changes meaning when a tag or a status is picked. Derived here
+    /// because this is where the clock is.</summary>
     private int MyDayCount => State.ScopedRows.Count(IsInMyDay);
+
+    /// <summary>How many of those same rows are filed against no repository. It is
+    /// the state that decides what "no repository" means — see
+    /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
+    /// working the answer out a second way here.</summary>
+    private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
 
     /// <summary>Turning the scope on pins it to today. The date is read here rather
     /// than in the state for the reason <c>#feature-my-day</c> gives: membership is

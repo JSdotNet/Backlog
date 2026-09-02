@@ -155,15 +155,18 @@ public sealed class TagFilterTests
         Assert.Equal(4, host.State.FilteredRows.Count);
     }
 
-    /// <summary>Orthogonal to the rest of the bar: a tag narrows what area and
-    /// status have already left in view instead of replacing either.</summary>
+    /// <summary>Orthogonal to the rest of the bar: a tag narrows what the scopes and
+    /// the status have already left in view instead of replacing any of them.</summary>
     [Fact]
     public async Task A_tag_composes_with_the_status_filter_rather_than_replacing_it()
     {
         var (host, sync, _, _, _) = await FourAsync();
         using var _host = host;
 
-        host.State.SetAreaFilter("platform");
+        // Nothing in the fixture carries a `repo:`, so the No repo scope is on and
+        // holding all four — which is the point: it is still a live scope while the
+        // tag and the status do the narrowing.
+        host.State.SetNoRepositoryFilter(true);
         host.State.SetStatusFilter("ready");
         host.State.SetTagFilter("sync");
 
@@ -171,13 +174,14 @@ public sealed class TagFilterTests
         // entries are not tagged #sync, so the tag takes those.
         Assert.Equal([sync], host.State.FilteredRows);
 
-        Assert.Equal("platform", host.State.SelectedArea);
+        Assert.True(host.State.NoRepositoryOnly);
         Assert.Equal("ready", host.State.SelectedStatusFilterWire);
     }
 
     /// <summary>A tag stops existing when the last entry wearing it drops it, and a
     /// selection pointing at nothing would filter the list to nothing with no chip
-    /// on screen saying why. Same fallback the area group makes.</summary>
+    /// on screen saying why. Same fallback a scope pointing at a repository that has
+    /// left the settings makes.</summary>
     [Fact]
     public async Task A_tag_that_stopped_existing_falls_back_to_all()
     {
@@ -197,7 +201,7 @@ public sealed class TagFilterTests
 
     /// <summary>Nothing on the bar for a backlog nobody tagged. The group is built
     /// out of what people typed, so with nothing typed there is nothing to build —
-    /// and a lone "All" chip filtering nothing would be a fourth group charging every
+    /// and a lone "All" chip filtering nothing would be a third group charging every
     /// reader for a feature only the taggers use.</summary>
     [Fact]
     public async Task The_group_is_absent_while_nothing_carries_a_tag()
@@ -214,8 +218,7 @@ public sealed class TagFilterTests
         Assert.Empty(pane.FindAll(Chip));
         Assert.Empty(pane.FindAll("[aria-label='Filter by tag']"));
 
-        // The three groups that were always there are untouched.
-        Assert.Single(pane.FindAll("[aria-label='Filter by area']"));
+        // The two groups that are always there are untouched.
         Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
         Assert.Single(pane.FindAll("[aria-label='Scope']"));
     }
