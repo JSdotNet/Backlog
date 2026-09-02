@@ -75,19 +75,38 @@
     <div class="diagram-view__canvas" role="@(ShowingArtifact ? null : "img")" aria-label="@(ShowingArtifact ? null : AriaLabel)">
         @if (ShowingArtifact)
         {
-            @* `allow-downloads` is what makes the artifact's Export menu real.
-               It writes a PNG, SVG or WebM by clicking an anchor with a
-               `download` attribute at a blob URL, and a frame without this
-               permission has that click silently ignored — the menu was there,
-               the button pressed, and nothing ever arrived. It grants the frame
-               nothing else: without `allow-same-origin` the document stays in an
-               opaque origin and still cannot read a cookie, a store, or this
-               page. *@
-            <iframe @ref="_frame"
-                    class="diagram-view__artifact"
-                    data-testid="diagram-view-artifact"
-                    sandbox="allow-scripts allow-downloads"
-                    title="@AriaLabel"></iframe>
+            @* The stage, and the whole reason there is one: fullscreen is
+               requested on this rather than on the frame. Only the element in the
+               top layer and its descendants are painted, and a frame is the one
+               thing here that can hold nothing of ours — the document inside is
+               sandboxed into an opaque origin, so it can be neither scripted into
+               nor reached back from. Wrapping the frame is what gives the way out
+               somewhere to be; without it the only way back was Esc, and nothing
+               on screen said so. *@
+            <div @ref="_stage" class="diagram-view__stage" data-testid="diagram-view-stage">
+                @* `allow-downloads` is what makes the artifact's Export menu real.
+                   It writes a PNG, SVG or WebM by clicking an anchor with a
+                   `download` attribute at a blob URL, and a frame without this
+                   permission has that click silently ignored — the menu was there,
+                   the button pressed, and nothing ever arrived. It grants the frame
+                   nothing else: without `allow-same-origin` the document stays in an
+                   opaque origin and still cannot read a cookie, a store, or this
+                   page. *@
+                <iframe @ref="_frame"
+                        class="diagram-view__artifact"
+                        data-testid="diagram-view-artifact"
+                        sandbox="allow-scripts allow-downloads"
+                        title="@AriaLabel"></iframe>
+                @* And out again. Always in the markup and shown by the stylesheet
+                   only while the stage is the screen: `:fullscreen` answers for Esc
+                   and F11 as well as for this button, so there is no state here to
+                   fall out of step with what the browser actually did. *@
+                <AppButton Size="ButtonSize.Small"
+                           CssClass="diagram-view__exit"
+                           TestId="diagram-view-exit-fullscreen"
+                           title="Leave full screen (Esc)"
+                           OnClick="ExpandArtifactAsync">Exit full screen</AppButton>
+            </div>
         }
         else if (CanRender(Language))
         {
@@ -160,6 +179,12 @@
     private readonly string _diagramId = "diagram-" + Guid.NewGuid().ToString("N");
     private ElementReference _canvas;
     private ElementReference _frame;
+
+    /// <summary>The element that goes fullscreen, which is the wrapper around
+    /// the frame rather than the frame itself — it has to be, because the way
+    /// back out has to be inside whatever is in the top layer, and a sandboxed
+    /// frame in an opaque origin can carry nothing of ours.</summary>
+    private ElementReference _stage;
     private IDiagramArtifactSource? _artifacts;
     private bool _artifactsResolved;
     private DiagramArtifact? _artifact;
@@ -323,7 +348,9 @@
         }
     }
 
-    /// <summary>Hands the artifact the whole screen.
+    /// <summary>Hands the artifact the whole screen, and takes it back — one
+    /// method for both directions, because it is one toggle and the browser already
+    /// knows which way it is going.
     /// <para>
     /// A failure here is swallowed on purpose. Fullscreen is refused for reasons
     /// that are not faults and that a reader can do nothing about — no user
@@ -335,7 +362,7 @@
     {
         try
         {
-            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _frame);
+            await Js.InvokeVoidAsync("backlogDiagrams.toggleArtifactFullscreen", _stage);
         }
         catch (JSException)
         {

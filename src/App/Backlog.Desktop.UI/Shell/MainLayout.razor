@@ -1,3 +1,23 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+@*
+    The app shell: the routed page, and below it the one band that is not a page.
+
+    This used to be a bare `@Body` — the layout existed only because Router needs
+    one — and every screen was therefore the whole window. That is why the version
+    control and the Report issue button ended up in Home's header: there was no
+    place in this app that outlived a route, so anything window-wide had to be
+    smuggled into a page and mounted again on the next one. Now there is a place.
+
+    The wrapper is not decoration. `.shell` owned `height: 100vh` while it was the
+    only thing on screen; with a sibling below it the viewport height belongs to
+    the column that holds both, and `.shell` takes what is left of it. The reason
+    that column uses `height` rather than `min-height` is written on `.app-shell`
+    in app.css — an indefinite height there collapses the workspace grid's whole
+    overflow discipline.
+*@
+
+<div class="app-shell">
+    @Body
+    <AppFooter />
+</div>

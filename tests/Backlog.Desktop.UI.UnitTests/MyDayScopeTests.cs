@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// in My Day, which is how the list clears itself overnight with no sweep.
 /// </para>
 /// <para>
-/// It is a scope rather than one of a set: orthogonal to area and status, so it
+/// It is a scope rather than one of a set: orthogonal to tag and status, so it
 /// narrows what those have already left in view instead of replacing either. That is
 /// why it is a pressed toggle beside two radiogroups.
 /// </para>
@@ -61,10 +61,44 @@ public sealed class MyDayScopeTests
 
         Assert.Equal("false", chip.GetAttribute("aria-pressed"));
 
-        // A state of its own, so aria-pressed — not the aria-checked the area and
+        // A state of its own, so aria-pressed — not the aria-checked the tag and
         // status chips carry, which pick one of a set.
         Assert.Null(chip.GetAttribute("aria-checked"));
         Assert.Null(chip.GetAttribute("role"));
+    }
+
+    /// <summary>
+    /// The bar's two scopes sit together and are shaped alike, and no group of areas
+    /// sits between them and the tags any more.
+    /// <para>
+    /// Areas are still typed, still shown on rows and still the reader's own pile —
+    /// what went is the chip group, on the grounds that the repository scope in the
+    /// header was already answering the question people were asking it. "No repo" is
+    /// the one part of that question the header could not answer, so it arrived here
+    /// as the areas left.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_scope_group_holds_both_scopes_and_the_bar_holds_no_areas()
+    {
+        var (host, _, _, _) = await ThreeAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+
+        var scopes = pane.FindAll(".filter-group--scope .chip");
+
+        Assert.Equal(2, scopes.Count);
+        Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("No repo", scopes[1].TextContent, StringComparison.Ordinal);
+
+        // Same shape as My Day, for the same reason: a state of its own rather than
+        // one of a set.
+        Assert.Equal("false", scopes[1].GetAttribute("aria-pressed"));
+        Assert.Null(scopes[1].GetAttribute("role"));
+
+        Assert.Empty(pane.FindAll(".filter-group--areas"));
+        Assert.Empty(pane.FindAll("[data-testid='area-filter-option']"));
     }
 
     [Fact]
@@ -125,27 +159,27 @@ public sealed class MyDayScopeTests
     }
 
     /// <summary>Orthogonal, which is the reason it is a toggle: turning it on narrows
-    /// whatever area and status have already left in view instead of replacing
+    /// whatever tag and status have already left in view instead of replacing
     /// either.</summary>
     [Fact]
-    public async Task The_scope_narrows_the_area_and_status_filters_rather_than_replacing_them()
+    public async Task The_scope_narrows_the_tag_and_status_filters_rather_than_replacing_them()
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        var wanted = await host.WriteEntryAsync($"# Provision the box\n`task` `!ready` `@platform` `myday:{Token(Today)}`\n");
+        var wanted = await host.WriteEntryAsync($"# Provision the box\n`task` `!ready` `#platform` `myday:{Token(Today)}`\n");
 
-        // In My Day, but filed elsewhere.
-        await host.WriteEntryAsync($"# Draft the invite\n`task` `!ready` `@marketing` `myday:{Token(Today)}`\n");
+        // In My Day, but tagged something else.
+        await host.WriteEntryAsync($"# Draft the invite\n`task` `!ready` `#marketing` `myday:{Token(Today)}`\n");
 
-        // In My Day and in the area, but not at the status being looked at.
-        await host.WriteEntryAsync($"# Sketch the schema\n`task` `!draft` `@platform` `myday:{Token(Today)}`\n");
+        // In My Day and under the tag, but not at the status being looked at.
+        await host.WriteEntryAsync($"# Sketch the schema\n`task` `!draft` `#platform` `myday:{Token(Today)}`\n");
 
-        // In the area and at the status, but not picked for today.
-        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        // Under the tag and at the status, but not picked for today.
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `#platform`\n");
 
         await host.State.SelectAsync(null);
 
-        host.State.SetAreaFilter("platform");
+        host.State.SetTagFilter("platform");
         host.State.SetStatusFilter("ready");
 
         var pane = host.Render();
@@ -155,7 +189,7 @@ public sealed class MyDayScopeTests
 
         // Both of the other two are still what they were: My Day narrowed the view,
         // it did not take over the bar.
-        Assert.Equal("platform", host.State.SelectedArea);
+        Assert.Equal("platform", host.State.SelectedTag);
         Assert.Equal("ready", host.State.SelectedStatusFilterWire);
     }
 

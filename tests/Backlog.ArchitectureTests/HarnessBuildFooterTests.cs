@@ -4,7 +4,7 @@ namespace Backlog.ArchitectureTests;
 /// The two harnesses that host no application header still have to say which
 /// build — and which checkout — you are looking at.
 ///
-/// <para>The desktop shell answers this in its header, where the version chip
+/// <para>The desktop shell answers this in its footer, where the version chip
 /// shows the worktree instead of the version while running from a checkout. The
 /// storybook and the mobile harness have no such header: several worktrees serve
 /// identical pages at once, so a footer carries the same two facts. These are
@@ -37,9 +37,10 @@ public class HarnessBuildFooterTests
     {
         var markup = File.ReadAllText(shell);
 
-        // The header chip swaps one for the other because it has room for one
-        // line; a footer has room for both, and the version is the thing these
-        // harnesses had no way to show at all before.
+        // The desktop shell's chip swaps one for the other because it shares its
+        // band with live controls and has room for one line; these harness footers
+        // are fine print with a whole band to themselves, so they show both — and
+        // the version is the thing they had no way to show at all before.
         var version = markup.IndexOf("AppVersion.OfEntryAssembly()", StringComparison.Ordinal);
         var workspace = markup.IndexOf("DevelopmentWorkspace.Current is { } workspace", StringComparison.Ordinal);
 

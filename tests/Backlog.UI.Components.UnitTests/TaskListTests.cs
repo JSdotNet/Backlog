@@ -1,4 +1,4 @@
-﻿namespace Backlog.UI.Components.UnitTests;
+namespace Backlog.UI.Components.UnitTests;
 
 public sealed class TaskListTests
 {
@@ -207,6 +207,119 @@ public sealed class TaskListTests
 
         Assert.Null(view.Find(".task-item").QuerySelector(".task-item__body .task-item__meta"));
         Assert.NotNull(view.Find(".task-item__meta"));
+    }
+
+    // --- Person tags ------------------------------------------------------
+    //
+    // A person tag keeps its `@` in the stored value, so the row cannot assume a
+    // tag is drawn with a hash in front of it. Two kinds of tag, one sigil each.
+
+    [Fact]
+    public void A_person_tag_is_drawn_with_its_own_sigil_rather_than_a_hash()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob", "deploy"])));
+
+        // Not "#@bob": the stored value already carries the sigil that says which
+        // kind of tag it is, and a hash bolted on to it names nothing.
+        Assert.Equal(["@bob", "#deploy"], view.FindAll(".task-item__tag").Select(t => t.TextContent));
+    }
+
+    [Fact]
+    public void A_person_chip_is_distinguishable_from_a_general_chip()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob", "deploy"])));
+
+        var chips = view.FindAll(".task-item__tag");
+
+        Assert.Contains("tag-chip--person", chips[0].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+    }
+
+    [Fact]
+    public async Task A_listening_host_gets_a_person_tag_by_its_stored_value()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pressed = new List<string>();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob"]))
+            .Add(t => t.OnTagSelected, tag => pressed.Add(tag)));
+
+        var chip = view.Find(".task-item__tag .tag-chip__label");
+
+        Assert.Equal("Filter by @bob", chip.GetAttribute("aria-label"));
+
+        await chip.ClickAsync(new());
+
+        // The sigil is part of the stored tag here, unlike a general tag whose
+        // hash is only ever drawn.
+        Assert.Equal(["@bob"], pressed);
+    }
+
+    // --- Tags typed in the title ------------------------------------------
+
+    [Fact]
+    public void The_title_draws_its_tags_as_chips_without_losing_a_character_of_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship the installer @bob #deploy")));
+
+        var title = view.Find(".task-item__title");
+
+        // Nothing is stripped and nothing is rewritten: the chips are drawn in
+        // place, so the accessible name still reads as the whole title.
+        Assert.Equal("Ship the installer @bob #deploy", title.TextContent);
+
+        var chips = title.QuerySelectorAll(".task-item__title-tag");
+
+        Assert.Equal(["@bob", "#deploy"], chips.Select(c => c.TextContent));
+        Assert.Contains("tag-chip--person", chips[0].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+    }
+
+    [Fact]
+    public void A_title_chip_is_never_a_control_because_the_title_is_already_one()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it @bob"))
+            .Add(t => t.OnSelected, _ => { })
+            .Add(t => t.OnTagSelected, _ => { }));
+
+        // A button cannot hold a button, and the title is the button that opens
+        // the row — so a chip inside it stays the span it is even when a host is
+        // listening for tags.
+        Assert.Empty(view.FindAll(".task-item__title button"));
+    }
+
+    [Fact]
+    public void A_title_with_nothing_taggable_in_it_is_drawn_as_plain_text()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Mail bob@example.com about C# 14")));
+
+        var title = view.Find(".task-item__title");
+
+        Assert.Equal("Mail bob@example.com about C# 14", title.TextContent);
+        Assert.Empty(title.QuerySelectorAll(".task-item__title-tag"));
     }
 
     /// <summary>
@@ -2158,5 +2271,250 @@ public sealed class TaskListTests
         var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
 
         Assert.Contains("elsewhere", waiting.TextContent, StringComparison.Ordinal);
+    }
+    // --- Picking more than one row -----------------------------------------
+
+    /// <summary>A list that never asked for selection is the list it always was.
+    /// The gutter is additive, and every surface rendered before it existed keeps
+    /// exactly the controls it had.</summary>
+    [Fact]
+    public void A_row_offers_no_selection_box_unless_it_was_made_selectable()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.OnToggle, _ => { })
+            .Add(t => t.TestId, "row"));
+
+        Assert.Empty(view.FindAll("[data-testid='row-select']"));
+    }
+
+    /// <summary>Selectable, but with nobody listening, is still no box. The same
+    /// rule the circle, the pencil and the bin follow: a row does not offer a
+    /// control whose result would go nowhere.</summary>
+    [Fact]
+    public void A_selection_box_nobody_is_listening_to_is_not_drawn()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.Selectable, true)
+            .Add(t => t.TestId, "row"));
+
+        Assert.Empty(view.FindAll("[data-testid='row-select']"));
+    }
+
+    /// <summary>
+    /// The two boxes on one row are two different controls and say so.
+    /// <para>
+    /// The circle finishes the task; the gutter box picks the row out to be acted
+    /// on with others. A reader — and a screen reader especially — that could not
+    /// tell them apart would complete a task while trying to select it, which is
+    /// the one mistake this gutter must not make possible.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_selection_box_is_not_the_done_circle()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.OnToggle, _ => { })
+            .Add(t => t.Selectable, true)
+            .Add(t => t.SelectionChanged, (TaskSelectionToggle _) => { })
+            .Add(t => t.TestId, "row"));
+
+        var select = view.Find("[data-testid='row-select'] input");
+        var check = view.Find("[data-testid='row-check']");
+
+        Assert.Equal("Select Write it down", select.GetAttribute("aria-label"));
+        Assert.Equal("Write it down", check.GetAttribute("aria-label"));
+
+        // The circle is still the round pseudo-checkbox it always was, and the
+        // gutter is a real one — so nothing that queries either finds the other.
+        Assert.Equal("checkbox", check.GetAttribute("role"));
+        Assert.Null(select.GetAttribute("role"));
+    }
+
+    /// <summary>Picked is not the same as open. The detail pane's row already
+    /// wore <c>task-item--selected</c>, so a second meaning on that class would
+    /// have made "the row I am reading" and "one of the rows I am about to
+    /// retag" look identical — and
+    /// <c>.design/interaction-guidelines.md#focus-and-selection</c> asks for
+    /// selection to be distinct from hover and from focus, not for it to borrow
+    /// another state's paint.</summary>
+    [Fact]
+    public void A_picked_row_wears_a_class_of_its_own()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.Selectable, true)
+            .Add(t => t.SelectionChanged, (TaskSelectionToggle _) => { })
+            .Add(t => t.SelectionChecked, true)
+            .Add(t => t.TestId, "row"));
+
+        var row = view.Find("[data-testid='row']");
+
+        Assert.Contains("task-item--picked", row.ClassList);
+        Assert.DoesNotContain("task-item--selected", row.ClassList);
+    }
+
+    /// <summary>The gutter appears on hover and on focus, which CSS can do on its
+    /// own — but once anything is selected it has to stay put, because a column
+    /// of boxes that came and went under the pointer would leave the reader
+    /// unable to see what they had already picked. That is a fact about the list
+    /// rather than about the row, so the list says it and the row wears it.</summary>
+    [Fact]
+    public void While_a_selection_is_live_every_gutter_stays_on_screen()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIds, new[] { "b" })
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> _) => { })
+            .Add(l => l.TestId, "list"));
+
+        foreach (var id in new[] { "a", "b", "c" })
+        {
+            Assert.Contains("task-item--selecting", view.Find($"[data-testid='list-{id}']").ClassList);
+        }
+    }
+
+    [Fact]
+    public void Picking_a_row_reports_the_whole_selection_back()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyCollection<string> reported = [];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> ids) => reported = ids)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-b-select'] input").Click();
+
+        Assert.Equal(["b"], reported);
+    }
+
+    /// <summary>Pressing the same box again gives the row back. The set is the
+    /// host's, so what comes back is the whole of it rather than a difference the
+    /// host would have to apply itself.</summary>
+    [Fact]
+    public void Pressing_a_picked_row_again_gives_it_back()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyCollection<string>? reported = null;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIds, new[] { "a", "b" })
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> ids) => reported = ids)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-a-select'] input").Click();
+
+        Assert.Equal(["b"], reported);
+    }
+
+    /// <summary>
+    /// Shift takes everything between the last box pressed and this one.
+    /// <para>
+    /// The anchor is the last row toggled rather than the open row: a reader
+    /// picking a run of rows has not opened any of them, and pairing the gesture
+    /// with the detail pane would make a range depend on something they were not
+    /// looking at.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Shift_takes_the_range_between_the_last_box_and_this_one()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyCollection<string> reported = [];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> ids) => reported = ids)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-a-select'] input").Click();
+
+        // The host applies what it was told before the second press, the way a
+        // real one does.
+        view.Render(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIds, reported)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> ids) => reported = ids)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-c-select'] input").Click(new MouseEventArgs { ShiftKey = true });
+
+        Assert.Equal(["a", "b", "c"], reported.OrderBy(id => id));
+    }
+
+    /// <summary>A shift with no anchor behind it is an ordinary press. Nothing
+    /// has been toggled yet, so there is no range to take — and guessing one from
+    /// the top of the list would take rows the reader never went near.</summary>
+    [Fact]
+    public void Shift_with_nothing_pressed_before_it_takes_one_row()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyCollection<string> reported = [];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> ids) => reported = ids)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-c-select'] input").Click(new MouseEventArgs { ShiftKey = true });
+
+        Assert.Equal(["c"], reported);
+    }
+
+    /// <summary>Picking a row is not opening it. The box sits outside the row's
+    /// own button, so the two gestures cannot be confused — which is what keeps
+    /// click-to-open exactly as it was.</summary>
+    [Fact]
+    public void Picking_a_row_does_not_open_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var opened = new List<string>();
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectionEnabled, true)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> _) => { })
+            .Add(l => l.OnSelected, (string id) => opened.Add(id))
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-b-select'] input").Click();
+
+        Assert.Empty(opened);
     }
 }

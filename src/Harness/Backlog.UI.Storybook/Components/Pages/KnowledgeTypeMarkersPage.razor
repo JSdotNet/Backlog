@@ -1,0 +1,370 @@
+@page "/knowledge-base/type-markers"
+
+<PageTitle>Domain type markers — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Type markers"
+           Summary="A subpage of Knowledge base: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words."
+           Guidelines="@Rules">
+    <Alert Message="@FamilyNotice" Role="note" CssClass="sb-callout" />
+
+    <Story Name="Structure"
+           Description="What the model is made of, and the family the three primitives were chosen for. Read the six together and the grammar is visible: a boundary means one consistency unit, so `aggregate` and `entity` both draw one and `value-object` draws none; a filled dot means identity, so `entity` has one and `value-object` never can; a diamond means defined by its value, so it is the whole of `value-object` and doubled for the shared set.
+
+That is the property to protect in any edit. Redraw one glyph freehand and the sentence stops being true — the coordinates are transcribed rather than authored for exactly that reason."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-structure">
+            @foreach (var mark in Structure)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
+    <Story Name="Behaviour"
+           Description="What the model does. Two marks, and they are the two that break the family's own shapes on purpose: a domain service is the only member of the set with both ends open, because a service is something passed through rather than something held, and a domain event is the only one drawn as a single filled silhouette, because it already happened and there is nothing about it left to be inside anything."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-behaviour">
+            @foreach (var mark in Behaviour)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
+    <Story Name="Capability"
+           Description="What the product offers. One flag, and the same flag on a pole hanging off the one above it — a sub-feature is a feature with a parent and nothing else, so it is the parent's glyph with the parent drawn in."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-capability">
+            @foreach (var mark in Capability)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
+    <Story Name="Language"
+           Description="What the words mean. One mark, and it is deliberately the only speech bubble in the set: a term is the one chapter type that is about the vocabulary rather than about the model, and a reader scanning `naming.md` should be able to tell that at a glance from the shape alone."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-language">
+            @foreach (var mark in Language)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
+    <Story Name="File types"
+           Description="The seven files a bounded context is written across, each drawn as what the file is for rather than as a document icon with a letter on it. `domain` reuses the boundary primitive — a dashed one, because a bounded context is a boundary that is agreed rather than enforced — and `context-map` is three of those contexts with the relationships between them.
+
+These are the marks the knowledge tree draws, because a tree row is a file. One of them also leads the file's name in the file pane's header, read from the `type` under the document's `#` title — named there, because the header states no other word for it. The one place a file mark is drawn unlabelled is beside a kind label that already spells it out, where naming it would hand a screen reader the word twice."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-files">
+            @foreach (var mark in Files)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
+    <Story Name="In a rendered document"
+           Description="The marks as a reader meets them: a real `.domain` file, parsed and drawn by the same `MarkdownView` the knowledge pane uses. Nothing on this story is hand-placed — every mark below was read out of a `type` field in the source beside it.
+
+Both levels are here, because a `.domain` file states two. The `#` title's `type` says what kind of file this is; each `##` chapter's says what that chapter describes. One component draws both, because all eighteen values are distinct strings and nothing has to be told which question a value came from.
+
+The last chapter is the fallback in place rather than as a specimen. `policy-fragment` is not a value this library draws, so the heading keeps its plain text and the row stays in the strip under it — beside the three that lost theirs.
+
+The stories above this one are specimens: a heading assembled by hand so the mark can be looked at on the line it lands on. This is the rendering. When the two disagree, this is the one that is true."
+           Code="@DocumentCode"
+           Source="@DocumentSample"
+           SourceLabel="The file on disk">
+        <MarkdownStory Source="@DocumentSample"
+                       RenderKnowledgeMetadata="true"
+                       KnowledgeFolder="KnowledgeFolder.Domain"
+                       KnowledgeDocumentPath=".domain/inbox/domain.md"
+                       TestId="type-markers-document" />
+    </Story>
+
+    <Story Name="In a heading"
+           Description="The same mark on a heading assembled by hand, so the pairing can be looked at at two sizes and beside three different glyphs without a document around it. The default size is `0.82em`, so the mark is measured in the heading's own type — an `h3`'s mark and an `h4`'s are one mark at two sizes rather than two weights of it, and neither has to be re-specified when a surface changes heading level.
+
+The mark contributes no text node, and it is still named. Those are two parameters rather than one: `Labelled` is a `role` of `img` plus an `aria-label`, which are attributes and cost nothing, and `ShowTooltip` is the SVG `title`, which is an element with text in it. A heading takes the first and declines the second, so a listener hears “type: aggregate” where the metadata strip used to say it, and the heading's `textContent` is byte for byte the title it always was. The gap you can see is drawn by the stylesheet, in em, not typed into the markup."
+           Code="@HeadingCode">
+        <div class="sb-stack" data-testid="type-markers-heading">
+            <p class="sb-label">An h3, as a document's own chapter</p>
+            <div class="sb-row">
+                <h3 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h3>
+                <KnowledgeStatusPill Status="draft" Folder="KnowledgeFolder.Domain" />
+            </div>
+
+            <p class="sb-label">The same chapter one level down, at an h4</p>
+            <div class="sb-row">
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <KnowledgeStatusPill Status="draft" Folder="KnowledgeFolder.Domain" />
+            </div>
+
+            <p class="sb-label">A term, a domain event and a sub-feature at the same level, so the shapes can be compared in place</p>
+            <div class="sb-row">
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="term" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Capture Source</h4>
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="domain-event" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Entry Completed</h4>
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="sub-feature" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Deferred Re-entry</h4>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="What the strip stops carrying"
+           Description="The trade, side by side. `type` was a label-and-value row in the metadata strip, sitting between the fields that point somewhere and reading as though it were one of them. It is not: every other field in that strip is a relation to somewhere else, and `type` is a fact about the heading three lines above it.
+
+Drawn as a mark in the heading, the strip is left holding only its pointers — which is what it is for — and the answer to “what is this chapter?” arrives at the same moment as the chapter's name. Only when the value is one the set knows: an unrecognised `type` keeps its row, because a suppressed row and no glyph would be the fact disappearing altogether."
+           Code="@StripCode">
+        <div class="sb-columns" data-testid="type-markers-strip">
+            <div class="sb-stack">
+                <p class="sb-label">Today</p>
+                <h4 class="sb-heading-sample">Inbox Item</h4>
+                <div class="sb-row sb-strip">
+                    <span><strong>type</strong> aggregate</span>
+                    <span><strong>related</strong> <code>.domain/capture/model.md#capture</code></span>
+                </div>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Proposed</p>
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <div class="sb-row sb-strip">
+                    <span><strong>related</strong> <code>.domain/capture/model.md#capture</code></span>
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A type nobody drew"
+           Description="The vocabulary grows, and a value set that grows must never make a page look broken. An unrecognised value renders no element at all — not an empty box, not a fallback glyph, not a question mark — and the caller goes on showing the plain word exactly as it does today.
+
+That is why `KnowledgeTypeMarkers.IsRecognised` is published beside the component: a caller deciding whether to keep its own row has to be able to ask, and asking is not the same as keeping a second copy of the list."
+           Code="@FallbackCode">
+        <div class="sb-columns" data-testid="type-markers-fallback">
+            <div class="sb-stack">
+                <p class="sb-label">A value the set knows — the mark, and the row gone</p>
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="entity" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <div class="sb-row sb-strip">
+                    <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
+                </div>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">A value it does not — no glyph, and the row it would have replaced stays</p>
+                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="policy-fragment" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-unknown" />Retention Policy</h4>
+                <div class="sb-row sb-strip">
+                    <span><strong>type</strong> policy-fragment</span>
+                    <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Tree rows"
+           Description="A `.domain` folder in the knowledge menu, every file row leading with its own mark. `TreeView` takes a per-node function returning a fragment or nothing, so a folder row — which has no file type to state — renders no wrapper at all rather than an empty column of one.
+
+Here the mark is sized in px rather than in em, which is the one case that needs saying: a menu is fixed-density chrome, and every mark in the column has to be the same mark whatever type scale a row's label inherits. These marks are also decorative, unlike the heading's: a row's visible label already says which file it is, and an icon beside a label is hidden rather than read out twice. The heading earned a name because the metadata row that stated its type was taken away; in the tree nothing was, so the mark is reinforcement for the eye and the row reads out exactly as it did before. The library's tree knows nothing about `.domain`; what a mark means is decided by the host handing the fragment in."
+           Code="@TreeCode">
+        <div class="sb-menu" data-testid="type-markers-tree">
+            <TreeView ClassPrefix="knowledge-menu"
+                      HeadingLabel="Domain"
+                      ShowOpenButton="false"
+                      Nodes="@DomainRows"
+                      IsNodeExpanded="static _ => true"
+                      NodeMark="@FileMark" />
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("typography-and-layout.md#iconography", "The stroke, the size steps and the rule that an icon inherits its ink through currentColor."),
+        new("accessibility.md#iconography-accessibility", "When a mark needs a name of its own, and when naming it would say the word twice."),
+        new("color-scheme.md#band-identity-tokens", "Why the four families are grouping and not four hues: the identity bands are a closed set with a listed set of consumers."),
+        new("content-editing.md#knowledge-metadata-blocks", "The fenced block the `type` these marks draw is written in."),
+        new("typography-and-layout.md#metadata-lines", "The strip a recognised `type` stops being a row in.")
+    ];
+
+    private const string FamilyNotice =
+        "The four families below are headings on this page and nothing in the product. The set groups into "
+        + "Structure, Behaviour, Capability and Language, and it is tempting to tint them — .design/color-scheme.md "
+        + "forbids it: a new language MUST map onto the existing tokens and MUST NOT add a colour, badge families "
+        + "get no per-value tone, and color-band-1..5 is closed to a listed set of repository-identity consumers. "
+        + "So every mark on this page is currentColor, and what tells two families apart is shape.";
+
+    /// <summary>One mark, and what its shape is saying. The gloss is the reason
+    /// the page exists: a glyph nobody can read the grammar of is decoration.</summary>
+    private sealed record TypeMark(string Value, string Says);
+
+    private static readonly TypeMark[] Structure =
+    [
+        new("aggregate", "A boundary holding an identified thing and the two plain ones it owns. One consistency unit, drawn as exactly that."),
+        new("entity", "The same boundary with one identity dot in it, and its fields under it. Identity is the whole difference from the diamond below."),
+        new("value-object", "A diamond inside a diamond and no dot anywhere: defined by its value, all the way down."),
+        new("enum", "A closed list with one member picked out — the filled dot again, because a chosen member is the identified one."),
+        new("shared-value-objects", "Two diamonds overlapping. The value-object shape, held in common by more than one context."),
+        new("shared-enums", "The enum's list with a second copy of it behind, which is the same “held in common” said about a closed list.")
+    ];
+
+    private static readonly TypeMark[] Behaviour =
+    [
+        new("domain-service", "Something in, something out, and a boundary in the middle doing the work. The only mark in the set with both ends open."),
+        new("domain-event", "The bolt. Something already happened and it travelled, so there is nothing left to be inside anything.")
+    ];
+
+    private static readonly TypeMark[] Capability =
+    [
+        new("feature", "A flag on its pole: a capability planted somewhere."),
+        new("sub-feature", "The same flag on a pole hanging off the one above it. A sub-feature is a feature with a parent and nothing else.")
+    ];
+
+    private static readonly TypeMark[] Language =
+    [
+        new("term", "A speech bubble with a definition in it — the one chapter type that is about the vocabulary rather than about the model.")
+    ];
+
+    private static readonly TypeMark[] Files =
+    [
+        new("context-map", "Three contexts and the relationships between them."),
+        new("domain", "A dashed boundary — a bounded context is agreed rather than enforced — with the model inside it."),
+        new("model", "A table with a header row: structure, tabulated."),
+        new("features", "The feature flag, with the list of them beside it."),
+        new("flow", "Two chevrons: one step after another."),
+        new("dependencies", "One box pointing at another."),
+        new("naming", "An A and a C. The alphabet, which is what a glossary is filed in.")
+    ];
+
+    private RenderFragment Specimen(TypeMark mark) => @<div class="sb-stack" data-testid="@($"type-marker-{mark.Value}")">
+        <div class="sb-row">
+            <KnowledgeTypeMarker Value="@mark.Value" Size="22px" Labelled="true" />
+            <code>@mark.Value</code>
+        </div>
+        <p>@mark.Says</p>
+    </div>;
+
+    /// <summary>A `.domain` folder as the knowledge menu builds one. Files only
+    /// carry a mark; the folder above them has no file type to state.</summary>
+    private static readonly IReadOnlyList<TreeNode> DomainRows =
+    [
+        TreeNode.Leaf("context-map.md", "Context Map"),
+        new("inbox", "Inbox", TreeNodeKind.Folder, true, null,
+        [
+            TreeNode.Leaf("inbox/domain.md", "Domain"),
+            TreeNode.Leaf("inbox/model.md", "Model"),
+            TreeNode.Leaf("inbox/features.md", "Features"),
+            TreeNode.Leaf("inbox/flow.md", "Flow"),
+            TreeNode.Leaf("inbox/dependencies.md", "Dependencies"),
+            TreeNode.Leaf("inbox/naming.md", "Naming")
+        ])
+    ];
+
+    /// <summary>What the host hands the tree: the file type read off the row's own
+    /// name, or nothing. The application derives this from the same mapping its
+    /// document panel uses; here the id is the filename, so the page can show the
+    /// hook without borrowing a module.</summary>
+    private static RenderFragment? FileMark(TreeNode node)
+    {
+        var type = System.IO.Path.GetFileNameWithoutExtension(node.Id);
+
+        return KnowledgeTypeMarkers.FileTypes.Contains(type, StringComparer.OrdinalIgnoreCase)
+            ? @<KnowledgeTypeMarker Value="@type" Size="13px" />
+            : null;
+    }
+
+    private const string SpecimenCode = """
+        @* Labelled, because this page has taken the word off the line beside it,
+           and with the tooltip the default leaves on. A mark drawn next to its own
+           text label — a document header beside its kind — passes neither. *@
+        <KnowledgeTypeMarker Value="aggregate" Size="22px" Labelled="true" />
+        """;
+
+    /// <summary>A `.domain` file as the convention writes one, cut down to four
+    /// chapters. The last states a <c>type</c> nobody has drawn, which is the whole
+    /// reason it is in the sample.</summary>
+    private const string DocumentSample = """
+        # Inbox
+
+        ```meta
+        type: domain
+        status: draft
+        ```
+
+        The processing queue for all captured input.
+
+        ## Inbox Item
+
+        ```meta
+        type: aggregate
+        status: draft
+        related: [".domain/capture/domain.md#capture"]
+        ```
+
+        What arrives, and what happens to it after it does.
+
+        ## Capture Source
+
+        ```meta
+        type: term
+        status: draft
+        ```
+
+        Where an item came from, in the words the domain uses for it.
+
+        ## Retention Policy
+
+        ```meta
+        type: policy-fragment
+        status: draft
+        ```
+
+        How long an archived item is kept. Not a type this library draws.
+        """;
+
+    private const string DocumentCode = """
+        @* Nothing here places a mark. The view reads the `type` out of the fence
+           under each heading, draws the glyph for it, and takes the row it replaced
+           out of the strip — and the folder is what says these eighteen values are
+           the vocabulary in play, so a `.tech` file's own `type` is untouched. *@
+        <MarkdownView Blocks="@Blocks"
+                      RenderKnowledgeMetadata="true"
+                      KnowledgeFolder="KnowledgeFolder.Domain"
+                      KnowledgeDocumentPath=".domain/inbox/domain.md" />
+        """;
+
+    private const string HeadingCode = """
+        @* Named, tooltip off, no space before the title. The aria-label is an
+           attribute and the title would have been a text node, so the heading is
+           announced with its type and its textContent is exactly what it was. The
+           gap is drawn by .knowledge-type-marker--leads. *@
+        <h4><KnowledgeTypeMarker Value="@MarkedType(section.Metadata)"
+                                 CssClass="knowledge-type-marker--leads"
+                                 Labelled="true"
+                                 ShowTooltip="false" />@section.Title</h4>
+        """;
+
+    private const string StripCode = """
+        @* The row is dropped only when the value is one the set knows. *@
+        private static bool IsMarkedTypeRow(KeyValuePair<string, string> pair) =>
+            string.Equals(pair.Key.Trim(), "type", StringComparison.OrdinalIgnoreCase)
+            && KnowledgeTypeMarkers.IsRecognised(pair.Value);
+        """;
+
+    private const string FallbackCode = """
+        @* Both of these are written unconditionally. The first renders nothing at
+           all, which is what makes writing it beside a word the caller is still
+           showing safe. *@
+        <KnowledgeTypeMarker Value="policy-fragment" />
+        <KnowledgeTypeMarker Value="entity" />
+        """;
+
+    private const string TreeCode = """
+        @* A function per node returning a fragment or nothing, so a row with no
+           mark renders no wrapper. What a mark means is the host's. *@
+        <TreeView ClassPrefix="knowledge-menu" Nodes="@Nodes" NodeMark="@FileMark" />
+
+        private static RenderFragment? FileMark(TreeNode node) =>
+            DomainKnowledgeFileTypes.Of(Path.GetFileName(node.Path)) is { } type
+                ? @<KnowledgeTypeMarker Value="@type" Size="13px" />
+                : null;
+        """;
+}

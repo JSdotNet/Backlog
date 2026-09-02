@@ -6,20 +6,20 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 508,
-    "edges": 829,
+    "nodes": 509,
+    "edges": 835,
     "nodesByFolder": {
-      "domain": 496,
+      "domain": 497,
       "arc42": 10,
       "design": 2
     },
     "nodesByType": {
       "file": 73,
-      "chapter": 434,
+      "chapter": 435,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 412,
+      "draft": 413,
       "proposed": 36,
       "idea": 1,
       "active": 55,
@@ -27,9 +27,9 @@
       "none": 1
     },
     "edgesByType": {
-      "contains": 424,
-      "related": 365,
-      "depends-on": 40
+      "contains": 425,
+      "related": 369,
+      "depends-on": 41
     }
   },
   "problems": [],
@@ -6364,6 +6364,28 @@
       },
       {
         "data": {
+          "id": ".domain/tasks/features.md#bulk-editing",
+          "label": "Bulk editing",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/features.md",
+          "slug": "bulk-editing",
+          "level": 2,
+          "line": 112,
+          "status": "draft",
+          "depends-on": [
+            ".domain/tasks/features.md#refinement-and-prioritization"
+          ],
+          "related": [
+            ".domain/tasks/features.md#search-filter-and-organize",
+            ".domain/tasks/features.md#my-day",
+            ".domain/tasks/features.md#recurring-tasks",
+            ".domain/tasks/features.md#multi-repo-targeting"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/tasks/features.md#effort-registration",
           "label": "Effort registration",
           "type": "chapter",
@@ -6371,7 +6393,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "effort-registration",
           "level": 2,
-          "line": 112,
+          "line": 148,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6391,7 +6413,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "scheduling-and-recurrence",
           "level": 2,
-          "line": 144,
+          "line": 180,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6410,7 +6432,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "due-dates",
           "level": 3,
-          "line": 169,
+          "line": 205,
           "status": "proposed"
         }
       },
@@ -6423,7 +6445,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "reminders",
           "level": 3,
-          "line": 181,
+          "line": 217,
           "status": "proposed"
         }
       },
@@ -6436,7 +6458,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "recurring-tasks",
           "level": 3,
-          "line": 197,
+          "line": 233,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#occurrence-spawning",
@@ -6453,7 +6475,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "my-day",
           "level": 2,
-          "line": 217,
+          "line": 253,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6472,7 +6494,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "task-dependencies",
           "level": 2,
-          "line": 237,
+          "line": 273,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6492,7 +6514,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "readiness-and-chain-order",
           "level": 3,
-          "line": 256,
+          "line": 292,
           "status": "proposed"
         }
       },
@@ -6505,7 +6527,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-repo-targeting",
           "level": 2,
-          "line": 281,
+          "line": 317,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -6524,7 +6546,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "projection",
           "level": 2,
-          "line": 294,
+          "line": 330,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-repo-targeting"
@@ -6543,7 +6565,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "issue-projection-and-state-read-back",
           "level": 3,
-          "line": 307,
+          "line": 343,
           "status": "draft",
           "feature-flag": [
             "github-integration"
@@ -6563,7 +6585,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "search-filter-and-organize",
           "level": 2,
-          "line": 324,
+          "line": 360,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#bi-directional-linking"
@@ -6579,7 +6601,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "manual-ordering",
           "level": 3,
-          "line": 337,
+          "line": 373,
           "status": "draft"
         }
       },
@@ -6592,7 +6614,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "prompt-features",
           "level": 2,
-          "line": 348,
+          "line": 384,
           "status": "draft"
         }
       },
@@ -6605,7 +6627,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "hand-off-to-copilot-cli",
           "level": 3,
-          "line": 358,
+          "line": 394,
           "status": "draft",
           "feature-flag": [
             "copilot-cli"
@@ -6624,7 +6646,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "import",
           "level": 2,
-          "line": 372,
+          "line": 408,
           "status": "proposed",
           "depends-on": [
             ".domain/tasks/features.md#task-creation",
@@ -6648,7 +6670,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 418,
+          "line": 454,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -6665,7 +6687,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 448,
+          "line": 484,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6682,7 +6704,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 474,
+          "line": 510,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -6702,7 +6724,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 491,
+          "line": 527,
           "status": "draft"
         }
       },
@@ -6715,7 +6737,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 501,
+          "line": 537,
           "status": "draft",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
@@ -6731,7 +6753,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 515,
+          "line": 551,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6752,7 +6774,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 546,
+          "line": 582,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -10718,6 +10740,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#bulk-editing",
+          "source": ".domain/tasks/features.md",
+          "target": ".domain/tasks/features.md#bulk-editing",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#effort-registration",
           "source": ".domain/tasks/features.md",
           "target": ".domain/tasks/features.md#effort-registration",
@@ -13905,6 +13935,46 @@
           "id": "related:.domain/tasks/features.md#attached-material->.domain/tasks/domain.md#attachment",
           "source": ".domain/tasks/features.md#attached-material",
           "target": ".domain/tasks/domain.md#attachment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#refinement-and-prioritization",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#refinement-and-prioritization",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#search-filter-and-organize",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#search-filter-and-organize",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#my-day",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#my-day",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#recurring-tasks",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#recurring-tasks",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#bulk-editing->.domain/tasks/features.md#multi-repo-targeting",
+          "source": ".domain/tasks/features.md#bulk-editing",
+          "target": ".domain/tasks/features.md#multi-repo-targeting",
           "type": "related"
         }
       },

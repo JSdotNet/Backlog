@@ -776,7 +776,14 @@
             @if (!IsEditedChapter(document))
             {
                 <div>
-                    <p class="domain-document__kind">@document.KindLabel</p>
+                    @* The file's own type, as a mark beside the words that already
+                       say it. Unlabelled deliberately: the kind label is right
+                       there, and a mark announced beside its own text label is the
+                       word twice. *@
+                    <p class="domain-document__kind"><KnowledgeTypeMarker Value="@DomainKnowledgeFileTypes.Of(document.Kind)"
+                                                                          CssClass="knowledge-type-marker--leads"
+                                                                          Labelled="false"
+                                                                          TestId="domain-document-kind-mark" />@document.KindLabel</p>
                     <h3>@document.Title</h3>
                     <p class="domain-document__path"><code>@document.Path</code></p>
                 </div>
@@ -893,7 +900,21 @@
                 {
                     <section class="domain-section" id="@ElementId(section.Anchor)">
                         <header class="domain-section__header">
-                            <h4>@section.Title</h4>
+                            @* The chapter's `type`, as a mark in front of the
+                               heading rather than a label-and-value row three
+                               lines down. Named but with no tooltip, which is the
+                               pair that makes this work: the accessible name is an
+                               attribute, so a listener still hears the type the
+                               strip below stopped saying, while the `title` that
+                               would have carried it as text stays off. Written
+                               hard against the title with no space for the same
+                               reason — this heading's textContent is byte for byte
+                               what it was before the mark existed. *@
+                            <h4><KnowledgeTypeMarker Value="@MarkedType(section.Metadata)"
+                                                     CssClass="knowledge-type-marker--leads"
+                                                     Labelled="true"
+                                                     ShowTooltip="false"
+                                                     TestId="domain-section-type-mark" />@section.Title</h4>
                             @RenderKnowledgeActions(
                                 new KnowledgeActionItem(section.Title, $"{document.KindLabel} section", section.Anchor, section.Metadata, section.Excerpt))
                         </header>
@@ -1097,10 +1118,25 @@
     }
 
     private static bool HasVisibleMetadata(IReadOnlyDictionary<string, string> metadata, IReadOnlyList<string> links) =>
-        metadata.Any(pair => !HeaderMetadataKeys.Contains(pair.Key)) || links.Count > 0;
+        VisibleMetadata(metadata).Any() || links.Count > 0;
 
     private static IEnumerable<KeyValuePair<string, string>> VisibleMetadata(IReadOnlyDictionary<string, string> metadata) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key));
+        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair));
+
+    /// <summary>Whether this row is the <c>type</c> the heading above it is
+    /// already drawing as a mark. Only when the value is one the marker knows: an
+    /// unrecognised type draws no glyph, so suppressing its row would take the
+    /// word off the screen and put nothing in its place.</summary>
+    private static bool IsMarkedTypeRow(KeyValuePair<string, string> pair) =>
+        string.Equals(pair.Key.Trim(), "type", StringComparison.OrdinalIgnoreCase)
+        && KnowledgeTypeMarkers.IsRecognised(pair.Value);
+
+    /// <summary>The block's <c>type</c>, when the marker has a glyph for it.
+    /// Nothing otherwise, which is what leaves the plain row exactly as it was.</summary>
+    private static string? MarkedType(IReadOnlyDictionary<string, string> metadata) =>
+        metadata.TryGetValue("type", out var value) && KnowledgeTypeMarkers.IsRecognised(value)
+            ? value.Trim()
+            : null;
 
     private static IReadOnlyList<string> MetadataValues(string value) =>
         [.. value.Trim().Trim('[', ']').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => v.Trim().Trim('"', '\'', '[', ']')).Where(v => v.Length > 0)];

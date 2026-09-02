@@ -35,8 +35,14 @@
            The class is written out rather than composed from a parameter:
            nothing has asked to rename it, the stylesheet has to state a weight
            for it because a `p` brings none, and the rule that checks the
-           stylesheet does so finds its premise by reading this markup. *@
-        <p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@Inlines(heading.Content)</p>
+           stylesheet does so finds its premise by reading this markup.
+
+           The mark is written hard against the inlines, and both are code
+           blocks: Razor trims the whitespace around a code block, so a heading
+           handed no mark renders byte for byte the markup it always did, and one
+           that is handed a mark gains no space before its own first word. The gap
+           you see is the stylesheet's. *@
+        <p class="md-heading md-heading--@heading.Level" role="heading" aria-level="@heading.Level">@HeadingMark@Inlines(heading.Content)</p>
         break;
 
     case MdParagraph paragraph:
@@ -108,6 +114,25 @@
     /// control.</summary>
     [Parameter]
     public EventCallback<int> OnTaskItemToggled { get; set; }
+
+    /// <summary>
+    /// A mark drawn inside a heading, in front of its text. Nothing for every
+    /// other kind of block, and nothing at all by default.
+    ///
+    /// <para>Inside the element rather than beside it, which is the whole reason
+    /// this is a parameter here and not something a host wraps the component in: a
+    /// mark that leads a heading has to be in the heading, or it is a mark that
+    /// leads the row the heading happens to be in. <c>MarkdownView</c> is where it
+    /// is decided — what a heading's mark says comes from the <c>meta</c> fence
+    /// under it, and a component handed one block cannot see that block's
+    /// neighbours.</para>
+    ///
+    /// <para>A fragment and not a value, so nothing here has to know what a mark
+    /// means. The library's markdown is read in five knowledge folders and in an
+    /// entry's body, and only one of those has a vocabulary of marks at all.</para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? HeadingMark { get; set; }
 
     [Parameter]
     public string? ParagraphCssClass { get; set; } = "md-p";
