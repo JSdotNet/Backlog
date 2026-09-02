@@ -23,7 +23,7 @@ and the Copilot CLI.
 ```meta
 type: aggregate
 status: draft
-related: [.domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types, .arc42/08-crosscutting-concepts.md#task-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 A refined, actionable item in the personal backlog and the consistency boundary
@@ -141,6 +141,28 @@ later, and the model is deliberately indifferent to which of the two put the num
 there. The estimate is Tasks's to hold: Roadmap Planning reads and
 totals it (see [Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering))
 but never registers or owns it.
+
+Two attributes exist so the same task can live on more than one of the person's
+machines. `updated_at` is the moment the task last changed, in UTC, restamped by
+the device on every mutation; `deleted_at` marks a task as deleted without
+removing it. Neither carries a lifecycle invariant of its own, and neither is
+ever set by hand.
+
+They are here rather than in the storage adapter because reconciliation is a
+domain rule, not a persistence detail. When the same task is edited on two
+machines the later edit wins whole — see
+[Multi-device sync](features.md#multi-device-sync) — and "later" is a question
+only the task itself can answer. A deletion has the same problem in sharper form:
+a task that is simply gone from one machine is indistinguishable from one that
+machine has never seen, so deletion has to leave something behind to travel.
+`deleted_at` is that something, and a task carrying it is gone as far as every
+read is concerned.
+
+The task is the single source of truth **on the device that holds it**. Where a
+second device holds its own copy, the two reconcile with each other; the cloud
+holds a replica used to carry changes between them and is never itself the
+authority. See
+`.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 
 ### Sub-Item
 

@@ -117,3 +117,11 @@ related: [".arc42/04-solution-strategy.md"]
   future MCP server — reads one schema instead of carrying its own markdown parser.
   Extends local ADR 0003 to a second corpus without making a database canonical for
   knowledge.
+- **[ADR 0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)**
+  *(proposed)*: answers the question local ADR 0003 did not ask — what happens when
+  one person runs the desktop on two machines. A serverless Cosmos DB container and
+  the existing sync service carry a replica of the Task aggregate and the change feed
+  over it, reconciled last-write-wins; each device's SQLite database stays canonical
+  for that device. Amends local ADR 0003 without superseding it, and replaces
+  file-syncing the database — which produced six conflicted copies and silent
+  data loss — with a store built for concurrent writers. Task aggregate only.

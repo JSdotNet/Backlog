@@ -30,6 +30,11 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
 - **Optional cloud sync** for multi-device. Conflict resolution:
   **new items always create; edits are last-write-wins**.
+- **Never file-sync the local store.** The workspace root is a local folder. A
+  binary SQLite database in OneDrive or any other file-sync product is
+  unmergeable, and its WAL sidecars sync out of step with it, so committed
+  transactions silently roll back. Multi-device use goes through the sync service.
+  See `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 - **Desktop works fully standalone**; the cloud connection is purely additive.
 - **Local credential handling includes Copilot sessions** — desktop workers and
   GitHub Copilot App session adapters both run on the same machine and pass local
@@ -38,6 +43,58 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Copilot capture vs. Copilot session tracking** — capture uses session context to
   create Inbox/Backlog/Knowledge items, while Dev PC Management tracking is a
   separate compliance/monitoring concern.
+
+## Task Sync
+
+```meta
+status: proposed
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/tasks/domain.md#task"]
+```
+
+How the general sync position above is realized for the Task aggregate. Proposed;
+see local ADR 0005. The Task aggregate is the only thing synced in this pass —
+the roadmap plan, workspace settings, feature flags, and the knowledge layer stay
+local.
+
+**Reconciliation between equals, not client and server.** Each device's SQLite
+database is canonical for that device. Azure holds a replica and the change feed
+over it, and carries no invariant, no query path, and no domain logic.
+
+```mermaid
+sequenceDiagram
+    participant A as Desktop A (canonical)
+    participant S as Sync Service
+    participant C as Cosmos DB (replica)
+    participant B as Desktop B (canonical)
+
+    Note over A: Edit applied locally first — never blocks on network
+    A->>A: status = in_progress, stamp updated_at
+    A->>S: POST /sync/tasks (changed since watermark)
+    S->>C: Upsert document, Cosmos assigns _ts
+    B->>S: GET /sync/tasks?since={token}
+    S->>C: Read change feed from token
+    C-->>S: Changed documents, ordered by _ts
+    S-->>B: Documents + next token
+    B->>B: Last-write-wins, then persist locally
+```
+
+- **Every task carries `updated_at` and `deleted_at`.** The first is stamped by
+  the device on each mutation; the second is a tombstone, because a deletion has
+  to replicate and a row that is simply gone cannot.
+- **The server orders, the device does not.** Two machines' clocks disagree, and
+  last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
+  assigned on write orders the feed; `updated_at` breaks ties, and the device id
+  breaks those, so two devices never flap.
+- **Whole-document resolution**, matching how the aggregate is already persisted
+  everywhere else. A per-field merge would invent a reconciliation the domain has
+  no rule for.
+- **Pairing, not accounts.** A first device generates an `ownerId`; a second is
+  paired with a short code entered once, out of band. Each holds its own
+  registration credential in the OS credential store and exchanges it for a
+  short-lived JWT. `ownerId` is the Cosmos partition key, so a token reaches
+  exactly one person's partition.
+- **Offline is unchanged.** Losing connectivity costs cross-device freshness and
+  nothing else.
 
 ## Knowledge Index
 

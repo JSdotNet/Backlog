@@ -6,30 +6,30 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 508,
-    "edges": 827,
+    "nodes": 515,
+    "edges": 847,
     "nodesByFolder": {
-      "domain": 496,
-      "arc42": 10,
+      "domain": 500,
+      "arc42": 13,
       "design": 2
     },
     "nodesByType": {
-      "file": 73,
-      "chapter": 434,
+      "file": 75,
+      "chapter": 439,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 412,
-      "proposed": 36,
+      "draft": 415,
+      "proposed": 39,
       "idea": 1,
       "active": 55,
-      "deprecated": 3,
+      "deprecated": 4,
       "none": 1
     },
     "edgesByType": {
-      "contains": 424,
-      "related": 363,
-      "depends-on": 40
+      "contains": 428,
+      "related": 377,
+      "depends-on": 42
     }
   },
   "problems": [],
@@ -5959,7 +5959,9 @@
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
-            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+            ".arc42/08-crosscutting-concepts.md#shared-data-types",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -5972,7 +5974,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item",
           "level": 3,
-          "line": 145,
+          "line": 167,
           "status": "draft"
         }
       },
@@ -5985,7 +5987,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection-ref",
           "level": 3,
-          "line": 168,
+          "line": 190,
           "status": "draft"
         }
       },
@@ -5998,7 +6000,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence",
           "level": 3,
-          "line": 179,
+          "line": 201,
           "status": "draft"
         }
       },
@@ -6011,7 +6013,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "attachment",
           "level": 3,
-          "line": 196,
+          "line": 218,
           "status": "draft"
         }
       },
@@ -6024,7 +6026,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "usage-event",
           "level": 3,
-          "line": 219,
+          "line": 241,
           "status": "draft"
         }
       },
@@ -6037,7 +6039,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "ai-work-log",
           "level": 3,
-          "line": 229,
+          "line": 251,
           "status": "draft"
         }
       },
@@ -6050,7 +6052,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-type",
           "level": 3,
-          "line": 240,
+          "line": 262,
           "status": "draft"
         }
       },
@@ -6063,7 +6065,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-status",
           "level": 3,
-          "line": 249,
+          "line": 271,
           "status": "draft"
         }
       },
@@ -6076,7 +6078,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 258,
+          "line": 280,
           "status": "draft"
         }
       },
@@ -6089,7 +6091,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 267,
+          "line": 289,
           "status": "draft"
         }
       },
@@ -6102,7 +6104,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 276,
+          "line": 298,
           "status": "draft"
         }
       },
@@ -6115,7 +6117,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 285,
+          "line": 307,
           "status": "draft"
         }
       },
@@ -6128,7 +6130,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 295,
+          "line": 317,
           "status": "draft"
         }
       },
@@ -6141,7 +6143,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 314,
+          "line": 336,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -6158,7 +6160,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 328,
+          "line": 350,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6176,7 +6178,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 370,
+          "line": 392,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6193,7 +6195,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskprojected",
           "level": 2,
-          "line": 397,
+          "line": 419,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6211,7 +6213,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskcompleted",
           "level": 2,
-          "line": 425,
+          "line": 447,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6229,7 +6231,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 451,
+          "line": 473,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6247,7 +6249,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 480,
+          "line": 502,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6264,7 +6266,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 515,
+          "line": 537,
           "status": "draft"
         }
       },
@@ -6713,9 +6715,53 @@
           "slug": "refresh-from-shared-storage",
           "level": 2,
           "line": 501,
-          "status": "draft",
+          "status": "deprecated",
           "related": [
-            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding"
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".domain/tasks/features.md#multi-device-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/features.md#multi-device-sync",
+          "label": "Multi-device sync",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/features.md",
+          "slug": "multi-device-sync",
+          "level": 2,
+          "line": 522,
+          "status": "draft",
+          "depends-on": [
+            ".domain/tasks/features.md#task-creation"
+          ],
+          "related": [
+            ".domain/tasks/domain.md#task",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/features.md#pairing-a-device",
+          "label": "Pairing a device",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/features.md",
+          "slug": "pairing-a-device",
+          "level": 3,
+          "line": 546,
+          "status": "draft",
+          "depends-on": [
+            ".domain/tasks/features.md#multi-device-sync"
+          ],
+          "related": [
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -6728,7 +6774,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 515,
+          "line": 561,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6749,7 +6795,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 546,
+          "line": 592,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -7158,6 +7204,44 @@
           "related": [
             ".domain/roadmap/naming.md#roadmap-plan",
             ".domain/tasks/features.md#roadmap-planning"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#device",
+          "label": "Device",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "device",
+          "level": 2,
+          "line": 274,
+          "status": "draft",
+          "aliases": [
+            "machine",
+            "PC"
+          ],
+          "related": [
+            ".domain/tasks/features.md#multi-device-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#tombstone",
+          "label": "Tombstone",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "tombstone",
+          "level": 2,
+          "line": 292,
+          "status": "draft",
+          "related": [
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/features.md#multi-device-sync"
           ]
         }
       },
@@ -7710,7 +7794,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 177,
+          "line": 234,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -7772,7 +7856,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 165,
+          "line": 222,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -7842,12 +7926,56 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 42,
+          "line": 99,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
             ".arc42/02-constraints.md#technical-constraints",
             ".domain/second-brain/features.md#repository-knowledge-areas"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "label": "Task Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "task-sync",
+          "level": 2,
+          "line": 47,
+          "status": "proposed",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/tasks/domain.md#task"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "label": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/09-architecture-decisions.md",
+            ".arc42/11-risks-and-technical-debt.md",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+            ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
@@ -7882,6 +8010,21 @@
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "label": "ADR 0012: Authentication with external identity providers",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#authentication-and-authorization",
+            ".arc42/09-architecture-decisions.md"
           ],
           "outOfScope": true
         }
@@ -10882,6 +11025,22 @@
       },
       {
         "data": {
+          "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/features.md",
+          "target": ".domain/tasks/features.md#multi-device-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/features.md#multi-device-sync->.domain/tasks/features.md#pairing-a-device",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".domain/tasks/features.md#pairing-a-device",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/tasks/features.md->.domain/tasks/features.md#roadmap-planning",
           "source": ".domain/tasks/features.md",
           "target": ".domain/tasks/features.md#roadmap-planning",
@@ -11037,6 +11196,22 @@
           "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#roadmap",
           "source": ".domain/tasks/naming.md",
           "target": ".domain/tasks/naming.md#roadmap",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#device",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#device",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#tombstone",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#tombstone",
           "type": "contains"
         }
       },
@@ -13714,6 +13889,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/domain.md#task->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".domain/tasks/domain.md#task",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/domain.md#task->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/tasks/domain.md#task",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/tasks/domain.md#projection->.domain/monitoring/domain.md#progress-signal",
           "source": ".domain/tasks/domain.md#projection",
           "target": ".domain/monitoring/domain.md#progress-signal",
@@ -14170,6 +14361,86 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/features.md#refresh-from-shared-storage->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/features.md#refresh-from-shared-storage",
+          "target": ".domain/tasks/features.md#multi-device-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#refresh-from-shared-storage->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/tasks/features.md#refresh-from-shared-storage",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/tasks/features.md#multi-device-sync->.domain/tasks/features.md#task-creation",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".domain/tasks/features.md#task-creation",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#multi-device-sync->.domain/tasks/domain.md#task",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#multi-device-sync->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#multi-device-sync->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#multi-device-sync->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/tasks/features.md#multi-device-sync",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.domain/tasks/features.md#pairing-a-device->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/features.md#pairing-a-device",
+          "target": ".domain/tasks/features.md#multi-device-sync",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#pairing-a-device->.arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "source": ".domain/tasks/features.md#pairing-a-device",
+          "target": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/features.md#pairing-a-device->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/tasks/features.md#pairing-a-device",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/tasks/features.md#roadmap-planning->.domain/tasks/features.md#refinement-and-prioritization",
           "source": ".domain/tasks/features.md#roadmap-planning",
           "target": ".domain/tasks/features.md#refinement-and-prioritization",
@@ -14381,6 +14652,38 @@
           "id": "related:.domain/tasks/naming.md#roadmap->.domain/tasks/features.md#roadmap-planning",
           "source": ".domain/tasks/naming.md#roadmap",
           "target": ".domain/tasks/features.md#roadmap-planning",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/naming.md#device",
+          "target": ".domain/tasks/features.md#multi-device-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/tasks/naming.md#device",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#tombstone->.domain/tasks/domain.md#task",
+          "source": ".domain/tasks/naming.md#tombstone",
+          "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#tombstone->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/naming.md#tombstone",
+          "target": ".domain/tasks/features.md#multi-device-sync",
           "type": "related"
         }
       },

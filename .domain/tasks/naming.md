@@ -271,3 +271,37 @@ owns a stored plan rather than presenting a view over tasks.
 What holds inside this context is narrower, and is the half worth keeping: a
 Task's status and execution priority are **not** owned by the roadmap.
 A plan may name a task by id and read its progress; it never writes to it.
+## Device
+
+```meta
+type: term
+status: draft
+aliases: [machine, PC]
+related: [.domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+```
+
+One machine holding the person's backlog. A device is not a user and not an
+account — the product requires no login for personal use, so the device is the
+thing that is known and authorized.
+
+Each device holds its own canonical copy of every task. Two devices are peers:
+neither is the master, and the cloud replica between them is a courier rather
+than an authority. **Paired** describes two devices that have been joined to the
+same backlog, which is done once by entering a short code.
+
+## Tombstone
+
+```meta
+type: term
+status: draft
+related: [.domain/tasks/domain.md#task, .domain/tasks/features.md#multi-device-sync]
+```
+
+A deleted task that is kept rather than removed, marked by its `deleted_at`.
+
+It exists because deletion has to travel. A task that is simply absent from one
+device is indistinguishable from one that device has never seen, so an outright
+removal cannot be told apart from a task that has not arrived yet, and the
+deletion would be undone by the next reconciliation. A tombstoned task is gone
+to every read; it survives only far enough for the other devices to learn that
+it went.

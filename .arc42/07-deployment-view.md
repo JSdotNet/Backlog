@@ -159,10 +159,10 @@ footprint sized only for sync coordination and webhook forwarding.
 flowchart TB
     subgraph "Azure"
         subgraph "Compute"
-            AppService["Azure App Service\nor Container Apps"]
+            AppService["Azure Container Apps\n(consumption, scale-to-zero)"]
         end
         subgraph "Data"
-            CosmosDB["Azure Cosmos DB\n(sync state, webhook events,\nmachine registry)"]
+            CosmosDB["Azure Cosmos DB (serverless)\ntasks replica + change feed,\nsync state, webhook events,\nmachine registry"]
             KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
         end
     end
@@ -183,7 +183,7 @@ flowchart TB
     Mobile -->|"HTTPS — sync and offline flush"| AppService
     IDE -->|"HTTPS — state sync"| AppService
 
-    AppService --> CosmosDB
+    AppService -->|"Managed identity — data-plane role"| CosmosDB
     AppService --> KeyVault
 
     GitHub -->|"Webhook events"| AppService
@@ -205,6 +205,46 @@ Deployment considerations:
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
 - **No blob storage** — attachments live on the desktop's local file system.
+- **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
+  nobody is syncing, which is most of the time for a personal tool.
+- **No keys in configuration** — the container app reaches Cosmos through a
+  system-assigned managed identity with a data-plane role assignment. Connection
+  strings and account keys are not issued at all, per inherited ADR 0013.
+
+### Provisioning and Delivery
+
+```meta
+status: proposed
+related: [".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0003-aspire-for-web-services.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md"]
+```
+
+Proposed; introduced with local ADR 0005 and not yet built. `infra/` currently
+holds only `foundry/`.
+
+| Concern | Approach |
+|---|---|
+| **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. |
+| **Provision and deploy** | `azd` (Azure Developer CLI), driven from the Aspire AppHost so local and deployed topology stay the same shape. |
+| **Environments** | One (`prod`). A personal tool does not earn a staging ring. |
+| **CI/CD** | GitHub Actions on push to `main`, authenticating with **OIDC federated credentials** — no publish profile, no service principal secret in the repository. |
+| **Local development** | The Cosmos DB emulator as an Aspire resource, so the sync path builds and tests with no cloud account. |
+| **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. |
+
+Indicative cost at single-user volume: Cosmos serverless a few cents per month,
+Container Apps zero while scaled to zero, Key Vault and Log Analytics inside the
+free grants — well under €5/month.
+
+```mermaid
+flowchart LR
+    Dev["Push to main"] --> GHA["GitHub Actions"]
+    GHA -->|"OIDC federated credential\n(no stored secret)"| AZD["azd deploy"]
+    AZD --> Bicep["infra/sync/*.bicep"]
+    Bicep --> ACA["Container Apps"]
+    Bicep --> Cosmos["Cosmos DB (serverless)"]
+    Bicep --> KV["Key Vault"]
+    Bicep --> LA["Log Analytics"]
+    ACA -.->|"Managed identity\ndata-plane role"| Cosmos
+```
 
 
 
