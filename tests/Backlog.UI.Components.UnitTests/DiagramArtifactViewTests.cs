@@ -280,6 +280,56 @@ public sealed class DiagramArtifactViewTests
     }
 
 
+    /// <summary>
+    /// The way back out. Fullscreen is requested on the stage rather than on the
+    /// frame so that this button can be inside it — only the element in the top
+    /// layer and its descendants are painted, and the frame itself is sandboxed
+    /// into an opaque origin and can carry nothing of ours. A reader who pressed
+    /// "Full screen" had Esc, and no way of knowing it.
+    /// </summary>
+    [Fact]
+    public void The_way_out_of_full_screen_is_inside_the_element_that_goes_full_screen()
+    {
+        using var context = Context(new DiagramArtifact(
+            "<!doctype html><html><body>Archify</body></html>",
+            "/repo/.domain/orders/_archify/flow.1.workflow.html",
+            null,
+            "workflow",
+            IsOutOfDate: false));
+
+        var diagram = Render(context);
+
+        // Both in the stage: the one that takes the screen and the one that gives
+        // it back. Asserted as containment rather than as two separate finds,
+        // because being in the same element is the entire fix.
+        var stage = diagram.Find("[data-testid='diagram-view-stage']");
+        Assert.NotNull(stage.QuerySelector("[data-testid='diagram-view-artifact']"));
+
+        var exit = stage.QuerySelector("[data-testid='diagram-view-exit-fullscreen']");
+        Assert.NotNull(exit);
+        Assert.Contains("full screen", exit!.TextContent, StringComparison.OrdinalIgnoreCase);
+
+        exit.Click();
+
+        Assert.Single(context.JSInterop.Invocations["backlogDiagrams.toggleArtifactFullscreen"]);
+    }
+
+    /// <summary>A drawn mermaid diagram is an SVG in this page and has nothing to
+    /// take to the screen, so it is offered no fullscreen and carries no way out of
+    /// one.</summary>
+    [Fact]
+    public void A_mermaid_diagram_is_offered_no_full_screen_and_carries_no_way_out_of_one()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var diagram = Render(context);
+
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-fullscreen']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-stage']"));
+        Assert.Empty(diagram.FindAll("[data-testid='diagram-view-exit-fullscreen']"));
+    }
+
     private static BunitContext Context(DiagramArtifact? artifact, bool canAuthor = false)
     {
         var context = new BunitContext();
