@@ -202,5 +202,19 @@ Files and chapters in `.design` use `status: draft | active | deprecated`
 (`draft` = proposed/unverified, `active` = current binding guidance,
 `deprecated` = superseded). Metadata blocks follow
 `knowledge-chapter-metadata.instructions.md` and
-`knowledge-design.instructions.md` from the `knowledge-base` plugin: only
-`status` is required; `related` and `issue` are optional and omitted when empty.
+`knowledge-design.instructions.md` from the `knowledge-base` plugin:
+`related` and `issue` are optional and omitted when empty.
+
+`status` itself is written only while a guideline is **in transition** —
+`draft` — or carries a standing warning — `deprecated`. `active` is the resting
+value, so a guideline that is simply current says so by saying nothing, and the
+field is omitted rather than restated. Absence therefore means `active` here; it
+never means "nobody has decided". The knowledge panels offer **No status** as an
+option wherever that is true, and removing the field leaves the `meta` fence in
+place even when nothing else is left inside it — the fence is what marks a
+heading as an addressable chapter for the index generator.
+
+The same reading applies in `.arc42` and `.domain`, and deliberately does not in
+`.tech` or `.backlog`: there the field is a position on an adoption ladder or a
+work state, every value is a claim the reader needs, and an absent one could not
+be told apart from `candidate` or from untracked. Those two keep it required.
