@@ -149,4 +149,68 @@ public sealed class CopyButtonTests
         Assert.Equal("true", button.Find(".copy-button").GetAttribute("data-copied"));
         Assert.Contains("Copy", button.Find("[data-testid='copy']").TextContent, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The clipboard call outlives the button that made it. Blazor does not cancel
+    /// a JS interop call in flight when a component is disposed, so a task row
+    /// filtered out of a list — or a pane navigated away from — mid-copy leaves the
+    /// browser to answer a button that is already gone.
+    /// <para>
+    /// There is nobody left to tell. Announcing it anyway is not merely pointless:
+    /// the announcement comes with a three-second timer to take it back, and a
+    /// timer started after disposal is one nothing owns and nothing will cancel —
+    /// exactly the shape <c>TimedFireAndForgetTests</c> exists to keep out of the
+    /// user interface. Disposal before the answer arrives stands in for that
+    /// timing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_copy_that_comes_back_after_the_component_is_gone_says_nothing()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.ButtonTestId, "copy")
+            .Add(c => c.StatusTestId, "status"));
+
+        button.Instance.Dispose();
+
+        button.Find("[data-testid='copy']").Click();
+
+        Assert.Empty(button.Find("[data-testid='status']").TextContent);
+        Assert.Equal("false", button.Find(".copy-button").GetAttribute("data-copied"));
+    }
+
+    /// <summary>
+    /// The same lateness, one copy further on, where a timer from the earlier copy
+    /// is already standing. Nulling the field on disposal would silence the first
+    /// case and not this one: it would leave the late answer free to replace a
+    /// confirmation the reader can no longer see and start another timer to clear
+    /// it. What was said last stays said.
+    /// </summary>
+    [Fact]
+    public void A_later_copy_that_comes_back_after_the_component_is_gone_leaves_the_last_word_alone()
+    {
+        using var context = new BunitContext();
+        var clipboard = context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true);
+        clipboard.SetResult(true);
+
+        var button = context.Render<CopyButton>(parameters => parameters
+            .Add(c => c.Text, "Something worth keeping.")
+            .Add(c => c.ButtonTestId, "copy")
+            .Add(c => c.StatusTestId, "status"));
+
+        button.Find("[data-testid='copy']").Click();
+        Assert.Equal("Copied", button.Find("[data-testid='status']").TextContent);
+
+        button.Instance.Dispose();
+
+        clipboard.SetResult(false);
+        button.Find("[data-testid='copy']").Click();
+
+        Assert.Equal("Copied", button.Find("[data-testid='status']").TextContent);
+        Assert.Equal("true", button.Find(".copy-button").GetAttribute("data-copied"));
+    }
 }

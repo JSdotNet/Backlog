@@ -70,6 +70,7 @@
 
     private string? _status;
     private CancellationTokenSource? _statusDelay;
+    private bool _disposed;
 
     /// <summary>What lands on the clipboard, verbatim. Whitespace is content:
     /// nothing is trimmed or reflowed on the way out.</summary>
@@ -152,9 +153,19 @@
     /// open for three seconds would leave the button looking busy long after the
     /// work was done.
     /// </para>
+    /// <para>
+    /// Which is why disposal has to be checked here rather than left to the
+    /// timer. The clipboard call outlives the button that made it — Blazor does
+    /// not cancel interop in flight when a component goes away, so a row filtered
+    /// out of a list mid-copy still gets an answer — and a confirmation started
+    /// then would arm a timer after <see cref="Dispose"/> has already run, which
+    /// nothing is left to cancel. There is nobody to tell either way.
+    /// </para>
     /// </summary>
     private void ShowStatus(string message)
     {
+        if (_disposed) return;
+
         _statusDelay?.Cancel();
         _statusDelay?.Dispose();
         _statusDelay = new CancellationTokenSource();
@@ -182,6 +193,7 @@
 
     public void Dispose()
     {
+        _disposed = true;
         _statusDelay?.Cancel();
         _statusDelay?.Dispose();
     }
