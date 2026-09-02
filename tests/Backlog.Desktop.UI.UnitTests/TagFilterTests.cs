@@ -367,7 +367,10 @@ public sealed class TagFilterTests
     /// <summary>What the chips leave out, the list keeps. Narrowing the bar was a
     /// decision about which tags are worth offering, not about which entries
     /// exist — the scope, the status chips and the rows are all where they
-    /// were.</summary>
+    /// were. The areas this test once checked alongside them are gone from the
+    /// bar entirely, traded for the No repo scope — see
+    /// <c>MyDayScopeTests.The_scope_group_holds_both_scopes_and_the_bar_holds_no_areas</c>,
+    /// which owns that expectation now.</summary>
     [Fact]
     public async Task The_rest_of_the_screen_is_untouched_by_what_the_chips_leave_out()
     {
@@ -383,6 +386,7 @@ public sealed class TagFilterTests
 
         var pane = host.Render();
 
+        Assert.Single(pane.FindAll("[aria-label='Filter by tag']"));
         Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
         Assert.Single(pane.FindAll("[aria-label='Scope']"));
     }
