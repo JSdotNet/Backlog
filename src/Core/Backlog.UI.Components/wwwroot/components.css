@@ -2985,6 +2985,15 @@ button.task-panel__check:focus-visible {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px;
+    /* position: relative because this carries an sr-only descendant — the word
+       "Open", which is how the button says what it does without an aria-label
+       taking the status and the metadata line out of its name. .sr-only is
+       position: absolute, so without a positioned ancestor its containing block
+       is the page and the hidden text lands at page coordinates, dragging the
+       document's scroll width out with it. Same reason .status-editor and
+       .metric-heatmap__cell carry it. Nothing moves visually: the hidden span is
+       out of flow, so it takes no grid cell, and it has no offsets to resolve. */
+    position: relative;
     /* The only child that gives up room. min-width:0 is what lets it, since a
        flex item will not shrink below its content without it — and the title's
        ellipsis depends on being allowed to. */

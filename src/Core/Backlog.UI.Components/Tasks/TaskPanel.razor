@@ -75,7 +75,13 @@
            to everyone else, the same bargain a row in the list makes — and the same
            stylesheet rule draws it, so the two are one shape and not two that
            happen to match. Read-only when nobody is listening: a checkbox that
-           silently does nothing is worse than no checkbox. *@
+           silently does nothing is worse than no checkbox.
+
+           Named for the act rather than after the task, the same way the row's
+           circle is: the panel already answers to the title through the heading
+           it is aria-labelledby, so a circle called the same thing put two
+           things in one header under one name — and the pencil beside it is
+           "Rename <title>", so this was the odd one out on its own line. *@
         @if (CanToggle)
         {
             <button type="button"
@@ -83,7 +89,7 @@
                     id="@_checkId"
                     role="checkbox"
                     aria-checked="@(Done ? "true" : "false")"
-                    aria-label="@Title"
+                    aria-label="@($"Complete {Title}")"
                     data-testid="@Suffix("check")"
                     @onkeydown="e => OnLeadingKeyAsync(e, leading: true)"
                     @onclick="() => OnToggle.InvokeAsync()">

@@ -25,7 +25,11 @@ public sealed class TaskListTests
 
         Assert.Equal("checkbox", check.GetAttribute("role"));
         Assert.Equal("false", check.GetAttribute("aria-checked"));
-        Assert.Equal("Write it down", check.GetAttribute("aria-label"));
+
+        // Named by the act, the way every other control on the row is: the line
+        // beside this one is already called after the task, and two controls
+        // answering to one name is a row a screen reader cannot navigate.
+        Assert.Equal("Complete Write it down", check.GetAttribute("aria-label"));
     }
 
     [Fact]
@@ -2224,12 +2228,89 @@ public sealed class TaskListTests
         var check = view.Find("[data-testid='row-check']");
 
         Assert.Equal("Select Write it down", select.GetAttribute("aria-label"));
-        Assert.Equal("Write it down", check.GetAttribute("aria-label"));
+        Assert.Equal("Complete Write it down", check.GetAttribute("aria-label"));
 
         // The circle is still the round pseudo-checkbox it always was, and the
         // gutter is a real one — so nothing that queries either finds the other.
         Assert.Equal("checkbox", check.GetAttribute("role"));
         Assert.Null(select.GetAttribute("role"));
+    }
+
+    /// <summary>
+    /// The circle and the line are two different acts and say so.
+    /// <para>
+    /// Both once answered to the bare title — the circle through its
+    /// <c>aria-label</c> and the line through its own content — so a screen
+    /// reader read one row as the same name twice with nothing to say which of
+    /// the two finished the task and which opened it, and a selector reaching
+    /// for the line by that name landed on the circle instead. A pass that meant
+    /// to open a task completed it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_circle_and_the_line_do_not_answer_to_the_same_name()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Write it down"))
+            .Add(t => t.OnToggle, _ => { })
+            .Add(t => t.OnSelected, (string _) => { })
+            .Add(t => t.TestId, "row"));
+
+        var check = view.Find("[data-testid='row-check']");
+        var open = view.Find("[data-testid='row-open']");
+
+        Assert.Equal("Complete Write it down", check.GetAttribute("aria-label"));
+
+        // The line says its act in a span only a screen reader reads, rather
+        // than in an aria-label: a label on this button would be the whole of
+        // its name, and would take the status badge and the metadata line inside
+        // it back out of the accessibility tree.
+        Assert.Contains("sr-only", open.Children[0].ClassList);
+        Assert.Equal("Open", open.Children[0].TextContent);
+        Assert.Null(open.GetAttribute("aria-label"));
+
+        // Nothing in the row answers to the bare title any more, so a selector
+        // written for one of these controls cannot land on the other.
+        Assert.Empty(view.FindAll("[aria-label='Write it down']"));
+    }
+
+    /// <summary>
+    /// Naming the line costs it none of the facts it was already carrying.
+    /// <para>
+    /// The status badge and the metadata line live inside the button, and the
+    /// metadata line goes to the trouble of writing out what a glyph means so a
+    /// reader hears "Reminder 09:00". An <c>aria-label</c> here would have been
+    /// the whole name and dropped every one of those on the floor — which is why
+    /// the act is named by a visually hidden word instead.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_line_still_reads_out_the_whole_row()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow(
+                "a",
+                "Write it down",
+                Group: "Tasks",
+                Due: "Today",
+                Status: "In progress"))
+            .Add(t => t.OnToggle, _ => { })
+            .Add(t => t.OnSelected, (string _) => { })
+            .Add(t => t.TestId, "row"));
+
+        var open = view.Find("[data-testid='row-open']");
+
+        Assert.StartsWith("Open", open.TextContent);
+        Assert.Contains("Write it down", open.TextContent);
+        Assert.Contains("In progress", open.TextContent);
+        Assert.Contains("Today", open.TextContent);
+        Assert.Contains("Tasks", open.TextContent);
     }
 
     /// <summary>Picked is not the same as open. The detail pane's row already

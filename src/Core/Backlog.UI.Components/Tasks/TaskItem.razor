@@ -146,13 +146,25 @@
         @* The circle is the row's first tab stop, so it is where a reader tabbing
            backwards leaves the row — and it takes an id of its own for the same
            reason the body does: a host that has to put the focus on the start of
-           this row has to be able to name it. *@
+           this row has to be able to name it.
+
+           "Complete Wire up the store" rather than "Wire up the store", the way
+           the pencil and the bin name themselves: the line beside this circle is
+           already called after the task, so a circle called the same thing gave
+           one row two controls answering to one name — and left a reader with no
+           way to tell the one that finishes the task from the one that opens it.
+           A selector reaching for the line by that name found this button
+           instead, which is how a pass that meant to open a task completed it.
+
+           The act, not the state: aria-checked is what says whether it is done,
+           and a name that changed with it would be a control that renamed itself
+           under the reader. *@
         <button type="button"
                 class="task-item__check"
                 role="checkbox"
                 id="@CheckElementId"
                 aria-checked="@(Task.Done ? "true" : "false")"
-                aria-label="@Task.Title"
+                aria-label="@($"Complete {Task.Title}")"
                 data-testid="@Suffix("check")"
                 @onkeydown="OnCheckKeyDownAsync"
                 @onclick="() => OnToggle.InvokeAsync(Task.Id)"
@@ -425,6 +437,22 @@
     /// A fragment because there are two places it is drawn from — bare, and inside
     /// the wrapper that carries a displaced metadata line — and a button written
     /// twice is a keyboard contract written twice.
+    /// </para>
+    /// <para>
+    /// It says what it does in a word only a screen reader reads, and not in an
+    /// <c>aria-label</c>. A label on this button would <em>be</em> its whole name,
+    /// and the name is currently everything inside it — the title, the status
+    /// badge, and the metadata line that goes to the trouble of writing out what
+    /// its glyphs mean so a reader hears "Reminder 09:00" rather than a bell. All
+    /// of that would have gone out of the accessibility tree to buy one word.
+    /// Putting the word in the content instead keeps the row's facts in its name
+    /// and still tells a reader which of the row's two constant controls this is:
+    /// the circle completes the task, this opens it.
+    /// </para>
+    /// <para>
+    /// So the name is not a fixed string, and nothing should reach for this button
+    /// by one. <c>data-testid</c> is the handle — <c>&lt;test-id&gt;-open</c>,
+    /// which is what every test and every host already uses.
     /// </para></summary>
     private RenderFragment RenderOpen() =>
         @<button type="button"
@@ -433,6 +461,12 @@
                  data-testid="@Suffix("open")"
                  @onkeydown="OnRowKeyDownAsync"
                  @onclick="() => OnSelected.InvokeAsync(Task.Id)">
+            @* First, so the name opens with the act rather than ending on it:
+               "Open Wire up the store, due today" is a reader's sentence, and
+               a reader skimming a column of rows hears which control this is
+               before the title they are skimming for. *@
+            <span class="sr-only">Open</span>
+
             <span class="task-item__title" data-testid="@Suffix("title")">@RenderTitle()</span>
 
             @RenderStatus()
@@ -450,9 +484,9 @@
     /// <para>
     /// Nothing is stripped and nothing is reordered: the segments concatenate back
     /// to the title character for character, so the accessible name of the button
-    /// is still the whole title a person typed — <c>Ship the installer @bob
-    /// #deploy</c>, sigils and all. The chips are a reading of the text, not an
-    /// edit of it.
+    /// still carries the whole title a person typed — <c>Ship the installer @bob
+    /// #deploy</c>, sigils and all, after the word that says the button opens it.
+    /// The chips are a reading of the text, not an edit of it.
     /// </para>
     ///
     /// <para>
