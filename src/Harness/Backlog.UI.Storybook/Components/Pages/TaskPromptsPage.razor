@@ -180,6 +180,37 @@ Each picker offers every row but its own. Add a dependency and everything re-der
         <p class="sb-state" data-testid="prompt-wired-cycle">TaskChain.Cycles: @Titles(TaskChain.Cycles(_wired))</p>
     </Story>
 
+    <Story Name="Making one prompt wait for another, by dragging"
+           Description="The same chain, wired with the pointer instead of the pickers above. Every row carries a `🔗` handle: press *that* and move, and the row you picked up is being made to wait — let go anywhere on another row and it waits for that one. Let go on the row you are holding, or off the list entirely, and the gesture is abandoned: nothing is written and nothing is said, because you already watched the line go quiet as you left the last row. Press the row itself, or its `⠿` grip, and it is the reorder it always was.
+
+Which of the two a drag is comes entirely from where the press landed, and it cannot change afterwards. That is the design and not an implementation detail: the version before this one had no handle but a drop zone inside each row, and read the mode off whatever the pointer was over at the release. It oscillated — entering a zone retracted the reorder preview, the retraction reflowed the list, the row you were aiming at moved out from under the pointer, and the mode flipped back. The handle settles the question before the gesture starts, which is why the drop target can then be the whole of the other row (`interaction-guidelines.md#reliable-drop-targets-items`: the handle is sized for picking up, the row for releasing).
+
+So nothing moves during a link drag. What the rows show instead is what each of them is to it: the row in flight outlined in `color-primary`, every row that will take the drop outlined the same way and filled in under the pointer, and every row that will not — finished, or already waited on — refusing with a not-allowed cursor. A refusal writes nothing and says why in the live region, rather than quietly turning back into a reorder. A link that closes a loop is accepted and named, because which edge in a loop is the wrong one is not this component's call.
+
+And a line follows the pointer out of the handle you pressed, because what you are doing is drawing a dependency and rows tinting themselves does not look like drawing anything. It ends at the pointer while the drop has nowhere to land, and snaps to the centre of the armed row with a dot on it once it has one — the armed row and not the row under the pointer, which are the same row and now provably so: the line snaps to whichever row is wearing `--link-armed`, so it ends where the drop will land rather than where a second hit test would have guessed. The centre because what a link targets is the whole row, where an edge would read as a position in the list, which is what the other drop means: solid `color-primary` at `border-width-2` over a row that will take the drop, dashed `color-error-text` over one that will refuse it, and quiet over nothing at all. Not an insertion line, which `interaction-guidelines.md#drop-indicators` reserves for a drop that chooses a *position* — this drop chooses neither a position nor a half of a row, so there is nothing to place, and the refusal is dashed as well as recoloured rather than being drawn and then contradicted.
+
+Two things about that line are the same invariant this whole gesture rests on. It is drawn in `components.js`, one paint per animation frame for the length of the drag, so following the cursor never costs a circuit round trip — `TaskListView` renders an empty overlay to draw into and not one pixel of the curve. And the overlay is fixed to the viewport, outside the `<ul>`, pointer-transparent throughout: it can move no row, and it can never take the hit that decides which row the pointer is over.
+
+Where the line ends and what colour it is both come from the classes the rows are already wearing, so nothing in the script decides for a second time which row this drop is about or whether the two may be linked. That is not tidiness. The first version of this line worked its own snap out from the pointer, and the two answers went out of step the moment the script's was fresher than the component's: cross a row in transit, come back, release on the row in your hand, and the line had gone quiet while the crossed row was still lit and still took the drop. One answer, published once, read by the tint and the line alike — a quiet line is now a drop that writes nothing, and there is nothing else for it to mean.
+
+Order and dependency are independent facts about the same pair of rows, so one gesture never writes both — `OnReorder` and `OnLink` are exclusive. Alt+Shift+Arrow is the keyboard's half, beside the Alt+Arrow that moves the row; on a finished row it says why rather than nothing. `OnLink` reports two ids and writes nothing; this page owns the array, exactly as it owns the pickers."
+           Code="@LinkCode">
+        <div class="sb-menu-wide" data-testid="prompt-linked">
+            <TaskListView Tasks="@_wired"
+                          BodyLabel="Prompt"
+                          OnToggle="ToggleWired"
+                          Reorderable="true"
+                          OnReorder="ReorderWired"
+                          OnLink="LinkWired"
+                          GroupCompleted="false"
+                          AriaLabel="A chain you can wire up by dragging"
+                          TestId="linked" />
+        </div>
+        <p class="sb-state" data-testid="prompt-linked-order">Order: @Titles(_wired)</p>
+        <p class="sb-state" data-testid="prompt-linked-depends">@DependsOnEcho(_wired)</p>
+        <p class="sb-state" data-testid="prompt-linked-cycle">TaskChain.Cycles: @Titles(TaskChain.Cycles(_wired))</p>
+    </Story>
+
     <Story Name="Nothing derived, nothing drawn"
            Description="The same list with the dependencies taken off: no “next” marker, no blocked circle, no waiting line. `TaskListView` asks whether anything declared a dependency at all before it derives anything."
            Code="@UnchainedCode">
@@ -213,7 +244,10 @@ Each picker offers every row but its own. Add a dependency and everything re-der
     [
         new("content-editing.md#scheduling-and-dependency-tokens", "How a prompt body and a waiting-for id are written down."),
         new("design-principles.md#ai-first-surfaces", "Why a prompt is a task rather than a chat."),
-        new("interaction-guidelines.md#task-rows", "What a blocked row says, and what it withholds.")
+        new("interaction-guidelines.md#task-rows", "What a blocked row says, and what it withholds."),
+        new("interaction-guidelines.md#reliable-drop-targets-items", "Why the 🔗 handle starts the drag and the whole of the other row takes it."),
+        new("interaction-guidelines.md#drop-indicators", "The tokens the line drawn while linking borrows, and why it is not an insertion line."),
+        new("accessibility.md#target-sizes-and-text", "The 44 × 44 the 🔗 handle owes as a press target of its own.")
     ];
 
     private sealed record OpenQuestion(string Name, string Detail);
@@ -423,6 +457,44 @@ Each picker offers every row but its own. Add a dependency and everything re-der
     private void Wire(string id, IReadOnlyList<string> dependsOn) =>
         _wired = [.. _wired.Select(task => task.Id == id ? task with { DependsOn = dependsOn } : task)];
 
+    /// <summary>A dropped link, applied by the host that owns the array — the
+    /// same edit the picker above makes, arriving from the pointer instead. The
+    /// id is appended rather than replacing what the row already waits on, which
+    /// is what the desktop pane does with the same callback and for the same
+    /// reason: the reader added one dependency, not a set.</summary>
+    private void LinkWired(TaskLink link) =>
+        _wired =
+        [
+            .. _wired.Select(task => task.Id == link.Id
+                ? task with { DependsOn = [.. task.DependsOnList, link.DependsOnId] }
+                : task)
+        ];
+
+    /// <summary>And the other gesture, so this story can show that the two are
+    /// exclusive: a drag that started on the row moves it and writes no
+    /// dependency at all.</summary>
+    private void ReorderWired(TaskMove move) =>
+        _wired = move.ApplyTo(_wired, task => task.Id);
+
+    /// <summary>What each row waits on right now, said as titles. The line that
+    /// makes the difference between the two drops visible: one of them changes
+    /// the order above and this stays put, the other changes this and the order
+    /// stays put.</summary>
+    private static string DependsOnEcho(IReadOnlyList<TaskRow> tasks)
+    {
+        var waiting = tasks
+            .Where(task => task.DependsOnList.Count > 0)
+            .Select(task => $"{task.Title} waits for {string.Join(" and ", task.DependsOnList.Select(id => Label(tasks, id)))}");
+
+        return waiting.Any() ? string.Join("; ", waiting) : "Nothing waits for anything.";
+    }
+
+    /// <summary>The row an id names, or the id itself — the same honesty
+    /// <c>TaskDependency.Label</c> keeps, because only the reader can tell a
+    /// missing row from a wrong id.</summary>
+    private static string Label(IReadOnlyList<TaskRow> tasks, string id) =>
+        tasks.FirstOrDefault(task => task.Id == id)?.Title ?? id;
+
     private static string Titles(IReadOnlyList<TaskRow> tasks) =>
         tasks.Count == 0 ? "(none)" : string.Join(", ", tasks.Select(task => task.Title));
 
@@ -563,6 +635,34 @@ Each picker offers every row but its own. Add a dependency and everything re-der
             // list this hands back.
             private void Wire(string id, IReadOnlyList<string> dependsOn) =>
                 _tasks = [.. _tasks.Select(t => t.Id == id ? t with { DependsOn = dependsOn } : t)];
+        }
+        """;
+
+    private const string LinkCode = """
+        @* OnLink is what puts the link handle on the rows at all. Pass none and
+           the markup is what it was before this existed, and a drag can only
+           reorder. Both callbacks together, because a list that reorders and
+           chains needs somewhere for each to go — and they are never raised
+           for the same drop. Reorderable is independent: the handle is a press
+           origin of its own, so a list that does not reorder can still be
+           chained with a pointer. *@
+        <TaskListView Tasks="@_tasks"
+                      Reorderable="true"
+                      OnReorder="Reorder"
+                      OnLink="Link" />
+
+        @code {
+            // Appended, not substituted: the reader added one dependency, and
+            // the ones the row already had are still the row's.
+            private void Link(TaskLink link) =>
+                _tasks = [.. _tasks.Select(t => t.Id == link.Id
+                    ? t with { DependsOn = [.. t.DependsOnList, link.DependsOnId] }
+                    : t)];
+
+            // The other drop, unchanged. TaskMove.ApplyTo is offered for a host
+            // with no ordering of its own to write to.
+            private void Reorder(TaskMove move) =>
+                _tasks = move.ApplyTo(_tasks, t => t.Id);
         }
         """;
 

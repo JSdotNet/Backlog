@@ -303,7 +303,7 @@ internal static class StorybookIndex
         [
             new("task-list", "Task list", "TaskItem and TaskListView: the controls a list of things-to-do is made of.", Exact: true),
             new("task-list/panel", "Task side panel", "TaskPanel, TaskActionPane and TaskAction: the whole of one task beside its list — a title you can tick and retitle, tags, the detail rows in two columns, then its sub-items or its markdown."),
-            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order.")
+            new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one
