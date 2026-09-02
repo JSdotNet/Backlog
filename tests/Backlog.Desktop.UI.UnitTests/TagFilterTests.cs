@@ -366,7 +366,7 @@ public sealed class TagFilterTests
 
     /// <summary>What the chips leave out, the list keeps. Narrowing the bar was a
     /// decision about which tags are worth offering, not about which entries
-    /// exist — the status chips, the scope and the rows are all where they
+    /// exist — the scope, the status chips and the rows are all where they
     /// were. The areas this test once checked alongside them are gone from the
     /// bar entirely, traded for the No repo scope — see
     /// <c>MyDayScopeTests.The_scope_group_holds_both_scopes_and_the_bar_holds_no_areas</c>,
@@ -380,8 +380,7 @@ public sealed class TagFilterTests
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
-        // The finished entry is still an entry: narrowing the chips changed what the
-        // bar offers, not what the list holds.
+        // The finished entry is still an entry. Only the tag chips were narrowed.
         Assert.Equal(2, host.State.FilteredRows.Count);
         Assert.Equal(2, host.State.ScopedRows.Count);
 
