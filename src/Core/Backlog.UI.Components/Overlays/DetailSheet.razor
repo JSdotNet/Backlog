@@ -11,11 +11,12 @@
     in the tree and `inert` while closed, which keeps its contents out of the tab
     order and off the accessibility tree just as firmly as not rendering them.
 
-    It traps focus and gives it back, both of which Modal omits and both of which
-    the interaction rules require of a drawer. Giving it back is the half that
-    gets forgotten: a reader sent into a sheet by pressing Enter on a row has to
-    land back on that row when they leave, or the list they were working has lost
-    their place.
+    It traps focus, which Modal does not: Tab inside a sheet cycles rather than
+    walking out into the surface behind it. Giving the focus back on close is
+    shared with Modal — both go through `backlogCaptureFocus` and
+    `backlogRestoreFocus` in components.js — because a reader sent into a sheet by
+    pressing Enter on a row has to land back on that row when they leave, or the
+    list they were working has lost their place.
 
     The header is fixed and the body scrolls, because the title of the thing you
     are reading about should not scroll away from the thing you are reading.

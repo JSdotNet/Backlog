@@ -130,10 +130,12 @@
         says more about what was just picked on it, and the reader is expected to
         keep working the surface underneath.
 
-        It is still a dialog, though — it traps focus and gives it back, which is
-        what the interaction rules ask of a drawer and what Modal above does not
-        actually do. Give it `RestoreFocusToId` and focus returns to the control
-        that opened it even if that control was re-rendered while the sheet was up.
+        It is still a dialog, though — and it traps focus, which the interaction
+        rules ask of a drawer and Modal above does not do: Tab inside a sheet
+        cycles rather than walking out into the surface behind it. Giving the
+        focus back on close is shared with Modal. Give either one
+        `RestoreFocusToId` and focus returns to the control that opened it even if
+        that control was re-rendered while the overlay was up.
     *@
     <Story Name="Detail sheet"
            Description="Slides in from the right over whatever it is describing. Closed by the backdrop, Escape or the close button; focus moves in on open and returns to the opener on close. Always in the tree, `inert` while closed, so it can animate out."

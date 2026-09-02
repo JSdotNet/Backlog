@@ -156,8 +156,9 @@ public sealed class DetailSheetTests
         Assert.False(open);
     }
 
-    /// <summary>Opening arms the trap and names where focus goes back to. This is
-    /// the half <c>Modal</c> leaves out.</summary>
+    /// <summary>Opening arms the trap and names where focus goes back to. The
+    /// naming is what survives the opener being re-rendered while the sheet is
+    /// up.</summary>
     [Fact]
     public void Opening_holds_the_focus_and_remembers_where_it_came_from()
     {
