@@ -355,6 +355,34 @@ html, body {
     max-width: 16rem;
 }
 
+/* A heading standing in for one a knowledge panel draws, so the type marker in
+   front of it can be looked at on the line it actually lands on. The block
+   margins go, because the sample sits in a flex row beside a status pill and a
+   heading's own top margin would push it off that pill's line — which is the
+   thing the story is showing. */
+.sb-heading-sample {
+    margin: 0;
+}
+
+/* The metadata strip, mocked. The real one is a knowledge panel's own markup
+   rather than a library component, and the before/after story is about what the
+   strip stops carrying — so it is drawn here at the size and spacing the panel
+   draws it, and claims to be nothing more. */
+.sb-strip {
+    gap: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The field name stays on --color-text-secondary rather than dropping to the
+   disabled token: this is 14px body text, which needs 4.5:1, and the disabled
+   token is 4.30:1 on this page. Weight is what separates the name from the
+   value. */
+.sb-strip strong {
+    margin-right: var(--spacing-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
 /* A task list's real measure. Wider than a navigation menu and far narrower than
    this page: a row of one line with a metadata line under it stops being one
    thing to read somewhere around here, and how a title truncates is most of what

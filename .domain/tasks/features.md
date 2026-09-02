@@ -109,6 +109,42 @@ How much is in the place is not recorded, only where it is. A count would be tru
 at the moment it was written and wrong after the next file was added, and an
 task that asserted one would be asserting something it cannot keep.
 
+## Bulk editing
+
+```meta
+type: feature
+status: draft
+depends-on: [.domain/tasks/features.md#refinement-and-prioritization]
+related: [.domain/tasks/features.md#search-filter-and-organize, .domain/tasks/features.md#my-day, .domain/tasks/features.md#recurring-tasks, .domain/tasks/features.md#multi-repo-targeting]
+```
+
+Select several tasks in the current view and set one field across all of them
+at once, so a decision that applies to a batch is recorded once instead of
+task by task. The selection is made in the list itself and carries a running
+count of how many tasks it holds.
+
+The fields that can be set this way are repo, status, type, priority, tags, My
+Day, reminder, and due date. Setting a repo replaces whatever repos each task
+targeted before. Tags are the exception to replacement: a bulk tag change adds
+the chosen tags to every selected task, or withdraws one named tag from every
+selected task, and leaves each task's remaining tags untouched. Status, type,
+and priority always hold a value, so they can only be set; My Day, reminder,
+and due date can also be cleared across the selection.
+
+A bulk change reaches only the field being set. Every other field on every
+selected task keeps the value it had, and a task already holding the target
+value is left alone and counted as unchanged rather than rewritten.
+
+The outcome is reported as a count of the tasks that changed. A task that
+cannot be saved is reported alongside that count rather than abandoning the
+rest of the batch, so a batch that only partly succeeds says so.
+
+Marking a batch done spawns a successor for each recurring task it holds, on
+the same terms as completing those tasks one at a time.
+
+A selected task that leaves the current view — because a filter changed, or
+because the change itself moved it out — leaves the selection with it.
+
 ## Effort registration
 
 ```meta

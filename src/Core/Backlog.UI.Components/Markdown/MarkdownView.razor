@@ -142,7 +142,10 @@
                it rather than being a second copy of this call. *@
             if (PairedMetaFence(index) is { } fence)
             {
-                <MetadataChapterView Metadata="@MetadataOf(fence)"
+                @* ShownMetadataOf and not MetadataOf: the record handed to the
+                   strip is the one with the `type` already taken out wherever the
+                   heading above it is drawing that same value as a mark. *@
+                <MetadataChapterView Metadata="@ShownMetadataOf(fence)"
                                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
                                      ShowFields="@RenderKnowledgeMetadataFields"
                                      OnStatusChanged="status => ReportStatusAsync(index, status)"
@@ -172,18 +175,21 @@
     ///
     /// <para>The heading element itself is untouched: it is what heading
     /// navigation matches on, and it is rendered from the same fragment whether
-    /// or not there is anything to copy.</para>
+    /// or not there is anything to copy. The type mark goes <em>into</em> that
+    /// element rather than beside it here, which is the same rule read the other
+    /// way — a mark in this div would lead the row, and what it describes is the
+    /// heading.</para>
     /// </summary>
     private RenderFragment RenderChapterHead(MdHeading heading, int index) => __builder =>
     {
         if (ChapterAt(index) is not { } chapter)
         {
-            @RenderBlock(heading)
+            @RenderBlock(heading, ChapterMark(index))
             return;
         }
 
         <div class="md-chapter-head">
-            @RenderBlock(heading)
+            @RenderBlock(heading, ChapterMark(index))
             @* The markdown, not the rendering, for the reason the file-level copy
                gives: the source is what round trips. *@
             <CopyButton Text="@chapter.Text"
@@ -211,9 +217,16 @@
     /// wraps. Heading navigation matches on that element, so a second
     /// hand-written copy of it would silently drift out of reach — which is the
     /// reason this was one fragment before it was one component.</para>
+    ///
+    /// <para>The mark is the one exception to the paragraph above, and it is the
+    /// exception that proves it: a heading's mark is read off the fence under the
+    /// heading, which is exactly a fact about a block's neighbour, so it is decided
+    /// here and handed down already drawn. Every other block passes null and
+    /// renders what it always rendered.</para>
     /// </summary>
-    private RenderFragment RenderBlock(MdBlock block) =>
+    private RenderFragment RenderBlock(MdBlock block, RenderFragment? headingMark = null) =>
         @<MarkdownBlockView Block="@block"
+                            HeadingMark="@headingMark"
                             OnTaskItemToggled="@OnTaskItemToggled"
                             InlineTarget="@InlineTarget"
                             RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
@@ -221,6 +234,44 @@
                             KnowledgeFolder="@KnowledgeFolder"
                             OnKnowledgeNavigate="@OnKnowledgeNavigate"
                             KnowledgeHrefFor="@KnowledgeHrefFor" />;
+
+    /// <summary>
+    /// The mark a chapter's heading leads with: its own <c>type</c>, drawn as the
+    /// glyph for it. Nothing when the fence states no type, when the value is one
+    /// the set has never heard of, or when the folder is not the one whose
+    /// vocabulary these marks are.
+    ///
+    /// <para>Named and with the tooltip declined, which is the pair the heading
+    /// depends on. <c>role="img"</c> and an <c>aria-label</c> are attributes, so a
+    /// listener hears "type: aggregate" where the strip below has stopped saying
+    /// it; a <c>title</c> is an element with text in it, and a heading whose
+    /// <c>textContent</c> grew by a word is not the heading it was. That is the
+    /// same trade the chapter card in the domain panel makes, written once more
+    /// here because this is the surface a reader actually opens.</para>
+    /// </summary>
+    private RenderFragment? ChapterMark(int index) =>
+        PairedMetaFence(index) is { } fence
+        && KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, MetadataOf(fence).Type) is { } type
+            ? TypeMark(type)
+            : null;
+
+    /// <summary>
+    /// The mark itself, in a method of its own rather than inline in the branch
+    /// above — and that is not tidiness.
+    ///
+    /// <para>A Razor template takes the whitespace that follows its closing tag as
+    /// content, so a template written as the true arm of a multi-line conditional
+    /// carries the newline before the <c>: null</c> into every heading it leads.
+    /// Inside a heading that newline is a text node, and a text node in a heading is
+    /// the one thing this mark promises never to add. Ending the template on a
+    /// <c>;</c> is what leaves it with nothing to pick up.</para>
+    /// </summary>
+    private static RenderFragment TypeMark(string type) =>
+        @<KnowledgeTypeMarker Value="@type"
+                              CssClass="knowledge-type-marker--leads"
+                              Labelled="true"
+                              ShowTooltip="false"
+                              TestId="markdown-chapter-type-mark" />;
 
     private string? _editingId;
     private string _draft = string.Empty;
@@ -715,6 +766,12 @@
     /// them — and re-parsing the same fence each time buys nothing.</summary>
     private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
 
+    /// <summary>The same blocks as <see cref="_metadata"/>, as the strip under the
+    /// heading shows them — see <see cref="ShownMetadataOf"/>. A second dictionary
+    /// rather than a second parse: the two answers differ by one field and only in
+    /// one folder, and the parse is the expensive half.</summary>
+    private readonly Dictionary<MdCode, MetadataRecord> _shownMetadata = [];
+
     /// <summary>Which chapter of the source each heading block is the top of.
     /// Empty when the source was not given, or when what it splits into does not
     /// match what is being rendered.</summary>
@@ -726,6 +783,7 @@
     protected override void OnParametersSet()
     {
         _metadata.Clear();
+        _shownMetadata.Clear();
 
         // Splitting walks the whole file, and a view re-renders for reasons that
         // have nothing to do with it — a comment being typed, most of all. Only
@@ -867,6 +925,37 @@
         parsed = MetadataReader.Parse(block.Text);
         _metadata[block] = parsed;
         return parsed;
+    }
+
+    /// <summary>
+    /// The same record as the strip under the heading should show it: without the
+    /// <c>type</c> when the heading above is already drawing that value as a mark,
+    /// and untouched otherwise.
+    ///
+    /// <para>Untouched covers both of the cases that matter. A folder these marks
+    /// are not the vocabulary of keeps every row it had; and a <c>type</c> the set
+    /// has no glyph for keeps its row too, because dropping the row <em>and</em>
+    /// drawing nothing would take the fact off the screen altogether — the
+    /// <c>.domain</c> vocabulary grows, and this library is always the last to hear
+    /// about it.</para>
+    ///
+    /// <para>Cached beside the parse and cleared with it, so the record handed to
+    /// <see cref="MetadataChapterView"/> is one object per render pass rather than a
+    /// fresh one per re-render — see <c>MetadataView</c>, which reseeds a reader's
+    /// unsaved status choice whenever the record it holds stops comparing
+    /// equal.</para>
+    /// </summary>
+    private MetadataRecord ShownMetadataOf(MdCode block)
+    {
+        if (_shownMetadata.TryGetValue(block, out var shown)) return shown;
+
+        var parsed = MetadataOf(block);
+        shown = KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, parsed.Type) is null
+            ? parsed
+            : parsed.WithoutType();
+
+        _shownMetadata[block] = shown;
+        return shown;
     }
 
     /// <summary>The <c>meta</c> fence a heading at this index owns, if it wrote

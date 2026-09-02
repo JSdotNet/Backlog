@@ -1,0 +1,18 @@
+@* A heading written exactly the way the knowledge panel writes one: the mark
+   first, named, with its tooltip off, and the title hard against it with no
+   space. The spacing is the stylesheet's.
+
+   It exists because the rule under test is a property of the *pair*, and both
+   halves of it at once — the mark has an accessible name, and the heading's
+   textContent is what it would have been without the mark. Neither can be
+   asserted by rendering the marker on its own. *@
+
+<h4><KnowledgeTypeMarker Value="@Value" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />@Title</h4>
+
+@code {
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+}

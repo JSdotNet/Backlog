@@ -248,7 +248,12 @@
     /// <c>FileViewHeaderLayoutTests</c>.</para></summary>
     private RenderFragment IdentityLines => __builder =>
     {
-        <h3 class="file-view__name">@Name</h3>
+        @* The mark and the name written as two code blocks with nothing between
+           them. Razor trims the whitespace either side of a code block, so a header
+           given no mark renders exactly the bytes it always did, and one given a
+           mark gains no space before the file's name — the gap is the stylesheet's,
+           in em, the same as the one in front of a chapter heading. *@
+        <h3 class="file-view__name">@NameMark@Name</h3>
     };
 
     /// <summary>The name's line: the name, the path right-aligned in whatever is
@@ -294,6 +299,24 @@
     /// for.</summary>
     [Parameter, EditorRequired]
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// A mark drawn inside the name, in front of it. Nothing by default, and
+    /// nothing is what almost every file pane in this product passes.
+    ///
+    /// <para>Inside the <c>h3</c> rather than beside it, because what it describes
+    /// is the file and the <c>h3</c> is where this header says which file that is.
+    /// Beside it, it would be a second item of the name's row — competing with the
+    /// path and the status for a line that is already three things wide.</para>
+    ///
+    /// <para>A fragment and not a value, which keeps the promise the top of this
+    /// file makes: nothing here reads the file, and nothing here decides what a
+    /// mark means. Whether a <c>.domain</c> file's <c>type</c> has a glyph is a
+    /// question about a folder and a vocabulary, and <c>FileView</c> is the
+    /// component that was told both.</para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? NameMark { get; set; }
 
     /// <summary>The full path, right-aligned on the name's own line and just
     /// before the status. Absent draws no element.</summary>

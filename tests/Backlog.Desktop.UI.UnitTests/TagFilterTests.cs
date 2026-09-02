@@ -155,15 +155,18 @@ public sealed class TagFilterTests
         Assert.Equal(4, host.State.FilteredRows.Count);
     }
 
-    /// <summary>Orthogonal to the rest of the bar: a tag narrows what area and
-    /// status have already left in view instead of replacing either.</summary>
+    /// <summary>Orthogonal to the rest of the bar: a tag narrows what the scopes and
+    /// the status have already left in view instead of replacing any of them.</summary>
     [Fact]
     public async Task A_tag_composes_with_the_status_filter_rather_than_replacing_it()
     {
         var (host, sync, _, _, _) = await FourAsync();
         using var _host = host;
 
-        host.State.SetAreaFilter("platform");
+        // Nothing in the fixture carries a `repo:`, so the No repo scope is on and
+        // holding all four — which is the point: it is still a live scope while the
+        // tag and the status do the narrowing.
+        host.State.SetNoRepositoryFilter(true);
         host.State.SetStatusFilter("ready");
         host.State.SetTagFilter("sync");
 
@@ -171,13 +174,14 @@ public sealed class TagFilterTests
         // entries are not tagged #sync, so the tag takes those.
         Assert.Equal([sync], host.State.FilteredRows);
 
-        Assert.Equal("platform", host.State.SelectedArea);
+        Assert.True(host.State.NoRepositoryOnly);
         Assert.Equal("ready", host.State.SelectedStatusFilterWire);
     }
 
     /// <summary>A tag stops existing when the last entry wearing it drops it, and a
     /// selection pointing at nothing would filter the list to nothing with no chip
-    /// on screen saying why. Same fallback the area group makes.</summary>
+    /// on screen saying why. Same fallback a scope pointing at a repository that has
+    /// left the settings makes.</summary>
     [Fact]
     public async Task A_tag_that_stopped_existing_falls_back_to_all()
     {
@@ -197,7 +201,7 @@ public sealed class TagFilterTests
 
     /// <summary>Nothing on the bar for a backlog nobody tagged. The group is built
     /// out of what people typed, so with nothing typed there is nothing to build —
-    /// and a lone "All" chip filtering nothing would be a fourth group charging every
+    /// and a lone "All" chip filtering nothing would be a third group charging every
     /// reader for a feature only the taggers use.</summary>
     [Fact]
     public async Task The_group_is_absent_while_nothing_carries_a_tag()
@@ -214,8 +218,171 @@ public sealed class TagFilterTests
         Assert.Empty(pane.FindAll(Chip));
         Assert.Empty(pane.FindAll("[aria-label='Filter by tag']"));
 
-        // The three groups that were always there are untouched.
-        Assert.Single(pane.FindAll("[aria-label='Filter by area']"));
+        // The two groups that are always there are untouched.
+        Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
+        Assert.Single(pane.FindAll("[aria-label='Scope']"));
+    }
+
+    // ---- What finished work contributes to the bar ----------------------------
+    //
+    // Nothing. The bar is a set of places live work can be filed, and a tag whose
+    // every entry is already finished is not one of them — it is a dead end wearing
+    // the same shape as a destination. So a tag earns its chip from the entries
+    // still in play, and only from those.
+    //
+    // The counts are the other half of that sentence, and they do not move: a count
+    // answers "how much is over there", the list still shows finished entries under
+    // "All", and so a chip that said anything but the whole number would be
+    // promising a shorter list than pressing it produces. Which entries a tag is
+    // offered *for* is the reader's question; how many rows the tag has is the
+    // list's, and the list has not changed.
+
+    /// <summary>Two tags typed, one of them only ever on an entry that is done. Only
+    /// the live one is offered.</summary>
+    [Fact]
+    public async Task A_tag_only_finished_entries_wear_is_not_offered()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@platform` `#qascenario1`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(
+            ["All", "#sync"],
+            host.State.TagFilters.Select(option => option.Label));
+
+        var pane = host.Render();
+
+        Assert.Equal(["All2", "#sync1"], pane.FindAll(Chip).Select(chip => chip.TextContent));
+    }
+
+    /// <summary>Archived is finished on the same terms as done — the two are one
+    /// state as far as this bar is concerned, which is the pair
+    /// <c>ImportPlanCommand</c> already reads as "there is nothing left to do
+    /// here".</summary>
+    [Fact]
+    public async Task Archived_is_finished_on_the_same_terms_as_done()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Retire the box\n`task` `!archived` `@platform` `#legacy`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(
+            ["All", "#sync"],
+            host.State.TagFilters.Select(option => option.Label));
+    }
+
+    /// <summary>One entry still wearing it is enough to keep the chip — and keeps
+    /// the whole count with it, finished entries included, because pressing the chip
+    /// still produces every one of them.</summary>
+    [Fact]
+    public async Task One_live_entry_keeps_the_chip_and_the_count_stays_whole()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var live = await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        var finished = await host.WriteEntryAsync("# Draft the invite\n`task` `!done` `@platform` `#sync`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(2, Option(host, "sync").Count);
+        Assert.Equal(2, Option(host, string.Empty).Count);
+
+        // And the list behind the count agrees with it.
+        host.State.SetTagFilter("sync");
+
+        Assert.Equal(
+            [live.Id, finished.Id],
+            host.State.FilteredRows.Select(row => row.Id));
+    }
+
+    /// <summary>"Untagged" is a chip like any other, so it wants a live entry behind
+    /// it too. Its count stays whole for the same reason theirs does.</summary>
+    [Fact]
+    public async Task Untagged_wants_a_live_entry_carrying_no_tag()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        var finished = await host.WriteEntryAsync("# Write the runbook\n`task` `!done` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(["All", "#sync"], host.State.TagFilters.Select(option => option.Label));
+
+        // Reopen the untagged one and it is somewhere to go again, counting itself.
+        await Retag(host, finished, "# Write the runbook\n`task` `!ready` `@platform`\n");
+
+        Assert.Equal(["All", "#sync", "Untagged"], host.State.TagFilters.Select(option => option.Label));
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).Count);
+    }
+
+    /// <summary>The whole group goes when the only tags in scope are on finished
+    /// entries — the same disappearance as a backlog nobody tagged, for the same
+    /// reason: there is nothing there to file anything under.</summary>
+    [Fact]
+    public async Task The_group_is_absent_while_only_finished_entries_carry_tags()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@platform` `#qascenario1`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Empty(host.State.TagFilters);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll(Chip));
+        Assert.Empty(pane.FindAll("[aria-label='Filter by tag']"));
+    }
+
+    /// <summary>Finishing the last entry wearing the tag being filtered by takes the
+    /// chip away, and the selection goes with it rather than leaving the reader
+    /// holding a filter that is no longer on the bar. Same fallback as a tag someone
+    /// deleted — see <see cref="A_tag_that_stopped_existing_falls_back_to_all"/>.</summary>
+    [Fact]
+    public async Task Finishing_the_last_entry_wearing_the_filtered_tag_falls_back_to_all()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var sync = await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Draft the invite\n`task` `!ready` `@platform` `#desktop`\n");
+        await host.State.SelectAsync(null);
+
+        host.State.SetTagFilter("sync");
+
+        Assert.Equal("sync", host.State.SelectedTag);
+
+        await Retag(host, sync, "# Provision the box\n`task` `!done` `@platform` `#sync`\n");
+
+        Assert.Equal(string.Empty, host.State.SelectedTag);
+        Assert.Equal(["All", "#desktop"], host.State.TagFilters.Select(option => option.Label));
+
+        // Back to everything, which still includes the entry that was just finished.
+        Assert.Equal(2, host.State.FilteredRows.Count);
+    }
+
+    /// <summary>What the chips leave out, the list keeps. Narrowing the bar was a
+    /// decision about which tags are worth offering, not about which entries
+    /// exist — the scope, the status chips and the rows are all where they
+    /// were.</summary>
+    [Fact]
+    public async Task The_rest_of_the_screen_is_untouched_by_what_the_chips_leave_out()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@qa` `#qascenario1`\n");
+        await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
+        await host.State.SelectAsync(null);
+
+        // The finished entry is still an entry. Only the tag chips were narrowed.
+        Assert.Equal(2, host.State.FilteredRows.Count);
+        Assert.Equal(2, host.State.ScopedRows.Count);
+
+        var pane = host.Render();
+
         Assert.Single(pane.FindAll("[aria-label='Filter by status']"));
         Assert.Single(pane.FindAll("[aria-label='Scope']"));
     }

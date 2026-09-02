@@ -135,27 +135,35 @@ public sealed class NewEntryOpensOnItsTitleTests
         Assert.StartsWith("# Provision the box", row.RawText, StringComparison.Ordinal);
     }
 
-    /// <summary>With an area filtered, a new entry starts already filed there — and
-    /// the rename fills the empty heading the seed left rather than pushing a second
-    /// one in front of it, so the seeded metadata line survives.</summary>
+    /// <summary>With a repository scoped, the rename fills the empty heading the seed
+    /// left rather than pushing a second one in front of it, so the seeded metadata
+    /// line survives.
+    /// <para>
+    /// This used to be written against an area filter, which seeded an <c>`@area`</c>
+    /// the same way. That filter is gone and so is its seed — an entry created here
+    /// starts unfiled and is filed by typing. The repository scope is the one seed
+    /// left, and it is the one that has to survive the rename: what it protects
+    /// against is the entry dropping out of its own scope the moment it saves.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with()
+    public async Task Typing_the_title_keeps_the_repository_a_new_entry_was_seeded_with()
     {
-        using var host = await TasksPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(ExistingEntry);
-        host.State.SetAreaFilter("repos");
+        host.State.SetRepositoryFilter("backlog");
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);
 
-        Assert.Contains("`@repos`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`repo:backlog`", row.RawText, StringComparison.Ordinal);
 
         await pane.Find("[data-testid='entry-panel-rename']").InputAsync(new() { Value = "Provision the box" });
         await pane.Find("[data-testid='entry-panel-rename']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
 
         Assert.True(row.IsPersisted);
         Assert.Equal("Provision the box", row.PreviewTitle);
-        Assert.Equal("repos", row.PreviewArea);
+        Assert.Equal(["backlog"], row.PreviewRepoIds);
     }
 
     /// <summary>A new entry stays in view under a filter it does not match. It used
@@ -178,11 +186,9 @@ public sealed class NewEntryOpensOnItsTitleTests
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
 
-    /// <summary>With a repository scoped, a new entry starts already targeting it —
-    /// the same bargain <see cref="Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with"/>
-    /// documents for an area filter, extended to the other scope
-    /// <see cref="TasksDesktopState.RowBelongsToSelectedRepository"/> reads the
-    /// same field to decide. Without the seed, a repository's rows are exactly the
+    /// <summary>With a repository scoped, a new entry starts already targeting it,
+    /// because <see cref="TasksDesktopState.RowBelongsToSelectedRepository"/> reads
+    /// the entry's own targets to decide. Without the seed, a repository's rows are exactly the
     /// rows whose `repo:` names it — so an entry created targeting nothing would
     /// pass the filter only while pinned as an unpersisted draft, then drop out of
     /// <c>FilteredRows</c> the moment its title saved and closed the pane on it.</summary>

@@ -120,17 +120,26 @@ public sealed class GlobalPaneMarkupTests
         // Both navigation groups are inside the landmark; the utilities are not.
         Assert.InRange(home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal), nav, status);
         Assert.InRange(home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal), nav, status);
-        // The trigger and its dialog moved into their own component so every
-        // routed page can mount the same one; only the mount point is left here.
-        Assert.True(home.IndexOf("<FeedbackReportButton", StringComparison.Ordinal) > utilities);
-        Assert.True(home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal) > utilities);
+
+        // Two utilities are left, and they are the two that are about this screen:
+        // Ask AI opens a panel beside its content, and settings is where this
+        // screen's own configuration lives. The feedback trigger and the version
+        // control were neither — they are true app-shell concerns, so they moved to
+        // the footer MainLayout mounts once for every route.
+        Assert.True(home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal) > utilities);
         Assert.True(home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal) > utilities);
 
-        // Version sits at the right edge with settings after it.
+        // Ask AI leads, and settings closes the header.
         Assert.True(
-            home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal)
+            home.IndexOf("TestId=\"ai-toggle-button\"", StringComparison.Ordinal)
             < home.IndexOf("data-testid=\"settings-link\"", StringComparison.Ordinal),
             "Settings is the last control in the header.");
+
+        // Neither of the two that left may come back here. A second mount would
+        // give the reader two "Report issue" buttons and two version controls the
+        // moment the footer is on screen, which it now always is.
+        Assert.DoesNotContain("<FeedbackReportButton", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("TestId=\"app-version\"", home, StringComparison.Ordinal);
 
         // The pill row is gone: no interactive control in the header is a 999px
         // pill any more, and the classes that drew them went with it.
@@ -538,36 +547,142 @@ public sealed class GlobalPaneMarkupTests
     [Fact]
     public void App_version_opens_a_separate_update_window()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var footer = NormalizeLineEndings(File.ReadAllText(FindAppFooterRazor()));
 
-        Assert.Contains("TestId=\"app-version\"", home, StringComparison.Ordinal);
-        Assert.Contains("OnClick=\"OpenUpdateWindow\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"app-version\"", footer, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"OpenUpdateWindow\"", footer, StringComparison.Ordinal);
         // The dialog shell is now the shared Modal component, so the test id
         // reaches the DOM through its TestId parameter instead of a literal
         // attribute.
-        Assert.Contains("TestId=\"app-update-dialog\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"check-for-updates\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"install-update\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("app-version__hint", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"app-update-dialog\"", footer, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"check-for-updates\"", footer, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"install-update\"", footer, StringComparison.Ordinal);
+        Assert.DoesNotContain("app-version__hint", footer, StringComparison.Ordinal);
+
+        // The dialog stays in the same component as the control that opens it.
+        // Modal returns focus to whatever had it when the dialog opened, and that
+        // only holds while the trigger is still rendered — hoisting the Modal into
+        // MainLayout and leaving the button here would silently drop the reader
+        // back at the top of the document on Escape.
+        Assert.True(
+            footer.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal)
+            < footer.IndexOf("TestId=\"app-update-dialog\"", StringComparison.Ordinal),
+            "The trigger precedes the dialog it owns, in the component that owns both.");
     }
 
     [Fact]
     public void The_version_control_shows_the_worktree_when_the_host_registers_one()
     {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var footer = NormalizeLineEndings(File.ReadAllText(FindAppFooterRazor()));
 
         // The control keeps its test id and its click either way; only what it
         // reads changes, so a host that registers nothing is unaffected.
-        Assert.Contains("Services.GetService<DevelopmentWorkspaceLabel>()", home, StringComparison.Ordinal);
-        Assert.Contains("@if (_workspace is null)", home, StringComparison.Ordinal);
-        Assert.Contains("Version <code>@Updates.CurrentVersion</code>", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"app-workspace\"", home, StringComparison.Ordinal);
+        Assert.Contains("Services.GetService<DevelopmentWorkspaceLabel>()", footer, StringComparison.Ordinal);
+        Assert.Contains("@if (_workspace is null)", footer, StringComparison.Ordinal);
+        Assert.Contains("Version <code>@Updates.CurrentVersion</code>", footer, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"app-workspace\"", footer, StringComparison.Ordinal);
 
-        var chipIndex = home.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal);
-        var workspaceIndex = home.IndexOf("data-testid=\"app-workspace\"", StringComparison.Ordinal);
+        var chipIndex = footer.IndexOf("TestId=\"app-version\"", StringComparison.Ordinal);
+        var workspaceIndex = footer.IndexOf("data-testid=\"app-workspace\"", StringComparison.Ordinal);
 
         Assert.True(chipIndex >= 0);
         Assert.True(workspaceIndex > chipIndex);
+    }
+
+    /// <summary>
+    /// The footer is part of the app shell, not part of a page: <c>MainLayout</c>
+    /// mounts it once, outside the routed body, so it survives every route change
+    /// and a third route gets it without saying anything.
+    /// <para>
+    /// The wrapper matters as much as the tag. <c>.shell</c> used to be the element
+    /// that owned the viewport height; with a sibling below it, the height belongs
+    /// to a column that holds both, and <c>.shell</c> takes what is left.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_layout_wraps_the_routed_body_and_the_footer_in_one_column()
+    {
+        var layout = NormalizeLineEndings(File.ReadAllText(FindMainLayoutRazor()));
+
+        Assert.Contains("class=\"app-shell\"", layout, StringComparison.Ordinal);
+        Assert.Contains("@Body", layout, StringComparison.Ordinal);
+        Assert.Contains("<AppFooter />", layout, StringComparison.Ordinal);
+
+        // Below the page, not above it: the footer is the last thing on screen and
+        // the last thing in reading order, and those have to be the same thing.
+        Assert.True(
+            layout.IndexOf("@Body", StringComparison.Ordinal)
+            < layout.IndexOf("<AppFooter />", StringComparison.Ordinal),
+            "The footer follows the routed body.");
+    }
+
+    /// <summary>
+    /// What the footer band itself is: one landmark carrying the two controls that
+    /// are about the application rather than about the screen.
+    /// </summary>
+    [Fact]
+    public void The_footer_is_a_landmark_carrying_the_app_wide_utilities()
+    {
+        var footer = NormalizeLineEndings(File.ReadAllText(FindAppFooterRazor()));
+
+        Assert.Contains("<footer class=\"app-footer\" data-testid=\"app-footer\">", footer, StringComparison.Ordinal);
+        Assert.Contains("<FeedbackReportButton />", footer, StringComparison.Ordinal);
+
+        // Deliberately not "build-footer". That name belongs to the harness band
+        // asserted by HarnessBuildFooterTests, which shows the version and the
+        // worktree side by side out of AppVersion.OfEntryAssembly(); this one shows
+        // one or the other out of IAppUpdateService and carries live controls.
+        Assert.DoesNotContain("build-footer", footer, StringComparison.Ordinal);
+
+        // No heading. FocusOnNavigate in Routes.razor moves focus to the first h1
+        // in the document on every navigation, and an h1 down here would take that
+        // from the page the reader just opened. The landmark type is the name, so
+        // there is nothing for a heading to add — which is the same reason there is
+        // no role="contentinfo" and no aria-label on the tag above.
+        Assert.DoesNotContain("<h1", footer, StringComparison.Ordinal);
+        Assert.DoesNotContain("role=\"contentinfo\"", footer, StringComparison.Ordinal);
+
+        // A containing block here would clip both dialogs to the height of the
+        // band: Modal renders position: fixed, and any of these properties on an
+        // ancestor makes that ancestor the reference instead of the viewport.
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var block = css[css.IndexOf(".app-footer {", StringComparison.Ordinal)..];
+        block = block[..block.IndexOf('}')];
+
+        foreach (var containing in new[] { "transform", "filter", "backdrop-filter", "contain:", "perspective", "will-change" })
+        {
+            Assert.DoesNotContain(containing, block, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// The move is a move, not a copy. Both controls were mounted per page before —
+    /// the feedback trigger on both routes, the version control on Home — and the
+    /// layout now mounts each exactly once. Leaving either behind would render it
+    /// twice on the page that kept it.
+    /// </summary>
+    [Fact]
+    public void The_pages_no_longer_mount_the_app_wide_utilities_themselves()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var settings = NormalizeLineEndings(File.ReadAllText(FindSettingsRazor()));
+
+        Assert.DoesNotContain("FeedbackReportButton", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("app-version", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("app-update-dialog", home, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("FeedbackReportButton", settings, StringComparison.Ordinal);
+
+        // The state machine went with the markup. A field left behind here is dead
+        // weight that the compiler will not complain about, because Razor generates
+        // no unused-field warning for a component's @code block.
+        Assert.DoesNotContain("_appUpdateWindowOpen", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("DevelopmentWorkspaceLabel", home, StringComparison.Ordinal);
+
+        // But _workspaceWasHidden stays: despite the name it is about the workspace
+        // *surface* coming back into view and where focus goes when it does, which
+        // has nothing to do with the worktree label.
+        Assert.Contains("_workspaceWasHidden", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -880,6 +995,15 @@ public sealed class GlobalPaneMarkupTests
     private static string FindAppCss() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
 
     private static string FindHomeRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor");
+
+    // The app shell above the routes, and the footer it mounts. Neither belongs to
+    // a page, which is the whole point of asserting against them separately from
+    // Home: what they carry has to hold on every route, not just the one below.
+    private static string FindMainLayoutRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "MainLayout.razor");
+
+    private static string FindAppFooterRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "AppFooter.razor");
+
+    private static string FindSettingsRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Settings", "Settings.razor");
 
     private static string FindWorkspaceSurface() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "WorkspaceSurface.cs");
 
