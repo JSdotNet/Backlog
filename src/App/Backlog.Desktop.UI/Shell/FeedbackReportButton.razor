@@ -4,11 +4,19 @@
 @inject IAppFeatureSettings Features
 
 @*
-    The "Report issue" trigger and its dialog, self-contained so every routed
-    page can mount the same instance rather than each page growing its own copy
-    of the state machine underneath it. Home and Settings are the app's only two
-    routes today; a third route reaches every page the same way this one does —
-    by adding this tag, not by re-deriving the dialog.
+    The "Report issue" trigger and its dialog, self-contained so the trigger and
+    the state machine underneath it travel together rather than each page growing
+    its own copy.
+
+    It is mounted in exactly one place: AppFooter, which MainLayout renders below
+    the routed body. Both routes used to mount it themselves, which was the only
+    arrangement available while the layout was a bare `@Body` — and it meant
+    adding a route meant remembering to add this tag. Now a third route gets the
+    button by existing, and nothing about reporting an issue is a page's business
+    any more.
+
+    So the shape it wears is `.header-util`, which is the utility-button shape
+    rather than a header-only class, and it is unchanged by the move.
 *@
 
 @if (IsFeatureEnabled(AppFeatures.FeedbackReporting))
