@@ -25,6 +25,7 @@
           IsNodeSelected="node => IsNodeSelected(Original(node))"
           IsNodeExpanded="node => IsNodeExpanded(Original(node))"
           NodeClass="node => NodeClass(Original(node))"
+          NodeMark="node => Mark(Original(node))"
           IsFolderOpening="node => IsFolderOpening(Original(node))"
           OnNodeSelected="node => OnNodeSelected.InvokeAsync(Original(node))"
           OnOpenFolder="node => OnOpenFolder.InvokeAsync(Original(node))" />
@@ -92,6 +93,44 @@
             node.Available,
             node.Message,
             [.. node.Children.Select((child, index) => Map(child, $"{id}/{index}"))]);
+    }
+
+    /// <summary>
+    /// The mark a row leads with, or nothing.
+    /// <para>
+    /// Only <c>.domain</c> files, and only the seven file types. The tree has no
+    /// chapter rows — <see cref="KnowledgeMenuNodeKind"/> is folder, file or
+    /// message — so the eleven chapter marks have nowhere here to be drawn, and
+    /// the other knowledge areas have no <c>type</c> vocabulary of this shape at
+    /// all. Every other row is left exactly as it was.
+    /// </para>
+    /// <para>
+    /// Derived from the filename through the same mapping the panel reads a
+    /// document's kind with, so a row and the document it opens cannot show two
+    /// different marks for one file.
+    /// </para>
+    /// </summary>
+    private static RenderFragment? Mark(KnowledgeMenuNode node)
+    {
+        if (node.Kind is not KnowledgeMenuNodeKind.File) return null;
+        if (!string.Equals(node.AreaKey, "domain", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var type = DomainKnowledgeFileTypes.Of(Path.GetFileName(node.Path) ?? string.Empty);
+        if (type is null) return null;
+
+        // A px size rather than the em default: a menu row is fixed-density chrome
+        // and every mark in the column has to be the same mark, whatever type
+        // scale the row's label happens to inherit.
+        //
+        // Decorative, and that is the whole difference from the chapter heading.
+        // `.design/accessibility.md` is explicit — an icon beside a visible label
+        // is hidden from assistive technology so the label is not read twice — and
+        // a row labelled "Model" beside a mark announcing "type: model" is exactly
+        // that case. The heading earned its name because the metadata row that used
+        // to state the type was taken away and the mark became the only statement
+        // of it; here nothing was taken away, and the mark is reinforcement for the
+        // eye. Unlabelled, so no tooltip either: the row's own text is untouched.
+        return @<KnowledgeTypeMarker Value="@type" Size="13px" TestId="knowledge-menu-type-mark" />;
     }
 
     private KnowledgeMenuNode Original(TreeNode node) =>
