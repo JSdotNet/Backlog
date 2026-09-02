@@ -209,6 +209,119 @@ public sealed class TaskListTests
         Assert.NotNull(view.Find(".task-item__meta"));
     }
 
+    // --- Person tags ------------------------------------------------------
+    //
+    // A person tag keeps its `@` in the stored value, so the row cannot assume a
+    // tag is drawn with a hash in front of it. Two kinds of tag, one sigil each.
+
+    [Fact]
+    public void A_person_tag_is_drawn_with_its_own_sigil_rather_than_a_hash()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob", "deploy"])));
+
+        // Not "#@bob": the stored value already carries the sigil that says which
+        // kind of tag it is, and a hash bolted on to it names nothing.
+        Assert.Equal(["@bob", "#deploy"], view.FindAll(".task-item__tag").Select(t => t.TextContent));
+    }
+
+    [Fact]
+    public void A_person_chip_is_distinguishable_from_a_general_chip()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob", "deploy"])));
+
+        var chips = view.FindAll(".task-item__tag");
+
+        Assert.Contains("tag-chip--person", chips[0].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+    }
+
+    [Fact]
+    public async Task A_listening_host_gets_a_person_tag_by_its_stored_value()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pressed = new List<string>();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob"]))
+            .Add(t => t.OnTagSelected, tag => pressed.Add(tag)));
+
+        var chip = view.Find(".task-item__tag .tag-chip__label");
+
+        Assert.Equal("Filter by @bob", chip.GetAttribute("aria-label"));
+
+        await chip.ClickAsync(new());
+
+        // The sigil is part of the stored tag here, unlike a general tag whose
+        // hash is only ever drawn.
+        Assert.Equal(["@bob"], pressed);
+    }
+
+    // --- Tags typed in the title ------------------------------------------
+
+    [Fact]
+    public void The_title_draws_its_tags_as_chips_without_losing_a_character_of_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship the installer @bob #deploy")));
+
+        var title = view.Find(".task-item__title");
+
+        // Nothing is stripped and nothing is rewritten: the chips are drawn in
+        // place, so the accessible name still reads as the whole title.
+        Assert.Equal("Ship the installer @bob #deploy", title.TextContent);
+
+        var chips = title.QuerySelectorAll(".task-item__title-tag");
+
+        Assert.Equal(["@bob", "#deploy"], chips.Select(c => c.TextContent));
+        Assert.Contains("tag-chip--person", chips[0].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+    }
+
+    [Fact]
+    public void A_title_chip_is_never_a_control_because_the_title_is_already_one()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it @bob"))
+            .Add(t => t.OnSelected, _ => { })
+            .Add(t => t.OnTagSelected, _ => { }));
+
+        // A button cannot hold a button, and the title is the button that opens
+        // the row — so a chip inside it stays the span it is even when a host is
+        // listening for tags.
+        Assert.Empty(view.FindAll(".task-item__title button"));
+    }
+
+    [Fact]
+    public void A_title_with_nothing_taggable_in_it_is_drawn_as_plain_text()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Mail bob@example.com about C# 14")));
+
+        var title = view.Find(".task-item__title");
+
+        Assert.Equal("Mail bob@example.com about C# 14", title.TextContent);
+        Assert.Empty(title.QuerySelectorAll(".task-item__title-tag"));
+    }
+
     /// <summary>
     /// The row stays one line whether or not the tags lead anywhere.
     /// <para>

@@ -932,6 +932,28 @@ button.badge:hover {
     white-space: nowrap;
 }
 
+/*
+  A person tag — `@bob` — beside a general one. Two kinds of tag now share this
+  chip, so the difference has to be visible without being read.
+
+  It is drawn as a quiet pill rather than a second hue. No colour value is
+  introduced and no token is borrowed from a theme that reserves its names: the
+  ink is text-primary and the surface is a mix of it against whatever the chip
+  sits on, which is the same construction .tag-chip__remove:hover already uses.
+  That leaves the brand gold meaning "general tag" and nothing else.
+
+  Three carriers, not one: the `@` sigil is drawn in the label, the shape changes,
+  and the colour changes. .design/color-scheme.md is explicit that a fill may
+  never be the sole carrier of a distinction, and the sigil is the carrier that
+  survives being unable to see either.
+*/
+.tag-chip--person {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    border-radius: var(--border-radius-full);
+    padding: 0 var(--spacing-xs);
+}
+
 /* --- Save-state indicator ------------------------------------------------ */
 
 .save-indicator {
@@ -2758,6 +2780,23 @@ button.task-panel__check:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/*
+  A tag typed into the title is drawn where it stands, so it is inline rather
+  than a block on a line of its own: the sentence has to keep reading as one.
+
+  It inherits the title's font size instead of dropping to the metadata line's,
+  because it is part of a sentence and not part of that line — a chip a step
+  smaller than the words either side of it reads as a footnote wedged into the
+  title. The chip's own max-width is released for the same reason: the title
+  already ellipses as a whole, and a second clamp inside it would truncate one
+  word while the rest of the line still had room.
+*/
+.task-item__title-tag {
+    font-size: inherit;
+    max-width: none;
+    vertical-align: baseline;
 }
 
 .task-item__meta {
