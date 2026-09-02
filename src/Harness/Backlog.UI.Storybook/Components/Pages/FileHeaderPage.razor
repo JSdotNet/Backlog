@@ -110,6 +110,25 @@ The chapters keep theirs. A `##` fence describes the chapter under it, that head
         </div>
     </Story>
 
+    <Story Name="The status in a side pane's header"
+           Description="The same record in a header the width a knowledge side pane actually gives it. Nothing at the call site changes — the width is the header's — and what changes is the pill: it is as wide as the word in it rather than the 7.5rem column a table of statuses needs, so what is left of the line goes to the name and the path.
+
+Narrow enough that the name still gives: it truncates the way the path beside it does, cut in the drawing and whole in the DOM. What it no longer gives is the whole line to one badge.
+
+`FileViewHeaderLayoutTests` pins the width, and pins that it is scoped here — a status stacked under another status is still a column, so the chapters in the body and the rows of a backlog keep the width they have."
+           Code="@PaneCode">
+        <div class="sb-knowledge-pane">
+            <div class="sb-frame" data-testid="file-header-pane-frame">
+                <FileHeader Name="0002-backlog-module-owns-the-entry-text-language.md"
+                            Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
+                            Metadata="@FileRecord"
+                            Vocabulary="@TechVocabulary"
+                            ShowMetadataFields="false"
+                            TestId="file-header-pane" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="The record's second tier, on and off"
            Description="`ShowMetadataFields` is the header's dial over everything that is not the status. Off, the record keeps the status beside the name and drops the rows underneath — which is what a narrow header asks for, and what the knowledge panes ask for: the status is the one part of a `meta` block with a reading behind it, and the rest is the fence again with the fence taken off.
 
@@ -394,6 +413,18 @@ Press it — the toggle reports the state it is asking for, and the pane is what
            would make the header look right and tell a screen reader a path that is
            not the file's. *@
         <FileHeader Name="@file.Name" Path="@file.Path" />
+        """;
+
+    private const string PaneCode = """
+        @* Nothing here says how narrow the header is allowed to get. A knowledge
+           pane hands it the width its own grid track leaves, and the header decides
+           what gives: the name and the path truncate, and the status is as wide as
+           its word. *@
+        <FileHeader Name="@file.Name"
+                    Path="@file.Path"
+                    Metadata="@_fileRecord?.Metadata"
+                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    ShowMetadataFields="false" />
         """;
 
     private const string RecordCode = """

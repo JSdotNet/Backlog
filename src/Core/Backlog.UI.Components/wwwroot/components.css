@@ -5671,6 +5671,48 @@ select.field__input option {
     grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
 }
 
+/*
+   And the one other thing the header changes about the record: how wide the
+   status is.
+
+   `.badge--status` is 7.5rem wherever it appears — "a 7.5rem column in a table of
+   them", as the badge rules put it — because a stack of statuses under one another
+   has to line up, and the reading body reserves its own strip off that same number
+   (see --md-status-column). This header holds exactly one record, so the column
+   the pill would be a cell of does not exist here: the 7.5rem buys no alignment
+   and costs the name most of the row. In a knowledge side pane the header is about
+   272px and the pill was 120px of it, which left the name — the thing the pill is
+   qualifying — a couple of characters and an ellipsis. A header identifies; it is
+   not a second document (.design/design-principles.md#low-chrome-content-first).
+
+   So here it is as wide as the word in it. `min-width` as well as `width`: the
+   floor is the half that was actually holding the box open, and one without the
+   other changes nothing.
+
+   This is a visible change to every file view header and not only a narrow one — a
+   wide pane's pill is now the width of its word rather than of the column — and
+   that is the point rather than a side effect, because there is no column in a
+   header at any width. What a reader does align against the chapters below is the
+   trailing edge, and that does not move: the status still closes the line by its
+   own `margin-inline-start: auto`, so only its left edge comes in.
+
+   The same argument, scoped the same way, as `.entry-row__pickers .badge--status`
+   in the desktop shell's app.css, which narrows the pill on an entry row for
+   exactly this reason. That one keeps a fixed width because a list of entries does
+   stack; this one has nothing to stack with, so it takes its content's.
+
+   Both forms of the status are covered, because the selector names the class the
+   two share: a pill that changed size depending on whether the reader may edit it
+   would be a worse header than the wide one. They do not land on the same number —
+   the read-only badge is as wide as the word it shows, and the StatusSelector's
+   select is as wide as the longest word it offers, since that is what a control
+   holding a choice has to fit. Both are content, and neither clips.
+*/
+.file-view__header .knowledge-record__headline > .badge--status {
+    width: auto;
+    min-width: 0;
+}
+
 /* The path earns the monospace: it is a machine string, and the reader is
    usually checking one segment of it rather than reading it as prose. It gives up
    room when the header is narrow — the name beside it still identifies the file,
