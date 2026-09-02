@@ -569,15 +569,61 @@ reopening starts the work again rather than restoring where it stood before.
 
 ```meta
 type: feature
-status: draft
-related: [.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding]
+status: deprecated
+related: [.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding, .domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
+
+Deprecated. Superseded by [Multi-device sync](#multi-device-sync).
 
 Automatically refresh when another process or device modifies the shared backlog,
 keeping changes synchronized across machines accessing the same data. Enable or
-disable this feature and configure the refresh interval in Settings → Storage. This
-is an interim mechanism while the cloud Sync module is in development; the eventual
-architecture will use direct push updates instead.
+disable this feature and configure the refresh interval in Settings → Storage.
+
+This was an interim mechanism, and it does not work. It assumes two machines can
+share one backlog through a shared folder, which was true while a task was its
+own markdown file and stopped being true when the store became a single binary
+database. Pointing the workspace root at a file-sync product produced conflicted
+copies of that database and silently reverted committed edits. Polling it more
+often does not help: the corruption is in the sharing, not in the staleness.
+
+## Multi-device sync
+
+```meta
+type: feature
+status: draft
+related: [.domain/tasks/domain.md#task, .arc42/08-crosscutting-concepts.md#task-sync, .arc42/07-deployment-view.md#cloud-deployment-azure, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+depends-on: [.domain/tasks/features.md#task-creation]
+```
+
+Keep the same backlog on more than one of the person's machines, without either
+machine giving up its own copy. Each device reads and writes its own store and
+reconciles with the others through the sync service; the cloud carries a replica
+of the tasks and never becomes the authority for them.
+
+Working offline is the ordinary case, not a degraded one. Every task can be
+created, edited, completed, and deleted with no connectivity; the only thing
+connectivity buys is that the other machine finds out sooner.
+
+When the same task was edited in two places, the later edit wins whole. This is
+deliberate and it does lose the other edit — the alternative, merging field by
+field, would require the domain to have a rule for reconciling two different
+priorities or two different statuses, and it has none. What the person sees is
+one task with one status, which is the property worth keeping.
+
+### Pairing a device
+
+```meta
+type: sub-feature
+status: draft
+related: [.arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+depends-on: [.domain/tasks/features.md#multi-device-sync]
+```
+
+Join a second machine to the same backlog by entering a short code shown on the
+first, once. There is no account and no sign-in: personal use requires no login
+(`.arc42/02-constraints.md`), so devices are paired to each other rather than to
+an identity. A paired device holds its own credential and can reach exactly one
+person's tasks and no one else's.
 
 ## Roadmap planning
 

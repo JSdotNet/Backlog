@@ -249,7 +249,7 @@ graph TB
 
   subgraph "App Layer"
     Capture["Capture Service\n(Quick add, Voice, Shortcuts)"]
-    Storage["Local Storage\n(JSON)"]
+    Storage["Local Storage\n(SQLite)"]
     Sync["Sync Engine\n(Conflict resolution)"]
   end
 
@@ -258,7 +258,6 @@ graph TB
     Creds["Secure Storage\n(Keychain / Vault)"]
   end
 
-  Cloud["Cloud Sync\n(OneDrive / GDrive)"]
   API["Cloud Sync API\n(REST + Auth)"]
 
   UI --> Capture
@@ -268,9 +267,14 @@ graph TB
   Capture --> Creds
   Storage --> Sync
   Sync -->|HTTPS| API
-  Sync -->|Optional| Cloud
   OS -->|Speech-to-text| Capture
 ```
+
+The sync engine reaches the cloud only through the sync API. Routing a device's
+store through a consumer file-sync product — OneDrive, Google Drive, or any
+other — is not a supported path and corrupts the store; see
+`.arc42/02-constraints.md#technical-constraints` and
+`.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 
 ## IDE Extensions
 

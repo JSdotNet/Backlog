@@ -1720,7 +1720,9 @@
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
-            ".arc42/08-crosscutting-concepts.md#shared-data-types"
+            ".arc42/08-crosscutting-concepts.md#shared-data-types",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ],
           "outOfScope": true
         }
