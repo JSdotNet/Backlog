@@ -99,7 +99,64 @@
         Tab to an element that is no longer there.
     */
     const backlogFocusTrapListeners = new Map();
-    const backlogFocusTrapReturns = new Map();
+    const backlogFocusReturns = new Map();
+
+    /*
+        Where the focus came from, and how to give it back.
+
+        Every overlay owes this: closing a modal or a drawer must return the focus
+        to the control that opened it. An `ElementReference` cannot express it —
+        the trigger is somebody else's element, usually in another component, and
+        may not be rendered any more by the time the overlay closes. So the
+        browser's own `activeElement` is read at open time and held here against
+        the overlay's id.
+
+        Separate from the trap below because a dialog needs the giving-back
+        without the trapping: `Modal` renders nothing at all while closed, so the
+        region a trap would hold is gone by the time the focus has to go back.
+    */
+    window.backlogCaptureFocus = (key) => {
+        const previous = document.activeElement;
+
+        // The body is not a trigger. Restoring to it is what the browser does on
+        // its own anyway, and recording it would make "nothing was focused"
+        // indistinguishable from a real control.
+        if (previous instanceof HTMLElement && previous !== document.body) {
+            backlogFocusReturns.set(key, previous);
+        } else {
+            backlogFocusReturns.delete(key);
+        }
+    };
+
+    /*
+        `restoreToId` beats the captured element whenever it is given and still in
+        the document: a host that knows which control opened the overlay can name
+        it, and a name survives that control being re-rendered while the overlay
+        was up, which a captured node does not. Neither one being there any more
+        is not an error — the focus simply stays where the browser left it.
+
+        `regionId` names the overlay itself, for an overlay still in the document
+        on close: a reader who clicked somewhere else entirely is left where they
+        are rather than yanked back. An overlay that removes itself on close has
+        no region to name, and then only a loose focus — the body, where the
+        browser drops it when the focused element is torn out — is taken back.
+    */
+    window.backlogRestoreFocus = (key, restoreToId, regionId) => {
+        const captured = backlogFocusReturns.get(key);
+        backlogFocusReturns.delete(key);
+
+        const named = restoreToId ? document.getElementById(restoreToId) : null;
+        const target = named ?? captured;
+        if (!(target instanceof HTMLElement) || !target.isConnected) return false;
+
+        const active = document.activeElement;
+        const loose = !active || active === document.body || active === document.documentElement;
+        const region = regionId ? document.getElementById(regionId) : null;
+        if (!loose && !(region && region.contains(active))) return false;
+
+        target.focus();
+        return true;
+    };
 
     const backlogFocusTrapSelector = [
         'a[href]',
@@ -133,10 +190,7 @@
         element.dataset.backlogFocusTrap = 'armed';
         element.dataset.backlogFocusReturn = restoreToId ?? '';
 
-        const previous = document.activeElement;
-        if (previous instanceof HTMLElement) {
-            backlogFocusTrapReturns.set(id, previous);
-        }
+        window.backlogCaptureFocus(id);
 
         const onKeyDown = (event) => {
             if (event.key !== 'Tab') return;
@@ -188,6 +242,11 @@
 
     window.backlogReleaseFocusTrap = (id) => {
         const element = document.getElementById(id);
+
+        // Read the named return before clearing the attribute that holds it. That
+        // attribute is the only place it is kept, so clearing first loses it.
+        const named = element?.dataset?.backlogFocusReturn || null;
+
         if (element) {
             delete element.dataset.backlogFocusTrap;
             delete element.dataset.backlogFocusReturn;
@@ -196,16 +255,7 @@
         backlogFocusTrapListeners.get(id)?.();
         backlogFocusTrapListeners.delete(id);
 
-        const named = element?.dataset?.backlogFocusReturn;
-        const target = (named && document.getElementById(named)) || backlogFocusTrapReturns.get(id);
-        backlogFocusTrapReturns.delete(id);
-
-        // Only take the focus back if the region still holds it. The reader may have
-        // clicked somewhere else entirely, and yanking them back would be the trap
-        // outliving the thing it was trapping for.
-        if (target && target.isConnected && (!element || element.contains(document.activeElement) || document.activeElement === document.body)) {
-            target.focus();
-        }
+        window.backlogRestoreFocus(id, named, id);
     };
 
     /*

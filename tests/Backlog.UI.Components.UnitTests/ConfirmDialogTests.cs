@@ -6,6 +6,7 @@ public sealed class ConfirmDialogTests
     public void Confirm_comes_from_the_confirm_button()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var confirmed = 0;
         var cancelled = 0;
 
@@ -26,6 +27,7 @@ public sealed class ConfirmDialogTests
     public void Cancel_comes_from_the_cancel_button()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var confirmed = 0;
         var cancelled = 0;
 
@@ -46,6 +48,7 @@ public sealed class ConfirmDialogTests
     public void A_destructive_confirm_is_the_danger_button()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var safe = context.Render<ConfirmDialog>(parameters => parameters
             .Add(d => d.Open, true)
@@ -65,6 +68,7 @@ public sealed class ConfirmDialogTests
         // Escape and the backdrop both mean "no", so a destructive action can
         // never be taken by dismissing the question.
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var cancelled = 0;
         var confirmed = 0;
 
