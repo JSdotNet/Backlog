@@ -29,7 +29,7 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         status: draft
         ```
 
-        Work logging belongs to `.domain/backlog/domain.md#domain-event-aiworklogged`, and the
+        Work logging belongs to `.domain/tasks/domain.md#domain-event-aiworklogged`, and the
         system in its surroundings is drawn in `.arc42/03-context-and-scope.md`.
         """;
 
@@ -43,12 +43,12 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
 
-        Reference(component, ".domain/backlog/domain.md#domain-event-aiworklogged").Click();
+        Reference(component, ".domain/tasks/domain.md#domain-event-aiworklogged").Click();
 
         // The chapter the reference names, shown as the file it is — and the menu
         // beside it marking where the reader now is, because arriving from a
         // reference and arriving from the menu have to leave the same pane.
-        component.WaitForAssertion(() => Assert.Equal(".domain/backlog/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
         Assert.Equal("Domain", component.Find(".knowledge-menu__item--active").TextContent.Trim());
     }
 
@@ -73,12 +73,12 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
     [Fact]
     public async Task A_reference_to_a_chapter_the_menu_does_not_have_changes_nothing()
     {
-        await using var harness = CreateHarness(contextMap: ContextMap + "\n\nAnd `.domain/backlog/renamed.md` no longer exists.\n");
+        await using var harness = CreateHarness(contextMap: ContextMap + "\n\nAnd `.domain/tasks/renamed.md` no longer exists.\n");
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
 
-        Reference(component, ".domain/backlog/renamed.md").Click();
+        Reference(component, ".domain/tasks/renamed.md").Click();
 
         // A reference is prose, and prose goes stale. Selecting a path with nothing
         // behind it would empty the panel, which reads as the pane having broken
@@ -96,7 +96,7 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         status: draft
         ```
 
-        Work is logged against a [backlog entry](backlog/domain.md#domain-event-aiworklogged),
+        Work is logged against a [task](tasks/domain.md#domain-event-aiworklogged),
         the system in its surroundings is drawn in [context and scope](../.arc42/03-context-and-scope.md),
         and the shape of it is [in the picture](assets/context.png).
         """;
@@ -109,13 +109,13 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
 
-        Reference(component, ".domain/backlog/domain.md#domain-event-aiworklogged").Click();
+        Reference(component, ".domain/tasks/domain.md#domain-event-aiworklogged").Click();
 
         // The same landing as the rooted form: the chapter as a file, and the menu
         // marking where the reader now is. It used to be an anchor with
-        // target="_blank" on `backlog/domain.md`, which is the reader's browser
+        // target="_blank" on `tasks/domain.md`, which is the reader's browser
         // asking the app's own origin for a repository path.
-        component.WaitForAssertion(() => Assert.Equal(".domain/backlog/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
+        component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
         Assert.Equal("Domain", component.Find(".knowledge-menu__item--active").TextContent.Trim());
     }
 
@@ -160,12 +160,12 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
     private Harness CreateHarness(string? contextMap = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-knowledge-pane-navigation", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(root, ".domain", "backlog"));
+        Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
         _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
-        File.WriteAllText(Path.Combine(root, ".domain", "backlog", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the backlog context is.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

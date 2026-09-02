@@ -44,7 +44,7 @@ public sealed class HomeInitialLoadTests
 
         // Written through the real use case, so the store is left exactly as the
         // app leaves it — index and all.
-        var saved = await BacklogTestHost.EntriesFor(store).SaveFromTextAsync(null, entryText, 0);
+        var saved = await TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, entryText, 0);
         Assert.True(saved.IsSuccess);
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
@@ -58,7 +58,7 @@ public sealed class HomeInitialLoadTests
                      DevPcFeatures.SystemTools,
                      AppFeatures.AiAssistant,
                      AppFeatures.FeedbackReporting,
-                     BacklogFeatures.GitHubIntegration
+                     TasksFeatures.GitHubIntegration
                  })
         {
             _ = featureSettings.SetEnabled(feature, false);
@@ -81,12 +81,12 @@ public sealed class HomeInitialLoadTests
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
-            BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
+            TasksTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         // The band gathers an item's linked and tagged work through this port before it
         // opens the editor, so a host that composes the band composes the rollup with it.
         context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
-                BacklogTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
@@ -100,10 +100,10 @@ public sealed class HomeInitialLoadTests
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
-        context.Services.AddScoped(sp => BacklogTestHost.StateFor(
+        context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            BacklogCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable));
 
         return new Harness(root, context);
     }

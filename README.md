@@ -53,7 +53,7 @@ The system also tracks technology stack baselines, repository health, and develo
 Primary domains:
 - Capture
 - Inbox
-- Backlog Management
+- Tasks
 - Roadmap Planning
 - Second Brain
 - Productivity
@@ -103,9 +103,9 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Aspire/Backlog.Aspire.ServiceDefaults` | Shared OpenTelemetry, resilience, and service discovery defaults |
 | `src/Core/Backlog.SharedKernel` | Shared kernel — `Result`, `Result<T>`, and `Error` primitives used by every module |
 | `src/Core/Backlog.UI.Components` | Shared Razor control library — no domain in it, rendered on its own in the storybook |
-| `src/Modules/Backlog/Backlog.Modules.Backlog` | Backlog module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
-| `src/Modules/Backlog/Backlog.Modules.Backlog.Abstractions` | The Backlog module's published surface — DTOs, the entry text format, and `ITaskItems` |
-| `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
+| `src/Modules/Tasks/Backlog.Modules.Tasks` | Tasks module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
+| `src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions` | The Tasks module's published surface — DTOs, the entry text format, and `ITaskItems` |
+| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — what has been captured but not decided on |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions` | Second Brain's published surface — `IKnowledgeFolderSource`, the configured-folder format, and the location a folder resolves to |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain's desktop face — the knowledge menu and the arc42, domain, design, technology, and instruction panels |
@@ -120,7 +120,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
 | `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local task store, one SQLite database behind `ITaskRepository`. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `IBacklogStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, and the stored roadmap plan |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, and the stored roadmap plan |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -135,7 +135,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.design` rule beside it |
 | `src/Harness/Backlog.AzureFoundry.TestService` | **Test harness, not shipped** — a stand-in for Azure Foundry so the assistant can be driven without a cloud account |
-| `tests/Backlog.Modules.Backlog.UnitTests` | Unit tests for the Backlog module domain |
+| `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
 | `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite task store — round-tripping an aggregate, and rank order |
@@ -156,7 +156,7 @@ rather than a folder inside the shell. The split follows
 | Project | Bounded context / role |
 |---|---|
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Publishes `InboxItem`; reads nothing back |
-| `src/Modules/Backlog/Backlog.Modules.Backlog.UI` | Backlog Management — the entry pane, its drafts, and its GitHub and Copilot CLI projections |
+| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane, its drafts, and its GitHub and Copilot CLI projections |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
@@ -165,20 +165,20 @@ rather than a folder inside the shell. The split follows
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
-the Inbox references nothing but the shared control library, Backlog Management
+the Inbox references nothing but the shared control library, Tasks
 and Second Brain each reference only their own module's Abstractions, the Dashboard
 references its own Abstractions plus the two adapters it reads providers through
 and no sibling context at all, and the one context-to-context edge the context map
-allows — Backlog Management conforming to the Inbox's published `InboxItem` — is a
+allows — Tasks conforming to the Inbox's published `InboxItem` — is a
 project reference somebody had to write down. `DesktopDomainBoundaryTests` covers what the graph alone cannot.
 
 There used to be a `Backlog.Desktop.Workspace` project underneath the contexts
 holding where the backlog lives, which repositories are configured and which
 features are on. Being readable by everyone made it the place two contexts could
 meet without either publishing anything: Second Brain read the backlog root and
-Backlog Management read the knowledge-folder resolver, which is not the
+Tasks read the knowledge-folder resolver, which is not the
 Partnership `.domain/context-map.md` describes. Those four types are now module
-ports — `IBacklogStore` in Backlog Management's Abstractions,
+ports — `ITaskStore` in Tasks's Abstractions,
 `IKnowledgeFolderSource` in Second Brain's, `IAppFeatureSettings` in the shared
 kernel — with the adapters that answer them in
 `Backlog.Infrastructure.FileSystem` and, for tasks themselves,
@@ -189,7 +189,7 @@ a screen is not.
 is what keeps it that way.
 
 The client is a client: it dispatches use cases and holds DTOs. Deciding what a
-backlog entry is belongs to `Backlog.Modules.Backlog`, which the UI reaches only
+task is belongs to `Backlog.Modules.Tasks`, which the UI reaches only
 through its Abstractions project — see
 [ADR 0002](.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
 Anything the contexts genuinely share — the status, priority and repository
@@ -202,13 +202,13 @@ module UI project carries its own, so a component can only reach into another
 context by saying so in writing.
 
 The projects keep their original root namespaces — `Backlog.Desktop.UI.Inbox`,
-`.BacklogManagement`, `.Knowledge` — set explicitly in each
+`.Tasks`, `.Knowledge` — set explicitly in each
 `.csproj` and deliberately not matching the project name. The Razor generator
 emits a component's `@using` directives *inside* the component's namespace and
 without a `global::` prefix, so a namespace carrying a second `Backlog` segment
-shadows the repository root: under `Backlog.Modules.Backlog.UI`, `@using
-Backlog.UI.Components.Markdown` binds to `Backlog.Modules.Backlog` and fails with
-CS0234. The namespace segment is `BacklogManagement`, not `Backlog`, for the same
+shadows the repository root: under `Backlog.Modules.Tasks.UI`, `@using
+Backlog.UI.Components.Markdown` binds to `Backlog.Modules.Tasks` and fails with
+CS0234. The namespace segment is `Tasks`, not `Backlog`, for the same
 reason, and it is also the context's name in the context map — so the constraint
 and the domain language agree. The modules whose code was never in the shell to
 begin with (`Dashboard`, `Roadmap`, `DevPc`, `Sessions`) use their own

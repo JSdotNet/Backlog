@@ -43,7 +43,7 @@ migration at startup is prohibited.
   implementations (`SqliteTaskRepository`, `RootedSqliteTaskRepository`) and the
   persistence-only mapping types (`TaskPayloads`, `EnumMap`).
 - Repository **ports** stay in the module (`ITaskRepository` at the root of
-  `Backlog.Modules.Backlog`), exactly as the decision requires.
+  `Backlog.Modules.Tasks`), exactly as the decision requires.
 - Domain models are persistence-agnostic: no ORM attributes anywhere in a module
   project.
 

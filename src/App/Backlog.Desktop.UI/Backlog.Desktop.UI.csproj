@@ -37,7 +37,7 @@
          composed here the same way: a surface the shell makes room for and
          otherwise knows nothing about. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
@@ -48,7 +48,7 @@
          so the shell that renders the list of switches names them where they are
          declared rather than restating the strings. It still sees no DTO, no
          port and no aggregate: a key is a constant. -->
-    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />

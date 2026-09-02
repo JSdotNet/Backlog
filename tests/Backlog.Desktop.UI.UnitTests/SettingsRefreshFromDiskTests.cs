@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Bunit;
 
@@ -59,7 +59,7 @@ public sealed class SettingsRefreshFromDiskTests
         interval.Change();
 
         Assert.Equal(
-            BacklogRefreshSettings.DefaultPollingIntervalSeconds,
+            TasksRefreshSettings.DefaultPollingIntervalSeconds,
             settings.Refresh.Current.PollingIntervalSeconds);
 
         var status = settings.Component.Find("[data-testid='storage-refresh-status']");
@@ -77,7 +77,7 @@ public sealed class SettingsRefreshFromDiskTests
         interval.Change();
 
         Assert.Equal(
-            BacklogRefreshSettings.DefaultPollingIntervalSeconds,
+            TasksRefreshSettings.DefaultPollingIntervalSeconds,
             settings.Refresh.Current.PollingIntervalSeconds);
         Assert.Contains(
             "setting__status--error",
@@ -93,17 +93,17 @@ public sealed class SettingsRefreshFromDiskTests
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
 
-        var refresh = new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json"));
+        var refresh = new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json"));
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<IBacklogRefreshSettings>(refresh);
+        context.Services.AddSingleton<ITasksRefreshSettings>(refresh);
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));
@@ -154,7 +154,7 @@ public sealed class SettingsRefreshFromDiskTests
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
-        BacklogRefreshSettingsStore Refresh) : IDisposable
+        TasksRefreshSettingsStore Refresh) : IDisposable
     {
         public void Dispose()
         {

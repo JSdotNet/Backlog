@@ -2,7 +2,7 @@ using Bunit;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -124,7 +124,7 @@ public sealed class SettingsAiUsageTests
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, aiAssistantEnabled);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, usageMetricsEnabled);
 
@@ -139,8 +139,8 @@ public sealed class SettingsAiUsageTests
         var testContext = new BunitContext();
         testContext.Services.AddSingleton(store);
         testContext.Services.AddSingleton<IAppFeatureSettings>(features);
-        testContext.Services.AddSingleton<IBacklogRefreshSettings>(
-            new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        testContext.Services.AddSingleton<ITasksRefreshSettings>(
+            new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);

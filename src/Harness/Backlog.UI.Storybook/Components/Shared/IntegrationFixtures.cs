@@ -282,7 +282,7 @@ internal static class IntegrationFixtures
         "session 4a1c",
         IntegrationProvider.Copilot,
         IntegrationSessionState.Running,
-        "Migrating BacklogPane onto IntegrationLink",
+        "Migrating TasksPane onto IntegrationLink",
         repository: ProductRepo);
 
     public static readonly IntegrationLinkRef ClaudeSession = IntegrationLinkRef.Session(
@@ -399,7 +399,7 @@ internal static class IntegrationFixtures
     /// going two ways — which is exactly why one Usage Event would record them
     /// with the same subject and a different action.</summary>
     public const string PromptText = """
-        Migrate BacklogPane.razor off the hand-rolled .badge--gh-{state} anchors
+        Migrate TasksPane.razor off the hand-rolled .badge--gh-{state} anchors
         and onto IntegrationLink, keeping the existing test ids.
         """;
 
@@ -447,7 +447,7 @@ internal static class IntegrationFixtures
     public static readonly AiProposal ForwardedProposal = new(
         "proposal-forwarded-1",
         AiProposalKind.Rewrite,
-        "BacklogPane draws GitHub state with .badge--gh-{state} anchors of its own. "
+        "TasksPane draws GitHub state with .badge--gh-{state} anchors of its own. "
         + "Replacing them with IntegrationLink keeps the existing test ids and drops "
         + "the GitHubStateClass helper entirely.",
         IntegrationProvider.Claude,

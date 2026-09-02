@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <!-- Roadmap Planning's IRoadmapPlanRepository, answered under Roadmap/ by one
          JSON document in the same storage root the backlog uses. An adapter
          referencing a module implementation is the normal direction; the module
@@ -29,7 +29,7 @@
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
-         settings file: Backlog Management's IBacklogStore and Second Brain's
+         settings file: Tasks' ITaskStore and Second Brain's
          IKnowledgeFolderSource. Answering them needs the GitHub repository
          settings as well as the local root, and holding that join is exactly
          what an adapter is for — it is what keeps either context from having to

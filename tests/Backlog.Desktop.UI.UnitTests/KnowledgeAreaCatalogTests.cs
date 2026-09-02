@@ -30,7 +30,7 @@ public sealed class KnowledgeAreaCatalogTests
     }
 
     /// <summary>
-    /// Backlog Management is its own workspace section, not a knowledge-base one.
+    /// Tasks is its own workspace section, not a knowledge-base one.
     /// A settings file written before it was retired still names <c>.backlog</c>,
     /// and switched on at that: the area strip must stay silent about it rather
     /// than offer a tab whose only content was ever "look somewhere else".

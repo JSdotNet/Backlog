@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 

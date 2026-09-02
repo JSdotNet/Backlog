@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tasks module — the Tasks bounded context (.domain/tasks).
+    Clean architecture, inside out:
+      DomainModels/  aggregates, value objects, enums, domain exceptions
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      domain services shared by more than one slice
+      Extensions/    AddTasksModule() composition root for hosts
+    Ports such as ITaskRepository live here; adapters live in src/Infrastructure.
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution. Hosts go the other way: they call the handlers
+    and hold the DTOs, never the aggregate.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Tasks</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddTasksModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Tasks.UnitTests" />
+  </ItemGroup>
+
+</Project>

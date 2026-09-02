@@ -45,13 +45,13 @@ internal sealed class RoadmapPlanning(
         PlanningPriority priority = PlanningPriority.Medium,
         IReadOnlyList<string>? repositoryAliases = null,
         string? lane = null,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         string? notes = null,
         string? tag = null,
         IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
         addItem.Handle(
-            new AddItemCommand(title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes, tag, knowledgeRefs),
+            new AddItemCommand(title, start, end, priority, repositoryAliases, lane, taskId, notes, tag, knowledgeRefs),
             cancellationToken);
 
     public Task<Result<RoadmapItemDto>> UpdateItemAsync(
@@ -62,13 +62,13 @@ internal sealed class RoadmapPlanning(
         PlanningPriority priority,
         IReadOnlyList<string>? repositoryAliases = null,
         string? lane = null,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         string? notes = null,
         string? tag = null,
         IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
         updateItem.Handle(
-            new UpdateItemCommand(itemId, title, start, end, priority, repositoryAliases, lane, backlogEntryId, notes, tag, knowledgeRefs),
+            new UpdateItemCommand(itemId, title, start, end, priority, repositoryAliases, lane, taskId, notes, tag, knowledgeRefs),
             cancellationToken);
 
     public Task<Result<RoadmapItemDto>> RescheduleItemAsync(

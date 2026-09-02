@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// What is being persisted here is a display preference rather than a fact about
 /// the work — see <c>.design/content-editing.md#scheduling-and-dependency-tokens</c>
-/// and <c>.domain/backlog/domain.md</c>. It rides on the metadata line anyway
+/// and <c>.domain/tasks/domain.md</c>. It rides on the metadata line anyway
 /// because the markdown is canonical: a preference kept in a sidecar would not
 /// survive the file being shared, and the reader who opened the entry somewhere
 /// else would get somebody else's default.
@@ -36,7 +36,7 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
         "So the first request is not the slow one.\n";
 
     private readonly List<string> _tempDirs = [];
-    private readonly List<BacklogDesktopState> _states = [];
+    private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
     public async Task An_entry_that_prefers_the_markdown_block_still_prefers_it_after_a_reload()
@@ -139,11 +139,11 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
         return root;
     }
 
-    private BacklogDesktopState State(string root)
+    private TasksDesktopState State(string root)
     {
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var state = BacklogTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
+        var state = TasksTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
         _states.Add(state);
         return state;
     }
@@ -152,7 +152,7 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
     {
         // Before the folders below go: the state arms timed saves, and one that
         // elapsed after its folder was deleted is work the test host is still
-        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        // holding when the run is over. See TasksDesktopStateLifetimeTests.
         foreach (var state in _states)
         {
             state.Dispose();

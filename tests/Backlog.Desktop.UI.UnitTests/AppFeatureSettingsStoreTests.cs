@@ -4,8 +4,23 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class AppFeatureSettingsStoreTests
 {
+    /// <summary>
+    /// The Tasks feature key is still the string "backlog".
+    /// <para>
+    /// The constant was renamed with the bounded context, but the value is a persisted
+    /// key: it is written into features.json as a member of the disabled/enabled sets.
+    /// Renaming the string would orphan whatever the reader had already toggled — their
+    /// settings would not error, they would just stop applying.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Backlog_cannot_be_disabled()
+    public void The_tasks_feature_key_keeps_the_value_it_was_stored_under()
+    {
+        Assert.Equal("backlog", TasksFeatures.Tasks);
+    }
+
+    [Fact]
+    public void Tasks_cannot_be_disabled()
     {
         var path = NewSettingsPath();
 
@@ -13,9 +28,9 @@ public sealed class AppFeatureSettingsStoreTests
         {
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            var message = store.SetEnabled(BacklogFeatures.Backlog, enabled: false);
+            var message = store.SetEnabled(TasksFeatures.Tasks, enabled: false);
 
-            Assert.True(store.IsEnabled(BacklogFeatures.Backlog));
+            Assert.True(store.IsEnabled(TasksFeatures.Tasks));
             Assert.Contains("always available", message);
             Assert.Empty(store.Current.DisabledFeatures);
         }
@@ -33,16 +48,16 @@ public sealed class AppFeatureSettingsStoreTests
         try
         {
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
-            store.SetEnabled(BacklogFeatures.GitHubIntegration, enabled: false);
+            store.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
             store.SetEnabled(AppFeatureKeys.CopilotCli, enabled: false);
-            store.SetEnabled(BacklogFeatures.AdditionalRepositories, enabled: false);
+            store.SetEnabled(TasksFeatures.AdditionalRepositories, enabled: false);
 
             var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.False(restarted.IsEnabled(BacklogFeatures.GitHubIntegration));
+            Assert.False(restarted.IsEnabled(TasksFeatures.GitHubIntegration));
             Assert.False(restarted.IsEnabled(AppFeatureKeys.CopilotCli));
-            Assert.False(restarted.IsEnabled(BacklogFeatures.AdditionalRepositories));
-            Assert.True(restarted.IsEnabled(BacklogFeatures.Backlog));
+            Assert.False(restarted.IsEnabled(TasksFeatures.AdditionalRepositories));
+            Assert.True(restarted.IsEnabled(TasksFeatures.Tasks));
         }
         finally
         {
@@ -61,7 +76,7 @@ public sealed class AppFeatureSettingsStoreTests
         Assert.Equal(
             [
                 // Product areas
-                BacklogFeatures.Backlog,
+                TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
                 KnowledgeFeatures.KnowledgeSections,
@@ -72,8 +87,8 @@ public sealed class AppFeatureSettingsStoreTests
                 DashboardFeatures.Dashboard,
 
                 // Cross-cutting
-                BacklogFeatures.AdditionalRepositories,
-                BacklogFeatures.GitHubIntegration,
+                TasksFeatures.AdditionalRepositories,
+                TasksFeatures.GitHubIntegration,
                 AppFeatures.FeedbackReporting,
                 AppFeatureKeys.CopilotCli,
                 AppFeatures.AiAssistant,
@@ -192,8 +207,8 @@ public sealed class AppFeatureSettingsStoreTests
             {
                 disabledFeatures = new[]
                 {
-                    BacklogFeatures.Backlog,
-                    BacklogFeatures.GitHubIntegration,
+                    TasksFeatures.Tasks,
+                    TasksFeatures.GitHubIntegration,
                     "retired-feature",
                     "updates",
                     "repositories"
@@ -202,8 +217,8 @@ public sealed class AppFeatureSettingsStoreTests
 
             var store = new AppFeatureSettingsStore(AppFeatures.All, path);
 
-            Assert.True(store.IsEnabled(BacklogFeatures.Backlog));
-            Assert.Equal([BacklogFeatures.GitHubIntegration], store.Current.DisabledFeatures);
+            Assert.True(store.IsEnabled(TasksFeatures.Tasks));
+            Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
         }
         finally
         {

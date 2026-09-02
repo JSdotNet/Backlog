@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Inbox;
 /// <para>
 /// This is the published contract the Inbox pane renders and the only shape a
 /// supplying context has to produce — see <c>.domain/context-map.md</c>, where
-/// Inbox sits upstream of Backlog Management and Second Brain. Keeping it a
+/// Inbox sits upstream of Tasks and Second Brain. Keeping it a
 /// plain record is what stops the pane from reaching into a backlog row for a
 /// title.
 /// </para>

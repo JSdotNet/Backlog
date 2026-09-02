@@ -4,7 +4,7 @@
    project's root namespace is Backlog.Modules.Roadmap.UI, and the Razor
    generator emits these directives inside that namespace without a global::
    prefix, so a bare "Backlog" would bind to Backlog.Modules the moment anything
-   in this project's reference closure declares a Backlog.Modules.Backlog
+   in this project's reference closure declares a Backlog.Modules.Tasks
    namespace. It now declares Backlog.Modules.Roadmap.Abstractions, which is
    exactly that shape, so global:: is load-bearing here rather than defensive. *@
 @using global::Backlog.Modules.Roadmap.Abstractions

@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Shell;
 internal enum GlobalPane
 {
     Inbox,
-    Backlog,
+    Tasks,
     Knowledge
 }
 
@@ -22,8 +22,12 @@ internal enum GlobalPane
 /// </summary>
 internal sealed class GlobalPaneSelection
 {
-    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Inbox, GlobalPane.Backlog, GlobalPane.Knowledge];
+    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge];
     private static readonly HashSet<GlobalPane> KnownPanes = [.. KnownPaneOrder];
+
+    /// <summary>The name <see cref="GlobalPane.Tasks"/> was stored under before the
+    /// Backlog bounded context was renamed to Tasks.</summary>
+    private const string LegacyTasksPaneName = "Backlog";
 
     private readonly HashSet<GlobalPane> _enabled;
     private readonly HashSet<GlobalPane> _available = [.. KnownPanes];
@@ -31,8 +35,31 @@ internal sealed class GlobalPaneSelection
     private int _capacity = KnownPaneOrder.Length;
 
     public GlobalPaneSelection()
-        : this(GlobalPane.Backlog)
+        : this(GlobalPane.Tasks)
     {
+    }
+
+    /// <summary>
+    /// Reads a persisted pane name, accepting the name a pane was stored under
+    /// before the rename.
+    /// <para>
+    /// The shell writes its open and pinned panes to <c>shell-navigation.json</c> as
+    /// <c>ToString()</c> values, so a member name here is a stored value and not only
+    /// an identifier. A plain <see cref="Enum.TryParse{TEnum}(string, out TEnum)"/>
+    /// returns <see langword="false"/> for a layout saved as "Backlog", and the pane
+    /// would be dropped on restore — the reader would lose the arrangement they left
+    /// the app in, which reads as the app forgetting rather than as a rename.
+    /// </para>
+    /// </summary>
+    public static bool TryParsePersistedPane(string? name, out GlobalPane pane)
+    {
+        if (string.Equals(name, LegacyTasksPaneName, StringComparison.Ordinal))
+        {
+            pane = GlobalPane.Tasks;
+            return true;
+        }
+
+        return Enum.TryParse(name, out pane) && IsKnownPane(pane);
     }
 
     public GlobalPaneSelection(params GlobalPane[] enabled)
@@ -204,7 +231,7 @@ internal sealed class GlobalPaneSelection
     {
         if (_available.Count == 0)
         {
-            _available.Add(GlobalPane.Backlog);
+            _available.Add(GlobalPane.Tasks);
         }
 
         _enabled.IntersectWith(_available);
@@ -246,9 +273,9 @@ internal sealed class GlobalPaneSelection
 
     private GlobalPane DefaultPane()
     {
-        if (_available.Contains(GlobalPane.Backlog))
+        if (_available.Contains(GlobalPane.Tasks))
         {
-            return GlobalPane.Backlog;
+            return GlobalPane.Tasks;
         }
 
         return KnownPaneOrder.First(_available.Contains);

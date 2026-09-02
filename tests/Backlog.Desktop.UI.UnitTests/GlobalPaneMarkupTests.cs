@@ -35,7 +35,7 @@ public sealed class GlobalPaneMarkupTests
         // only points the multiselect's aria-controls at them. The band is the same
         // arrangement one level up — its landmark id lives in the Roadmap module.
         Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
-        Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindBacklogPane())), StringComparison.Ordinal);
+        Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindTasksPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"repository-knowledge-pane\"", NormalizeLineEndings(File.ReadAllText(FindKnowledgePane())), StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"roadmap-band\"", home, StringComparison.Ordinal);
     }
@@ -197,7 +197,7 @@ public sealed class GlobalPaneMarkupTests
         // pane is stated once and the attribute cannot drift away from it.
         Assert.Contains("Pressed=\"RoadmapBandVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"BacklogPaneVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"TasksPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"KnowledgePaneVisible\"", home, StringComparison.Ordinal);
 
         // Three panes have the rule and the band does not, so exactly three options
@@ -266,7 +266,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        foreach (var pane in new[] { "Inbox", "Backlog", "Knowledge" })
+        foreach (var pane in new[] { "Inbox", "Tasks", "Knowledge" })
         {
             Assert.Contains($"Pressed=\"@PanePinned(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
             Assert.Contains($"PressedChanged=\"Toggle{pane}Pin\"", home, StringComparison.Ordinal);
@@ -275,7 +275,7 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Triage hands an item from the Inbox to the Backlog, which is the shell opening
+    /// Triage hands an item from the Inbox to Tasks, which is the shell opening
     /// a pane on the reader's behalf rather than the reader switching sections. It
     /// goes through the non-switching entry point for exactly that reason: the plain
     /// enable would close the Inbox the item was picked from.
@@ -285,8 +285,8 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("_globalPanes.TryOpenAlongside(GlobalPane.Backlog);", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("_globalPanes.TrySetEnabled(GlobalPane.Backlog, true);", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.TryOpenAlongside(GlobalPane.Tasks);", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_globalPanes.TrySetEnabled(GlobalPane.Tasks, true);", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -407,7 +407,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("(BacklogPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
+        Assert.Contains("(TasksPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
         Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
 
         // Tools left the side stack for a full-screen surface of its own, so a
@@ -415,7 +415,7 @@ public sealed class GlobalPaneMarkupTests
         // split must not open for it. Stated on the property rather than on the
         // class the stack used to grow, because the docked modifier is gone.
         Assert.Contains(
-            "private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);",
+            "private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !TasksPaneVisible);",
             home,
             StringComparison.Ordinal);
         Assert.DoesNotContain("side-pane-stack--right-docked", home, StringComparison.Ordinal);
@@ -524,12 +524,12 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (InboxBeforeBacklogVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("@if (!BacklogPaneVisible && InboxPaneVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (InboxBeforeTasksVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (!TasksPaneVisible && InboxPaneVisible)", home, StringComparison.Ordinal);
         Assert.Contains("knowledge-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
-        var inboxGuardIndex = home.IndexOf("@if (InboxBeforeBacklogVisible)", StringComparison.Ordinal);
-        var backlogPaneIndex = home.IndexOf("<BacklogPane />", StringComparison.Ordinal);
+        var inboxGuardIndex = home.IndexOf("@if (InboxBeforeTasksVisible)", StringComparison.Ordinal);
+        var backlogPaneIndex = home.IndexOf("<TasksPane />", StringComparison.Ordinal);
 
         Assert.True(inboxGuardIndex >= 0);
         Assert.True(backlogPaneIndex > inboxGuardIndex);
@@ -575,7 +575,7 @@ public sealed class GlobalPaneMarkupTests
     [Fact]
     public void The_entry_list_is_the_shared_task_list_and_the_pane_owns_the_selection()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         Assert.Contains("<TaskListView", pane, StringComparison.Ordinal);
         Assert.Contains("SelectedId=\"@SelectedTaskId\"", pane, StringComparison.Ordinal);
@@ -604,7 +604,7 @@ public sealed class GlobalPaneMarkupTests
     [Fact]
     public void No_control_sits_inside_a_surface_that_opens_an_editor_on_click()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         // Quoted, because `entry-doc__reading` under the escape hatch is a prefix of
         // it and is a different thing: a hint about what the source parses to, not a
@@ -632,7 +632,7 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         Assert.Contains("<InboxPane Items=", home, StringComparison.Ordinal);
-        Assert.Contains("<BacklogPane />", home, StringComparison.Ordinal);
+        Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
         Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The band and the dashboard are composed on the same terms. Their content
@@ -827,7 +827,7 @@ public sealed class GlobalPaneMarkupTests
     // projects under src/Modules; only the shell's own chrome stayed behind.
     private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
-    private static string FindBacklogPane() => RepositoryRoot.File("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI", "BacklogPane.razor");
+    private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
 
     private static string FindKnowledgePane() => RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", "KnowledgePane.razor");
 

@@ -13,9 +13,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// neither context may see the other; an adapter may see both, which is what an
 /// adapter is for. Two module ports are served from this one engine so the
 /// resolution rules exist once: Second Brain takes it as
-/// <see cref="IKnowledgeFolderSource"/>, Backlog Management through
-/// <see cref="WorkspaceBacklogStore"/> — which asks only for the storage root,
-/// because <c>.backlog</c> is not a knowledge folder. Backlog Management keeps
+/// <see cref="IKnowledgeFolderSource"/>, Tasks through
+/// <see cref="WorkspaceTaskStore"/> — which asks only for the storage root,
+/// because <c>.backlog</c> is not a knowledge folder. Tasks keeps
 /// its entries in the workspace, not in a configured section of somebody's
 /// repository.
 /// </para>

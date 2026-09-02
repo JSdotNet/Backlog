@@ -34,11 +34,11 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
-@using Backlog.Modules.Backlog.Abstractions
-@using Backlog.Modules.Backlog.Abstractions.Services
+@using Backlog.Modules.Tasks.Abstractions
+@using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
 @inject WorkspaceSettingsStore Store
-@inject IBacklogRefreshSettings Refresh
+@inject ITasksRefreshSettings Refresh
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -58,7 +58,7 @@
     <header class="app-header">
         <h1>Settings</h1>
         <FeedbackReportButton />
-        <a class="icon-link" href="" data-testid="back-link" title="Back to the backlog" aria-label="Back to the backlog">←</a>
+        <a class="icon-link" href="" data-testid="back-link" title="Back to your tasks" aria-label="Back to your tasks">←</a>
     </header>
 
     @* The pill strip is the shared Tabs component wearing this page's classes.
@@ -75,7 +75,7 @@
         <TabPanel Id="features" Title="Features" Element="section" BaseClass="setting" aria-label="Feature settings">
             <h2 class="setting__title">Features</h2>
             <p class="setting__description">
-                Turn off parts of the app that are not ready yet. Backlog stays available.
+                Turn off parts of the app that are not ready yet. Tasks stays available.
             </p>
             @* Two headings rather than one grid of thirteen. A reader turning
                something off is asking one of two quite different questions —
@@ -523,7 +523,7 @@
                                Id="storage-refresh-interval"
                                data-testid="storage-refresh-interval-input"
                                Type="number"
-                               min="@BacklogRefreshSettings.MinimumPollingIntervalSeconds"
+                               min="@TasksRefreshSettings.MinimumPollingIntervalSeconds"
                                step="1"
                                autocomplete="off"
                                aria-describedby="storage-refresh-status"
@@ -742,7 +742,7 @@
                                     </AppButton>
                                 </div>
 
-                                @if (Features.IsEnabled(BacklogFeatures.GitHubIntegration))
+                                @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
                                 {
                                     <div class="repo-card__section" data-testid="repo-github-access">
                                         <h4 class="knowledge-folders__title">GitHub access</h4>
@@ -938,7 +938,7 @@
 
     private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
 
-    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(BacklogFeatures.AdditionalRepositories);
+    private bool AdditionalRepositoriesEnabled => Features.IsEnabled(TasksFeatures.AdditionalRepositories);
 
     private bool AiAssistantEnabled => Features.IsEnabled(AppFeatures.AiAssistant);
 
@@ -1106,7 +1106,7 @@
 
         // Asking GitHub who we are is a network call, so it happens after the
         // page is on screen rather than holding it up.
-        if (Features.IsEnabled(BacklogFeatures.GitHubIntegration))
+        if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
         {
             await CheckConnectionAsync();
         }

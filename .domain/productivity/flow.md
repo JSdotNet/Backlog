@@ -12,17 +12,17 @@ status: draft
 
 ```mermaid
 sequenceDiagram
-    participant Backlog as Backlog Management
+    participant Tasks as Tasks
     participant Productivity as Productivity
     participant Monitor as Monitoring & Dashboard
 
-    Backlog->>Productivity: AIWorkLogged
+    Tasks->>Productivity: AIWorkLogged
     Productivity->>Productivity: Append Productivity Entry
     Productivity->>Productivity: Recompute derived summaries
     Productivity-->>Monitor: ProductivityRecorded
 ```
 
-- Backlog owns the work item and emits activity evidence.
+- Tasks owns the work item and emits activity evidence.
 - Productivity owns the measurement ledger and derived summaries.
 - Monitoring may display productivity signals but does not change productivity
   records.

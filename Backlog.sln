@@ -17,9 +17,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.SharedKernel", "src
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{EC447DCF-ABFA-6E24-52A5-D7FD48A5C558}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Backlog", "Backlog", "{E3F7EC85-33EF-23A9-6376-9D1D607221B9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tasks", "Tasks", "{E3F7EC85-33EF-23A9-6376-9D1D607221B9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Backlog", "src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj", "{F71608C3-9303-4BB8-BB9F-C192E4322F6C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Tasks", "src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj", "{F71608C3-9303-4BB8-BB9F-C192E4322F6C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Infrastructure", "Infrastructure", "{9048EB7F-3875-A59E-E36B-5BD4C6F2A282}"
 EndProject
@@ -43,7 +43,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Sync.Api", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Backlog.UnitTests", "tests\Backlog.Modules.Backlog.UnitTests\Backlog.Modules.Backlog.UnitTests.csproj", "{F1BB6E09-89A0-4214-B3F6-413D23AA5284}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Tasks.UnitTests", "tests\Backlog.Modules.Tasks.UnitTests\Backlog.Modules.Tasks.UnitTests.csproj", "{F1BB6E09-89A0-4214-B3F6-413D23AA5284}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Desktop.UI.UnitTests", "tests\Backlog.Desktop.UI.UnitTests\Backlog.Desktop.UI.UnitTests.csproj", "{62028E74-D21B-49DA-82BF-0DB71DE10B17}"
 EndProject
@@ -73,9 +73,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Storybook", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.UI.Components.UnitTests", "tests\Backlog.UI.Components.UnitTests\Backlog.UI.Components.UnitTests.csproj", "{DA5AE76A-1F42-40FE-AAA1-1F559BF1C4FD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Backlog.Abstractions", "src\Modules\Backlog\Backlog.Modules.Backlog.Abstractions\Backlog.Modules.Backlog.Abstractions.csproj", "{1DE8A013-9190-475B-ACAF-E67E04A41127}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Tasks.Abstractions", "src\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj", "{1DE8A013-9190-475B-ACAF-E67E04A41127}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Backlog.UI", "src\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj", "{D38D50AA-B3C9-436D-A10E-813FC527B549}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Tasks.UI", "src\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj", "{D38D50AA-B3C9-436D-A10E-813FC527B549}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Inbox.UI", "src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj", "{9E2D1F3B-93F6-445D-974B-83FE84B3A893}"
 EndProject

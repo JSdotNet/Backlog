@@ -27,7 +27,7 @@ public sealed record RoadmapEditorSubmission(
     PlanningPriority Priority,
     IReadOnlyList<string> RepositoryAliases,
     string? Lane,
-    Guid? BacklogEntryId,
+    Guid? TaskId,
     string? Notes,
     string? Tag = null,
     IReadOnlyList<string>? KnowledgeRefs = null);

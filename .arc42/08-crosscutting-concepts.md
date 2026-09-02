@@ -175,7 +175,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/backlog/domain.md#backlog-entry", ".domain/second-brain/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/tasks/domain.md#task", ".domain/second-brain/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -186,7 +186,7 @@ architectural concern:
 | Type | Owning aggregate |
 |---|---|
 | **InboxItem** | `.domain/inbox/domain.md#inbox-item` |
-| **TaskItem** (ubiquitous term: Task) | `.domain/backlog/domain.md#backlog-entry` |
+| **TaskItem** (ubiquitous term: Task) | `.domain/tasks/domain.md#task` |
 | **KnowledgeNote** | `.domain/second-brain/domain.md#knowledge-note` |
 | **ProgressSignal** | `.domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
@@ -196,7 +196,7 @@ architectural concern:
 | **TechBaseline** | `.domain/technology-stack/domain.md#technology-registry` |
 
 **Effort** is the one shared *scalar* rather than a shared type: an optional
-non-negative story-point estimate that appears on backlog entries, on knowledge
+non-negative story-point estimate that appears on tasks, on knowledge
 chapters (as the `effort` field of a `meta` block, emitted into the knowledge graph as
 a number), and as the arithmetic rollup a roadmap item reports over what it gathers. It
 is architectural only because the same unit has to mean the same thing in all three

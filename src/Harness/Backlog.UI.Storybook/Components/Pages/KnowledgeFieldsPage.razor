@@ -115,7 +115,7 @@ Nothing in the library orders anything by it. It is drawn as the addresses it ho
 
 Same value shape as the other two relations, drawn by the same component. Where the addresses may point is the convention's rule, not the component's — nothing here refuses an `implements` entry that names something else."
            Code="@ReferenceCode">
-        @Field("implements", "implements: [.domain/backlog/features.md#feature-roadmap-planning]",
+        @Field("implements", "implements: [.domain/tasks/features.md#feature-roadmap-planning]",
             ".backlog items.", "MetadataReferenceList",
             @<MetadataReferenceList References="@ImplementsReferences" HrefFor="@ResolveAll" />)
     </Story>
@@ -270,7 +270,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
     ];
 
     private static readonly IReadOnlyList<KnowledgeReference> ImplementsReferences =
-        [KnowledgeReference.Parse(".domain/backlog/features.md#feature-roadmap-planning")!];
+        [KnowledgeReference.Parse(".domain/tasks/features.md#feature-roadmap-planning")!];
 
     /// <summary>Answers for every reference it is asked about, which is what a
     /// reading surface with a route table does. The earlier version of this resolved
@@ -295,7 +295,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
     private static readonly IReadOnlyList<string> Alternatives = ["Azure Functions", "Controller-based ASP.NET Core"];
 
     /// <summary>Both flags are real: they are the keys `.domain/capture` and
-    /// `.domain/backlog` chapters name, so the story is showing a line this
+    /// `.domain/tasks` chapters name, so the story is showing a line this
     /// repository contains rather than filler.</summary>
     private static readonly IReadOnlyList<string> FeatureFlags = ["inbox-pane", "inbox-filters"];
 

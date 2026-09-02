@@ -41,12 +41,12 @@ public sealed class MetadataReaderTests
         // Verbatim from .backlog/domain-backlog.md.
         var meta = MetadataReader.Parse("""
             status: draft
-            implements: [.domain/backlog/features.md#feature-roadmap-planning]
+            implements: [.domain/tasks/features.md#feature-roadmap-planning]
             related: [.domain/environment/features.md#feature-environment-aware-work-context]
             """);
 
         Assert.Equal("draft", meta.Status);
-        Assert.Equal(".domain/backlog/features.md#feature-roadmap-planning", Assert.Single(meta.Implements).Raw);
+        Assert.Equal(".domain/tasks/features.md#feature-roadmap-planning", Assert.Single(meta.Implements).Raw);
         Assert.Equal(".domain/environment/features.md#feature-environment-aware-work-context", Assert.Single(meta.Related).Raw);
     }
 
@@ -57,11 +57,11 @@ public sealed class MetadataReaderTests
             status: active
             related:
               - .arc42/01-introduction.md
-              - .domain/backlog/domain.md#aggregate-entry
+              - .domain/tasks/domain.md#aggregate-entry
             """);
 
         Assert.Equal(
-            [".arc42/01-introduction.md", ".domain/backlog/domain.md#aggregate-entry"],
+            [".arc42/01-introduction.md", ".domain/tasks/domain.md#aggregate-entry"],
             meta.Related.Select(reference => reference.Raw));
     }
 
@@ -361,14 +361,14 @@ public sealed class MetadataReaderTests
             status: draft
             related: [.arc42/01-introduction.md]
             depends-on: [.tech/shared.md#markdown, .arc42/01-introduction.md]
-            implements: [.domain/backlog/features.md#feature-roadmap-planning]
+            implements: [.domain/tasks/features.md#feature-roadmap-planning]
             """);
 
         Assert.Equal(
             [
                 ".arc42/01-introduction.md",
                 ".tech/shared.md#markdown",
-                ".domain/backlog/features.md#feature-roadmap-planning"
+                ".domain/tasks/features.md#feature-roadmap-planning"
             ],
             meta.References.Select(reference => reference.Raw));
     }

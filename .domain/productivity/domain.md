@@ -14,7 +14,7 @@ status: draft
 
 Productivity tracks how the person uses AI-assisted work tools and turns those
 activity signals into personal productivity insight. It measures contribution,
-time saved, flow, and outcomes; it does not own backlog work, Copilot sessions,
+time saved, flow, and outcomes; it does not own task work, Copilot sessions,
 repository state, or completion decisions.
 
 ## Productivity Ledger
@@ -22,7 +22,7 @@ repository state, or completion decisions.
 ```meta
 type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#aiworklogged, .domain/monitoring/domain.md#progress-signal]
+related: [.domain/tasks/domain.md#aiworklogged, .domain/monitoring/domain.md#progress-signal]
 ```
 
 The personal record of productivity-relevant activity. The ledger is append-only:
@@ -50,7 +50,7 @@ type: value-object
 status: draft
 ```
 
-An opaque reference to the work being measured, such as a backlog item, pull
+An opaque reference to the work being measured, such as a task, pull
 request, commit, issue, note, or Copilot session. Equality is by `subject_type`
 and `subject_id`.
 

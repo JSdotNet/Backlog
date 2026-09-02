@@ -102,7 +102,7 @@ public sealed class AppFeatureSettings
 /// Whether a switchable part of the app is on, and how to switch it.
 /// <para>
 /// The port is in the shared kernel because every context asks the question and
-/// none of them owns the answer: a pane in Backlog Management and a panel in
+/// none of them owns the answer: a pane in Tasks and a panel in
 /// Second Brain both gate on a feature, and neither may reach through the other
 /// or up into the Shell to find out. What a feature <em>is</em> — its display
 /// name, its description, whether it is on by default — is product copy and
@@ -135,8 +135,8 @@ public interface IAppFeatureSettings
 /// <summary>
 /// The feature keys that belong to no single context.
 /// <para>
-/// Every other key lives with whatever owns the feature — <c>BacklogFeatures</c>
-/// in Backlog Management's abstractions, <c>KnowledgeFeatures</c> in Second
+/// Every other key lives with whatever owns the feature — <c>TasksFeatures</c>
+/// in Tasks' abstractions, <c>KnowledgeFeatures</c> in Second
 /// Brain's, <c>DevPcFeatures</c> in Dev PC Management's, and the Shell's own on
 /// the catalog it renders. This class is for the remainder: a key more than one
 /// context gates on, where putting it in either context's abstractions would
@@ -146,7 +146,7 @@ public interface IAppFeatureSettings
 /// </summary>
 public static class AppFeatureKeys
 {
-    /// <summary>Backlog Management starts the CLI from an entry and Second Brain
+    /// <summary>Tasks starts the CLI from an entry and Second Brain
     /// starts it from a knowledge chapter. Two contexts, one key.</summary>
     public const string CopilotCli = "copilot-cli";
 }

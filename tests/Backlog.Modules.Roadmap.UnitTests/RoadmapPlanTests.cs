@@ -42,7 +42,7 @@ public class RoadmapPlanTests
         Assert.Equal(PlanningPriority.Medium, item.Priority);
         Assert.True(item.Scope.IsUnfiled);
         Assert.True(item.Lane.IsDefault);
-        Assert.Null(item.BacklogEntryId);
+        Assert.Null(item.TaskId);
         Assert.Equal(0, item.Dependencies.Count);
     }
 
@@ -111,7 +111,7 @@ public class RoadmapPlanTests
     {
         var entryId = Guid.NewGuid();
         var plan = RoadmapPlan.Empty();
-        var item = plan.AddItem("Refine the backlog", Window(5, 9), backlogEntryId: entryId).Value;
+        var item = plan.AddItem("Refine the backlog", Window(5, 9), taskId: entryId).Value;
 
         plan.Prioritise(item.Id, PlanningPriority.Critical);
 
@@ -119,7 +119,7 @@ public class RoadmapPlanTests
         // The link is still just an id afterwards. There is nothing in this module
         // that could have written to the entry, and this asserts that the link did
         // not quietly become something more than an id.
-        Assert.Equal(entryId, item.BacklogEntryId);
+        Assert.Equal(entryId, item.TaskId);
     }
 
     [Fact]

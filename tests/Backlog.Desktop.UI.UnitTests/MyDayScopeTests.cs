@@ -1,5 +1,5 @@
 using System.Globalization;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks.DomainModels;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The My Day scope in the filter bar.
 /// <para>
-/// <c>.domain/backlog/features.md#feature-my-day</c> governs, and everything here
+/// <c>.domain/tasks/features.md#feature-my-day</c> governs, and everything here
 /// follows from its one rule: an entry is in My Day exactly while its stamp is the
 /// reader's current local date. Nothing is stored as a flag and nothing expires it,
 /// so an entry stamped yesterday is not "in yesterday's My Day" — it is simply not
@@ -35,9 +35,9 @@ public sealed class MyDayScopeTests
     /// <summary>Three entries: one picked for today, one picked yesterday, one never
     /// picked at all. The middle one is the whole feature — it was in My Day once and
     /// is not now, without anything having run.</summary>
-    private static async Task<(BacklogPaneHost Host, EntryRow Todays, EntryRow Yesterdays, EntryRow Never)> ThreeAsync()
+    private static async Task<(TasksPaneHost Host, EntryRow Todays, EntryRow Yesterdays, EntryRow Never)> ThreeAsync()
     {
-        var host = await BacklogPaneHost.CreateAsync();
+        var host = await TasksPaneHost.CreateAsync();
 
         var todays = await host.WriteEntryAsync($"# Provision the box\n`task` `!ready` `@backlog` `myday:{Token(Today)}`\n");
         var yesterdays = await host.WriteEntryAsync($"# Deploy it\n`task` `!ready` `@backlog` `myday:{Token(Yesterday)}`\n");
@@ -130,7 +130,7 @@ public sealed class MyDayScopeTests
     [Fact]
     public async Task The_scope_narrows_the_area_and_status_filters_rather_than_replacing_them()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var wanted = await host.WriteEntryAsync($"# Provision the box\n`task` `!ready` `@platform` `myday:{Token(Today)}`\n");
 
@@ -165,7 +165,7 @@ public sealed class MyDayScopeTests
     [Fact]
     public async Task A_scope_that_matches_nothing_says_the_filters_did_it()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@backlog`\n");
         await host.State.SelectAsync(null);
 

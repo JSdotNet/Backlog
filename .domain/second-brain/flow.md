@@ -15,7 +15,7 @@ status: draft
 stateDiagram-v2
     [*] --> Created : Captured from Inbox or manually
     Created --> Organized : Assigned topic and PARA category
-    Organized --> Linked : Linked to backlog entries or other notes
+    Organized --> Linked : Linked to tasks or other notes
     Linked --> Organized : Links updated
     Organized --> Archived : Note no longer active
     Linked --> Archived : Note no longer active

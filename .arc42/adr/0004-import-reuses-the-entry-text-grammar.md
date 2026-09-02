@@ -1,14 +1,14 @@
-# ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text
+# ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text
 
 ```meta
 status: proposed
-related: [".domain/backlog/features.md#import", ".domain/backlog/domain.md#backlog-entry", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"]
+related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"]
 issue: null
 ```
 
 ## Status
 
-Proposed. Import (`.domain/backlog/features.md#import`) is modelled but not built:
+Proposed. Import (`.domain/tasks/features.md#import`) is modelled but not built:
 this ADR fixes the format and the persistence path before the feature slice is
 written, so the implementation has one decision to follow rather than one to
 make up as it goes.
@@ -16,7 +16,7 @@ make up as it goes.
 ## Context
 
 Import brings in a plan — a sequence of AI prompts to run across one or more
-repositories, in dependency order — and turns it into backlog entries in one
+repositories, in dependency order — and turns it into tasks in one
 step. The obvious way to build that is a dedicated plan format: a YAML or JSON
 document with its own schema for prompts, ordering and repository targets, read
 by an importer that translates it into entries.
@@ -27,7 +27,7 @@ owns. An entry already has a title, a body, sigil and named metadata tokens, and
 between prompts" is `after:`, the dependency token `.design/content-editing.md`
 already defines; a plan's "setup step" or "reminder to update the knowledge
 docs" is a sub-item. Nothing about a plan needs a fact an entry cannot already
-hold — the earlier work on `.domain/backlog/domain.md#backlog-entry` and
+hold — the earlier work on `.domain/tasks/domain.md#task` and
 `.design/content-editing.md#scheduling-and-dependency-tokens` this session
 already reached that conclusion at the domain and design layers: `import_plan_id`
 and `import_item_id` are entry provenance fields, not a second aggregate, and
@@ -59,11 +59,11 @@ guideline 0014 says gets exactly one.
 
 ## Decision
 
-**A plan is not a file format of its own. It is Backlog Entry text — the exact
+**A plan is not a file format of its own. It is entry text — the exact
 hand-typed grammar `EntryTextParser` already implements — with more than one
 `#`-titled entry in the document. Import takes a block of that text, splits it
 into segments with `SplitSegments`, parses each with `Parse`, and
-creates/updates Backlog Entries from the result. One grammar, not two.**
+creates/updates Tasks from the result. One grammar, not two.**
 
 ### Intake: upload or paste, one path
 
@@ -84,7 +84,7 @@ block, and gets back one segment per entry the plan describes.
 
 Within one imported document, `after:<value>` first tries to match another
 entry's `id:` token in the *same document*; only if nothing matches is it
-treated as a real, already-existing `backlog_item_id`, exactly as it always is
+treated as a real, already-existing `task_id`, exactly as it always is
 outside Import. This is the general local-id rule
 `.design/content-editing.md#scheduling-and-dependency-tokens` already states
 for any pasted batch — Import is not a special case of it, it is the case the
@@ -119,7 +119,7 @@ registration through Repository Management's existing registration capability
 (`.domain/repository-management/features.md#repository-registration`) before
 the entry naming it is created, so a plan can introduce a repository to the
 product just by mentioning it. This leniency belongs to Import specifically —
-`.domain/backlog/features.md#repository-resolution-on-import` already scopes it
+`.domain/tasks/features.md#repository-resolution-on-import` already scopes it
 that way — and is not a change to what `repo:` does everywhere else. Import
 triggers registration; it does not perform it, and gains no say over what a
 registered repository holds beyond asking for one to exist.
@@ -136,7 +136,7 @@ as this ADR describes.
 There is no separate "plan id" field or wrapper document. A plan's identity is
 whichever `#tag` every entry in the pasted document happens to share — an
 ordinary tag sigil, filed the same way an entry is
-[filed against a roadmap tag](../../.domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag).
+[filed against a roadmap tag](../../.domain/tasks/features.md#filing-a-task-against-a-roadmap-tag).
 `import_plan_id` is populated from that shared tag; `import_item_id` is
 populated from each entry's own `id:` token. Both are read off tokens the
 grammar already carries — nothing new is parsed to produce them.
@@ -154,7 +154,7 @@ to refuse the entries it describes.
 
 Bringing in a later version of an already-imported plan adjusts entries still
 in flight instead of duplicating them, per
-`.domain/backlog/features.md#re-importing-an-updated-plan`. For each parsed
+`.domain/tasks/features.md#re-importing-an-updated-plan`. For each parsed
 segment carrying an `id:` token, Import looks for an existing entry whose
 `import_plan_id` (the shared tag) and `import_item_id` (`id:`) both match:
 
@@ -163,7 +163,7 @@ segment carrying an `id:` token, Import looks for an existing entry whose
   setup/knowledge/manual sub-items are replaced from the new version.
 - **Found, `done` or `archived`** — leave untouched. A later plan version does
   not reopen finished work, the same principle `Occurrence Spawning`
-  (`.domain/backlog/domain.md#occurrence-spawning`) already applies to a
+  (`.domain/tasks/domain.md#occurrence-spawning`) already applies to a
   completed recurring entry: a completed thing stays the record of what was
   done.
 - **Not found** — create new, whichever version of the plan first introduced
@@ -208,7 +208,7 @@ Positive:
   job is entirely its own orchestration on top.
 - A hand-typed entry and an imported one are indistinguishable once created —
   same table, same fields, same sub-item shape — which is exactly what
-  `.domain/backlog/features.md#import` states as the point ("Import builds
+  `.domain/tasks/features.md#import` states as the point ("Import builds
   nothing that entry creation does not already offer").
 - Re-import is a plain upsert keyed on two already-modelled fields, with no new
   index shape beyond what querying entries by tag/id already needs.
@@ -236,12 +236,12 @@ Neutral:
 - Import is described here as reusing `after:` for prompt ordering rather than
   inventing an import-specific relationship — a plan's dependency and an
   ordinary entry dependency are the same fact, read the same way by
-  `.domain/backlog/domain.md#readiness`. Nothing about "what's next in this
+  `.domain/tasks/domain.md#readiness`. Nothing about "what's next in this
   plan" is a plan-specific query; it is the existing readiness/repository
-  grouping `.domain/backlog/features.md#import` already points at.
+  grouping `.domain/tasks/features.md#import` already points at.
 - `repo:` auto-registration is scoped to Import by the feature, not by the
   token — the same `repo:` token used in ordinary editing stays strict
   everywhere else. A future feature wanting the same leniency would need its
   own stated exception, the same way Import's is stated in
-  `.domain/backlog/features.md#repository-resolution-on-import`, rather than
+  `.domain/tasks/features.md#repository-resolution-on-import`, rather than
   inheriting Import's behavior implicitly.

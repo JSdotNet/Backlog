@@ -64,5 +64,5 @@ aliases: [WorkSubjectRef, subject_ref]
 related: [.domain/productivity/domain.md#work-subject-ref]
 ```
 
-An opaque link to the backlog item, session, issue, pull request, commit, or note
+An opaque link to the task, session, issue, pull request, commit, or note
 that the productivity entry is about.

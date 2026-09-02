@@ -112,59 +112,58 @@
     },
     {
       "type": "directory",
-      "name": "backlog",
-      "path": ".domain/backlog",
-      "title": "Backlog Management",
+      "name": "tasks",
+      "path": ".domain/tasks",
+      "title": "tasks",
       "children": [
         {
-          "type": "file",
-          "name": "domain.md",
-          "path": ".domain/backlog/domain.md",
-          "title": "Backlog Management",
-          "status": "draft",
-          "root": true
+          "type": "directory",
+          "name": "assets",
+          "path": ".domain/tasks/assets",
+          "title": "assets",
+          "children": []
         },
         {
           "type": "file",
-          "name": "features.md",
-          "path": ".domain/backlog/features.md",
-          "title": "Backlog Management",
+          "name": "dependencies.md",
+          "path": ".domain/tasks/dependencies.md",
+          "title": "Tasks",
           "status": "draft"
         },
         {
           "type": "file",
-          "name": "model.md",
-          "path": ".domain/backlog/model.md",
-          "title": "Backlog Management",
+          "name": "domain.md",
+          "path": ".domain/tasks/domain.md",
+          "title": "Tasks",
+          "status": "draft"
+        },
+        {
+          "type": "file",
+          "name": "features.md",
+          "path": ".domain/tasks/features.md",
+          "title": "Tasks",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "flow.md",
-          "path": ".domain/backlog/flow.md",
-          "title": "Backlog Management",
+          "path": ".domain/tasks/flow.md",
+          "title": "Tasks",
           "status": "draft"
         },
         {
           "type": "file",
-          "name": "dependencies.md",
-          "path": ".domain/backlog/dependencies.md",
-          "title": "Backlog Management",
+          "name": "model.md",
+          "path": ".domain/tasks/model.md",
+          "title": "Tasks",
           "status": "draft"
         },
         {
           "type": "file",
           "name": "naming.md",
-          "path": ".domain/backlog/naming.md",
-          "title": "Backlog Management",
+          "path": ".domain/tasks/naming.md",
+          "title": "Tasks",
           "status": "draft"
-        },
-        {
-          "type": "directory",
-          "name": "assets",
-          "path": ".domain/backlog/assets",
-          "title": "assets",
-          "children": []
         }
       ]
     },

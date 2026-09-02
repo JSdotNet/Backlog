@@ -3,7 +3,7 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// <summary>
 /// How much the plan wants an item relative to the others.
 /// <para>
-/// The same four words as the Backlog module's <c>Priority</c>, chosen
+/// The same four words as the Tasks module's <c>Priority</c>, chosen
 /// deliberately rather than by accident: two vocabularies for the same idea would
 /// make every conversation about priority start with "which kind". They stay
 /// different types owned by different contexts — Backlog ranks a work item for

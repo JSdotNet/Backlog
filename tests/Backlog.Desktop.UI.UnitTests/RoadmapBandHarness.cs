@@ -26,7 +26,7 @@ public abstract class RoadmapBandHarness : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "roadmap-band-tests-" + Guid.NewGuid().ToString("N"));
         Settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
         RepositorySettings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
-        Planning = BacklogTestHost.PlanningFor(Settings);
+        Planning = TasksTestHost.PlanningFor(Settings);
     }
 
     protected WorkspaceSettingsStore Settings { get; }
@@ -52,7 +52,7 @@ public abstract class RoadmapBandHarness : IDisposable
         // registered the way a host registers it. The band tests write no backlog, so
         // it answers empty — enough for the editor to render.
         context.Services.AddSingleton<IRoadmapItemRollup>(
-            new RoadmapItemRollupService(BacklogTestHost.EntriesFor(Settings), () => Settings.RootDirectory));
+            new RoadmapItemRollupService(TasksTestHost.EntriesFor(Settings), () => Settings.RootDirectory));
         return context;
     }
 

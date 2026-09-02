@@ -34,7 +34,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_open_entry_offers_all_five()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -65,7 +65,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task A_title_only_entry_reaches_the_controls_too()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Ask about the trial length\n`task` `*medium` `!draft`\n");
 
         Assert.False(row.HasExpandableContent);
@@ -82,7 +82,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task A_closed_pane_offers_none_of_them()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExpandedEntry);
         await host.State.SelectAsync(null);
 
@@ -92,7 +92,7 @@ public sealed class EntryScheduleControlsTests
         Assert.Empty(pane.FindAll("[data-testid='entry-action-due']"));
 
         // Not a placeholder either: the pane is gone rather than empty, which is
-        // asserted in full by BacklogDetailPaneTests.
+        // asserted in full by TasksDetailPaneTests.
         Assert.Empty(pane.FindAll("[data-testid='entry-detail']"));
     }
 
@@ -101,7 +101,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task My_day_stamps_today_and_pressing_again_clears_it()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -125,7 +125,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task A_stamp_from_another_day_reads_as_not_in_my_day()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `myday:2020-01-01`\n\nShip it.\n");
 
@@ -145,7 +145,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_due_row_opens_a_picker_that_writes_the_token()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -166,7 +166,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task A_set_due_row_shows_its_value_and_offers_a_clear()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `due:2026-08-21`\n\nShip it.\n");
 
@@ -190,7 +190,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_reminder_picker_writes_an_unzoned_wall_clock_time()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -209,7 +209,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Clearing_a_reminder_removes_the_token()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `remind:2026-08-21T09:00`\n\nShip it.\n");
 
@@ -228,7 +228,7 @@ public sealed class EntryScheduleControlsTests
     [InlineData("yearly", 1, RecurrenceUnit.Year)]
     public async Task The_repeat_select_writes_the_shape_it_offered(string token, int interval, RecurrenceUnit unit)
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -245,7 +245,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Every_weekday_is_expressible()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -266,7 +266,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Choosing_never_clears_the_repeat()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Weekly review\n`task` `repeat:weekly`\n\nRead the week.\n");
 
@@ -283,7 +283,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_dependency_picker_offers_the_other_entries_and_writes_their_ids()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var first = await host.WriteEntryAsync("# Provision the box\n`task`\n\nGet a machine.\n");
         var second = await host.WriteEntryAsync(ExpandedEntry);
 
@@ -315,7 +315,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_dependency_picker_excludes_completed_entries()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var done = await host.WriteEntryAsync("# Provision the box\n`task` `!done`\n\nAlready shipped.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
 
@@ -339,7 +339,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_dependency_picker_names_each_options_repository()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
         var filed = await host.WriteEntryAsync("# Provision the box\n`task` `@backlog`\n\nGet a machine.\n");
         var unfiled = await host.WriteEntryAsync("# Write the changelog\n`task`\n\nSay what shipped.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
@@ -370,7 +370,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task A_waiting_entry_names_what_it_waits_for()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var first = await host.WriteEntryAsync("# Provision the box\n`task`\n\nGet a machine.\n");
         var second = await host.WriteEntryAsync(ExpandedEntry);
 
@@ -388,7 +388,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task An_unresolvable_dependency_is_shown_as_its_id()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `after:a1b2c3`\n\nShip it.\n");
 
@@ -399,7 +399,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Clearing_dependencies_removes_every_after_token()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `after:a1b2c3` `after:d4e5f6`\n\nShip it.\n");
 
@@ -424,7 +424,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_raw_markdown_surface_is_an_escape_hatch_rather_than_the_default()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -456,7 +456,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task The_hatch_shows_the_whole_entry_including_its_steps()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(
             "# Ship the sync spike\n`task`\n\nNotes on the parent.\n\n## Wire up the store\nHow it gets wired.\n");
 
@@ -477,7 +477,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Ctrl_shift_m_toggles_the_hatch()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -500,7 +500,7 @@ public sealed class EntryScheduleControlsTests
     [Fact]
     public async Task Typing_in_the_hatch_still_writes_the_entry()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();

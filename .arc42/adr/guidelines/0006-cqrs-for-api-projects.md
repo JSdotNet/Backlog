@@ -34,7 +34,7 @@ A request becomes a command or a query, handled by a dedicated handler.
   `IQueryHandler` once for the whole solution.
 - **No mediator.** There is no MediatR dependency and no dispatch indirection: a
   caller depends on the handler interface it needs, and DI resolves it.
-- `Backlog.Modules.Backlog` organizes its handlers as feature slices under
+- `Backlog.Modules.Tasks` organizes its handlers as feature slices under
   `Features/` — see [0009](0009-feature-slices-module-structure.md).
 
 ## Deviations and gaps

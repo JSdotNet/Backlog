@@ -77,7 +77,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <!-- Composition is a host's job: picking the storage adapter and calling
          AddRoadmapModule() means seeing both sides of the Roadmap module, which only
          an executable head does. -->

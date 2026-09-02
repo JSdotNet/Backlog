@@ -7,8 +7,8 @@ namespace Backlog.ArchitectureTests;
 /// </summary>
 public class ModuleSurfaceTests
 {
-    private const string Module = "Backlog.Modules.Backlog";
-    private const string Abstractions = "Backlog.Modules.Backlog.Abstractions";
+    private const string Module = "Backlog.Modules.Tasks";
+    private const string Abstractions = "Backlog.Modules.Tasks.Abstractions";
 
     /// <summary>
     /// A module library exists to be called, so it has to publish a contract. An
@@ -127,7 +127,7 @@ public class ModuleSurfaceTests
 
     /// <summary>
     /// Composition is a host's job — picking the storage adapter and calling
-    /// AddBacklogModule() means seeing both sides, which only the executable
+    /// AddTasksModule() means seeing both sides, which only the executable
     /// heads do.
     /// </summary>
     [Theory]

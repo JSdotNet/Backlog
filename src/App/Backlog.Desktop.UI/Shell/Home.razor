@@ -1,7 +1,7 @@
 ﻿@page "/"
 @implements IDisposable
 @using Backlog.Infrastructure.FileSystem
-@inject BacklogDesktopState State
+@inject TasksDesktopState State
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAppUpdateService Updates
@@ -268,24 +268,24 @@
                 <span class="header-group__pane">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="BacklogPaneVisible"
+                                  Pressed="TasksPaneVisible"
                                   id="backlog-pane-option"
                                   TestId="backlog-pane-option"
                                   aria-controls="backlog-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Backlog)"
-                                  PressedChanged="ToggleBacklogPane">
-                        Backlog
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
+                                  PressedChanged="ToggleTasksPane">
+                        Tasks
                     </ToggleButton>
 
                     <ToggleButton BaseClass="header-group__pin"
                                   PressedCssClass="header-group__pin--pinned"
-                                  Pressed="@PanePinned(GlobalPane.Backlog)"
+                                  Pressed="@PanePinned(GlobalPane.Tasks)"
                                   TestId="backlog-pane-pin"
                                   aria-controls="backlog-pane"
-                                  Disabled="@PinToggleDisabled(GlobalPane.Backlog)"
-                                  AriaLabel="@PinLabel(GlobalPane.Backlog, "Backlog")"
-                                  Title="@PinTitle(GlobalPane.Backlog, "Backlog")"
-                                  PressedChanged="ToggleBacklogPin">
+                                  Disabled="@PinToggleDisabled(GlobalPane.Tasks)"
+                                  AriaLabel="@PinLabel(GlobalPane.Tasks, "Tasks")"
+                                  Title="@PinTitle(GlobalPane.Tasks, "Tasks")"
+                                  PressedChanged="ToggleTasksPin">
                         📌
                     </ToggleButton>
                 </span>
@@ -344,7 +344,7 @@
             @* Monitoring is a deliberate act, not a background poll: the backlog has
                to open instantly and offline, so nothing here waits on GitHub until
                somebody asks it to. *@
-            @if (IsFeatureEnabled(BacklogFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+            @if (IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
             {
                 <IconButton BaseClass="icon-link"
                             id="github-sync-button"
@@ -552,20 +552,20 @@
             @* The pane row. It was the <main> itself until the band arrived above
                it; the class, the width variable and the test id are unchanged,
                because the resizer's JavaScript finds the layout by that test id. *@
-            <div class="knowledge-layout @((BacklogPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeBacklogVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
-                @if (InboxBeforeBacklogVisible)
+            <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+                @if (InboxBeforeTasksVisible)
                 {
                     <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
                 }
 
-                @if (BacklogPaneVisible)
+                @if (TasksPaneVisible)
                 {
-                    <BacklogPane />
+                    <TasksPane />
                 }
 
                 @if (RightSidePaneVisible)
                 {
-                    @if (BacklogPaneVisible)
+                    @if (TasksPaneVisible)
                     {
                         @* The pane edge is the handle. Dragging it is the obvious gesture, so
                            the slider that used to sit inside the pane is gone; arrow keys on
@@ -586,8 +586,8 @@
                         </div>
                     }
 
-                    <aside @key=@("side-pane-stack") class="side-pane-stack @(BacklogPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Backlog side panes">
-                        @if (!BacklogPaneVisible && InboxPaneVisible)
+                    <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
+                        @if (!TasksPaneVisible && InboxPaneVisible)
                         {
                             <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
                         }
@@ -682,7 +682,7 @@
         // on every route change, so a fresh GlobalPaneSelection is exactly
         // what a bare `new()` field initializer would otherwise hand back.
         var restoredPanes = ShellNavigation.LastEnabledPanes
-            .Select(name => Enum.TryParse<GlobalPane>(name, out var pane) ? pane : (GlobalPane?)null)
+            .Select(name => GlobalPaneSelection.TryParsePersistedPane(name, out var pane) ? pane : (GlobalPane?)null)
             .Where(pane => pane.HasValue)
             .Select(pane => pane!.Value)
             .ToArray();
@@ -693,7 +693,7 @@
 
             foreach (var name in ShellNavigation.LastPinnedPanes)
             {
-                if (Enum.TryParse<GlobalPane>(name, out var pinnedPane))
+                if (GlobalPaneSelection.TryParsePersistedPane(name, out var pinnedPane))
                 {
                     _globalPanes.TrySetPinned(pinnedPane, pinned: true);
                 }
@@ -890,7 +890,7 @@
     private string BuildAiContent()
     {
         var builder = new System.Text.StringBuilder();
-        builder.AppendLine("Visible backlog entries:");
+        builder.AppendLine("Visible tasks:");
         foreach (var row in State.FilteredRows.Where(row => !row.IsUntouched))
         {
             builder.AppendLine("---");
@@ -901,7 +901,7 @@
         return content.Length <= 12000 ? content : content[..12000];
     }
 
-    private bool BacklogPaneVisible => _globalPanes.IsEnabled(GlobalPane.Backlog);
+    private bool TasksPaneVisible => _globalPanes.IsEnabled(GlobalPane.Tasks);
 
     private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
 
@@ -917,12 +917,12 @@
 
     private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
 
-    private bool InboxBeforeBacklogVisible => BacklogPaneVisible && InboxPaneVisible;
+    private bool InboxBeforeTasksVisible => TasksPaneVisible && InboxPaneVisible;
 
     /// <summary>Whether the side stack has anything in it. Tools used to count
     /// here; it no longer lives in the stack at all, so a stack holding only the
     /// tools pane can no longer happen and the split cannot open for it.</summary>
-    private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !BacklogPaneVisible);
+    private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !TasksPaneVisible);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -1016,11 +1016,11 @@
     /// <summary>What the Inbox has to show, in the Inbox's own contract. The
     /// shell only passes it along; the projection itself belongs to the context
     /// that owns the entries.</summary>
-    private IReadOnlyList<InboxItem> InboxItems => BacklogDrafts.ForInbox(State.Rows);
+    private IReadOnlyList<InboxItem> InboxItems => TasksDrafts.ForInbox(State.Rows);
 
     private void SynchronizePaneAvailability()
     {
-        _globalPanes.TrySetAvailable(GlobalPane.Backlog, available: true);
+        _globalPanes.TrySetAvailable(GlobalPane.Tasks, available: true);
         _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
         _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
         PersistPaneSelection();
@@ -1059,9 +1059,9 @@
         PersistPaneSelection();
     }
 
-    private void ToggleBacklogPane()
+    private void ToggleTasksPane()
     {
-        _globalPanes.Toggle(GlobalPane.Backlog);
+        _globalPanes.Toggle(GlobalPane.Tasks);
         PersistPaneSelection();
     }
 
@@ -1095,9 +1095,9 @@
         PersistPaneSelection();
     }
 
-    private void ToggleBacklogPin()
+    private void ToggleTasksPin()
     {
-        _globalPanes.TogglePin(GlobalPane.Backlog);
+        _globalPanes.TogglePin(GlobalPane.Tasks);
         PersistPaneSelection();
     }
 
@@ -1116,9 +1116,9 @@
     /// </para></summary>
     private Task OpenInboxItemAsync(InboxItem item)
     {
-        if (BacklogDrafts.Find(State.Rows, item) is not { } row) return Task.CompletedTask;
+        if (TasksDrafts.Find(State.Rows, item) is not { } row) return Task.CompletedTask;
 
-        _globalPanes.TryOpenAlongside(GlobalPane.Backlog);
+        _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
         PersistPaneSelection();
         State.BeginEdit(row);
         return Task.CompletedTask;

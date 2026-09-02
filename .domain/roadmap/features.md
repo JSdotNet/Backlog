@@ -22,7 +22,7 @@ the person's own storage location: point the workspace at a different folder and
 the plan moves with it, because a plan kept somewhere other than where its owner
 keeps everything else is a plan they will lose.
 
-### Planning work that has no backlog entry yet
+### Planning work that has no task yet
 
 ```meta
 type: sub-feature
@@ -33,15 +33,15 @@ Add an item to the plan with a title and dates alone. Most planning happens befo
 refinement, and a planning tool that first demands a refined work item is a tool
 that gets used after the decisions have already been made somewhere else.
 
-### Linking an item to the entry that executes it
+### Linking an item to the task that executes it
 
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/backlog/domain.md#backlog-entry]
+related: [.domain/tasks/domain.md#task]
 ```
 
-Name the [Backlog Entry](../backlog/domain.md#backlog-entry) that
+Name the [Task](../tasks/domain.md#task) that
 carries out a planned item, so the plan can show real progress instead of a
 guess — while status and priority of the work itself stay where they belong. The
 link is optional in both directions and may dangle without breaking the plan.
@@ -86,14 +86,14 @@ depends-on: [.domain/roadmap/features.md#owning-a-stored-plan]
 related: [.domain/roadmap/domain.md#roadmap-tag]
 ```
 
-Give every planned item a short tag other work can be filed against, so a Backlog
-Entry or a knowledge chapter can say "this belongs to that plan item" without the
+Give every planned item a short tag other work can be filed against, so a Task
+ or a knowledge chapter can say "this belongs to that plan item" without the
 plan having to name it first. The tag is derived from the item's title when the
 item is created — a person does not invent it — and is then editable on its own.
 
 It deliberately **does not** move when the title is later renamed. The tag is the
 word other places have already written down, and quietly reslugging it would make
-every entry filed under it and every chapter naming it stop matching, with nothing
+every task filed under it and every chapter naming it stop matching, with nothing
 to say so. Renaming the title and retagging the item are two different acts, and
 keeping them apart is what makes a tag safe to write elsewhere.
 
@@ -110,7 +110,7 @@ thing to do rather than an accident to be prevented.
 type: feature
 status: draft
 depends-on: [.domain/roadmap/features.md#tagging-planned-work]
-related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
 ```
 
 Read, for one planned item, everything that belongs to it and what it all adds up
@@ -118,8 +118,8 @@ to in story points — so an item on the plan can show the size of the work behi
 it without anyone maintaining that number by hand.
 
 An item gathers work two ways at once. It gathers what it **names** outright: the
-Backlog Entry it links, and the knowledge chapters it references directly. And it
-gathers what carries its **tag**: every Backlog Entry filed under the item's tag,
+Task it links, and the knowledge chapters it references directly. And it
+gathers what carries its **tag**: every Task filed under the item's tag,
 and every knowledge chapter whose own roadmap list names that tag. Something
 reached both ways — linked and tagged — is shown once, but the plan remembers it
 was held by both threads, because a person about to remove a link needs to see
@@ -131,7 +131,7 @@ was never estimated. Because dropping the unestimated work would make the total
 read smaller than the work really is, the item also says **how many gathered
 things carry no estimate**, so a small total that hides a pile of unsized work
 cannot be mistaken for a small pile of work. The plan owns none of these numbers —
-they are registered on the entries and the chapters, in Backlog Management and
+they are registered on the tasks and the chapters, in Tasks and
 Second Brain — and it only reads and adds them.
 
 ## Priority planning
@@ -145,8 +145,8 @@ related: [.domain/roadmap/domain.md#planning-priority]
 
 Decide what matters most across projects at once, and record that decision in the
 plan rather than in each project. The plan's priority is its own judgement: it is
-never overwritten by the priority of a linked backlog entry, and setting it never
-reaches into that entry — so reprioritising a quarter does not mean editing a
+never overwritten by the priority of a linked task, and setting it never
+reaches into that task — so reprioritising a quarter does not mean editing a
 dozen issues.
 
 ## Dependency planning
@@ -343,7 +343,7 @@ observed downstream reaches back in and edits the plan.
 type: feature
 status: proposed
 depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
-related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#planning-lane, .domain/backlog/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
+related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#planning-lane, .domain/tasks/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
 ```
 
 **An idea, written down to be argued with — not an agreed model.** This folder's
@@ -369,7 +369,7 @@ It would be built on what this context already has, not beside it. The chain is
 the existing [Dependency](domain.md#dependency) — acyclicity, and
 [Plan Sequencing](domain.md#plan-sequencing)'s reachability answers, are exactly
 what an ordered chain needs. The work a track holds is reached the way an item
-already reaches it: by named link and by tag, across Backlog Management and Second
+already reaches it: by named link and by tag, across Tasks and Second
 Brain. And **the repository line stays as it is** — a track sits inside a
 repository band exactly as lanes and items do today, so a portfolio still reads
 one project at a time.
@@ -397,8 +397,8 @@ built:
   [Repository Scope](domain.md#repository-scope) keeps opaque aliases for exactly
   that reason, and resolving them is a supplier's job.
 - **Does a track hold work, or gather it?** If the chain runs between plan nodes it
-  is the existing Dependency and nothing moves. If it runs between Backlog Entries,
-  the dependency leaves this context — and Backlog Management models no dependency
+  is the existing Dependency and nothing moves. If it runs between Tasks,
+  the dependency leaves this context — and Tasks models no dependency
   today, which is why Roadmap is described as the only context that holds one
   between two pieces of planned work.
 - **Do milestones survive?** A [Milestone](domain.md#milestone) is a day, and a plan
@@ -411,7 +411,7 @@ built:
 ```meta
 type: sub-feature
 status: proposed
-related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/features.md#effort-registration]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#effort-registration]
 ```
 
 Read how big a track is from the **total registered effort** of the work it
@@ -422,7 +422,7 @@ they mostly cannot.
 
 The arithmetic is the one already described in
 [gathering work under an item](#gathering-work-under-an-item-and-totalling-its-effort),
-unchanged and for the same reasons: the points are registered on the entries and
+unchanged and for the same reasons: the points are registered on the tasks and
 the chapters, Roadmap only adds them, something reached both by link and by tag
 counts once, and the count of gathered things that registered no estimate is
 reported next to the total rather than folded into it. A track whose size hid its

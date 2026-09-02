@@ -105,7 +105,7 @@ public class SharedControlAdoptionTests
     ///
     /// <list type="bullet">
     /// <item><c>badge--gh</c> — the linked GitHub issue and pull request badges,
-    /// in Backlog Management and in Second Brain. <c>IntegrationLink</c> is what
+    /// in Tasks and in Second Brain. <c>IntegrationLink</c> is what
     /// these become, and it draws itself as <c>integration-link</c> rather than
     /// <c>badge--gh</c>, so adopting it is a visual change to both areas at
     /// once. Converting one and leaving the other would put two shapes on the

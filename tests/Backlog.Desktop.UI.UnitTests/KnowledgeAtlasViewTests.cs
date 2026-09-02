@@ -75,8 +75,8 @@ public sealed class KnowledgeAtlasViewTests : IDisposable
         var sheet = component.Find("[data-testid=\"knowledge-atlas-sheet\"]");
 
         Assert.Equal("true", sheet.GetAttribute("data-open"));
-        Assert.Equal("Backlog", sheet.QuerySelector(".detail-sheet__kicker")!.TextContent.Trim());
-        Assert.Contains(".domain/backlog/domain.md", sheet.QuerySelector(".detail-sheet__lede")!.TextContent);
+        Assert.Equal("Tasks", sheet.QuerySelector(".detail-sheet__kicker")!.TextContent.Trim());
+        Assert.Contains(".domain/tasks/domain.md", sheet.QuerySelector(".detail-sheet__lede")!.TextContent);
     }
 
     /// <summary>The index is generated, so a folder in a checkout that has not run
@@ -131,13 +131,13 @@ public sealed class KnowledgeAtlasViewTests : IDisposable
         {
           "elements": {
             "nodes": [
-              { "data": { "id": ".domain/backlog/domain.md", "label": "Backlog Domain", "folder": "domain", "type": "file", "status": "active", "path": ".domain/backlog/domain.md" } },
-              { "data": { "id": ".domain/backlog/domain.md#entries", "label": "Entries", "folder": "domain", "type": "chapter", "status": "draft", "path": ".domain/backlog/domain.md" } },
+              { "data": { "id": ".domain/tasks/domain.md", "label": "Tasks Domain", "folder": "domain", "type": "file", "status": "active", "path": ".domain/tasks/domain.md" } },
+              { "data": { "id": ".domain/tasks/domain.md#entries", "label": "Entries", "folder": "domain", "type": "chapter", "status": "draft", "path": ".domain/tasks/domain.md" } },
               { "data": { "id": ".domain/context-map.md", "label": "Context Map", "folder": "domain", "type": "file", "status": "active", "path": ".domain/context-map.md" } }
             ],
             "edges": [
-              { "data": { "id": "contains:1", "source": ".domain/backlog/domain.md", "target": ".domain/backlog/domain.md#entries", "type": "contains" } },
-              { "data": { "id": "related:1", "source": ".domain/backlog/domain.md", "target": ".domain/context-map.md", "type": "related" } }
+              { "data": { "id": "contains:1", "source": ".domain/tasks/domain.md", "target": ".domain/tasks/domain.md#entries", "type": "contains" } },
+              { "data": { "id": "related:1", "source": ".domain/tasks/domain.md", "target": ".domain/context-map.md", "type": "related" } }
             ]
           }
         }

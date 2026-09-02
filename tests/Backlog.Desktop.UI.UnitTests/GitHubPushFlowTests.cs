@@ -1,5 +1,5 @@
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -13,13 +13,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GitHubPushFlowTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];
-    private readonly List<BacklogDesktopState> _states = [];
+    private readonly List<TasksDesktopState> _states = [];
 
     public void Dispose()
     {
         // Before the folders below go: the state arms timed saves, and one that
         // elapsed after its folder was deleted is work the test host is still
-        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        // holding when the run is over. See TasksDesktopStateLifetimeTests.
         foreach (var state in _states)
         {
             state.Dispose();
@@ -207,7 +207,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// <summary>
     /// A sub-item push used to be asserted here, filing one chapter as its own issue
     /// in the parent's repository. It has gone with the method behind it, and the
-    /// reason is the model rather than the plumbing: <c>.domain/backlog/domain.md</c>
+    /// reason is the model rather than the plumbing: <c>.domain/tasks/domain.md</c>
     /// gives <c>ProjectionRef</c> to the entry and says a Sub-Item "may project to
     /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue. A
     /// step filed as its own issue had nowhere to record the link, so nothing could
@@ -300,7 +300,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.DoesNotContain("![Screenshot]", harness.Client.CreatedBody);
     }
 
-    private async Task<EntryRow> WriteEntryAsync(BacklogDesktopState state, string text)
+    private async Task<EntryRow> WriteEntryAsync(TasksDesktopState state, string text)
     {
         state.NewRow();
         var row = state.Rows[^1];
@@ -329,15 +329,15 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     /// <summary>The list state, remembered so <see cref="Dispose"/> can hand back
     /// the timed saves it arms.</summary>
-    private BacklogDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration)
+    private TasksDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration)
     {
-        var state = BacklogTestHost.StateFor(store, integration);
+        var state = TasksTestHost.StateFor(store, integration);
         _states.Add(state);
         return state;
     }
 
     private sealed record Harness(
-        BacklogDesktopState State,
+        TasksDesktopState State,
         FakeGitHubClient Client,
         WorkspaceSettingsStore Store,
         GitHubIntegration Integration,

@@ -41,7 +41,7 @@ public sealed record RoadmapPlanDto(
 /// and unresolved. Empty means unfiled, not "all".</param>
 /// <param name="Lane">The row it is filed under within its repository band. Null
 /// means the default lane.</param>
-/// <param name="BacklogEntryId">The entry that executes this item, when there is
+/// <param name="TaskId">The entry that executes this item, when there is
 /// one. May dangle: an entry can be deleted while the plan still intends the
 /// work.</param>
 /// <param name="DependsOn">The nodes — items or milestones — this waits for.</param>
@@ -59,7 +59,7 @@ public sealed record RoadmapItemDto(
     PlanningPriority Priority,
     IReadOnlyList<string> RepositoryAliases,
     string? Lane,
-    Guid? BacklogEntryId,
+    Guid? TaskId,
     IReadOnlyList<Guid> DependsOn,
     string? Notes = null,
     string Tag = "",

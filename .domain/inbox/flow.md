@@ -15,7 +15,7 @@ status: draft
 stateDiagram-v2
     [*] --> Unprocessed : Capture delivers item
     Unprocessed --> Triaged : Triage action taken
-    Triaged --> Routed : Route to Backlog or Knowledge
+    Triaged --> Routed : Route to Tasks or Knowledge
     Triaged --> Deferred : Defer for later review
     Triaged --> Archived : Dismiss / not actionable
     Deferred --> Unprocessed : Review date reached

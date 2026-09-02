@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Backlog.Abstractions;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.DomainModels;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 

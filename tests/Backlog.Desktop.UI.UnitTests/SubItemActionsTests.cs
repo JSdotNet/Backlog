@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// This time the removal is the decision, and it comes out of the model rather than
-/// out of taste. <c>.domain/backlog/domain.md</c> says a Sub-Item "may project to
+/// out of taste. <c>.domain/tasks/domain.md</c> says a Sub-Item "may project to
 /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue — and
 /// <c>ProjectionRef</c> is owned by <c>TaskItem</c> and never by <c>SubItem</c>.
 /// A step that was its own issue had nowhere to record the link it got back, so it
@@ -40,12 +40,12 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task A_step_offers_no_hand_off_of_its_own()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(EntryWithSubItem);
 
         // Every gate the removed markup used to ask about is open, so an absent
         // button here is a decision rather than an unmet condition.
-        Assert.True(host.Features.IsEnabled(BacklogFeatures.GitHubIntegration));
+        Assert.True(host.Features.IsEnabled(TasksFeatures.GitHubIntegration));
         Assert.True(host.Features.IsEnabled(AppFeatureKeys.CopilotCli));
         Assert.True(host.State.GitHubConfigured);
         Assert.True(row.IsPersisted);
@@ -67,7 +67,7 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task The_hand_offs_are_grouped_and_labelled_as_acting_on_the_whole_entry()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(EntryWithSubItem);
 
         var pane = host.Render();
@@ -90,7 +90,7 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task Pressing_the_entry_push_creates_the_issue_for_the_entry()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(EntryWithSubItem);
 
         var pane = host.Render();
@@ -107,10 +107,10 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task The_hand_offs_are_gated_one_at_a_time()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(EntryWithSubItem);
 
-        _ = host.Features.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = host.Features.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         var pane = host.Render();
 
@@ -124,7 +124,7 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task No_configured_repository_means_no_push_button()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(EntryWithSubItem);
 
         Assert.False(host.State.GitHubConfigured);
@@ -141,7 +141,7 @@ public sealed class SubItemActionsTests
     [Fact]
     public async Task A_sub_item_still_has_no_type_priority_status_or_tag_editor()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync(EntryWithSubItem);
 
         var pane = host.Render();

@@ -27,7 +27,7 @@
       emits a component's @using directives inside the component's namespace and
       without a global:: prefix, so under Backlog.Modules.Sessions.UI a bare
       "Backlog.*" import would bind to Backlog.Modules as soon as a
-      Backlog.Modules.Backlog namespace entered this project's reference closure.
+      Backlog.Modules.Tasks namespace entered this project's reference closure.
       Nothing here brings one in — the only references are the control library and
       this module's own abstractions — and _Imports.razor writes every Backlog.*
       import as global:: anyway, so neither half of that has to stay true by luck.

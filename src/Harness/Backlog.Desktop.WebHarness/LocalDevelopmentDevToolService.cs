@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.WebHarness;
 
@@ -23,7 +23,7 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
         new("dotnet tool search JSdotNet.MCP.Guidelines", 1, "Sample failure: nothing was searched.")
     ];
 
-    private readonly IBacklogStore _store;
+    private readonly ITaskStore _store;
 
     /// <summary>What has been ticked this session, for the sample rows below.
     /// They are not in anybody's catalog, so the merge that carries a real row's
@@ -32,7 +32,7 @@ internal sealed class LocalDevelopmentDevToolService : IDevToolService
     /// this harness exists to let somebody actually operate.</summary>
     private readonly Dictionary<string, bool> _acknowledged = new(StringComparer.OrdinalIgnoreCase);
 
-    public LocalDevelopmentDevToolService(IBacklogStore store)
+    public LocalDevelopmentDevToolService(ITaskStore store)
     {
         _store = store;
     }

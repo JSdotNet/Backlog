@@ -326,7 +326,7 @@
           "line": 159,
           "status": "active",
           "related": [
-            ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+            ".arc42/06-runtime-view.md#task-to-github-issue",
             ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"
           ]
         }
@@ -397,12 +397,12 @@
       },
       {
         "data": {
-          "id": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
-          "label": "Backlog Entry to GitHub Issue",
+          "id": ".arc42/06-runtime-view.md#task-to-github-issue",
+          "label": "Task to GitHub Issue",
           "type": "chapter",
           "folder": "arc42",
           "path": ".arc42/06-runtime-view.md",
-          "slug": "backlog-entry-to-github-issue",
+          "slug": "task-to-github-issue",
           "level": 2,
           "line": 11,
           "status": "active",
@@ -749,7 +749,7 @@
           "related": [
             ".arc42/12-glossary.md",
             ".domain/inbox/domain.md#inbox-item",
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/domain.md#task",
             ".domain/second-brain/domain.md#knowledge-note",
             ".domain/monitoring/domain.md#progress-signal",
             ".domain/dev-pc-management/domain.md#machine-registry",
@@ -988,7 +988,7 @@
           "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
           "status": "accepted",
           "related": [
-            ".domain/backlog/domain.md",
+            ".domain/tasks/domain.md",
             ".domain/context-map.md",
             ".arc42/05-building-block-view.md"
           ]
@@ -1007,21 +1007,21 @@
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ]
         }
       },
       {
         "data": {
           "id": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text",
+          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text",
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
           "status": "proposed",
           "related": [
-            ".domain/backlog/features.md#import",
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/features.md#import",
+            ".domain/tasks/domain.md#task",
             ".design/content-editing.md#scheduling-and-dependency-tokens",
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
@@ -1463,7 +1463,7 @@
           ],
           "related": [
             ".domain/repository-management/features.md#repository-knowledge-folder-settings",
-            ".domain/backlog/features.md#search-filter-and-organize"
+            ".domain/tasks/features.md#search-filter-and-organize"
           ],
           "outOfScope": true
         }
@@ -1498,7 +1498,7 @@
           "status": "draft",
           "related": [
             ".domain/roadmap/domain.md#roadmap-plan",
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/domain.md#task",
             ".domain/second-brain/domain.md#knowledge-note"
           ],
           "outOfScope": true
@@ -1506,12 +1506,12 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md#backlog-entry",
-          "label": "Backlog Entry",
+          "id": ".domain/tasks/domain.md#task",
+          "label": "Task",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/domain.md",
-          "slug": "backlog-entry",
+          "path": ".domain/tasks/domain.md",
+          "slug": "task",
           "level": 2,
           "line": 21,
           "status": "draft",
@@ -1534,7 +1534,7 @@
           "line": 21,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/domain.md#task",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
           "outOfScope": true
@@ -1552,7 +1552,7 @@
           "line": 23,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/domain.md#task",
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
@@ -1636,35 +1636,35 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md",
-          "label": "Backlog Management",
+          "id": ".domain/tasks/domain.md",
+          "label": "Tasks",
           "type": "file",
           "folder": "domain",
-          "path": ".domain/backlog/domain.md",
+          "path": ".domain/tasks/domain.md",
           "status": "draft",
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/features.md#import",
+          "id": ".domain/tasks/features.md#import",
           "label": "Import",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/features.md",
+          "path": ".domain/tasks/features.md",
           "slug": "import",
           "level": 2,
           "line": 372,
           "status": "proposed",
           "depends-on": [
-            ".domain/backlog/features.md#backlog-entry-creation",
-            ".domain/backlog/features.md#entry-dependencies",
-            ".domain/backlog/features.md#multi-repo-targeting"
+            ".domain/tasks/features.md#task-creation",
+            ".domain/tasks/features.md#task-dependencies",
+            ".domain/tasks/features.md#multi-repo-targeting"
           ],
           "related": [
-            ".domain/backlog/features.md#prompt-features",
-            ".domain/backlog/features.md#sub-items-and-steps",
-            ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+            ".domain/tasks/features.md#prompt-features",
+            ".domain/tasks/features.md#sub-items-and-steps",
+            ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
             ".domain/repository-management/features.md#repository-registration"
           ],
           "outOfScope": true
@@ -1683,12 +1683,12 @@
           "status": "active",
           "related": [
             ".design/content-editing.md#structured-metadata-sigils",
-            ".domain/backlog/naming.md#due-date",
-            ".domain/backlog/naming.md#reminder",
-            ".domain/backlog/naming.md#recurrence",
-            ".domain/backlog/naming.md#my-day",
-            ".domain/backlog/naming.md#dependency",
-            ".domain/backlog/features.md#import",
+            ".domain/tasks/naming.md#due-date",
+            ".domain/tasks/naming.md#reminder",
+            ".domain/tasks/naming.md#recurrence",
+            ".domain/tasks/naming.md#my-day",
+            ".domain/tasks/naming.md#dependency",
+            ".domain/tasks/features.md#import",
             ".domain/repository-management/domain.md#repository-registry"
           ],
           "outOfScope": true
@@ -1960,9 +1960,9 @@
       },
       {
         "data": {
-          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "id": "contains:.arc42/06-runtime-view.md->.arc42/06-runtime-view.md#task-to-github-issue",
           "source": ".arc42/06-runtime-view.md",
-          "target": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "target": ".arc42/06-runtime-view.md#task-to-github-issue",
           "type": "contains"
         }
       },
@@ -2312,9 +2312,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "id": "related:.arc42/05-building-block-view.md#desktop-app->.arc42/06-runtime-view.md#task-to-github-issue",
           "source": ".arc42/05-building-block-view.md#desktop-app",
-          "target": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "target": ".arc42/06-runtime-view.md#task-to-github-issue",
           "type": "related"
         }
       },
@@ -2384,8 +2384,8 @@
       },
       {
         "data": {
-          "id": "related:.arc42/06-runtime-view.md#backlog-entry-to-github-issue->.arc42/05-building-block-view.md#desktop-app",
-          "source": ".arc42/06-runtime-view.md#backlog-entry-to-github-issue",
+          "id": "related:.arc42/06-runtime-view.md#task-to-github-issue->.arc42/05-building-block-view.md#desktop-app",
+          "source": ".arc42/06-runtime-view.md#task-to-github-issue",
           "target": ".arc42/05-building-block-view.md#desktop-app",
           "type": "related"
         }
@@ -2680,9 +2680,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/backlog/domain.md#backlog-entry",
+          "id": "related:.arc42/08-crosscutting-concepts.md#shared-data-types->.domain/tasks/domain.md#task",
           "source": ".arc42/08-crosscutting-concepts.md#shared-data-types",
-          "target": ".domain/backlog/domain.md#backlog-entry",
+          "target": ".domain/tasks/domain.md#task",
           "type": "related"
         }
       },
@@ -2880,9 +2880,9 @@
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/backlog/domain.md",
+          "id": "related:.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md->.domain/tasks/domain.md",
           "source": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
-          "target": ".domain/backlog/domain.md",
+          "target": ".domain/tasks/domain.md",
           "type": "related"
         }
       },
@@ -2936,25 +2936,25 @@
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/backlog/domain.md#backlog-entry",
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "target": ".domain/backlog/domain.md#backlog-entry",
+          "target": ".domain/tasks/domain.md#task",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/features.md#import",
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/features.md#import",
           "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/backlog/features.md#import",
+          "target": ".domain/tasks/features.md#import",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/backlog/domain.md#backlog-entry",
+          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/backlog/domain.md#backlog-entry",
+          "target": ".domain/tasks/domain.md#task",
           "type": "related"
         }
       },

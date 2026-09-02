@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// The caret is asserted through the interop the app moves it with, the same way
-/// <see cref="BacklogPaneFocusTests"/> does: a bUnit render has no focus of its
+/// <see cref="TasksPaneFocusTests"/> does: a bUnit render has no focus of its
 /// own, so "the focus went there" is only observable as "that element was named".
 /// </para>
 /// </summary>
@@ -24,13 +24,13 @@ public sealed class NewEntryOpensOnItsTitleTests
 {
     private const string ExistingEntry = "# Deploy SpecManager\n`task` `!ready` `@repos`\n";
 
-    private static IReadOnlyList<string?> Focused(BacklogPaneHost host) =>
+    private static IReadOnlyList<string?> Focused(TasksPaneHost host) =>
         [.. host.Context.JSInterop.Invocations["backlogFocus"].Select(call => call.Arguments[0] as string)];
 
     /// <summary>Presses the control a reader presses, and hands back the draft it
     /// appended. Through the button rather than through the state, because half of
     /// what is under test happens in the render the click causes.</summary>
-    private static async Task<EntryRow> AddEntryAsync(BacklogPaneHost host, IRenderedComponent<BacklogPane> pane)
+    private static async Task<EntryRow> AddEntryAsync(TasksPaneHost host, IRenderedComponent<TasksPane> pane)
     {
         await pane.Find("[data-testid='new-entry-button']").ClickAsync(new());
         return host.State.Rows[^1];
@@ -44,7 +44,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task A_new_entry_does_not_open_the_raw_markdown_hatch()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var pane = host.Render();
         await AddEntryAsync(host, pane);
@@ -66,7 +66,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task A_new_entry_opens_with_the_caret_in_its_title()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);
@@ -89,7 +89,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task Ctrl_shift_m_still_opens_the_hatch_on_a_brand_new_entry()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);
@@ -122,7 +122,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task Typing_the_title_on_a_fresh_draft_saves_it()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);
@@ -141,7 +141,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExistingEntry);
         host.State.SetAreaFilter("repos");
 
@@ -166,7 +166,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task A_new_entry_stays_in_view_under_a_filter_it_does_not_match()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(ExistingEntry);
         host.State.SetStatusFilter("ready");
 
@@ -181,7 +181,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     /// <summary>With a repository scoped, a new entry starts already filed there —
     /// the same bargain <see cref="Typing_the_title_keeps_the_area_a_new_entry_was_seeded_with"/>
     /// documents for an area filter, extended to the other scope
-    /// <see cref="BacklogDesktopState.RowBelongsToSelectedRepository"/> reads the
+    /// <see cref="TasksDesktopState.RowBelongsToSelectedRepository"/> reads the
     /// same field to decide. Without the seed, a repository's rows are exactly the
     /// rows whose area names it — so an entry created with no area would pass the
     /// filter only while pinned as an unpersisted draft, then drop out of
@@ -189,7 +189,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task A_new_entry_is_seeded_with_the_scoped_repositorys_area()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
         host.State.SetRepositoryFilter("backlog");
 
@@ -202,13 +202,13 @@ public sealed class NewEntryOpensOnItsTitleTests
     /// <summary>The regression itself: typing the title on a repository-scoped draft
     /// must not vanish it from the list or close the pane on it. Before the seed
     /// above, the draft passed the filter only as an unpersisted, selected row — a
-    /// pin that <see cref="BacklogDesktopState.ApplyFilter"/> withdraws the instant
+    /// pin that <see cref="TasksDesktopState.ApplyFilter"/> withdraws the instant
     /// the save gives it an id, so the very act of naming the entry made it
     /// disappear.</summary>
     [Fact]
     public async Task Typing_the_title_keeps_a_repository_scoped_entry_visible()
     {
-        using var host = await BacklogPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         await host.WriteEntryAsync("# Deploy SpecManager\n`task` `!ready` `@backlog`\n");
         host.State.SetRepositoryFilter("backlog");
 
@@ -234,7 +234,7 @@ public sealed class NewEntryOpensOnItsTitleTests
     [Fact]
     public async Task A_draft_nobody_wrote_in_goes_when_the_pane_moves_on()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         var pane = host.Render();
         var row = await AddEntryAsync(host, pane);

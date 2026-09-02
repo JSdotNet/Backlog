@@ -6,7 +6,7 @@ namespace Backlog.Modules.Roadmap.DomainModels;
 /// One piece of planned work inside a <see cref="RoadmapPlan"/>.
 /// <para>
 /// It has no status and no percentage. Both are questions about execution, and
-/// execution belongs to Backlog Management: an item that names an entry shows that
+/// execution belongs to Tasks: an item that names an entry shows that
 /// entry's progress, and an item that names none shows that it is planned and
 /// nothing more.
 /// </para>
@@ -31,7 +31,7 @@ public sealed class RoadmapItem
         RepositoryScope scope,
         PlanningLane lane,
         Dependencies dependencies,
-        Guid? backlogEntryId,
+        Guid? taskId,
         string? notes,
         PlanningTag? tag = null,
         KnowledgeReferences? knowledgeRefs = null)
@@ -43,7 +43,7 @@ public sealed class RoadmapItem
         Scope = scope;
         Lane = lane;
         Dependencies = dependencies;
-        BacklogEntryId = backlogEntryId;
+        TaskId = taskId;
         Notes = notes;
         // Derived from the title when none was given, so every item — freshly added,
         // rehydrated, or read from a plan.json written before tags existed — always has
@@ -73,7 +73,7 @@ public sealed class RoadmapItem
     /// <summary>The entry that executes this item, when there is one. A foreign id
     /// and nothing more: it may dangle, and a dangling link reads as unlinked
     /// rather than as an error.</summary>
-    public Guid? BacklogEntryId { get; private set; }
+    public Guid? TaskId { get; private set; }
 
     public string? Notes { get; private set; }
 
@@ -103,7 +103,7 @@ public sealed class RoadmapItem
 
     internal void FileUnder(RepositoryScope scope) => Scope = scope;
 
-    internal void LinkTo(Guid? backlogEntryId) => BacklogEntryId = backlogEntryId;
+    internal void LinkTo(Guid? taskId) => TaskId = taskId;
 
     internal void Annotate(string? notes) => Notes = notes;
 

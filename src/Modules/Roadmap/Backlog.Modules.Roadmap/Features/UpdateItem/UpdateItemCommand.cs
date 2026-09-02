@@ -24,7 +24,7 @@ public sealed record UpdateItemCommand(
     PlanningPriority Priority,
     IReadOnlyList<string>? RepositoryAliases = null,
     string? Lane = null,
-    Guid? BacklogEntryId = null,
+    Guid? TaskId = null,
     string? Notes = null,
     string? Tag = null,
     IReadOnlyList<string>? KnowledgeRefs = null);
@@ -49,7 +49,7 @@ public sealed class UpdateItemCommandHandler(IRoadmapPlanRepository plans)
             command.Priority,
             RepositoryScope.Of(command.RepositoryAliases),
             PlanningLane.Of(command.Lane),
-            command.BacklogEntryId,
+            command.TaskId,
             command.Notes,
             // A cleared tag means "derive one from the title"; the plan does that.
             string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),

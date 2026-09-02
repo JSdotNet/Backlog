@@ -85,7 +85,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             lane: "platform",
             notes: "A note",
             tag: "sync",
-            knowledge: [".domain/backlog/domain.md#aggregate-backlog-entry"])));
+            knowledge: [".domain/tasks/domain.md#aggregate-backlog-entry"])));
 
         var item = Assert.Single((await Planning.GetPlanAsync()).Items);
 
@@ -97,7 +97,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         Assert.Equal("platform", item.Lane);
         Assert.Equal("A note", item.Notes);
         Assert.Equal("sync", item.Tag);
-        Assert.Equal([".domain/backlog/domain.md#aggregate-backlog-entry"], item.Knowledge);
+        Assert.Equal([".domain/tasks/domain.md#aggregate-backlog-entry"], item.Knowledge);
 
         // Accepted, so the dialog is gone and the new work is on the chart.
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));

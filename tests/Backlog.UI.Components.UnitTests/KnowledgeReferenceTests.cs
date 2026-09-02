@@ -56,7 +56,7 @@ public sealed class KnowledgeReferenceTests
 
     [Theory]
     [InlineData(".arc42/01-introduction.md", KnowledgeFolder.Arc42)]
-    [InlineData(".domain/backlog/domain.md#aggregate-entry", KnowledgeFolder.Domain)]
+    [InlineData(".domain/tasks/domain.md#aggregate-entry", KnowledgeFolder.Domain)]
     [InlineData(".backlog/domain-backlog.md", KnowledgeFolder.Backlog)]
     [InlineData(".tech/shared.md#markdown", KnowledgeFolder.Tech)]
     [InlineData(".design/color-scheme.md", KnowledgeFolder.Design)]

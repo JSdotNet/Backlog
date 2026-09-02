@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
@@ -39,7 +39,7 @@ public static class RoadmapItemRollupBuilder
 
         foreach (var entry in backlog)
         {
-            var direct = item.BacklogEntryId is { } linked && entry.Id == linked;
+            var direct = item.TaskId is { } linked && entry.Id == linked;
             var tagged = hasTag && entry.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase);
 
             if (!direct && !tagged) continue;

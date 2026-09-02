@@ -23,9 +23,9 @@ public sealed class KnowledgeAtlasReaderTests
         {
             nodes = new object[]
             {
-                Node(".domain/backlog/domain.md", "Backlog Domain", "domain", "file", "active", ".domain/backlog/domain.md"),
-                Node(".domain/backlog/domain.md#entries", "Entries", "domain", "chapter", "draft", ".domain/backlog/domain.md"),
-                Node(".domain/backlog/model.md", "Backlog Model", "domain", "file", "draft", ".domain/backlog/model.md"),
+                Node(".domain/tasks/domain.md", "Tasks Domain", "domain", "file", "active", ".domain/tasks/domain.md"),
+                Node(".domain/tasks/domain.md#entries", "Entries", "domain", "chapter", "draft", ".domain/tasks/domain.md"),
+                Node(".domain/tasks/model.md", "Tasks Model", "domain", "file", "draft", ".domain/tasks/model.md"),
                 Node(".domain/inbox/domain.md", "Inbox Domain", "domain", "file", "active", ".domain/inbox/domain.md"),
                 Node(".domain/inbox/domain.md#capture", "Capture", "domain", "chapter", "proposed", ".domain/inbox/domain.md"),
                 Node(".domain/context-map.md", "Context Map", "domain", "file", "active", ".domain/context-map.md"),
@@ -33,12 +33,12 @@ public sealed class KnowledgeAtlasReaderTests
             },
             edges = new object[]
             {
-                Edge("contains", ".domain/backlog/domain.md", ".domain/backlog/domain.md#entries"),
+                Edge("contains", ".domain/tasks/domain.md", ".domain/tasks/domain.md#entries"),
                 Edge("contains", ".domain/inbox/domain.md", ".domain/inbox/domain.md#capture"),
-                Edge("related", ".domain/backlog/domain.md", ".domain/inbox/domain.md"),
-                Edge("related", ".domain/inbox/domain.md", ".domain/backlog/domain.md"),
-                Edge("depends-on", ".domain/backlog/model.md", ".domain/context-map.md"),
-                Edge("implements", ".domain/backlog/domain.md", ".arc42/05-building-block-view.md#backlog"),
+                Edge("related", ".domain/tasks/domain.md", ".domain/inbox/domain.md"),
+                Edge("related", ".domain/inbox/domain.md", ".domain/tasks/domain.md"),
+                Edge("depends-on", ".domain/tasks/model.md", ".domain/context-map.md"),
+                Edge("implements", ".domain/tasks/domain.md", ".arc42/05-building-block-view.md#backlog"),
                 Edge("related", ".domain/context-map.md", ".domain/nowhere.md")
             }
         }
@@ -77,8 +77,8 @@ public sealed class KnowledgeAtlasReaderTests
         var graph = Read();
 
         var between = graph.Edges.Count(edge =>
-            (edge.Source == ".domain/backlog/domain.md" && edge.Target == ".domain/inbox/domain.md")
-            || (edge.Source == ".domain/inbox/domain.md" && edge.Target == ".domain/backlog/domain.md"));
+            (edge.Source == ".domain/tasks/domain.md" && edge.Target == ".domain/inbox/domain.md")
+            || (edge.Source == ".domain/inbox/domain.md" && edge.Target == ".domain/tasks/domain.md"));
 
         Assert.Equal(1, between);
     }
@@ -101,10 +101,10 @@ public sealed class KnowledgeAtlasReaderTests
     {
         var graph = Read();
 
-        Assert.Equal("Backlog", NodeFor(graph, ".domain/backlog/domain.md").Group);
+        Assert.Equal("Tasks", NodeFor(graph, ".domain/tasks/domain.md").Group);
 
         // A chapter takes its file's group, not one of its own.
-        Assert.Equal("Backlog", NodeFor(graph, ".domain/backlog/domain.md#entries").Group);
+        Assert.Equal("Tasks", NodeFor(graph, ".domain/tasks/domain.md#entries").Group);
         Assert.Equal("Inbox", NodeFor(graph, ".domain/inbox/domain.md#capture").Group);
 
         // Flat in the folder, so the document names the group.
@@ -118,7 +118,7 @@ public sealed class KnowledgeAtlasReaderTests
     {
         var graph = KnowledgeAtlasReader.Read(KnowledgeAtlasScope.All, Graph());
 
-        Assert.Equal("Domain", NodeFor(graph, ".domain/backlog/domain.md").Group);
+        Assert.Equal("Domain", NodeFor(graph, ".domain/tasks/domain.md").Group);
         Assert.Equal("Architecture", NodeFor(graph, ".arc42/05-building-block-view.md#backlog").Group);
         Assert.Equal(2, graph.GroupCount);
     }
@@ -148,7 +148,7 @@ public sealed class KnowledgeAtlasReaderTests
 
         // One `related` (deduplicated) and one `implements` out; nothing in. The
         // `contains` edge to its own chapter is not counted.
-        var backlog = NodeFor(graph, ".domain/backlog/domain.md");
+        var backlog = NodeFor(graph, ".domain/tasks/domain.md");
 
         Assert.Equal(2, backlog.OutDegree);
         Assert.Equal(0, backlog.InDegree);

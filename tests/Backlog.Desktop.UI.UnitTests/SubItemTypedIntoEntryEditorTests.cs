@@ -19,7 +19,7 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
         "Notes for reading.\n";
 
     private readonly List<string> _tempDirs = [];
-    private readonly List<BacklogDesktopState> _states = [];
+    private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
     public async Task Typing_a_new_sub_item_does_not_duplicate_the_ones_already_there()
@@ -78,14 +78,14 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
         return count;
     }
 
-    private BacklogDesktopState State()
+    private TasksDesktopState State()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-typed-sub-item", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var state = BacklogTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
+        var state = TasksTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
         _states.Add(state);
         return state;
     }
@@ -95,7 +95,7 @@ public sealed class SubItemTypedIntoEntryEditorTests : IDisposable
         // Before the folders below go: this suite types into the editor, so it
         // arms the 750 ms debounce more often than any other, and a save that
         // elapsed after its folder was deleted is work the test host is still
-        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        // holding when the run is over. See TasksDesktopStateLifetimeTests.
         foreach (var state in _states)
         {
             state.Dispose();

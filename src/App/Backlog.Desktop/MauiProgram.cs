@@ -1,14 +1,14 @@
 using Backlog.Desktop.Services;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
-using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
@@ -52,23 +52,23 @@ public static class MauiProgram
         builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>()));
-        builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
+        builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
         // How often the list re-reads a store somebody else may have written to.
         // Its own per-user file beside the feature choices, for the same reason
         // theirs is not in settings.json.
-        builder.Services.AddSingleton<IBacklogRefreshSettings, BacklogRefreshSettingsStore>();
+        builder.Services.AddSingleton<ITasksRefreshSettings, TasksRefreshSettingsStore>();
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();
 
-        // Composition: the Backlog module brings its own use cases, and the host
+        // Composition: the Tasks module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the
         // storage folder rather than being pinned to wherever it was at startup,
         // because somebody can move their backlog while the app is open.
         builder.Services.AddSingleton<ITaskRepository>(sp =>
             new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        builder.Services.AddBacklogModule();
+        builder.Services.AddTasksModule();
 
         // The same arrangement for the plan: the Roadmap module brings its use
         // cases, and the host picks the adapter. One JSON document under the same
@@ -125,12 +125,12 @@ public static class MauiProgram
         builder.Services.AddDashboardModule();
         builder.Services.AddDashboardAdapters();
 
-        // Backlog Management's own adapter, registered here rather than beside
-        // AddBacklogModule() above because it reads the GitHub settings store and
+        // Tasks' own adapter, registered here rather than beside
+        // AddTasksModule() above because it reads the GitHub settings store and
         // that is only configured by this point. It is what lets an imported plan
         // resolve a `repo:` name against the repositories somebody has configured
         // — and register one it names that nobody has, per ADR 0004.
-        builder.Services.AddBacklogAdapters();
+        builder.Services.AddTasksAdapters();
 
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
@@ -140,7 +140,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
-        builder.Services.AddSingleton<BacklogCopilotCli>();
+        builder.Services.AddSingleton<TasksCopilotCli>();
         builder.Services.AddSingleton<KnowledgeCopilotCli>();
         // The shared diagram component asks for this optionally, so registering it
         // is what switches Archify artifacts on for the app at all. Everything it
@@ -149,7 +149,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<KnowledgeUpdateService>();
-        builder.Services.AddSingleton<BacklogDesktopState>();
+        builder.Services.AddSingleton<TasksDesktopState>();
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
@@ -161,7 +161,7 @@ public static class MauiProgram
         // safe to register unconditionally.
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
         builder.Services.AddSingleton<IDevToolService>(sp => new DevToolService(
-            sp.GetRequiredService<IBacklogStore>(),
+            sp.GetRequiredService<ITaskStore>(),
             sp.GetService<ILogger<DevToolService>>()));
 
         // The session list reads the two agents' own folders in the profile of

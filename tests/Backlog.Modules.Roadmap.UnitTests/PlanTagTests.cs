@@ -91,9 +91,9 @@ public class KnowledgeReferencesTests
     [Fact]
     public void ReferencesAreTrimmed()
     {
-        var refs = KnowledgeReferences.Of(["  .domain/backlog/domain.md  ", " a.md#b "]);
+        var refs = KnowledgeReferences.Of(["  .domain/tasks/domain.md  ", " a.md#b "]);
 
-        Assert.Equal([".domain/backlog/domain.md", "a.md#b"], refs.Refs);
+        Assert.Equal([".domain/tasks/domain.md", "a.md#b"], refs.Refs);
     }
 
     [Fact]

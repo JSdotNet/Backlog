@@ -6,7 +6,7 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// What a roadmap item has gathered, and the effort registered against it.
 /// <para>
 /// A port on Roadmap Planning's own surface, answered by an infrastructure adapter
-/// that can see both Backlog Management and the knowledge folders — the join a
+/// that can see both Tasks and the knowledge folders — the join a
 /// screen may not make for itself
 /// (<c>ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface</c>).
 /// The band renders one context and asks this; the adapter reads the backlog and

@@ -1,8 +1,8 @@
 using System.Data;
 using System.Globalization;
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.Abstractions;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.DomainModels;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.Sqlite;

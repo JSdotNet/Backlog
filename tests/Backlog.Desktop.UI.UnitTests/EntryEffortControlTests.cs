@@ -23,7 +23,7 @@ public sealed class EntryEffortControlTests
     [Fact]
     public async Task The_effort_select_writes_the_points_it_offered()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Entry);
 
         var pane = host.Render();
@@ -41,7 +41,7 @@ public sealed class EntryEffortControlTests
     [Fact]
     public async Task Choosing_not_estimated_clears_the_effort()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Weekly review\n`task` `effort:8`\n\nRead the week.\n");
 
@@ -59,7 +59,7 @@ public sealed class EntryEffortControlTests
     [Fact]
     public async Task The_clear_button_retracts_the_estimate()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Weekly review\n`task` `effort:8`\n\nRead the week.\n");
 
@@ -73,7 +73,7 @@ public sealed class EntryEffortControlTests
     [Fact]
     public async Task The_badge_shows_only_once_an_estimate_is_set()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Entry);
 
         var pane = host.Render();

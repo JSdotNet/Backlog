@@ -105,7 +105,7 @@ related: [".design/accessibility.md#keyboard-navigation", ".design/design-princi
 The product supports reordering of **two distinct things**, both with the same
 affordance language and both with mandatory keyboard equivalents:
 
-1. **Items** — files/entries in a list (e.g. backlog entries, inbox items,
+1. **Items** — files/entries in a list (e.g. tasks, inbox items,
    knowledge notes).
 2. **Chapters** — headings/sections *within a document* (reordering a `##`
    section moves it and all its nested content).
@@ -308,7 +308,7 @@ status: active
 
 ```meta
 status: active
-related: [".design/typography-and-layout.md#metadata-lines", ".design/content-editing.md#backlog-entry-structure", ".design/interaction-guidelines.md#auto-save-no-save-buttons"]
+related: [".design/typography-and-layout.md#metadata-lines", ".design/content-editing.md#task-structure", ".design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
 A task row is the product's densest composition: a completion control, a title
@@ -365,7 +365,7 @@ status: active
 related: [".design/typography-and-layout.md#density", ".design/accessibility.md#target-sizes-and-text", ".design/design-principles.md#low-chrome-content-first"]
 ```
 
-An act the product performs on an external tool appears on a backlog entry, a
+An act the product performs on an external tool appears on a task, a
 knowledge chapter, a roadmap bar and inside a menu, and the set of acts does not
 change between them. What changes is how many of them survive the room available.
 
@@ -449,11 +449,11 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 
 | Rule area | Where it lives | Review surface |
 |---|---|---|
-| Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `BacklogDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Entry edit*, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
+| Auto-save, debounce, indicator | `SaveIndicator` in the shared library; `TasksDesktopState` in the desktop app | Storybook → *Feedback* → **SaveIndicator**, and *Entry edit*, which runs the real sequence: debounced text save while typing, immediate save on a task toggle, nothing shown while idle |
 | Toasts and feedback | `Toast`, `ToastHost`, `Alert`, `EmptyState`, `Spinner` | Storybook → *Feedback* |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `BacklogPane.razor`, state in `BacklogDesktopState` | none — see the gap below |
+| Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `TasksPane.razor`, state in `TasksDesktopState` | none — see the gap below |
 
 Known gaps:
 

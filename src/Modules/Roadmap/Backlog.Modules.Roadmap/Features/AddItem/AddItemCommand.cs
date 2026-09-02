@@ -23,7 +23,7 @@ public sealed record AddItemCommand(
     PlanningPriority Priority = PlanningPriority.Medium,
     IReadOnlyList<string>? RepositoryAliases = null,
     string? Lane = null,
-    Guid? BacklogEntryId = null,
+    Guid? TaskId = null,
     string? Notes = null,
     string? Tag = null,
     IReadOnlyList<string>? KnowledgeRefs = null);
@@ -47,7 +47,7 @@ public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans)
             command.Priority,
             RepositoryScope.Of(command.RepositoryAliases),
             PlanningLane.Of(command.Lane),
-            command.BacklogEntryId,
+            command.TaskId,
             command.Notes,
             // No tag means "derive one from the title"; the plan does that for itself.
             string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),

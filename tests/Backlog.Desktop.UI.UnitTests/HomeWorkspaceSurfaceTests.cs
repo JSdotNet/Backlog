@@ -684,7 +684,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_global_pane_enum_still_describes_three_panes_and_no_band()
     {
-        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Backlog, GlobalPane.Knowledge];
+        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge];
 
         Assert.Equal(expected, Enum.GetValues<GlobalPane>());
     }
@@ -1117,7 +1117,7 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
-        _ = featureSettings.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
 
         configureFeatures?.Invoke(featureSettings);
 
@@ -1155,12 +1155,12 @@ public sealed class HomeWorkspaceSurfaceTests
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
-            BacklogTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
+            TasksTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         // The band gathers an item's linked and tagged work through this port before it
         // opens the editor, so a host that composes the band composes the rollup with it.
         context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
-                BacklogTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignKnowledgeProvider>();
         context.Services.AddSingleton<TechnologyKnowledgeService>();
@@ -1176,10 +1176,10 @@ public sealed class HomeWorkspaceSurfaceTests
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
-        context.Services.AddScoped(sp => BacklogTestHost.StateFor(
+        context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            BacklogCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable));
 
         return new Harness(root, context);
     }

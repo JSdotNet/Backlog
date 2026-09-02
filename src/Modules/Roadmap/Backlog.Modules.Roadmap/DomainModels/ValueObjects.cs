@@ -257,7 +257,7 @@ public sealed record PlanningTag
 /// Held as opaque strings, trimmed and de-duplicated but never resolved, for the same
 /// reason <see cref="RepositoryScope"/> holds aliases opaquely: a reference whose
 /// target has moved or not been written yet is an ordinary transient state of a
-/// hand-editable plan, exactly like a dangling <see cref="RoadmapItem.BacklogEntryId"/>
+/// hand-editable plan, exactly like a dangling <see cref="RoadmapItem.TaskId"/>
 /// — a reading outcome, not a broken plan. Checking a path exists would tie this
 /// context to the knowledge base's storage, which it deliberately does not know.
 /// </para>

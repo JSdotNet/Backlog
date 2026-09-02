@@ -13,7 +13,7 @@ status: draft
 ```meta
 type: feature
 status: draft
-related: [.domain/productivity/domain.md#productivity-ledger, .domain/backlog/domain.md#aiworklogged]
+related: [.domain/productivity/domain.md#productivity-ledger, .domain/tasks/domain.md#aiworklogged]
 ```
 
 Track when AI contributes to personal work and show what changed because of that
@@ -27,7 +27,7 @@ type: sub-feature
 status: draft
 ```
 
-Record AI-assisted activity from backlog work, Copilot sessions, IDE chats, and
+Record AI-assisted activity from task work, Copilot sessions, IDE chats, and
 automation runs with enough context to understand the work without copying tool
 internals.
 
@@ -89,7 +89,7 @@ The capability is therefore to record those per-response counts as they arrive
 and roll them up by day, model, and work subject — the same shape the vendor
 import produces, so summaries do not care which route the evidence took. Kept as
 an idea rather than a plan because it only measures work that flows through
-Backlog itself, which is a narrower claim than the vendor reports make, and that
+Tasks itself, which is a narrower claim than the vendor reports make, and that
 narrowing has to stay visible to the person reading the numbers.
 
 ## Personal productivity dashboard

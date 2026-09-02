@@ -1,4 +1,4 @@
-﻿using Backlog.Modules.Backlog.Abstractions;
+﻿using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
@@ -71,7 +71,7 @@ public static class AppFeatures
     public static IReadOnlyList<AppFeatureDefinition> All { get; } =
     [
         // --- Domain: an area of the product ---------------------------------
-        new(BacklogFeatures.Backlog, "Backlog", "Create, edit, filter, reorder, and store backlog entries.", AlwaysEnabled: true),
+        new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell.", Status: AppFeatureStatus.Dev),
         new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
@@ -96,12 +96,12 @@ public static class AppFeatures
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(
-            BacklogFeatures.AdditionalRepositories,
+            TasksFeatures.AdditionalRepositories,
             "Additional repositories",
             "Configure multiple repositories and switch repository-specific knowledge.",
             Group: AppFeatureGroup.CrossCutting),
         new(
-            BacklogFeatures.GitHubIntegration,
+            TasksFeatures.GitHubIntegration,
             "GitHub integration",
             "Configure GitHub access, push entries to issues, and refresh issue or pull request state.",
             Status: AppFeatureStatus.Dev,
@@ -121,7 +121,7 @@ public static class AppFeatures
         new(
             AiAssistant,
             "AI assistant",
-            "Ask questions about visible backlog content through Azure Foundry.",
+            "Ask questions about visible task content through Azure Foundry.",
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(

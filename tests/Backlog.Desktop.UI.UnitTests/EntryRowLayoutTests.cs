@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

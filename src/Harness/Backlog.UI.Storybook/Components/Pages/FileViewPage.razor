@@ -155,9 +155,9 @@ Everything else on this pane is a reading being passed down: each chapter's stat
 The remarks themselves take four callbacks: `OnAddComment` for the affordance on a block, `OnEditComment` and `OnResolveComment` for an existing remark's own buttons, and `OnDeleteComment` for taking one away outright. Press the affordance and the new remark opens straight into its own textarea — the host answers with an empty body, and an empty body is what tells the view this is a fresh draft rather than something to read. Cancel on that draft calls `OnDeleteComment` too, so an abandoned remark does not linger as a blank note in the margin."
            Code="@ChapterCode">
         <div class="sb-tall" data-testid="file-view-knowledge">
-            <FileView Name="Domain: Backlog Management"
+            <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
-                      Path=".domain/backlog/domain.md"
+                      Path=".domain/tasks/domain.md"
                       Body="@_domain"
                       Fill="true"
                       TestId="file-view-domain"
@@ -200,9 +200,9 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
 The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
-            <FileView Name="Domain: Backlog Management"
+            <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
-                      Path=".domain/backlog/domain.md"
+                      Path=".domain/tasks/domain.md"
                       Body="@ReadingChapter"
                       Fill="true"
                       TestId="file-view-reading-example"
@@ -601,14 +601,14 @@ Tab through this one and then the arbitration story above. A supplied body gives
     // diagram written inside one of them, and enough prose to have somewhere to
     // hang a remark.
     private const string DomainChapter = """
-        # Domain: Backlog Management
+        # Domain: Tasks
 
         ```meta
         status: draft
         order: ["features.md", "model.md", "flow.md"]
         ```
 
-        Backlog Management maintains a personal backlog of prompts, tasks, ideas and
+        Tasks maintains a personal backlog of prompts, tasks, ideas and
         follow-ups across multiple projects and repos. It converts triaged Inbox
         Items into actionable, prioritised Backlog Entries and projects them to
         external systems such as GitHub and the Copilot CLI.
@@ -643,14 +643,14 @@ Tab through this one and then the arbitration story above. A supplied body gives
     /// in prose as code spans, and once as a markdown link, which is how the
     /// checked-in folders actually write them.</summary>
     private const string ReadingChapter = """
-        # Domain: Backlog Management
+        # Domain: Tasks
 
         ```meta
         status: draft
         order: ["features.md", "model.md", "flow.md"]
         ```
 
-        Backlog Management converts triaged Inbox Items into actionable, prioritised
+        Tasks converts triaged Inbox Items into actionable, prioritised
         Backlog Entries. What an Inbox Item is belongs to `.domain/inbox/domain.md`,
         and the system this sits inside is described in
         [the context and scope chapter](.arc42/03-context-and-scope.md).
@@ -681,14 +681,14 @@ Tab through this one and then the arbitration story above. A supplied body gives
     /// <summary>The same chapter as a commit has it: one status agreed, one
     /// paragraph shorter, and a lifecycle state nobody had added yet.</summary>
     private const string CommittedDomainChapter = """
-        # Domain: Backlog Management
+        # Domain: Tasks
 
         ```meta
         status: active
         order: ["features.md", "model.md", "flow.md"]
         ```
 
-        Backlog Management maintains a personal backlog of prompts, tasks, ideas and
+        Tasks maintains a personal backlog of prompts, tasks, ideas and
         follow-ups across multiple projects and repos.
 
         ## Aggregate: Backlog Entry
@@ -716,7 +716,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
 
         Two bounded contexts, one of them shared.
 
-        ## Backlog Management
+        ## Tasks
 
         Owns the personal backlog and everything projected out of it.
 
@@ -730,7 +730,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
 
         Three bounded contexts, and the language each of them owns.
 
-        ## Backlog Management
+        ## Tasks
 
         Owns the personal backlog and everything projected out of it.
 
@@ -747,8 +747,8 @@ Tab through this one and then the arbitration story above. A supplied body gives
         @* One component. The file decides what the body shows — a status where a
            `meta` fence is, a diagram where a diagram fence is — and the header
            decides which of the three modes it is in. *@
-        <FileView Name="Domain: Backlog Management"
-                  Path=".domain/backlog/domain.md"
+        <FileView Name="Domain: Tasks"
+                  Path=".domain/tasks/domain.md"
                   Body="@markdown"
                   Fill="true"
                   AllowCopy="true"
@@ -777,8 +777,8 @@ Tab through this one and then the arbitration story above. A supplied body gives
         @* A reading surface: the status is kept and the bookkeeping under it is
            not, the diagram carries no fold, and a chapter named in the prose goes
            through the same navigation the metadata references already use. *@
-        <FileView Name="Domain: Backlog Management"
-                  Path=".domain/backlog/domain.md"
+        <FileView Name="Domain: Tasks"
+                  Path=".domain/tasks/domain.md"
                   Body="@markdown"
                   Fill="true"
                   AllowCopy="true"

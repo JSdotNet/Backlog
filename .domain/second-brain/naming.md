@@ -34,17 +34,17 @@ related: [.domain/second-brain/domain.md#para-category]
 Organizing dimension (projects, areas, resources, archive). `archive` is the
 persisted archived state for a note.
 
-## Backlog Link
+## Task Link
 
 ```meta
 type: term
 status: draft
-aliases: [BacklogLink, backlog_entry_id]
-related: [.domain/second-brain/domain.md#backlog-link, .domain/backlog/naming.md#backlog-entry]
+aliases: [TaskLink, task_id]
+related: [.domain/second-brain/domain.md#task-link, .domain/tasks/naming.md#task]
 ```
 
-A reference from a note to a Backlog Entry by id only, keeping the two contexts
-decoupled. Uses the `backlog_entry_id` alias of Backlog's entry.
+A reference from a note to a Task by id only, keeping the two contexts
+decoupled. Uses the `task_id` alias of the Tasks context's Task.
 
 ## Project Ref
 
@@ -64,12 +64,12 @@ repository identifier used across contexts.
 type: term
 status: draft
 aliases: [effort, story points, story-point estimate]
-related: [.domain/second-brain/domain.md#knowledge-note, .domain/backlog/naming.md#effort]
+related: [.domain/second-brain/domain.md#knowledge-note, .domain/tasks/naming.md#effort]
 ```
 
 The size of a knowledge chapter in **story points**, carried in its `meta` block:
-a non-negative integer, optional, with the same three-valued edges as a Backlog
-Entry's effort (absent means "not estimated", `0` is a real estimate, negative is
+a non-negative integer, optional, with the same three-valued edges as a Task
+'s effort (absent means "not estimated", `0` is a real estimate, negative is
 rejected). It sizes the knowledge work rather than timing it. Registered and owned
 here; Roadmap Planning reads and totals it across the chapters an item gathers, but
 never sets it.

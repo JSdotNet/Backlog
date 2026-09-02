@@ -20,7 +20,7 @@ status: draft
 |---|---|---|
 | Capture | Core | It is the front door for turning raw external input into normalized intent for the product. |
 | Inbox | Core | It owns triage and the decision point where captured input becomes work, knowledge, deferral, or archive. |
-| Backlog Management | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
+| Tasks | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
 | Roadmap Planning | Core | It owns the forward plan — what is intended, when, in what order — and is the only context that holds a dependency between two pieces of planned work. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns. |
 | Second Brain | Core | It owns durable knowledge linked to work and makes knowledge reusable across projects. |
 | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight without owning the work items or execution tools. |
@@ -37,7 +37,7 @@ status: draft
 flowchart LR
     Capture[Capture]
     Inbox[Inbox]
-    Backlog[Backlog Management]
+    Tasks[Tasks]
     Roadmap[Roadmap Planning]
     Brain[Second Brain]
     Productivity[Productivity]
@@ -49,16 +49,16 @@ flowchart LR
     Sessions[Sessions]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
-    Inbox -->|OHS + Published Language<br/>ItemTriaged| Backlog
+    Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Brain
-    Backlog <-->|Partnership<br/>Cross-link by id| Brain
-    Backlog <-->|Partnership<br/>Optional cross-link by id| Roadmap
-    Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Backlog
+    Tasks <-->|Partnership<br/>Cross-link by id| Brain
+    Tasks <-->|Partnership<br/>Optional cross-link by id| Roadmap
+    Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Tasks
     Brain -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
     Roadmap -->|OHS + Published Language<br/>RoadmapItemScheduled| Monitor
 
-    Backlog -->|OHS + Published Language<br/>StatusChanged / EntryProjected / EntryCompleted| Monitor
+    Tasks -->|OHS + Published Language<br/>StatusChanged / TaskProjected / TaskCompleted| Monitor
     Inbox -->|Customer/Supplier<br/>Queue-health feed| Monitor
     Repo -->|Customer/Supplier<br/>Health and scan feed| Monitor
     DevPC -->|OHS + Published Language<br/>MachineStatusChanged / ComplianceUpdated| Monitor
@@ -71,12 +71,12 @@ flowchart LR
     Repo -->|Customer/Supplier<br/>Adoption and technology scans| Tech
     DevPC -->|Customer/Supplier<br/>Tool-version reports| Tech
 
-    Backlog -->|OHS + Published Language<br/>AIWorkLogged| Productivity
+    Tasks -->|OHS + Published Language<br/>AIWorkLogged| Productivity
     Monitor -->|OHS + Published Language<br/>CopilotSession signal| Productivity
-    Productivity -->|Customer/Supplier<br/>Productivity summaries| Backlog
+    Productivity -->|Customer/Supplier<br/>Productivity summaries| Tasks
 
     Repo -->|Customer/Supplier<br/>Repository/environment registry lookup| Environment
-    Environment -->|Customer/Supplier<br/>Launchable environment links| Backlog
+    Environment -->|Customer/Supplier<br/>Launchable environment links| Tasks
     Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
 
     %% Sessions. Dashed edges are named and not built: see the strategic rules
@@ -85,7 +85,7 @@ flowchart LR
     Sessions -.->|"Customer/Supplier (not built)<br/>Agent session facts"| Productivity
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
-    Repo -->|Customer/Supplier<br/>Repo registry lookup| Backlog
+    Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
 ```
 
@@ -94,40 +94,40 @@ flowchart LR
 | Contract owner | Published language / contract | Used by |
 |---|---|---|
 | Capture | `.domain/capture/domain.md#itemcaptured` | Inbox |
-| Inbox | `.domain/inbox/domain.md#itemtriaged` | Backlog, Second Brain |
-| Backlog Management | `.domain/backlog/domain.md#statuschanged`, `.domain/backlog/domain.md#entryprojected`, `.domain/backlog/domain.md#entrycompleted` | Monitoring & Dashboard |
-| Backlog Management | `.domain/backlog/domain.md#aiworklogged` | Productivity |
+| Inbox | `.domain/inbox/domain.md#itemtriaged` | Tasks, Second Brain |
+| Tasks | `.domain/tasks/domain.md#statuschanged`, `.domain/tasks/domain.md#taskprojected`, `.domain/tasks/domain.md#taskcompleted` | Monitoring & Dashboard |
+| Tasks | `.domain/tasks/domain.md#aiworklogged` | Productivity |
 | Roadmap Planning | `.domain/roadmap/domain.md#roadmapitemscheduled` | Monitoring & Dashboard |
-| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-item` | Backlog Management |
-| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-tag` | Backlog Management, Second Brain |
+| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-item` | Tasks |
+| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-tag` | Tasks, Second Brain |
 | Monitoring & Dashboard | `.domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.domain/dev-pc-management/domain.md#machinestatuschanged`, `.domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
-| Environment | `.domain/environment/domain.md#environment-shortcut-resolution` | Backlog Management, Dev PC Management |
+| Environment | `.domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
 
 ## Strategic rules
 
 - Only the owning context defines a published language. Consumers conform to that
   contract and do not reach into the supplier's internal aggregate shape.
-- `Backlog Management` and `Roadmap Planning` split the word *priority* on
-  purpose, and the split is load-bearing: Backlog owns an entry's **status and
+- `Tasks` and `Roadmap Planning` split the word *priority* on
+  purpose, and the split is load-bearing: Tasks owns a task's **status and
   execution priority**, Roadmap owns **planning priority and sequence**. Neither
   writes the other's value, and neither derives its own from the other. A roadmap
-  item may name the entry that executes it, but a plan must be able to hold work
-  that has no entry yet — which is why the plan is stored rather than projected.
+  item may name the task that executes it, but a plan must be able to hold work
+  that has no task yet — which is why the plan is stored rather than projected.
   This supersedes the earlier reading, in which the roadmap was a view over
-  Backlog Entries.
-- `Backlog Management` and `Second Brain` are a deliberate `Partnership`: both
+  Tasks.
+- `Tasks` and `Second Brain` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
-  registered on Backlog Entries and on knowledge chapters; a roadmap item's tag is
-  the vocabulary Backlog offers in its picker and a knowledge chapter names in its
-  `roadmap` list. Roadmap reads those — gathering entries and chapters by tag and by
+  registered on Tasks and on knowledge chapters; a roadmap item's tag is
+  the vocabulary Tasks offers in its picker and a knowledge chapter names in its
+  `roadmap` list. Roadmap reads those — gathering tasks and chapters by tag and by
   direct reference, and adding their registered effort — but registers no effort and
   defines no tag. This is why a roadmap tag must not change when its item's title is
-  renamed: entries and chapters already filed under it would silently stop matching.
+  renamed: tasks and chapters already filed under it would silently stop matching.
   The tag is a slug that *names* a roadmap item rather than *addressing* a chapter,
   so it draws no edge in the knowledge graph.
 - `Technology Stack` is the standards supplier for both `Repository Management`

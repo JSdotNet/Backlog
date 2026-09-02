@@ -1,5 +1,5 @@
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.DomainModels;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -210,7 +210,7 @@ public sealed class SampleEntryTests
     {
         var raw = Read("prose-only.md");
 
-        var normalized = BacklogDesktopState.EnsureTitleHeading(raw);
+        var normalized = TasksDesktopState.EnsureTitleHeading(raw);
 
         Assert.StartsWith("# Ask whether the trial length", normalized);
         Assert.Equal(

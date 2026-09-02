@@ -5,14 +5,14 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// its tag, or both.
 /// <para>
 /// <see cref="Both"/> is a real state and not a rounding of the other two: an entry
-/// can be the item's direct <c>BacklogEntryId</c> <em>and</em> carry its tag, and a
+/// can be the item's direct <c>TaskId</c> <em>and</em> carry its tag, and a
 /// reader deciding whether the link is safe to remove needs to know it is held by
 /// two threads rather than one.
 /// </para>
 /// </summary>
 public enum RollupOrigin
 {
-    /// <summary>Named outright — the item's <c>BacklogEntryId</c>, or one of its
+    /// <summary>Named outright — the item's <c>TaskId</c>, or one of its
     /// <c>KnowledgeRefs</c>.</summary>
     Direct,
 
