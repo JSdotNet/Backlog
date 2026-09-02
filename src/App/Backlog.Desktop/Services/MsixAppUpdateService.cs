@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.UI.Components;

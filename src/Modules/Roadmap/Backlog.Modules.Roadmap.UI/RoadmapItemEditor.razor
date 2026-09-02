@@ -85,7 +85,7 @@
                             SelectedValues="@_knowledge"
                             SelectedValuesChanged="values => _knowledge = values"
                             AllowCreate="true"
-                            Placeholder="e.g. .domain/backlog/domain.md#aggregate-backlog-entry"
+                            Placeholder="e.g. .domain/tasks/domain.md#aggregate-backlog-entry"
                             TestId="roadmap-item-knowledge-input" />
 
             @if (!IsNew && DependencyOptions.Count > 0)
@@ -431,7 +431,7 @@
             Enum.TryParse<PlanningPriority>(_priority, out var priority) ? priority : PlanningPriority.Medium,
             _repositories,
             string.IsNullOrWhiteSpace(_lane) ? null : _lane.Trim(),
-            Item?.BacklogEntryId,
+            Item?.TaskId,
             string.IsNullOrWhiteSpace(_notes) ? null : _notes,
             // A blank tag says "derive it from the title"; the module does that.
             string.IsNullOrWhiteSpace(_tag) ? null : _tag.Trim(),

@@ -36,6 +36,59 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(_dir, "_roadmap")));
     }
 
+    /// <summary>
+    /// The link to a task is written as <c>backlogEntryId</c>, the name it had before
+    /// the Backlog bounded context was renamed to Tasks.
+    /// <para>
+    /// The C# property is <c>TaskId</c> now, and under this file's camelCase policy it
+    /// would serialize as <c>taskId</c> without the explicit
+    /// <c>JsonPropertyName</c> holding it. That would not fail: every plan.json already
+    /// on disk would still load, just with every task link quietly gone. A rename that
+    /// loses data loudly gets fixed; one that loses it silently ships.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task ThePlanKeepsTheKeyItWasWrittenWith_SoOlderPlansStillResolveTheirLinks()
+    {
+        var taskId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("Linked", Window(5, 9), taskId: taskId);
+
+        await _plans.SaveAsync(plan);
+        var json = await File.ReadAllTextAsync(_plans.PlanPath);
+
+        Assert.Contains("\"backlogEntryId\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"taskId\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>A plan written before the rename still loads with its link intact.</summary>
+    [Fact]
+    public async Task APlanWrittenBeforeTheRename_StillLoadsItsTaskLink()
+    {
+        var taskId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var itemId = Guid.NewGuid();
+        var json = $$"""
+            {
+              "version": 1,
+              "items": [
+                {
+                  "id": "{{itemId}}",
+                  "title": "Written before the rename",
+                  "start": "2026-01-05",
+                  "end": "2026-01-09",
+                  "backlogEntryId": "{{taskId}}"
+                }
+              ]
+            }
+            """;
+        Directory.CreateDirectory(Path.GetDirectoryName(_plans.PlanPath)!);
+        await File.WriteAllTextAsync(_plans.PlanPath, json, Encoding.UTF8);
+
+        var loaded = await _plans.LoadAsync();
+
+        Assert.Equal(taskId, loaded.Items.Single(item => item.Id == itemId).TaskId);
+    }
+
     [Fact]
     public async Task SaveThenLoad_RoundTripsTheWholePlan()
     {
@@ -46,7 +99,7 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
             PlanningPriority.High,
             RepositoryScope.Of(["backlog", "fincent"]),
             PlanningLane.Of("platform"),
-            backlogEntryId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            taskId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
             notes: "Spike first.").Value;
         var build = plan.AddItem("Build it", Window(12, 23)).Value;
         var release = plan.AddMilestone("1.0", new DateOnly(2026, 2, 2), MilestoneKind.Release).Value;
@@ -63,7 +116,7 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
         Assert.Equal(PlanningPriority.High, loadedDesign.Priority);
         Assert.Equal(["backlog", "fincent"], loadedDesign.Scope.Aliases);
         Assert.Equal("platform", loadedDesign.Lane.Name);
-        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), loadedDesign.BacklogEntryId);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), loadedDesign.TaskId);
         Assert.Equal("Spike first.", loadedDesign.Notes);
 
         var loadedBuild = loaded.Items.Single(item => item.Id == build.Id);
@@ -239,7 +292,7 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
             Window(5, 9),
             tag: PlanningTag.Of("sync"),
             knowledgeRefs: KnowledgeReferences.Of(
-                [".domain/backlog/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
+                [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
 
         await _plans.SaveAsync(plan);
         var loaded = await _plans.LoadAsync();
@@ -247,7 +300,7 @@ public class JsonRoadmapPlanRepositoryTests : IDisposable
         var loadedItem = loaded.Items.Single(candidate => candidate.Id == item.Id);
         Assert.Equal("sync", loadedItem.Tag.Value);
         Assert.Equal(
-            [".domain/backlog/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"],
+            [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"],
             loadedItem.KnowledgeRefs.Refs);
     }
 

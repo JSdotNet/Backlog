@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Knowledge;
 /// <summary>
 /// Where a knowledge reference points, said in the terms the pane selects with.
 /// <para>
-/// A reference is authored as a repository path — <c>.domain/backlog/domain.md</c>
+/// A reference is authored as a repository path — <c>.domain/tasks/domain.md</c>
 /// — and a selection is remembered as a section plus a path beneath that section's
 /// folder. Those are the same fact spelled two ways, and the panel that renders the
 /// reference is not the thing holding the selection, so the translation has to

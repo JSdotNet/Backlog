@@ -158,7 +158,7 @@ public sealed class MarkdownViewKnowledgeLinkTests
 
         var view = Render(
             context,
-            "Gathered under a [backlog entry](../backlog/domain.md#backlog-entry).",
+            "Gathered under a [backlog entry](../tasks/domain.md#task).",
             parameters => parameters
                 .Add(v => v.RenderKnowledgeMetadata, true)
                 .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md")
@@ -172,8 +172,8 @@ public sealed class MarkdownViewKnowledgeLinkTests
         button.Click();
 
         var reference = Assert.Single(followed);
-        Assert.Equal(".domain/backlog/domain.md", reference.Path);
-        Assert.Equal("backlog-entry", reference.Slug);
+        Assert.Equal(".domain/tasks/domain.md", reference.Path);
+        Assert.Equal("task", reference.Slug);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public sealed class MarkdownViewKnowledgeLinkTests
 
     [Theory]
     // An image beside the chapter, linked rather than embedded.
-    [InlineData("assets/backlog-entry-inline-markdown-editing.png")]
+    [InlineData("assets/task-inline-markdown-editing.png")]
     // A path that climbs out of the repository.
     [InlineData("../../../etc/passwd")]
     // A real file, outside every section.
@@ -254,11 +254,11 @@ public sealed class MarkdownViewKnowledgeLinkTests
         // always rendered as, whatever it points at.
         using var context = new BunitContext();
 
-        var view = Render(context, "See [the thing](../backlog/domain.md#backlog-entry).");
+        var view = Render(context, "See [the thing](../tasks/domain.md#task).");
 
         var link = view.Find("a.md-link");
 
-        Assert.Equal("../backlog/domain.md#backlog-entry", link.GetAttribute("href"));
+        Assert.Equal("../tasks/domain.md#task", link.GetAttribute("href"));
         Assert.Equal("_blank", link.GetAttribute("target"));
         Assert.Empty(view.FindAll(".knowledge-ref"));
         Assert.Empty(view.FindAll("span.md-link--inert"));

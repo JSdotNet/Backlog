@@ -63,8 +63,8 @@ jobs:
           }
 
           # A git pathspec matches a directory and everything under it, but only on a
-          # path-segment boundary: 'src/Modules/Backlog/Backlog.Modules.Backlog' does not
-          # match the sibling '...Backlog.Modules.Backlog.UI'. So every project the desktop
+          # path-segment boundary: 'src/Modules/Tasks/Backlog.Modules.Tasks' does not
+          # match the sibling '...Backlog.Modules.Tasks.UI'. So every project the desktop
           # head composes has to be named. That list was hand-maintained and went stale --
           # it never grew the Dashboard, Roadmap or Sessions modules -- so it is derived
           # from the head's ProjectReference graph now. Only what is not a referenced

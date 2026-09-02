@@ -31,7 +31,7 @@ public sealed class RoadmapItemRollupSurfaceTests : IDisposable
             PlanningPriority.Medium,
             [],
             Lane: null,
-            BacklogEntryId: null,
+            TaskId: null,
             DependsOn: [],
             Tag: "sync");
 

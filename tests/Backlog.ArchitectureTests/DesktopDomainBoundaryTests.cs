@@ -1,7 +1,7 @@
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Rules for the desktop app's own bounded contexts. Inbox, Backlog Management
+/// Rules for the desktop app's own bounded contexts. Inbox, Tasks
 /// and Second Brain (the Knowledge folder) each have their own UI project now —
 /// <c>src/Modules/&lt;Context&gt;/Backlog.Modules.&lt;Context&gt;.UI</c> — under a Shell
 /// that composes them.
@@ -18,7 +18,7 @@ namespace Backlog.ArchitectureTests;
 /// First, that the split is still the shape of the repository — three context
 /// projects and a Shell that is not one, and nothing quietly moved back inside
 /// another. Second, the finer grain: a reference is coarse, and the
-/// moment <c>Backlog.Modules.Backlog.UI</c> takes its one allowed reference on
+/// moment <c>Backlog.Modules.Tasks.UI</c> takes its one allowed reference on
 /// the Inbox the compiler will accept any Backlog-Management file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
@@ -36,7 +36,7 @@ public class DesktopDomainBoundaryTests
     private static readonly Dictionary<string, string> ContextProjects = new(StringComparer.Ordinal)
     {
         ["Inbox"] = "src/Modules/Inbox/Backlog.Modules.Inbox.UI",
-        ["BacklogManagement"] = "src/Modules/Backlog/Backlog.Modules.Backlog.UI",
+        ["Tasks"] = "src/Modules/Tasks/Backlog.Modules.Tasks.UI",
         ["Knowledge"] = "src/Modules/Knowledge/Backlog.Modules.Knowledge.UI"
     };
 
@@ -50,7 +50,7 @@ public class DesktopDomainBoundaryTests
     /// which features were on, which every context was allowed to read. It is
     /// gone, and its absence is the point rather than an omission. A layer every
     /// context may read is a layer every context shares, and sharing it is how
-    /// Backlog Management came to consume a knowledge-folder resolver and Second
+    /// Tasks came to consume a knowledge-folder resolver and Second
     /// Brain came to consume the backlog root — two contexts the map calls a
     /// Partnership, coupled through a project neither owned. What lived there is
     /// now two module ports with adapters behind them in <c>src/Infrastructure</c>:
@@ -67,7 +67,7 @@ public class DesktopDomainBoundaryTests
     private static readonly Dictionary<string, string> Areas = new(StringComparer.Ordinal)
     {
         ["Inbox"] = ContextProjects["Inbox"],
-        ["BacklogManagement"] = ContextProjects["BacklogManagement"],
+        ["Tasks"] = ContextProjects["Tasks"],
         ["Knowledge"] = ContextProjects["Knowledge"],
         ["Shell"] = ShellFolder
     };
@@ -142,25 +142,25 @@ public class DesktopDomainBoundaryTests
     }
 
     /// <summary>
-    /// Inbox is upstream of both Backlog Management and Second Brain, and the
+    /// Inbox is upstream of both Tasks and Second Brain, and the
     /// two downstream contexts are a Partnership that coordinates by id rather
     /// than by reaching into each other. The one edge the map allows in code is
-    /// Backlog Management conforming to the Inbox's published item contract —
+    /// Tasks conforming to the Inbox's published item contract —
     /// which is why that pair is absent below and named instead in
     /// <c>ModuleBoundaryTests.AllowedCrossContextUi</c>.
     /// <para>
     /// The project references say most of this already. This says it a file at a
-    /// time: Backlog Management's reference on the Inbox is real, so only the
+    /// time: Tasks' reference on the Inbox is real, so only the
     /// source text can still tell the one conversion that earns it from a second
     /// use that nobody weighed.
     /// </para>
     /// </summary>
     [Theory]
-    [InlineData("Inbox", "BacklogManagement")]
+    [InlineData("Inbox", "Tasks")]
     [InlineData("Inbox", "Knowledge")]
-    [InlineData("Knowledge", "BacklogManagement")]
+    [InlineData("Knowledge", "Tasks")]
     [InlineData("Knowledge", "Inbox")]
-    [InlineData("BacklogManagement", "Knowledge")]
+    [InlineData("Tasks", "Knowledge")]
     public void A_context_never_names_another_context(string context, string forbidden)
     {
         var offenders = FilesNaming(context, $"{RootNamespace}.{forbidden}");
@@ -176,7 +176,7 @@ public class DesktopDomainBoundaryTests
     /// to sit on today.</summary>
     [Theory]
     [InlineData("Inbox")]
-    [InlineData("BacklogManagement")]
+    [InlineData("Tasks")]
     [InlineData("Knowledge")]
     public void Nothing_below_the_shell_depends_on_the_shell(string area)
     {
@@ -214,8 +214,8 @@ public class DesktopDomainBoundaryTests
     /// without asking. A sibling context named there would be handed to every
     /// component in the project at once.
     /// <para>
-    /// That includes the edge the context map allows. Backlog Management's
-    /// reference on the Inbox is earned by one conversion in <c>BacklogDrafts</c>,
+    /// That includes the edge the context map allows. Tasks'
+    /// reference on the Inbox is earned by one conversion in <c>TasksDrafts</c>,
     /// and it belongs in that file's own usings where a reader of the file sees
     /// it — a project-wide import would turn a single conforming translation into
     /// a standing invitation, and <see cref="A_context_never_names_another_context"/>
@@ -224,7 +224,7 @@ public class DesktopDomainBoundaryTests
     /// </summary>
     [Theory]
     [InlineData("Inbox")]
-    [InlineData("BacklogManagement")]
+    [InlineData("Tasks")]
     [InlineData("Knowledge")]
     public void A_contexts_own_razor_imports_name_no_other_context(string context)
     {

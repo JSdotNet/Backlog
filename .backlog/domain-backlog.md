@@ -1,4 +1,4 @@
-# Backlog Management Work
+# Tasks Work
 
 ```meta
 status: draft
@@ -8,12 +8,12 @@ status: draft
 
 ```meta
 status: done
-implements: [.domain/backlog/features.md#roadmap-planning]
+implements: [.domain/tasks/features.md#roadmap-planning]
 related: [.domain/roadmap/domain.md#roadmap-plan, .domain/roadmap/features.md, .domain/environment/features.md#environment-aware-work-context]
 ```
 
 **Delivered, but not as written.** This item asked for roadmap planning to be
-documented *inside* Backlog Management, as a view over selected entries. It is
+documented *inside* Tasks, as a view over selected entries. It is
 documented — as its own bounded context,
 [Roadmap Planning](../.domain/roadmap/domain.md#roadmap-plan) — and the
 feature chapter this item implements is now marked superseded and points there.
@@ -22,11 +22,11 @@ As originally stated: a person managing work across projects and repositories
 wants to understand what is planned next without duplicating work items into a
 separate planning system.
 
-What changed, and why, is one premise. A roadmap over *selected backlog entries*
+What changed, and why, is one premise. A roadmap over *selected tasks*
 can only plan work that has already been refined into an entry, and that is not
 when planning happens — most of it happens before there is anything to select. So
 the plan is stored in its own right, with its own priority and its own
-dependencies, and a planned item may *optionally* name the Backlog Entry that
+dependencies, and a planned item may *optionally* name the Task that
 executes it. That is not the "separate planning system" this item wanted to avoid:
 there is still one work model, one status, one execution priority, all in Backlog
 Management. What is separate is the intent, which never had a home before.
@@ -35,19 +35,19 @@ Management. What is separate is the intent, which never had a home before.
 
 ```meta
 status: done
-implements: [.domain/backlog/features.md#roadmap-planning]
+implements: [.domain/tasks/features.md#roadmap-planning]
 ```
 
 Recorded as met, with criterion 1 and 2 restated where the model moved:
 
-1. ~~Roadmap-ready backlog entries can be grouped by Now/Next/Later, milestone, or
+1. ~~Roadmap-ready tasks can be grouped by Now/Next/Later, milestone, or
    custom planning lane.~~ Superseded: planned work is grouped by **repository
    band and planning lane** and read against dates, per
    [reading the plan by repository](../.domain/roadmap/features.md#reading-the-plan-by-repository).
    Now/Next/Later was a horizon, and a horizon is a grouping rather than a plan.
-2. ~~Roadmap progress is derived from the underlying Backlog Entries instead of
+2. ~~Roadmap progress is derived from the underlying Tasks instead of
    stored independently.~~ Half superseded, and the surviving half matters:
-   **Backlog Entry remains the source of truth for status and execution
+   **Task remains the source of truth for status and execution
    priority**, and a linked item reads its progress from the entry. What *is*
    stored independently is the plan itself — dates, planning priority,
    dependencies — because none of those exist on an entry.
@@ -64,9 +64,9 @@ status: done
 ```
 
 Read `.domain/context-map.md` and confirm Roadmap Planning appears as a Core
-bounded context, that its relationship to Backlog Management is a `Partnership`
+bounded context, that its relationship to Tasks is a `Partnership`
 carrying one optional foreign id, and that the strategic rules state plainly which
 context owns which kind of priority. Then confirm
-`.domain/backlog/features.md#roadmap-planning` and
-`.domain/backlog/naming.md#roadmap` are marked superseded and point at the new
+`.domain/tasks/features.md#roadmap-planning` and
+`.domain/tasks/naming.md#roadmap` are marked superseded and point at the new
 context rather than describing a model that no longer holds.

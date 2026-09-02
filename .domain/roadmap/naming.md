@@ -34,7 +34,7 @@ related: [.domain/roadmap/domain.md#roadmap-item]
 
 One piece of planned work in the plan: a title, when it is intended to run, how
 much the plan wants it, which repositories it belongs to, and what it waits on. It
-carries no status of its own — see `Backlog Entry Link`.
+carries no status of its own — see `Task Link`.
 
 `roadmap_item_id` is stable across every reschedule, which is what makes it safe
 for another context to keep as a foreign id.
@@ -84,14 +84,14 @@ and every drawing of the plan reads it that way.
 type: term
 status: draft
 aliases: [PlanningPriority, planning priority]
-related: [.domain/roadmap/domain.md#planning-priority, .domain/backlog/domain.md#priority]
+related: [.domain/roadmap/domain.md#planning-priority, .domain/tasks/domain.md#priority]
 ```
 
 How much the plan wants an item relative to the others: `low`, `medium`, `high`,
 `critical`.
 
-The same four words as Backlog Management's
-[Priority](../backlog/domain.md#priority), and deliberately a different
+The same four words as Tasks's
+[Priority](../tasks/domain.md#priority), and deliberately a different
 value: that one ranks a work item for execution, this one ranks intent across
 projects. When both appear in one sentence, say which.
 
@@ -106,7 +106,7 @@ related: [.domain/roadmap/domain.md#repository-scope, .domain/repository-managem
 
 The repositories a Roadmap Item or Milestone belongs to, as a set of repository
 aliases held opaquely. Empty means unfiled, not "all". The alias is the same key
-Backlog's `repo_ids` and the knowledge folders already scope by, so a repository
+the Tasks context's `repo_ids` and the knowledge folders already scope by, so a repository
 means the same thing everywhere.
 
 ## Dependency
@@ -132,19 +132,19 @@ related: [.domain/roadmap/domain.md#planning-lane]
 ```
 
 A free-form row label within a repository band, chosen by the person rather than
-by the product — the plan's counterpart to a Backlog Entry's
-[Area](../backlog/naming.md#area). Blank means the default lane.
+by the product — the plan's counterpart to a Task's
+[Area](../tasks/naming.md#area). Blank means the default lane.
 
-## Backlog Entry Link
+## Task Link
 
 ```meta
 type: term
 status: draft
-aliases: [BacklogEntryLink, backlog_entry_id]
-related: [.domain/roadmap/domain.md#backlog-entry-link, .domain/backlog/naming.md#backlog-entry]
+aliases: [TaskLink, task_id]
+related: [.domain/roadmap/domain.md#task-link, .domain/tasks/naming.md#task]
 ```
 
-The optional foreign id naming the Backlog Entry that executes a Roadmap Item. It
+The optional foreign id naming the Task that executes a Roadmap Item. It
 is how the plan shows real progress without owning any, it may dangle, and a
 dangling link reads as unlinked rather than as an error.
 
@@ -154,13 +154,13 @@ dangling link reads as unlinked rather than as an error.
 type: term
 status: draft
 aliases: [RoadmapTag, tag, roadmap tag, slug]
-related: [.domain/roadmap/domain.md#roadmap-tag, .domain/backlog/naming.md#roadmap-tag]
+related: [.domain/roadmap/domain.md#roadmap-tag, .domain/tasks/naming.md#roadmap-tag]
 ```
 
 The lowercase kebab-case slug a Roadmap Item is filed under, and the vocabulary
 two other contexts borrow to say work belongs to that item. Derived from the
 title when the item is created and then independent of it — **a rename never
-changes the tag**, because entries and chapters already written against it would
+changes the tag**, because tasks and chapters already written against it would
 stop matching. Every item has one; a title that slugifies to nothing takes the
 constant `item`. Not unique across items: a shared tag is how a person groups
 planned work on purpose.
@@ -175,7 +175,7 @@ related: [.domain/roadmap/domain.md#knowledge-ref, .domain/second-brain/naming.m
 ```
 
 A direct `<path>#<slug>` reference from a Roadmap Item to a knowledge chapter that
-informs it. The knowledge counterpart of the `Backlog Entry Link`: an id-shaped
+informs it. The knowledge counterpart of the `Task Link`: an id-shaped
 reference the plan holds, never reads through, and never validates. It may dangle
 and a dangling ref reads as unresolved rather than as an error.
 
@@ -185,11 +185,11 @@ and a dangling ref reads as unresolved rather than as an error.
 type: term
 status: draft
 aliases: [effort, story points, story-point estimate, total registered effort]
-related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/backlog/naming.md#effort]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/naming.md#effort]
 ```
 
 Size measured in story points. Roadmap Planning never registers effort — that is
-done on Backlog Entries and knowledge chapters — but it **totals** it: over
+done on Tasks and knowledge chapters — but it **totals** it: over
 everything a Roadmap Item gathers, the *total registered effort* is plain
 arithmetic over the points that were actually registered, reported alongside the
 count of gathered things that registered none. A total, not a measurement of time,

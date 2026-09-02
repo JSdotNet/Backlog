@@ -33,7 +33,7 @@
       {
         "data": {
           "id": ".backlog/domain-backlog.md",
-          "label": "Backlog Management Work",
+          "label": "Tasks Work",
           "type": "file",
           "folder": "backlog",
           "path": ".backlog/domain-backlog.md",
@@ -57,7 +57,7 @@
             ".domain/environment/features.md#environment-aware-work-context"
           ],
           "implements": [
-            ".domain/backlog/features.md#roadmap-planning"
+            ".domain/tasks/features.md#roadmap-planning"
           ]
         }
       },
@@ -73,7 +73,7 @@
           "line": 34,
           "status": "done",
           "implements": [
-            ".domain/backlog/features.md#roadmap-planning"
+            ".domain/tasks/features.md#roadmap-planning"
           ]
         }
       },
@@ -102,7 +102,7 @@
           "line": 39,
           "status": "draft",
           "related": [
-            ".domain/backlog/domain.md#backlog-entry",
+            ".domain/tasks/domain.md#task",
             ".domain/repository-management/domain.md#repository-registry",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
           ],
@@ -139,22 +139,22 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/features.md#roadmap-planning",
+          "id": ".domain/tasks/features.md#roadmap-planning",
           "label": "Roadmap planning",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/features.md",
+          "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
           "line": 515,
           "status": "deprecated",
           "depends-on": [
-            ".domain/backlog/features.md#refinement-and-prioritization"
+            ".domain/tasks/features.md#refinement-and-prioritization"
           ],
           "related": [
             ".domain/roadmap/features.md",
             ".domain/roadmap/domain.md#roadmap-plan",
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
@@ -211,17 +211,17 @@
       },
       {
         "data": {
-          "id": "implements:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/backlog/features.md#roadmap-planning",
+          "id": "implements:.backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog->.domain/tasks/features.md#roadmap-planning",
           "source": ".backlog/domain-backlog.md#add-roadmap-planning-to-the-backlog",
-          "target": ".domain/backlog/features.md#roadmap-planning",
+          "target": ".domain/tasks/features.md#roadmap-planning",
           "type": "implements"
         }
       },
       {
         "data": {
-          "id": "implements:.backlog/domain-backlog.md#acceptance-criteria->.domain/backlog/features.md#roadmap-planning",
+          "id": "implements:.backlog/domain-backlog.md#acceptance-criteria->.domain/tasks/features.md#roadmap-planning",
           "source": ".backlog/domain-backlog.md#acceptance-criteria",
-          "target": ".domain/backlog/features.md#roadmap-planning",
+          "target": ".domain/tasks/features.md#roadmap-planning",
           "type": "implements"
         }
       }

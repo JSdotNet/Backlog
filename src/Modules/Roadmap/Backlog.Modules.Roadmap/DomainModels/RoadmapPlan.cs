@@ -129,7 +129,7 @@ public sealed class RoadmapPlan
         PlanningPriority priority = PlanningPriority.Medium,
         RepositoryScope? scope = null,
         PlanningLane? lane = null,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         string? notes = null,
         PlanningTag? tag = null,
         KnowledgeReferences? knowledgeRefs = null)
@@ -146,7 +146,7 @@ public sealed class RoadmapPlan
             scope ?? RepositoryScope.Unfiled,
             lane ?? PlanningLane.Default,
             Dependencies.None(),
-            backlogEntryId,
+            taskId,
             notes,
             // Null means "derive one from the title"; the item does that for itself so
             // there is a single home for the rule.
@@ -205,7 +205,7 @@ public sealed class RoadmapPlan
         PlanningPriority priority,
         RepositoryScope? scope = null,
         PlanningLane? lane = null,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         string? notes = null,
         PlanningTag? tag = null,
         KnowledgeReferences? knowledgeRefs = null)
@@ -221,7 +221,7 @@ public sealed class RoadmapPlan
         item.MoveTo(window, lane ?? PlanningLane.Default);
         item.Prioritise(priority);
         item.FileUnder(scope ?? RepositoryScope.Unfiled);
-        item.LinkTo(backlogEntryId);
+        item.LinkTo(taskId);
         item.Annotate(notes);
         // The tag is set from what was submitted rather than recomputed from the new
         // title: an edit is where a tag moves, and a rename is not. A submission with

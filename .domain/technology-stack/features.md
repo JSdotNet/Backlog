@@ -48,7 +48,7 @@ and outliers, surface adoption velocity, and report technology sprawl.
 type: feature
 status: draft
 depends-on: [.domain/technology-stack/features.md#portfolio-wide-adoption-tracking]
-related: [.domain/backlog/features.md#backlog-entry-creation]
+related: [.domain/tasks/features.md#task-creation]
 ```
 
 Surface which tools are ready to upgrade, recommend new tools based on team
@@ -75,5 +75,5 @@ related: [.domain/monitoring/features.md#multi-repo-scanning]
 ```
 
 Provide baselines consumed by Dev PC and Repository Management, feed adoption
-data to Monitoring dashboards, link ADRs in Second Brain, and enable Backlog to
+data to Monitoring dashboards, link ADRs in Second Brain, and enable Tasks to
 create tech-upgrade tasks from adoption gaps.

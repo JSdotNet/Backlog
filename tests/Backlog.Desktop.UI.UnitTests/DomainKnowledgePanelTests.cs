@@ -166,8 +166,8 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".domain-metadata__link").Count));
 
         var relations = component.FindAll(".domain-metadata__link");
-        Assert.Equal(".domain/backlog/domain.md#domain-event-aiworklogged", relations[0].TextContent.Trim());
-        Assert.Equal(".domain/backlog/domain.md#domain-event-entrycompleted", relations[1].TextContent.Trim());
+        Assert.Equal(".domain/tasks/domain.md#domain-event-aiworklogged", relations[0].TextContent.Trim());
+        Assert.Equal(".domain/tasks/domain.md#domain-event-entrycompleted", relations[1].TextContent.Trim());
     }
 
     [Fact]
@@ -442,8 +442,8 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // dropped on the way.
         var target = Assert.Single(followed);
         Assert.Equal("domain", target.AreaKey);
-        Assert.Equal(".domain/backlog/domain.md", target.Path);
-        Assert.Equal("backlog/domain.md", target.RelativePath);
+        Assert.Equal(".domain/tasks/domain.md", target.Path);
+        Assert.Equal("tasks/domain.md", target.RelativePath);
         Assert.Equal("domain-event-aiworklogged", target.Anchor);
     }
 
@@ -687,7 +687,7 @@ public sealed class DomainKnowledgePanelTests : IDisposable
                 "draft",
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["related"] = "[.domain/backlog/domain.md#domain-event-aiworklogged, .domain/backlog/domain.md#domain-event-entrycompleted]"
+                    ["related"] = "[.domain/tasks/domain.md#domain-event-aiworklogged, .domain/tasks/domain.md#domain-event-entrycompleted]"
                 },
                 "A summary nobody can edit.",
                 [],

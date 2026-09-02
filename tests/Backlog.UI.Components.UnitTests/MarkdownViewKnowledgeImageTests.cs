@@ -22,8 +22,8 @@ public sealed class MarkdownViewKnowledgeImageTests
 {
     [Theory]
     // The one image the knowledge folders actually hold, written the way
-    // `.domain/backlog/features.md` writes it.
-    [InlineData("assets/backlog-entry-inline-markdown-editing.png")]
+    // `.domain/tasks/features.md` writes it.
+    [InlineData("assets/task-inline-markdown-editing.png")]
     // A sibling, and a picture kept above the chapter's own folder.
     [InlineData("shot.png")]
     [InlineData("../assets/shot.png")]
@@ -37,7 +37,7 @@ public sealed class MarkdownViewKnowledgeImageTests
             context,
             $"![Desktop backlog entry with inline Markdown editing]({target})",
             parameters => parameters
-                .Add(v => v.KnowledgeDocumentPath, ".domain/backlog/features.md"));
+                .Add(v => v.KnowledgeDocumentPath, ".domain/tasks/features.md"));
 
         Assert.Empty(view.FindAll("img"));
         Assert.Equal(
@@ -57,7 +57,7 @@ public sealed class MarkdownViewKnowledgeImageTests
             context,
             "![the shot](assets/shot.png) and [the shot](assets/shot.png).",
             parameters => parameters
-                .Add(v => v.KnowledgeDocumentPath, ".domain/backlog/features.md"));
+                .Add(v => v.KnowledgeDocumentPath, ".domain/tasks/features.md"));
 
         Assert.Equal("the shot", view.Find("span.md-image--inert").TextContent);
         Assert.Equal("the shot", view.Find("span.md-link--inert").TextContent);
@@ -76,7 +76,7 @@ public sealed class MarkdownViewKnowledgeImageTests
 
         var view = Render(
             context,
-            "![the model](../backlog/domain.md#backlog-entry)",
+            "![the model](../tasks/domain.md#task)",
             parameters => parameters
                 .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md")
                 .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, _ => { })));
@@ -97,7 +97,7 @@ public sealed class MarkdownViewKnowledgeImageTests
             context,
             "![a diagram](https://example.com/d.png)",
             parameters => parameters
-                .Add(v => v.KnowledgeDocumentPath, ".domain/backlog/features.md"));
+                .Add(v => v.KnowledgeDocumentPath, ".domain/tasks/features.md"));
 
         var img = view.Find("img.md-image");
 
@@ -119,7 +119,7 @@ public sealed class MarkdownViewKnowledgeImageTests
             context,
             $"![what it was]({target})",
             parameters => parameters
-                .Add(v => v.KnowledgeDocumentPath, ".domain/backlog/features.md"));
+                .Add(v => v.KnowledgeDocumentPath, ".domain/tasks/features.md"));
 
         Assert.Empty(view.FindAll("img"));
         Assert.Equal("what it was", view.Find("span.md-image--inert").TextContent);

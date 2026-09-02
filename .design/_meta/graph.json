@@ -779,18 +779,18 @@
       },
       {
         "data": {
-          "id": ".design/content-editing.md#backlog-entry-structure",
-          "label": "Backlog Entry Structure",
+          "id": ".design/content-editing.md#task-structure",
+          "label": "Task Structure",
           "type": "chapter",
           "folder": "design",
           "path": ".design/content-editing.md",
-          "slug": "backlog-entry-structure",
+          "slug": "task-structure",
           "level": 2,
           "line": 100,
           "status": "active",
           "related": [
-            ".domain/backlog/domain.md#backlog-entry",
-            ".domain/backlog/naming.md#sub-item",
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#sub-item",
             ".design/interaction-guidelines.md#nesting--indent-rules-chapters"
           ]
         }
@@ -807,8 +807,8 @@
           "line": 124,
           "status": "active",
           "related": [
-            ".domain/backlog/naming.md#entry-status",
-            ".domain/backlog/naming.md#area",
+            ".domain/tasks/naming.md#task-status",
+            ".domain/tasks/naming.md#area",
             ".design/typography-and-layout.md#font-families",
             ".design/content-editing.md#scheduling-and-dependency-tokens"
           ]
@@ -827,12 +827,12 @@
           "status": "active",
           "related": [
             ".design/content-editing.md#structured-metadata-sigils",
-            ".domain/backlog/naming.md#due-date",
-            ".domain/backlog/naming.md#reminder",
-            ".domain/backlog/naming.md#recurrence",
-            ".domain/backlog/naming.md#my-day",
-            ".domain/backlog/naming.md#dependency",
-            ".domain/backlog/features.md#import",
+            ".domain/tasks/naming.md#due-date",
+            ".domain/tasks/naming.md#reminder",
+            ".domain/tasks/naming.md#recurrence",
+            ".domain/tasks/naming.md#my-day",
+            ".domain/tasks/naming.md#dependency",
+            ".domain/tasks/features.md#import",
             ".domain/repository-management/domain.md#repository-registry"
           ]
         }
@@ -1232,7 +1232,7 @@
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#metadata-lines",
-            ".design/content-editing.md#backlog-entry-structure",
+            ".design/content-editing.md#task-structure",
             ".design/interaction-guidelines.md#auto-save-no-save-buttons"
           ]
         }
@@ -1710,12 +1710,12 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/domain.md#backlog-entry",
-          "label": "Backlog Entry",
+          "id": ".domain/tasks/domain.md#task",
+          "label": "Task",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/domain.md",
-          "slug": "backlog-entry",
+          "path": ".domain/tasks/domain.md",
+          "slug": "task",
           "level": 2,
           "line": 21,
           "status": "draft",
@@ -1728,74 +1728,74 @@
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#sub-item",
+          "id": ".domain/tasks/naming.md#sub-item",
           "label": "Sub-Item",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "sub-item",
           "level": 2,
-          "line": 34,
+          "line": 37,
           "status": "draft",
           "aliases": [
             "SubItem"
           ],
           "related": [
-            ".domain/backlog/domain.md#sub-item"
+            ".domain/tasks/domain.md#sub-item"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#entry-status",
-          "label": "Entry Status",
+          "id": ".domain/tasks/naming.md#task-status",
+          "label": "Task Status",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
-          "slug": "entry-status",
+          "path": ".domain/tasks/naming.md",
+          "slug": "task-status",
           "level": 2,
-          "line": 69,
+          "line": 72,
           "status": "draft",
           "aliases": [
-            "EntryStatus"
+            "TaskStatus"
           ],
           "related": [
-            ".domain/backlog/domain.md#entry-status"
+            ".domain/tasks/domain.md#task-status"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#area",
+          "id": ".domain/tasks/naming.md#area",
           "label": "Area",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "area",
           "level": 2,
-          "line": 80,
+          "line": 83,
           "status": "draft",
           "aliases": [
             "area"
           ],
           "related": [
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#due-date",
+          "id": ".domain/tasks/naming.md#due-date",
           "label": "Due Date",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "due-date",
           "level": 2,
-          "line": 107,
+          "line": 110,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -1803,21 +1803,21 @@
             "Due"
           ],
           "related": [
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#reminder",
+          "id": ".domain/tasks/naming.md#reminder",
           "label": "Reminder",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "reminder",
           "level": 2,
-          "line": 121,
+          "line": 124,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -1825,21 +1825,21 @@
             "Reminder"
           ],
           "related": [
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#recurrence",
+          "id": ".domain/tasks/naming.md#recurrence",
           "label": "Recurrence",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "recurrence",
           "level": 2,
-          "line": 135,
+          "line": 138,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -1850,21 +1850,21 @@
             "DayOfWeek"
           ],
           "related": [
-            ".domain/backlog/domain.md#recurrence"
+            ".domain/tasks/domain.md#recurrence"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#my-day",
+          "id": ".domain/tasks/naming.md#my-day",
           "label": "My Day",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "my-day",
           "level": 2,
-          "line": 149,
+          "line": 152,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -1872,21 +1872,21 @@
             "InMyDay"
           ],
           "related": [
-            ".domain/backlog/features.md#my-day"
+            ".domain/tasks/features.md#my-day"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/naming.md#dependency",
+          "id": ".domain/tasks/naming.md#dependency",
           "label": "Dependency",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/naming.md",
+          "path": ".domain/tasks/naming.md",
           "slug": "dependency",
           "level": 2,
-          "line": 164,
+          "line": 167,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -1895,31 +1895,31 @@
             "predecessor"
           ],
           "related": [
-            ".domain/backlog/domain.md#backlog-entry"
+            ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
         }
       },
       {
         "data": {
-          "id": ".domain/backlog/features.md#import",
+          "id": ".domain/tasks/features.md#import",
           "label": "Import",
           "type": "chapter",
           "folder": "domain",
-          "path": ".domain/backlog/features.md",
+          "path": ".domain/tasks/features.md",
           "slug": "import",
           "level": 2,
           "line": 372,
           "status": "proposed",
           "depends-on": [
-            ".domain/backlog/features.md#backlog-entry-creation",
-            ".domain/backlog/features.md#entry-dependencies",
-            ".domain/backlog/features.md#multi-repo-targeting"
+            ".domain/tasks/features.md#task-creation",
+            ".domain/tasks/features.md#task-dependencies",
+            ".domain/tasks/features.md#multi-repo-targeting"
           ],
           "related": [
-            ".domain/backlog/features.md#prompt-features",
-            ".domain/backlog/features.md#sub-items-and-steps",
-            ".domain/backlog/features.md#filing-an-entry-against-a-roadmap-tag",
+            ".domain/tasks/features.md#prompt-features",
+            ".domain/tasks/features.md#sub-items-and-steps",
+            ".domain/tasks/features.md#filing-a-task-against-a-roadmap-tag",
             ".domain/repository-management/features.md#repository-registration"
           ],
           "outOfScope": true
@@ -2309,9 +2309,9 @@
       },
       {
         "data": {
-          "id": "contains:.design/content-editing.md->.design/content-editing.md#backlog-entry-structure",
+          "id": "contains:.design/content-editing.md->.design/content-editing.md#task-structure",
           "source": ".design/content-editing.md",
-          "target": ".design/content-editing.md#backlog-entry-structure",
+          "target": ".design/content-editing.md#task-structure",
           "type": "contains"
         }
       },
@@ -3181,17 +3181,17 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/domain.md#backlog-entry",
-          "source": ".design/content-editing.md#backlog-entry-structure",
-          "target": ".domain/backlog/domain.md#backlog-entry",
+          "id": "related:.design/content-editing.md#task-structure->.domain/tasks/domain.md#task",
+          "source": ".design/content-editing.md#task-structure",
+          "target": ".domain/tasks/domain.md#task",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#backlog-entry-structure->.domain/backlog/naming.md#sub-item",
-          "source": ".design/content-editing.md#backlog-entry-structure",
-          "target": ".domain/backlog/naming.md#sub-item",
+          "id": "related:.design/content-editing.md#task-structure->.domain/tasks/naming.md#sub-item",
+          "source": ".design/content-editing.md#task-structure",
+          "target": ".domain/tasks/naming.md#sub-item",
           "type": "related"
         }
       },
@@ -3205,25 +3205,25 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#backlog-entry-structure->.design/interaction-guidelines.md#nesting--indent-rules-chapters",
-          "source": ".design/content-editing.md#backlog-entry-structure",
+          "id": "related:.design/content-editing.md#task-structure->.design/interaction-guidelines.md#nesting--indent-rules-chapters",
+          "source": ".design/content-editing.md#task-structure",
           "target": ".design/interaction-guidelines.md#nesting--indent-rules-chapters",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#entry-status",
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/tasks/naming.md#task-status",
           "source": ".design/content-editing.md#structured-metadata-sigils",
-          "target": ".domain/backlog/naming.md#entry-status",
+          "target": ".domain/tasks/naming.md#task-status",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/backlog/naming.md#area",
+          "id": "related:.design/content-editing.md#structured-metadata-sigils->.domain/tasks/naming.md#area",
           "source": ".design/content-editing.md#structured-metadata-sigils",
-          "target": ".domain/backlog/naming.md#area",
+          "target": ".domain/tasks/naming.md#area",
           "type": "related"
         }
       },
@@ -3253,49 +3253,49 @@
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#due-date",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/naming.md#due-date",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#due-date",
+          "target": ".domain/tasks/naming.md#due-date",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#reminder",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/naming.md#reminder",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#reminder",
+          "target": ".domain/tasks/naming.md#reminder",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#recurrence",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/naming.md#recurrence",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#recurrence",
+          "target": ".domain/tasks/naming.md#recurrence",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#my-day",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/naming.md#my-day",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#my-day",
+          "target": ".domain/tasks/naming.md#my-day",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/naming.md#dependency",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/naming.md#dependency",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/naming.md#dependency",
+          "target": ".domain/tasks/naming.md#dependency",
           "type": "related"
         }
       },
       {
         "data": {
-          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/backlog/features.md#import",
+          "id": "related:.design/content-editing.md#scheduling-and-dependency-tokens->.domain/tasks/features.md#import",
           "source": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "target": ".domain/backlog/features.md#import",
+          "target": ".domain/tasks/features.md#import",
           "type": "related"
         }
       },
@@ -3637,9 +3637,9 @@
       },
       {
         "data": {
-          "id": "related:.design/interaction-guidelines.md#task-rows->.design/content-editing.md#backlog-entry-structure",
+          "id": "related:.design/interaction-guidelines.md#task-rows->.design/content-editing.md#task-structure",
           "source": ".design/interaction-guidelines.md#task-rows",
-          "target": ".design/content-editing.md#backlog-entry-structure",
+          "target": ".design/content-editing.md#task-structure",
           "type": "related"
         }
       },

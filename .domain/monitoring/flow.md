@@ -13,7 +13,7 @@ status: draft
 
 ```mermaid
 sequenceDiagram
-    participant Backlog as Backlog
+    participant Tasks as Tasks
     participant Inbox as Inbox
     participant GitHub as GitHub
     participant AppInsights as Application Insights
@@ -21,9 +21,9 @@ sequenceDiagram
     participant Monitoring as Monitoring
     participant Dashboard as Dashboard
 
-    Backlog->>Monitoring: StatusChanged (item_id, new_status, changed_at)
+    Tasks->>Monitoring: StatusChanged (item_id, new_status, changed_at)
     Inbox->>Monitoring: QueueDepthChanged (depth, age_max, processing_rate)
-    GitHub->>Monitoring: IssueUpdated (backlog_item_id, url, status)
+    GitHub->>Monitoring: IssueUpdated (task_id, url, status)
     AppInsights->>Monitoring: MetricReceived (project, metric, value, severity)
     DevPC->>Monitoring: MachineStatusChanged (machine_id, status, last_heartbeat)
     DevPC->>Monitoring: ComplianceUpdated (machine_id, compliance_score)

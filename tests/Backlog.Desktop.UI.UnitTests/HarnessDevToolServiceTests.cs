@@ -1,5 +1,5 @@
 using Backlog.Desktop.WebHarness;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -183,10 +183,10 @@ public sealed class HarnessDevToolServiceTests
             Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),
             catalog);
 
-        return new LocalDevelopmentDevToolService(BacklogStoreFor(root));
+        return new LocalDevelopmentDevToolService(TaskStoreFor(root));
     }
 
-    private static IBacklogStore BacklogStoreFor(string root) =>
-        BacklogTestHost.BacklogStoreFor(
+    private static ITaskStore TaskStoreFor(string root) =>
+        TasksTestHost.TaskStoreFor(
             new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json")));
 }

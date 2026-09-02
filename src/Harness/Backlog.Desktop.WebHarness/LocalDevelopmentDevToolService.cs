@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 namespace Backlog.Desktop.WebHarness;
 
@@ -35,7 +35,7 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// spelling the desktop head uses for it.</summary>
     private const string DisabledStatus = "Disabled in config";
 
-    private readonly IBacklogStore _store;
+    private readonly ITaskStore _store;
 
     /// <summary>What has been ticked this session, for the sample rows below.
     /// They are not in anybody's catalog, so the merge that carries a real row's
@@ -56,7 +56,7 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// </summary>
     private readonly Dictionary<string, bool> _enabled = new(StringComparer.OrdinalIgnoreCase);
 
-    public LocalDevelopmentDevToolService(IBacklogStore store)
+    public LocalDevelopmentDevToolService(ITaskStore store)
     {
         _store = store;
     }

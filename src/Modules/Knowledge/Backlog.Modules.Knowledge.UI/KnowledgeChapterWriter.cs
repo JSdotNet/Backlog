@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Knowledge;
 /// <summary>
 /// Writes an edited knowledge chapter back over its source <c>.md</c> file.
 /// <para>
-/// Whole-file, unlike the segment writes Backlog Management makes into a
+/// Whole-file, unlike the segment writes Tasks makes into a
 /// <c>.backlog</c> file: a knowledge chapter is the file, and the editing surface
 /// holds all of it. What carries over from that writer is the care about a file it
 /// did not author — the line endings, the final newline and the byte-order mark

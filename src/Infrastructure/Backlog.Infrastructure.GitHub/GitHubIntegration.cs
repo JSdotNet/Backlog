@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// <para>
 /// What makes a good issue out of a backlog entry or a bug report is the asking
 /// context's business, so this takes a title and a body and files it. Backlog
-/// Management's version of that question lives in its own <c>BacklogIssues</c>;
+/// Management's version of that question lives in its own <c>TasksIssues</c>;
 /// the Shell's lives in its <c>FeedbackReporter</c>.
 /// </para>
 /// </summary>

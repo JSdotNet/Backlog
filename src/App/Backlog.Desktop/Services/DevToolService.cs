@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Backlog.Desktop.Services;
@@ -99,7 +99,7 @@ public sealed class DevToolService : IDevToolService
     private static readonly IReadOnlyDictionary<string, string> NoVersions =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    private readonly IBacklogStore? _store;
+    private readonly ITaskStore? _store;
     private readonly string? _configPath;
     private readonly ILogger<DevToolService>? _logger;
 
@@ -108,12 +108,12 @@ public sealed class DevToolService : IDevToolService
     {
     }
 
-    public DevToolService(IBacklogStore store, ILogger<DevToolService>? logger = null)
+    public DevToolService(ITaskStore store, ILogger<DevToolService>? logger = null)
         : this(store, logger, null)
     {
     }
 
-    private DevToolService(IBacklogStore? store, ILogger<DevToolService>? logger, string? configPath)
+    private DevToolService(ITaskStore? store, ILogger<DevToolService>? logger, string? configPath)
     {
         _store = store;
         _logger = logger;

@@ -1,10 +1,10 @@
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.Abstractions.Services;
-using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
@@ -64,8 +64,8 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         // here for the same reason everything else is: a graph missing it is not
         // the graph a host builds, and ValidateOnBuild would say so.
         services.AddSingleton(new GitHubSettingsStore(Path.Combine(_tempDir, "github", "github.json")));
-        services.AddBacklogAdapters();
-        services.AddBacklogModule();
+        services.AddTasksAdapters();
+        services.AddTasksModule();
         services.AddRoadmapModule();
         services.AddRoadmapCrossContextAdapters();
 

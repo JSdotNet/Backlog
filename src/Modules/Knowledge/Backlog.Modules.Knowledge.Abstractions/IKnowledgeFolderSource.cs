@@ -8,7 +8,7 @@ namespace Backlog.Modules.Knowledge.Abstractions;
 /// configured folders when a scope is named, the local storage folder's when one
 /// is not — and stitching them is exactly what Second Brain must not have to
 /// know. Reaching for the backlog's root store to find out would make this
-/// context depend on Backlog Management, which <c>.domain/context-map.md</c>
+/// context depend on Tasks, which <c>.domain/context-map.md</c>
 /// calls a Partnership that coordinates by id rather than by reaching across.
 /// The adapter that implements this port sees both; the panels see only this.
 /// </para>

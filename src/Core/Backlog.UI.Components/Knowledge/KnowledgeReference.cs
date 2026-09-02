@@ -121,7 +121,7 @@ public sealed record KnowledgeReference
     /// <para>The reason it is needed at all is that the rooted form is not the form
     /// the knowledge folders are written in. A <c>meta</c> fence spells a reference
     /// from the repository root, but a link in prose is written the way every
-    /// markdown viewer resolves one — <c>../backlog/domain.md#backlog-entry</c>,
+    /// markdown viewer resolves one — <c>../tasks/domain.md#task</c>,
     /// or a bare sibling <c>domain.md</c> — because those folders are read outside
     /// this product too. Refusing that form meant refusing almost every link that
     /// had actually been authored.</para>

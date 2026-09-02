@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// defaulting to the workspace panes.
 /// <para>
 /// Its own file beside the app's other per-user settings, for the same reason
-/// <see cref="BacklogRefreshSettingsStore"/> has one: what is currently on
+/// <see cref="TasksRefreshSettingsStore"/> has one: what is currently on
 /// screen changes far more often than the workspace pointer <c>settings.json</c>
 /// holds.
 /// </para>

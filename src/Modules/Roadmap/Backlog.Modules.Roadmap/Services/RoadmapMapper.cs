@@ -26,7 +26,7 @@ internal static class RoadmapMapper
         // should see "nobody said" rather than a label this module invented, and
         // decide for itself what an unfiled row is called.
         item.Lane.IsDefault ? null : item.Lane.Name,
-        item.BacklogEntryId,
+        item.TaskId,
         item.Dependencies.All,
         item.Notes,
         item.Tag.Value,

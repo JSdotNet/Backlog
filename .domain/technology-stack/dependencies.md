@@ -25,7 +25,7 @@ status: draft
 | [Dev PC Management](../dev-pc-management/domain.md#machine-registry) | Customer/Supplier (Technology Stack = supplier) | `BaselineRequested` -> `BaselineProvided` sync contract | `.domain/technology-stack/domain.md#deprecation-management` | Consumes the team tool baseline to compute machine compliance. |
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Technology Stack = supplier) | Baseline consumption (sync/read) | `.domain/technology-stack/domain.md#technology-registry` | Consumes tech baselines to flag deprecated tech and enforce versions. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Adoption metrics feed | `.domain/technology-stack/domain.md#adoption-tracking` | Portfolio adoption trends and tech trends feed dashboards. |
-| [Backlog](../backlog/domain.md#backlog-entry) | Customer/Supplier (Backlog = customer) | Recommendation -> task creation | `.domain/technology-stack/domain.md#deprecation-management` | Adoption gaps generate tech-upgrade backlog items. |
+| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Tasks = customer) | Recommendation -> task creation | `.domain/technology-stack/domain.md#deprecation-management` | Adoption gaps generate tech-upgrade tasks. |
 
 ## Notes
 

@@ -25,7 +25,7 @@ public class RoadmapPlanViewTests
         string? lane = null,
         Guid[]? dependsOn = null,
         Guid? id = null,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         string tag = "",
         string[]? knowledge = null) =>
         new(
@@ -36,7 +36,7 @@ public class RoadmapPlanViewTests
             priority,
             repositories ?? [],
             lane,
-            backlogEntryId,
+            taskId,
             dependsOn ?? [],
             null,
             tag,
@@ -409,7 +409,7 @@ public class RoadmapPlanViewTests
     public void ALinkedBacklogEntryIsMentioned_ButNothingIsReadThroughIt()
     {
         var view = RoadmapPlanView.From(
-            Plan([Item("Linked", repositories: ["backlog"], backlogEntryId: Guid.NewGuid())]),
+            Plan([Item("Linked", repositories: ["backlog"], taskId: Guid.NewGuid())]),
             Configured);
 
         Assert.Contains("linked to a backlog entry", Assert.Single(view.Bars).Detail);

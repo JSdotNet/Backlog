@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks.DomainModels;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -25,7 +25,7 @@ public sealed class RecurrenceSuccessorInListTests
     [Fact]
     public async Task Completing_a_recurring_entry_puts_its_successor_in_the_list()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Repeating);
 
         Assert.Single(host.State.Rows);
@@ -45,7 +45,7 @@ public sealed class RecurrenceSuccessorInListTests
     [Fact]
     public async Task The_successor_is_on_screen_rather_than_only_in_the_store()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Repeating);
 
         var pane = host.Render();
@@ -79,7 +79,7 @@ public sealed class RecurrenceSuccessorInListTests
     [Fact]
     public async Task Typing_the_completion_and_leaving_the_editor_shows_the_successor()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Repeating);
 
         host.State.BeginEdit(row);
@@ -101,7 +101,7 @@ public sealed class RecurrenceSuccessorInListTests
     [Fact]
     public async Task The_list_does_not_reload_under_a_live_caret()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Repeating);
 
         host.State.BeginEdit(row);
@@ -128,7 +128,7 @@ public sealed class RecurrenceSuccessorInListTests
     [Fact]
     public async Task A_save_that_spawned_nothing_leaves_the_rows_alone()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Water the plants\n`task` `!in-progress`\n\nThe big one.\n");
 
         await host.State.ChangeStatusAsync(row, EntryStatus.Done);
@@ -143,6 +143,6 @@ public sealed class RecurrenceSuccessorInListTests
     /// just completed — which is one of the two rows this is about. Both sections
     /// name a row's title <c>entry-list-{id}-title</c>, so one selector reaches
     /// both.</summary>
-    private static int EntryTitles(IRenderedComponent<BacklogPane> pane) =>
+    private static int EntryTitles(IRenderedComponent<TasksPane> pane) =>
         pane.FindAll("[data-testid^='entry-list-'][data-testid$='-title']").Count;
 }

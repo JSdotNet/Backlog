@@ -24,13 +24,13 @@ status: draft
 |---|---|---|---|---|
 | [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Repository Management = supplier) | Consumes tech-stack scans | `.domain/repository-management/domain.md#repository-scan` | Relies on per-repo technology snapshots for portfolio adoption. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Repository Management = supplier) | Subscribes to health/freshness feed | `.domain/repository-management/domain.md#repository-registry` | Relies on health scores, package freshness, and issue backlog for dashboards. |
-| [Backlog](../backlog/domain.md#backlog-entry) | Customer/Supplier (Repository Management = supplier) | Recommendation -> task creation | `.domain/repository-management/domain.md#repository-registry` | Low-health repos generate backlog items for updates/cleanup. |
+| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Repository Management = supplier) | Recommendation -> task creation | `.domain/repository-management/domain.md#repository-registry` | Low-health repos generate tasks for updates/cleanup. |
 | [Dev PC Management](../dev-pc-management/domain.md#machine-registry) | Customer/Supplier (Repository Management = supplier) | Shared repo registry (`config/repos.json`) | `.domain/repository-management/naming.md#repository` | Aligns registered repos with local clone paths for developer workflows. |
 
 ## Notes
 
 - The repository registry aligns with the workspace `config/repos.json` registry
-  so `repo_id` resolves consistently across Backlog, Dev PC Management, and
+  so `repo_id` resolves consistently across Tasks, Dev PC Management, and
   Repository Management.
 - GitHub and package-registry access sit behind anti-corruption adapters so
   external schemas never leak into the `Repository` model.

@@ -1,10 +1,10 @@
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
 /// <summary>
-/// Answers Backlog Management's <see cref="IRoadmapTagSource"/> from the roadmap
+/// Answers Tasks' <see cref="IRoadmapTagSource"/> from the roadmap
 /// plan.
 /// <para>
 /// This is the join, and it lives in an adapter on purpose: the backlog UI may not

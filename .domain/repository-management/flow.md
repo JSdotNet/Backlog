@@ -22,5 +22,5 @@ flowchart TD
     GitHub --> Score
     Coverage --> Score
     Security --> Score
-    Score --> Action["Recommendations to Monitoring / Backlog"]
+    Score --> Action["Recommendations to Monitoring / Tasks"]
 ```

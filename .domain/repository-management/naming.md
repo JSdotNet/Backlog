@@ -30,7 +30,7 @@ aliases: [Repository, repo_id, repo_ids]
 related: [.domain/repository-management/domain.md#repository]
 ```
 
-An individual code repository. `repo_id` aligns with Backlog's `repo_ids` and
+An individual code repository. `repo_id` aligns with the Tasks context's `repo_ids` and
 the workspace `repos.json`, so a repository resolves consistently across
 contexts.
 

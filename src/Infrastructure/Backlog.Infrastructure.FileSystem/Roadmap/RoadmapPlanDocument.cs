@@ -82,7 +82,17 @@ internal sealed record RoadmapItemDocument
 
     public string? Lane { get; init; }
 
-    public string? BacklogEntryId { get; init; }
+    /// <summary>The task this item is linked to.
+    /// <para>
+    /// The JSON name stays <c>backlogEntryId</c>, which is what it was called when the
+    /// Backlog bounded context was renamed to Tasks. The property is ours to rename;
+    /// the key is not, because it is already written into every <c>plan.json</c> on
+    /// disk. Under this file's camelCase policy a plain rename would serialize as
+    /// <c>taskId</c>, and every existing plan would silently come back with its links
+    /// dropped — the plan would still load, which is what makes it dangerous.
+    /// </para></summary>
+    [JsonPropertyName("backlogEntryId")]
+    public string? TaskId { get; init; }
 
     /// <summary>The slug this item is known by wherever tags are used. Additive and
     /// safe to omit: a plan.json written before tags existed simply has no <c>tag</c>,
@@ -112,7 +122,7 @@ internal sealed record RoadmapItemDocument
         Priority = RoadmapWire.ToWire(item.Priority),
         Repositories = [.. item.Scope.Aliases],
         Lane = item.Lane.IsDefault ? null : item.Lane.Name,
-        BacklogEntryId = item.BacklogEntryId?.ToString(),
+        TaskId = item.TaskId?.ToString(),
         Tag = item.Tag.Value,
         Knowledge = item.KnowledgeRefs.IsEmpty ? null : [.. item.KnowledgeRefs.Refs],
         DependsOn = [.. item.Dependencies.All.Select(id => id.ToString())],
@@ -135,7 +145,7 @@ internal sealed record RoadmapItemDocument
             RepositoryScope.Of(Repositories),
             PlanningLane.Of(Lane),
             Dependencies.Of(RoadmapWire.ParseIds(DependsOn)),
-            Guid.TryParse(BacklogEntryId, out var entryId) ? entryId : null,
+            Guid.TryParse(TaskId, out var entryId) ? entryId : null,
             Notes,
             // No tag in the file means a plan.json from before tags existed; the item
             // derives one from its title when handed null.

@@ -309,7 +309,7 @@ public static class RoadmapPlanView
         // is the one thing on this chart a reader cannot get to with a keyboard.
         if (contradicting.Contains(item.Id)) parts.Add("starts before what it waits for has finished");
 
-        if (item.BacklogEntryId is not null) parts.Add("linked to a backlog entry");
+        if (item.TaskId is not null) parts.Add("linked to a backlog entry");
 
         // A count rather than the references themselves: the detail line is a summary,
         // and a chapter path is too long to belong on it.

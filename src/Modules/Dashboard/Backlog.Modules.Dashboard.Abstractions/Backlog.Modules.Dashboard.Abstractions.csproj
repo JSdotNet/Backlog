@@ -10,7 +10,7 @@
                             outside this module answers
 
     The ports are here rather than in the implementation on purpose, and the
-    repository already made that distinction: IBacklogStore and
+    repository already made that distinction: ITaskStore and
     IKnowledgeFolderSource are outward-facing ports in an .Abstractions project
     answered by adapters elsewhere, while ITaskRepository is an internal port
     kept in the implementation because only the module's own handlers use it.

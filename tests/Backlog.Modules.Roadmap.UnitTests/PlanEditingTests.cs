@@ -50,7 +50,7 @@ public class PlanEditingTests
         Assert.Equal(PlanningPriority.Critical, item.Priority);
         Assert.Equal(["backlog", "fincent"], item.Scope.Aliases);
         Assert.Equal("migration", item.Lane.Name);
-        Assert.Equal(entry, item.BacklogEntryId);
+        Assert.Equal(entry, item.TaskId);
         Assert.Equal("Edited notes", item.Notes);
     }
 
@@ -66,7 +66,7 @@ public class PlanEditingTests
         // second, and the plan must not guess it.
         Assert.True(item.Scope.IsUnfiled);
         Assert.True(item.Lane.IsDefault);
-        Assert.Null(item.BacklogEntryId);
+        Assert.Null(item.TaskId);
         Assert.Null(item.Notes);
     }
 

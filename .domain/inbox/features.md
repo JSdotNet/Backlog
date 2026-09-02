@@ -37,7 +37,7 @@ type: sub-feature
 status: draft
 ```
 
-Route to backlog, store as knowledge, defer, archive, or delete — while tagging
+Route to Tasks, store as knowledge, defer, archive, or delete — while tagging
 and annotating, and preserving the original source link and capture timestamp.
 
 ### Quick-triage shortcuts
@@ -58,7 +58,7 @@ status: draft
 
 Auto-suggest tags from content analysis, auto-suggest a routing destination from
 keywords/patterns, apply routing rules (source patterns → repo mapping), and
-enrich items with links to related backlog items or knowledge notes.
+enrich items with links to related tasks or knowledge notes.
 
 ## Routing
 
@@ -66,20 +66,20 @@ enrich items with links to related backlog items or knowledge notes.
 type: feature
 status: draft
 depends-on: [.domain/inbox/features.md#triage-workflow]
-related: [.domain/backlog/features.md#backlog-entry-creation, .domain/second-brain/features.md#knowledge-capture]
+related: [.domain/tasks/features.md#task-creation, .domain/second-brain/features.md#knowledge-capture]
 ```
 
 Move a triaged item to its destination.
 
-### Route to Backlog
+### Route to Tasks
 
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/backlog/features.md#backlog-entry-creation]
+related: [.domain/tasks/features.md#task-creation]
 ```
 
-Create a Backlog Entry draft from the item.
+Create a Task draft from the item.
 
 ### Route to Second Brain
 

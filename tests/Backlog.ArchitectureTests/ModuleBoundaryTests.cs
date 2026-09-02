@@ -33,9 +33,9 @@ public class ModuleBoundaryTests
     /// </summary>
     private static readonly (string From, string To, string Relationship)[] AllowedCrossContextUi =
     [
-        ("Backlog.Modules.Backlog.UI", "Backlog.Modules.Inbox.UI",
-            "Conformist: BacklogDrafts converts repository-authored rows into the Inbox's published "
-            + "InboxItem contract. Backlog Management conforms to what the Inbox publishes; the Inbox "
+        ("Backlog.Modules.Tasks.UI", "Backlog.Modules.Inbox.UI",
+            "Conformist: TasksDrafts converts repository-authored rows into the Inbox's published "
+            + "InboxItem contract. Tasks conforms to what the Inbox publishes; the Inbox "
             + "never reads back.")
     ];
 
@@ -138,7 +138,7 @@ public class ModuleBoundaryTests
     /// <para>This is the rule the workspace refactor was for. There used to be a
     /// <c>Backlog.Desktop.Workspace</c> project underneath all three contexts,
     /// and because everyone could read it, everyone did: Second Brain's panels
-    /// took the backlog root store and Backlog Management's list took the
+    /// took the backlog root store and Tasks' list took the
     /// knowledge-folder resolver. Splitting those four types into ports made the
     /// coupling visible, and the obvious next move — port each type into the
     /// module that owns it — would only have converted a shared project into two
@@ -351,8 +351,8 @@ public class ModuleBoundaryTests
             && allowed.To.Equals(to, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// <c>Backlog.Modules.Backlog.Abstractions</c> and friends belong to the same
-    /// module as <c>Backlog.Modules.Backlog</c>; only the first three segments identify it.
+    /// <c>Backlog.Modules.Tasks.Abstractions</c> and friends belong to the same
+    /// module as <c>Backlog.Modules.Tasks</c>; only the first three segments identify it.
     /// </summary>
     private static string OwningModuleOf(string projectName)
     {

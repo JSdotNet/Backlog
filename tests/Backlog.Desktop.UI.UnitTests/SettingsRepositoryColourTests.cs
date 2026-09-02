@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Bunit;
 
@@ -153,7 +153,7 @@ public sealed class SettingsRepositoryColourTests
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        _ = features.SetEnabled(BacklogFeatures.GitHubIntegration, false);
+        _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
 
@@ -165,8 +165,8 @@ public sealed class SettingsRepositoryColourTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<IBacklogRefreshSettings>(
-            new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        context.Services.AddSingleton<ITasksRefreshSettings>(
+            new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));

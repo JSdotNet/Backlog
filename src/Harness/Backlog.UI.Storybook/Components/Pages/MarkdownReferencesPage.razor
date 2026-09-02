@@ -188,7 +188,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     /// that is plainly not a path, a scheme, and a relative target that reaches no
     /// chapter.</summary>
     private const string ProseSample = """
-        The `.domain/backlog/domain.md` chapter owns the entry aggregate, and
+        The `.domain/tasks/domain.md` chapter owns the entry aggregate, and
         [the roadmap feature](backlog/features.md#feature-roadmap-planning) is
         planned against it. The convention itself is written down in
         [the crosscutting concepts](.arc42/08-crosscutting-concepts.md#storage-and-sync).
@@ -212,7 +212,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
 
     private const string RoadmapBlock = """
         status: in-progress
-        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
         related: [.domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
@@ -223,15 +223,15 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     /// against each other.</summary>
     private const string DuplicateBlock = """
         status: draft
-        related: [.domain/backlog/domain.md#aggregate-backlog-entry]
-        depends-on: [.domain/backlog/domain.md#aggregate-backlog-entry, .tech/shared.md#markdown]
+        related: [.domain/tasks/domain.md#aggregate-backlog-entry]
+        depends-on: [.domain/tasks/domain.md#aggregate-backlog-entry, .tech/shared.md#markdown]
         """;
 
     private static readonly MetadataRecord DuplicateMetadata = MetadataReader.Parse(DuplicateBlock);
 
     /// <summary>The top of this repository's own .backlog/domain-backlog.md.</summary>
     private const string BacklogSample = """
-        # Backlog Management Work
+        # Tasks Work
 
         ```meta
         status: draft
@@ -242,13 +242,13 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
 
         ```meta
         status: draft
-        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
         related: [.domain/environment/features.md#feature-environment-aware-work-context]
         ```
 
         A roadmap view over selected backlog entries, organised by planning horizon
         while the entries stay the source of truth for status and priority. The
-        feature is specified in `.domain/backlog/features.md`, and the decision it
+        feature is specified in `.domain/tasks/features.md`, and the decision it
         rests on is `.arc42/09-architecture-decisions.md` — the same two addresses
         the records above carry, written the way an author writes them in a
         sentence.
@@ -262,7 +262,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
         new("A whole file", ".tech/technology-graph.md", "file",
             "No hash, so the whole file is the target and Label falls back to its name."),
 
-        new("Several segments deep", ".domain/backlog/domain.md#aggregate-backlog-entry", "nested",
+        new("Several segments deep", ".domain/tasks/domain.md#aggregate-backlog-entry", "nested",
             "The folder is still the first segment of the path, never the last, however deep it goes."),
 
         new("A trailing hash", ".design/color-scheme.md#", "trailing",

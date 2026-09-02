@@ -27,8 +27,8 @@ default.
 ## Where things live
 
 ```
-.domain/backlog/flow.md              the chapter, with its mermaid fences
-.domain/backlog/_archify/
+.domain/tasks/flow.md              the chapter, with its mermaid fences
+.domain/tasks/_archify/
     index.json                       sha256(fence) -> which artifact is whose
     flow.1.workflow.json             the specification, authored by hand
     flow.1.workflow.html             the artifact, rendered from it
@@ -97,10 +97,10 @@ different offer under the diagram — or none:
 
 ```powershell
 # What to write for one diagram, and where. Prints the fence; writes no stub.
-node tools/diagrams/archify-artifacts.mjs scaffold .domain/backlog/flow.md 1
+node tools/diagrams/archify-artifacts.mjs scaffold .domain/tasks/flow.md 1
 
 # Render one specification, or everything unrendered and stale.
-node tools/diagrams/archify-artifacts.mjs render .domain/backlog/_archify/flow.1.workflow.json
+node tools/diagrams/archify-artifacts.mjs render .domain/tasks/_archify/flow.1.workflow.json
 node tools/diagrams/archify-artifacts.mjs render --all
 
 # Exits non-zero if anything is stale or unrendered.

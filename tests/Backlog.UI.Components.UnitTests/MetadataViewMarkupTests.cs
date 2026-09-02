@@ -117,7 +117,7 @@ public sealed class MetadataViewMarkupTests
         issue: JSdotNet/Backlog#118
         depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
         related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
-        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
         roadmap: [sync-service, mobile-mvp]
         feature-flag: [inbox-pane, inbox-filters]
         aliases: [TaskItem, backlog_entry_id]
@@ -148,7 +148,7 @@ public sealed class MetadataViewMarkupTests
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">depends-on</dt>
                     <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#net-runtime</code><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#c-language</code></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">implements</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/backlog/features.md#feature-roadmap-planning</code></dd></div>
+                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">aliases</dt>
                     <dd class="knowledge-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">alternatives</dt>
@@ -180,7 +180,7 @@ public sealed class MetadataViewMarkupTests
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">depends-on</dt>
                     <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#net-runtime</code><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#c-language</code></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">implements</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/backlog/features.md#feature-roadmap-planning</code></dd></div>
+                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">aliases</dt>
                     <dd class="knowledge-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
                 <div class="knowledge-fields__row"><dt class="knowledge-fields__label">alternatives</dt>

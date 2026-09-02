@@ -2,7 +2,7 @@
 
   <!--
     The Inbox context's UI: what has been captured but not yet decided on.
-    Upstream of Backlog Management and Second Brain (.domain/context-map.md), so
+    Upstream of Tasks and Second Brain (.domain/context-map.md), so
     it references nothing but the shared control library — anything more would be
     the Inbox reading back from a context it publishes to.
   -->

@@ -7,14 +7,14 @@
   <ItemGroup>
     <Using Include="Backlog.UI.Components.Markdown" />
 
-    <!-- The app is split by bounded context (Inbox, BacklogManagement,
+    <!-- The app is split by bounded context (Inbox, Tasks,
          Knowledge) under a composing Shell — namespaces that are projects rather
          than folders in one. The namespaces did not move with them, so these
          lines are unchanged: each module UI project keeps publishing the
          namespace it always did. Tests sit outside that boundary and check all
          of it, so the namespaces are imported once here instead of per file. -->
-    <Using Include="Backlog.Modules.Backlog.Abstractions" />
-    <Using Include="Backlog.Modules.Backlog.Abstractions.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Tasks.Abstractions" />
+    <Using Include="Backlog.Modules.Tasks.Abstractions.DataTransferObjects" />
     <!-- Dev PC Management publishes the Copilot tool port, the DTOs behind it and
          the .tools catalog format. Unlike the contexts above it never had a
          folder in Backlog.Desktop.UI to keep a namespace from, so its types say
@@ -52,7 +52,7 @@
          browser-hosted screen gets. -->
     <Using Include="Backlog.Infrastructure.FileSystem" />
     <Using Include="Backlog.Desktop.UI.Inbox" />
-    <Using Include="Backlog.Desktop.UI.BacklogManagement" />
+    <Using Include="Backlog.Desktop.UI.Tasks" />
     <Using Include="Backlog.Desktop.UI.Knowledge" />
     <Using Include="Backlog.Desktop.UI.Shell" />
     <!-- The self-update port and its result types moved out of the Shell folder
@@ -64,7 +64,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog\Backlog.Modules.Backlog.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
     <!-- The desktop web harness, for its IDevToolService adapter. The harness is
@@ -81,7 +81,7 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Backlog\Backlog.Modules.Backlog.UI\Backlog.Modules.Backlog.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />

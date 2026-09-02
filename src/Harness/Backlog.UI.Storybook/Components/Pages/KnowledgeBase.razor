@@ -319,7 +319,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// folder would actually write: the schema is folder-specific and half of
     /// these fields are meaningless together. Values are taken from the real
     /// blocks they belong to — the .tech/cloud.md chapter, the Backlog Entry term
-    /// in .domain/backlog/naming.md — rather than invented, so every line here is
+    /// in .domain/tasks/naming.md — rather than invented, so every line here is
     /// a line this repository contains somewhere.</summary>
     private const string EveryFieldBlock = """
         status: adopted
@@ -329,7 +329,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         issue: JSdotNet/Backlog#118
         depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
         related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
-        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
         feature-flag: [inbox-pane, inbox-filters]
         aliases: [TaskItem, backlog_entry_id, backlog_item_id]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
@@ -364,7 +364,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// relations.</summary>
     private const string RoadmapBlock = """
         status: ready
-        implements: [.domain/backlog/features.md#feature-roadmap-planning]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
         related: [.domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
@@ -433,7 +433,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
             + "technology chapter uses it to point at the shared runtime it sits on."),
 
         new("implements", "references", ".backlog",
-            "implements: [.domain/backlog/features.md#feature-roadmap-planning]",
+            "implements: [.domain/tasks/features.md#feature-roadmap-planning]",
             "What a backlog item delivers, addressed into .domain. This is the field that ties a work "
             + "item to the feature it exists for."),
 

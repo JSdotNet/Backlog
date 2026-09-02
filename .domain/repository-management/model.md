@@ -113,5 +113,5 @@ classDiagram
   `PortfolioAnalytics`; only the root writes them.
 - `TechBaselines` is a local copy consumed from Technology Stack; repos are
   validated against it without holding the foreign aggregate.
-- `repo_id` aligns with the Backlog `repo_ids` and the workspace `repos.json`
+- `repo_id` aligns with the Tasks `repo_ids` and the workspace `repos.json`
   registry so a repo resolves consistently across contexts.

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Task Lifecycle",
+    "viewBox": [980, 600],
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Task Status" }
+  ],
+  "states": [
+    { "id": "draft", "type": "start", "label": "Draft", "sublabel": "created", "lane": "main", "col": 0 },
+    { "id": "ready", "type": "waiting", "label": "Ready", "lane": "main", "col": 1 },
+    { "id": "in-progress", "type": "active", "label": "In Progress", "lane": "main", "col": 2 },
+    { "id": "done", "type": "success", "label": "Done", "lane": "main", "col": 3 },
+    { "id": "archived", "type": "neutral", "label": "Archived", "lane": "main", "col": 4 }
+  ],
+  "transitions": [
+    { "id": "refine", "from": "draft", "to": "ready", "label": "Refined and actionable", "labelDy": 58 },
+    { "id": "start-work", "from": "ready", "to": "in-progress", "label": "Work started", "note": "EntryProjected", "variant": "emphasis", "labelDy": 58 },
+    { "id": "complete", "from": "in-progress", "to": "done", "label": "Work completed", "note": "EntryCompleted", "variant": "emphasis", "labelDy": 58 },
+    { "id": "archive", "from": "done", "to": "archived", "label": "Archived", "labelDy": 58 },
+    { "id": "revise", "from": "ready", "to": "draft", "label": "Revision needed", "fromSide": "top", "toSide": "top", "via": [[248, 80], [94, 80]], "labelSegment": 1 },
+    { "id": "pause", "from": "in-progress", "to": "ready", "label": "Paused", "fromSide": "bottom", "toSide": "bottom", "via": [[402, 250], [248, 250]], "labelSegment": 1 },
+    { "id": "reopen", "from": "done", "to": "in-progress", "label": "Reopened", "fromSide": "top", "toSide": "top", "via": [[556, 80], [402, 80]], "labelSegment": 1 },
+    { "id": "restore", "from": "archived", "to": "draft", "label": "Restored", "fromSide": "bottom", "toSide": "bottom", "via": [[710, 330], [94, 330]], "labelSegment": 1 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Forward path",
+      "items": [
+        "A created entry starts at Draft and is refined until it is actionable",
+        "Ready to In Progress emits EntryProjected, one artifact per repo_id",
+        "Completion emits EntryCompleted, which closes all projections"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Moves back",
+      "items": [
+        "Ready returns to Draft when a revision is needed",
+        "In Progress returns to Ready when the work is paused",
+        "Done returns to In Progress when the entry is reopened"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Archived is not the end",
+      "items": [
+        "Archived is reached from Done, and Restored puts the entry back in Draft",
+        "Scheduling attributes are deliberately absent from this lifecycle",
+        "An overdue entry is still ready; no clock moves an entry between states"
+      ]
+    }
+  ]
+}

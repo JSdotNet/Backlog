@@ -39,9 +39,9 @@ classDiagram
         <<value object>>
         +String tag
     }
-    class BacklogLink {
+    class TaskLink {
         <<value object>>
-        +String backlog_entry_id
+        +String task_id
         +String link_type
         +Timestamp linked_at
     }
@@ -64,19 +64,19 @@ classDiagram
     KnowledgeNote "1" *-- "0..*" ProjectRef : scoped to
     KnowledgeNote "1" *-- "0..*" Tag : tagged with
     KnowledgeNote "1" *-- "0..*" RoadmapContribution : contributes to
-    KnowledgeNote "1" *-- "0..*" BacklogLink : linked to
+    KnowledgeNote "1" *-- "0..*" TaskLink : linked to
 ```
 
 ## Relationship notes
 
 - `KnowledgeNote` is the aggregate root; `ProjectRef`, `Tag`,
-  `RoadmapContribution`, and `BacklogLink` are owned value objects. There are no
+  `RoadmapContribution`, and `TaskLink` are owned value objects. There are no
   separately identified child entities.
-- `BacklogLink` references a Backlog Entry by id only, never by object reference,
+- `TaskLink` references a Task by id only, never by object reference,
   so the two contexts stay decoupled; the Cross-Linking service keeps both
   directions consistent.
 - `effort` is a plain scalar of story points on the root, with the same three-value
-  meaning as a Backlog Entry's `effort` (`null`/absent = not estimated, `0` a real
+  meaning as a Task's `effort` (`null`/absent = not estimated, `0` a real
   estimate, negative rejected). It carries no relationship to another type. Roadmap
   Planning reads and totals it; Second Brain owns it.
 - `Tag` and `RoadmapContribution` are **two different value objects on purpose**,

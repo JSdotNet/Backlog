@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Knowledge;
 /// Starts the GitHub Copilot CLI from a knowledge item, with the item's metadata
 /// and summary as the brief.
 /// <para>
-/// Second Brain builds its own prompt rather than borrowing Backlog Management's
+/// Second Brain builds its own prompt rather than borrowing Tasks'
 /// launcher: the two contexts share the <see cref="ICopilotCliLauncher"/> adapter
 /// and nothing above it.
 /// </para>

@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.DomainModels;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Infrastructure.GitHub;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -545,7 +545,7 @@ public sealed class GitHubLinkTests
     [Fact]
     public void An_unpushed_entry_has_no_link()
     {
-        Assert.Null(BacklogIssues.FindLink(Entry()));
+        Assert.Null(TasksIssues.FindLink(Entry()));
     }
 
     [Fact]
@@ -553,7 +553,7 @@ public sealed class GitHubLinkTests
     {
         var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "42", EntryProjectionDto.IssueTargetType));
 
-        var link = BacklogIssues.FindLink(entry);
+        var link = TasksIssues.FindLink(entry);
 
         Assert.NotNull(link);
         Assert.Equal(42, link!.IssueNumber);
@@ -566,7 +566,7 @@ public sealed class GitHubLinkTests
     {
         var entry = Entry(new EntryProjectionDto("JSdotNet/Backlog", "ADO-1", "work-item"));
 
-        Assert.Null(BacklogIssues.FindLink(entry));
+        Assert.Null(TasksIssues.FindLink(entry));
     }
 
     private static TaskItemDto Entry(params EntryProjectionDto[] projections) => new(

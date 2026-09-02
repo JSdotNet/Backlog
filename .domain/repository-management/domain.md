@@ -209,7 +209,7 @@ GitHub, package registries) to refresh the aggregate. Invocation semantics: sche
 ```meta
 type: domain-service
 status: draft
-related: [.domain/backlog/domain.md#backlog-entry]
+related: [.domain/tasks/domain.md#task]
 ```
 
 Coordinates portfolio-wide actions: queue package updates across repos, run

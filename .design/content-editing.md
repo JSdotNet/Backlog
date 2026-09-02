@@ -77,7 +77,7 @@ serialize them to canonical Markdown.
 | Headings `#`–`######` | Rendered per `typography-and-layout.md` heading defaults; heading level drives chapter reorder/nesting (`interaction-guidelines.md#nesting--indent-rules-chapters`). |
 | Paragraphs | Default body text. |
 | Unordered / ordered lists | Including nested lists; stable marker style on serialize. |
-| Task lists `- [ ] / - [x]` | Interactive checkboxes; toggling a checkbox is a discrete auto-saved change. Distinct from `##` sub-item headings — see `#backlog-entry-structure`. |
+| Task lists `- [ ] / - [x]` | Interactive checkboxes; toggling a checkbox is a discrete auto-saved change. Distinct from `##` sub-item headings — see `#task-structure`. |
 | Blockquotes `>` | Including nested. |
 | Code blocks (fenced) | `font-family-mono`, language hint preserved; not spell-checked; content never "smart-formatted". |
 | Tables (GFM) | Editable grid; serialize to pipe tables. |
@@ -97,14 +97,14 @@ serialize them to canonical Markdown.
 
 Anything not in these tables falls under `#unsupported-syntax-preservation`.
 
-## Backlog Entry Structure
+## Task Structure
 
 ```meta
 status: active
-related: [".domain/backlog/domain.md#backlog-entry", ".domain/backlog/naming.md#sub-item", ".design/interaction-guidelines.md#nesting--indent-rules-chapters"]
+related: [".domain/tasks/domain.md#task", ".domain/tasks/naming.md#sub-item", ".design/interaction-guidelines.md#nesting--indent-rules-chapters"]
 ```
 
-> A Backlog Entry is edited as one Markdown document, with headings carrying
+> A Task is edited as one Markdown document, with headings carrying
 > entry-specific meaning beyond the generic chapter nesting in
 > `interaction-guidelines.md#nesting--indent-rules-chapters`.
 
@@ -125,10 +125,10 @@ related: [".domain/backlog/domain.md#backlog-entry", ".domain/backlog/naming.md#
 
 ```meta
 status: active
-related: [".domain/backlog/naming.md#entry-status", ".domain/backlog/naming.md#area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
-> Backlog entries carry structured metadata (type, priority, status, area,
+> Tasks carry structured metadata (type, priority, status, area,
 > tags) inline as backtick-quoted tokens. Each kind but one is disambiguated by
 > a one-character sigil, so neither a human reader nor the parser has to guess
 > which bare word means what.
@@ -153,7 +153,7 @@ related: [".domain/backlog/naming.md#entry-status", ".domain/backlog/naming.md#a
 
 ```meta
 status: active
-related: [".design/content-editing.md#structured-metadata-sigils", ".domain/backlog/naming.md#due-date", ".domain/backlog/naming.md#reminder", ".domain/backlog/naming.md#recurrence", ".domain/backlog/naming.md#my-day", ".domain/backlog/naming.md#dependency", ".domain/backlog/features.md#import", ".domain/repository-management/domain.md#repository-registry"]
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/tasks/naming.md#due-date", ".domain/tasks/naming.md#reminder", ".domain/tasks/naming.md#recurrence", ".domain/tasks/naming.md#my-day", ".domain/tasks/naming.md#dependency", ".domain/tasks/features.md#import", ".domain/repository-management/domain.md#repository-registry"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -182,7 +182,7 @@ A full metadata line mixes both forms, sigils first:
 ```
 
 Two entries pasted together — neither saved yet, so neither has a real
-`backlog_item_id` — still order themselves with `id:` and `after:`:
+`task_id` — still order themselves with `id:` and `after:`:
 
 ```markdown
 # Add the export command
@@ -202,14 +202,14 @@ Two entries pasted together — neither saved yet, so neither has a real
 | My Day expires by arithmetic | `myday:` holds the date the entry was picked for, not a flag. The entry is in My Day exactly while that date is the reader's current local date, so yesterday's list clears itself with no timer and no overnight sweep. |
 | A path is taken as written | `files:` takes a path and the parser has no opinion about it — separators, drive letters and spaces all survive, because a path is whatever the file system will accept and a grammar that refused the ones it disliked would be a grammar with an opinion about operating systems. Nothing is checked against the disk either: a path is meaningful on the machine that wrote it, so an entry read elsewhere may name a place that is not there and is no less valid for it. |
 | One attached place, and never a list | `files:` appears at most once. A second one is a replacement rather than an addition, and the last one on the line wins. This is the opposite rule to `after:` above, deliberately: a task waiting on two things is ordinary, where an entry pointing at two folders is an entry whose presentation grows with however many places somebody named. |
-| A local id bridges an unsaved batch | `id:` names an entry before it has a real `backlog_item_id`, which is what every entry in a fresh paste is — none of them saved yet. A sibling's `after:` resolves against a same-document `id:` first, so one new entry can depend on another before either exists; failing that, `after:` means a real id as it always did. An entry with no `id:` is addressable exactly as today, once saved. |
+| A local id bridges an unsaved batch | `id:` names an entry before it has a real `task_id`, which is what every entry in a fresh paste is — none of them saved yet. A sibling's `after:` resolves against a same-document `id:` first, so one new entry can depend on another before either exists; failing that, `after:` means a real id as it always did. An entry with no `id:` is addressable exactly as today, once saved. |
 | Dependencies repeat | `after:` may appear more than once and the order carries no meaning — an entry waiting on two things names both, and asking which is the real predecessor has no answer. An id naming nothing visible still counts, and still blocks. |
-| A repo name repeats, like a dependency | `repo:` may appear more than once, the same as `after:` and for the same reason — an entry can target several repositories at once, and order carries no meaning. This matches the aggregate's own `repo_ids[]` (`.domain/backlog/features.md#multi-repo-targeting`), which already holds more than one. |
-| A repo name is resolved, never invented | `repo:` names a repository the way a person or a pasted document actually can — by name — and is resolved against the Repository Registry (`.domain/repository-management/domain.md#repository-registry`) to the `repo_id` the aggregate stores, because nothing hand-typed can know that id. A name the registry does not recognize is simply unresolved, on the same terms as an unrecognized sigil value; this token never registers a repository on its own. Only the narrower import policy (`.domain/backlog/features.md#repository-resolution-on-import`) auto-registers an unknown name, and only for that feature. |
+| A repo name repeats, like a dependency | `repo:` may appear more than once, the same as `after:` and for the same reason — an entry can target several repositories at once, and order carries no meaning. This matches the aggregate's own `repo_ids[]` (`.domain/tasks/features.md#multi-repo-targeting`), which already holds more than one. |
+| A repo name is resolved, never invented | `repo:` names a repository the way a person or a pasted document actually can — by name — and is resolved against the Repository Registry (`.domain/repository-management/domain.md#repository-registry`) to the `repo_id` the aggregate stores, because nothing hand-typed can know that id. A name the registry does not recognize is simply unresolved, on the same terms as an unrecognized sigil value; this token never registers a repository on its own. Only the narrower import policy (`.domain/tasks/features.md#repository-resolution-on-import`) auto-registers an unknown name, and only for that feature. |
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
-| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#backlog-entry-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
+| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#task-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
 | A view is chosen, never derived onto the line | An entry nobody has expressed a preference about carries no `view:` token and MUST NOT acquire one by being saved — "absent means absent" applies here too. The surface picks a sensible reading for an entry with no token (an entry with no `##` chapters has no steps to list), and that choice stays in the surface: a default written into the text is a preference nobody made, and it would have to be unwritten from every entry before the default could change. |
 | Neither reading may hide text without saying so | The steps reading lists `##` chapters, so prose an entry opens with has no row. Where a reading omits body text that exists, the surface MUST say so and offer the Markdown block in the same breath. Silently showing less than the entry holds reads as text the app has lost, which is the failure `#round-trip-fidelity` exists to prevent — only on screen rather than on disk. |
 
@@ -228,7 +228,7 @@ related: [".design/content-editing.md#editing-feedback-and-state"]
 |---|---|
 | Same-parse guarantee | The hint MUST be produced by the identical parse that persistence uses; it must never diverge from what actually gets saved. |
 | Explicit vs. default | A value the user actually typed renders at full emphasis; a value that is only the current default (nothing typed yet) renders at reduced emphasis, so a default is never mistaken for something the user asserted. |
-| Refused status is explained | If the typed status is not a legal next step in the entry's lifecycle (`.domain/backlog/flow.md#backlog-entry-lifecycle`), the hint MUST show the status that will actually be kept plus which statuses are legal next steps — the typed word is never silently dropped. |
+| Refused status is explained | If the typed status is not a legal next step in the entry's lifecycle (`.domain/tasks/flow.md#task-lifecycle`), the hint MUST show the status that will actually be kept plus which statuses are legal next steps — the typed word is never silently dropped. |
 | Not an error state | A refused status is informational (`color-primary` accent), not an error toast or blocking validation; the entry still saves, just without the refused change. |
 
 ## Paste Behavior

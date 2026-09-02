@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 ///
 /// <para>The knowledge folders almost never spell a link out from the repository
 /// root. A chapter links to its sibling as <c>domain.md#roadmap-item-gathering</c>
-/// and to another context as <c>../backlog/domain.md#backlog-entry</c>, because
+/// and to another context as <c>../tasks/domain.md#task</c>, because
 /// that is the form that works in every markdown viewer the folders are also read
 /// in. The parser that only accepted the rooted form therefore accepted almost
 /// nothing that had been written, which is why the pane sent a hundred-odd links
@@ -25,12 +25,12 @@ public sealed class KnowledgeReferenceRelativeTests
         // The single most common form in the folders: ~110 of them, and not one
         // resolved before.
         var reference = KnowledgeReference.ParseKnowledgePath(
-            "../backlog/domain.md#backlog-entry",
+            "../tasks/domain.md#task",
             ".domain/roadmap/features.md");
 
         Assert.NotNull(reference);
-        Assert.Equal(".domain/backlog/domain.md", reference.Path);
-        Assert.Equal("backlog-entry", reference.Slug);
+        Assert.Equal(".domain/tasks/domain.md", reference.Path);
+        Assert.Equal("task", reference.Slug);
         Assert.Equal(KnowledgeFolder.Domain, reference.Folder);
     }
 
@@ -169,17 +169,17 @@ public sealed class KnowledgeReferenceRelativeTests
         // already tolerates it, and refusing it here would drop a folder that is
         // plainly there.
         var reference = KnowledgeReference.ParseKnowledgePath(
-            @"..\backlog\domain.md#priority",
+            @"..\tasks\domain.md#priority",
             @".domain\roadmap\features.md");
 
         Assert.NotNull(reference);
-        Assert.Equal(".domain/backlog/domain.md", reference.Path);
+        Assert.Equal(".domain/tasks/domain.md", reference.Path);
         Assert.Equal("priority", reference.Slug);
     }
 
     [Theory]
     // Not a chapter: a section selects markdown files, and an image is not one.
-    [InlineData("assets/backlog-entry-inline-markdown-editing.png", ".domain/backlog/features.md")]
+    [InlineData("assets/task-inline-markdown-editing.png", ".domain/tasks/features.md")]
     // Out of the repository entirely. Two `..` from a folder one deep is one too
     // many, and the answer is nothing rather than a path that starts climbing.
     [InlineData("../../../etc/passwd", ".domain/roadmap/features.md")]
@@ -211,7 +211,7 @@ public sealed class KnowledgeReferenceRelativeTests
     }
 
     [Theory]
-    [InlineData("../backlog/domain.md#backlog-entry")]
+    [InlineData("../tasks/domain.md#task")]
     [InlineData("domain.md")]
     [InlineData("#a-heading")]
     public void Without_a_document_to_resolve_against_a_relative_link_stays_unresolved(string target)
@@ -253,10 +253,10 @@ public sealed class KnowledgeReferenceRelativeTests
     {
         // A leading `./` or `/` on the base path is the same document, and a host
         // that carries one should not silently lose every link in the file.
-        var reference = KnowledgeReference.ParseKnowledgePath("../backlog/domain.md", "/.domain/roadmap/features.md");
+        var reference = KnowledgeReference.ParseKnowledgePath("../tasks/domain.md", "/.domain/roadmap/features.md");
 
         Assert.NotNull(reference);
-        Assert.Equal(".domain/backlog/domain.md", reference.Path);
+        Assert.Equal(".domain/tasks/domain.md", reference.Path);
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public sealed class KnowledgeReferenceRelativeTests
         // first one truncates the chapter to its file.
         var reference = KnowledgeReference.ParseKnowledgePath(
             "../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort",
-            ".domain/backlog/features.md");
+            ".domain/tasks/features.md");
 
         Assert.NotNull(reference);
         Assert.Equal(".domain/roadmap/features.md", reference.Path);
@@ -281,9 +281,9 @@ public sealed class KnowledgeReferenceRelativeTests
         // both of those want the address the reader is being sent to rather than
         // the shorthand the author typed. The author's own words are still what
         // is printed — the link's text carries those.
-        var reference = KnowledgeReference.ParseKnowledgePath("../backlog/domain.md#priority", ".domain/roadmap/features.md");
+        var reference = KnowledgeReference.ParseKnowledgePath("../tasks/domain.md#priority", ".domain/roadmap/features.md");
 
         Assert.NotNull(reference);
-        Assert.Equal(".domain/backlog/domain.md#priority", reference.Raw);
+        Assert.Equal(".domain/tasks/domain.md#priority", reference.Raw);
     }
 }

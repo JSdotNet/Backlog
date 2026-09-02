@@ -13,7 +13,7 @@ status: draft
 ```meta
 type: feature
 status: draft
-related: [.domain/backlog/features.md#projection]
+related: [.domain/tasks/features.md#projection]
 ```
 
 Track what changed since the last review per project/repo, detect items that
@@ -29,7 +29,7 @@ depends-on: [.domain/monitoring/features.md#progress-tracking]
 ```
 
 Highlight items needing follow-up (overdue, blocked, untouched), surface stale
-backlog entries and long-deferred inbox items, and alert on stuck queues or high
+tasks and long-deferred inbox items, and alert on stuck queues or high
 backlog counts.
 
 ## Multi-layer dashboards
@@ -52,15 +52,15 @@ status: draft
 Application performance metrics (errors, latency, availability), cost/usage
 attribution, correlated with backlog status.
 
-### Backlog and GitHub progress
+### Tasks and GitHub progress
 
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/backlog/features.md#projection]
+related: [.domain/tasks/features.md#projection]
 ```
 
-Track GitHub issues linked to backlog items, show status/milestone/assignee, and
+Track GitHub issues linked to tasks, show status/milestone/assignee, and
 flag mismatches (backlog done but issue open, or vice versa).
 
 ### Inbox and queue health
@@ -82,7 +82,7 @@ status: draft
 related: [.domain/sessions/features.md#session-inventory]
 ```
 
-Monitor active Copilot sessions linked to issues/backlog items and alert when a
+Monitor active Copilot sessions linked to issues/tasks and alert when a
 session stalls.
 
 ## Multi-repo scanning

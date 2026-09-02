@@ -23,7 +23,7 @@ public sealed class SchedulingRoundTripTests : IDisposable
         "Ship it before the demo.\n";
 
     private readonly List<string> _tempDirs = [];
-    private readonly List<BacklogDesktopState> _states = [];
+    private readonly List<TasksDesktopState> _states = [];
 
     [Fact]
     public async Task An_entry_carrying_every_scheduling_token_still_carries_them_after_a_reload()
@@ -97,11 +97,11 @@ public sealed class SchedulingRoundTripTests : IDisposable
         return root;
     }
 
-    private BacklogDesktopState State(string root)
+    private TasksDesktopState State(string root)
     {
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var state = BacklogTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
+        var state = TasksTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
         _states.Add(state);
         return state;
     }
@@ -110,7 +110,7 @@ public sealed class SchedulingRoundTripTests : IDisposable
     {
         // Before the folders below go: the state arms timed saves, and one that
         // elapsed after its folder was deleted is work the test host is still
-        // holding when the run is over. See BacklogDesktopStateLifetimeTests.
+        // holding when the run is over. See TasksDesktopStateLifetimeTests.
         foreach (var state in _states)
         {
             state.Dispose();

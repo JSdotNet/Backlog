@@ -2,7 +2,7 @@
 
 ```meta
 status: accepted
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".domain/backlog/domain.md#backlog-entry"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".domain/tasks/domain.md#task"]
 issue: null
 ```
 
@@ -148,6 +148,6 @@ Neutral:
   moving a field off an aggregate is a domain change, not a storage one.
 - The aggregate is now `TaskItem` in code, and the ubiquitous-language term is
   **Task**. `TaskItem` rather than the bare `Task` because the module's own
-  namespace declares dozens of `Task`-returning async methods and `EntryType.Task`
+  namespace declares dozens of `Task`-returning async methods and `TaskType.Task`
   already means something narrower. The `.domain` vocabulary has not been renamed
   to match yet; that is a governed-vocabulary change and belongs to `orch-domain`.

@@ -5,10 +5,10 @@ public sealed class SelectorMarkupTests
     // The backlog context left Backlog.Desktop.UI for its own project under
     // src/Modules; the namespace came with it, so only the folder moved.
     private static string BacklogUi =>
-        RepositoryRoot.Directory("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI");
+        RepositoryRoot.Directory("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI");
 
-    private static string FindBacklogPane() =>
-        RepositoryRoot.File("src", "Modules", "Backlog", "Backlog.Modules.Backlog.UI", "BacklogPane.razor");
+    private static string FindTasksPane() =>
+        RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
 
     /// <summary>
     /// A status badge looks the same whether it is on a backlog entry or an
@@ -41,7 +41,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void The_backlog_pane_uses_the_shared_selector_components()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         Assert.Contains("<RepositorySelector", pane, StringComparison.Ordinal);
         Assert.Contains("<StatusSelector", pane, StringComparison.Ordinal);
@@ -83,7 +83,7 @@ public sealed class SelectorMarkupTests
                     || markup.Contains("RenderKnowledgeMetadata=\"true\"", StringComparison.Ordinal),
                 $"{panel} draws its status through neither the shared selector nor the shared file view.");
 
-            Assert.DoesNotContain("Backlog.Desktop.UI.BacklogManagement", markup, StringComparison.Ordinal);
+            Assert.DoesNotContain("Backlog.Desktop.UI.Tasks", markup, StringComparison.Ordinal);
         }
     }
 
@@ -96,7 +96,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void Backlog_markup_no_longer_branches_on_is_read_only()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
         Assert.DoesNotContain("row.IsReadOnly", pane, StringComparison.Ordinal);
     }
 
@@ -122,7 +122,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void Entries_and_steps_are_rows_and_the_open_entry_is_the_shared_panel()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         // Two lists: the entries on the left, the selected entry's steps on the
         // right. The entry that is open is the panel they are beside.
@@ -153,7 +153,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void The_scheduling_rows_are_laid_out_by_the_shared_action_pane()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         Assert.Contains("<TaskActionPane", pane, StringComparison.Ordinal);
         Assert.Contains("<TaskActionGroup", pane, StringComparison.Ordinal);
@@ -169,7 +169,7 @@ public sealed class SelectorMarkupTests
     /// hand-off arrived through <c>TaskListView.RowActions</c>. The slot is still the
     /// right answer to "where does a host put its own controls on a row" — that rule
     /// has not changed — but the question was wrong. A step is not a thing this
-    /// product files as an issue: <c>.domain/backlog/domain.md</c> gives
+    /// product files as an issue: <c>.domain/tasks/domain.md</c> gives
     /// <c>ProjectionRef</c> to the entry, and a Sub-Item projects to checkboxes
     /// <em>inside</em> that entry's issue.
     /// </para>
@@ -182,7 +182,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void No_step_carries_a_hand_off_of_its_own()
     {
-        var pane = NormalizeLineEndings(File.ReadAllText(FindBacklogPane()));
+        var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
         Assert.DoesNotContain("subitem-github-push-button", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("subitem-copilot-cli-button", pane, StringComparison.Ordinal);

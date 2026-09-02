@@ -3,16 +3,16 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
-using Backlog.Desktop.UI.BacklogManagement;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.SharedKernel;
-using Backlog.Modules.Backlog;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Knowledge.Abstractions;
-using Backlog.Modules.Backlog.Extensions;
+using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
@@ -40,24 +40,24 @@ builder.Services.AddSingleton<WorkspaceSettingsStore>();
 builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>()));
-builder.Services.AddSingleton<IBacklogStore>(sp => new WorkspaceBacklogStore(
+builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 // How often the list re-reads a store somebody else may have written to. Scoped
 // to the content root like the harness's other settings files, so a session here
 // never rewrites the real per-user choice.
-builder.Services.AddSingleton<IBacklogRefreshSettings>(
+builder.Services.AddSingleton<ITasksRefreshSettings>(
     _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
 // Which surface the shell was last showing. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
 
-// Composition: the Backlog module brings its own use cases, and the host decides
+// Composition: the Tasks module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
 // than being pinned to wherever it was at startup.
 builder.Services.AddSingleton<ITaskRepository>(sp =>
     new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-builder.Services.AddBacklogModule();
+builder.Services.AddTasksModule();
 
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
 // the host picks the adapter. One JSON document under the same storage root,
@@ -119,12 +119,12 @@ builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
 builder.Services.AddDashboardModule();
 builder.Services.AddDashboardAdapters();
 
-// Backlog Management's own adapter, registered here rather than beside
-// AddBacklogModule() above because it reads the GitHub settings store and that is
+// Tasks' own adapter, registered here rather than beside
+// AddTasksModule() above because it reads the GitHub settings store and that is
 // only configured by this point. It is what lets an imported plan resolve a
 // `repo:` name against the repositories somebody has configured — and register one
 // it names that nobody has, per ADR 0004.
-builder.Services.AddBacklogAdapters();
+builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
@@ -142,7 +142,7 @@ builder.Services.AddSingleton<C4KnowledgeStore>();
 builder.Services.AddSingleton<KnowledgeChapterWriter>();
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<KnowledgeFolderOpenService>();
-builder.Services.AddSingleton(_ => BacklogCopilotCli.Unavailable);
+builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
 builder.Services.AddSingleton(_ => new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
 // The shared diagram component asks for this optionally, so registering it is
 // what switches Archify artifacts on for the harness at all. It takes the same
@@ -155,7 +155,7 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddSingleton<KnowledgeUpdateService>();
-builder.Services.AddScoped<BacklogDesktopState>();
+builder.Services.AddScoped<TasksDesktopState>();
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always
@@ -274,7 +274,7 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
     return new AppFeatureSettingsStore(AppFeatures.All, settingsPath);
 }
 
-static BacklogRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(string contentRootPath)
+static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_REFRESH_SETTINGS_PATH");
     if (string.IsNullOrWhiteSpace(settingsPath))
@@ -282,7 +282,7 @@ static BacklogRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(st
         settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "refresh.settings.json");
     }
 
-    return new BacklogRefreshSettingsStore(settingsPath);
+    return new TasksRefreshSettingsStore(settingsPath);
 }
 
 static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)

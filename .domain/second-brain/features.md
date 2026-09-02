@@ -58,7 +58,7 @@ in its `roadmap` metadata to say which planned work it feeds. A discovery tag fi
 notes here; a roadmap contribution is read by Roadmap Planning when it gathers work
 by tag, draws no edge, and is never confused with a `#keyword` even though both are
 loosely "tags". A chapter may also declare an `effort` in story points, sized the
-same way a Backlog Entry is; like the roadmap contribution it is registered here
+same way a Task is; like the roadmap contribution it is registered here
 and only read by Roadmap Planning.
 
 ## Bi-directional linking
@@ -66,12 +66,12 @@ and only read by Roadmap Planning.
 ```meta
 type: feature
 status: draft
-related: [.domain/backlog/features.md#search-filter-and-organize]
+related: [.domain/tasks/features.md#search-filter-and-organize]
 ```
 
-Link from backlog entries to notes (reference or embed inline) and from notes
-back to related backlog items or projects, supporting queries that cross both
-domains and embedding knowledge context directly in backlog item details.
+Link from tasks to notes (reference or embed inline) and from notes
+back to related tasks or projects, supporting queries that cross both
+domains and embedding knowledge context directly in task details.
 
 ## Repository knowledge areas
 
@@ -79,16 +79,16 @@ domains and embedding knowledge context directly in backlog item details.
 type: feature
 status: draft
 feature-flag: repository-knowledge
-related: [.domain/repository-management/features.md#repository-knowledge-folder-settings, .domain/backlog/features.md#search-filter-and-organize]
+related: [.domain/repository-management/features.md#repository-knowledge-folder-settings, .domain/tasks/features.md#search-filter-and-organize]
 ```
 
 Read the knowledge a repository already carries alongside its code, next to the
 backlog rather than in a separate tool. Knowledge is grouped into named areas —
 working instructions, domain, architecture, technology, and design — each backed
-by the repository's own folder for that subject. Backlog concerns are not one of
+by the repository's own folder for that subject. Tasks concerns are not one of
 them: they are their own workspace section, read and written rather than browsed,
 so a repository's backlog folder is not a knowledge area. Areas are browsed from
-a side pane that sits beside the entry list so knowledge and work stay in view
+a side pane that sits beside the task list so knowledge and work stay in view
 together, and the pane's width is adjustable because the two compete for the same
 screen.
 
@@ -318,7 +318,7 @@ is not shown.
 ```meta
 type: feature
 status: draft
-related: [.domain/second-brain/features.md#topic-and-tag-grouping, .domain/second-brain/features.md#repository-knowledge-areas, .domain/backlog/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
+related: [.domain/second-brain/features.md#topic-and-tag-grouping, .domain/second-brain/features.md#repository-knowledge-areas, .domain/tasks/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
 ```
 
 Find the chapter that answers a question across every area and every note at

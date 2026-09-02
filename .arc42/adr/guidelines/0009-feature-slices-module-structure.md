@@ -39,9 +39,9 @@ The intended reflex: to find the code for a feature, open
 
 ## How Backlog applies it
 
-- `Backlog.Modules.Backlog` follows the layout: `DomainModels/`, `Features/`,
+- `Backlog.Modules.Tasks` follows the layout: `DomainModels/`, `Features/`,
   the `IBacklogRepository` port at the module root, `Services/`, `Extensions/`.
-- `Backlog.Modules.Backlog.Abstractions` publishes the vocabulary enums, the
+- `Backlog.Modules.Tasks.Abstractions` publishes the vocabulary enums, the
   DTOs, the `ITaskItems` service port, and `EntryTextParser`.
 - `tests/Backlog.ArchitectureTests/ModuleSurfaceTests.cs` keeps the published
   surface from quietly growing.

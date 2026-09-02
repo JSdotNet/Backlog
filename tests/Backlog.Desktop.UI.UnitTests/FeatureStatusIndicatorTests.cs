@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,7 +27,7 @@ public sealed class FeatureStatusIndicatorTests
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(AppFeatureStatus.Released));
         Assert.Null(AppFeatureStatusBadge.Title(AppFeatureStatus.Released));
 
-        var released = Assert.Single(AppFeatures.All, feature => feature.Key == BacklogFeatures.Backlog);
+        var released = Assert.Single(AppFeatures.All, feature => feature.Key == TasksFeatures.Tasks);
         Assert.Equal(AppFeatureStatus.Released, released.Status);
         Assert.Equal(string.Empty, AppFeatureStatusBadge.Slug(released.Status));
     }
@@ -179,8 +179,8 @@ public sealed class FeatureStatusIndicatorTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<IBacklogRefreshSettings>(
-            new BacklogRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        context.Services.AddSingleton<ITasksRefreshSettings>(
+            new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));

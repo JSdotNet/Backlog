@@ -15,7 +15,7 @@ related: [".arc42/03-context-and-scope.md#access-channels-scope", ".domain/conte
 ```
 
 Container boundaries below are the deployable/runtime split; the domains they
-serve (Capture, Inbox, Backlog Management, Roadmap Planning, Second Brain,
+serve (Capture, Inbox, Tasks, Roadmap Planning, Second Brain,
 Monitoring, Technology Stack, Dev PC Management, Sessions, Repository Management) are defined in
 `.domain/context-map.md` and each context's own `.domain/<context>/domain.md` —
 this view does not restate domain responsibilities.
@@ -160,10 +160,10 @@ flowchart TB
 
 ```meta
 status: active
-related: [".arc42/06-runtime-view.md#backlog-entry-to-github-issue", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
+related: [".arc42/06-runtime-view.md#task-to-github-issue", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-Local-first Windows client. Serves Capture, Inbox, Backlog Management, Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
+Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
 **Connected** (adds cloud sync, phone access, and webhook forwarding).
 
 ```mermaid
@@ -240,7 +240,7 @@ related: [".arc42/06-runtime-view.md#mobile-capture-and-sync", ".arc42/06-runtim
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
-and lightweight Backlog Management. It owns mobile UI, push plumbing, and sync
+and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
 
 ```mermaid
@@ -281,7 +281,7 @@ related: [".arc42/06-runtime-view.md#ide-context-aware-capture", ".arc42/06-runt
 
 Repo-aware integrations for VS Code and Visual Studio, plus GitHub Copilot App sessions
 running one local agent process per worktree. These hosts serve Inbox (capture intake),
-Backlog Management, and Second Brain browsing. Packaging and host APIs are architecture
+Tasks, and Second Brain browsing. Packaging and host APIs are architecture
 concerns; domain lifecycle rules stay with the owning domains.
 
 The GitHub Copilot App path is a peer IDE-class host, not a new container: it reuses

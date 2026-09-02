@@ -27,9 +27,9 @@ public sealed class TagFilterTests
     /// <summary>Four entries: one tagged <c>#sync</c>, one tagged <c>#desktop</c>,
     /// one wearing both, and one wearing neither. Every case in this file is some
     /// question about that shape.</summary>
-    private static async Task<(BacklogPaneHost Host, EntryRow Sync, EntryRow Desktop, EntryRow Both, EntryRow None)> FourAsync()
+    private static async Task<(TasksPaneHost Host, EntryRow Sync, EntryRow Desktop, EntryRow Both, EntryRow None)> FourAsync()
     {
-        var host = await BacklogPaneHost.CreateAsync();
+        var host = await TasksPaneHost.CreateAsync();
 
         var sync = await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         var desktop = await host.WriteEntryAsync("# Draft the invite\n`task` `!ready` `@platform` `#desktop`\n");
@@ -55,7 +55,7 @@ public sealed class TagFilterTests
 
         // Bare and lower-cased on the wire, hash on the label only.
         Assert.Equal(
-            [string.Empty, "desktop", "sync", BacklogDesktopState.UntaggedTag],
+            [string.Empty, "desktop", "sync", TasksDesktopState.UntaggedTag],
             host.State.TagFilters.Select(option => option.Value));
     }
 
@@ -72,7 +72,7 @@ public sealed class TagFilterTests
         Assert.Equal(4, Option(host, string.Empty).Count);
         Assert.Equal(2, Option(host, "sync").Count);
         Assert.Equal(2, Option(host, "desktop").Count);
-        Assert.Equal(1, Option(host, BacklogDesktopState.UntaggedTag).Count);
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).Count);
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class TagFilterTests
         var (host, _, _, _, none) = await FourAsync();
         using var _host = host;
 
-        host.State.SetTagFilter(BacklogDesktopState.UntaggedTag);
+        host.State.SetTagFilter(TasksDesktopState.UntaggedTag);
 
         Assert.Equal([none], host.State.FilteredRows);
     }
@@ -202,7 +202,7 @@ public sealed class TagFilterTests
     [Fact]
     public async Task The_group_is_absent_while_nothing_carries_a_tag()
     {
-        using var host = await BacklogPaneHost.CreateAsync();
+        using var host = await TasksPaneHost.CreateAsync();
 
         await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
         await host.State.SelectAsync(null);
@@ -229,7 +229,7 @@ public sealed class TagFilterTests
     /// <summary>The row's tags, by the class the library has always drawn them
     /// with — the same hook <c>TaskListTests</c> reads them through.</summary>
     private static IReadOnlyList<AngleSharp.Dom.IElement> RowTags(
-        IRenderedComponent<BacklogPane> pane,
+        IRenderedComponent<TasksPane> pane,
         EntryRow row) =>
         pane.FindAll($"[data-testid='{RowTestId(row)}'] .task-item__tag .tag-chip__label");
 
@@ -359,11 +359,11 @@ public sealed class TagFilterTests
         Assert.Null(untagged.QuerySelector(".task-item__line"));
     }
 
-    private static TagFilterOption Option(BacklogPaneHost host, string value) =>
+    private static TagFilterOption Option(TasksPaneHost host, string value) =>
         host.State.TagFilters.Single(option => option.Value == value);
 
     /// <summary>Rewrites an entry the way the raw hatch does, and saves it.</summary>
-    private static async Task Retag(BacklogPaneHost host, EntryRow row, string text)
+    private static async Task Retag(TasksPaneHost host, EntryRow row, string text)
     {
         host.State.OnRawTextInput(row, text);
         await host.State.EndEditAsync(row);

@@ -20,7 +20,7 @@ status: draft
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Backlog Management](../backlog/domain.md#backlog-entry) | Customer/Supplier (Environment = supplier) | Shortcut lookup by environment id | `.domain/environment/domain.md#environment-shortcut-resolution` | Backlog and roadmap views can show launchable environments near relevant work items. |
+| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Environment = supplier) | Shortcut lookup by environment id | `.domain/environment/domain.md#environment-shortcut-resolution` | Tasks and roadmap views can show launchable environments near relevant work items. |
 | [Dev PC Management](../dev-pc-management/domain.md#machine-registry) | Customer/Supplier (Environment = supplier) | Shortcut lookup for local tools and machine resources | `.domain/environment/domain.md#environment-shortcut-resolution` | Operator support views can open the right machine, local service, or tool environment quickly. |
 | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Environment = supplier) | Subscribes to `EnvironmentShortcutUsed` | `.domain/environment/domain.md#environmentshortcutused` | Productivity may count environment access as work-flow activity. |
 

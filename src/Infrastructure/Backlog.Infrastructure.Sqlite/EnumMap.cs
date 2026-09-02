@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.Abstractions;
+using Backlog.Modules.Tasks.Abstractions;
 
 namespace Backlog.Infrastructure.Sqlite;
 

@@ -313,11 +313,11 @@ public sealed class FileViewKnowledgeTests
                 .Add(v => v.RenderKnowledgeMetadata, true)
                 .Add(v => v.KnowledgeDocumentPath, ".domain/roadmap/features.md")
                 .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)),
-            "# Features\n\nGathered under a [backlog entry](../backlog/domain.md#backlog-entry).\n");
+            "# Features\n\nGathered under a [backlog entry](../tasks/domain.md#task).\n");
 
         view.Find(".file-view__body button.knowledge-ref--action").Click();
 
-        Assert.Equal(".domain/backlog/domain.md", Assert.Single(followed).Path);
+        Assert.Equal(".domain/tasks/domain.md", Assert.Single(followed).Path);
     }
 
     [Fact]

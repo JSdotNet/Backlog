@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.FileSystem.Roadmap;
-using Backlog.Modules.Backlog.Abstractions;
-using Backlog.Modules.Backlog.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 
@@ -15,7 +15,7 @@ public class RoadmapItemRollupBuilderTests
 {
     private static RoadmapItemDto Item(
         string tag,
-        Guid? backlogEntryId = null,
+        Guid? taskId = null,
         IReadOnlyList<string>? knowledgeRefs = null) =>
         new(
             Guid.NewGuid(),
@@ -25,7 +25,7 @@ public class RoadmapItemRollupBuilderTests
             PlanningPriority.Medium,
             [],
             Lane: null,
-            BacklogEntryId: backlogEntryId,
+            TaskId: taskId,
             DependsOn: [],
             Tag: tag,
             KnowledgeRefs: knowledgeRefs);
@@ -53,7 +53,7 @@ public class RoadmapItemRollupBuilderTests
     public void TheDirectEntryAndEveryTaggedEntry_ArriveAsOneList_WithTheirOrigins()
     {
         var linked = Guid.NewGuid();
-        var item = Item("sync", backlogEntryId: linked);
+        var item = Item("sync", taskId: linked);
 
         var rollup = RoadmapItemRollupBuilder.Build(
             item,
@@ -82,7 +82,7 @@ public class RoadmapItemRollupBuilderTests
     public void AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth()
     {
         var id = Guid.NewGuid();
-        var item = Item("sync", backlogEntryId: id);
+        var item = Item("sync", taskId: id);
 
         var rollup = RoadmapItemRollupBuilder.Build(
             item,

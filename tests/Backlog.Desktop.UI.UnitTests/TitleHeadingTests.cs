@@ -10,7 +10,7 @@ public sealed class TitleHeadingTests
     [Fact]
     public void A_plain_first_line_becomes_a_heading()
     {
-        Assert.Equal("# Buy milk", BacklogDesktopState.EnsureTitleHeading("Buy milk"));
+        Assert.Equal("# Buy milk", TasksDesktopState.EnsureTitleHeading("Buy milk"));
     }
 
     [Fact]
@@ -18,13 +18,13 @@ public sealed class TitleHeadingTests
     {
         const string raw = "# Buy milk\n\nand bread";
 
-        Assert.Equal(raw, BacklogDesktopState.EnsureTitleHeading(raw));
+        Assert.Equal(raw, TasksDesktopState.EnsureTitleHeading(raw));
     }
 
     [Fact]
     public void Only_the_first_line_is_touched()
     {
-        var result = BacklogDesktopState.EnsureTitleHeading("Buy milk\n\nand bread\n## a sub-item");
+        var result = TasksDesktopState.EnsureTitleHeading("Buy milk\n\nand bread\n## a sub-item");
 
         Assert.Equal("# Buy milk\n\nand bread\n## a sub-item", result);
     }
@@ -32,7 +32,7 @@ public sealed class TitleHeadingTests
     [Fact]
     public void Blank_lines_above_the_title_do_not_count_as_the_first_line()
     {
-        var result = BacklogDesktopState.EnsureTitleHeading("\n\nBuy milk");
+        var result = TasksDesktopState.EnsureTitleHeading("\n\nBuy milk");
 
         Assert.Equal("\n\n# Buy milk", result);
     }
@@ -40,7 +40,7 @@ public sealed class TitleHeadingTests
     [Fact]
     public void Leading_whitespace_on_the_title_is_absorbed()
     {
-        Assert.Equal("# Buy milk", BacklogDesktopState.EnsureTitleHeading("   Buy milk"));
+        Assert.Equal("# Buy milk", TasksDesktopState.EnsureTitleHeading("   Buy milk"));
     }
 
     [Theory]
@@ -49,7 +49,7 @@ public sealed class TitleHeadingTests
     [InlineData("\n\n")]
     public void Nothing_typed_stays_nothing(string raw)
     {
-        Assert.Equal(raw, BacklogDesktopState.EnsureTitleHeading(raw));
+        Assert.Equal(raw, TasksDesktopState.EnsureTitleHeading(raw));
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class TitleHeadingTests
         // change the structure of what they wrote.
         const string raw = "## a sub-item first";
 
-        Assert.Equal(raw, BacklogDesktopState.EnsureTitleHeading(raw));
+        Assert.Equal(raw, TasksDesktopState.EnsureTitleHeading(raw));
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class TitleHeadingTests
     {
         const string raw = "```\nnot a title\n```";
 
-        Assert.Equal(raw, BacklogDesktopState.EnsureTitleHeading(raw));
+        Assert.Equal(raw, TasksDesktopState.EnsureTitleHeading(raw));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class TitleHeadingTests
     {
         const string raw = "Buy milk\n`task`\n\nnotes";
 
-        var normalized = BacklogDesktopState.EnsureTitleHeading(raw);
+        var normalized = TasksDesktopState.EnsureTitleHeading(raw);
 
         Assert.Equal(
             EntryTextParser.Parse(raw).Title,
@@ -85,15 +85,15 @@ public sealed class TitleHeadingTests
     [Fact]
     public void Normalizing_twice_changes_nothing_the_second_time()
     {
-        var once = BacklogDesktopState.EnsureTitleHeading("Buy milk\n\nnotes");
+        var once = TasksDesktopState.EnsureTitleHeading("Buy milk\n\nnotes");
 
-        Assert.Equal(once, BacklogDesktopState.EnsureTitleHeading(once));
+        Assert.Equal(once, TasksDesktopState.EnsureTitleHeading(once));
     }
 
     [Fact]
     public void Windows_line_endings_survive_as_newlines()
     {
-        var result = BacklogDesktopState.EnsureTitleHeading("Buy milk\r\nand bread");
+        var result = TasksDesktopState.EnsureTitleHeading("Buy milk\r\nand bread");
 
         Assert.Equal("# Buy milk\nand bread", result);
     }

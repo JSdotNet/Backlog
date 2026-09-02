@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Tasks module's public surface — everything a host or another module is
+    allowed to see (ADR 0005, ADR 0009):
+      DataTransferObjects/  what a caller receives instead of the aggregate
+      EntryTextParser       the entry text format, this context's published
+                            language (.domain/tasks); pure text in, text out
+      Enums                 the vocabulary those DTOs and that text are written in
+    The aggregate, its repository port, and the use-case handlers stay in the
+    implementation project. Nothing here may reference it, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Tasks.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The text format is worth testing directly rather than only through
+         whatever happens to call it. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Tasks.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -25,13 +25,13 @@ configured folders, and track when each was last scanned.
 type: sub-feature
 status: draft
 feature-flag: additional-repositories
-related: [.domain/backlog/features.md#multi-repo-targeting, .domain/second-brain/features.md#repository-knowledge-areas]
+related: [.domain/tasks/features.md#multi-repo-targeting, .domain/second-brain/features.md#repository-knowledge-areas]
 ```
 
 Maintain the working set of repositories the app acts on. Each registered
 repository carries a short alias, its owner and name, an optional local clone
 directory, and a flag marking one repository as primary. The alias is the name
-the rest of the product uses: a backlog entry files itself against a repository
+the rest of the product uses: a task files itself against a repository
 by naming that alias, and an entry without one falls back to the primary
 repository. Registering more than one repository is itself an opt-in capability,
 so a single-repository setup stays uncluttered.
@@ -47,8 +47,8 @@ related: [.design/color-scheme.md#band-identity-tokens, .domain/roadmap/features
 Give each registered repository one colour, so a workspace holding several of
 them can be read one project at a time. The colour belongs to the repository
 rather than to any screen showing it: the same project is the same colour on the
-repository filter, on a plan, on an entry filed against it, on the agent sessions
-under that entry and on the row for a session in the Sessions area, and a screen
+repository filter, on a plan, on a task filed against it, on the agent sessions
+under that task and on the row for a session in the Sessions area, and a screen
 that decided its own would be a second answer to which project is which.
 
 The registry records *which* of the colours the design system sanctions, never a
@@ -118,7 +118,7 @@ CI/CD status.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/backlog/features.md#projection]
+related: [.domain/tasks/features.md#projection]
 ```
 
 Reach GitHub through whichever credential the machine already has. An existing
@@ -159,7 +159,7 @@ new libraries/frameworks.
 type: feature
 status: draft
 depends-on: [.domain/repository-management/features.md#repository-health-scoring]
-related: [.domain/backlog/features.md#backlog-entry-creation]
+related: [.domain/tasks/features.md#task-creation]
 ```
 
 Queue package updates across multiple repos, coordinate synchronized upgrades,

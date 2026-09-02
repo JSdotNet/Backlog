@@ -1,4 +1,4 @@
-using Backlog.Modules.Backlog.Abstractions.Services;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,7 +23,7 @@ public static class RoadmapCrossContextAdapterRegistration
 {
     /// <summary>
     /// Registers the roadmap cross-context adapters. Call after
-    /// <c>AddBacklogModule</c> and <c>AddRoadmapModule</c> (which supply the scoped
+    /// <c>AddTasksModule</c> and <c>AddRoadmapModule</c> (which supply the scoped
     /// ports these adapters capture) and after <see cref="WorkspaceSettingsStore"/>
     /// (which the rollup reads the storage root from).
     /// </summary>

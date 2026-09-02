@@ -14,7 +14,7 @@ status: draft
 
 Monitoring tracks progress across projects and repos, surfaces items that need
 attention, and provides multi-layered dashboards. It aggregates Progress Signals
-from [Backlog](../backlog/domain.md#backlog-entry),
+from [Tasks](../tasks/domain.md#task),
 [Inbox](../inbox/domain.md#inbox-item), GitHub, Application Insights,
 [Dev PC Management](../dev-pc-management/domain.md#machine-registry),
 and [Repository Management](../repository-management/domain.md#repository-registry),
@@ -25,7 +25,7 @@ and can run as a standalone team service.
 ```meta
 type: aggregate
 status: draft
-related: [.domain/backlog/domain.md#backlog-entry, .domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
+related: [.domain/tasks/domain.md#task, .domain/inbox/domain.md#inbox-item, .arc42/08-crosscutting-concepts.md#shared-data-types]
 ```
 
 An immutable, timestamped event indicating a change somewhere in the system,
@@ -58,8 +58,8 @@ status: draft
 
 Kind of change a signal represents:
 
-- `status_change` — a backlog item changed status.
-- `github_sync` — a GitHub issue linked to a backlog item updated.
+- `status_change` — a task changed status.
+- `github_sync` — a GitHub issue linked to a task updated.
 - `app_insights` — an Application Insights metric/alert (error, latency).
 - `queue_depth` — inbox/processing queue depth and rate.
 - `inbox_age` — oldest unprocessed inbox item age.
@@ -112,7 +112,7 @@ It is the only write-back contract from Monitoring into the core workflow.
 - `follow_up_title` - generated title for the new item.
 - `body_md` - dashboard summary or remediation notes.
 - `source` - monitoring source or dashboard that raised the follow-up.
-- `related_subject_ref` - backlog item, repository, machine, or issue reference.
+- `related_subject_ref` - task, repository, machine, or issue reference.
 - `captured_at` - time the follow-up was raised.
 
 ### Consumers

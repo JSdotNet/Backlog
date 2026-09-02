@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// Three settings in one file rather than three files, because they are one
 /// decision: this folder, backed by that repository, with these knowledge
-/// folders. Only the folder itself is a module port — WorkspaceBacklogStore
+/// folders. Only the folder itself is a module port — WorkspaceTaskStore
 /// implements the module's store port over this one. The repository and the
 /// folder list are named in an adapter type and a Second Brain type that no
 /// abstractions project may see, and their only consumer is the desktop settings

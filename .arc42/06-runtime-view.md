@@ -8,14 +8,14 @@ related: [".arc42/05-building-block-view.md"]
 Key runtime scenarios that exercise the building blocks from chapter 05 and show how
 the local-first and thin-cloud strategies play out dynamically.
 
-## Backlog Entry to GitHub Issue
+## Task to GitHub Issue
 
 ```meta
 status: active
 related: [".arc42/05-building-block-view.md#desktop-app"]
 ```
 
-Creating a backlog entry writes markdown locally first, then asynchronously creates
+Creating a task writes markdown locally first, then asynchronously creates
 one GitHub issue per targeted repo.
 
 ```mermaid

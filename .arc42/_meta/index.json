@@ -265,7 +265,7 @@
           "type": "file",
           "name": "0004-import-reuses-the-entry-text-grammar.md",
           "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "title": "ADR 0004: Import reuses the entry text grammar; a plan is multi-entry Backlog Entry text",
+          "title": "ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text",
           "status": "proposed"
         }
       ]

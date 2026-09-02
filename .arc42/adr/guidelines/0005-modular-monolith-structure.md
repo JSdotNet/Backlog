@@ -55,7 +55,7 @@ stable contract, not before.
   `tests/Backlog.ArchitectureTests/ModuleBoundaryTests.cs`,
   `ModuleSurfaceTests.cs`, `DesktopDomainBoundaryTests.cs`, and
   `UiLibraryBoundaryTests.cs`.
-- `Backlog.Modules.Backlog` shows the intended shape end to end: domain models,
+- `Backlog.Modules.Tasks` shows the intended shape end to end: domain models,
   feature slices, a repository port at the module root, and a published
   `.Abstractions` surface — see
   `.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md`.
@@ -76,7 +76,7 @@ stable contract, not before.
   contracts.
 - `Inbox` and `Knowledge` have `.UI` projects (and Knowledge an `.Abstractions`)
   but no module implementation project yet — their logic still sits in the UI
-  layer. That is the shape local ADR 0002 corrected for the Backlog module and
+  layer. That is the shape local ADR 0002 corrected for the Tasks module and
   has not yet corrected here.
 - Only `Sync` has an `.Api` project. The other modules are in-process and need no
   HTTP host.

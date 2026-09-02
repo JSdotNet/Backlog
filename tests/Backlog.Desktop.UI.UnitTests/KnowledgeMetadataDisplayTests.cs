@@ -37,13 +37,13 @@ public class KnowledgeMetadataDisplayTests
 
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["related"] = ".domain/backlog/domain.md, .arc42/03-context-and-scope.md"
+            ["related"] = ".domain/tasks/domain.md, .arc42/03-context-and-scope.md"
         };
         var links = new[]
         {
-            ".domain/backlog/domain.md",
+            ".domain/tasks/domain.md",
             ".arc42/03-context-and-scope.md",
-            ".domain/backlog/model.md#domain-event-aiworklogged"
+            ".domain/tasks/model.md#domain-event-aiworklogged"
         };
         var view = new DomainKnowledgeView(
             "JSdotNet/Backlog",
@@ -56,9 +56,9 @@ public class KnowledgeMetadataDisplayTests
         var component = context.Render<DomainKnowledgePanel>(parameters => parameters.Add(panel => panel.View, view));
         var text = component.Markup;
 
-        Assert.Contains(".domain/backlog/domain.md", text, StringComparison.Ordinal);
+        Assert.Contains(".domain/tasks/domain.md", text, StringComparison.Ordinal);
         Assert.Contains(".arc42/03-context-and-scope.md", text, StringComparison.Ordinal);
-        Assert.Contains(".domain/backlog/model.md#domain-event-aiworklogged", text, StringComparison.Ordinal);
+        Assert.Contains(".domain/tasks/model.md#domain-event-aiworklogged", text, StringComparison.Ordinal);
         Assert.DoesNotContain("<strong>related</strong>", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<strong>link</strong>", text, StringComparison.OrdinalIgnoreCase);
     }
