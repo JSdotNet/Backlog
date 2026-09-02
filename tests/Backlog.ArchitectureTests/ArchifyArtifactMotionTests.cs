@@ -167,6 +167,176 @@ public class ArchifyArtifactMotionTests
             + "everyone else.");
     }
 
+    /// <summary>
+    /// The ambient trace loops.
+    ///
+    /// <para>Archify authors the trace as a single pass — the rule it emits ends in an
+    /// explicit <c>animation-iteration-count</c> of <c>1</c>, and its own comment calls that
+    /// "one ambient pass". A diagram that traces itself once and then freezes is a diagram
+    /// nobody sees trace, because a reader scrolling a chapter arrives after the pass has
+    /// already finished. Tracing is the whole reason these artifacts are animated, so the
+    /// iteration count is the thing to assert — not the presence of an animation.</para>
+    ///
+    /// <para>Matched on the count specifically rather than on the word <c>infinite</c>
+    /// anywhere in the file. The artifact's stylesheet has infinite animations of its own —
+    /// the live radar dot, the share cue pulse — so a whole-file search for the word passes
+    /// on a trace that still runs once, which is the same trap
+    /// <see cref="Every_archify_artifact_carries_the_motion_its_specification_asked_for"/>
+    /// documents for <c>data-animation</c>.</para>
+    /// </summary>
+    [Fact]
+    public void Every_archify_artifact_loops_its_trace_animation()
+    {
+        foreach (var artifact in Artifacts())
+        {
+            AssertLoopingTrace(File.ReadAllText(artifact.FullName), Relative(artifact));
+        }
+    }
+
+    /// <summary>
+    /// The trace comes back after it is suppressed.
+    ///
+    /// <para>Looping in the stylesheet is only half of it. The artifact's Motion Governor
+    /// gates every trace rule behind <c>html[data-ambient-motion="running"]</c>, and it used
+    /// to latch that state off for good: <c>ambientStarted</c> was set on the first pass and
+    /// <c>startAmbient</c> opened with <c>if (ambientStarted || !capable) return false</c>,
+    /// while <c>render</c> settled ambient motion on every pause, tab hide, and semantic
+    /// claim. So an artifact could loop perfectly until the reader pressed Still, opened the
+    /// Semantic Lens, or switched tabs — and then never move again, with the looping CSS
+    /// still sitting in the file and nothing applying it.</para>
+    ///
+    /// <para><c>onAmbientBoundary</c> goes with it. It settled ambient motion once every
+    /// animated element had fired <c>animationend</c>, which an infinite animation never
+    /// does. What it would still catch is <c>animationcancel</c>, and that fires when a
+    /// suppression rule takes the animation away — a pause, not a finish. Left in place it
+    /// turns the reader's first pause into a permanent one.</para>
+    ///
+    /// <para>Both are asserted by absence because both <em>are</em> the mechanism. Nothing
+    /// is rendered that says "this governor can resume", so the check is that the two pieces
+    /// of code which prevented it are gone.</para>
+    /// </summary>
+    [Fact]
+    public void Every_archify_artifact_can_restart_its_trace_after_a_pause()
+    {
+        foreach (var artifact in Artifacts())
+        {
+            AssertResumableGovernor(File.ReadAllText(artifact.FullName), Relative(artifact));
+        }
+    }
+
+    /// <summary>
+    /// The vendored template still carries the looping trace.
+    ///
+    /// <para>This is the rule that survives an Archify upgrade. <c>UPSTREAM.md</c> vendors
+    /// <c>tools/archify/</c> as upstream's own folder and its update procedure is to re-copy
+    /// at a newer revision — which silently reverts both halves of this fix, because
+    /// upstream's trace is a single pass by design. The artifacts would then be regenerated
+    /// from an unpatched template and every one of them would go back to freezing.</para>
+    ///
+    /// <para>The two artifact rules above would catch that as well, but only after a
+    /// regeneration. This one fails on the re-copy itself, which is when somebody is in a
+    /// position to re-apply the patch.</para>
+    /// </summary>
+    [Fact]
+    public void The_vendored_template_keeps_the_looping_trace()
+    {
+        var template = Path.Combine(
+            RepositoryRoot.Root.FullName, "tools", "archify", "assets", "template.html");
+
+        Assert.True(
+            File.Exists(template),
+            "tools/archify/assets/template.html is missing. Every artifact's stylesheet and viewer "
+            + "runtime is rendered from it, so nothing can be regenerated without it.");
+
+        var html = File.ReadAllText(template);
+
+        AssertLoopingTrace(html, TemplatePath);
+        AssertResumableGovernor(html, TemplatePath);
+    }
+
+    /// <summary>Both ambient trace rules carry an infinite iteration count. Checked the same
+    /// way in a rendered artifact and in the template it was rendered from.</summary>
+    private static void AssertLoopingTrace(string html, string relative)
+    {
+        foreach (var (keyframes, rule) in TraceRules)
+        {
+            var match = rule.Match(html);
+
+            Assert.True(
+                match.Success,
+                $"{relative} has no {keyframes} rule this check could read, so it cannot see what it "
+                + "is meant to check. If Archify changed the shape of the rule it emits, teach this "
+                + "rule the new shape rather than letting it pass on a file it did not read.");
+
+            var count = match.Groups["count"].Value;
+
+            Assert.True(
+                count == Infinite,
+                $"{relative} animates {keyframes} with an iteration count of \"{count}\", not "
+                + $"\"{Infinite}\", so the trace plays that many times and then stops. A reader who "
+                + "reaches the diagram after the pass has finished sees a still picture. Regenerate "
+                + "the artifact from the patched template rather than editing the HTML.");
+        }
+    }
+
+    /// <summary>Neither half of the one-shot ambient latch survives. Checked the same way in
+    /// a rendered artifact and in the template it was rendered from.</summary>
+    private static void AssertResumableGovernor(string html, string relative)
+    {
+        foreach (var (code, describe) in AmbientLatches)
+        {
+            Assert.False(
+                html.Contains(code, StringComparison.Ordinal),
+                $"{relative} still carries {describe}.");
+        }
+    }
+
+    /// <summary>What a looping trace's iteration count has to read.</summary>
+    private const string Infinite = "infinite";
+
+    /// <summary>
+    /// The guard that stopped ambient motion from ever restarting, and the wiring that
+    /// settled it on a completion an infinite animation never reaches.
+    ///
+    /// <para>Matched as code rather than as bare identifiers, because the patched template
+    /// names both in the comment explaining why they are gone — which is exactly what
+    /// somebody re-applying the patch after an upstream re-copy needs to read. A check on
+    /// the words alone would fail on its own documentation.</para>
+    /// </summary>
+    private static readonly (string Code, string Describe)[] AmbientLatches =
+    [
+        ("ambientStarted ||",
+            "the ambientStarted latch, which was set on the first ambient pass and never cleared. "
+            + "Every pause, tab hide, and semantic claim settles ambient motion, and startAmbient "
+            + "then refuses to run again — so the trace stops for good the first time the reader "
+            + "presses Still, with the looping CSS still in the file and nothing applying it"),
+        ("'animationend', onAmbientBoundary",
+            "the onAmbientBoundary completion listener. An infinite animation never fires "
+            + "animationend, so all this can still catch is animationcancel — which fires when a "
+            + "suppression rule takes the animation away. That turns the reader's first pause into "
+            + "a permanent one"),
+    ];
+
+    /// <summary>The vendored template, named once for the failure messages.</summary>
+    private const string TemplatePath = "tools/archify/assets/template.html";
+
+    /// <summary>
+    /// The two ambient trace rules, matched on the last token of the <c>animation</c>
+    /// shorthand — its iteration count.
+    ///
+    /// <para>Duration and easing are skipped over on purpose. Both are legitimately re-set
+    /// per visual preset — signal-flow runs the edge at 1.75s, blueprint at 2.15s — and an
+    /// Archify upgrade may retune either. The iteration count is the only part of the
+    /// shorthand this repository needs to hold.</para>
+    /// </summary>
+    private static readonly (string Keyframes, Regex Rule)[] TraceRules =
+    [
+        ("archify-edge-flow",
+            new Regex(@"animation: archify-edge-flow [^;]* (?<count>[\w.]+);", RegexOptions.Compiled)),
+        ("archify-node-pulse",
+            new Regex(@"animation: archify-node-pulse [^;]* (?<count>[\w.]+);", RegexOptions.Compiled)),
+    ];
+
     private static IEnumerable<FileInfo> Specifications() =>
         ArtifactFolders()
             .SelectMany(folder => folder.EnumerateFiles("*.json"))

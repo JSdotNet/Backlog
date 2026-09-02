@@ -6,7 +6,7 @@ Pinned revision: `af45e517fb9441e769593c1bf0a6395de1acb7ca`.
 ## What this folder is
 
 The upstream repository's `archify/` subfolder, verbatim except for the one omission
-below. That folder is the documented unit of distribution: `npx skills add
+and the one change below. That folder is the documented unit of distribution: `npx skills add
 tt-a1i/archify -g` and the manual `archify.zip` install both produce exactly this
 directory as a skill folder. Vendoring it is therefore the supported way to use
 Archify, not a repackaging of it.
@@ -22,6 +22,47 @@ Node 18+. Verified on Node 24.18.0.
 ## What was omitted
 
 `test/` (1.2 MB): upstream's own test suite, which this repository does not run.
+
+## What was changed
+
+`assets/template.html` — the ambient trace loops instead of running once.
+
+Upstream's trace is a single pass, and it is a deliberate one: the two rules it emits
+carry an `animation-iteration-count` of `1`, and the Motion Governor latches ambient
+motion off for good once every animated element has fired `animationend`. Both halves
+had to move, because either one left alone still stops the diagram — a looping
+stylesheet is inert the moment the governor stops setting
+`data-ambient-motion="running"`, which it does on the reader's first pause.
+
+- The iteration count on `archify-edge-flow` and `archify-node-pulse` is `infinite`.
+- `@keyframes archify-edge-flow` ends where it begins, so the loop has no visible
+  seam. Upstream's last two frames existed to land the edge on its authored solid
+  stroke and stop there; looped, that is a flash of solid line and an `opacity`
+  snap from 1 back to 0.42 once every cycle.
+- The Motion Governor derives ambient state from suppression on every render rather
+  than latching it once, so the loop comes back when the reader presses Live or
+  returns to the tab. Its `animationend`/`animationcancel` completion path is gone:
+  an infinite animation never ends, and the cancel that does fire is a suppression
+  rule taking the animation away — a pause, not a finish.
+
+Nothing about the reader's control over motion changed. `prefers-reduced-motion`, the
+Live/Still button, page hiding, print, embed mode, and a Semantic Lens or guided story
+claiming the motion budget all still stop the trace, through the same
+`animation: none !important` rules as before, and each one still returns the edge to
+its authored stroke — so the static reading and the canonical export are untouched.
+What changed is only that lifting the suppression puts the loop back instead of
+leaving the diagram settled for the life of the document.
+
+**Why the change is here rather than in this repository's own code.** The app has two
+ways of showing an artifact and only one of them can be reached from outside the file:
+`DiagramView.razor` hands the HTML to `backlogDiagrams.renderArtifact`, which injects a
+stylesheet of its own, but `DiagramPair.razor` in the storybook points an `<iframe>`
+straight at the committed file and injects nothing. A host-side override would have
+fixed the knowledge panes and left the storybook comparison page frozen.
+
+`ArchifyArtifactMotionTests` fails if a re-copy drops this. It checks the template as
+well as all 42 artifacts, so the loss is reported on the re-copy itself rather than
+after the next regeneration — by which point every artifact is static again.
 
 ## `bin/` needs a .gitignore negation
 
@@ -53,8 +94,9 @@ support.
 
 ## Updating
 
-Re-copy the folder at a newer revision, drop `test/`, record the new SHA above, then
-regenerate every artifact and confirm each still reports 9 of 9 checks:
+Re-copy the folder at a newer revision, drop `test/`, record the new SHA above,
+re-apply the change in **What was changed**, then regenerate every artifact and confirm
+each still reports 9 of 9 checks:
 
 ```bash
 node tools/diagrams/archify-artifacts.mjs verify

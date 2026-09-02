@@ -4654,17 +4654,26 @@
     .c-lane           { fill: var(--lane-fill); stroke: var(--lane-stroke); stroke-dasharray: 6,6; }
 
     /* Optional trace animation, enabled only by meta.animation = "trace".
-       The ordinary viewer performs one ambient pass and then restores the
-       authored solid/security/async line language. WebM samples the same
-       authored geometry into an explicit canvas timeline. */
+
+       Backlog divergence from upstream (see tools/archify/UPSTREAM.md): the
+       trace loops instead of performing a single ambient pass. Upstream ran it
+       once and then restored the authored solid/security/async line language,
+       which means a reader who scrolls into a chapter after the pass has
+       finished never sees the diagram trace at all - and tracing an edge is the
+       only reason these artifacts are animated here.
+
+       The authored line language is still what a static reader sees: every
+       suppression rule below takes the animation away with `animation: none`,
+       which returns each edge to its authored stroke. WebM is unaffected - it
+       samples the authored geometry into its own explicit canvas timeline. */
     html[data-ambient-motion="running"] svg[data-animation="trace"] [data-animate="edge"] {
-      animation: archify-edge-flow 2.4s linear 1;
+      animation: archify-edge-flow 2.4s linear infinite;
       animation-delay: calc(var(--step, 0) * 160ms);
     }
     html[data-ambient-motion="running"] svg[data-animation="trace"] [data-animate="node"] {
       transform-box: fill-box;
       transform-origin: center;
-      animation: archify-node-pulse 3.6s ease-in-out 1;
+      animation: archify-node-pulse 3.6s ease-in-out infinite;
       animation-delay: calc(var(--step, 0) * 160ms);
     }
     svg[data-preset="signal-flow"][data-animation="trace"] [data-animate="edge"] {
@@ -4700,11 +4709,21 @@
       animation: none !important;
       stroke-dashoffset: 0;
     }
+    /* The seam is why these three frames are shaped the way they are.
+       Upstream's last two frames existed to land the edge on its authored solid
+       stroke and stop there; looped, that terminal frame is a 0.1% flash of
+       solid line followed by an opacity snap from 1 back to 0.42, once every
+       cycle.
+
+       So the cycle ends where it begins instead. `-18` is one whole dash period
+       past zero, and stroke-dashoffset is periodic in that dash pattern, so
+       -18 and the opening 54 (three periods) draw the identical picture - the
+       dashes simply keep travelling through the seam. 75% is where a constant
+       dash speed puts the fully-drawn edge: 54 of the 72 units of travel. */
     @keyframes archify-edge-flow {
       0% { stroke-dasharray: 10 8; stroke-dashoffset: 54; opacity: 0.42; }
-      88% { stroke-dasharray: 10 8; stroke-dashoffset: 0; opacity: 1; }
-      99.9% { stroke-dasharray: 10 8; stroke-dashoffset: 0; opacity: 1; }
-      100% { stroke-dashoffset: 0; opacity: 1; }
+      75% { stroke-dasharray: 10 8; stroke-dashoffset: 0; opacity: 1; }
+      100% { stroke-dasharray: 10 8; stroke-dashoffset: -18; opacity: 0.42; }
     }
     @keyframes archify-node-pulse {
       0%, 72%, 100% { filter: none; stroke-width: 1.5; }
@@ -6998,35 +7017,47 @@
       var ownerToken = 0;
       var ownerCleanup = null;
       var lastEffectivePaused = null;
-      var ambientStarted = false;
-      var ambientPending = new Set();
+      var ambientSettleReason = '';
 
-      function detachAmbientBoundary() {
-        if (!svg) return;
-        svg.removeEventListener('animationend', onAmbientBoundary, true);
-        svg.removeEventListener('animationcancel', onAmbientBoundary, true);
-      }
+      /* Backlog divergence from upstream (see tools/archify/UPSTREAM.md):
+         ambient state is derived from suppression on every render rather than
+         latched once.
+
+         Upstream traced each edge once and settled for the life of the document,
+         so `ambientStarted` only ever needed to be set, and settling was driven
+         off the animations completing. A looping trace has no such finish:
+         `animationend` never fires on an infinite animation, and the
+         `animationcancel` that does fire is a suppression rule taking the
+         animation away - a pause, not a completion. Settling on it turned the
+         reader's first Still, tab switch, or Semantic Lens into a permanent
+         stop, because every trace rule is gated on
+         `data-ambient-motion="running"` and nothing was left that could set it
+         again.
+
+         So there is no completion path and no latch. `settled` still means what
+         it always did - the trace is not running and the reader is looking at
+         the authored static line language - it is simply reachable in both
+         directions now, which is what lets the loop come back when the reader
+         presses Live or returns to the tab. */
       function settleAmbient(reason) {
         if (!capable) return false;
-        ambientStarted = true;
-        ambientPending.clear();
-        detachAmbientBoundary();
+        reason = reason || 'complete';
+        if (ambientSettleReason === reason) return true;
+        ambientSettleReason = reason;
         html.setAttribute('data-ambient-motion', 'settled');
-        html.setAttribute('data-ambient-settle-reason', reason || 'complete');
+        html.setAttribute('data-ambient-settle-reason', reason);
         return true;
       }
-      function onAmbientBoundary(event) {
-        if (!ambientPending.has(event.target)) return;
-        ambientPending.delete(event.target);
-        if (!ambientPending.size) settleAmbient('complete');
-      }
       function startAmbient() {
-        if (ambientStarted || !capable) return false;
-        ambientStarted = true;
-        ambientPending = new Set(Array.prototype.slice.call(svg.querySelectorAll('[data-animate="edge"], [data-animate="node"]')));
-        if (!ambientPending.size) return settleAmbient('empty');
-        svg.addEventListener('animationend', onAmbientBoundary, true);
-        svg.addEventListener('animationcancel', onAmbientBoundary, true);
+        if (!capable) return false;
+        /* Nothing marked for animation is not the same as motion running over
+           nothing, and a reader inspecting the DOM is owed the difference. */
+        if (!svg.querySelector('[data-animate="edge"], [data-animate="node"]')) return settleAmbient('empty');
+        /* Read off the attribute rather than the reason, so the opening call -
+           when there is no reason to clear and no attribute yet - still starts
+           the trace, and every later call is idempotent. */
+        if (html.getAttribute('data-ambient-motion') === 'running') return true;
+        ambientSettleReason = '';
         html.setAttribute('data-ambient-motion', 'running');
         html.removeAttribute('data-ambient-settle-reason');
         return true;
@@ -7070,7 +7101,7 @@
         html.setAttribute('data-motion', paused ? 'still' : 'live');
         if (paused || owner || html.hasAttribute('data-embed') || html.hasAttribute('data-share-playback') || html.hasAttribute('data-document-hidden')) {
           settleAmbient('suppressed');
-        } else if (!ambientStarted) {
+        } else {
           startAmbient();
         }
         btn.setAttribute('aria-pressed', paused ? 'false' : 'true');
