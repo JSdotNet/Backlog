@@ -110,21 +110,21 @@
           "name": "0001-desktop-stack-maui-blazor-hybrid.md",
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
           "title": "ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3",
-          "status": "accepted"
+          "status": "active"
         },
         {
           "type": "file",
           "name": "0002-backlog-module-owns-the-entry-text-language.md",
           "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
           "title": "ADR 0002: The Backlog module owns the entry text language",
-          "status": "accepted"
+          "status": "active"
         },
         {
           "type": "file",
           "name": "0003-sqlite-is-the-canonical-local-task-store.md",
           "path": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "title": "ADR 0003: SQLite is the canonical local task store; markdown is the content",
-          "status": "accepted"
+          "status": "active"
         },
         {
           "type": "file",

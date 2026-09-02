@@ -20,10 +20,9 @@
       "heading": 7
     },
     "nodesByStatus": {
-      "active": 95,
+      "active": 96,
       "none": 7,
       "draft": 6,
-      "accepted": 1,
       "adopted": 3,
       "proposed": 6
     },
@@ -1638,7 +1637,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",

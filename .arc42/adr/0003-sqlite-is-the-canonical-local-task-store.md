@@ -1,7 +1,7 @@
 # ADR 0003: SQLite is the canonical local task store; markdown is the content
 
 ```meta
-status: accepted
+status: active
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".domain/tasks/domain.md#task"]
 issue: null
 ```

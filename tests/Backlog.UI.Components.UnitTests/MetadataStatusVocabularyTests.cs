@@ -170,4 +170,92 @@ public sealed class MetadataStatusVocabularyTests
         Assert.Equal("archived", shipping.SlugFor("shiped"));
         Assert.Equal(["shipped"], asked);
     }
+
+    [Fact]
+    public void Only_the_folders_whose_status_rests_allow_stating_none()
+    {
+        // The split is the whole convention: where the field records how settled a
+        // piece of writing is there is a resting value that needs no saying, and
+        // where it is a rating on a ladder or a work state every value is a claim
+        // the reader needs.
+        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42).AllowsNone);
+        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain).AllowsNone);
+        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).AllowsNone);
+        Assert.False(KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech).AllowsNone);
+        Assert.False(KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog).AllowsNone);
+        Assert.False(MetadataStatusVocabulary.None.AllowsNone);
+    }
+
+    [Fact]
+    public void A_blank_is_selectable_only_where_none_is_allowed()
+    {
+        foreach (var folder in Folders)
+        {
+            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+
+            // Never offered — a browser matches option values literally and no
+            // folder lists a blank among its words.
+            Assert.False(vocabulary.Offers(string.Empty));
+            Assert.False(vocabulary.Offers(null));
+
+            // But selectable where the surface allows stating none, which is what
+            // keeps the control on screen after a reader clears it.
+            Assert.Equal(vocabulary.AllowsNone, vocabulary.Selectable(string.Empty));
+            Assert.Equal(vocabulary.AllowsNone, vocabulary.Selectable(null));
+        }
+    }
+
+    [Fact]
+    public void Every_folders_words_stay_selectable_exactly_as_they_were()
+    {
+        foreach (var folder in Folders)
+        {
+            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+            foreach (var value in vocabulary.Values)
+            {
+                Assert.True(vocabulary.Selectable(value));
+            }
+
+            // And a typo still is not, so it keeps falling through to the pill
+            // that flags it rather than being quietly offered.
+            Assert.False(vocabulary.Selectable("nonsense"));
+        }
+    }
+
+    [Fact]
+    public void The_options_lead_with_no_status_only_where_none_is_allowed()
+    {
+        Assert.Equal(
+            ["No status", "draft", "active", "deprecated"],
+            KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).Options().Select(option => option.Label));
+
+        // Value empty, because that is what a browser hands back for an option
+        // with no value — there is no sentinel to translate out of later.
+        Assert.Equal(string.Empty, KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).Options()[0].Value);
+
+        Assert.Equal(
+            KnowledgeStatus.Values(KnowledgeFolder.Tech),
+            KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech).Options().Select(option => option.Value).ToList());
+    }
+
+    [Fact]
+    public void A_blank_status_is_not_a_typo_in_any_folder()
+    {
+        // It used to be treated as one, which is why this is pinned. Every
+        // non-empty vocabulary answered IsUnrecognised("") with true, so a blank
+        // wore the "archived" pill — the retired state — under a tooltip claiming
+        // it was unexpected. Latent only while nothing rendered a blank; the
+        // moment a cleared chapter drew its control, "no status" looked retired.
+        foreach (var folder in Folders)
+        {
+            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+
+            Assert.False(vocabulary.IsUnrecognised(string.Empty));
+            Assert.False(vocabulary.IsUnrecognised(null));
+            Assert.False(vocabulary.IsUnrecognised("   "));
+
+            Assert.Equal(string.Empty, vocabulary.SlugFor(string.Empty));
+            Assert.Null(vocabulary.Expectation(string.Empty));
+        }
+    }
 }

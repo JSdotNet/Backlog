@@ -22,8 +22,16 @@
     a block with no vocabulary has nothing to list, and a status the vocabulary
     does not define is not in the list — a select would either drop it silently for
     the first option or quietly stop flagging the typo the badge exists to flag.
-    A block that states no status still shows nothing at all, because a select
-    defaulted to the first value would be inventing a state the file never gave.
+    A block that states no status shows a select only where the surface allows
+    stating none, and then with "No status" as the option actually selected. The
+    rule this used to state — that a block with no status shows nothing at all,
+    because a select defaulted to the first value would be inventing a state the
+    file never gave — is honoured rather than dropped: an explicit, selected "No
+    status" invents nothing, it reports exactly what the file says. Where stating
+    none is not allowed, an absent status still shows nothing, for the original
+    reason. What the extra option buys is that clearing a status stays reversible;
+    judged on the vocabulary's word list alone the control would disappear the
+    moment it was used.
 
     The vocabulary arrives from the caller and is not looked up here. It used to be
     a KnowledgeFolder, which made this component — and the two shapes over it —
@@ -112,9 +120,13 @@
     /// <summary>Raised with the status a reader picked, when the headline is
     /// showing a select. Optional: the view already keeps the choice on screen
     /// by itself, so a host wires this up to <em>persist</em> the change, not to
-    /// make the control work.</summary>
+    /// make the control work.
+    ///
+    /// <para><b>Null means the reader chose to state no status</b>, which a host
+    /// persists by removing the field rather than by writing a word. It only ever
+    /// arrives from a vocabulary that allows none.</para></summary>
     [Parameter]
-    public EventCallback<string> OnStatusChanged { get; set; }
+    public EventCallback<string?> OnStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
@@ -194,21 +206,33 @@
     /// rather than the looser <c>Recognises</c>, and why is recorded there: a
     /// browser matches a select's value against its options literally.</para>
     /// </summary>
-    private bool StatusIsSelectable => Vocabulary.Offers(_status);
+    private bool StatusIsSelectable => Vocabulary.Selectable(_status);
 
-    /// <summary>The vocabulary's words, in the order it lists them. The value is
-    /// authored, and the label is the same word — a status is already the reader's
-    /// own term for the state, so there is nothing to translate.</summary>
-    private IReadOnlyList<SelectorOption> StatusOptions =>
-        [.. Vocabulary.Values.Select(value => new SelectorOption(value, value))];
+    /// <summary>The options the vocabulary offers, in the order it lists them —
+    /// its words, led by an explicit "no status" entry on a surface that allows
+    /// one. The value is authored and the label is the same word, because a status
+    /// is already the reader's own term for the state and there is nothing to
+    /// translate.</summary>
+    private IReadOnlyList<SelectorOption> StatusOptions => Vocabulary.Options();
 
+    /// <summary>
+    /// A reader picked an option. The empty value — the "no status" entry — is
+    /// normalised to null here and only here.
+    ///
+    /// <para>That keeps the empty string where it belongs, which is the DOM. A
+    /// browser hands back <c>""</c> for an option with no value, and the control
+    /// below faithfully passes it on; every host above wants to hear "no status",
+    /// which in a nullable world is null. Translating once, at the boundary
+    /// between the two, means no host has to know that <c>""</c> was ever
+    /// involved.</para>
+    /// </summary>
     private async Task SelectStatus(string status)
     {
         _status = status;
 
         if (OnStatusChanged.HasDelegate)
         {
-            await OnStatusChanged.InvokeAsync(status);
+            await OnStatusChanged.InvokeAsync(string.IsNullOrWhiteSpace(status) ? null : status);
         }
     }
 
@@ -225,11 +249,18 @@
     /// take the heading off the page with it.
     /// </para>
     /// </summary>
+    /// <para>A control to draw is content in its own right, which is why the
+    /// selectable case stands outside the rest. On a surface that allows no
+    /// status, a chapter whose fence has been emptied reads back as a block with
+    /// nothing in it — and a record that stood down for that would take the
+    /// heading and the select away with it, leaving a reader who cleared a status
+    /// no way to set one again after the file was re-read.</para>
     private bool RendersAnything =>
-        !Metadata.IsEmpty
-        && (Heading is not null
-            || !string.IsNullOrWhiteSpace(_status)
-            || (ShowFields && HasSecondaryFields));
+        StatusIsSelectable
+        || (!Metadata.IsEmpty
+            && (Heading is not null
+                || !string.IsNullOrWhiteSpace(_status)
+                || (ShowFields && HasSecondaryFields)));
 
     /// <summary>Whether anything but the status has a value. Status is drawn in
     /// the headline and nowhere else, so a block that states only a status has

@@ -44,6 +44,28 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
         KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".arc42/", status);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
+    /// every other field intact. An <c>.arc42</c> chapter describing standing
+    /// structure states a status only while it is still being agreed, or once it
+    /// has been superseded.
+    ///
+    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
+    /// null — see the same method on the domain store for why.</para>
+    /// </summary>
+    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+
+        var location = source.Resolve(".arc42", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Architecture knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Architecture knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".arc42/");
+        return Task.CompletedTask;
+    }
 }
 
 public static class Arc42KnowledgeReader
@@ -190,7 +212,7 @@ public sealed record KnowledgeDocument(
     IReadOnlyList<KnowledgeHeadingSummary> Headings,
     int DiagramCount)
 {
-    public string Status => Metadata.Status;
+    public string? Status => Metadata.Status;
 
     public IReadOnlyList<KnowledgeBlock> ContentBlocks => Blocks.FirstOrDefault() is KnowledgeHeadingBlock { Level: 1 } heading
         && string.Equals(heading.Text, Title, StringComparison.Ordinal)
@@ -198,9 +220,9 @@ public sealed record KnowledgeDocument(
             : Blocks;
 }
 
-public sealed record KnowledgeMeta(string Status, IReadOnlyList<string> Related)
+public sealed record KnowledgeMeta(string? Status, IReadOnlyList<string> Related)
 {
-    public static KnowledgeMeta Empty { get; } = new("draft", []);
+    public static KnowledgeMeta Empty { get; } = new(null, []);
 }
 
 public sealed record KnowledgeHeadingSummary(int Level, string Text, KnowledgeMeta Metadata);
@@ -400,7 +422,7 @@ public static class KnowledgeMarkdownParser
 
     private static KnowledgeMeta ParseMetadata(IEnumerable<string> lines)
     {
-        var status = "draft";
+        string? status = null;
         var related = new List<string>();
         var readingRelated = false;
 

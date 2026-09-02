@@ -25,11 +25,9 @@
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 202,
+      "active": 205,
       "proposed": 43,
-      "draft": 420,
-      "accepted": 3,
-      "idea": 1,
+      "draft": 421,
       "deprecated": 3,
       "done": 3,
       "adopted": 84,
@@ -985,7 +983,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/04-solution-strategy.md",
             ".arc42/02-constraints.md",
@@ -1000,7 +998,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".domain/tasks/domain.md",
             ".domain/context-map.md",
@@ -1015,7 +1013,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "status": "accepted",
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
@@ -3808,7 +3806,7 @@
           "slug": "local-usage-accumulation",
           "level": 3,
           "line": 70,
-          "status": "idea",
+          "status": "draft",
           "related": [
             ".domain/productivity/features.md#ai-vendor-usage-import"
           ]

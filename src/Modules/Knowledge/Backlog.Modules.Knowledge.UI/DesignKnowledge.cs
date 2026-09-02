@@ -81,6 +81,28 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
     }
 
     /// <summary>
+    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
+    /// every other field intact. <c>.design</c> states a status only while a
+    /// guideline is unsettled or superseded; a guideline that is simply current
+    /// says so by saying nothing.
+    ///
+    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
+    /// null — see the same method on the domain store for why.</para>
+    /// </summary>
+    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
+
+        var location = source.Resolve(".design", repositoryAlias);
+        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Design knowledge is unavailable.");
+        if (location.FullPath is null) throw new InvalidOperationException("Design knowledge folder path is unavailable.");
+
+        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".design/");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// The folder in reading order: the README first, then the siblings in the
     /// order the folder's committed <c>_meta/index.json</c> records, then anything
     /// the index does not mention, alphabetically.

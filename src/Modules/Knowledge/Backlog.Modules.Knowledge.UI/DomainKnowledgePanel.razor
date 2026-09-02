@@ -87,7 +87,13 @@
 </section>
 
 @code {
-    private static readonly string[] KnowledgeStatuses = ["draft", "candidate", "accepted", "active", "adopted"];
+    // The folder's own vocabulary, not a list kept here. This used to be
+    // ["draft", "candidate", "accepted", "active", "adopted"] — three of those
+    // words `.domain` does not define, so the select offered states the index
+    // generator rejects, and it was missing `proposed` and `deprecated`, which it
+    // does. Asking KnowledgeStatus means the select cannot drift from the
+    // convention again, and it is what brings the "No status" option here.
+    private static MetadataStatusVocabulary KnowledgeVocabulary => KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain);
     private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "knowledge-issue", "github-issue", "issue" };
     private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
 
@@ -719,8 +725,7 @@
     private bool IsContextSelected(DomainKnowledgeContext? context) =>
         string.Equals(_selectedContextSlug, context?.Slug, StringComparison.Ordinal);
 
-    private static IReadOnlyList<SelectorOption> KnowledgeStatusOptions() =>
-        [.. KnowledgeStatuses.Select(status => new SelectorOption(status, status))];
+    private static IReadOnlyList<SelectorOption> KnowledgeStatusOptions() => KnowledgeVocabulary.Options();
 
     /// <summary>The modifier a document's article wears, so a stylesheet can tell
     /// one kind of knowledge file from another. The context map is on the list
@@ -945,9 +950,15 @@
     private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item, bool showStatus = true) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
         @if (showStatus)
         {
+            @* The slug comes from the vocabulary rather than being left to the
+               control to derive. Without it a cleared item fell through to
+               BadgeSlug's "draft" fallback and wore the draft pill — a real state,
+               standing in for none, which is the one thing the badge must not
+               do. *@
             <StatusSelector Id="@StateSelectId(item)"
                             CurrentValue="@KnowledgeActionMetadata.Status(item.Metadata)"
                             Options="@KnowledgeStatusOptions()"
+                            Slug="@KnowledgeVocabulary.SlugFor(KnowledgeActionMetadata.Status(item.Metadata))"
                             Label="@($"State for {item.Title}")"
                             TestId="knowledge-state-select"
                             OnChanged="value => ChangeKnowledgeStatusAsync(item, value)" />
@@ -1042,9 +1053,15 @@
 
     private static RenderFragment UnfollowableKnowledgeLink(string link) => builder => builder.AddContent(0, link);
 
+    /// <param name="status">The word the reader picked, or null for "no status",
+    /// which removes the field. The no-op check still applies to both: clearing an
+    /// item that already states nothing writes nothing, exactly as re-picking the
+    /// word it already has does.</param>
     private async Task ChangeKnowledgeStatusAsync(KnowledgeActionItem item, string? status)
     {
-        if (string.IsNullOrWhiteSpace(status) || string.Equals(status, KnowledgeActionMetadata.Status(item.Metadata), StringComparison.OrdinalIgnoreCase)) return;
+        var current = KnowledgeActionMetadata.Status(item.Metadata);
+        var clearing = string.IsNullOrWhiteSpace(status);
+        if (clearing ? string.IsNullOrWhiteSpace(current) : string.Equals(status, current, StringComparison.OrdinalIgnoreCase)) return;
 
         _statusErrors.Remove(item.Path);
         try
@@ -1052,7 +1069,15 @@
             // The body goes first; KnowledgeChapterEditor.FlushAsync says why.
             await FlushEditorAsync();
 
-            await DomainKnowledge.UpdateStatusAsync(RepositoryAlias, item.Path, status);
+            if (clearing)
+            {
+                await DomainKnowledge.ClearStatusAsync(RepositoryAlias, item.Path);
+            }
+            else
+            {
+                await DomainKnowledge.UpdateStatusAsync(RepositoryAlias, item.Path, status!);
+            }
+
             await ReloadAsync();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)

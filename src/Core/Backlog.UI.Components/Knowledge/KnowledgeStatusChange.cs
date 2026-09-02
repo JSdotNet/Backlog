@@ -22,5 +22,9 @@ namespace Backlog.UI.Components.Knowledge;
 /// <param name="Heading">The heading text, when the view could recover it from
 /// the source. Null when the view was given blocks and no source to read the
 /// chapter titles back out of.</param>
-/// <param name="Status">The status that was chosen.</param>
-public sealed record KnowledgeStatusChange(int BlockIndex, string? Heading, string Status);
+/// <param name="Status">The status that was chosen, or <c>null</c> where the
+/// reader chose to state none — which a host persists by removing the field from
+/// the chapter's fence rather than by writing a word into it. Null only ever
+/// arrives from a folder whose status is optional; where it is required, the
+/// control offers no such option.</param>
+public sealed record KnowledgeStatusChange(int BlockIndex, string? Heading, string? Status);

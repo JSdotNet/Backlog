@@ -914,7 +914,7 @@
     /// <summary>The heading a status change should name, which is the chapter's
     /// title when the source is known. Read whether or not the copy button was
     /// asked for: what the change is called does not depend on that.</summary>
-    private Task ReportStatusAsync(int index, string status) =>
+    private Task ReportStatusAsync(int index, string? status) =>
         OnKnowledgeStatusChanged.InvokeAsync(
             new KnowledgeStatusChange(index, _chapters.TryGetValue(index, out var chapter) ? chapter.Title : null, status));
 

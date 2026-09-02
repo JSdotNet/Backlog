@@ -644,7 +644,7 @@
     /// see <see cref="KnowledgeStatusChange"/>.
     /// </para>
     /// </summary>
-    private Task ReportFileStatusAsync(string status) =>
+    private Task ReportFileStatusAsync(string? status) =>
         OnKnowledgeStatusChanged.InvokeAsync(new KnowledgeStatusChange(0, _fileRecord?.Title, status));
 
     private void ParseBody()
