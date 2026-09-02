@@ -168,6 +168,110 @@ public class DesignTokenTests
         }
     }
 
+    /// <summary>Tokens written at runtime under a name that is composed rather than
+    /// written out, so no literal search can find the writer.
+    ///
+    /// <para><c>TreeView</c> builds its indent property from its own class prefix
+    /// (<c>"--" + ClassPrefix + "-depth"</c>, <c>TreeView.razor</c>), so the strings
+    /// <c>--folder-tree-depth</c> and <c>--knowledge-menu-depth</c> appear nowhere in
+    /// the sources even though both are set on every row. These two are listed
+    /// because they are undetectable in principle, not merely inconvenient to
+    /// detect — anything a search *can* find must be found rather than added here.</para></summary>
+    private static readonly HashSet<string> RuntimeComposedTokens =
+    [
+        "--folder-tree-depth",
+        "--knowledge-menu-depth"
+    ];
+
+    /// <summary>A fallback makes a reference to an undeclared token legal, and
+    /// <see cref="No_stylesheet_uses_a_token_that_is_never_declared"/> stops there on
+    /// purpose: the fallback marks a token supplied at runtime, which no stylesheet
+    /// can declare. That reasoning holds only while something actually supplies it.
+    /// Where nothing does, the fallback is not a contract with the runtime but the
+    /// only thing the declaration has ever used, and the token name is decoration.
+    ///
+    /// <para><c>--duration-fast</c> is why this test exists. It was referenced three
+    /// times by <c>.task-item</c> with a <c>120ms</c> fallback and declared nowhere,
+    /// so the rows animated at a duration that is not on the motion scale — the scale
+    /// is <c>--transition-fast|base|slow</c>, each bundling a duration and an easing,
+    /// and no <c>--duration-*</c> scale exists for it to have come from. The fallback
+    /// made it read as deliberate, which is exactly how it survived review.</para>
+    ///
+    /// <para>This checks the premise rather than listing the exceptions, so a new
+    /// runtime-supplied token needs no change here: set it from Razor or from
+    /// <c>components.js</c> and the reference is legal because the writer is
+    /// findable. Only <see cref="RuntimeComposedTokens"/> is listed, and only because
+    /// those names are assembled at runtime.</para></summary>
+    [Fact]
+    public void No_stylesheet_falls_back_to_a_token_nothing_ever_sets()
+    {
+        var stylesheets = ProductStylesheets().ToList();
+
+        Assert.NotEmpty(stylesheets);
+
+        var sources = stylesheets.ToDictionary(
+            file => file,
+            file => WithoutComments(File.ReadAllText(file.FullName)));
+
+        var declared = sources.Values
+            .SelectMany(css => Regex.Matches(css, @"[{;]\s*(--[a-z0-9-]+)\s*:")
+                .Select(match => match.Groups[1].Value))
+            .ToHashSet();
+
+        // The writers: an inline `style` attribute in Razor, `setProperty` from
+        // components.js, or any other place our own code names the property. Read as
+        // one body of text because the question is only whether the name occurs at
+        // all — a token some C# helper assembles into a style string counts, and
+        // pinning the shape of the write would reject it for no reason.
+        var written = RuntimeWriters();
+
+        Assert.Contains("--split-pane-fixed", written, StringComparer.Ordinal);
+
+        foreach (var (stylesheet, css) in sources)
+        {
+            var unsettable = Regex.Matches(css, @"var\(\s*(--[a-z0-9-]+)\s*,")
+                .Select(match => match.Groups[1].Value)
+                .Where(token => !token.StartsWith(VendorTokenPrefix, StringComparison.Ordinal))
+                .Where(token => !declared.Contains(token))
+                .Where(token => !RuntimeComposedTokens.Contains(token))
+                .Where(token => !written.Contains(token))
+                .Distinct()
+                .OrderBy(token => token, StringComparer.Ordinal)
+                .ToList();
+
+            Assert.True(
+                unsettable.Count == 0,
+                $"{Relative(stylesheet)} falls back on tokens that no stylesheet declares and no "
+                + "code sets: " + string.Join(", ", unsettable)
+                + ". The fallback is the whole value, so the token name promises a design-system "
+                + "reference the product never makes — point the reference at a declared token, or "
+                + "set the property at runtime.");
+        }
+    }
+
+    /// <summary>Every custom property our own non-CSS sources name, which is where a
+    /// runtime-supplied token is set from. Build output is skipped; so is the
+    /// vendored library folder, whose scripts are not ours.</summary>
+    private static HashSet<string> RuntimeWriters()
+    {
+        var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src"));
+
+        if (!root.Exists)
+        {
+            return [];
+        }
+
+        var sources = new[] { "*.razor", "*.js", "*.cs", "*.html" }
+            .SelectMany(pattern => root.EnumerateFiles(pattern, SearchOption.AllDirectories))
+            .Where(NotBuildOutput)
+            .Where(file => !IsVendored(Relative(file)));
+
+        return sources
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file.FullName), @"--[a-z0-9-]+")
+                .Select(match => match.Value))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     /// <summary>Comments are stripped before anything is read out of a stylesheet.
     /// The storybook's foundations section explains in prose that each specimen
     /// "sets the property from var(--token)", and that sentence is not a reference

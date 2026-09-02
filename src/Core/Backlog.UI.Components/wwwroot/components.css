@@ -2930,9 +2930,9 @@ button.md-check {
 
 .task-item {
     transition:
-        margin var(--duration-fast, 120ms) ease,
-        transform var(--duration-fast, 120ms) ease,
-        opacity var(--duration-fast, 120ms) ease;
+        margin var(--transition-fast),
+        transform var(--transition-fast),
+        opacity var(--transition-fast);
 }
 
 @media (prefers-reduced-motion: reduce) {
