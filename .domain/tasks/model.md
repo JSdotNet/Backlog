@@ -66,7 +66,6 @@ classDiagram
         prompt
         task
         idea
-        follow_up
     }
     class TaskStatus {
         <<enumeration>>

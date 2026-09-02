@@ -32,7 +32,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// <para>
 /// Deliberately independent from <c>Backlog.Infrastructure.FileSystem.EnumMap</c> (internal to
 /// that assembly): the tokens here are the human-typed vocabulary shown in the
-/// UI (e.g. <c>follow-up</c>, <c>in-progress</c>), normalized the same way
+/// UI (e.g. <c>idea</c>, <c>in-progress</c>), normalized the same way
 /// (case/space/hyphen/underscore-insensitive) so any spelling is recognized.
 /// </para>
 /// </summary>
@@ -72,9 +72,31 @@ public static class EntryTextParser
     {
         ["prompt"] = EntryType.Prompt,
         ["task"] = EntryType.Task,
-        ["idea"] = EntryType.Idea,
-        ["followup"] = EntryType.FollowUp
+        ["idea"] = EntryType.Idea
     };
+
+    /// <summary>
+    /// Type words this grammar no longer means anything by, and still has to
+    /// recognize. <c>DO NOT DELETE AS DEAD CODE</c> — the entry that made this
+    /// necessary is the one already written on somebody's disk.
+    /// <para>
+    /// A word here is deliberately absent from <see cref="TypeTokens"/>: it maps to
+    /// no <see cref="EntryType"/>, so <see cref="Parse(string)"/> leaves the type
+    /// unset and the reader falls back to the default the way it does for any word
+    /// it does not know. What the word is still needed for is
+    /// <see cref="IsTypeToken"/>, which is how <c>RewriteMetaLine</c> takes the old
+    /// type off the line before writing the new one. Stop matching it and the
+    /// rewrite prepends <c>`task`</c> and leaves the retired word behind it, so an
+    /// entry comes out of an ordinary save claiming two types.
+    /// </para>
+    /// <para>
+    /// <c>follow-up</c> was a type until the pane grew an act that makes one, at
+    /// which point what a follow-up is stopped being a classification and became a
+    /// relationship — a new entry with <c>after:</c> pointing at the one it follows.
+    /// The word retires; the entries that carry it do not.
+    /// </para>
+    /// </summary>
+    private static readonly HashSet<string> RetiredTypeTokens = ["followup"];
 
     private static readonly Dictionary<string, Priority> PriorityTokens = new()
     {
@@ -1647,10 +1669,16 @@ public static class EntryTextParser
         return tokens;
     }
 
-    private static bool IsTypeToken(string token) =>
-        token.Length > 0
-        && token[0] is not ('!' or '*' or '@' or '#')
-        && TypeTokens.ContainsKey(NormalizeToken(token));
+    // Retired words count as type tokens here and nowhere else: this is the only
+    // caller that has to see one, and it sees it in order to remove it. See
+    // RetiredTypeTokens.
+    private static bool IsTypeToken(string token)
+    {
+        if (token.Length == 0 || token[0] is '!' or '*' or '@' or '#') return false;
+
+        var normalized = NormalizeToken(token);
+        return TypeTokens.ContainsKey(normalized) || RetiredTypeTokens.Contains(normalized);
+    }
 
     private static int FirstContentLine(IReadOnlyList<string> lines)
     {
@@ -1667,7 +1695,6 @@ public static class EntryTextParser
         EntryType.Prompt => "prompt",
         EntryType.Task => "task",
         EntryType.Idea => "idea",
-        EntryType.FollowUp => "follow-up",
         _ => type.ToString().ToLowerInvariant()
     };
 

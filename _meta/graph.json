@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 781,
-    "edges": 1579,
+    "edges": 1581,
     "nodesByFolder": {
       "arc42": 84,
       "domain": 496,
@@ -39,7 +39,7 @@
     },
     "edgesByType": {
       "contains": 656,
-      "related": 778,
+      "related": 780,
       "depends-on": 143,
       "implements": 2
     }
@@ -7333,7 +7333,10 @@
           "slug": "task-type",
           "level": 3,
           "line": 240,
-          "status": "draft"
+          "status": "draft",
+          "related": [
+            ".domain/tasks/naming.md#dependency"
+          ]
         }
       },
       {
@@ -7345,7 +7348,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-status",
           "level": 3,
-          "line": 249,
+          "line": 251,
           "status": "draft"
         }
       },
@@ -7358,7 +7361,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 258,
+          "line": 260,
           "status": "draft"
         }
       },
@@ -7371,7 +7374,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 267,
+          "line": 269,
           "status": "draft"
         }
       },
@@ -7384,7 +7387,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 276,
+          "line": 278,
           "status": "draft"
         }
       },
@@ -7397,7 +7400,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 285,
+          "line": 287,
           "status": "draft"
         }
       },
@@ -7410,7 +7413,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 295,
+          "line": 297,
           "status": "draft"
         }
       },
@@ -7423,7 +7426,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 314,
+          "line": 316,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -7440,7 +7443,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 328,
+          "line": 330,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7458,7 +7461,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 370,
+          "line": 372,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7475,7 +7478,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskprojected",
           "level": 2,
-          "line": 397,
+          "line": 399,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7493,7 +7496,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskcompleted",
           "level": 2,
-          "line": 425,
+          "line": 427,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7511,7 +7514,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 451,
+          "line": 453,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7529,7 +7532,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 480,
+          "line": 482,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7546,7 +7549,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 515,
+          "line": 517,
           "status": "draft"
         }
       },
@@ -8144,7 +8147,8 @@
             "TaskType"
           ],
           "related": [
-            ".domain/tasks/domain.md#task-type"
+            ".domain/tasks/domain.md#task-type",
+            ".domain/tasks/naming.md#dependency"
           ]
         }
       },
@@ -8157,7 +8161,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "task-status",
           "level": 2,
-          "line": 72,
+          "line": 73,
           "status": "draft",
           "aliases": [
             "TaskStatus"
@@ -8176,7 +8180,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "area",
           "level": 2,
-          "line": 83,
+          "line": 84,
           "status": "draft",
           "aliases": [
             "area"
@@ -8195,7 +8199,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "ai-work-log",
           "level": 2,
-          "line": 97,
+          "line": 98,
           "status": "draft",
           "aliases": [
             "AIWorkLog",
@@ -8215,7 +8219,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "due-date",
           "level": 2,
-          "line": 110,
+          "line": 111,
           "status": "proposed",
           "aliases": [
             "due_on",
@@ -8236,7 +8240,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "reminder",
           "level": 2,
-          "line": 124,
+          "line": 125,
           "status": "proposed",
           "aliases": [
             "remind_at",
@@ -8257,7 +8261,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "recurrence",
           "level": 2,
-          "line": 138,
+          "line": 139,
           "status": "proposed",
           "aliases": [
             "Repeat",
@@ -8281,7 +8285,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "my-day",
           "level": 2,
-          "line": 152,
+          "line": 153,
           "status": "proposed",
           "aliases": [
             "in_my_day_on",
@@ -8302,7 +8306,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "dependency",
           "level": 2,
-          "line": 167,
+          "line": 168,
           "status": "proposed",
           "aliases": [
             "depends_on",
@@ -8324,7 +8328,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "attachment",
           "level": 2,
-          "line": 181,
+          "line": 182,
           "status": "proposed",
           "aliases": [
             "attachment",
@@ -8347,7 +8351,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "readiness",
           "level": 2,
-          "line": 197,
+          "line": 198,
           "status": "proposed",
           "aliases": [
             "TaskReadiness",
@@ -8368,7 +8372,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "occurrence",
           "level": 2,
-          "line": 210,
+          "line": 211,
           "status": "proposed",
           "aliases": [
             "recurrence_source_id",
@@ -8388,7 +8392,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "effort",
           "level": 2,
-          "line": 224,
+          "line": 225,
           "status": "draft",
           "aliases": [
             "effort",
@@ -8410,7 +8414,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "roadmap-tag",
           "level": 2,
-          "line": 241,
+          "line": 242,
           "status": "draft",
           "aliases": [
             "roadmap tag",
@@ -8431,7 +8435,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "roadmap",
           "level": 2,
-          "line": 258,
+          "line": 259,
           "status": "deprecated",
           "aliases": [
             "Roadmap planning",
@@ -21180,6 +21184,14 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/domain.md#task-type->.domain/tasks/naming.md#dependency",
+          "source": ".domain/tasks/domain.md#task-type",
+          "target": ".domain/tasks/naming.md#dependency",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/tasks/domain.md#projection->.domain/monitoring/domain.md#progress-signal",
           "source": ".domain/tasks/domain.md#projection",
           "target": ".domain/monitoring/domain.md#progress-signal",
@@ -21703,6 +21715,14 @@
           "id": "related:.domain/tasks/naming.md#task-type->.domain/tasks/domain.md#task-type",
           "source": ".domain/tasks/naming.md#task-type",
           "target": ".domain/tasks/domain.md#task-type",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#task-type->.domain/tasks/naming.md#dependency",
+          "source": ".domain/tasks/naming.md#task-type",
+          "target": ".domain/tasks/naming.md#dependency",
           "type": "related"
         }
       },

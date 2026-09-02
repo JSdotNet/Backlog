@@ -918,8 +918,10 @@ public sealed class TasksDetailPaneTests
     /// <summary>What the entry waits on is under the columns rather than in one of
     /// them. Its value is a list of other entries where every other row's is a word,
     /// and a column is about sixteen rem wide: in one the picker's chips wrapped one
-    /// per line and the row read as a paragraph. Out of the columns it is also out of
-    /// their balancing, which is what leaves them three rows each and level.</summary>
+    /// per line and the row read as a paragraph. Width is the whole reason, not
+    /// balance — taking it out of the columns is taking it out of their balancing
+    /// too, which leaves Scheduling and the Ranking/Attachments column three rows
+    /// each and level.</summary>
     [Fact]
     public async Task Waiting_for_sits_below_the_columns_across_the_whole_pane()
     {
@@ -943,6 +945,37 @@ public sealed class TasksDetailPaneTests
             "entry-schedule-dependencies",
             schedule.QuerySelector(".task-action-pane__trailing")!
                 .Children.Single().GetAttribute("data-testid"));
+    }
+
+    /// <summary>"Waiting for" and "Create follow-up" are the two ends of one
+    /// relationship — one reads the chain backwards, the other writes it forwards —
+    /// so they share a row inside "Dependencies" rather than stacking. The picker
+    /// they can open belongs to "Waiting for" alone and needs the full width for its
+    /// chips, so it stays outside the row that holds the two actions.</summary>
+    [Fact]
+    public async Task Waiting_for_and_create_follow_up_share_a_row_and_the_picker_sits_outside_it()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task`\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        var group = pane.Find("[data-testid='entry-schedule-dependencies']");
+
+        var chainRow = group.QuerySelector(".entry-doc__schedule-chain");
+        Assert.NotNull(chainRow);
+        Assert.NotEqual(group, chainRow);
+
+        Assert.Equal(
+            ["entry-action-depends", "entry-action-followup"],
+            chainRow!.Children.Select(child => child.GetAttribute("data-testid")));
+
+        await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
+        group = pane.Find("[data-testid='entry-schedule-dependencies']");
+        chainRow = group.QuerySelector(".entry-doc__schedule-chain");
+
+        Assert.Null(chainRow!.QuerySelector("[data-testid='entry-depends-select']"));
+        Assert.NotNull(group.QuerySelector("[data-testid='entry-depends-select']"));
     }
 
     // --- Cross-repository dependencies --------------------------------------

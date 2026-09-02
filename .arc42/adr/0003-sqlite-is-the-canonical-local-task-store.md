@@ -70,7 +70,7 @@ to match the existing rank-then-recency rule.
 ### How values are written
 
 Enums are stored as the ubiquitous-language wire tokens already used by the old
-frontmatter (`follow_up`, `in_progress`), not as ordinals: the database should read
+frontmatter (`in_progress`), not as ordinals: the database should read
 the way the domain reads, and an ordinal would silently change meaning the day
 somebody inserts a member into the middle of an enum. `Recurrence` and `EntryView`
 go through `EntryTextParser`'s own token helpers, so the storage vocabulary and the

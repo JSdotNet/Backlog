@@ -75,6 +75,32 @@ public class EntryTextParserTests
         Assert.Null(parsed.Status);
     }
 
+    /// <summary>
+    /// <c>follow-up</c> was a type once and is not one now, and the grammar still has
+    /// to recognise the word — not to mean anything by it, but so that rewriting an
+    /// entry that carries it takes it off the line. A parser that stopped seeing the
+    /// token would leave it in place and write the new type beside it, and the entry
+    /// would come out of a save claiming two types.
+    /// </summary>
+    [Fact]
+    public void A_retired_type_token_is_dropped_rather_than_kept_beside_the_new_one()
+    {
+        const string raw = "# Rework the onboarding email\n`follow-up` `*medium` `!ready` `@inbox`\n";
+
+        var parsed = EntryTextParser.Parse(raw);
+
+        // No mapping behind the word: it names no type, so the field stays unset and
+        // whatever reads it falls back the way it always did.
+        Assert.Null(parsed.Type);
+
+        var rewritten = EntryTextParser.WithType(raw, parsed.Type ?? EntryType.Task);
+        var metaLine = rewritten.Split('\n')[1];
+
+        Assert.Contains("`task`", metaLine);
+        Assert.DoesNotContain("follow-up", metaLine);
+        Assert.Equal(EntryType.Task, EntryTextParser.Parse(rewritten).Type);
+    }
+
     [Fact]
     public void Does_not_mistake_a_prose_line_for_a_meta_line()
     {

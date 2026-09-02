@@ -1543,7 +1543,7 @@
                    order they are written in is the order the second column reads.
                    Ranking's two rows and Attachments' one make a second column of
                    three, level with Scheduling's three in the first — which is what
-                   a pane reads as one block rather than as a step. *@
+                   lets a reader take the pane in as one block rather than as a step. *@
                 <TaskActionGroup Label="Ranking" TestId="entry-schedule-ranking">
                     @* Always set, and so no ✕. Every other row here can be absent,
                        but an entry has a priority whether or not anybody typed one
@@ -1651,16 +1651,35 @@
                    is a list of other entries and a column is about sixteen rem wide.
                    In a column the picker's chips wrapped one per line and the row
                    became a paragraph; across the full width they read as the row
-                   they are. It also leaves the columns three rows each, which is
-                   what makes them end level with one another. *@
+                   they are. That is the whole reason it is here — width, not
+                   balance — and it leaves the columns exactly as "Ranking" describes
+                   them: three rows in each, level.
+
+                   "Waiting for" and "Create follow-up" share this group and this row
+                   because they are the two ends of one relationship: one reads the
+                   chain backwards, the other writes it forwards. "Waiting for" gets
+                   the row's width because its value is a list of entry names; the
+                   follow-up action is compact — icon only — because it never has
+                   more than one thing to say and does not need a share of the room
+                   the names are asking for. *@
                 <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
-                    <TaskAction Icon="⏳"
-                                Label="Waiting for"
-                                Value="@FormatDependencies(row)"
-                                Set="@(row.PreviewDependsOn.Count > 0)"
-                                OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
-                                OnClear="() => State.ChangeDependsOnAsync(row, [])"
-                                TestId="entry-action-depends" />
+                    <span class="entry-doc__schedule-chain">
+                        <TaskAction Icon="⏳"
+                                    Label="Waiting for"
+                                    Value="@FormatDependencies(row)"
+                                    Set="@(row.PreviewDependsOn.Count > 0)"
+                                    OnSet="() => TogglePicker(SchedulePicker.DependsOn)"
+                                    OnClear="() => State.ChangeDependsOnAsync(row, [])"
+                                    TestId="entry-action-depends" />
+
+                        <TaskAction Icon="↳"
+                                    Label="Create follow-up"
+                                    Compact="true"
+                                    Disabled="@(FollowUpReason(row) is not null)"
+                                    DisabledReason="@FollowUpReason(row)"
+                                    OnSet="() => State.NewFollowUpRow(row)"
+                                    TestId="entry-action-followup" />
+                    </span>
 
                     @if (IsPickerOpen(SchedulePicker.DependsOn))
                     {
@@ -2082,6 +2101,24 @@
     /// than the entry actually has.</summary>
     private string FormatDependencies(EntryRow row) =>
         string.Join(", ", row.PreviewDependsOn.Select(DependencyLabel));
+
+    /// <summary>Why this entry cannot be followed up yet, or null when it can.
+    /// <para>
+    /// One method rather than a <c>Disabled</c> expression beside a
+    /// <c>DisabledReason</c> one, because the two would then be free to disagree —
+    /// a row disabled for a reason it does not give, or giving one while pressable.
+    /// The reason's presence <em>is</em> the refusal.
+    /// </para>
+    /// <para>
+    /// Both sentences are about the <c>after:</c> token the new entry would carry.
+    /// An unsaved entry has no id to be named by, and a finished one is a wait that
+    /// is already over — the follow-up would arrive unblocked, which is not what
+    /// the reader asked for by pressing this.
+    /// </para></summary>
+    private static string? FollowUpReason(EntryRow row) =>
+        !row.IsPersisted ? "Save this entry first — nothing can wait on an entry that is not there yet."
+        : row.PreviewStatus is EntryStatus.Done ? "This entry is done, so there is nothing left to wait for."
+        : null;
 
     private string DependencyLabel(string id) =>
         State.Rows.FirstOrDefault(candidate =>

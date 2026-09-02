@@ -943,6 +943,26 @@ h1, h2, h3 {
     margin-left: var(--spacing-lg);
 }
 
+/* "Waiting for" and "Create follow-up" on one line: the two ends of one
+   relationship belong together, and each has a different claim on the row's
+   width. "Waiting for" reads a list of other entries' names, so it gets whatever
+   is left; "Create follow-up" is a single icon that never grows, so it takes
+   only what it needs and never yields the room the names are asking for. */
+.entry-doc__schedule-chain {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.entry-doc__schedule-chain > :first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.entry-doc__schedule-chain > :last-child {
+    flex: 0 0 auto;
+}
+
 /* --- Small icon actions -------------------------------------------------- */
 /*
   Pushing and re-checking are actions, not metadata, so they read as controls

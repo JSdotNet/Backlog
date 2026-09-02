@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Sqlite;
 
 /// <summary>
 /// Maps domain enums to and from their ubiquitous-language wire strings
-/// (e.g. <c>follow_up</c>, <c>in_progress</c>).
+/// (e.g. <c>in_progress</c>).
 /// <para>
 /// Tokens rather than ordinals, for two reasons. A database somebody opens in a
 /// SQLite browser should read as the domain reads, and an ordinal would silently
@@ -18,7 +18,6 @@ internal static class EnumMap
         EntryType.Prompt => "prompt",
         EntryType.Task => "task",
         EntryType.Idea => "idea",
-        EntryType.FollowUp => "follow_up",
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 
@@ -53,7 +52,6 @@ internal static class EnumMap
         "prompt" => EntryType.Prompt,
         "task" => EntryType.Task,
         "idea" => EntryType.Idea,
-        "followup" => EntryType.FollowUp,
         _ => throw new FormatException($"Unknown task type '{value}'.")
     };
 

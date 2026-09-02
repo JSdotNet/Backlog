@@ -18,7 +18,7 @@ related: [.domain/inbox/features.md#routing]
 ```
 
 Create tasks manually or from triaged inbox items, capturing title, body, type
-(prompt, task, idea, follow-up), tags, and project/repo link. New tasks default
+(prompt, task, idea), tags, and project/repo link. New tasks default
 to `draft`.
 
 ## Refinement and prioritization
