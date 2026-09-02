@@ -4140,6 +4140,67 @@ button.task-panel__check:focus-visible {
     background: transparent;
 }
 
+/* Scenery in a chapter and the screen itself in fullscreen. The stage exists
+   for one reason: fullscreen is requested on it rather than on the frame, because
+   only the element in the top layer and its descendants are painted, and an
+   artifact frame is sandboxed into an opaque origin and can carry nothing of
+   ours. Wrapping the frame is what gives the way back out somewhere to live.
+
+   A positioning context and nothing else while it is in the chapter — the frame
+   is still the whole of what a reader sees there, at the height it measured for
+   itself. */
+.diagram-view__stage {
+    position: relative;
+    display: block;
+}
+
+/* On the screen it is the app's own surface rather than the browser's black
+   backdrop, and the frame takes all of it: the measured inline height has just
+   been removed by components.js, and the 28rem opening bid above would otherwise
+   leave a fullscreen diagram sitting in a letterbox. The radius goes with it —
+   there is no card here to round off, only screen. */
+.diagram-view__stage:fullscreen {
+    background: var(--color-background);
+}
+
+.diagram-view__stage:fullscreen .diagram-view__artifact {
+    height: 100%;
+    border-radius: 0;
+}
+
+/* The way out. Off screen in a chapter, where the header already carries the
+   button that asks for fullscreen and a second control laid over the diagram
+   would be clutter across the one thing the block exists to show.
+
+   `:fullscreen` is what decides, rather than a state field in the component:
+   Esc, F11 and the button all leave the same consistent screen behind, and
+   nothing in .NET has to be told which of them happened. */
+.diagram-view__exit {
+    display: none;
+}
+
+/* Bottom left, which is the one corner the artifact does not use. Its own
+   chrome is fixed in the other three — the title top left, `Classic | Live |
+   Export` top right, and the zoom and lens controls bottom right — and this
+   started out over the toolbar, where it did not merely look crowded: being
+   above the frame, it won the hit test and made Export unreachable for as long
+   as the diagram was full screen. That is the same menu `allow-downloads` was
+   granted for.
+
+   A raised surface and a shadow because it is laid over a drawing rather than
+   sat on a panel. The button's own background is transparent, and a transparent
+   control over a diagram is exactly as findable as the one this whole change
+   exists to provide. */
+.diagram-view__stage:fullscreen .diagram-view__exit {
+    display: inline-flex;
+    position: absolute;
+    bottom: var(--spacing-md);
+    left: var(--spacing-md);
+    z-index: 1;
+    background: var(--color-background-raised);
+    box-shadow: var(--shadow-md);
+}
+
 /* The offers, under the diagram rather than in the header: they are about what
    is missing, which is not something to read before the picture. */
 .diagram-view__footer {
