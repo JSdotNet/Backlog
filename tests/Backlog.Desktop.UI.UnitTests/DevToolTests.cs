@@ -464,6 +464,54 @@ public class DevToolTests
         Assert.Contains(expected, error, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>An MCP server is not always a NuGet package. The Aspire CLI server
+    /// is registered by the command that starts it, and the repository's own
+    /// catalog ships it that way — so a validator that demanded a
+    /// <c>packageId</c> refused a catalog the product itself produced.</summary>
+    [Fact]
+    public void A_command_registered_mcp_server_is_accepted()
+    {
+        Assert.True(DevToolConfiguration.TryReadCatalog(
+            """
+            { "mcpServers": [ { "name": "aspire", "command": "aspire", "args": [ "agent", "mcp" ], "enabled": true } ] }
+            """,
+            out var root,
+            out _));
+
+        Assert.Single(root["mcpServers"]!.AsArray());
+    }
+
+    /// <summary>Neither identity is still no identity: an entry nothing can address
+    /// is one no override can reach and no button can act on. The reason names the
+    /// entry, because a catalog with fifty of them is the case where a message that
+    /// only names the array is useless.</summary>
+    [Fact]
+    public void An_mcp_server_with_neither_a_package_id_nor_a_command_is_refused_with_a_reason()
+    {
+        Assert.False(DevToolConfiguration.TryReadCatalog(
+            """{ "mcpServers": [ { "name": "guidelines", "enabled": true } ] }""",
+            out _,
+            out var error));
+
+        Assert.Contains("guidelines", error, StringComparison.Ordinal);
+        Assert.Contains("packageId", error, StringComparison.Ordinal);
+        Assert.Contains("command", error, StringComparison.Ordinal);
+    }
+
+    /// <summary>An entry with no name at all still has to be findable, and its
+    /// position in the array is the only handle left.</summary>
+    [Fact]
+    public void An_unnamed_entry_is_refused_by_its_position()
+    {
+        Assert.False(DevToolConfiguration.TryReadCatalog(
+            """{ "plugins": [ { "name": "architecture" }, { "source": "a" } ] }""",
+            out _,
+            out var error));
+
+        Assert.Contains("2", error, StringComparison.Ordinal);
+        Assert.Contains("plugins", error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_catalog_with_only_one_of_the_four_arrays_is_accepted()
     {
