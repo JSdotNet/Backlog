@@ -37,13 +37,19 @@
 *@
 
 <section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-    <header class="tools-panel__header">
-        <div>
-            <p class="tools-panel__eyebrow">System tools</p>
-            <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
-            <p class="tools-panel__subtitle">What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.</p>
-        </div>
-        <div class="tools-panel__header-actions">
+    @* The same library section header the kind sub-headings below already
+       render, here wearing this pane's own class names. *@
+    <SectionHeader BaseClass="tools-panel__header"
+                   TextCssClass=""
+                   EyebrowCssClass="tools-panel__eyebrow"
+                   TitleCssClass="tools-panel__title"
+                   DescriptionCssClass="tools-panel__subtitle"
+                   ActionsCssClass="tools-panel__header-actions"
+                   Eyebrow="System tools"
+                   TitleId="installed-tools-title"
+                   Title="System tools"
+                   Description="What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.">
+        <Actions>
             @* A re-check over rows that are already on screen does not blank them
                — the versions below stay readable while the newer ones are being
                looked up — so the only place left to say that something is running
@@ -55,8 +61,8 @@
             @* The library's badge wearing this pane's count class. *@
             <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
-        </div>
-    </header>
+        </Actions>
+    </SectionHeader>
 
     <div class="tools-panel__content" id="installed-tools-content">
         @* Two columns rather than one stack, at the widths that have room
@@ -104,13 +110,15 @@
                    several seconds of a pane with nothing in it. One grey sentence
                    there was indistinguishable from a pane that had failed to draw,
                    so what stands in for the inventory is the inventory's own shape:
-                   the same kind sections, the same four-column grid, the same frame,
-                   with bars where the rows will be.
+                   the same kind sections, the same four columns, the same frame, with
+                   bars where the rows will be.
 
-                   It reuses this pane's row classes rather than describing a table of
-                   its own, which is what keeps the placeholder honest — it restacks
-                   with the real rows when the pane is narrow, because it is laid out
-                   by the same container query.
+                   It is the same table rather than a placeholder laid out like one,
+                   which is what keeps it honest: it restacks with the real rows when
+                   the pane is narrow, because it is the same component answering the
+                   same container query. The heading row is the real one too — those
+                   four words are true before any row is, and a bar standing in for a
+                   word nobody was waiting for was noise.
 
                    Hidden from assistive technology in one piece. A reader who cannot
                    see the bars gains nothing from forty of them; the toolbar's status
@@ -121,26 +129,21 @@
                     {
                         <section class="tools-kind">
                             <Skeleton Shape="SkeletonShape.Heading" Width="8rem" />
-                            <div class="tools-table">
-                                <div class="tools-table__row tools-table__row--head">
-                                    <Skeleton Width="2.5rem" />
-                                    <Skeleton Width="4rem" />
-                                    <Skeleton Width="4rem" />
-                                    <Skeleton Width="3.5rem" />
-                                </div>
-                                @foreach (var name in section)
-                                {
-                                    <div class="tools-table__row">
-                                        <div class="tools-table__tool">
-                                            <Skeleton Width="@name" />
-                                            <Skeleton Width="55%" />
-                                        </div>
-                                        <Skeleton Width="3rem" />
-                                        <Skeleton Width="3rem" />
-                                        <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
-                                    </div>
-                                }
-                            </div>
+                            <DataTable TItem="string"
+                                       Columns="Columns"
+                                       Items="section"
+                                       RowNoun="tool"
+                                       CssClass="tools-inventory">
+                                <Row Context="name">
+                                    <td class="tools-inventory__tool">
+                                        <Skeleton Width="@name" />
+                                        <Skeleton Width="55%" />
+                                    </td>
+                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                    <td class="tools-inventory__version"><Skeleton Width="3rem" /></td>
+                                    <td class="tools-inventory__actions-cell"><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
+                                </Row>
+                            </DataTable>
                         </section>
                     }
                 </div>
@@ -193,66 +196,79 @@
                                                  TestId="tools-group-toggle" />
                                 }
 
-                                <div class="tools-table"
-                                     role="table"
-                                     aria-label="@group.AriaLabel(kind.Title)"
-                                     id="@group.RegionId"
-                                     hidden="@(!IsExpanded(group))">
-                                    <div class="tools-table__row tools-table__row--head" role="row">
-                                        <span role="columnheader">Tool</span>
-                                        <span role="columnheader">Installed</span>
-                                        <span role="columnheader">Available</span>
-                                        <span role="columnheader">Actions</span>
-                                    </div>
+                                <DataTable TItem="DevToolInfo"
+                                           Columns="Columns"
+                                           Items="@group.Tools"
+                                           RowKey="ToolKey"
+                                           RowCssClass="RowClass"
+                                           RowAttributes="RowIdentity"
+                                           RowNoun="tool"
+                                           CssClass="tools-inventory"
+                                           AriaLabel="@group.AriaLabel(kind.Title)"
+                                           id="@group.RegionId"
+                                           hidden="@(!IsExpanded(group))">
+                                    @* The cells are this pane's and the frame is the
+                                       library's, which is the split DataTable is built
+                                       around. The two things the row element itself has
+                                       to carry — the catalog key a driver scopes the
+                                       shared per-row test ids by, and the quieting a
+                                       switched-off row is drawn with — arrive through
+                                       the component rather than through a tr this pane
+                                       writes, because it does not write one. *@
+                                    <Row Context="tool">
+                                        <td class="tools-inventory__tool">
+                                            <strong>@tool.Name</strong>
+                                            @* The library's badge wearing this table's host class.
+                                               Which hosts an entry is for decides what its Update
+                                               actually does, and a catalog that drives two of them
+                                               with one row is unreadable without it being said.
 
-                                    @foreach (var tool in group.Tools)
-                                    {
-                                        <div class="tools-table__row @(tool.ConfiguredEnabled ? string.Empty : "tools-table__row--disabled")" role="row" data-tool-key="@tool.Key" @key="tool.Key">
-                                            <div role="cell" class="tools-table__tool">
-                                                <strong>@tool.Name</strong>
-                                                @* The library's badge wearing this table's host class.
-                                                   Which hosts an entry is for decides what its Update
-                                                   actually does, and a catalog that drives two of them
-                                                   with one row is unreadable without it being said.
-
-                                                   An application has no host at all — it is machine
-                                                   software, not a registration with an AI tool — so it
-                                                   gets no badge rather than a badge reading "No host",
-                                                   which answered a question the row never asked. *@
-                                                @if (tool.Hosts is not DevToolHosts.None)
-                                                {
-                                                    <Badge BaseClass="tools-table__hosts"
-                                                           Kind=""
-                                                           Title="@HostTitle(tool)"
-                                                           TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
-                                                }
-                                                <span class="tools-table__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
-                                                @if (NoteOf(tool) is { Length: > 0 } note)
-                                                {
-                                                    @* The catalog's own warning, on a line of its own
-                                                       rather than run together with the status. Several
-                                                       of these are the only reason a row reads the way it
-                                                       does — a version that legitimately reads backwards,
-                                                       a probe that is a heuristic, a package that does not
-                                                       exist — and appended to the status they were a
-                                                       sentence nobody finished reading. *@
-                                                    <span class="tools-table__note" data-testid="tools-row-note">@note</span>
-                                                }
-                                            </div>
-                                            @* Each version cell names itself. The row's four columns only
-                                               fit while the pane is wide enough for them — it is a surface
-                                               beside a workspace, so it often is not — and below that the
-                                               row stacks and the heading row goes. Two bare version strings
-                                               in a column say nothing about which is which, so the label is
-                                               in the markup at every width and the stylesheet decides when
-                                               it shows. *@
-                                            <span role="cell" class="tools-table__version" data-testid="tools-row-installed">
-                                                <span class="tools-table__cell-label">Installed</span>@InstalledLabel(tool)
-                                            </span>
-                                            <span role="cell" class="tools-table__version @(tool.CanUpdate ? "tools-table__version--new" : string.Empty)">
-                                                <span class="tools-table__cell-label">Available</span>@tool.AvailableVersion
-                                            </span>
-                                            <div role="cell" class="tools-table__actions">
+                                               An application has no host at all — it is machine
+                                               software, not a registration with an AI tool — so it
+                                               gets no badge rather than a badge reading "No host",
+                                               which answered a question the row never asked. *@
+                                            @if (tool.Hosts is not DevToolHosts.None)
+                                            {
+                                                <Badge BaseClass="tools-inventory__hosts"
+                                                       Kind=""
+                                                       Title="@HostTitle(tool)"
+                                                       TestId="tools-row-hosts">@HostLabel(tool.Hosts)</Badge>
+                                            }
+                                            <span class="tools-inventory__meta">@Humanize(tool.Kind.ToString()) · @StatusOf(tool)</span>
+                                            @if (NoteOf(tool) is { Length: > 0 } note)
+                                            {
+                                                @* The catalog's own warning, on a line of its own
+                                                   rather than run together with the status. Several
+                                                   of these are the only reason a row reads the way it
+                                                   does — a version that legitimately reads backwards,
+                                                   a probe that is a heuristic, a package that does not
+                                                   exist — and appended to the status they were a
+                                                   sentence nobody finished reading. *@
+                                                <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
+                                            }
+                                        </td>
+                                        @* Each version cell names itself. The row's four columns only
+                                           fit while the pane is wide enough for them — it is a surface
+                                           beside a workspace, so it often is not — and below that the
+                                           row stacks and the heading row goes. Two bare version strings
+                                           in a column say nothing about which is which, so the label is
+                                           in the markup at every width and the stylesheet decides when
+                                           it shows. *@
+                                        <td class="tools-inventory__version" data-testid="tools-row-installed">
+                                            <span class="tools-inventory__cell-label">Installed</span>@InstalledLabel(tool)
+                                        </td>
+                                        <td class="tools-inventory__version @(tool.CanUpdate ? "tools-inventory__version--new" : string.Empty)">
+                                            <span class="tools-inventory__cell-label">Available</span>@tool.AvailableVersion
+                                        </td>
+                                        <td class="tools-inventory__actions-cell">
+                                            @* The grid the three slots sit in is an element inside
+                                               the cell rather than the cell itself: a `td` carrying
+                                               `display: grid` is no longer a table-cell box, so it
+                                               loses the row's vertical alignment and has the
+                                               library's bottom rule drawn around the grid instead of
+                                               at the row's edge. The same reasoning the library
+                                               records on `.data-table__group-heading`. *@
+                                            <div class="tools-inventory__actions">
                                                 @* One slot per thing the row lets you do: the action
                                                    or the status, the toggle, and Remove. Each names
                                                    its own column in the stylesheet rather than taking
@@ -262,8 +278,8 @@
                                                    would slide into the empty track, misaligning
                                                    exactly the rows that differ from the ones around
                                                    them. Why the tracks are the widths they are is in
-                                                   `.tools-table__actions`. *@
-                                                <span class="tools-table__action">
+                                                   `.tools-inventory__actions`. *@
+                                                <span class="tools-inventory__action">
                                                     @if (tool.Kind is DevToolKind.Marketplace)
                                                     {
                                                         @* A marketplace has no version to be behind, so it
@@ -294,7 +310,7 @@
                                                                   CheckedChanged="acknowledged => AcknowledgeAsync(tool, acknowledged)"
                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
                                                                   Label="Done here"
-                                                                  CssClass="tools-table__ack"
+                                                                  CssClass="tools-inventory__ack"
                                                                   TestId="tools-row-acknowledge" />
                                                     }
                                                     else if (tool.CanUpdate)
@@ -326,12 +342,12 @@
                                                     }
                                                     else
                                                     {
-                                                        <span class="tools-table__action-note">@ActionNote(tool)</span>
+                                                        <span class="tools-inventory__action-note">@ActionNote(tool)</span>
                                                     }
                                                 </span>
                                                 @if (tool.Kind is not DevToolKind.Marketplace)
                                                 {
-                                                    <span class="tools-table__toggle">
+                                                    <span class="tools-inventory__toggle">
                                                         @* Not for a marketplace. It is not a tool this
                                                            machine opts into — it is where the Claude
                                                            plugins that do come from — so the only way to
@@ -345,7 +361,7 @@
                                                 }
                                                 @if (CanEdit)
                                                 {
-                                                    <span class="tools-table__remove">
+                                                    <span class="tools-inventory__remove">
                                                         @* The row's test id is shared by every row, so a driver
                                                            scopes it through the row's data-tool-key. One id per
                                                            row would be an id nobody could write a selector for
@@ -360,9 +376,9 @@
                                                     </span>
                                                 }
                                             </div>
-                                        </div>
-                                    }
-                                </div>
+                                        </td>
+                                    </Row>
+                                </DataTable>
                             </div>
 
                         }
@@ -732,6 +748,38 @@
     /// here means the check is still running - which is the one thing the line
     /// most needs to say.</summary>
     private string ToolMessage => _toolMessage ?? "Checking configured tools...";
+
+    /// <summary>The headings, in the order the row template writes its cells.
+    ///
+    /// <para>Each carries the class its column's floor is declared on, because the
+    /// heading is the one cell in a column this pane does not write — the row
+    /// template writes the cells and the component writes the headings — and a
+    /// column with no floor is the clipping <c>ToolsInventoryLayoutTests</c> exists
+    /// for.</para></summary>
+    private static readonly DataTableColumn[] Columns =
+    [
+        new("Tool", "tools-inventory__col-tool"),
+        new("Installed", "tools-inventory__col-version"),
+        new("Available", "tools-inventory__col-version"),
+        new("Actions", "tools-inventory__col-actions")
+    ];
+
+    /// <summary>What identifies a row across renders: the catalog key, which is the
+    /// same thing the port acts on and is unique within the catalog.</summary>
+    private static object ToolKey(DevToolInfo tool) => tool.Key;
+
+    /// <summary>What the row element says about itself. The test ids inside a row
+    /// are shared by every row, so a driver scopes them through this rather than
+    /// through an id per row that nobody could write a selector for without
+    /// knowing the catalog first.</summary>
+    private static IReadOnlyDictionary<string, object> RowIdentity(DevToolInfo tool) =>
+        new Dictionary<string, object>(StringComparer.Ordinal) { ["data-tool-key"] = tool.Key };
+
+    /// <summary>A row this machine has switched off, drawn quieter. Null for the
+    /// rest, which is the library's way of saying the host has nothing to add to
+    /// this one.</summary>
+    private static string? RowClass(DevToolInfo tool) =>
+        tool.ConfiguredEnabled ? null : "tools-inventory__row--disabled";
 
     /// <summary>The placeholder inventory: two kind sections of three and two
     /// rows, and the width of each row's name bar.

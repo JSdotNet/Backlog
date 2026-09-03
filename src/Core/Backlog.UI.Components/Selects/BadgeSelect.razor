@@ -24,6 +24,10 @@
             title="@Label"
             disabled="@Disabled"
             @onchange="OnChange">
+        @if (IncludeEmptyOption)
+        {
+            <option value="">@EmptyLabel</option>
+        }
         @foreach (var option in Options)
         {
             <option value="@option.Value">@option.Label</option>
@@ -71,6 +75,31 @@
     [Parameter]
     public string? Slug { get; set; }
 
+    /// <summary>
+    /// An entry at the top of the list holding no value, the way
+    /// <c>SelectField</c> offers one.
+    /// <para>
+    /// For the caller whose subject has no single current value — a bulk edit over
+    /// twenty rows, where the honest answer to "what is the status" is that there
+    /// are twenty of them. Without it the select opens on whichever option sorts
+    /// first and the badge claims a value nothing is set to, and the reader has to
+    /// change it to something else and back to make the control fire at all.
+    /// </para>
+    /// <para>
+    /// Not the same as an option meaning "none". Nothing here writes an empty
+    /// value; the caller decides what an empty <c>OnChanged</c> means, and the two
+    /// callers so far both mean "the reader has not said".
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool IncludeEmptyOption { get; set; }
+
+    /// <summary>What the empty entry reads as. The field's name in practice —
+    /// "Status" — because in that shape the empty option is the only thing on
+    /// screen naming what is about to be set.</summary>
+    [Parameter]
+    public string EmptyLabel { get; set; } = "None";
+
     [Parameter]
     public string FallbackSlug { get; set; } = "draft";
 
@@ -79,12 +108,31 @@
 
     private string? EffectiveSlug => Slug ?? BadgeSlug.Of(CurrentValue, FallbackSlug);
 
+    /// <summary>
+    /// The badge classes: the kind always, the value's modifier when there is a
+    /// value, and <c>badge--unset</c> when there is not.
+    /// <para>
+    /// That last one is not decoration. A badge's default fill is
+    /// <c>--color-background-raised</c>, which is also the fill of the raised
+    /// surfaces an editable badge sits on, so a badge with no modifier came out the
+    /// same colour as the strip behind it — correct markup, invisible control. The
+    /// only caller that can be in that state is one that asked for
+    /// <see cref="IncludeEmptyOption"/> and has no single value to show, and a
+    /// control it cannot see is worse for that caller than for anybody.
+    /// </para>
+    /// <para>
+    /// Emitted from the absence of a slug rather than from
+    /// <see cref="IncludeEmptyOption"/>, because the absence is the fact: a caller
+    /// who hands in an empty <see cref="Slug"/> has said there is no modifier to
+    /// wear, whatever its reason.
+    /// </para>
+    /// </summary>
     private string Appearance
     {
         get
         {
             var slug = string.IsNullOrWhiteSpace(EffectiveSlug)
-                ? string.Empty
+                ? " badge--unset"
                 : $" badge--{BadgeKind}-{EffectiveSlug}";
 
             return $"badge badge--{BadgeKind}{slug}";

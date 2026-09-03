@@ -9,7 +9,7 @@
     "column_fit": "spread"
   },
   "participants": [
-    { "id": "backlog", "type": "backend", "label": "Backlog Management" },
+    { "id": "backlog", "type": "backend", "label": "Tasks" },
     { "id": "productivity", "type": "backend", "label": "Productivity" },
     { "id": "monitoring", "type": "backend", "label": "Monitoring & Dashboard" }
   ],
