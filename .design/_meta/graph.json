@@ -374,7 +374,7 @@
           "path": ".design/color-scheme.md",
           "slug": "surface-and-border-deviation",
           "level": 2,
-          "line": 140,
+          "line": 178,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast",
@@ -391,7 +391,7 @@
           "path": ".design/color-scheme.md",
           "slug": "full-token-reference",
           "level": 2,
-          "line": 195,
+          "line": 233,
           "status": "active"
         }
       },
@@ -404,7 +404,7 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 233,
+          "line": 272,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -421,7 +421,7 @@
           "path": ".design/color-scheme.md",
           "slug": "band-identity-tokens",
           "level": 2,
-          "line": 271,
+          "line": 310,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -439,7 +439,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 436,
+          "line": 475,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -456,7 +456,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 593,
+          "line": 632,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -472,7 +472,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 620,
+          "line": 659,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -488,7 +488,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 647,
+          "line": 686,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -505,7 +505,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 683,
+          "line": 722,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1540,7 +1540,7 @@
           "path": ".design/color-scheme.md",
           "slug": "chart-roles",
           "level": 3,
-          "line": 518
+          "line": 557
         }
       },
       {
@@ -1552,7 +1552,7 @@
           "path": ".design/color-scheme.md",
           "slug": "badge-and-chip-tones",
           "level": 3,
-          "line": 452
+          "line": 491
         }
       },
       {

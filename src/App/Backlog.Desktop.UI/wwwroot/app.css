@@ -1631,7 +1631,7 @@ h1, h2, h3 {
 }
 
 .setting__status--error { color: var(--color-error-text); }
-.setting__status--ok { color: var(--color-success); }
+.setting__status--ok { color: var(--color-success-text); }
 
 .setting__actions {
     margin-top: var(--spacing-md);

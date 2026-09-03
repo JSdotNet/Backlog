@@ -134,6 +134,79 @@ public class StorybookCoverageTests
             + string.Join("; ", broken));
     }
 
+    /// <summary>
+    /// The Foundations page measures every palette colour, and nothing else.
+    ///
+    /// <para><c>storybook.js</c> reads token <em>values</em> off the live document,
+    /// so the measurements can never be stale — but the list of what to measure is
+    /// a hardcoded array, and nothing until now read it back. It drifts in both
+    /// directions and both are silent. A token added to <c>components.css</c> and
+    /// not to the array simply never appears on the page, so the one place that
+    /// would have shown it failing its contrast pair does not know it exists;
+    /// <c>color-error-text</c> reached the stylesheet and the design folder before
+    /// it reached the array. A token dropped from the stylesheet and left in the
+    /// array is worse than absent: <c>getPropertyValue</c> answers an empty string
+    /// for an undeclared property, and the row reports a measurement of a colour
+    /// nobody declared.</para>
+    ///
+    /// <para>Scoped to the palette. The syntax and band tokens are themes rather
+    /// than palette colours and the page scores them where they are used — a run of
+    /// code on a code block — and the role tokens are derived, so they hold no value
+    /// to disagree about. <see cref="DesignPalette.PaletteTokens"/> draws that line
+    /// once, for this and for the value comparison in
+    /// <see cref="DesignTokenTests"/>.</para>
+    /// </summary>
+    [Fact]
+    public void The_storybook_measures_exactly_the_palette_the_library_declares()
+    {
+        var declared = DesignPalette.PaletteTokens();
+        var measured = MeasuredColorTokens();
+
+        // Neither side may go quiet: a moved file or a renamed array would
+        // otherwise make this pass by comparing two empty sets.
+        Assert.NotEmpty(declared);
+        Assert.NotEmpty(measured);
+
+        var unmeasured = declared.Except(measured, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        var undeclared = measured.Except(declared, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            unmeasured.Count == 0,
+            "components.css declares palette colours the storybook's COLOR_GROUPS does not list, so the "
+            + "Foundations page never measures them and nothing shows them failing a contrast pair: "
+            + string.Join(", ", unmeasured));
+
+        Assert.True(
+            undeclared.Count == 0,
+            "The storybook's COLOR_GROUPS lists colours components.css does not declare. The page reads an "
+            + "undeclared property as an empty string, so it reports a measurement of nothing: "
+            + string.Join(", ", undeclared));
+    }
+
+    /// <summary>The token names inside <c>storybook.js</c>'s <c>COLOR_GROUPS</c>.
+    /// Only the <c>name</c> of each entry — an <c>against</c> names a token the
+    /// group is scored on rather than one it measures, and every one of those is
+    /// somebody's <c>name</c> elsewhere in the array.</summary>
+    private static HashSet<string> MeasuredColorTokens()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            Repository.Root.FullName, "src", "Harness", "Backlog.UI.Storybook", "wwwroot", "storybook.js"));
+
+        var array = Regex.Match(script, @"const COLOR_GROUPS = \[(?<body>.*?)^    \];",
+            RegexOptions.Singleline | RegexOptions.Multiline);
+
+        Assert.True(
+            array.Success,
+            "storybook.js has no COLOR_GROUPS array. It was renamed or reshaped, and the rule reading it "
+            + "needs updating rather than silently checking nothing.");
+
+        return
+        [
+            .. Regex.Matches(array.Groups["body"].Value, @"name:\s*'(--[a-z0-9-]+)'")
+                .Select(match => match.Groups[1].Value)
+        ];
+    }
+
     /// <summary>GitHub's heading slug, and the same one
     /// <c>DesignGuideline.Slug</c> applies: lower-cased, letters and digits kept,
     /// spaces and hyphens to hyphens, every other character dropped.</summary>

@@ -28,16 +28,21 @@
        greens for the same two meanings. Anything that needs to be legible sits
        *on* one of these as text-primary rather than being painted in it.
 
-       The error foreground below is the one deliberate exception, and it is here
+       The two foregrounds below are the deliberate exceptions, and they are here
        because that rule left a hole. Sitting on a surface answers a banner, but a
-       bare error status line, an error icon, or an error input outline has no
-       error surface under it, so nothing sanctioned said what colour it should
-       be. Code answered anyway: a raw literal in the desktop stylesheet, and a
-       stronger-red token name that several rules referenced and nothing ever
-       declared. The semantic colours stay surfaces; this is the single
-       sanctioned foreground for the error meaning, and it is never painted as a
-       background. */
+       bare status line, a status icon, or an input outline has no semantic
+       surface under it, so nothing sanctioned said what colour it should be.
+       Code answered anyway, once each way. The error meaning invented values: a
+       raw literal in the desktop stylesheet, and a stronger-red token name that
+       several rules referenced and nothing ever declared. The success meaning
+       reached for the surface token itself, so the Settings confirmation line
+       was painted #1A3A22 on #121214 and rendered at 1.49:1 — invisible, and
+       green to every other rule here. The semantic colours stay surfaces; these
+       are the single sanctioned foreground for each of those two meanings, and
+       neither is ever painted as a background. Warning and info get no
+       counterpart, because no rule paints either as text. */
     --color-success: #1A3A22;
+    --color-success-text: #72C086;
     --color-warning: #3D2E00;
     --color-error: #3D0A0D;
     --color-error-text: #EC8E97;
@@ -122,12 +127,12 @@
     --color-band-5: #8595AD;
 
     /* Chart roles.
-       A chart needs role names the twenty palette tokens do not provide: a
+       A chart needs role names the twenty-two palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
        is a theme rather than a second palette, with one difference that matters:
        every value below is derived — a var() of a palette token, or a
        color-mix() of one against the surface it is drawn on. None of them holds
-       a colour of its own, so the palette is still twenty colours and
+       a colour of its own, so the palette is still twenty-two colours and
        .design/color-scheme.md has no new value to disagree with.
 
        The product palette carries exactly one saturated hue, so charts are
@@ -156,11 +161,11 @@
 
     /* Integration roles.
        Same standing as the chart roles above: a theme, not a second palette. An
-       integration affordance needs role names the twenty palette tokens do not
+       integration affordance needs role names the twenty-two palette tokens do not
        provide — a live state, a landed one, a quiet one, and the two surfaces
        the product actually acts on — and every value below is derived. Each is a
        var() of a palette token or a color-mix() of one against the surface it is
-       drawn on, so the palette is still twenty colours and
+       drawn on, so the palette is still twenty-two colours and
        .design/color-scheme.md has no new value to disagree with.
 
        Measured on --color-background-alt, which is what a chip sits on: live
@@ -7005,7 +7010,7 @@ select.field__input option {
    those rules rather than copied into new ones - three copies drift.
 
    No new design token is proposed here, and that is the finding rather than an
-   omission. Everything below is one of the twenty palette colours, the declared
+   omission. Everything below is one of the twenty-two palette colours, the declared
    type ramp and the declared spacing scale. The one custom property this block
    introduces, --md-compare-depth, is local layout state set inline on the
    element and read back with a fallback, exactly as TreeView declares
