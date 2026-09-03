@@ -4,7 +4,7 @@ Backlog-native tooling — skills specific to the Backlog product itself, as opp
 general-purpose or knowledge-folder tooling. Currently one skill:
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
-  (ADR 0006: `.arc42/adr/0006-import-reuses-the-entry-text-grammar.md`). User-invoked only
+  (ADR 0007: `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
 
 This plugin ships two manifests so it installs the same way in either host:

@@ -2,7 +2,7 @@
 
 Reference for `skills/backlog-import-plan`. Restates the grammar a generated plan must
 match — nothing here is invented; it mirrors Backlog's own decision
-(`.arc42/adr/0006-import-reuses-the-entry-text-grammar.md`) and its entry-text rules
+(`.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its entry-text rules
 (`.design/content-editing.md#scheduling-and-dependency-tokens`) in the Backlog product
 repository. A plan is not a file format of its own — it is the same Backlog Entry text
 grammar, with more than one entry in the document.

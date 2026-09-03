@@ -1,4 +1,4 @@
-# ADR 0006: Import reuses the entry text grammar; a plan is multi-task entry text
+# ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text
 
 ```meta
 status: proposed
