@@ -39,7 +39,7 @@ public sealed class ToolsPaneTests
 
         // The other two states, and the two acts that read a catalog there is not.
         Assert.Empty(pane.FindAll("[data-testid='tools-empty-no-entries']"));
-        Assert.Empty(pane.FindAll(".tools-table"));
+        Assert.Empty(pane.FindAll(".tools-inventory"));
         Assert.All(
             pane.FindAll(".tools-panel__toolbar-actions button"),
             button => Assert.True(button.HasAttribute("disabled")));
@@ -75,7 +75,7 @@ public sealed class ToolsPaneTests
         // In the shape of the thing that is coming: the pane's own kind sections
         // and its own four-column rows, not a placeholder layout of its own.
         Assert.NotEmpty(loading.QuerySelectorAll(".tools-kind"));
-        Assert.NotEmpty(loading.QuerySelectorAll(".tools-table__row"));
+        Assert.NotEmpty(loading.QuerySelectorAll(".data-table__row"));
 
         // And neither empty state, which is the other half of the confusion: a
         // pane still reading has not established that there is nothing to show.
@@ -353,6 +353,84 @@ public sealed class ToolsPaneTests
     }
 
     /// <summary>
+    /// The inventory is the shared library's table, so what a reader on a screen
+    /// reader is handed is a table: a real heading row over real cells, rather
+    /// than divs claiming through <c>role</c> to be the thing they are drawn as.
+    /// <para>The roles went with the grid they described. An element that says
+    /// <c>role="cell"</c> is asking to be taken for one; a <c>td</c> simply
+    /// is one, and it cannot fall out of step with how the row is laid out.</para>
+    /// </summary>
+    [Fact]
+    public void The_inventory_is_a_table_rather_than_divs_wearing_its_roles()
+    {
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
+
+        var pane = context.Render<ToolsPane>();
+
+        foreach (var role in new[] { "role=\"table\"", "role=\"row\"", "role=\"columnheader\"", "role=\"cell\"" })
+        {
+            Assert.DoesNotContain(role, pane.Markup, StringComparison.Ordinal);
+        }
+
+        var table = pane.Find(".tools-inventory table");
+        var headings = table.QuerySelectorAll("thead th");
+
+        Assert.Equal(["Tool", "Installed", "Available", "Actions"], headings.Select(heading => heading.TextContent.Trim()));
+        Assert.All(headings, heading => Assert.Equal("col", heading.GetAttribute("scope")));
+
+        // One cell per heading, in the same order. Nothing in the component can
+        // check that for the row template, which is the price of a cell holding a
+        // button rather than a string.
+        var row = table.QuerySelector("tbody tr");
+
+        Assert.NotNull(row);
+        Assert.Equal(headings.Length, row!.QuerySelectorAll("td").Length);
+    }
+
+    /// <summary>
+    /// The row element belongs to the library, so the two things this pane needs
+    /// on it arrive through the component rather than through a row the pane draws
+    /// itself: the key a driver scopes the shared per-row test ids by, and the
+    /// quieting a row this machine has switched off is drawn with.
+    /// </summary>
+    [Fact]
+    public void A_row_carries_its_own_key_and_says_when_the_machine_has_switched_it_off()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Tool(enabled: false, installed: true, "0.4.0", "0.5.0")));
+
+        var row = context.Render<ToolsPane>().Find("[data-tool-key]");
+
+        Assert.Equal("TR", row.TagName);
+        Assert.Equal("plugin:architecture", row.GetAttribute("data-tool-key"));
+
+        // Beside the library's own row class rather than instead of it: the frame
+        // is still the frame, and this is one row of it reading quieter.
+        Assert.Contains("data-table__row", row.ClassList);
+        Assert.Contains("tools-inventory__row--disabled", row.ClassList);
+    }
+
+    /// <summary>A row that is up to date says so in words; the one that is behind
+    /// is the only place a version is worth looking at, so the newer number is
+    /// marked in the cell that reports it and nowhere else.</summary>
+    [Fact]
+    public void The_newer_version_is_marked_in_the_cell_that_reports_it()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Tool(enabled: true, installed: true, "0.4.0", "0.5.0")));
+
+        var pane = context.Render<ToolsPane>();
+        var marked = pane.Find(".tools-inventory__version--new");
+
+        Assert.Equal("TD", marked.TagName);
+        Assert.Contains("0.5.0", marked.TextContent, StringComparison.Ordinal);
+
+        // The installed column is not news, whichever way the two numbers read.
+        Assert.Single(pane.FindAll(".tools-inventory__version--new"));
+        Assert.DoesNotContain("0.4.0", marked.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Three slots, so the stylesheet can give each one a column of its own and
     /// line them up down the group. They were three loose children of a wrapping
     /// row, which put the toggle and Remove wherever the status happened to end.
@@ -362,14 +440,40 @@ public sealed class ToolsPaneTests
     {
         using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
 
-        var actions = context.Render<ToolsPane>().Find(".tools-table__actions");
+        var actions = context.Render<ToolsPane>().Find(".tools-inventory__actions");
 
-        Assert.NotNull(actions.QuerySelector(".tools-table__action"));
-        Assert.NotNull(actions.QuerySelector(".tools-table__toggle"));
+        Assert.NotNull(actions.QuerySelector(".tools-inventory__action"));
+        Assert.NotNull(actions.QuerySelector(".tools-inventory__toggle"));
 
-        var remove = actions.QuerySelector(".tools-table__remove");
+        var remove = actions.QuerySelector(".tools-inventory__remove");
         Assert.NotNull(remove);
         Assert.NotNull(remove!.QuerySelector("[data-testid='tools-row-remove']"));
+    }
+
+    /// <summary>
+    /// The grid those slots sit in is an element inside the cell, not the cell
+    /// itself. A <c>td</c> carrying <c>display: grid</c> is not a table-cell box any
+    /// more: it loses the row's vertical alignment, and the bottom rule the library
+    /// draws on every cell is drawn around the grid instead of at the row's edge.
+    /// <para>It also decides the restack. Inside the narrow container query the
+    /// blanket <c>display: block</c> on <c>.tools-inventory .data-table__row &gt; td</c>
+    /// outranks a bare <c>.tools-inventory__actions</c>, so a grid declared on the
+    /// cell would be overruled — and every rule the narrow block writes for the
+    /// group would be inert at exactly the widths the restack exists for.</para>
+    /// </summary>
+    [Fact]
+    public void The_actions_grid_is_inside_the_cell_rather_than_the_cell_itself()
+    {
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
+
+        var actions = context.Render<ToolsPane>().Find(".tools-inventory__actions");
+
+        Assert.Equal("DIV", actions.TagName);
+
+        var cell = actions.ParentElement;
+        Assert.NotNull(cell);
+        Assert.Equal("TD", cell!.TagName);
+        Assert.Contains("tools-inventory__actions-cell", cell.ClassName ?? string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -385,11 +489,11 @@ public sealed class ToolsPaneTests
     {
         using var context = Context(FakeDevToolService.With(Marketplace(known: true)));
 
-        var actions = context.Render<ToolsPane>().Find(".tools-table__actions");
+        var actions = context.Render<ToolsPane>().Find(".tools-inventory__actions");
 
-        Assert.Null(actions.QuerySelector(".tools-table__toggle"));
-        Assert.NotNull(actions.QuerySelector(".tools-table__action"));
-        Assert.NotNull(actions.QuerySelector(".tools-table__remove"));
+        Assert.Null(actions.QuerySelector(".tools-inventory__toggle"));
+        Assert.NotNull(actions.QuerySelector(".tools-inventory__action"));
+        Assert.NotNull(actions.QuerySelector(".tools-inventory__remove"));
     }
 
     /// <summary>A host that starts no processes — the browser's unsupported
@@ -455,7 +559,7 @@ public sealed class ToolsPaneTests
     /// hidden heading row leaves two bare version strings with nothing saying which
     /// is installed and which is available. The labels are in the markup at every
     /// width and the stylesheet decides when they show; see
-    /// <see cref="ToolsTableLayoutTests"/> for the other half.
+    /// <see cref="ToolsInventoryLayoutTests"/> for the other half.
     /// </summary>
     [Fact]
     public void Every_version_cell_says_which_version_it_is()
@@ -464,11 +568,11 @@ public sealed class ToolsPaneTests
             Tool(enabled: true, installed: true, "0.4.0", "0.5.0")));
 
         var row = context.Render<ToolsPane>().Find("[data-tool-key]");
-        var cells = row.QuerySelectorAll(".tools-table__version");
+        var cells = row.QuerySelectorAll(".tools-inventory__version");
 
         Assert.Equal(2, cells.Length);
         Assert.Equal(["Installed", "Available"], cells
-            .Select(cell => cell.QuerySelector(".tools-table__cell-label")!.TextContent)
+            .Select(cell => cell.QuerySelector(".tools-inventory__cell-label")!.TextContent)
             .ToArray());
 
         // The label sits beside the version rather than replacing it.
@@ -764,8 +868,29 @@ public sealed class ToolsPaneTests
 
         var pane = context.Render<ToolsPane>();
 
-        Assert.True(pane.Find("[data-tool-group='Application:Baseline'] .tools-table").HasAttribute("hidden"));
-        Assert.False(pane.Find("[data-tool-group='Application:Team tools'] .tools-table").HasAttribute("hidden"));
+        Assert.True(pane.Find("[data-tool-group='Application:Baseline'] .tools-inventory").HasAttribute("hidden"));
+        Assert.False(pane.Find("[data-tool-group='Application:Team tools'] .tools-inventory").HasAttribute("hidden"));
+    }
+
+    /// <summary>
+    /// The disclosure and the thing it discloses still point at each other now
+    /// that the table is a component. The id and the hidden state ride the
+    /// component's unmatched attributes onto its root — the one part of this
+    /// migration that is not the pane's own markup — and a trigger whose
+    /// <c>aria-controls</c> names nothing on the page reads as an inert control to
+    /// anyone not looking at the rows appear.
+    /// </summary>
+    [Fact]
+    public void The_group_toggle_names_the_table_it_opens()
+    {
+        using var context = Context(FakeDevToolService.With(
+            Application("Microsoft.VisualStudioCode", "Visual Studio Code", group: "Baseline")));
+
+        var pane = context.Render<ToolsPane>();
+        var controls = pane.Find("[data-testid='tools-group-toggle']").GetAttribute("aria-controls");
+
+        Assert.False(string.IsNullOrWhiteSpace(controls));
+        Assert.Equal(controls, pane.Find("[data-tool-group='Application:Baseline'] .tools-inventory").Id);
     }
 
     [Fact]
@@ -777,7 +902,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         pane.Find("[data-testid='tools-group-toggle']").Click();
 
-        Assert.False(pane.Find("[data-tool-group='Application:Baseline'] .tools-table").HasAttribute("hidden"));
+        Assert.False(pane.Find("[data-tool-group='Application:Baseline'] .tools-inventory").HasAttribute("hidden"));
     }
 
     /// <summary>The package manager knows it and cannot install it unattended —
@@ -799,9 +924,9 @@ public sealed class ToolsPaneTests
         using var context = Context(FakeDevToolService.With(tool));
         var pane = context.Render<ToolsPane>();
 
-        Assert.Equal("Install by hand — see the note", pane.Find(".tools-table__action-note").TextContent);
+        Assert.Equal("Install by hand — see the note", pane.Find(".tools-inventory__action-note").TextContent);
         Assert.DoesNotContain(
-            pane.FindAll(".tools-table__actions button"),
+            pane.FindAll(".tools-inventory__actions button"),
             button => button.TextContent.Trim() == "Install");
 
         // The reason is on the row rather than in a status line that scrolls away.
@@ -829,7 +954,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
 
         Assert.Equal(expected, InstalledValue(pane));
-        Assert.Equal(expected, pane.Find(".tools-table__action-note").TextContent);
+        Assert.Equal(expected, pane.Find(".tools-inventory__action-note").TextContent);
         Assert.DoesNotContain("Version unknown", pane.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Up to date", pane.Markup, StringComparison.Ordinal);
     }
@@ -864,7 +989,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
 
         Assert.Equal(expected, InstalledValue(pane));
-        Assert.Empty(pane.FindAll(".tools-table__action-note"));
+        Assert.Empty(pane.FindAll(".tools-inventory__action-note"));
     }
 
     /// <summary>The defect the acknowledgement port method exists for: ticking the
@@ -894,7 +1019,7 @@ public sealed class ToolsPaneTests
 
         Assert.NotNull(pane.Find("[data-testid='tools-row-acknowledge']"));
         Assert.DoesNotContain(
-            pane.FindAll(".tools-table__actions button"),
+            pane.FindAll(".tools-inventory__actions button"),
             button => button.TextContent.Trim() is "Install" or "Update");
     }
 
@@ -910,7 +1035,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
 
         Assert.Empty(pane.FindAll("[data-testid='tools-row-acknowledge']"));
-        Assert.Equal("Disabled", pane.Find(".tools-table__action-note").TextContent);
+        Assert.Equal("Disabled", pane.Find(".tools-inventory__action-note").TextContent);
     }
 
     /// <summary>The add form's kind chain is binary-exhaustive and falls through
@@ -1089,10 +1214,10 @@ public sealed class ToolsPaneTests
         using var context = Context(FakeDevToolService.With(tool));
         var pane = context.Render<ToolsPane>();
 
-        var actions = pane.Find(".tools-table__actions").TextContent;
+        var actions = pane.Find(".tools-inventory__actions").TextContent;
         Assert.Contains("Up to date", actions, StringComparison.Ordinal);
         Assert.DoesNotContain("Update", actions, StringComparison.Ordinal);
-        Assert.Empty(pane.FindAll(".tools-table__version--new"));
+        Assert.Empty(pane.FindAll(".tools-inventory__version--new"));
 
         // And nothing for "Update all" to act on either, which is the toolbar's
         // half of the same claim.
@@ -1113,10 +1238,10 @@ public sealed class ToolsPaneTests
         using var context = Context(FakeDevToolService.With(tool));
         var pane = context.Render<ToolsPane>();
 
-        var actions = pane.Find(".tools-table__actions").TextContent;
+        var actions = pane.Find(".tools-inventory__actions").TextContent;
         Assert.Contains("Version unknown", actions, StringComparison.Ordinal);
         Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
-        Assert.Empty(pane.FindAll(".tools-table__version--new"));
+        Assert.Empty(pane.FindAll(".tools-inventory__version--new"));
     }
 
     /// <summary>AC4. A repository-backed row reports the local mirror rather than
@@ -1137,7 +1262,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
 
         Assert.Equal(note, pane.Find("[data-testid='tools-row-note']").TextContent);
-        Assert.Contains("Up to date", pane.Find(".tools-table__actions").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Up to date", pane.Find(".tools-inventory__actions").TextContent, StringComparison.Ordinal);
     }
 
     private static BunitContext Context(IDevToolService service)
@@ -1167,7 +1292,7 @@ public sealed class ToolsPaneTests
     {
         using var context = Context(FakeDevToolService.With(tool));
 
-        return context.Render<ToolsPane>().Find(".tools-table__actions").TextContent;
+        return context.Render<ToolsPane>().Find(".tools-inventory__actions").TextContent;
     }
 
     /// <summary>What the Installed cell reports, without the column label in front
@@ -1181,7 +1306,7 @@ public sealed class ToolsPaneTests
     private static string InstalledValue(IRenderedComponent<ToolsPane> pane)
     {
         var cell = pane.Find("[data-testid='tools-row-installed']");
-        var label = cell.QuerySelector(".tools-table__cell-label")?.TextContent ?? string.Empty;
+        var label = cell.QuerySelector(".tools-inventory__cell-label")?.TextContent ?? string.Empty;
 
         return cell.TextContent[label.Length..].Trim();
     }
