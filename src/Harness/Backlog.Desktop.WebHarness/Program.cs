@@ -83,7 +83,17 @@ builder.Services.AddSingleton(sp =>
     workspace.RootChanged += store.Reload;
     return store;
 });
-builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+// The same arrangement the desktop host makes: the credential a call leaves with
+// is decided per call, so a repository bound to an account goes out as that
+// account rather than as whoever `gh` happens to be switched to.
+builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    sp.GetRequiredService<IGhCliAccountSource>()));
+builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+    accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));

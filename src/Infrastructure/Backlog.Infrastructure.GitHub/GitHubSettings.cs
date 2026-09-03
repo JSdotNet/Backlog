@@ -202,38 +202,24 @@ public sealed class GitHubSettings
     }
 
     /// <summary>
-    /// The token a call on one API path leaves with.
+    /// The token already in hand for one API path, or null.
     /// <para>
-    /// Still carrying the cross-repository fallback it has always had: a path with
-    /// no token of its own is handed the first token in the list. That fallback is
-    /// the defect <see cref="AccountForPath"/> exists to replace, and it is removed
-    /// in the stage that moves the transport onto the resolver — deliberately not
-    /// in the stage that only adds the model beside it, so each stage stands on its
-    /// own.
+    /// It used to hand a path with no token of its own the first token in the list,
+    /// wherever in the list that was. That fallback is deleted: it is how a call for
+    /// one owner's repository left carrying another owner's credential and came back
+    /// a 404, and it was reachable for every path this lookup could not read as a
+    /// repository, which was every organization and user path the Copilot and
+    /// billing clients send.
+    /// </para>
+    /// <para>
+    /// Null does not mean "no way to authenticate". A CLI-backed account's token
+    /// does not exist until somebody goes and fetches it, which is why the transport
+    /// asks <see cref="IGitHubCredentialResolver"/> rather than this, and why the
+    /// availability probe asks <see cref="HasAnyCredential"/> rather than calling
+    /// this with no path.
     /// </para>
     /// </summary>
-    public string? TokenForPath(string? path)
-    {
-        var repository = RepositoryFromApiPath(path);
-        return repository?.Token
-            ?? Repositories.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Token))?.Token;
-    }
-
-    private GitHubRepositoryRef? RepositoryFromApiPath(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return null;
-
-        var trimmed = path.TrimStart('/');
-        const string prefix = "repos/";
-        if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
-
-        var parts = trimmed[prefix.Length..].Split('/', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length < 2) return null;
-
-        return Repositories.FirstOrDefault(r =>
-            string.Equals(r.Owner, parts[0], StringComparison.OrdinalIgnoreCase)
-            && string.Equals(r.Name, parts[1], StringComparison.OrdinalIgnoreCase));
-    }
+    public string? TokenForPath(string? path) => AccountForPath(path).Token;
 
     private GitHubAccountChoice ChoiceForRepository(string owner, string name)
     {

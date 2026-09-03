@@ -172,27 +172,24 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
             new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).Description);
     }
 
-    // --- Known defect, pinned as it stands ------------------------------------
+    // --- The defect that was pinned here, now fixed ---------------------------
 
     /// <summary>
-    /// Characterization of a known defect, not of intended behaviour.
+    /// Stage 0 pinned this the other way round, as a known defect: the token lookup
+    /// was a method group bound to the <c>GitHubSettings</c> instance that existed
+    /// when the transport was constructed, while the API endpoint beside it was a
+    /// lambda reading <c>Current</c> per call. Every mutator replaces <c>Current</c>
+    /// with a new instance, so a token configured after construction — or a workspace
+    /// move, which is what <c>Reload()</c> is wired to — was visible to the endpoint
+    /// half and invisible to the token half.
     /// <para>
-    /// The token lookup is a method group bound to the <c>GitHubSettings</c> instance
-    /// that existed when the transport was constructed
-    /// (<c>ResolvingGitHubTransport.cs:36</c>), while the API endpoint beside it is a
-    /// lambda that reads <c>Current</c> per call. Every mutator replaces
-    /// <c>Current</c> with a new instance, so a token configured after construction —
-    /// or a workspace move, which is what <c>Reload()</c> is wired to — is invisible to
-    /// the token half and visible to the endpoint half.
-    /// </para>
-    /// <para>
-    /// Stage 2 of the multi-account work replaces both delegates with a resolver that
-    /// reads the settings per call, at which point this test is expected to fail and
-    /// must be rewritten to assert the opposite, with that stage named as the reason.
+    /// Stage 2 replaced both delegates with a resolver that reads the settings per
+    /// call, so the pin is rewritten rather than removed and now asserts the
+    /// opposite.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_token_configured_after_construction_is_invisible_to_the_transport()
+    public async Task A_token_configured_after_construction_is_visible_to_the_transport()
     {
         var store = Store();
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("backlog", "octo", "demo")]));
@@ -200,13 +197,106 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         using var gh = new GhStub().Fails();
         var transport = new ResolvingGitHubTransport(store, gh.Transport());
 
-        Assert.Null(store.SetRepositoryToken("backlog", "ghp_added_after_construction"));
-
         Assert.False(await transport.IsAvailableAsync());
 
-        // The settings themselves are fine — a transport built now sees the token. It
-        // is the binding that is stale, not the store.
-        Assert.True(await new ResolvingGitHubTransport(store, gh.Transport()).IsAvailableAsync());
+        Assert.Null(store.SetRepositoryToken("backlog", "ghp_added_after_construction"));
+
+        Assert.True(await transport.IsAvailableAsync());
+    }
+
+    /// <summary>
+    /// The other half of the same fix, and the one the workspace move needs: the
+    /// registry follows the backlog folder, so <c>Reload()</c> replaces
+    /// <c>Current</c> wholesale and the credential lookup has to follow it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_the_workspace_moves_the_credential_lookup_with_it()
+    {
+        const string path = "repos/innovadis-dev/spec-manager/issues";
+
+        var root = Path.Combine(_root, "workspace-one");
+        var store = new GitHubSettingsStore(Path.Combine(_root, "github.json"), () => root);
+
+        // Deliberately nothing machine-local, so this install has no overlay row to
+        // carry into the workspace it moves to.
+        Assert.Null(store.SetRepositories([new GitHubRepositoryRef("spec", "innovadis-dev", "spec-manager")]));
+
+        using var gh = new GhStub().Fails();
+        var transport = new ResolvingGitHubTransport(store, gh.Transport());
+
+        // Unbound in this workspace: nothing to reach GitHub with, said the way it
+        // has always been said.
+        Assert.Equal(
+            "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.",
+            (await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
+                transport.SendAsync(HttpMethod.Get, path))).Message);
+
+        // The same repository, bound in the workspace being moved to.
+        var moved = Path.Combine(_root, "workspace-two");
+        Directory.CreateDirectory(Path.Combine(moved, "config"));
+        File.WriteAllText(
+            Path.Combine(moved, "config", "repos.json"),
+            """
+            {
+              "repositories": [
+                { "id": "innovadis-dev/spec-manager", "alias": "spec", "account": "j-schepers_innobv" }
+              ]
+            }
+            """);
+
+        root = moved;
+        store.Reload();
+
+        // The binding is picked up, which it could not be if the lookup were still
+        // reading the settings snapshot it was constructed with.
+        Assert.Equal(
+            "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "
+            + "and this machine has no credential for 'j-schepers_innobv'.",
+            (await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
+                transport.SendAsync(HttpMethod.Get, path))).Message);
+    }
+
+    // --- A bound repository never leaves as the process-wide identity ----------
+
+    /// <summary>
+    /// The fix, stated as the routing rule it is. <c>gh api</c> has no per-call
+    /// account selector, so the CLI can only ever speak as whoever <c>gh</c> is
+    /// currently switched to — and letting it answer for a repository bound to a
+    /// different account is exactly how a call left as the wrong identity and came
+    /// back a 404.
+    /// </summary>
+    [Fact]
+    public async Task A_bound_path_goes_out_over_http_even_when_the_cli_is_signed_in()
+    {
+        using var gh = new GhStub().Answers("""{"login":"JSdotNet"}""");
+        var handler = new RecordingHandler();
+        var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), BoundToken(handler));
+
+        await transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues");
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal("Bearer ghp_bound", handler.Request!.Headers.Authorization!.ToString());
+
+        // And the CLI carried nothing. Its availability probe may or may not have
+        // run; what matters is that no `gh api` call for this path was made.
+        Assert.DoesNotContain(gh.Calls, call => call.Contains("repos/innovadis-dev/spec-manager/issues"));
+    }
+
+    /// <summary>Settings' "Check the connection" button is the only way a rotated or
+    /// revoked credential is ever noticed, so invalidation has to reach the token the
+    /// CLI handed over as well as the CLI's own remembered answer.</summary>
+    [Fact]
+    public async Task Invalidate_also_forgets_the_tokens_extracted_from_the_cli()
+    {
+        using var gh = new GhStub().Answers("""{"login":"octocat"}""");
+        var accounts = new StubGhCliAccountSource();
+        var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken(), accounts: accounts);
+
+        Assert.True(await transport.IsAvailableAsync());
+
+        transport.Invalidate();
+
+        Assert.Equal(1, accounts.Invalidations);
     }
 
     public void Dispose()
@@ -216,11 +306,19 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
 
     private GitHubSettingsStore Store() => new(Path.Combine(_root, "github.json"));
 
+    /// <summary>A token route that can answer any path, with nothing naming an
+    /// identity — the shape of a machine that has a repository token and no
+    /// accounts.</summary>
     private static TokenTransport Token(RecordingHandler handler) =>
-        new(_ => "ghp_example", () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));
+        new(StubCredentialResolver.WithToken(), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));
 
     private static TokenTransport NoToken() =>
-        new(_ => null, () => GitHubSettings.DefaultApiEndpoint, new HttpClient(new RecordingHandler()));
+        new(StubCredentialResolver.None(), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(new RecordingHandler()));
+
+    /// <summary>A token route every path resolves to <em>by name</em>, which is the
+    /// case the CLI may never answer for.</summary>
+    private static TokenTransport BoundToken(RecordingHandler handler, string account = "j-schepers_innobv") =>
+        new(StubCredentialResolver.Bound(account), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));
 
     private sealed class RecordingHandler : HttpMessageHandler
     {

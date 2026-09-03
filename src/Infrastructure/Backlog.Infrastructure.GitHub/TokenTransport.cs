@@ -6,18 +6,36 @@ using System.Text.Json;
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
-/// Talks to the GitHub REST API directly with a personal access token — the
-/// fallback for machines where the <c>gh</c> CLI isn't installed or signed in.
+/// Talks to the GitHub REST API directly with a token.
+/// <para>
+/// Two jobs now, not one. It is still the fallback for machines where the
+/// <c>gh</c> CLI isn't installed or signed in — and it is also the only way a call
+/// can go out as an identity other than the one <c>gh</c> is switched to, because
+/// <c>gh api</c> has no per-call account selector. So every bound repository comes
+/// through here, whether or not the CLI is available and whether or not the
+/// credential originally came from the CLI.
+/// </para>
+/// <para>
+/// Which credential a path leaves with is not this type's decision. It asks
+/// <see cref="IGitHubCredentialResolver"/>, per call, which is what lets a token
+/// configured after startup take effect and what stops one repository's credential
+/// ever being borrowed for another.
+/// </para>
 /// </summary>
 public sealed class TokenTransport : IGitHubTransport
 {
     private readonly HttpClient _http;
-    private readonly Func<string?, string?> _token;
+    private readonly IGitHubCredentialResolver _credentials;
     private readonly Func<string?> _apiEndpoint;
 
-    public TokenTransport(Func<string?, string?> token, Func<string?>? apiEndpoint = null, HttpClient? http = null)
+    public TokenTransport(
+        IGitHubCredentialResolver credentials,
+        Func<string?>? apiEndpoint = null,
+        HttpClient? http = null)
     {
-        _token = token;
+        ArgumentNullException.ThrowIfNull(credentials);
+
+        _credentials = credentials;
         _apiEndpoint = apiEndpoint ?? (() => GitHubSettings.DefaultApiEndpoint);
         _http = http ?? new HttpClient();
 
@@ -33,8 +51,23 @@ public sealed class TokenTransport : IGitHubTransport
 
     public string Description => "personal access token";
 
+    /// <summary>The resolver this transport asks, so the transport that composes it
+    /// can route on the same answer rather than on a second one of its own.</summary>
+    internal IGitHubCredentialResolver Credentials => _credentials;
+
+    /// <summary>
+    /// Whether this machine holds a token at all — not whether any particular path
+    /// resolves to one.
+    /// <para>
+    /// It used to ask the token lookup with no path, and the only answer that could
+    /// reach was the cross-repository fallback. So deleting the fallback would have
+    /// left this transport permanently unavailable, and a machine with no <c>gh</c>
+    /// but a working repository token would have been told it could not reach GitHub
+    /// at all. The two questions were one question; they are two now.
+    /// </para>
+    /// </summary>
     public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(!string.IsNullOrWhiteSpace(_token(null)));
+        Task.FromResult(_credentials.HasAnyCredential);
 
     public async Task<JsonElement> SendAsync(
         HttpMethod method,
@@ -43,14 +76,16 @@ public sealed class TokenTransport : IGitHubTransport
         string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
-        var token = _token(path);
-        if (string.IsNullOrWhiteSpace(token))
+        // Throws, naming the account, when the path is bound to one this machine
+        // cannot satisfy. Never falls through to another identity.
+        var credential = await _credentials.ResolveAsync(path, cancellationToken);
+        if (credential is null)
         {
             throw new GitHubNotConfiguredException("No GitHub token is configured.");
         }
 
-        using var request = new HttpRequestMessage(method, EndpointUri(path));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        using var request = new HttpRequestMessage(method, EndpointUri(path, credential.ApiEndpoint));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential.Token.Trim());
         request.Headers.TryAddWithoutValidation(
             "X-GitHub-Api-Version",
             string.IsNullOrWhiteSpace(apiVersion) ? IGitHubTransport.DefaultApiVersion : apiVersion.Trim());
@@ -93,9 +128,12 @@ public sealed class TokenTransport : IGitHubTransport
     }
 
 
-    internal Uri EndpointUri(string path)
+    /// <param name="apiEndpoint">An endpoint the resolved credential named, which
+    /// wins over the install-wide one. That is how an account on a GitHub Enterprise
+    /// Server host reaches its own API without the whole install moving there.</param>
+    internal Uri EndpointUri(string path, string? apiEndpoint = null)
     {
-        var raw = _apiEndpoint();
+        var raw = string.IsNullOrWhiteSpace(apiEndpoint) ? _apiEndpoint() : apiEndpoint;
         var endpoint = string.IsNullOrWhiteSpace(raw)
             ? GitHubSettings.DefaultApiEndpoint
             : raw.Trim().TrimEnd('/');

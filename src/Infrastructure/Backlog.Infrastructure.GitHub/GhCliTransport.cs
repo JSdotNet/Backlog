@@ -8,6 +8,20 @@ namespace Backlog.Infrastructure.GitHub;
 /// Talks to GitHub through the <c>gh</c> CLI the person is already signed in to.
 /// Preferred over a token because it means the app never holds a credential:
 /// <c>gh</c> keeps it, refreshes it, and revokes it.
+/// <para>
+/// Narrowed to the <b>default path only</b>. <c>gh api</c> has no per-call account
+/// selector, so this can speak as one identity — whoever <c>gh</c> is currently
+/// switched to — and that is exactly right for a repository nobody has bound to an
+/// account, which is today's behaviour and the great majority of calls. A bound
+/// repository goes over HTTP instead, through <see cref="TokenTransport"/>, because
+/// there is no way to ask this to be somebody else for one call and asking the
+/// machine to switch would change state the app does not own.
+/// </para>
+/// <para>
+/// Kept rather than replaced by extracting a token for the active account too: for
+/// the default path no credential extraction is needed at all, which preserves the
+/// property this class exists for.
+/// </para>
 /// </summary>
 public sealed class GhCliTransport : IGitHubTransport
 {

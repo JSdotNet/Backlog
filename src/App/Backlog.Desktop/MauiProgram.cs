@@ -98,7 +98,20 @@ public static class MauiProgram
             workspace.RootChanged += store.Reload;
             return store;
         });
-        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+        // Which credential a call leaves with is decided per call, against the
+        // settings as they are at that moment: a repository bound to an account goes
+        // out as that account, and never as whoever `gh` happens to be switched to.
+        // The gh CLI is a source of credentials here as well as a way of sending, so
+        // the account source is registered once and shared — its token cache and its
+        // account list are the things "Check the connection" invalidates.
+        builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+        builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<IGhCliAccountSource>()));
+        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+            accounts: sp.GetRequiredService<IGhCliAccountSource>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.

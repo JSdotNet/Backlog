@@ -50,6 +50,11 @@ internal sealed class GhStub : IDisposable
     /// <summary>A transport that talks to this stub instead of to <c>gh</c>.</summary>
     public GhCliTransport Transport() => new(Executable);
 
+    /// <summary>A credential source that talks to this stub instead of to
+    /// <c>gh</c>. The same seam for the same reason: the executable is all there
+    /// is.</summary>
+    public GhCliAccountSource Source(TimeProvider? time = null) => new(Executable, time);
+
     /// <summary>Every call the transport made, argv element by argv element, in the
     /// order they were made.</summary>
     public IReadOnlyList<string[]> Calls
