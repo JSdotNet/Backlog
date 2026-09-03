@@ -1,5 +1,6 @@
 ﻿@implements IDisposable
 @inject TasksDesktopState State
+@inject IToastChannel Toasts
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject IJSRuntime JS
@@ -293,22 +294,13 @@
         </End>
     </SplitPane>
 
-    @* What the last import produced, once the dialog it ran from has closed —
-       the same "reads as" sentence a single save already gives, for a whole
-       batch. Dismissable, the same as every other transient result this pane
-       reports; not auto-dismissed, because "3 created, 1 updated" is exactly the
-       kind of line somebody opened the dialog to go and check against the list. *@
-    <Alert Message="@_importMessage" BaseClass="import-plan-result" Role="status" TestId="import-plan-result" />
-
-    @* What the last bulk change did, in the same shape and the same place the
-       import result already reports from — one field on twenty rows is a batch
-       like an import is, and a reader who asked for one is owed the same
-       sentence.
-
-       Its own alert rather than a shared one, because the two outlive each other:
-       an import result is something the reader opened a dialog to go and check
-       against the list, and a bulk edit landing meanwhile must not wipe it. *@
-    <Alert Message="@_bulkMessage" BaseClass="import-plan-result" Role="status" TestId="bulk-result" />
+    @* What the last import produced and what the last bulk change did used to be
+       two Alerts pinned to the bottom of this section. They are toasts now, raised
+       on the channel the shell's tray renders: both are results about a gesture
+       rather than facts about the list, and a line that stayed under the entries
+       until something replaced it was a band the reader had to dismiss to get the
+       room back. See OnImportAsync and ApplyBulkAsync — the publish happens where
+       the result arrives, never from markup. *@
 </section>
 
 <ImportPlanDialog @ref="_importDialog"
@@ -890,13 +882,12 @@
 
     private void OnSelectAllChanged(bool selected) => State.SetSelectAllVisible(selected);
 
-    /// <summary>Leaving the selection puts the bar's own sentence away with it.
-    /// A result about rows nobody is looking at any more is a line the reader has
-    /// to work out the subject of.</summary>
+    /// <summary>Leaving the selection puts the draft tags away with it. The result
+    /// itself is a toast now and dismisses on its own timer, so there is no longer
+    /// a sentence pinned under the list for this to have to clear.</summary>
     private void OnClearSelection()
     {
         State.ClearSelection();
-        _bulkMessage = null;
         _bulkTags = [];
     }
 
@@ -983,16 +974,23 @@
             ? Task.CompletedTask
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
-    /// <summary>Runs one bulk change and says what it did. Nothing selected
-    /// leaves the last sentence alone rather than replacing it with a line about
-    /// no rows.</summary>
+    /// <summary>Runs one bulk change and says what it did. Nothing selected says
+    /// nothing at all rather than raising a toast about no rows.</summary>
     private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
     {
         var outcome = await change();
 
         if (outcome.Total == 0) return;
 
-        _bulkMessage = BulkMessage(outcome);
+        // A batch with refusals in it is a warning rather than a result: the
+        // sentence still leads with what landed, but a reader who asked for one
+        // field on twenty rows and got it on eight needs the longer dwell to read
+        // the rest of it.
+        var message = BulkMessage(outcome);
+
+        Toasts.Publish(outcome.Failures.Count > 0
+            ? ToastMessage.Warning(message, BulkResultTestId)
+            : ToastMessage.Info(message, BulkResultTestId));
     }
 
     /// <summary>
@@ -1162,14 +1160,15 @@
     private ImportPlanDialog? _importDialog;
     private bool _importOpen;
     private bool _importBusy;
-    private string? _importMessage;
 
-    // --- The bulk bar's own two pieces of state ----------------------------
+    /// <summary>The ids the two results carried while they were inline alerts. They
+    /// ride on the toast now, so a selector written against either surface still
+    /// finds the sentence.</summary>
+    private const string ImportResultTestId = "import-plan-result";
 
-    /// <summary>What the last bulk change did. Held here rather than in the state
-    /// object because it is a sentence about a gesture on this surface, not a fact
-    /// about the entries — the same reason the import result is held here.</summary>
-    private string? _bulkMessage;
+    private const string BulkResultTestId = "bulk-result";
+
+    // --- The bulk bar's own state ------------------------------------------
 
     /// <summary>The tags picked but not yet applied. A draft, so it lives with the
     /// control that is collecting it.</summary>
@@ -1177,7 +1176,6 @@
 
     private void OnOpenImport()
     {
-        _importMessage = null;
         _importOpen = true;
         _importDialog?.OpenFresh();
     }
@@ -1205,7 +1203,10 @@
             if (State.SaveState == AppSaveState.Error || message.StartsWith("Imported:", StringComparison.Ordinal))
             {
                 _importOpen = false;
-                _importMessage = message;
+
+                Toasts.Publish(State.SaveState == AppSaveState.Error
+                    ? ToastMessage.Error(message, ImportResultTestId)
+                    : ToastMessage.Info(message, ImportResultTestId));
             }
             else
             {

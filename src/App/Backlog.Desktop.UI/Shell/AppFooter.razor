@@ -1,11 +1,13 @@
-﻿@inject IAppUpdateService Updates
+﻿@implements IDisposable
+@inject IAppUpdateService Updates
 @inject IServiceProvider Services
 
 @*
     The app-shell footer, mounted once by MainLayout and therefore outside every
     routed page. It carries the two controls that are not about the page in front
-    of you: which build this window is running, and how to say that something in
-    it is wrong.
+    of you — which build this window is running, and how to say that something in
+    it is wrong — and, between them, the one thing on the band that changes while
+    you look at it: whether the window is saving.
 
     Both used to live in Home's header, in among the repository scope, the view
     switcher and the pane strip — a region that is entirely about the work on
@@ -53,6 +55,27 @@
             <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
         }
     </AppButton>
+
+    @* The save state, beside the version rather than out at the right edge,
+       because the auto margin lives here now. That is the whole reason this
+       wrapper exists: with the margin on the version instead, the indicator
+       appearing would push Report issue left and its settling back to quiet would
+       push it right again, three times a save, under the reader's cursor. The slot
+       eats that movement as slack in the middle.
+
+       The wrapper is unconditional and the thing inside it is not. SaveIndicator
+       renders nothing at Idle, which is how a band that is now on every route stays
+       quiet on the routes that are not editing anything — see
+       .design/interaction-guidelines.md#save-state-indicator-vocabulary, where
+       "Saved" is explicitly not allowed to nag. *@
+    <span class="app-footer__status">
+        <SaveIndicator State="@SaveIndicatorState"
+                       SavingText="Saving…"
+                       SavedText="Saved"
+                       FailedText="Couldn't save"
+                       id="save-state-indicator"
+                       TestId="save-state-indicator" />
+    </span>
 
     @* Its own component, and it stays that way: the trigger and its dialog are
        one state machine, and it is the component that owns it. What changed is
@@ -131,6 +154,10 @@
     // shows the version instead.
     private DevelopmentWorkspaceLabel? _workspace;
 
+    // Whatever this window is currently saving, or null in a host that registers
+    // nothing that saves. The footer never learns who is behind it.
+    private ISaveStatusSource? _saveStatus;
+
     private string? _appUpdateMessage;
     private string _appUpdateStatusClass = AppUpdatePresentation.StatusClass(AppUpdateAvailability.Unknown);
     private bool _checkingForAppUpdate;
@@ -144,12 +171,31 @@
         ? AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)
         : AppUpdatePresentation.WorkspaceWindowLabel(_workspace.Marker);
 
+    private SaveState SaveIndicatorState => _saveStatus?.Current ?? SaveState.Idle;
+
     protected override void OnInitialized()
     {
         // Asked for rather than injected, so a host that registers nothing —
         // every installed build — still resolves this component. An @inject would
         // fail to construct the layout's footer, which is now every page.
         _workspace = Services.GetService<DevelopmentWorkspaceLabel>();
+
+        // Same reason, one line down. A settings-only or diagnostics head has
+        // nothing that saves, and the band it gets should be the band without an
+        // indicator rather than no window at all.
+        _saveStatus = Services.GetService<ISaveStatusSource>();
+        if (_saveStatus is not null) _saveStatus.Changed += OnSaveStatusChanged;
+    }
+
+    // The hop onto the renderer is mandatory rather than defensive: Changed is
+    // raised from Task continuations — the backlog's debounce flush and the timer
+    // that puts "Saved" away again — and neither of those is on this circuit's
+    // thread. Same idiom as TasksPane.HandleStateChanged.
+    private void OnSaveStatusChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (_saveStatus is not null) _saveStatus.Changed -= OnSaveStatusChanged;
     }
 
     private void OpenUpdateWindow() => _appUpdateWindowOpen = true;

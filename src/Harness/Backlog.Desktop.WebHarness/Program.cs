@@ -22,6 +22,7 @@ using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
+using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
@@ -156,6 +157,14 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The save-state band and the toast tray, both mounted by MainLayout under every
+// route. Scoped rather than singleton, and that is forced rather than tidy: this
+// host has one circuit per visitor, a singleton forwarding to a scoped
+// TasksDesktopState is a captive dependency that throws on resolve, and a
+// singleton channel would show one visitor's toasts to every other.
+builder.Services.AddScoped<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+builder.Services.AddScoped<ToastChannel>();
+builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always

@@ -23,6 +23,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -162,6 +163,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<KnowledgeUpdateService>();
         builder.Services.AddSingleton<TasksDesktopState>();
+        // The band under every route reads the backlog's save state through the
+        // library's own interface rather than reaching for the state class, so the
+        // shell's footer never learns which module is the interesting one. Same
+        // lifetime as the state itself: in MAUI there is one window and one user.
+        builder.Services.AddSingleton<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+        // Where a screen puts a message it needs a reader to see, and where the
+        // tray in MainLayout reads it back. Registered as the concrete type with
+        // the interface forwarded to it so both sides resolve the same queue.
+        builder.Services.AddSingleton<ToastChannel>();
+        builder.Services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();

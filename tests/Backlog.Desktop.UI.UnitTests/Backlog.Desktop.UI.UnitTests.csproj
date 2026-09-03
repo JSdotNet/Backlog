@@ -6,6 +6,11 @@
 
   <ItemGroup>
     <Using Include="Backlog.UI.Components.Markdown" />
+    <!-- The library's feedback types. Two of them are contracts the app shell and
+         the modules both speak — the toast channel a screen publishes on and the
+         save-status source the footer draws — so a test that composes either side
+         of that seam needs them, which by now is most of the host builders here. -->
+    <Using Include="Backlog.UI.Components.Feedback" />
 
     <!-- The app is split by bounded context (Inbox, Tasks,
          Knowledge) under a composing Shell — namespaces that are projects rather

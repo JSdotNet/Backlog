@@ -1214,7 +1214,9 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            TasksCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable,
+            toasts: sp.GetRequiredService<IToastChannel>()));
+        TasksTestHost.AddToastChannel(context.Services);
 
         return new Harness(root, context);
     }

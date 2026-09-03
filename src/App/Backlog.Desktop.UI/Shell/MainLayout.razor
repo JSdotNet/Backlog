@@ -19,5 +19,24 @@
 
 <div class="app-shell">
     @Body
+
+    @* A line of no height whose bottom edge is the footer's top edge, so the tray
+       inside it stacks upward off the band without anyone having to know how tall
+       the band is. The alternative — a fixed tray offset by the footer's height —
+       would need that height as a number, and the band is content-driven.
+
+       A sibling of the footer rather than a child of it, and that is the whole
+       point of it being here: a positioned ancestor of the two fixed Modals
+       rendered from inside the footer is exactly what the warning on .app-footer in
+       app.css forbids. `position: relative` is safe on this element because nothing
+       fixed is inside it.
+
+       The tray itself is the shared library's, resolving the shared channel. This
+       is the one place in the app that renders one, which is what keeps the single
+       live region .design/accessibility.md asks for a fact rather than a hope. *@
+    <div class="app-toast-anchor">
+        <ToastTray CssClass="app-toast-tray" TestId="app-toast-tray" />
+    </div>
+
     <AppFooter />
 </div>
