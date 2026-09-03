@@ -9,13 +9,7 @@
     ".tech",
     ".design"
   ],
-  "problems": [
-    {
-      "severity": "warning",
-      "path": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
-      "message": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md is not listed in the reading order recorded in the committed `_meta/index.json`; appended alphabetically. Move it there to pin its position."
-    }
-  ],
+  "problems": [],
   "entries": [
     {
       "type": "area",
@@ -280,13 +274,6 @@
             },
             {
               "type": "file",
-              "name": "0004-import-reuses-the-entry-text-grammar.md",
-              "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-              "title": "ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text",
-              "status": "proposed"
-            },
-            {
-              "type": "file",
               "name": "0005-azure-hosted-task-replica-for-multi-device-sync.md",
               "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
               "title": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
@@ -297,6 +284,13 @@
               "name": "0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
               "path": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
               "title": "ADR 0006: Additive, idempotent bootstrapping is the local store's migration mechanism",
+              "status": "proposed"
+            },
+            {
+              "type": "file",
+              "name": "0007-import-reuses-the-entry-text-grammar.md",
+              "path": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+              "title": "ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text",
               "status": "proposed"
             }
           ]
