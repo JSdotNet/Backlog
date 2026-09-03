@@ -39,6 +39,25 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// </summary>
     public int? Colour { get; init; }
 
+    /// <summary>
+    /// The login of the account this repository is worked as, or null for "whatever
+    /// this machine's default is" — which is what every repository answered before
+    /// accounts existed, and still is unless somebody picks one.
+    /// <para>
+    /// Shared identity rather than machine data, and so it travels in the registry
+    /// beside <see cref="Alias"/> and <see cref="Colour"/>. "That is my work
+    /// repository" is true on every install of a workspace; whether <em>this</em>
+    /// machine holds a credential for that login is a separate fact, and lives in
+    /// the per-user file as a <see cref="GitHubAccount"/>.
+    /// </para>
+    /// <para>
+    /// Deliberately not part of the <c>alias = owner/repo</c> grammar, for the
+    /// reason the hue is not: it is chosen from a known list rather than typed, so
+    /// picking it beats spelling it, and the parser, its error messages and its
+    /// duplicate detection are all left alone.
+    /// </para>
+    /// </summary>
+    public string? Account { get; init; }
 
     /// <summary>The knowledge folders configured for this repository. The type
     /// is Second Brain's published language rather than this adapter's: a
