@@ -335,7 +335,8 @@
         "name": "Claude Desktop",
         "provider": "winget",
         "group": "Team developer tools",
-        "note": "The MSIX distribution versions independently of the winget exe manifest, so the installed version routinely reads ahead of the available one. That is not an update.",
+        "installerType": "exe",
+        "note": "The MSIX distribution versions independently of the winget exe manifest, so the installed version routinely reads ahead of the available one. That is not an update. The exe installer is pinned so the install stays on the manifest the version columns are read against.",
         "enabled": true
       },
       {

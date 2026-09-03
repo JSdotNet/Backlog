@@ -1904,7 +1904,7 @@ public sealed class DevToolService : IDevToolService
             return DevToolActionResult.Failed(WingetCliMissing);
         }
 
-        var spec = DevToolCommands.WingetInstall(application.Id);
+        var spec = DevToolCommands.WingetInstall(application.Id, application.InstallerType);
         var result = await RunAsync(spec, log, ct, InstallTimeout).ConfigureAwait(false);
 
         return result.ExitCode == 0
