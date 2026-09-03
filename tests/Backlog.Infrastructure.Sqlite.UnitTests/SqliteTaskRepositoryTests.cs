@@ -299,22 +299,68 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Null(await _repository.GetAsync(Guid.NewGuid()));
     }
 
+    /// <summary>
+    /// Deleting is saving a tombstone, and both reads have to hide what it marks.
+    /// This is the half the app sees, and it has to look exactly like the removal
+    /// it replaced.
+    /// </summary>
     [Fact]
-    public async Task Deleting_removes_the_task()
+    public async Task A_tombstoned_task_is_gone_to_every_read()
     {
         var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
         await _repository.SaveAsync(task);
 
-        await _repository.DeleteAsync(task.Id);
+        task.MarkDeleted();
+        await _repository.SaveAsync(task);
 
         Assert.Null(await _repository.GetAsync(task.Id));
         Assert.Empty(await _repository.ListAsync());
     }
 
+    /// <summary>
+    /// And the other half: the row is still there. That is the whole point of a
+    /// tombstone — a task that is simply gone from this machine is
+    /// indistinguishable from one the other machine has never seen, so the
+    /// deletion would be undone by the next reconciliation. Asserted against the
+    /// file with raw SQL, because every read through the port is supposed to be
+    /// unable to see it.
+    /// </summary>
     [Fact]
-    public async Task Deleting_a_task_that_is_not_there_is_not_an_error()
+    public async Task A_tombstoned_task_keeps_its_row_and_its_stamp()
     {
-        await _repository.DeleteAsync(Guid.NewGuid());
+        var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(task);
+
+        task.MarkDeleted();
+        await _repository.SaveAsync(task);
+
+        var (rows, deletedAt) = await ReadTombstoneAsync(task.Id);
+
+        Assert.Equal(1, rows);
+        Assert.NotNull(deletedAt);
+        Assert.Equal(
+            task.DeletedAt!.Value,
+            DateTimeOffset.Parse(
+                deletedAt!,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind));
+    }
+
+    /// <summary>Deleting the same task twice keeps the first instant. The second
+    /// call says nothing new, and moving the stamp would quietly extend the
+    /// tombstone's life past the retention its first deletion started.</summary>
+    [Fact]
+    public async Task Deleting_an_already_deleted_task_does_not_move_the_tombstone()
+    {
+        var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(task);
+
+        task.MarkDeleted();
+        var first = task.DeletedAt;
+
+        task.MarkDeleted();
+
+        Assert.Equal(first, task.DeletedAt);
     }
 
     /// <summary>
@@ -465,6 +511,178 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.NotNull(loaded);
         Assert.Equal("Rework the onboarding email", loaded.Title);
         Assert.Equal(EntryType.Task, loaded.Type);
+    }
+
+    /// <summary>
+    /// The assertion the whole sync design rests on, and the one a test over the
+    /// aggregate structurally cannot make.
+    /// <para>
+    /// Rehydration has no load-only path: <c>Read</c> replays a stored task
+    /// through the ordinary command-side setters, and every one of those restamps
+    /// <c>UpdatedAt</c> to now. So a read that ended anywhere but
+    /// <c>LoadStamps</c> would overwrite the column it had just read, every task
+    /// would look as though it had been edited the instant it was loaded, and
+    /// last-write-wins would compare load times instead of edit times. A stamp
+    /// written far enough in the past that "now" could never be mistaken for it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_task_does_not_restamp_it()
+    {
+        var createdAt = new DateTimeOffset(2026, 1, 5, 8, 30, 0, TimeSpan.Zero);
+        var task = Rehydrate("Written a while ago", createdAt);
+
+        // Give it every field the load path replays through a mutator, so a
+        // restamp anywhere in Read has something to fire on.
+        task.SetArea("projects");
+        task.SetEffort(3);
+        task.SetDueOn(new DateOnly(2026, 2, 1));
+        task.SetDependsOn(["other"]);
+        task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "1", "issue"));
+        task.LoadStamps(createdAt, deletedAt: null);
+
+        await _repository.SaveAsync(task);
+
+        var loaded = await _repository.GetAsync(task.Id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(createdAt, loaded.UpdatedAt);
+        Assert.Null(loaded.DeletedAt);
+    }
+
+    /// <summary>An edit moves the stamp forward, which is the other half of the
+    /// same contract: reading must not touch it, and editing must.</summary>
+    [Fact]
+    public async Task Editing_a_task_moves_its_stamp_past_what_was_stored()
+    {
+        var createdAt = new DateTimeOffset(2026, 1, 5, 8, 30, 0, TimeSpan.Zero);
+        var task = Rehydrate("Edit me", createdAt);
+        task.LoadStamps(createdAt, deletedAt: null);
+        await _repository.SaveAsync(task);
+
+        var loaded = await _repository.GetAsync(task.Id);
+        loaded!.Rename("Edited");
+        await _repository.SaveAsync(loaded);
+
+        var reloaded = await _repository.GetAsync(task.Id);
+
+        Assert.NotNull(reloaded);
+        Assert.True(reloaded.UpdatedAt > createdAt);
+    }
+
+    /// <summary>
+    /// A database an earlier build wrote — before either stamp column existed —
+    /// still opens and reads, and its rows come back stamped with their own
+    /// creation time rather than with nothing.
+    /// <para>
+    /// Left null they would be unusable rather than merely unknown: the sync push
+    /// asks for documents changed since a watermark, and <c>null &gt; watermark</c>
+    /// is never true, so a row that predates the column would never travel and
+    /// would stay invisible to the person's other machine for good. Creation time
+    /// is the weakest statement that is actually true of it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_stamp_columns_reads_back_stamped_from_creation()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 8, 20, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+
+        // Hand-build the pre-stamp schema and a row in it, through no code path
+        // that knows either column was ever added.
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync();
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]',
+                    effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL
+                );
+                """;
+            await create.ExecuteNonQueryAsync();
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at)
+                VALUES ($id, $title, 'task', 'ready', 'high', $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before the stamps existed");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before the stamps existed", loaded.Title);
+        Assert.Equal(createdAt, loaded.UpdatedAt);
+
+        // A row that predates the tombstone column is live, not deleted. Null there
+        // is the value rather than a missing one, so the old row needs no seeding
+        // and must not read as gone.
+        Assert.Null(loaded.DeletedAt);
+        Assert.Single(await _repository.ListAsync());
+
+        // And the backfill actually wrote the column rather than the read merely
+        // coalescing it, so the very first sync sees a real value.
+        var stored = await ReadUpdatedAtAsync(id);
+        Assert.NotNull(stored);
+        Assert.Equal(
+            createdAt,
+            DateTimeOffset.Parse(
+                stored!,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind));
+    }
+
+    /// <summary>Reads the tombstone straight out of the file. Every read through
+    /// the port hides it, so raw SQL is the only way to assert the row is still
+    /// there.</summary>
+    private async Task<(int Rows, string? DeletedAt)> ReadTombstoneAsync(Guid id)
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString());
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*), MAX(deleted_at) FROM tasks WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+
+        return (reader.GetInt32(0), reader.IsDBNull(1) ? null : reader.GetString(1));
+    }
+
+    private async Task<string?> ReadUpdatedAtAsync(Guid id)
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString());
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT updated_at FROM tasks WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+
+        var value = await command.ExecuteScalarAsync();
+        return value is null or DBNull ? null : (string)value;
     }
 
     private static TaskItem Rehydrate(string title, DateTimeOffset createdAt) =>
