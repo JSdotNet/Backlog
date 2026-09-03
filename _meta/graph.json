@@ -10,23 +10,23 @@
     ".design"
   ],
   "stats": {
-    "nodes": 789,
-    "edges": 1630,
+    "nodes": 790,
+    "edges": 1635,
     "nodesByFolder": {
-      "arc42": 87,
+      "arc42": 88,
       "domain": 501,
       "backlog": 4,
       "tech": 99,
       "design": 98
     },
     "nodesByType": {
-      "file": 126,
+      "file": 127,
       "chapter": 654,
       "heading": 9
     },
     "nodesByStatus": {
       "active": 205,
-      "proposed": 46,
+      "proposed": 47,
       "draft": 424,
       "deprecated": 4,
       "done": 3,
@@ -37,7 +37,7 @@
     },
     "edgesByType": {
       "contains": 663,
-      "related": 819,
+      "related": 824,
       "depends-on": 146,
       "implements": 2
     }
@@ -1116,6 +1116,23 @@
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
             ".domain/tasks/domain.md#task"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "label": "ADR 0006: Additive, idempotent bootstrapping is the local store's migration mechanism",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/11-risks-and-technical-debt.md",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
           ]
         }
       },
@@ -18788,6 +18805,46 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/11-risks-and-technical-debt.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/11-risks-and-technical-debt.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "type": "related"
         }
       },
