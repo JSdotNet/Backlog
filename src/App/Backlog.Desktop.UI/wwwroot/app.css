@@ -2331,7 +2331,7 @@ h1, h2, h3 {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2415,7 +2415,7 @@ h1, h2, h3 {
 .inbox-pane__eyebrow {
     color: var(--color-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2513,7 +2513,7 @@ h1, h2, h3 {
 
 .tools-panel__eyebrow {
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3087,7 +3087,7 @@ h1, h2, h3 {
 .roadmap-band__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3443,7 +3443,7 @@ h1, h2, h3 {
 .dashboard-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3491,7 +3491,7 @@ h1, h2, h3 {
 .dashboard-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -3631,7 +3631,7 @@ h1, h2, h3 {
 .sessions-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3685,7 +3685,7 @@ h1, h2, h3 {
 .sessions-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
