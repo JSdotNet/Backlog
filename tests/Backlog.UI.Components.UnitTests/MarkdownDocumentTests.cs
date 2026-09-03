@@ -413,6 +413,40 @@ public sealed class MarkdownDocumentTests
     }
 
     [Fact]
+    public void A_status_a_reader_picks_reaches_the_host()
+    {
+        // Naming the folder is what puts a picker beside the heading, so the
+        // callback that carries the pick has to travel with it. Without it the
+        // reader is offered a choice this component then drops on the floor.
+        using var context = new BunitContext();
+        var changes = new List<KnowledgeStatusChange>();
+        var written = new List<string>();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
+            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
+            .Add(d => d.ValueChanged, EventCallback.Factory.Create<string>(this, written.Add)));
+
+        view.Find(".knowledge-record__headline .status-editor select").Change("retired");
+
+        var change = Assert.Single(changes);
+
+        Assert.Equal("retired", change.Status);
+
+        // Both keys travel because neither is enough on its own: the heading is
+        // what a host knows the chapter as, and the block index is what the view
+        // anchors by — the title's index, not the fence's.
+        Assert.Equal("Shared Technologies", change.Heading);
+        Assert.Equal(0, change.BlockIndex);
+
+        // Nothing here writes it: the text this component was handed is the text
+        // it still holds, and which file and which fence stay the host's.
+        Assert.Empty(written);
+        Assert.Equal(Chapter, view.Instance.Value);
+    }
+
+    [Fact]
     public void A_href_resolver_reaches_the_records_references()
     {
         using var context = new BunitContext();
@@ -448,15 +482,22 @@ public sealed class MarkdownDocumentTests
         // is anchored to do not exist while the text is a textarea, and the
         // author is looking at the fence itself.
         using var context = new BunitContext();
+        var changes = new List<KnowledgeStatusChange>();
 
         var view = RenderChapter(context, parameters => parameters
             .Add(d => d.RenderKnowledgeMetadata, true)
             .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
+            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
             .Add(d => d.Editing, true));
 
         Assert.Single(view.FindAll("textarea"));
         Assert.Empty(view.FindAll(".knowledge-record"));
         Assert.Empty(view.FindAll("dl.knowledge-fields"));
+
+        // No record means no picker, so there is nothing here to raise a status
+        // change with — the guard covers the callback as much as the rest.
+        Assert.Empty(view.FindAll(".status-editor select"));
+        Assert.Empty(changes);
     }
 
     [Fact]
