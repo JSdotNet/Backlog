@@ -1137,6 +1137,11 @@ button.badge:hover {
     color: var(--color-text-disabled);
 }
 
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the ring
+   belongs to the card and not to the field inside it. `.entry-doc--editing` below
+   repaints the card's border in --color-border-focus for as long as the editor is
+   open — a border rather than a shadow, so Windows High Contrast keeps it — and a
+   second outline around the textarea would draw a box inside a box. */
 .entry-doc__editor:focus-visible {
     outline: none;
 }
@@ -2021,7 +2026,11 @@ button.md-check {
 .knowledge-menu__open-vscode:focus-visible {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 24%, transparent);
-    outline: none;
+}
+
+.knowledge-menu__open-vscode:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .knowledge-menu__open-vscode:disabled {
@@ -2090,7 +2099,14 @@ button.md-check {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     color: var(--color-text-primary);
-    outline: none;
+}
+
+/* The active row and the focused row are not the same row, so the fill cannot
+   speak for both. */
+.knowledge-menu__item:focus-visible,
+.folder-tree__item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .knowledge-menu__item--unavailable,
@@ -2426,13 +2442,17 @@ button.md-check {
 .md-block__comment:focus-visible,
 .md-block--commented .md-block__comment {
     opacity: 1;
-    outline: none;
 }
 
 .md-block__comment:hover,
 .md-block__comment:focus-visible {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
+}
+
+.md-block__comment:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .md-block__count {
@@ -2960,6 +2980,10 @@ button.md-check {
     cursor: pointer;
 }
 
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the circle
+   is its own ring. It already draws a --border-width-2 edge, and focus repaints that
+   edge in --color-border-focus rather than hanging a second ring around a 1.25rem
+   target — a border rather than a shadow, so High Contrast keeps it. */
 button.task-item__check:hover,
 button.task-item__check:focus-visible,
 button.task-panel__check:hover,
@@ -3233,7 +3257,11 @@ button.task-panel__check:focus-visible {
 .task-item__body-edit:hover,
 .task-item__body-edit:focus-visible {
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.task-item__body-edit:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* Pressed has to be visible and not only announced. aria-pressed alone would
@@ -3634,7 +3662,11 @@ button.task-panel__check:focus-visible {
 .task-item__edit:hover,
 .task-item__edit:focus-visible {
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.task-item__edit:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /*
@@ -3645,13 +3677,13 @@ button.task-panel__check:focus-visible {
   steps, all of them lit, would read as a list of things to delete rather than as a
   list with a way to delete one.
 
-  The focus ring is its own, and that is the one place it parts company with the
-  pencil above. `.design/accessibility.md#focus-visibility` allows outline: none
-  only with a compliant replacement, and the pencil's colour change is not one —
-  which is survivable on a control whose worst outcome is an editor opening, and is
-  not on the control that ends the row. So this one is paid for the way every other
-  component here pays for it: an outline rather than a shadow, so it survives
-  Windows High Contrast.
+  The focus ring is a rule of its own rather than a declaration in the pair above,
+  and the pencil's is written the same way now. An outline may be removed only
+  where something compliant replaces it — `.design/accessibility.md#focus-visibility`
+  — and a colour change is not that: it is the cue hover already spends, so focus
+  and hover stop being told apart. Both controls therefore pay for the ring the way
+  every other component here pays for it: an outline rather than a shadow, so it
+  survives Windows High Contrast.
 */
 .task-item__delete {
     display: inline-flex;
@@ -3710,7 +3742,11 @@ button.task-panel__check:focus-visible {
 .task-list__completed-header:focus-visible {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.task-list__completed-header:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .task-list__twisty {
@@ -3937,7 +3973,11 @@ button.task-panel__check:focus-visible {
 .task-action__clear:hover,
 .task-action__clear:focus-visible {
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.task-action__clear:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* --- Task detail pane ---------------------------------------------------- */
@@ -4083,6 +4123,11 @@ button.task-panel__check:focus-visible {
     font: inherit;
 }
 
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the line
+   under this field is drawn in --color-border-focus and is permanent, and the field
+   only exists while the title is being edited — so the indicator is on screen for the
+   whole life of the control. `TaskRenameFieldUnderlineTests` holds that line in place;
+   a ring as well would double the chrome on a heading. */
 .task-panel__rename-input:focus-visible {
     outline: none;
 }
@@ -4227,7 +4272,11 @@ button.task-panel__check:focus-visible {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.markdown-editor__button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .markdown-editor__button:disabled {
@@ -4315,8 +4364,9 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-disabled);
 }
 
-/* The field's own focus ring would draw a box inside a box. The editor takes the
-   ring instead, because the editor is what the reader sees. */
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the field's
+   own ring would draw a box inside a box. `.markdown-editor:focus-within` below takes
+   it instead, on the border the reader actually sees. */
 .markdown-editor__input:focus-visible {
     outline: none;
 }
@@ -5421,6 +5471,9 @@ select.field__input option {
     font-size: var(--font-size-sm);
 }
 
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the box
+   takes the ring — `.search-box:focus-within` above repaints its border in
+   --color-border-focus — so the field inside it does not draw a second one. */
 .search-box__input:focus-visible {
     outline: none;
 }
@@ -5683,6 +5736,9 @@ select.field__input option {
     font-size: var(--font-size-sm);
 }
 
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the control
+   takes the ring — `.tag-select__control:focus-within` above repaints its border in
+   --color-border-focus — so the field among the chips does not draw a second one. */
 .tag-select__input:focus-visible {
     outline: none;
 }
@@ -5812,7 +5868,11 @@ select.field__input option {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.menu-list__item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .menu-list__item:disabled {
@@ -5859,8 +5919,9 @@ select.field__input option {
     background: transparent;
 }
 
-/* The backdrop only takes focus so it can hear Escape; it is not a control, so
-   it must not draw a focus ring across the whole screen. */
+/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the backdrop
+   only takes focus so it can hear Escape. It is not a control, so it must not draw a
+   focus ring across the whole screen. */
 .context-menu__backdrop:focus {
     outline: none;
 }
@@ -7426,7 +7487,12 @@ select.field__input option {
        it opens without a word on it. */
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
     color: var(--color-text-primary);
-    outline: none;
+}
+
+.open-folder:focus-visible,
+.folder-view__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .open-folder:disabled,
