@@ -25,6 +25,20 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// — the metadata line is composed from this record, so a preference the record
 /// does not carry is destroyed by the next save.
 /// </para>
+/// <para>
+/// The task's two sync stamps — <c>UpdatedAt</c> and <c>DeletedAt</c> — are
+/// deliberately absent, and the round-trip rule above does not reach them. It
+/// applies to fields that survive only by being written into the text and parsed
+/// back; these are stamped by the aggregate and read from their own columns, and
+/// a save reloads the aggregate before applying parsed fields on top, so neither
+/// can be lost through here. Their absence is a decision, not the oversight this
+/// comment warns about: nothing outside the module reads either one yet, a
+/// tombstoned task never reaches a read that produces this record — so
+/// <c>DeletedAt</c> could only ever be null — and this record is a projection for
+/// the screens rather than a copy of the aggregate, omitting <c>CreatedAt</c>,
+/// <c>SourceInboxId</c>, and the usage history as well, so it is not what a sync
+/// payload would be built from either.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
