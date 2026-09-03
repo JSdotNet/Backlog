@@ -10440,6 +10440,14 @@ select.field__input option {
     min-width: 0;
 }
 
+/* A host that folds a table away hides it with the attribute, and the display
+   above would otherwise outrank the rule that does the hiding: an author
+   declaration beats the user agent's whatever their specificity, so `hidden` on
+   this block is inert until the block says what it means. */
+.data-table[hidden] {
+    display: none;
+}
+
 /* Cells do not wrap — a folder path and a branch name are both long, and a
    wrapped one turns eight short rows into eight paragraphs — so the table is
    routinely wider than its box and scrolls inside this one. min-width: 0 is what

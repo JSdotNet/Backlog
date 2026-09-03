@@ -262,14 +262,20 @@
         """;
 
     private const string SkeletonCode = """
-        <div class="tools-table__row" aria-hidden="true">
-            <div class="tools-table__tool">
-                <Skeleton Width="62%" />
-                <Skeleton Width="50%" />
-            </div>
-            <Skeleton Width="3rem" />
-            <Skeleton Width="3rem" />
-            <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
+        @* The tools pane's placeholder: the table the rows are coming into, with
+           bars in its cells rather than a second layout that looks like it. *@
+        <div class="tools-panel__skeleton" aria-hidden="true">
+            <DataTable TItem="string" Columns="Columns" Items="Names" CssClass="tools-inventory">
+                <Row Context="name">
+                    <td class="tools-inventory__tool">
+                        <Skeleton Width="@name" />
+                        <Skeleton Width="55%" />
+                    </td>
+                    <td><Skeleton Width="3rem" /></td>
+                    <td><Skeleton Width="3rem" /></td>
+                    <td><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
+                </Row>
+            </DataTable>
         </div>
         """;
 

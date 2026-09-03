@@ -519,6 +519,13 @@ html, body {
     background: transparent;
 }
 
+/* The row modifier the data table's row-hook story hands to RowCssClass. The
+   host owns what a marked row looks like — the component only puts the class
+   where the host asked for it — so the one in the story is declared here. */
+.sb-data-table__row--stale td {
+    border-inline-start: 2px solid var(--color-primary);
+}
+
 .sb-label {
     font-size: var(--font-size-xs);
     text-transform: uppercase;

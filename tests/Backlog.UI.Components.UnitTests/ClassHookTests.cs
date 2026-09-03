@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Data;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -331,6 +333,36 @@ public sealed class ClassHookTests
 
         // Inside the label, so the whole row stays one click target.
         Assert.NotNull(checkbox.Find("label > code"));
+    }
+
+    /// <summary>
+    /// The one hook in this library that adds rather than replaces, and the reason
+    /// it is the exception: every other class parameter here names an element the
+    /// host is dressing, where a table's row is an element the host does not draw
+    /// at all. It stays the component's row, wearing one word from the host about
+    /// this one of them.
+    /// </summary>
+    [Fact]
+    public void A_data_tables_row_takes_a_hosts_modifier_beside_the_class_it_keeps()
+    {
+        using var context = new BunitContext();
+
+        var cells = (RenderFragment<string>)(tool => builder =>
+        {
+            builder.OpenElement(0, "td");
+            builder.AddContent(1, tool);
+            builder.CloseElement();
+        });
+
+        var table = context.Render<DataTable<string>>(parameters => parameters
+            .Add(c => c.Columns, [new DataTableColumn("Tool")])
+            .Add(c => c.Items, (IReadOnlyList<string>)["architecture"])
+            .Add(c => c.Row, cells)
+            .Add(c => c.BaseClass, "tools")
+            .Add(c => c.RowCssClass, (Func<string, string?>)(_ => "tools__row--disabled")));
+
+        Assert.Equal("tools__row tools__row--disabled", table.Find("tbody tr").GetAttribute("class"));
+        Assert.Empty(table.FindAll(".data-table__row"));
     }
 
     [Fact]
