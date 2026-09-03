@@ -415,13 +415,22 @@
     @if (IsFeatureEnabled(AppFeatures.AiAssistant) && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
-            <div class="ai-panel__header">
-                <div>
-                    <p class="ai-panel__eyebrow">Azure Foundry</p>
-                    <h2 id="ai-assistant-title">Ask about this content</h2>
-                </div>
-                <a class="ai-panel__settings" href="settings">Settings</a>
-            </div>
+            @* The library's section header. This one stays a div: the panel is
+               already a section named by its heading, and the header it had was
+               never a landmark of its own. *@
+            <SectionHeader Element="div"
+                           BaseClass="ai-panel__header"
+                           TextCssClass=""
+                           EyebrowCssClass="ai-panel__eyebrow"
+                           TitleCssClass=""
+                           ActionsCssClass=""
+                           Eyebrow="Azure Foundry"
+                           TitleId="ai-assistant-title"
+                           Title="Ask about this content">
+                <Actions>
+                    <a class="ai-panel__settings" href="settings">Settings</a>
+                </Actions>
+            </SectionHeader>
             <p class="ai-panel__body">
                 The question is answered from the entries currently in view and loaded backlog knowledge.
             </p>

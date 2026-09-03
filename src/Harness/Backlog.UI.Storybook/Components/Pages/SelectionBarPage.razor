@@ -9,7 +9,11 @@
     <Story Name="SelectionBar"
            Description="A partial selection, which is the state the bar spends most of its life in. The count is a live region because it changes without the reader having touched it — one Shift press takes eight rows — and the select-all box reads as mixed rather than as either state.
 
-The acts are the host's. Nothing about them is this component's business, which is why they arrive as a render fragment rather than as a list of fields."
+The acts are the host's. Nothing about them is this component's business, which is why they arrive as a render fragment rather than as a list of fields.
+
+What the host puts in that fragment is its own decision, and this shows the one the backlog arrived at after getting it wrong twice in opposite directions. It began as a row of bare selects and buttons — fourteen of them in the real bar, none of which said what it was for until you opened it, against the visible budget of four in `#action-density-and-overflow`. Naming them with `TaskActionPane` in its column shape fixed that and cost three hundred and eighty pixels of the list underneath, because a row there reserves a line, groups balance into sixteen-rem columns, and the lead and trailing slots are bands of their own.
+
+What is here now is the same pane in `Band`, which flows its groups across the width instead of down it, with one act per group rather than one per field. The resting bar is a short row of triggers; pressing one opens that group's controls beside it and wraps the band to a second line, and pressing another puts the first away."
            Code="@BarCode">
         <div class="sb-stack" data-testid="selection-bar-partial">
             <SelectionBar Count="@_count"
@@ -21,19 +25,121 @@ The acts are the host's. Nothing about them is this component's business, which 
                           OnClear="() => _count = 0"
                           TestId="selection-bar-demo">
                 <Actions>
-                    <SelectField CurrentValue=""
-                                 Options="@Statuses"
-                                 IncludeEmptyOption="true"
-                                 EmptyLabel="Status"
-                                 Label="Set the status of the selected tasks"
-                                 TestId="selection-bar-demo-status"
-                                 OnChanged="value => _last = value" />
-                    <AppButton Size="ButtonSize.Small" OnClick="OnMyDay">
-                        Add to My Day
-                    </AppButton>
+                    <TaskActionPane Band="true" TestId="selection-bar-demo-acts">
+                        <Groups>
+                            @* First, prominent, and the only act here with nothing
+                               to open: it applies on the press. Set is
+                               unconditionally true, so the row offers both
+                               directions rather than a pressed state that cannot be
+                               honest about a selection half of which is in today. *@
+                            <TaskActionGroup Label="Today" TestId="selection-bar-demo-today">
+                                <TaskAction Icon="☀"
+                                            Label="My Day"
+                                            Set="true"
+                                            Prominent="true"
+                                            OnSet="AddToMyDay"
+                                            OnClear="RemoveFromMyDay"
+                                            TestId="selection-bar-demo-myday" />
+                            </TaskActionGroup>
+
+                            <TaskActionGroup Label="Classification" TestId="selection-bar-demo-classification">
+                                <TaskAction Icon="◉"
+                                            Label="Classification"
+                                            Set="@(_open is Picker.Classification)"
+                                            Expanded="@(_open is Picker.Classification)"
+                                            Controls="sb-bar-classification"
+                                            OnSet="ToggleClassification"
+                                            TestId="selection-bar-demo-classification-trigger" />
+
+                                @if (_open is Picker.Classification)
+                                {
+                                    @* The element the trigger names, and the one a
+                                       host puts its own key boundary on: Escape in
+                                       a control here belongs to the control. *@
+                                    @* Both of the group's controls at once rather
+                                       than a second trigger each: two presses reach
+                                       any value that way, where a trigger per field
+                                       inside a trigger per group would cost three.
+
+                                       No single current value, so none is shown —
+                                       eight rows have eight statuses. *@
+                                    <span class="sb-bar-controls" id="sb-bar-classification" @onkeydown:stopPropagation="true">
+                                        <StatusSelector CurrentValue=""
+                                                        Options="@Statuses"
+                                                        IncludeEmptyOption="true"
+                                                        EmptyLabel="Status"
+                                                        Slug=""
+                                                        Label="Set the status of the selected tasks"
+                                                        TestId="selection-bar-demo-status"
+                                                        OnChanged="Apply" />
+
+                                        <SelectField CurrentValue=""
+                                                     Options="@Priorities"
+                                                     IncludeEmptyOption="true"
+                                                     EmptyLabel="Priority"
+                                                     Label="Set the priority of the selected tasks"
+                                                     TestId="selection-bar-demo-priority"
+                                                     OnChanged="Apply" />
+                                    </span>
+                                }
+                            </TaskActionGroup>
+
+                            <TaskActionGroup Label="Scheduling" TestId="selection-bar-demo-scheduling">
+                                <TaskAction Icon="🗓"
+                                            Label="Scheduling"
+                                            Set="@(_open is Picker.Scheduling)"
+                                            Expanded="@(_open is Picker.Scheduling)"
+                                            Controls="sb-bar-scheduling"
+                                            OnSet="ToggleScheduling"
+                                            TestId="selection-bar-demo-scheduling-trigger" />
+
+                                @if (_open is Picker.Scheduling)
+                                {
+                                    <span class="sb-bar-controls" id="sb-bar-scheduling" @onkeydown:stopPropagation="true">
+                                        <TextField Bare="true"
+                                                   Compact="true"
+                                                   Type="date"
+                                                   AriaLabel="Set the due date of the selected tasks"
+                                                   data-testid="selection-bar-demo-due"
+                                                   Value=""
+                                                   @onchange="OnDue" />
+                                        <AppButton Variant="ButtonVariant.Ghost"
+                                                   Size="ButtonSize.Small"
+                                                   TestId="selection-bar-demo-due-clear"
+                                                   OnClick="ClearDue">
+                                            Clear due date
+                                        </AppButton>
+                                    </span>
+                                }
+                            </TaskActionGroup>
+                        </Groups>
+                    </TaskActionPane>
                 </Actions>
             </SelectionBar>
             <p class="sb-state" data-testid="selection-bar-demo-echo">@Echo</p>
+        </div>
+    </Story>
+
+    <Story Name="Escape on the bar"
+           Description="`AdditionalAttributes` is splatted onto the bar itself, for the attribute or the handler a host needs on the whole of it rather than on one control in it.
+
+The case it exists for is a key. A bar is the surface a reader is standing on while a selection is live, so “Escape means put this down” is a rule about the bar and not about any button on it — and the host cannot wrap it in an element carrying the listener instead: the backlog's bar is a sticky child of its list's scroll container, and sticky can only move within its own parent's box, so a div around it would be a box exactly the bar's height and the bar would stop sticking.
+
+Press Escape with the focus anywhere in the bar below."
+           Code="@EscapeCode">
+        <div class="sb-stack">
+            <SelectionBar Count="3"
+                          Total="8"
+                          ItemNoun="task"
+                          TestId="selection-bar-keys"
+                          @onkeydown="OnKey">
+                <Actions>
+                    <AppButton Size="ButtonSize.Small" OnClick="RunAct">
+                        An act to tab to
+                    </AppButton>
+                </Actions>
+            </SelectionBar>
+            <p class="sb-state" data-testid="selection-bar-keys-echo">@KeyEcho</p>
         </div>
     </Story>
 
@@ -70,10 +176,26 @@ The count also reads in the singular at one — “1 items selected” is the sh
 @code {
     private int _count = 3;
     private string? _last;
+    private string? _key;
+
+    /// <summary>Which of the demo bar's groups has its controls open. One at a
+    /// time, the way the host does it: two open groups is a question about which of
+    /// them the keyboard belongs to that nobody asked, and it is also what keeps
+    /// the band two lines rather than however many groups have been poked.</summary>
+    private Picker? _open;
+
+    /// <summary>The groups with controls to open. Today is not one of them — My
+    /// Day applies on the press, so there is nothing for it to be open into.</summary>
+    private enum Picker
+    {
+        Classification,
+        Scheduling
+    }
 
     private static readonly DesignGuideline[] Rules =
     [
         new("interaction-guidelines.md#focus-and-selection", "The four things a bulk selection owes a reader — a live count, a clear-selection control, an indeterminate select-all, and selection drawn distinctly from hover and focus."),
+        new("interaction-guidelines.md#action-density-and-overflow", "The budget the Actions slot has to live inside, and why a busy surface's resting state is a short row rather than every control it can offer."),
         new("accessibility.md#screen-reader--announcements", "Why the count is a live region rather than a number that changes quietly."),
         new("design-principles.md#low-chrome-content-first", "Why the bar is not on screen until something is picked.")
     ];
@@ -86,13 +208,56 @@ The count also reads in the singular at one — “1 items selected” is the sh
         new("done", "done")
     ];
 
+    private static readonly IReadOnlyList<SelectorOption> Priorities =
+    [
+        new("low", "low"),
+        new("medium", "medium"),
+        new("high", "high"),
+        new("critical", "critical")
+    ];
+
     private string Echo => _last is null
         ? "(nothing applied yet)"
         : $"the host was handed \"{_last}\"";
 
+    private string KeyEcho => _key ?? "(no key yet)";
+
     private void OnSelectAll(bool selected) => _count = selected ? 8 : 0;
 
-    private void OnMyDay() => _last = "Add to My Day";
+    /// <summary>Opens a group's controls, or closes them if it was already the
+    /// open one — pressing the trigger twice puts it back.</summary>
+    private void Toggle(Picker picker) => _open = _open == picker ? null : picker;
+
+    private void ToggleClassification() => Toggle(Picker.Classification);
+
+    private void ToggleScheduling() => Toggle(Picker.Scheduling);
+
+    /// <summary>What the host would do with the answer, which here is only to say
+    /// what it was handed. The group closes with the press, the same as it does on a
+    /// real bar: the group that opened these controls has had its answer, and the
+    /// band goes back to one line.</summary>
+    private void Apply(string? value)
+    {
+        _open = null;
+        _last = value;
+    }
+
+    private void AddToMyDay() => Apply("Add to My Day");
+
+    private void RemoveFromMyDay() => Apply("Remove from My Day");
+
+    private void ClearDue() => Apply("Clear due date");
+
+    private void OnDue(ChangeEventArgs e) => Apply(e.Value?.ToString());
+
+    /// <summary>The whole point of the splat: a key that means something to the bar
+    /// rather than to any one control on it.</summary>
+    private void OnKey(KeyboardEventArgs e) =>
+        _key = e.Key is "Escape"
+            ? "Escape reached the bar — a host would put the selection down here"
+            : $"\"{e.Key}\" reached the bar";
+
+    private void RunAct() => _key = "the act ran, and the bar never saw a key";
 
     private const string BarCode = """
         <SelectionBar Count="@_selected.Count"
@@ -101,12 +266,51 @@ The count also reads in the singular at one — “1 items selected” is the sh
                       SelectAllChanged="OnSelectAll"
                       OnClear="ClearSelection">
             <Actions>
-                <SelectField CurrentValue="" Options="@Statuses" IncludeEmptyOption="true"
-                             EmptyLabel="Status" Label="Set the status of the selected tasks"
-                             OnChanged="OnBulkStatusAsync" />
-                <AppButton Size="ButtonSize.Small" OnClick="OnBulkMyDayAsync">Add to My Day</AppButton>
+                @* Band, because the room here is a bar and not a column: the groups
+                   flow across the width and wrap, rather than balancing into columns
+                   and spending a line per row. One act per group; the group opens its
+                   own controls beside its trigger. *@
+                <TaskActionPane Band="true">
+                    <Groups>
+                        <TaskActionGroup Label="Today">
+                            @* Nothing to open: it applies on the press, and the ✕ is
+                               the way back off. *@
+                            <TaskAction Icon="☀" Label="My Day" Set="true" Prominent="true"
+                                        OnSet="OnBulkMyDaySetAsync" OnClear="OnBulkMyDayClearAsync" />
+                        </TaskActionGroup>
+
+                        <TaskActionGroup Label="Classification">
+                            <TaskAction Icon="◉" Label="Classification"
+                                        Set="@(_open is Picker.Classification)"
+                                        Expanded="@(_open is Picker.Classification)"
+                                        Controls="host-classification"
+                                        OnSet="() => Toggle(Picker.Classification)" />
+
+                            @if (_open is Picker.Classification)
+                            {
+                                <StatusSelector CurrentValue="" Options="@Statuses"
+                                                IncludeEmptyOption="true" EmptyLabel="Status" Slug=""
+                                                Label="Set the status of the selected tasks"
+                                                OnChanged="OnBulkStatusAsync" />
+                                <SelectField CurrentValue="" Options="@Priorities"
+                                             IncludeEmptyOption="true" EmptyLabel="Priority"
+                                             Label="Set the priority of the selected tasks"
+                                             OnChanged="OnBulkPriorityAsync" />
+                            }
+                        </TaskActionGroup>
+                    </Groups>
+                </TaskActionPane>
             </Actions>
         </SelectionBar>
+        """;
+
+    private const string EscapeCode = """
+        @* Splatted onto the bar's own element, so the key is the bar's rather than
+           any one control's. A wrapper div would carry the listener too — but the
+           bar is sticky inside its list's scroll container, and sticky can only
+           move within its parent's box, so wrapping it would stop it sticking. *@
+        <SelectionBar Count="@_selected.Count" Total="@_rows.Count" ItemNoun="task"
+                      @onkeydown="OnSelectionKeyDown" />
         """;
 
     private const string CountCode = """

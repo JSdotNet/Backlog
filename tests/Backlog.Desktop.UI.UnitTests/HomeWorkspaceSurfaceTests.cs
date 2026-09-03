@@ -1153,6 +1153,46 @@ public sealed class HomeWorkspaceSurfaceTests
         return option.TextContent.Replace(flag, string.Empty).Trim();
     }
 
+    /// <summary>
+    /// The AI panel header is the library SectionHeader too, and it stays a div:
+    /// the panel is already a section named by this heading, so the header it had
+    /// was never a landmark of its own and adopting the component was not allowed
+    /// to make it one.
+    /// </summary>
+    [Fact]
+    public void The_ai_panel_header_is_the_shared_component_and_stays_a_div()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var header = component.Find(".ai-panel__header");
+
+            Assert.Equal("DIV", header.TagName);
+            Assert.Equal("ai-panel__header", header.GetAttribute("class"));
+
+            var text = header.Children[0];
+            Assert.Null(text.GetAttribute("class"));
+            Assert.Equal("ai-panel__eyebrow", text.Children[0].GetAttribute("class"));
+
+            // Styled by element in app.css, so the heading carries no class - and
+            // the id the panel aria-labelledby points at is on the heading.
+            var heading = text.Children[1];
+            Assert.Equal("H2", heading.TagName);
+            Assert.Null(heading.GetAttribute("class"));
+            Assert.Equal("ai-assistant-title", heading.GetAttribute("id"));
+
+            // The settings link is a direct child, as it was before the swap.
+            Assert.Equal("A", header.Children[1].TagName);
+            Assert.Equal("ai-panel__settings", header.Children[1].GetAttribute("class"));
+        });
+    }
+
     /// <summary>Presses the header option and waits for the band to arrive. The
     /// shell opens collapsed, so every test about a band on screen starts here —
     /// through the same affordance the reader has, rather than by reaching into

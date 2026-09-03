@@ -14,6 +14,8 @@
              BadgeKind="status"
              FallbackSlug="draft"
              Slug="@Slug"
+             IncludeEmptyOption="@IncludeEmptyOption"
+             EmptyLabel="@EmptyLabel"
              OnChanged="OnChanged" />
 
 @code {
@@ -41,6 +43,19 @@
     /// headline.</summary>
     [Parameter]
     public string? Slug { get; set; }
+
+    /// <summary>Passed straight to <c>BadgeSelect</c>: an entry at the top of the
+    /// list holding no value, for a caller whose subject has no single status —
+    /// the backlog's bulk bar sets one status over a set of rows that each already
+    /// have their own.</summary>
+    [Parameter]
+    public bool IncludeEmptyOption { get; set; }
+
+    /// <summary>What that entry reads as. "Status" rather than "None" is the usual
+    /// answer, because in a badge with no visible label it is the only thing
+    /// naming the field.</summary>
+    [Parameter]
+    public string EmptyLabel { get; set; } = "None";
 
     [Parameter]
     public EventCallback<string> OnChanged { get; set; }

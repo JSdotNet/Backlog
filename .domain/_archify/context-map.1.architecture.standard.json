@@ -14,7 +14,7 @@
     {
       "id": "backlog",
       "type": "backend",
-      "label": "Backlog Management",
+      "label": "Tasks",
       "pos": [
         200,
         300
@@ -274,7 +274,7 @@
     {
       "from": "backlog",
       "to": "monitor",
-      "label": "OHS + Published Language — StatusChanged / EntryProjected / EntryCompleted"
+      "label": "OHS + Published Language — StatusChanged / TaskProjected / TaskCompleted"
     },
     {
       "from": "inbox",

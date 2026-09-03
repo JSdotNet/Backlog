@@ -5118,14 +5118,14 @@
           <text x="171" y="205" class="t-muted" font-size="8" text-anchor="middle">Refined and actionable</text>
         </g>
         <g data-detail="context" data-edge-from="ready" data-edge-to="in-progress" data-edge-label="Work started" data-edge-key="1" data-edge-id="start-work">
-          <rect x="284.7" y="194" width="80.60000000000001" height="27" rx="4" class="c-mask"/>
+          <rect x="287.15" y="194" width="75.7" height="27" rx="4" class="c-mask"/>
           <text x="325" y="205" class="t-backend" font-size="8" text-anchor="middle">Work started</text>
-        <text data-detail="fine" x="325" y="216" class="t-dim" font-size="7" text-anchor="middle">EntryProjected</text>
+        <text data-detail="fine" x="325" y="216" class="t-dim" font-size="7" text-anchor="middle">TaskProjected</text>
         </g>
         <g data-detail="context" data-edge-from="in-progress" data-edge-to="done" data-edge-label="Work completed" data-edge-key="2" data-edge-id="complete">
           <rect x="438.7" y="194" width="80.60000000000001" height="27" rx="4" class="c-mask"/>
           <text x="479" y="205" class="t-backend" font-size="8" text-anchor="middle">Work completed</text>
-        <text data-detail="fine" x="479" y="216" class="t-dim" font-size="7" text-anchor="middle">EntryCompleted</text>
+        <text data-detail="fine" x="479" y="216" class="t-dim" font-size="7" text-anchor="middle">TaskCompleted</text>
         </g>
         <g data-detail="context" data-edge-from="done" data-edge-to="archived" data-edge-label="Archived" data-edge-key="3" data-edge-id="archive">
           <rect x="607.4" y="194" width="51.2" height="16" rx="4" class="c-mask"/>
@@ -5365,8 +5365,8 @@
         </div>
         <ul>
           <li>&bull; A created entry starts at Draft and is refined until it is actionable</li>
-          <li>&bull; Ready to In Progress emits EntryProjected, one artifact per repo_id</li>
-          <li>&bull; Completion emits EntryCompleted, which closes all projections</li>
+          <li>&bull; Ready to In Progress emits TaskProjected, one artifact per repo_id</li>
+          <li>&bull; Completion emits TaskCompleted, which closes all projections</li>
         </ul>
       </div>
 

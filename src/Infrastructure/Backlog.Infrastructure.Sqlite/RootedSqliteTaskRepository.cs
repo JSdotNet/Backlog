@@ -46,9 +46,6 @@ public sealed class RootedSqliteTaskRepository(Func<string> currentRootDirectory
     public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Current.GetAsync(id, cancellationToken);
 
-    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Current.DeleteAsync(id, cancellationToken);
-
     public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
         Current.ListAsync(cancellationToken);
 }
