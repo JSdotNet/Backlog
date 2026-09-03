@@ -96,12 +96,49 @@
     [Parameter]
     public RenderFragment? Trailing { get; set; }
 
+    /// <summary>
+    /// Lays the groups out as one band across the width instead of balanced
+    /// columns.
+    /// <para>
+    /// The same pane in a different room. Everything above describes a panel
+    /// docked beside a list — a column about sixteen rem wide, where a row that
+    /// spends a line is cheap and the pane's height is the panel's height. A
+    /// selection bar is the opposite shape: it is a strip across the top of a
+    /// list, every line it takes is a line of the list it is covering, and it has
+    /// a thousand-odd pixels of width sitting unused. Balanced columns there gave
+    /// the backlog's bulk bar a resting height of three hundred and eighty pixels
+    /// with the right half of it empty, because columns spread <em>groups</em>
+    /// sideways and never the rows inside one.
+    /// </para>
+    /// <para>
+    /// So the band flows the groups left to right and wraps only when the width
+    /// runs out, and a group flows its own rows the same way. Two consequences are
+    /// deliberate. A row is as tall as its label — the reserved line that keeps
+    /// two columns level is a rule about columns, and there are none here. And a
+    /// narrow container still stacks, because wrapping is the whole mechanism: the
+    /// mobile channel gets the single column it needs without being told about it.
+    /// </para>
+    /// <para>
+    /// <see cref="Lead"/> and <see cref="Trailing"/> still work and are still
+    /// their own full-width bands. A host in a bar usually wants neither: a lead
+    /// row across a strip is the strip, and a trailing group is the vertical space
+    /// the band was chosen to avoid. Put the wide control in the group it belongs
+    /// to and let it wrap.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Band { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }
 
-    private string ClassValue =>
-        string.IsNullOrWhiteSpace(CssClass) ? "task-action-pane" : $"task-action-pane {CssClass}";
+    private string ClassValue => string.Join(' ', new[]
+    {
+        "task-action-pane",
+        Band ? "task-action-pane--band" : null,
+        CssClass
+    }.Where(part => !string.IsNullOrWhiteSpace(part)));
 }

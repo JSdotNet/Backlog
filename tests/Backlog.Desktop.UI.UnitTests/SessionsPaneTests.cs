@@ -312,6 +312,32 @@ public sealed class SessionsPaneTests
             cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
     }
 
+    /// <summary>
+    /// The header is the library SectionHeader, and the subtitle keeps the test
+    /// id the capped-list wording is read through - a class hook alone would have
+    /// lost it.
+    /// </summary>
+    [Fact]
+    public void The_header_is_the_shared_component_wearing_this_panes_classes()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var header = pane.Find(".sessions-panel__header");
+
+            SectionHeaderAdoptionTests.AssertPaneHeader(header, "sessions-panel", "sessions-title");
+            SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "sessions-panel");
+
+            var subtitle = header.QuerySelector("[data-testid='sessions-subtitle']");
+            Assert.NotNull(subtitle);
+            Assert.Equal("sessions-panel__subtitle", subtitle.GetAttribute("class"));
+            Assert.NotNull(header.QuerySelector(".sessions-panel__header-actions .sessions-panel__count"));
+        });
+    }
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,

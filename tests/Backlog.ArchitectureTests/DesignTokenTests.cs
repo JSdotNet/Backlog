@@ -462,6 +462,70 @@ public class DesignTokenTests
             + $"— --color-<meaning>-text — or add one the way color-error-text was added: {string.Join("; ", offenders)}");
     }
 
+    /// <summary>A <c>font-weight</c> written as a bare number, so the value can be
+    /// held against the scale. A range — <c>100 900</c> in an <c>@font-face</c> — is
+    /// not a single step and is not what this asks about.</summary>
+    private static readonly Regex NumericFontWeight = new(
+        @"font-weight\s*:\s*(?<value>\d+)\s*(?=[;}])",
+        RegexOptions.Compiled);
+
+    /// <summary>The rule the type scale already states, applied to the weight scale
+    /// beside it. <c>.design/typography-and-layout.md</c> declares exactly five
+    /// weights, and says of the sizes beside them that a stylesheet "MUST NOT
+    /// introduce sizes outside this scale". A weight outside its own table is that
+    /// same drift, and nothing was looking for it.
+    ///
+    /// <para><c>800</c> is why this exists. Eight eyebrow labels in the desktop
+    /// stylesheet were set to it while the identical shape elsewhere in the same
+    /// file used 700, so a value the design folder never names had spread across
+    /// five screens by copy — visibly, because the fallback face carries a real 800.</para>
+    ///
+    /// <para>Only a bare number is judged. <c>var(--font-weight-*)</c> resolves to a
+    /// declared token by definition, and a keyword — <c>inherit</c>, <c>bolder</c> —
+    /// is a relationship to whatever is around it rather than a step off the scale.</para></summary>
+    [Fact]
+    public void No_application_stylesheet_uses_a_weight_outside_the_declared_scale()
+    {
+        var declared = DesignTypography.SpecifiedWeights();
+        var stylesheets = OurStylesheets().ToList();
+
+        // Both premises before the rule: an empty scale would make every weight an
+        // offender, and an empty enumeration would let this pass while reading
+        // nothing at all.
+        Assert.NotEmpty(declared);
+        Assert.NotEmpty(stylesheets);
+
+        foreach (var stylesheet in stylesheets)
+        {
+            var offenders = NumericFontWeight
+                .Matches(WithoutComments(File.ReadAllText(stylesheet.FullName)))
+                .Select(match => match.Groups["value"].Value)
+                .Where(weight => !declared.Contains(weight))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(weight => weight, StringComparer.Ordinal)
+                .ToList();
+
+            Assert.True(
+                offenders.Count == 0,
+                $"{Relative(stylesheet)} sets font-weight to {string.Join(", ", offenders)}, and "
+                + ".design/typography-and-layout.md declares only "
+                + $"{string.Join(", ", declared.OrderBy(weight => weight, StringComparer.Ordinal))}. "
+                + "Move it to the nearest declared weight, or give the new one a row in that table "
+                + "first: an undeclared weight is drawn by whichever face the stack happens to carry, "
+                + "and nothing records what it is for.");
+        }
+    }
+
+    /// <summary>Colour literals declared on <c>:root</c>, keyed by token name
+    /// without the <c>--</c>. A token defined as <c>var(--other)</c> is skipped:
+    /// it has no value of its own to disagree about.</summary>
+    private static Dictionary<string, string> DeclaredColors(string path) =>
+        Regex.Matches(File.ReadAllText(path), @"--((?:color|code)-[a-z0-9-]+)\s*:\s*([^;]+);")
+            .Where(match => DesignPalette.IsColorLiteral(match.Groups[2].Value))
+            .ToDictionary(
+                match => match.Groups[1].Value,
+                match => DesignPalette.Normalized(match.Groups[2].Value));
+
     /// <summary>Custom properties declared on <c>:root</c>.</summary>
     private static HashSet<string> DeclaredTokens(string path)
     {

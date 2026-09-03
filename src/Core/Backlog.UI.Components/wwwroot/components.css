@@ -685,6 +685,57 @@ button.badge:hover {
     padding: 0;
 }
 
+/*
+   The inline select's own resting appearance, for the caller that has not dressed
+   it as something else.
+
+   The rule below it strips the control to nothing on purpose — no border, no
+   background, `font: inherit` — because the shape this component was built for is
+   a select *inside a badge*: the badge draws the pill and the select borrows its
+   face, its letter-spacing and its fill, which is what makes a status you can
+   change look exactly like one you cannot. Every caller that wants that hands in
+   `badge` through CssClass, and `EnumSelect` and `RepositorySelector` do it for
+   their callers.
+
+   What was never true is that a caller who wants a plain select should get an
+   invisible one. Left undressed the component rendered as transparent text with no
+   affordance at all — the backlog's bulk bar and both roadmap editors, the latter
+   sitting in a dialog row beside bordered TextFields. A shared control that only
+   looks like a control once the host passes private class names is a defect in the
+   control, so the default is a control and the badge is the opt-out.
+
+   `:not(.badge)` is the opt-out and it is deliberate rather than defensive: a
+   select wearing a badge already has a skin, and a frame around a pill is two.
+   Nothing that ships today changes — every existing caller either wears a badge
+   or is one of the two that should always have had this.
+
+   inline-flex because a label with a height and no display is still inline, so the
+   height was doing nothing and the control did not sit on the line with its
+   neighbours.
+
+   A frame, a fill and a shape, and deliberately no type and no colour. `:not()`
+   takes its argument's specificity, so this rule is (0,2,0) and outranks any
+   single host class whatever the load order — which makes anything it declares
+   something a caller cannot get back. A caller can always want its own size: the
+   detail panel's pickers are `--font-size-xs` beside the fields they sit under,
+   and a shared rule that also set the type made them 17% larger than their
+   neighbours and dimmer than them. What this rule is for is making a select read
+   as a control; how big the words in it are belongs to whoever put it there.
+*/
+.metadata-editor:not(.badge) {
+    display: inline-flex;
+    align-items: center;
+    height: auto;
+    min-height: 1.5rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
+
+.metadata-editor:not(.badge):hover {
+    border-color: var(--color-border-strong);
+}
+
 .metadata-editor__select {
     width: 100%;
     min-width: 0;
@@ -791,6 +842,33 @@ button.badge:hover {
     color: var(--color-text-disabled);
     background: transparent;
     font-style: italic;
+}
+
+/*
+   A badge with no value in it, which only ever happens to an editable one:
+   `BadgeSelect` emits this instead of a per-value modifier when it has been told
+   there is no single value to show — a bulk edit over twenty rows that each have
+   their own status.
+
+   Outlined and unfilled, and that is the whole point of the class. A badge's
+   default fill is `--color-background-raised`, which is also the fill of every
+   surface a bulk bar sits on, so a valueless status badge came out as the same
+   colour as the strip behind it: letter-spaced capitals floating in the bar with
+   nothing to say they could be pressed. An outline is the one treatment that is
+   visible on a raised surface without claiming a value's colour.
+
+   Kind-agnostic on purpose. What has no value is the control, not the vocabulary,
+   so there is nothing here for `status` to say that `priority` would say
+   differently.
+*/
+.badge--unset {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.badge--unset:hover {
+    border-color: var(--color-border-strong);
 }
 
 /* --- Repository identity edge --------------------------------------------- */
@@ -2827,36 +2905,32 @@ button.md-check {
 }
 
 /*
-   The selection gutter. On every selectable row so the column does not shift
-   sideways the first time one is picked, and quiet until the pointer or the
-   keyboard reaches it — the resting state of a long list is the work rather than
-   a column of empty boxes
-   (.design/design-principles.md#low-chrome-content-first).
+   The selection gutter. On every row of a list that asked for one, at full
+   strength, and on no row of a list that did not.
 
-   Opacity rather than display or a conditional render: a box that left the
-   layout would move the whole row on hover, and one that left the DOM could not
-   be tabbed to at all. It stays a named control to a screen reader either way,
-   which is the half of this that opacity gets right and display does not.
+   It used to fade in on :hover and :focus-within, and that rule is gone rather
+   than tuned. The reveal was there because the gutter was drawn on every row of
+   the backlog all the time, so the resting state of the column had to be the work
+   rather than a column of empty boxes
+   (.design/design-principles.md#low-chrome-content-first). Selection is a mode
+   now — TaskListView.SelectionEnabled, which the backlog turns on from a chip
+   above the list — so the resting state has no boxes in it at all and the reveal
+   was answering a question nobody asks any more.
+
+   Keeping it would cost something rather than nothing.
+   .design/interaction-guidelines.md#focus-and-selection requires selection to be
+   visually distinct from hover *and* from focus, and a box that appears under the
+   pointer is hover drawing a control that is only ever about selection: the two
+   states share one paint, which is the collision that rule names. A checkbox
+   within reach of any row the pointer crossed was also the reachable-by-accident
+   affordance the mode exists to remove.
+
+   No transition either, for the same reason: there is no state to move between.
 */
 .task-item__gutter {
     display: inline-flex;
     align-items: center;
     flex: none;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.task-item:hover .task-item__gutter,
-.task-item__gutter:focus-within,
-.task-item--selecting .task-item__gutter,
-.task-item--picked .task-item__gutter {
-    opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .task-item__gutter {
-        transition: none;
-    }
 }
 
 /* The gutter's box is named by aria-label rather than by a visible word, so the
@@ -4008,6 +4082,85 @@ button.task-panel__check:focus-visible {
    together and never break across the column gap — and the caption is what a
    reader who cannot see that layout gets instead. A rule here would be a rule for
    something nobody draws. */
+
+/*
+   The band: the same pane laid out across the width rather than down it, for a
+   host whose room is a bar and not a column. See TaskActionPane.Band for why the
+   two shapes exist and which room each is for.
+
+   Three rules, and each one undoes a decision the column shape needed.
+
+   The columns box stops being a multi-column box and becomes a wrapping flex row.
+   That is the whole of "use the width": `columns: 16rem` fits as many columns as
+   the width allows and then balances the groups into them, so a pane of three
+   groups in a fifteen-hundred-pixel bar filled three columns and left the rest
+   blank — the width was never the constraint, the stacking was.
+
+   A group flows its own rows left to right too, and wraps. That is what turns a
+   group of three rows from three lines into one, and it is also what keeps the
+   narrow case working with nothing said about it: at a width that holds one row,
+   every row wraps and the band is the stack it always was.
+
+   And a row is as tall as its label. The reserved line — every row keeping the
+   height its value would take whether or not it has one — exists so two columns
+   stay level with each other, and in a band there are no columns to level.
+*/
+.task-action-pane--band {
+    /* Both hosts of a band were declaring these two lines, in the same order and
+       with the same comment, which is the point at which a rule stops being the
+       host's. A band exists to be the pane in a bar; a bar lays its slot out as a
+       flex row; so taking the width and having a zero minimum is what a band *is*
+       rather than something each bar has to remember.
+
+       flex, because a flex item's base size is its content and a pane left alone
+       sat at the width of its longest label with the rest of the bar blank.
+       min-width, because the band wraps: without it the pane's minimum is its
+       widest unbreakable child — an open tag picker — and an item that cannot go
+       below that pushes its neighbours off the ends of the bar instead of wrapping
+       inside its own box. Ignored anywhere the pane is not a flex item, which is
+       every column-shaped use of it. */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.task-action-pane--band .task-action-pane__columns {
+    columns: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.task-action-pane--band .task-action-group {
+    /* Shrinkable, never growable. A group takes the room its own rows need and
+       gives it back rather than overflowing the band: the widest thing a group
+       can hold is an open picker, and a group that refused to shrink would push
+       it past the edge instead of wrapping inside it. */
+    flex: 0 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.task-action-pane--band .task-action {
+    min-height: 0;
+}
+
+.task-action-pane--band .task-action__main {
+    width: auto;
+    padding-block: var(--spacing-xs);
+    white-space: nowrap;
+}
+
+/* And the controls a band's groups open are sized to the strip rather than to the
+   page. The same statement the row above makes about its own label: a band is a
+   strip, and the things on a strip are small. Said here rather than by each host,
+   and only for the band — the column shape is inside a panel where a select is
+   the width of the row it owns. */
+.task-action-pane--band .metadata-editor:not(.badge) {
+    font-size: var(--font-size-xs);
+}
 
 /* --- Task panel ---------------------------------------------------------- */
 /*
@@ -5267,6 +5420,26 @@ button.tag-chip__label {
     background: var(--color-background-alt);
     color: var(--color-text-primary);
     font: inherit;
+}
+
+/*
+   The same field, small enough to stand on a strip.
+
+   The rule above is a form input: full width, form padding, a row of its own. A
+   date picker beside a chip on a selection bar is the same control at a different
+   size, and both panels that wanted it were passing a private class of their own
+   to get there — which is a size the library should have owned. Geometry only, so
+   it composes over whatever skin the field is wearing.
+
+   `width: auto` rather than a number: what a compact field is wide enough for is
+   its own value, and a date input already knows how wide a date is.
+*/
+.field__input--compact {
+    width: auto;
+    min-height: 1.5rem;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
 }
 
 .field__input::placeholder {
@@ -7450,6 +7623,18 @@ select.field__input option {
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-md);
+}
+
+/* The category the section belongs to. The panes that adopted this component
+   each keep their own eyebrow colour; this is the neutral one, for a host that
+   has no rule of its own. */
+.section-header__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .section-header__title {
@@ -10443,6 +10628,14 @@ select.field__input option {
     display: grid;
     gap: var(--spacing-sm);
     min-width: 0;
+}
+
+/* A host that folds a table away hides it with the attribute, and the display
+   above would otherwise outrank the rule that does the hiding: an author
+   declaration beats the user agent's whatever their specificity, so `hidden` on
+   this block is inert until the block says what it means. */
+.data-table[hidden] {
+    display: none;
 }
 
 /* Cells do not wrap — a folder path and a branch name are both long, and a
