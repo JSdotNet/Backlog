@@ -100,7 +100,7 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
     /// unresolvable string. Rule 3 leaves everything else exactly as it is.
     /// </para>
     /// <para>
-    /// The shape guard on rule 2 is where ADR 0004's line now sits, and it is
+    /// The shape guard on rule 2 is where ADR 0007's line now sits, and it is
     /// deliberately narrow. A typo'd <c>repo:xyz</c> is alias-shaped, resolves to
     /// nothing, and is never registered — the guard that keeps the ADR's sentence
     /// true is that the ordinary text save never registers at all, so the token

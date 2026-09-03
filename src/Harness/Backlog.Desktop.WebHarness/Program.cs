@@ -123,7 +123,7 @@ builder.Services.AddDashboardAdapters();
 // AddTasksModule() above because it reads the GitHub settings store and that is
 // only configured by this point. It is what lets an imported plan resolve a
 // `repo:` name against the repositories somebody has configured — and register one
-// it names that nobody has, per ADR 0004.
+// it names that nobody has, per ADR 0007.
 builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();

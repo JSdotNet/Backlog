@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// reader said about the repository names the plan mentions.
 /// <para>
 /// <see cref="DefaultRepo"/> is a UI convenience, not a grammar change — see
-/// ADR 0004. It is applied only to an entry whose own text names no
+/// ADR 0007. It is applied only to an entry whose own text names no
 /// <c>repo:</c> of its own; the token stays the per-entry override for a plan
 /// that spans more than one repository.
 /// </para>

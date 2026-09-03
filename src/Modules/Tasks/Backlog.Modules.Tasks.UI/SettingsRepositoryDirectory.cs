@@ -16,7 +16,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// resolve against it.
 /// </para>
 /// <para>
-/// This is where ADR 0004's "Import triggers registration; it does not perform
+/// This is where ADR 0007's "Import triggers registration; it does not perform
 /// it" lands. Import asks for a name to exist; what a registered repository
 /// holds is decided here, against the same store the Repositories screen writes
 /// — so a repository a plan introduced is an ordinary configured repository from
