@@ -136,13 +136,28 @@ public sealed class ClassHookTests
         Assert.Equal("status-editor__select", select.Find("select").GetAttribute("class"));
     }
 
+    /// <summary>
+    /// An empty slug claims no state and says so in its own class.
+    /// <para>
+    /// Null and empty are different answers, exactly as on Badge. Null is "not
+    /// specified", so the value spells the modifier; empty is a caller saying
+    /// there is no state to claim, and claiming one would be painting a verdict
+    /// nobody reached.
+    /// </para>
+    /// <para>
+    /// What is new is <c>badge--unset</c>, and it is the difference between "no
+    /// state" and "no appearance". A badge's own fill is
+    /// <c>--color-background-raised</c>, which is also the fill of the raised
+    /// strips an editable badge sits on, so a badge with the kind and no modifier
+    /// came out the same colour as the surface behind it: correct markup, and a
+    /// control nobody could see. This is the outline that replaces the fill it has
+    /// no value for. It is not a state modifier — there is deliberately no
+    /// <c>badge--status-*</c> here — which is why the name has no kind in it.
+    /// </para>
+    /// </summary>
     [Fact]
     public void An_empty_slug_leaves_the_badge_with_no_state_modifier_at_all()
     {
-        // Null and empty are different answers, exactly as on Badge. Null is
-        // "not specified", so the value spells the modifier; empty is a caller
-        // saying there is no state to claim, and claiming one would be painting
-        // a verdict nobody reached.
         using var context = new BunitContext();
 
         var select = context.Render<BadgeSelect>(parameters => parameters
@@ -150,9 +165,171 @@ public sealed class ClassHookTests
             .Add(s => s.Slug, string.Empty)
             .Add(s => s.Options, [new SelectorOption("adopted", "adopted")]));
 
-        Assert.Equal(
-            "status-editor badge badge--status",
-            select.Find("label").GetAttribute("class"));
+        var classes = select.Find("label").GetAttribute("class");
+
+        Assert.Equal("status-editor badge badge--status badge--unset", classes);
+        Assert.DoesNotContain("badge--status-", classes, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The knowledge panels reach the same state through their vocabulary, and
+    /// that is the third caller rather than a side effect.
+    /// <para>
+    /// <c>MetadataStatusVocabulary.SlugFor</c> answers the empty string for a
+    /// status nobody stated — deliberately, so a file with no status cannot be
+    /// painted as <c>draft</c> — and both knowledge panels hand that answer
+    /// straight to <c>Slug</c>. So a chapter or a record that states no status now
+    /// draws the outline too, which is the same "no value recorded" fact the bulk
+    /// bar's status is showing and the same reason it must not read as a filled
+    /// pill.
+    /// </para>
+    /// <para>
+    /// Pinned as the chain rather than through a panel, because the chain is what
+    /// is load-bearing: the vocabulary answers empty, and empty is what the badge
+    /// turns into <c>badge--unset</c>. A panel test would prove one screen; this
+    /// proves the contract every screen using that vocabulary depends on.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_status_no_file_stated_draws_the_unset_outline(string? status)
+    {
+        var vocabulary = KnowledgeStatus.Vocabulary(KnowledgeFolder.Design);
+
+        // The half the knowledge panels rely on: no status, no modifier.
+        Assert.Equal(string.Empty, vocabulary.SlugFor(status));
+
+        using var context = new BunitContext();
+
+        var select = context.Render<StatusSelector>(parameters => parameters
+            .Add(s => s.CurrentValue, status ?? string.Empty)
+            .Add(s => s.Slug, vocabulary.SlugFor(status))
+            .Add(s => s.Options, [new SelectorOption("draft", "draft")]));
+
+        var classes = select.Find("label").GetAttribute("class");
+
+        Assert.Contains("badge--unset", classes, StringComparison.Ordinal);
+        Assert.DoesNotContain("badge--status-draft", classes, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a badge that does have a value never wears it, because there
+    /// is a fill for the outline to have replaced.</summary>
+    [Fact]
+    public void A_badge_select_with_a_value_is_not_marked_unset()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<BadgeSelect>(parameters => parameters
+            .Add(s => s.CurrentValue, "ready")
+            .Add(s => s.Options, [new SelectorOption("ready", "Ready")]));
+
+        Assert.DoesNotContain("badge--unset", select.Find("label").GetAttribute("class"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A disclosure says it is open, not that it is pressed.
+    /// <para>
+    /// <c>aria-pressed</c> means "this thing is on". A row that reveals other
+    /// controls is not on, it is open, and <c>aria-expanded</c> is the word for
+    /// that — with <c>aria-controls</c> naming what appeared, because an
+    /// expanded-state with nothing pointing at the thing leaves the reader to go
+    /// and find it.
+    /// </para>
+    /// <para>
+    /// Nullable, and the third state is the one worth pinning: most rows in a task
+    /// panel reveal nothing, and an <c>aria-expanded="false"</c> on one of those
+    /// promises a disclosure that does not exist.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_disclosure_row_says_expanded_where_a_toggle_says_pressed()
+    {
+        using var context = new BunitContext();
+
+        var closed = context.Render<TaskAction>(parameters => parameters
+            .Add(a => a.Icon, "◉")
+            .Add(a => a.Label, "Classification")
+            .Add(a => a.Expanded, false)
+            .Add(a => a.Controls, "host-classification")
+            .Add(a => a.TestId, "row"));
+
+        var button = closed.Find("[data-testid='row-set']");
+        Assert.Equal("false", button.GetAttribute("aria-expanded"));
+        Assert.Equal("host-classification", button.GetAttribute("aria-controls"));
+        Assert.False(button.HasAttribute("aria-pressed"));
+
+        var open = context.Render<TaskAction>(parameters => parameters
+            .Add(a => a.Icon, "◉")
+            .Add(a => a.Label, "Classification")
+            .Add(a => a.Expanded, true)
+            .Add(a => a.TestId, "row"));
+
+        Assert.Equal("true", open.Find("[data-testid='row-set']").GetAttribute("aria-expanded"));
+
+        // A row that opens nothing claims neither, which is the common case and
+        // the reason the parameter is nullable.
+        var plain = context.Render<TaskAction>(parameters => parameters
+            .Add(a => a.Icon, "+")
+            .Add(a => a.Label, "Add step")
+            .Add(a => a.TestId, "row"));
+
+        var plainButton = plain.Find("[data-testid='row-set']");
+        Assert.False(plainButton.HasAttribute("aria-expanded"));
+        Assert.False(plainButton.HasAttribute("aria-controls"));
+        Assert.False(plainButton.HasAttribute("aria-pressed"));
+
+        // And a toggle still says pressed, which is what it means: My Day is on.
+        var toggle = context.Render<TaskAction>(parameters => parameters
+            .Add(a => a.Icon, "☀")
+            .Add(a => a.Label, "My Day")
+            .Add(a => a.Togglable, true)
+            .Add(a => a.Set, true)
+            .Add(a => a.TestId, "row"));
+
+        var toggleButton = toggle.Find("[data-testid='row-set']");
+        Assert.Equal("true", toggleButton.GetAttribute("aria-pressed"));
+        Assert.False(toggleButton.HasAttribute("aria-expanded"));
+    }
+
+    /// <summary>
+    /// The compact field is a modifier over whatever skin the field wears, not a
+    /// replacement for it.
+    /// <para>
+    /// Both panels that wanted a small inline date field were passing a private
+    /// class of their own to get one, which is the arrangement
+    /// <c>ui-components.instructions.md</c> exists to stop: two hosts naming the
+    /// same string to size a control means the size belongs to the library. So it
+    /// is added rather than substituted — a host that has replaced the input's
+    /// class for an error style of its own still gets the smaller geometry.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_compact_field_adds_its_modifier_without_taking_the_skin_away()
+    {
+        using var context = new BunitContext();
+
+        var plain = context.Render<TextField>(parameters => parameters
+            .Add(f => f.Bare, true)
+            .Add(f => f.Compact, true)
+            .Add(f => f.AriaLabel, "Due date"));
+
+        Assert.Equal("field__input field__input--compact", plain.Find("input").GetAttribute("class"));
+
+        var dressed = context.Render<TextField>(parameters => parameters
+            .Add(f => f.Bare, true)
+            .Add(f => f.Compact, true)
+            .Add(f => f.InputCssClass, "host__own-input")
+            .Add(f => f.AriaLabel, "Due date"));
+
+        Assert.Equal("host__own-input field__input--compact", dressed.Find("input").GetAttribute("class"));
+
+        var full = context.Render<TextField>(parameters => parameters
+            .Add(f => f.Bare, true)
+            .Add(f => f.AriaLabel, "Due date"));
+
+        Assert.Equal("field__input", full.Find("input").GetAttribute("class"));
     }
 
     [Fact]

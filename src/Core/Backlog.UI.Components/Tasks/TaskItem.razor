@@ -943,14 +943,6 @@
     [Parameter]
     public EventCallback<TaskSelectionToggle> SelectionChanged { get; set; }
 
-    /// <summary>Whether anything in the list is picked. The gutter is a hover and
-    /// focus affordance until then; once a selection exists every box stays on
-    /// screen, because boxes that came and went under the pointer would leave the
-    /// reader unable to see what they had already picked. A fact about the list,
-    /// so the list says it and the row wears it.</summary>
-    [Parameter]
-    public bool SelectionActive { get; set; }
-
     /// <summary>Whether this row can be picked up. The list turns it on; a row on
     /// its own has nothing to be reordered within.</summary>
     [Parameter]
@@ -1680,7 +1672,6 @@
         // selection to be distinct from hover and from focus, and borrowing the
         // open row's paint would make it indistinguishable from a third thing.
         CanSelect && SelectionChecked ? "task-item--picked" : null,
-        CanSelect && SelectionActive ? "task-item--selecting" : null,
         Dragging ? "task-item--dragging" : null,
         // What this row is to the link drag in flight. On the row rather than on
         // anything inside it, because the row is the drop target: there is nothing

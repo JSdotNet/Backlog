@@ -247,9 +247,18 @@ public sealed class MetadataViewTests
             select.QuerySelectorAll("option").Select(option => option.TextContent));
         Assert.Equal(string.Empty, select.QuerySelectorAll("option")[0].GetAttribute("value"));
 
-        // And it wears the plain badge — not `archived`, which is what an
-        // unrecognised word gets, and not `draft`, which is a real state.
-        Assert.Equal("status-editor badge badge--status", view.Find("label.status-editor").GetAttribute("class"));
+        // And it claims no state — not `archived`, which is what an unrecognised
+        // word gets, and not `draft`, which is a real state.
+        //
+        // `badge--unset` is what it wears instead of a state, and this record is
+        // the second caller that needed it: a badge carrying only the kind is
+        // filled with `--color-background-raised`, the same colour as the raised
+        // surface a knowledge headline sits on, so "No status" was a control drawn
+        // in the colour of the card behind it. The outline is the appearance the
+        // absent value has, rather than no appearance at all.
+        Assert.Equal(
+            "status-editor badge badge--status badge--unset",
+            view.Find("label.status-editor").GetAttribute("class"));
     }
 
     [Fact]

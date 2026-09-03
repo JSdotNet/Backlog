@@ -365,6 +365,16 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* The one group in the bar that is not a filter. It keeps its room for the same
+   reason the scopes do, and more strongly: it is the only way into the selection
+   gutter and the only way back out of the mode, so a chip squeezed out of view
+   would strand a reader inside it. Pinned before the status group's auto margin,
+   so it sits with the scopes on the left rather than drifting to the right
+   edge. */
+.filter-group--select {
+    flex: 0 0 auto;
+}
+
 .filter-group--status {
     flex: 0 1 auto;
     margin-left: auto;
@@ -563,14 +573,45 @@ h1, h2, h3 {
     z-index: 1;
 }
 
-/* An act and the control that undoes it, kept together: "a date and its ✕" is
-   one decision, and a bar that wrapped between the two would leave a clear
-   button under a field it no longer looks attached to. */
+/* A control and the button that undoes or commits it, kept together: "a date and
+   the button that clears it" is one decision, and a band that wrapped between the
+   two would leave the button under a field it no longer looks attached to. */
 .backlog-bulk__pair {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* The element a group's trigger opens into: the aria-controls target, and where
+   Escape stops climbing out of a control. A wrapping row so an open group's
+   controls sit on the band's line with their trigger and wrap together when the
+   width runs out, rather than each finding its own place in the band. */
+.backlog-bulk__controls {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* How much of the bar one control may take, and nothing about how it looks.
+
+   A tag picker's value is a row of chips rather than a word, so it grows as tags
+   are added and there is no width to reserve for it in advance. Left alone it
+   would take whatever it wanted and push the group onto a second line — which is
+   what the 75px the band measured with Tags open actually was. The cap is the
+   host's business for the reason `.entry-row__pickers` gives: what is being
+   corrected is not how a tag picker looks, it is how much of *this* strip one is
+   allowed to have.
+
+   It wears the library's own `.tag-select__control` now — border, background,
+   radius — where it used to borrow the detail panel's, which strips all three
+   until the pointer is on it. A picker that only looks like a field on hover
+   cannot be found by touch or by keyboard. */
+.backlog-bulk__tags {
+    min-width: 0;
+    max-width: 22rem;
 }
 
 .backlog-list {
@@ -1027,20 +1068,33 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* Where a picker sits, and nothing about what it looks like. Indented under the
+   row that opened it and top-aligned inside it, which is a layout fact this panel
+   owns: a picker in a column belongs under its row.
+
+   The monospace that used to be here has gone, and it was the whole of the bulk
+   bar's "unstyled control" bug. `--font-family-mono` is `Fira Code, Courier New,
+   monospace`, and Fira Code is not installed on a stock Windows box — so every
+   select carrying this class rendered in Courier New, which reads as a control the
+   product's stylesheet never reached. It is right on the date input beside it, for
+   the reason `.badge--glob` gives: a date token is a machine string. It was never
+   right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
 .entry-doc__schedule-select {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
-    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
 
+/* Monospace here and not on the select beside it, for the reason `.badge--glob`
+   gives: a date token is a machine string, and "Weekly" is not. */
 .entry-doc__schedule-input {
     padding: var(--spacing-2xs) var(--spacing-xs);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-sm);
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
 }
 
 .entry-doc__schedule-depends {
