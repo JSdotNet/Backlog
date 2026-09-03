@@ -994,15 +994,23 @@
     /// Alongside rather than a switch: this is the shell opening a pane on the
     /// reader's behalf, and closing the Inbox they just picked the item from would
     /// take away the list they were working through.
+    /// </para>
+    /// <para>
+    /// Selects the entry rather than opening an editor on it. The raw-markdown
+    /// escape hatch stays behind Ctrl+Shift+M, because that is what makes it the
+    /// hatch `.design/content-editing.md#raw-markdown-escape-hatch` describes
+    /// rather than "the primary surface #editing-model rules out" — and the hatch
+    /// is the <em>selected</em> row being the row with an editor open, so asking
+    /// for one without selecting put nothing on screen at all. The same fix the
+    /// new-entry path took; see <c>TasksDesktopState.NewRow</c>.
     /// </para></summary>
-    private Task OpenInboxItemAsync(InboxItem item)
+    private async Task OpenInboxItemAsync(InboxItem item)
     {
-        if (TasksDrafts.Find(State.Rows, item) is not { } row) return Task.CompletedTask;
+        if (TasksDrafts.Find(State.Rows, item) is not { } row) return;
 
         _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
         PersistPaneSelection();
-        State.BeginEdit(row);
-        return Task.CompletedTask;
+        await State.SelectAsync(row);
     }
 
     /// <summary>The repository scope is global: it narrows the backlog list and,

@@ -747,6 +747,16 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
 
+        // And nowhere else under src/ either. The shell was the last caller: it
+        // opened the hatch on a triaged inbox item without selecting the row, which
+        // is an editor with no surface to render in — the same anti-pattern one file
+        // over, so the guard covers both files rather than only the one it was
+        // written for.
+        Assert.DoesNotContain(
+            "State.BeginEdit",
+            NormalizeLineEndings(File.ReadAllText(FindHomeRazor())),
+            StringComparison.Ordinal);
+
         // The source is reached deliberately instead — the shortcut
         // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
         // control for it: the row that used to open it said "Markdown" under a body
