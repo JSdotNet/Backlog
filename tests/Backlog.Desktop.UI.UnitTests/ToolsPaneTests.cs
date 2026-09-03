@@ -1140,6 +1140,24 @@ public sealed class ToolsPaneTests
         Assert.Contains("Up to date", pane.Find(".tools-table__actions").TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The pane header is the same library component the kind sub-headings below
+    /// it already rendered, wearing this pane's own class names - and the count
+    /// badge and the close control are still in the pane's own actions wrapper.
+    /// </summary>
+    [Fact]
+    public void The_header_is_the_shared_component_wearing_this_panes_classes()
+    {
+        using var context = Context(FakeDevToolService.WithoutCatalog());
+
+        var pane = context.Render<ToolsPane>();
+        var header = pane.Find(".tools-panel__header");
+
+        SectionHeaderAdoptionTests.AssertPaneHeader(header, "tools-panel", "installed-tools-title");
+        SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "tools-panel");
+        Assert.NotNull(header.QuerySelector(".tools-panel__header-actions .tools-panel__count"));
+    }
+
     private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();

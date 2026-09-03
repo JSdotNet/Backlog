@@ -6,13 +6,18 @@
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
-    <header class="inbox-pane__header">
-        <div>
-            <p class="inbox-pane__eyebrow">Global pane</p>
-            <h2 id="inbox-pane-title" class="inbox-pane__title">Inbox</h2>
-            <p class="inbox-pane__subtitle">Capture and triage drafts before they settle into the backlog and knowledge lanes.</p>
-        </div>
-    </header>
+    @* The library's section header wearing this pane's own class names. No
+       actions: the Inbox is read and triaged from its rows, so there is nothing
+       for the header to offer. *@
+    <SectionHeader BaseClass="inbox-pane__header"
+                   TextCssClass=""
+                   EyebrowCssClass="inbox-pane__eyebrow"
+                   TitleCssClass="inbox-pane__title"
+                   DescriptionCssClass="inbox-pane__subtitle"
+                   Eyebrow="Global pane"
+                   TitleId="inbox-pane-title"
+                   Title="Inbox"
+                   Description="Capture and triage drafts before they settle into the backlog and knowledge lanes." />
 
     <div class="inbox-pane__content">
         @if (Items.Count == 0)

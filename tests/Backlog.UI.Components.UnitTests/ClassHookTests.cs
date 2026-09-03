@@ -358,4 +358,95 @@ public sealed class ClassHookTests
         Assert.Equal("knowledge-menu__error knowledge-menu__error--open", element.GetAttribute("class"));
         Assert.Equal("alert", element.GetAttribute("role"));
     }
+    [Fact]
+    public void A_section_header_can_be_dressed_entirely_in_the_hosts_own_names()
+    {
+        using var context = new BunitContext();
+
+        var header = context.Render<SectionHeader>(parameters => parameters
+            .Add(h => h.BaseClass, "dashboard-panel__header")
+            .Add(h => h.TextCssClass, null)
+            .Add(h => h.EyebrowCssClass, "dashboard-panel__eyebrow")
+            .Add(h => h.TitleCssClass, "dashboard-panel__title")
+            .Add(h => h.DescriptionCssClass, "dashboard-panel__subtitle")
+            .Add(h => h.ActionsCssClass, "dashboard-panel__header-actions")
+            .Add(h => h.Eyebrow, "Dashboard")
+            .Add(h => h.Title, "Productivity and cost")
+            .Add(h => h.Description, "Your own pull requests, issues and rework.")
+            .Add(h => h.Actions, "<button type=\"button\">Close</button>"));
+
+        Assert.Equal("dashboard-panel__header", header.Find("header").GetAttribute("class"));
+        Assert.NotNull(header.Find(".dashboard-panel__eyebrow"));
+        Assert.NotNull(header.Find(".dashboard-panel__title"));
+        Assert.NotNull(header.Find(".dashboard-panel__subtitle"));
+        Assert.NotNull(header.Find(".dashboard-panel__header-actions button"));
+
+        // The library's own names are replaced, not joined - a pane that kept both
+        // would pick up the component's spacing on top of its own.
+        Assert.Empty(header.FindAll(".section-header"));
+        Assert.Empty(header.FindAll(".section-header__text"));
+        Assert.Empty(header.FindAll(".section-header__eyebrow"));
+        Assert.Empty(header.FindAll(".section-header__title"));
+        Assert.Empty(header.FindAll(".section-header__description"));
+        Assert.Empty(header.FindAll(".section-header__actions"));
+    }
+
+    [Theory]
+    [InlineData(2, "h2")]
+    [InlineData(3, "h3")]
+    [InlineData(4, "h4")]
+    [InlineData(5, "h5")]
+    public void The_section_header_title_hook_applies_at_every_heading_level(int level, string tag)
+    {
+        using var context = new BunitContext();
+
+        var header = context.Render<SectionHeader>(parameters => parameters
+            .Add(h => h.Level, level)
+            .Add(h => h.TitleCssClass, "inbox-pane__title")
+            .Add(h => h.Title, "Inbox"));
+
+        Assert.Equal("inbox-pane__title", header.Find(tag).GetAttribute("class"));
+        Assert.Empty(header.FindAll(".section-header__title"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void A_blank_section_header_part_class_leaves_the_element_bare(string? blank)
+    {
+        using var context = new BunitContext();
+
+        var header = context.Render<SectionHeader>(parameters => parameters
+            .Add(h => h.BaseClass, blank)
+            .Add(h => h.CssClass, "app-update-dialog__header")
+            .Add(h => h.TextCssClass, blank)
+            .Add(h => h.EyebrowCssClass, blank)
+            .Add(h => h.TitleCssClass, blank)
+            .Add(h => h.DescriptionCssClass, blank)
+            .Add(h => h.Eyebrow, "Application updates")
+            .Add(h => h.Title, "Update Backlog")
+            .Add(h => h.Description, "Check for a newer build."));
+
+        // No class attribute at all rather than an empty one: the dialog styles
+        // these by element, and `class=""` is markup the hand-rolled header never
+        // had.
+        Assert.Equal("app-update-dialog__header", header.Find("header").GetAttribute("class"));
+        Assert.Null(header.Find("h2").GetAttribute("class"));
+        Assert.Null(header.Find("header > div").GetAttribute("class"));
+        Assert.Null(header.Find("header > div > p").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_null_actions_class_drops_the_section_header_actions_wrapper()
+    {
+        using var context = new BunitContext();
+
+        var header = context.Render<SectionHeader>(parameters => parameters
+            .Add(h => h.ActionsCssClass, null)
+            .Add(h => h.Title, "Bounded context")
+            .Add(h => h.Actions, "<span class=\"badge\">draft</span>"));
+
+        Assert.Empty(header.FindAll(".section-header__actions"));
+        Assert.NotNull(header.Find(".section-header > span.badge"));
+    }
 }

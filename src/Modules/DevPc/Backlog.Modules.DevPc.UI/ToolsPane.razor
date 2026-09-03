@@ -37,13 +37,19 @@
 *@
 
 <section @key=@("tools-pane") class="tools-panel" id="tools-pane" aria-labelledby="installed-tools-title" data-testid="tools-panel">
-    <header class="tools-panel__header">
-        <div>
-            <p class="tools-panel__eyebrow">System tools</p>
-            <h2 id="installed-tools-title" class="tools-panel__title">System tools</h2>
-            <p class="tools-panel__subtitle">What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.</p>
-        </div>
-        <div class="tools-panel__header-actions">
+    @* The same library section header the kind sub-headings below already
+       render, here wearing this pane's own class names. *@
+    <SectionHeader BaseClass="tools-panel__header"
+                   TextCssClass=""
+                   EyebrowCssClass="tools-panel__eyebrow"
+                   TitleCssClass="tools-panel__title"
+                   DescriptionCssClass="tools-panel__subtitle"
+                   ActionsCssClass="tools-panel__header-actions"
+                   Eyebrow="System tools"
+                   TitleId="installed-tools-title"
+                   Title="System tools"
+                   Description="What this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.">
+        <Actions>
             @* A re-check over rows that are already on screen does not blank them
                — the versions below stay readable while the newer ones are being
                looked up — so the only place left to say that something is running
@@ -55,8 +61,8 @@
             @* The library's badge wearing this pane's count class. *@
             <Badge BaseClass="tools-panel__count" Kind="">@CountLabel</Badge>
             <IconButton AriaLabel="Close tools pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
-        </div>
-    </header>
+        </Actions>
+    </SectionHeader>
 
     <div class="tools-panel__content" id="installed-tools-content">
         @* Two columns rather than one stack, at the widths that have room
