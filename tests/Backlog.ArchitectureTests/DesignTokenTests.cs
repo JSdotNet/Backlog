@@ -307,8 +307,7 @@ public class DesignTokenTests
     [Fact]
     public void Every_colour_the_library_declares_matches_the_value_in_dotdesign()
     {
-        var declared = DeclaredColors(Path.Combine(
-            Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
+        var declared = DesignPalette.DeclaredColors(DesignPalette.LibraryStylesheet);
 
         var specified = DesignPalette.SpecifiedColors();
 
@@ -404,6 +403,63 @@ public class DesignTokenTests
                 + "against: declare it on :root in components.css, give it a row and a measured contrast "
                 + "pair in .design/color-scheme.md, then reference it by name here.");
         }
+    }
+
+    /// <summary>The semantic meanings whose token is a surface and only a surface.
+    /// <c>.design/color-scheme.md#semantic-soft-surface-tokens</c> is explicit that
+    /// these are background tokens: something readable is rendered <em>on</em> one,
+    /// and painting one as ink puts a near-black value on a near-black page.</summary>
+    private static readonly string[] SemanticSurfaces = ["success", "warning", "error", "info"];
+
+    /// <summary>A <c>color</c> declaration — the ink, not
+    /// <c>background-color</c> or <c>border-color</c>, which the hyphen before the
+    /// property name rules out — set to one of the semantic surface tokens. The
+    /// sanctioned foregrounds escape it by name: <c>--color-error-text</c> does not
+    /// end the token where <c>--color-error</c> does.
+    ///
+    /// <para>The token name may be followed by a comma as well as by the closing
+    /// paren, because <c>var(--color-success, #1A3A22)</c> is the same defect wearing
+    /// a fallback: it renders the identical 1.03:1 near-black ink, and the fallback
+    /// form is already in live use in these stylesheets for other tokens, so a guard
+    /// that only matched <c>)</c> would wave the regression straight through.</para></summary>
+    private static readonly Regex SurfacePaintedAsInk = new(
+        $@"(?<!-)\bcolor:\s*var\(--color-(?:{string.Join('|', SemanticSurfaces)})\s*[,)]",
+        RegexOptions.Compiled);
+
+    /// <summary>The counterpart to
+    /// <see cref="No_application_stylesheet_uses_a_raw_colour_literal"/>: that rule
+    /// catches a colour with no token, and this one catches a colour with the wrong
+    /// token. Both come out of the same hole — the palette declares a semantic
+    /// meaning as a surface and nothing sanctioned as its ink — so a rule that needs
+    /// a legible success or error string either invents a literal or reaches for the
+    /// surface token, and the second is the quieter failure: it passes every other
+    /// test here while rendering at 1.49:1.
+    ///
+    /// <para>Reads the library's own stylesheet as well as the applications'. A
+    /// component's rule has exactly the same hole under it, and the library is where
+    /// a mistake would be repeated across every host at once.</para></summary>
+    [Fact]
+    public void No_stylesheet_paints_a_semantic_surface_token_as_ink()
+    {
+        var stylesheets = OurStylesheets()
+            .Append(new FileInfo(DesignPalette.LibraryStylesheet))
+            .ToList();
+
+        Assert.NotEmpty(stylesheets);
+
+        var offenders = stylesheets
+            .SelectMany(stylesheet => SurfacePaintedAsInk
+                .Matches(File.ReadAllText(stylesheet.FullName))
+                .Select(match => $"{Relative(stylesheet)}: {match.Value}"))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "A semantic colour is a surface, so painting it as text puts a near-black value on a "
+            + "near-black page and the line disappears. Use the sanctioned foreground for that meaning "
+            + $"— --color-<meaning>-text — or add one the way color-error-text was added: {string.Join("; ", offenders)}");
     }
 
     /// <summary>A <c>font-weight</c> written as a bare number, so the value can be

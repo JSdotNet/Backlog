@@ -7921,7 +7921,7 @@
           "path": ".design/color-scheme.md",
           "slug": "band-identity-tokens",
           "level": 2,
-          "line": 271,
+          "line": 310,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
