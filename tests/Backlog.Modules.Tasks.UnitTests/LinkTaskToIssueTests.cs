@@ -76,22 +76,17 @@ public class LinkTaskToIssueTests
     {
         public List<TaskItem> Entries { get; } = [];
 
+        // Both reads hide a tombstoned entry, the way the port says they must.
         public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>(Entries);
+            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Where(entry => entry.DeletedAt is null)]);
 
         public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id));
+            Task.FromResult(Entries.FirstOrDefault(entry => entry.Id == id && entry.DeletedAt is null));
 
         public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
         {
             Entries.RemoveAll(existing => existing.Id == task.Id);
             Entries.Add(task);
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-        {
-            Entries.RemoveAll(entry => entry.Id == id);
             return Task.CompletedTask;
         }
     }

@@ -80,11 +80,17 @@ to the zone it was written in.
 
 ### Raw ADO.NET, not an ORM
 
-`Microsoft.Data.Sqlite`. The port has four members over one table; an ORM's
+`Microsoft.Data.Sqlite`. The port has three members over one table; an ORM's
 schema-migration machinery would be a second thing to version for a single local
 file, and the schema statements are idempotent `IF NOT EXISTS` DDL run on the way
 into every operation so a first run, a moved folder and a deleted file all behave
 the same.
+
+> The port had four members when this was written. Deleting a task became
+> tombstoning it under local ADR 0005 — a save of the aggregate rather than a
+> removal of the row — so the delete member went, and the argument above is
+> unaffected. What that DDL is, and what it is allowed to do to a table that
+> already holds the person's tasks, is local ADR 0006.
 
 ### Its own project
 
