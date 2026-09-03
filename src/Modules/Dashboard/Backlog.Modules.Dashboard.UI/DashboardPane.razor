@@ -27,16 +27,23 @@
 *@
 
 <section @key=@("dashboard-pane") class="dashboard-panel" id="dashboard-pane" aria-labelledby="dashboard-title" data-testid="dashboard-panel">
-    <header class="dashboard-panel__header">
-        <div>
-            <p class="dashboard-panel__eyebrow">Dashboard</p>
-            <h2 id="dashboard-title" class="dashboard-panel__title">Productivity and cost</h2>
-            <p class="dashboard-panel__subtitle">Your own pull requests, issues and rework, and what your assistants cost.</p>
-        </div>
-        <div class="dashboard-panel__header-actions">
+    @* The library's section header wearing this pane's own class names. The
+       eyebrow/title/subtitle/actions shape is one component's job; the pane owns
+       what those parts are called and nothing else. *@
+    <SectionHeader BaseClass="dashboard-panel__header"
+                   TextCssClass=""
+                   EyebrowCssClass="dashboard-panel__eyebrow"
+                   TitleCssClass="dashboard-panel__title"
+                   DescriptionCssClass="dashboard-panel__subtitle"
+                   ActionsCssClass="dashboard-panel__header-actions"
+                   Eyebrow="Dashboard"
+                   TitleId="dashboard-title"
+                   Title="Productivity and cost"
+                   Description="Your own pull requests, issues and rework, and what your assistants cost.">
+        <Actions>
             <IconButton AriaLabel="Close dashboard" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
-        </div>
-    </header>
+        </Actions>
+    </SectionHeader>
 
     <div class="dashboard-panel__filters" data-testid="dashboard-filters">
         <div class="dashboard-filter">

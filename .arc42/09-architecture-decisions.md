@@ -125,3 +125,16 @@ related: [".arc42/04-solution-strategy.md"]
   for that device. Amends local ADR 0003 without superseding it, and replaces
   file-syncing the database — which produced six conflicted copies and silent
   data loss — with a store built for concurrent writers. Task aggregate only.
+- **[ADR 0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)**
+  *(proposed)*: names the mechanism the SQLite adapter has been using unlabelled for
+  three schema changes — additive `ALTER TABLE` guarded by `PRAGMA table_info`, plus
+  seeding and retired-value `UPDATE`s that are idempotent by construction rather than
+  by bookkeeping — permits exactly three shapes, forbids everything non-additive, and
+  makes the first non-additive change the trigger for a versioned mechanism. Written
+  to discharge D3 before local ADR 0005's `updated_at` and `deleted_at` reached a
+  table holding live user data.
+- **[ADR 0007 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0007-import-reuses-the-entry-text-grammar.md)**
+  *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
+  not a format of its own, so `EntryTextParser` stays the only grammar the product has
+  to parse and a plan stays hand-editable. Upload and paste feed one path, and `after:`
+  across a fresh batch is resolved by Import in two passes rather than by the parser.

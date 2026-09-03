@@ -7,7 +7,9 @@
            Guidelines="@Rules">
 
     <Story Name="SelectField"
-           Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible."
+           Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible.
+
+Both of these are the inline shape wearing nothing but the component's own class, and that is what they are here to show: a framed, filled control that reads as a control. It used to be transparent and borderless — the shape a select needs when it sits *inside* a badge and borrows the pill's fill and face, which is what `BadgeSelect`, `EnumSelect` and `RepositorySelector` all do further down this page. What was wrong was making that the default: a caller who wanted a plain select got an invisible one, and the two that hit it — the backlog's bulk bar and both roadmap editors, the latter in a dialog row beside bordered TextFields — had to pass private class names to get a control back. So the frame is the default now and the badge is the opt-out: hand in `badge` through CssClass and the frame steps aside, because a frame around a pill is two skins."
            Code="@SelectFieldCode">
         <div class="sb-columns">
             <div>
@@ -103,7 +105,11 @@
     </Story>
 
     <Story Name="StatusSelector"
-           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states."
+           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states.
+
+The third one holds no value on purpose. `IncludeEmptyOption` puts an entry at the top of the list that nothing is set to, for a caller whose subject has no single status — the backlog's bulk bar sets one status across a set of rows that each already have their own, and a control opening on whichever state sorts first would claim a value nothing is in and make that one state unpickable. `Slug` is handed over empty alongside it, because a badge with no value would otherwise fall back to `draft` and arrive wearing a status it does not have.
+
+It is outlined rather than filled, and that is the component's own answer rather than the caller's: with no value there is no state colour to wear, and a badge's default fill is `--color-background-raised` — the same fill as every raised strip an editable badge sits on. So `badge--unset` replaces the fill it has nothing to put in it. Two callers were drawing an invisible control before it existed: the bulk bar's status, and a `.design` record whose file states no status at all."
            Code="@StatusSelectorCode">
         <div class="sb-row">
             <StatusSelector CurrentValue="@_entryStatus"
@@ -114,6 +120,14 @@
                             Options="Statuses"
                             Label="Read-only example"
                             Disabled="true" />
+            <StatusSelector CurrentValue=""
+                            Options="Statuses"
+                            IncludeEmptyOption="true"
+                            EmptyLabel="Status"
+                            Slug=""
+                            Label="Set the status of the selected rows"
+                            TestId="selector-status-empty"
+                            OnChanged="v => _entryStatus = v" />
         </div>
         <p class="sb-state" data-testid="selector-status-value">Status = @Show(_entryStatus)</p>
     </Story>
@@ -348,6 +362,13 @@
     private const string StatusSelectorCode = """
         <StatusSelector CurrentValue="@_entryStatus" Options="Statuses"
                         OnChanged="v => _entryStatus = v" />
+
+        @* No single current value: an entry holding none, and no slug so the badge
+           does not fall back to `draft` and claim one. *@
+        <StatusSelector CurrentValue="" Options="Statuses"
+                        IncludeEmptyOption="true" EmptyLabel="Status" Slug=""
+                        Label="Set the status of the selected rows"
+                        OnChanged="OnBulkStatusAsync" />
         """;
 
     private const string PrioritySelectorCode = """

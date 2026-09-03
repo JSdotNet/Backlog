@@ -6,7 +6,7 @@
     "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
-      930,
+      1160,
       700
     ]
   },
@@ -53,8 +53,8 @@
     {
       "id": "appservice",
       "type": "cloud",
-      "label": "Azure App Service",
-      "sublabel": "or Container Apps",
+      "label": "Azure Container Apps",
+      "sublabel": "(consumption, scale-to-zero)",
       "tag": "Compute",
       "pos": [
         380,
@@ -68,15 +68,15 @@
     {
       "id": "cosmos",
       "type": "database",
-      "label": "Azure Cosmos DB",
-      "sublabel": "sync state, webhook events, machine registry",
+      "label": "Azure Cosmos DB (serverless)",
+      "sublabel": "tasks replica + change feed, sync state, webhook events, machine registry",
       "tag": "Data",
       "pos": [
-        660,
+        750,
         120
       ],
       "size": [
-        210,
+        350,
         90
       ]
     },
@@ -87,11 +87,11 @@
       "sublabel": "webhook secrets, OAuth tokens",
       "tag": "Data",
       "pos": [
-        660,
+        750,
         300
       ],
       "size": [
-        210,
+        350,
         90
       ]
     },
@@ -115,11 +115,11 @@
       "label": "Firebase Cloud Messaging",
       "sublabel": "Android push",
       "pos": [
-        660,
+        750,
         490
       ],
       "size": [
-        210,
+        350,
         80
       ]
     }
@@ -175,7 +175,8 @@
     {
       "id": "appservice-cosmos",
       "from": "appservice",
-      "to": "cosmos"
+      "to": "cosmos",
+      "label": "Managed identity — data-plane role"
     },
     {
       "id": "appservice-keyvault",
@@ -204,7 +205,7 @@
       "toSide": "bottom",
       "via": [
         [
-          765,
+          925,
           640
         ],
         [
@@ -213,7 +214,7 @@
         ]
       ],
       "labelAt": [
-        400,
+        520,
         635
       ]
     }

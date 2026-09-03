@@ -346,10 +346,17 @@
             <div class="setting-columns">
                 <div>
                     <h2 class="setting__title">Where the backlog is stored</h2>
-                    <p class="setting__body">
-                        Every entry is a markdown file with YAML frontmatter, readable and editable
-                        without this app. Point this at a synced or version-controlled folder and the
-                        backlog travels with it.
+                    @* This paragraph used to say every entry was its own markdown file
+                       and to suggest pointing the folder at a synced one. Both halves
+                       stopped being true when the store became one database, and the
+                       suggestion cost somebody their edits - see R9 in
+                       .arc42/11-risks-and-technical-debt.md. The warning is the copy
+                       now, and SettingsStorageCopyTests pins it. *@
+                    <p class="setting__body" data-testid="storage-path-description">
+                        The whole backlog is one SQLite database in this folder. Your text stays
+                        markdown inside it, but it is a single binary file - so keep this on a local
+                        disk. A file-sync folder like OneDrive or Dropbox cannot merge it, and two
+                        machines writing it will lose edits.
                     </p>
 
                     @* The error class goes on InputCssClass, not ErrorMessage: this
