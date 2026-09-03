@@ -1063,23 +1063,6 @@
       },
       {
         "data": {
-          "id": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text",
-          "type": "file",
-          "folder": "arc42",
-          "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "status": "proposed",
-          "related": [
-            ".domain/tasks/features.md#import",
-            ".domain/tasks/domain.md#task",
-            ".design/content-editing.md#scheduling-and-dependency-tokens",
-            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
-          ]
-        }
-      },
-      {
-        "data": {
           "id": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "label": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
           "type": "file",
@@ -1116,6 +1099,23 @@
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
             ".domain/tasks/domain.md#task"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "label": "ADR 0006: Import reuses the entry text grammar; a plan is multi-task entry text",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "status": "proposed",
+          "related": [
+            ".domain/tasks/features.md#import",
+            ".domain/tasks/domain.md#task",
+            ".design/content-editing.md#scheduling-and-dependency-tokens",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
           ]
         }
       },
@@ -18617,46 +18617,6 @@
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/features.md#import",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/tasks/features.md#import",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/domain.md#task",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/tasks/domain.md#task",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
           "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/02-constraints.md#technical-constraints",
           "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "target": ".arc42/02-constraints.md#technical-constraints",
@@ -18788,6 +18748,46 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-import-reuses-the-entry-text-grammar.md->.domain/tasks/features.md#import",
+          "source": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/tasks/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-import-reuses-the-entry-text-grammar.md->.domain/tasks/domain.md#task",
+          "source": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0006-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "type": "related"
         }
       },

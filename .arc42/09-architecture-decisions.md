@@ -125,3 +125,8 @@ related: [".arc42/04-solution-strategy.md"]
   for that device. Amends local ADR 0003 without superseding it, and replaces
   file-syncing the database — which produced six conflicted copies and silent
   data loss — with a store built for concurrent writers. Task aggregate only.
+- **[ADR 0006 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0006-import-reuses-the-entry-text-grammar.md)**
+  *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
+  not a format of its own, so `EntryTextParser` stays the only grammar the product has
+  to parse and a plan stays hand-editable. Upload and paste feed one path, and `after:`
+  across a fresh batch is resolved by Import in two passes rather than by the parser.
