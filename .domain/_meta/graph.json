@@ -8002,6 +8002,7 @@
             ".arc42/09-architecture-decisions.md",
             ".arc42/11-risks-and-technical-debt.md",
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",

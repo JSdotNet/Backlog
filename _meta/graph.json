@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 790,
-    "edges": 1635,
+    "edges": 1636,
     "nodesByFolder": {
       "arc42": 88,
       "domain": 501,
@@ -37,7 +37,7 @@
     },
     "edgesByType": {
       "contains": 663,
-      "related": 824,
+      "related": 825,
       "depends-on": 146,
       "implements": 2
     }
@@ -1095,6 +1095,7 @@
             ".arc42/09-architecture-decisions.md",
             ".arc42/11-risks-and-technical-debt.md",
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
@@ -18733,6 +18734,14 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
           "type": "related"
         }
       },
