@@ -377,7 +377,14 @@ public class DesignTokenTests
     /// host stylesheet is in neither side of its comparison and stays invisible: the
     /// error red <c>#E4626F</c> lived in four places in the desktop stylesheet
     /// without ever being a token or appearing in <c>.design</c>. A colour in one of
-    /// our own stylesheets has to be a token reference.</summary>
+    /// our own stylesheets has to be a token reference.
+    ///
+    /// <para>Read through <see cref="WithoutComments"/>, like every other rule here.
+    /// The regex cannot tell a colour from any other run of hex digits behind a
+    /// <c>#</c>, and the comments in these stylesheets cite the feedback a rule came
+    /// from by issue number — <c>#283</c> is three hex digits and was reported as a
+    /// raw literal in prose that paints nothing. Only a colour the browser would
+    /// actually apply is this rule's business.</para></summary>
     [Fact]
     public void No_application_stylesheet_uses_a_raw_colour_literal()
     {
@@ -390,7 +397,7 @@ public class DesignTokenTests
             var path = Relative(stylesheet);
             string[] tolerated = ToleratedColorLiterals.TryGetValue(path, out var known) ? known : [];
 
-            var offenders = ColorLiteral.Matches(File.ReadAllText(stylesheet.FullName))
+            var offenders = ColorLiteral.Matches(WithoutComments(File.ReadAllText(stylesheet.FullName)))
                 .Select(match => match.Value)
                 .Where(literal => !tolerated.Contains(literal, StringComparer.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
