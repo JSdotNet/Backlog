@@ -7620,6 +7620,18 @@ select.field__input option {
     gap: var(--spacing-md);
 }
 
+/* The category the section belongs to. The panes that adopted this component
+   each keep their own eyebrow colour; this is the neutral one, for a host that
+   has no rule of its own. */
+.section-header__eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .section-header__title {
     margin: 0;
     font-family: var(--font-family-heading);
