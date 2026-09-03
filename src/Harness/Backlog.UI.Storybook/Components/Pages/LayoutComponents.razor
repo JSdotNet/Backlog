@@ -97,15 +97,37 @@
     </Story>
 
     <Story Name="SectionHeader"
-           Description="A heading with its own level, so a page can nest sections without breaking the document outline."
+           Description="A heading with its own level, so a page can nest sections without breaking the document outline. Eyebrow is the category the section belongs to and reads above the title; leaving it out emits no element rather than an empty line. TitleId is what the section's aria-labelledby points at, and it lands on the heading rather than on the wrapper."
            Code="@SectionCode">
         <div class="sb-stack">
-            <SectionHeader Title="Backlog" Level="2" Description="Everything captured, newest first.">
+            <SectionHeader Title="Backlog"
+                           Level="2"
+                           Eyebrow="Global pane"
+                           TitleId="sb-section-header-title"
+                           Description="Everything captured, newest first.">
                 <Actions>
                     <AppButton Variant="ButtonVariant.Primary" Size="ButtonSize.Small">New</AppButton>
                 </Actions>
             </SectionHeader>
             <SectionHeader Title="Archived" Level="3" Description="Kept, but out of the way." />
+        </div>
+    </Story>
+
+    <Story Name="Section header in a host's own classes"
+           Description="Every class the header draws is a parameter whose default is the library's own name, so a pane that already has this shape in its own stylesheet hands the names over and keeps the markup it had. A blank one leaves that element with no class attribute at all — which is what the two dialogs need, because they style their heading by element — and a blank actions class drops the wrapper so the controls stay direct children of the header. Element is the same kind of hook one level up: the AI panel drew this shape in a div, and adopting the component was not allowed to change that."
+           Code="@SectionHookCode">
+        <div class="sb-stack">
+            <SectionHeader Element="div"
+                           TextCssClass=""
+                           TitleCssClass=""
+                           ActionsCssClass=""
+                           Eyebrow="Application updates"
+                           TitleId="sb-section-header-dialog-title"
+                           Title="Update Backlog">
+                <Actions>
+                    <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">Close</AppButton>
+                </Actions>
+            </SectionHeader>
         </div>
     </Story>
 
@@ -277,7 +299,26 @@ Left and Right still describe the separator rather than the number, so here Left
         """;
 
     private const string SectionCode = """
-        <SectionHeader Title="Backlog" Level="2" Description="Everything captured, newest first." />
+        <SectionHeader Title="Backlog" Level="2" Eyebrow="Global pane"
+                       TitleId="backlog-pane-title"
+                       Description="Everything captured, newest first." />
+        """;
+
+    private const string SectionHookCode = """
+        @* The header the app-update dialog renders: its own outer class, its own
+           eyebrow class, a heading styled by element, and no actions wrapper. *@
+        <SectionHeader BaseClass="app-update-dialog__header"
+                       TextCssClass=""
+                       EyebrowCssClass="app-update-dialog__eyebrow"
+                       TitleCssClass=""
+                       ActionsCssClass=""
+                       Eyebrow="Application updates"
+                       TitleId="app-update-title"
+                       Title="Update Backlog">
+            <Actions>
+                <IconButton AriaLabel="Close update window" CssClass="btn--ghost">x</IconButton>
+            </Actions>
+        </SectionHeader>
         """;
 
     private const string FoldCode = """

@@ -365,6 +365,16 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
+/* The one group in the bar that is not a filter. It keeps its room for the same
+   reason the scopes do, and more strongly: it is the only way into the selection
+   gutter and the only way back out of the mode, so a chip squeezed out of view
+   would strand a reader inside it. Pinned before the status group's auto margin,
+   so it sits with the scopes on the left rather than drifting to the right
+   edge. */
+.filter-group--select {
+    flex: 0 0 auto;
+}
+
 .filter-group--status {
     flex: 0 1 auto;
     margin-left: auto;
@@ -563,14 +573,45 @@ h1, h2, h3 {
     z-index: 1;
 }
 
-/* An act and the control that undoes it, kept together: "a date and its ✕" is
-   one decision, and a bar that wrapped between the two would leave a clear
-   button under a field it no longer looks attached to. */
+/* A control and the button that undoes or commits it, kept together: "a date and
+   the button that clears it" is one decision, and a band that wrapped between the
+   two would leave the button under a field it no longer looks attached to. */
 .backlog-bulk__pair {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* The element a group's trigger opens into: the aria-controls target, and where
+   Escape stops climbing out of a control. A wrapping row so an open group's
+   controls sit on the band's line with their trigger and wrap together when the
+   width runs out, rather than each finding its own place in the band. */
+.backlog-bulk__controls {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* How much of the bar one control may take, and nothing about how it looks.
+
+   A tag picker's value is a row of chips rather than a word, so it grows as tags
+   are added and there is no width to reserve for it in advance. Left alone it
+   would take whatever it wanted and push the group onto a second line — which is
+   what the 75px the band measured with Tags open actually was. The cap is the
+   host's business for the reason `.entry-row__pickers` gives: what is being
+   corrected is not how a tag picker looks, it is how much of *this* strip one is
+   allowed to have.
+
+   It wears the library's own `.tag-select__control` now — border, background,
+   radius — where it used to borrow the detail panel's, which strips all three
+   until the pointer is on it. A picker that only looks like a field on hover
+   cannot be found by touch or by keyboard. */
+.backlog-bulk__tags {
+    min-width: 0;
+    max-width: 22rem;
 }
 
 .backlog-list {
@@ -1027,20 +1068,33 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* Where a picker sits, and nothing about what it looks like. Indented under the
+   row that opened it and top-aligned inside it, which is a layout fact this panel
+   owns: a picker in a column belongs under its row.
+
+   The monospace that used to be here has gone, and it was the whole of the bulk
+   bar's "unstyled control" bug. `--font-family-mono` is `Fira Code, Courier New,
+   monospace`, and Fira Code is not installed on a stock Windows box — so every
+   select carrying this class rendered in Courier New, which reads as a control the
+   product's stylesheet never reached. It is right on the date input beside it, for
+   the reason `.badge--glob` gives: a date token is a machine string. It was never
+   right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
 .entry-doc__schedule-select {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
-    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
 
+/* Monospace here and not on the select beside it, for the reason `.badge--glob`
+   gives: a date token is a machine string, and "Weekly" is not. */
 .entry-doc__schedule-input {
     padding: var(--spacing-2xs) var(--spacing-xs);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-sm);
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
 }
 
 .entry-doc__schedule-depends {
@@ -2277,7 +2331,7 @@ h1, h2, h3 {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2361,7 +2415,7 @@ h1, h2, h3 {
 .inbox-pane__eyebrow {
     color: var(--color-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2459,7 +2513,7 @@ h1, h2, h3 {
 
 .tools-panel__eyebrow {
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2471,7 +2525,7 @@ h1, h2, h3 {
 .tools-panel__subtitle,
 .tools-panel__count,
 .tools-panel__message,
-.tools-table__meta {
+.tools-inventory__meta {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -2534,7 +2588,7 @@ h1, h2, h3 {
 
   70rem is chosen against the table's own restack threshold rather than for its
   own sake: the rail takes at most 26rem and the grid gap 1rem, which leaves the
-  table 43rem — above the 41rem where its four tracks stop fitting. Any lower gate
+  table 43rem — above the 39rem where its four columns stop fitting. Any lower gate
   would buy a second column by restacking every row in the first.
 
   Sticky, because the pane is the scrollport and the rail is at the top of it.
@@ -2577,9 +2631,9 @@ h1, h2, h3 {
 }
 
 /* The inventory that has not arrived yet, in the shape of the one that will.
-   It wears the real .tools-kind and .tools-table classes, so everything below
-   about grid tracks, the frame, and the narrow restack applies to it unchanged
-   and there is no second layout to keep in step. */
+   It is the same kind section and the same table with the same four columns, so
+   everything below about the frame, the column floors and the narrow restack
+   applies to it unchanged and there is no second layout to keep in step. */
 .tools-panel__skeleton {
     display: grid;
     gap: var(--spacing-md);
@@ -2587,7 +2641,7 @@ h1, h2, h3 {
 }
 
 /* The name and its meta line, spaced as the real cell spaces them. */
-.tools-panel__skeleton .tools-table__tool {
+.tools-panel__skeleton .tools-inventory__tool {
     display: grid;
     gap: var(--spacing-xs);
 }
@@ -2632,75 +2686,96 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* container-type is what lets the row below answer to the pane rather than to the
-   window. The pane is a surface the shell opens beside a workspace, so its width is
-   never the window's — the same mismatch the filter bar's container query exists
-   for, where a viewport threshold fires at the wrong moment or not at all.
+/* The inventory: the shared library's DataTable wearing this pane's names.
 
-   overflow-x: auto rather than hidden, because the clipping it replaces was silent.
-   The row's four tracks need 504px and the pane can have 338px of it, and hidden
-   overflow deleted the Available column and every action in the row without leaving
-   a scrollbar to say so. The restack below is what stops that happening at all;
-   auto is what keeps whatever the restack does not foresee — an unbreakable version
-   string, a label wider than its track — reachable rather than gone. The block axis
-   stays clipped, so the rows still stop at the frame's rounded corners. */
-.tools-table {
-    display: grid;
+   container-type is what lets the table below answer to the pane rather than to
+   the window. The pane is a surface the shell opens beside a workspace, so its
+   width is never the window's — the same mismatch the filter bar's container
+   query exists for, where a viewport threshold fires at the wrong moment or not
+   at all. The container is this element rather than the table inside it because a
+   container query styles a container's descendants and never the container
+   itself, and it is the table that has to restack.
+
+   The library draws the frame out of the plain surface tokens, which is right for
+   a pane in the app's own grey and wrong inside this one: this is a takeover with
+   an amber border of its own, and a neutral table in the middle of it reads as a
+   different screen. So the rules that follow re-dress the library's frame rather
+   than replace it — the scroll box, the heading row and the row lines are still
+   the component's. */
+.tools-inventory {
     min-width: 0;
-    border: var(--border-width) solid rgba(242, 193, 78, 0.22);
-    border-radius: var(--border-radius-sm);
-    overflow-x: auto;
-    overflow-y: hidden;
     container-type: inline-size;
-    container-name: tools-table;
+    container-name: tools-inventory;
 }
 
-/* The actions track's minimum is the sum of what the cell below actually places
-   in it — a status, a toggle and a Remove side by side — rather than the 8rem it
-   was while those three could wrap onto a second line. A track narrower than its
-   own cell is how the Available column and every action in the row came to be
-   clipped in the first place. */
-.tools-table__row {
-    display: grid;
-    grid-template-columns: minmax(10rem, 1.3fr) minmax(5.5rem, 0.65fr) minmax(5.5rem, 0.65fr) minmax(17.5rem, 0.8fr);
-    gap: var(--spacing-sm);
-    align-items: center;
-    padding: var(--spacing-sm);
-    border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.14);
+.tools-inventory .data-table__scroll {
+    border-color: rgba(242, 193, 78, 0.22);
+    border-radius: var(--border-radius-sm);
+}
+
+.tools-inventory .data-table__table thead th {
+    background: rgba(242, 193, 78, 0.10);
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+/* The cells this pane writes hold four lines of text between them — a name, a
+   host badge, a meta line and the catalog's own note — where the library's are a
+   name, a date or a chip and do not wrap at all. Here they wrap, so a long note
+   makes the row taller rather than making the table wider than the pane.
+
+   Centred rather than top-aligned, because the tall cell in the row is the name
+   and the two version columns are one line each: aligned to the top they sat
+   above the name they belong to. */
+.tools-inventory .data-table__table td {
+    border-bottom-color: rgba(242, 193, 78, 0.14);
+    vertical-align: middle;
+    white-space: normal;
+}
+
+.tools-inventory .data-table__row {
     background: rgba(0, 0, 0, 0.18);
 }
 
-.tools-table__row:last-child {
-    border-bottom: 0;
+/*
+  The floors the four columns are drawn at, and the arithmetic the restack step at
+  the bottom of this block is derived from. They sit on the heading cells because
+  the heading is the one cell in a column this pane does not write — and a column
+  is as wide as the widest minimum in it either way.
+
+  17.5rem of actions is the sum of what the cell below actually places in it — a
+  status, a toggle and a Remove side by side — rather than the 8rem it was while
+  those three could wrap onto a second line. A column narrower than its own cell
+  is how the Available column and every action in the row came to be clipped in
+  the first place.
+*/
+.tools-inventory__col-tool {
+    min-width: 10rem;
 }
 
-.tools-table__row--head {
-    border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.28);
-    background: rgba(242, 193, 78, 0.10);
-    color: var(--color-primary);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+.tools-inventory__col-version {
+    min-width: 5.5rem;
 }
-.tools-table__row--disabled {
+
+.tools-inventory__col-actions {
+    min-width: 17.5rem;
+}
+
+/* A row this machine has said it does not want. Quieter, not hidden: it is still
+   part of the inventory, and switching it back on is a thing done from the row. */
+.tools-inventory__row--disabled {
     opacity: 0.66;
 }
 
-.tools-table__tool,
-.tools-table__version {
-    min-width: 0;
-}
-
-.tools-table__tool strong,
-.tools-table__meta {
+.tools-inventory__tool strong,
+.tools-inventory__meta {
     display: block;
 }
 
 /* Which hosts a row is for. Deliberately quiet — it is a qualifier on the name
    above it, not a status of its own — but always drawn, because a row that says
    nothing about hosts reads as one that is only about Copilot. */
-.tools-table__hosts {
+.tools-inventory__hosts {
     display: inline-block;
     margin-block: 0.15rem;
     padding: 0.05rem 0.4rem;
@@ -2716,7 +2791,7 @@ h1, h2, h3 {
    there to carry it. Drawn as the heading it stands in for, so a stacked row reads
    as the same four things in a column rather than as a new vocabulary. Hidden by
    default: at any width where the heading row is up, this is the same word twice. */
-.tools-table__cell-label {
+.tools-inventory__cell-label {
     display: none;
     margin-inline-end: var(--spacing-xs);
     color: var(--color-primary);
@@ -2726,14 +2801,27 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-.tools-table__version {
+.tools-inventory__version {
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;
 }
 
-.tools-table__version--new {
+.tools-inventory__version--new {
     color: var(--color-primary);
     font-weight: 700;
+}
+
+/* The cell the actions sit in, left a table cell on purpose. A `td` carrying
+   `display: grid` is not a table-cell box any more: it loses the `vertical-align`
+   above, and the bottom rule the library draws on every cell is drawn around the
+   grid instead of at the row's edge. Inside the restack it would lose the argument
+   outright — `.tools-inventory .data-table__row > td` outranks a bare
+   `.tools-inventory__actions`, so every rule the narrow block writes for the group
+   would be inert at exactly the widths it exists for. The grid is the element
+   inside this cell. The library records the same reasoning on
+   `.data-table__group-heading`. */
+.tools-inventory__actions-cell {
+    min-width: 0;
 }
 
 /*
@@ -2745,7 +2833,7 @@ h1, h2, h3 {
   dropped both onto a second line. Neither reads as a column of controls.
 
   The two fixed tracks at the end are what align them, and fixed is the point:
-  every row is its own grid, so nothing synchronises a content-sized track across
+  every cell is its own grid, so nothing synchronises a content-sized track across
   rows — three rows whose toggles happen to measure the same are aligned by
   coincidence, and a marketplace row, which has no toggle at all, would collapse
   that track to nothing and move the status slot's edge 6rem right. Reserved
@@ -2756,7 +2844,7 @@ h1, h2, h3 {
   what is left and keeps `minmax(0, …)` so a long status wraps inside its own slot
   instead of widening the cell.
 */
-.tools-table__actions {
+.tools-inventory__actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 6rem 4rem;
     gap: var(--spacing-xs);
@@ -2769,21 +2857,21 @@ h1, h2, h3 {
    no toggle and a read-only host has no Remove, and the survivors would slide
    left into the empty track — misaligning precisely the rows that differ from
    the ones around them. */
-.tools-table__action {
+.tools-inventory__action {
     grid-column: 1;
     min-width: 0;
 }
 
-.tools-table__toggle {
+.tools-inventory__toggle {
     grid-column: 2;
 }
 
-.tools-table__remove {
+.tools-inventory__remove {
     grid-column: 3;
     justify-self: end;
 }
 
-.tools-table__action-note {
+.tools-inventory__action-note {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: 1.4;
@@ -2794,7 +2882,7 @@ h1, h2, h3 {
    status. Several of these are the only reason a row reads the way it does — a
    version that legitimately reads backwards, a probe that is a heuristic — and
    run together with the status they read as part of the finding. */
-.tools-table__note {
+.tools-inventory__note {
     display: block;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -2808,53 +2896,73 @@ h1, h2, h3 {
    label that wraps there makes the row twice as tall as the fifty around it.
    Everything else about it is deliberately the library's, because it is the same
    control it is anywhere else — it is not a button and must not read as one. */
-.tools-table__ack {
+.tools-inventory__ack {
     white-space: nowrap;
 }
 
 /*
   Below the width its own columns need, the table stops being a table.
 
-  41rem is the row's own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5 +
-  17.5 is 38.5rem of track minimums, three --spacing-sm gaps and two of row padding
-  bring it to 41rem, and under that the four tracks cannot all be drawn. Above it
-  they fit; there is no band left where the row is wider than its box.
+  39rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
+  + 17.5 is 38.5rem of floors, and that is the whole sum. The library does pad every
+  cell with a --spacing-sm either side, but this sheet sets `box-sizing: border-box`
+  on everything, so each floor already contains that padding — counting it a second
+  time put the step 4rem past the width the columns actually need, and restacked a
+  table that still fitted. Under 38.5rem the four columns cannot all be drawn. Above
+  it they fit; there is no band left where the row is wider than its box.
 
-  It moved up from 32rem when the actions cell stopped wrapping: three controls
-  guaranteed to stay on one line need 17.5rem of track — 6rem of toggle, 4rem of
-  Remove, two gaps and 7rem left for the status — where three that could fall onto
-  a second line needed 8. The floor matters more than it looks: the actions track
-  sits at it for every table width up to about 70rem, which is most of them, so the
-  status slot's room is this number minus the two reserved tracks and nothing else.
-  A slot too small does not scroll or clip — it silently overlaps the toggle.
+  The threshold is derived from the column list rather than chosen, so it has to
+  move with it — and the two-column gate on the pane is set against this number so
+  the rail can never squeeze the table below it.
 
-  The threshold is derived from the track list rather than chosen, so it has to move
-  with it — and the two-column gate on the pane is set against this number so the
-  rail can never squeeze the table below it.
-
-  A stack rather than a scroll box, because this pane is a list of tools and not a
-  grid of figures — the reader is looking down it for one entry and then acting on
-  it, and an action they have to scroll sideways to find is barely better than one
-  that was clipped. The library's DataTable makes the other choice for the tables
-  that really are grids, and keeps its scroll box for exactly that reason.
+  A stack rather than the library's scroll box, because this pane is a list of
+  tools and not a grid of figures — the reader is looking down it for one entry and
+  then acting on it, and an action they have to scroll sideways to find is barely
+  better than one that was clipped. The library makes the other choice for the
+  tables that really are grids, and its scroll box stays underneath this as the
+  safety net for whatever the stack does not foresee: an unbreakable version
+  string, a label wider than the slot it is in.
 
   The heading row goes, because four column names above a single column name
-  nothing, and each version cell puts its own label up instead. Precisely one of the
-  two is live at any width.
+  nothing, and each version cell puts its own label up instead. Precisely one of
+  the two is live at any width.
 */
-@container tools-table (max-width: 41rem) {
-    .tools-table__row--head {
+@container tools-inventory (max-width: 39rem) {
+    .tools-inventory .data-table__table,
+    .tools-inventory .data-table__section,
+    .tools-inventory .data-table__row,
+    .tools-inventory .data-table__row > td {
+        display: block;
+    }
+
+    .tools-inventory thead {
         display: none;
     }
 
-    .tools-table__row {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-xs);
-        align-items: start;
+    /* The row takes the padding and the rule its cells were carrying, because a
+       stacked row is what has an edge and the cells are lines inside it. */
+    .tools-inventory .data-table__row {
         padding: var(--spacing-md) var(--spacing-sm);
+        border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.14);
     }
 
-    .tools-table__cell-label {
+    /* The frame already draws the last edge, so the last row's own rule would sit
+       just inside it as a doubled line — the same reason the library gives for
+       taking it off the last row's cells. */
+    .tools-inventory .data-table__section:last-child .data-table__row:last-child {
+        border-bottom: 0;
+    }
+
+    /* A stacked cell is a line of the row, so it keeps a little block padding
+       and gives up the rest: a table row has no gap to space its cells with, and
+       four lines with none of their own read as one paragraph. */
+    .tools-inventory .data-table__row > td {
+        min-width: 0;
+        padding: var(--spacing-xs) 0;
+        border-bottom: 0;
+    }
+
+    .tools-inventory__cell-label {
         display: inline;
     }
 
@@ -2866,17 +2974,10 @@ h1, h2, h3 {
        the rows above and below it in a table; in a stack there is no row above to
        line up with, and a cell as wide as the pane puts ten rem of nothing between
        a status and the buttons that act on it. */
-    .tools-table__actions {
+    .tools-inventory__actions {
         grid-template-columns: max-content 6rem 4rem;
         justify-content: start;
         margin-block-start: var(--spacing-xs);
-    }
-
-    /* The note and the tick belong to the row, not to a column, so they simply
-       follow it down when the tracks collapse. Called out because the restack
-       above predates both of them. */
-    .tools-table__note {
-        grid-column: 1;
     }
 }
 
@@ -3033,7 +3134,7 @@ h1, h2, h3 {
 .roadmap-band__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3389,7 +3490,7 @@ h1, h2, h3 {
 .dashboard-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3437,7 +3538,7 @@ h1, h2, h3 {
 .dashboard-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -3577,7 +3678,7 @@ h1, h2, h3 {
 .sessions-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3631,7 +3732,7 @@ h1, h2, h3 {
 .sessions-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;

@@ -302,6 +302,17 @@ html, body {
     gap: var(--spacing-sm);
 }
 
+/* The element a group trigger opens into, in the bar sample: the aria-controls
+   target and the host's own key boundary. A wrapping row, so the controls sit on
+   the band's line with their trigger. */
+.sb-bar-controls {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
 .sb-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
@@ -517,6 +528,13 @@ html, body {
     height: 42rem;
     border: 0;
     background: transparent;
+}
+
+/* The row modifier the data table's row-hook story hands to RowCssClass. The
+   host owns what a marked row looks like — the component only puts the class
+   where the host asked for it — so the one in the story is declared here. */
+.sb-data-table__row--stale td {
+    border-inline-start: 2px solid var(--color-primary);
 }
 
 .sb-label {

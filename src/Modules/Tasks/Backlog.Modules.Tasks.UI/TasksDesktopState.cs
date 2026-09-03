@@ -368,6 +368,59 @@ public sealed class TasksDesktopState : IDisposable
 
     private readonly HashSet<string> _selection = new(StringComparer.Ordinal);
 
+    private bool _selectionMode;
+
+    /// <summary>
+    /// Whether the list is offering a box on every row, because the reader asked
+    /// it to.
+    /// <para>
+    /// A mode rather than a standing feature of the list. The gutter used to be on
+    /// every row of this pane, quiet until a pointer or the keyboard reached it,
+    /// which put a checkbox within reach of every row a reader hovered while
+    /// scanning — chrome in a column whose whole job is reading
+    /// (<c>.design/design-principles.md#low-chrome-content-first</c>). Turning it
+    /// on is now a decision, and while it is off the column is only the work.
+    /// </para>
+    /// <para>
+    /// Here rather than in a field on <c>TasksPane</c>, and that is not tidiness:
+    /// the Blazor <c>Router</c> remounts the pane whenever the route changes, so a
+    /// reader who opened Settings and came back would find the mode off, the
+    /// selection gone and no explanation for either. The selection beside it is
+    /// held here for the same reason.
+    /// </para>
+    /// <para>
+    /// The two are one state and not two, and it is enforced in both directions
+    /// rather than only documented. Leaving the mode empties the selection (see
+    /// <see cref="SetSelectionMode"/>), because a set of picked rows with no boxes
+    /// on screen is a set the reader can neither see nor change; and a selection
+    /// arriving turns the mode on (see <see cref="SetSelection"/> and
+    /// <see cref="SetSelectAllVisible"/>), because the only thing that can pick a
+    /// row is a box, so a non-empty selection with the mode off is a state no
+    /// gesture produces and one the bar would draw over a column with nothing
+    /// ticked in it.
+    /// </para>
+    /// <para>
+    /// The other way round is ordinary and stays: the mode on with nothing picked
+    /// is a reader who has asked for the boxes and not used one yet, which is what
+    /// the gutter is for.
+    /// </para>
+    /// </summary>
+    public bool SelectionMode => _selectionMode;
+
+    /// <summary>Turns the gutter on, or off and empty. Off takes the selection
+    /// with it — a picked set the reader has no boxes to inspect would still be
+    /// what the next bulk act wrote to.</summary>
+    public void SetSelectionMode(bool on)
+    {
+        if (_selectionMode == on) return;
+
+        _selectionMode = on;
+
+        if (!on) _selection.Clear();
+
+        Changed?.Invoke();
+    }
+
     /// <summary>The picked rows, as the list names them.</summary>
     public IReadOnlyCollection<string> SelectedIds => _selection;
 
@@ -418,6 +471,13 @@ public sealed class TasksDesktopState : IDisposable
             _selection.Add(id);
         }
 
+        // A row can only have been picked by a box, and the boxes are the mode.
+        // Anything that reports a selection is therefore reporting from inside it,
+        // and the flag says so rather than leaving a bar over a column with
+        // nothing ticked in it. Pruning to nothing leaves the mode alone: an empty
+        // selection is not a reason to put the gutter away.
+        if (_selection.Count > 0) _selectionMode = true;
+
         Changed?.Invoke();
     }
 
@@ -435,12 +495,31 @@ public sealed class TasksDesktopState : IDisposable
             {
                 _selection.Add(row.TaskId);
             }
+
+            // Same invariant as SetSelection: taking every row is picking rows.
+            // Giving them all back is not leaving the mode, though — the box that
+            // does this is on the bar, and unticking it is not the same act as
+            // putting the whole thing down.
+            _selectionMode = true;
         }
 
         Changed?.Invoke();
     }
 
-    public void ClearSelection() => SetSelectAllVisible(false);
+    /// <summary>Puts the whole thing down: the picked rows and the mode that drew
+    /// the boxes. The bar's own way out, and the toggle's.
+    /// <para>
+    /// Not <see cref="SetSelectAllVisible"/> with <c>false</c>, which is what it
+    /// used to be and is a different act — that one is the select-all box being
+    /// unticked, and a reader who has just untaken every row is still picking
+    /// rows. This one is the reader saying they are done.
+    /// </para></summary>
+    public void ClearSelection()
+    {
+        _selection.Clear();
+        _selectionMode = false;
+        Changed?.Invoke();
+    }
 
     /// <summary>
     /// Whether the selected entry is showing its canonical markdown rather than

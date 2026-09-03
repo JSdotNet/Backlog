@@ -40,21 +40,26 @@
 *@
 
 <section @key=@("sessions-pane") class="sessions-panel" id="sessions-pane" aria-labelledby="sessions-title" data-testid="sessions-panel">
-    <header class="sessions-panel__header">
-        <div>
-            <p class="sessions-panel__eyebrow">Sessions</p>
-            <h2 id="sessions-title" class="sessions-panel__title">Claude and Copilot</h2>
-            <p class="sessions-panel__subtitle" data-testid="sessions-subtitle">
-                @Subtitle
-            </p>
-        </div>
-        <div class="sessions-panel__header-actions">
+    @* The library's section header wearing this pane's own class names, subtitle
+       test id included — the capped-list wording is asserted through it. *@
+    <SectionHeader BaseClass="sessions-panel__header"
+                   TextCssClass=""
+                   EyebrowCssClass="sessions-panel__eyebrow"
+                   TitleCssClass="sessions-panel__title"
+                   DescriptionCssClass="sessions-panel__subtitle"
+                   DescriptionTestId="sessions-subtitle"
+                   ActionsCssClass="sessions-panel__header-actions"
+                   Eyebrow="Sessions"
+                   TitleId="sessions-title"
+                   Title="Claude and Copilot"
+                   Description="@Subtitle">
+        <Actions>
             @* The library's badge wearing this pane's count class. It counts rows,
                not groups, so it stays put while the grouping control moves them. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
-        </div>
-    </header>
+        </Actions>
+    </SectionHeader>
 
     <div class="sessions-panel__filters" data-testid="sessions-filters">
         <div class="sessions-filter">
