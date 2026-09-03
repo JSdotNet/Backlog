@@ -346,10 +346,22 @@
             <div class="setting-columns">
                 <div>
                     <h2 class="setting__title">Where the backlog is stored</h2>
-                    <p class="setting__body">
-                        Every entry is a markdown file with YAML frontmatter, readable and editable
-                        without this app. Point this at a synced or version-controlled folder and the
-                        backlog travels with it.
+                    @* Two claims, and both are load-bearing rather than blurb. This
+                       paragraph used to say every entry was a markdown file and to
+                       invite the reader to point the folder at a synced one, which
+                       stopped being true at local ADR 0003 and was, by then, the
+                       instruction that lost somebody's data — see R9 in
+                       `.arc42/11-risks-and-technical-debt.md`. `SettingsStorageGuidanceTests`
+                       pins the two claims so neither can quietly come back. *@
+                    <p class="setting__body" data-testid="storage-path-guidance">
+                        Tasks live in one SQLite database in this folder. The inbox and the
+                        knowledge sections beside it are ordinary files, readable and editable
+                        without this app.
+                    </p>
+                    <p class="setting__body" data-testid="storage-path-guidance">
+                        Keep the folder on a local disk. OneDrive, Google Drive, Dropbox and other
+                        file-sync products cannot merge a database: they leave conflicted copies of
+                        it behind and lose edits without saying so.
                     </p>
 
                     @* The error class goes on InputCssClass, not ErrorMessage: this
