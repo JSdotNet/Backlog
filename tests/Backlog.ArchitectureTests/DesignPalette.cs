@@ -3,9 +3,10 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The palette as <c>.design/color-scheme.md</c> states it — the single source
-/// of token <em>values</em> that file claims to be, read back so tests can hold
-/// things to it.
+/// The palette from both sides of the contract: what <c>.design/color-scheme.md</c>
+/// states — the single source of token <em>values</em> that file claims to be — and
+/// what <c>components.css</c> actually declares, read back so tests can hold each to
+/// the other.
 ///
 /// <para>This started inside <see cref="DesignTokenTests"/>, which checks the
 /// component library's stylesheet against the document. <see

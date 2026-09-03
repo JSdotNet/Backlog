@@ -415,9 +415,15 @@ public class DesignTokenTests
     /// <c>background-color</c> or <c>border-color</c>, which the hyphen before the
     /// property name rules out — set to one of the semantic surface tokens. The
     /// sanctioned foregrounds escape it by name: <c>--color-error-text</c> does not
-    /// end the <c>var()</c> where <c>--color-error</c> does.</summary>
+    /// end the token where <c>--color-error</c> does.
+    ///
+    /// <para>The token name may be followed by a comma as well as by the closing
+    /// paren, because <c>var(--color-success, #1A3A22)</c> is the same defect wearing
+    /// a fallback: it renders the identical 1.03:1 near-black ink, and the fallback
+    /// form is already in live use in these stylesheets for other tokens, so a guard
+    /// that only matched <c>)</c> would wave the regression straight through.</para></summary>
     private static readonly Regex SurfacePaintedAsInk = new(
-        $@"(?<!-)\bcolor:\s*var\(--color-(?:{string.Join('|', SemanticSurfaces)})\)",
+        $@"(?<!-)\bcolor:\s*var\(--color-(?:{string.Join('|', SemanticSurfaces)})\s*[,)]",
         RegexOptions.Compiled);
 
     /// <summary>The counterpart to
