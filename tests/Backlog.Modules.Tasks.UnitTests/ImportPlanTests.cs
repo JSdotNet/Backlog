@@ -555,16 +555,13 @@ public sealed class ImportPlanTests
             return Task.CompletedTask;
         }
 
+        // Both reads hide a tombstoned entry, the way the port says they must.
+        // Unexercised by these tests, and here anyway: a double that answers a
+        // deleted entry when the real store would not is a double that lies.
         public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(Entries.TryGetValue(id, out var entry) ? entry : null);
-
-        public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-        {
-            Entries.Remove(id);
-            return Task.CompletedTask;
-        }
+            Task.FromResult(Entries.TryGetValue(id, out var entry) && entry.DeletedAt is null ? entry : null);
 
         public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values]);
+            Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values.Where(entry => entry.DeletedAt is null)]);
     }
 }

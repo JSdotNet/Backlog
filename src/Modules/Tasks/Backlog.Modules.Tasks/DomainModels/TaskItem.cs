@@ -77,6 +77,13 @@ public sealed class TaskItem
         CreatedAt = createdAt;
         RecurrenceSourceId = recurrenceSourceId;
 
+        // Born already stamped. A task constructed and saved with no further
+        // mutation would otherwise persist the default 0001-01-01, which sorts
+        // behind every real edit in the tie-break — so the newest task on this
+        // machine would lose to the oldest edit on the other one. Creation is the
+        // last time this task changed until something changes it.
+        UpdatedAt = createdAt;
+
         if (repoIds is not null) _repoIds.AddRange(repoIds);
         if (tags is not null) _tags.AddRange(tags);
     }
@@ -103,6 +110,44 @@ public sealed class TaskItem
     public Guid? RecurrenceSourceId { get; }
 
     public DateTimeOffset CreatedAt { get; }
+
+    /// <summary>When this task last changed, in UTC. Restamped by the device on
+    /// every mutation and never set by hand.
+    /// <para>
+    /// Here rather than in the storage adapter because reconciliation is a domain
+    /// rule: the same task can live on more than one of the person's machines, and
+    /// when both edit it the later edit wins whole, which is a question only the
+    /// task itself can answer. See
+    /// <c>.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>.
+    /// </para>
+    /// <para>
+    /// Not nullable, and equal to <see cref="CreatedAt"/> on a task that has never
+    /// been edited. A null would have to mean "unknown", and no comparison can act
+    /// on that: the sync push asks for documents changed since a watermark, and
+    /// <c>null &gt; watermark</c> is never true, so a task with no stamp would never
+    /// travel and would stay invisible to the second machine for good.
+    /// </para>
+    /// <para>
+    /// Ordering across machines is <em>not</em> this value's job. Two devices'
+    /// clocks disagree, so the server orders the change feed and this only breaks
+    /// ties, with the device id breaking those. Nothing here may be read as
+    /// authoritative about which of two machines wrote last.
+    /// </para></summary>
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    /// <summary>When this task was deleted, or null when it is live.
+    /// <para>
+    /// A deletion has to travel between machines, and a task that is simply gone
+    /// from one machine is indistinguishable from one that machine has never seen
+    /// — so deleting leaves this behind instead of removing the task. A task
+    /// carrying it is gone as far as every read is concerned; it survives only far
+    /// enough for the other devices to learn that it went.
+    /// </para>
+    /// <para>
+    /// Nullable where <see cref="UpdatedAt"/> is not, because here null is the
+    /// value rather than the absence of one: it is what "this task is live" says.
+    /// </para></summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
 
     /// <summary>Manual rank within the backlog. Lower sorts first. Entries that
     /// have never been ranked share the default 0 and fall back to recency.</summary>
@@ -190,21 +235,41 @@ public sealed class TaskItem
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
         Title = title;
+        Touch();
     }
 
-    public void UpdateContent(string contentMd) => ContentMd = contentMd ?? string.Empty;
+    public void UpdateContent(string contentMd)
+    {
+        ContentMd = contentMd ?? string.Empty;
+        Touch();
+    }
 
-    public void ChangeType(EntryType type) => Type = type;
+    public void ChangeType(EntryType type)
+    {
+        Type = type;
+        Touch();
+    }
 
-    public void ChangePriority(Priority priority) => Priority = priority;
+    public void ChangePriority(Priority priority)
+    {
+        Priority = priority;
+        Touch();
+    }
 
     /// <summary>Sets the manual rank used to order the backlog by hand.</summary>
-    public void SetOrder(int order) => Order = order;
+    public void SetOrder(int order)
+    {
+        Order = order;
+        Touch();
+    }
 
     /// <summary>Files the entry under an area, or clears it. Blank is stored as
     /// null so "unfiled" has exactly one representation.</summary>
-    public void SetArea(string? area) =>
+    public void SetArea(string? area)
+    {
         Area = string.IsNullOrWhiteSpace(area) ? null : area.Trim();
+        Touch();
+    }
 
     /// <summary>Estimates the entry at a number of story points, or clears the
     /// estimate with null. A negative size is refused rather than clamped: unlike
@@ -219,12 +284,14 @@ public sealed class TaskItem
         if (effort is < 0)
             throw new ArgumentOutOfRangeException(nameof(effort), effort, "Effort cannot be negative.");
         Effort = effort;
+        Touch();
     }
 
     public void SetRepoIds(IEnumerable<string> repoIds)
     {
         _repoIds.Clear();
         if (repoIds is not null) _repoIds.AddRange(repoIds);
+        Touch();
     }
 
     /// <summary>The shared <c>#tag</c> the plan this entry was imported from was
@@ -243,17 +310,24 @@ public sealed class TaskItem
 
     /// <summary>Files the entry under a plan, or clears it. Blank is stored as
     /// null, the same normalization <see cref="SetArea"/> applies.</summary>
-    public void SetImportPlanId(string? importPlanId) =>
+    public void SetImportPlanId(string? importPlanId)
+    {
         ImportPlanId = string.IsNullOrWhiteSpace(importPlanId) ? null : importPlanId.Trim();
+        Touch();
+    }
 
     /// <summary>Records the plan's local id for this entry, or clears it.</summary>
-    public void SetImportItemId(string? importItemId) =>
+    public void SetImportItemId(string? importItemId)
+    {
         ImportItemId = string.IsNullOrWhiteSpace(importItemId) ? null : importItemId.Trim();
+        Touch();
+    }
 
     public void SetTags(IEnumerable<string> tags)
     {
         _tags.Clear();
         if (tags is not null) _tags.AddRange(tags);
+        Touch();
     }
 
     // --- Scheduling ---------------------------------------------------------
@@ -262,18 +336,33 @@ public sealed class TaskItem
     // clearable: an entry losing its due date is an ordinary edit rather than an
     // exception, so null is a value here and not a missing argument.
 
-    public void SetDueOn(DateOnly? dueOn) => DueOn = dueOn;
+    public void SetDueOn(DateOnly? dueOn)
+    {
+        DueOn = dueOn;
+        Touch();
+    }
 
     /// <summary>Records the reminder as wall-clock intent. A value that arrives
     /// tagged Utc or Local is stripped back to Unspecified rather than converted:
     /// the clock reading is what was asked for, and honouring the tag would
     /// silently move the reminder.</summary>
-    public void SetReminder(DateTime? remindAt) =>
+    public void SetReminder(DateTime? remindAt)
+    {
         RemindAt = remindAt is { } value ? DateTime.SpecifyKind(value, DateTimeKind.Unspecified) : null;
+        Touch();
+    }
 
-    public void SetRecurrence(Recurrence? recurrence) => Recurrence = recurrence;
+    public void SetRecurrence(Recurrence? recurrence)
+    {
+        Recurrence = recurrence;
+        Touch();
+    }
 
-    public void SetInMyDayOn(DateOnly? inMyDayOn) => InMyDayOn = inMyDayOn;
+    public void SetInMyDayOn(DateOnly? inMyDayOn)
+    {
+        InMyDayOn = inMyDayOn;
+        Touch();
+    }
 
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.
@@ -291,13 +380,21 @@ public sealed class TaskItem
     /// do with whether the task is valid.
     /// </para>
     /// </summary>
-    public void SetAttachment(Attachment? attachment) => Attachment = attachment;
+    public void SetAttachment(Attachment? attachment)
+    {
+        Attachment = attachment;
+        Touch();
+    }
 
     /// <summary>Records which reading of the body was asked for, or clears it back
     /// to "never said". Grouped with the scheduling setters because it behaves like
     /// them — absent by default, clearable, and load-bearing for nothing — not
     /// because it is one of them.</summary>
-    public void SetView(EntryView? view) => View = view;
+    public void SetView(EntryView? view)
+    {
+        View = view;
+        Touch();
+    }
 
     /// <summary>Replaces the whole dependency list. Ids are stored as written —
     /// trimmed of surrounding space and of blanks, but never validated against
@@ -306,12 +403,20 @@ public sealed class TaskItem
     public void SetDependsOn(IEnumerable<string>? dependsOn)
     {
         _dependsOn.Clear();
-        if (dependsOn is null) return;
 
-        _dependsOn.AddRange(dependsOn
-            .Select(id => (id ?? string.Empty).Trim())
-            .Where(id => id.Length > 0)
-            .Distinct(StringComparer.Ordinal));
+        // Touch below covers the null case too: clearing the list is a mutation,
+        // so an early return here would leave "all dependencies removed" as the one
+        // edit that does not restamp — and therefore the one edit the other machine
+        // never learns about.
+        if (dependsOn is not null)
+        {
+            _dependsOn.AddRange(dependsOn
+                .Select(id => (id ?? string.Empty).Trim())
+                .Where(id => id.Length > 0)
+                .Distinct(StringComparer.Ordinal));
+        }
+
+        Touch();
     }
 
     // --- Lifecycle ----------------------------------------------------------
@@ -330,8 +435,20 @@ public sealed class TaskItem
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
     public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
 
-    /// <summary>Sets the current status from canonical metadata without walking the lifecycle graph.</summary>
-    public void SetStatus(EntryStatus target) => Status = target;
+    /// <summary>Sets the current status from canonical metadata without walking the lifecycle graph.
+    /// <para>
+    /// Restamps, and "without walking the lifecycle graph" is not a reason it
+    /// should not: what this bypasses is <c>AllowedTransitions</c>, not mutation.
+    /// Every caller is a person's edit or an import — <c>!done</c> typed on the
+    /// metadata line is the most consequential edit in the product — and the load
+    /// path does not come through here at all, because storage passes status
+    /// through the constructor.
+    /// </para></summary>
+    public void SetStatus(EntryStatus target)
+    {
+        Status = target;
+        Touch();
+    }
 
     /// <summary>Moves the entry to <paramref name="target"/> if the transition is
     /// permitted by the lifecycle; throws otherwise.</summary>
@@ -341,6 +458,33 @@ public sealed class TaskItem
         if (!CanChangeStatusTo(target))
             throw new InvalidStatusTransitionException(Status, target);
         Status = target;
+        Touch();
+    }
+
+    /// <summary>Marks this task deleted, leaving it behind as a tombstone rather
+    /// than removing it.
+    /// <para>
+    /// A task that is simply gone from one machine is indistinguishable from one
+    /// that machine has never seen, so a deletion has to leave something behind to
+    /// travel. Every read hides a task carrying <see cref="DeletedAt"/>, so from
+    /// the app's side this is a delete; what survives is only enough for the other
+    /// devices to learn that it went.
+    /// </para>
+    /// <para>
+    /// Deleting an already-deleted task keeps the first instant. The second call
+    /// says nothing new, and moving the stamp would extend the tombstone's life
+    /// past the retention its first deletion started.
+    /// </para>
+    /// <para>
+    /// There is deliberately no matching undelete: no decision here says what
+    /// resurrecting a task means once the other machines have been told it is
+    /// gone.
+    /// </para></summary>
+    public void MarkDeleted()
+    {
+        if (DeletedAt is not null) return;
+        DeletedAt = DateTimeOffset.UtcNow;
+        Touch();
     }
 
     // --- Sub-items ----------------------------------------------------------
@@ -349,6 +493,7 @@ public sealed class TaskItem
     {
         var subItem = new SubItem(Guid.NewGuid(), title, _subItems.Count, notes);
         _subItems.Add(subItem);
+        Touch();
         return subItem;
     }
 
@@ -357,15 +502,21 @@ public sealed class TaskItem
         var subItem = FindSubItem(subItemId);
         _subItems.Remove(subItem);
         Reindex();
+        Touch();
     }
 
     public void ToggleSubItem(Guid subItemId)
     {
         var subItem = FindSubItem(subItemId);
         subItem.Status = subItem.Status == SubItemStatus.Done ? SubItemStatus.Pending : SubItemStatus.Done;
+        Touch();
     }
 
-    public void SetSubItemStatus(Guid subItemId, SubItemStatus status) => FindSubItem(subItemId).Status = status;
+    public void SetSubItemStatus(Guid subItemId, SubItemStatus status)
+    {
+        FindSubItem(subItemId).Status = status;
+        Touch();
+    }
 
     public void UpdateSubItem(Guid subItemId, string title, string? notes)
     {
@@ -374,6 +525,7 @@ public sealed class TaskItem
         var subItem = FindSubItem(subItemId);
         subItem.Title = title;
         subItem.Notes = notes;
+        Touch();
     }
 
     /// <summary>Moves a sub-item to a new zero-based position, reindexing the rest.</summary>
@@ -386,6 +538,7 @@ public sealed class TaskItem
         _subItems.Remove(subItem);
         _subItems.Insert(newIndex, subItem);
         Reindex();
+        Touch();
     }
 
     /// <summary>Number of completed sub-items.</summary>
@@ -399,6 +552,21 @@ public sealed class TaskItem
 
     // --- Usage & projections ------------------------------------------------
 
+    /// <summary>Records that the task was used, and deliberately does
+    /// <em>not</em> restamp <see cref="UpdatedAt"/>.
+    /// <para>
+    /// A usage event is an immutable audit record of a prompt being copied or
+    /// used. Using a task is not the task changing, and <see cref="UpdatedAt"/> is
+    /// defined as the moment it last changed — so handing an entry to an agent on
+    /// one machine must not make that machine's copy win last-write-wins over a
+    /// genuine edit made on the other.
+    /// </para>
+    /// <para>
+    /// The consequence, accepted rather than overlooked: a usage event recorded on
+    /// its own never travels, and can be overwritten on its own device by a later
+    /// inbound document. Whole-document last-write-wins already accepts losing
+    /// this kind of detail.
+    /// </para></summary>
     public UsageEvent RecordUsage(string action)
     {
         var usageEvent = new UsageEvent(DateTimeOffset.UtcNow, action);
@@ -410,6 +578,7 @@ public sealed class TaskItem
     {
         ArgumentNullException.ThrowIfNull(projectionRef);
         _projectionRefs.Add(projectionRef);
+        Touch();
     }
 
     // Rehydration helpers for storage: populate owned collections without
@@ -421,7 +590,39 @@ public sealed class TaskItem
 
     public void LoadUsageEvent(UsageEvent usageEvent) => _usageEvents.Add(usageEvent);
 
+    /// <summary>Restores the stamps a persisted task was written with, without
+    /// treating the load as an edit.
+    /// <para>
+    /// <b>Storage must call this last.</b> Rehydration does not go through a
+    /// separate load-only path: the adapter replays a stored task by calling the
+    /// ordinary command-side setters (<see cref="SetOrder"/>, <see cref="SetArea"/>,
+    /// <see cref="AddProjectionRef"/> and the rest), and every one of those
+    /// restamps <see cref="UpdatedAt"/> to now. So a read that ended anywhere but
+    /// here would quietly destroy the very column it had just read, and every task
+    /// would look as though it had been edited the moment it was loaded.
+    /// </para></summary>
+    public void LoadStamps(DateTimeOffset updatedAt, DateTimeOffset? deletedAt)
+    {
+        UpdatedAt = updatedAt;
+        DeletedAt = deletedAt;
+    }
+
     // --- Internals ----------------------------------------------------------
+
+    /// <summary>Records that the task just changed.
+    /// <para>
+    /// Called by hand from every mutator, because there is nowhere to hook it:
+    /// this context has no mediator to intercept, no EF change tracker to ask, and
+    /// publishes no domain events. Twenty-odd explicit calls are the honest cost of
+    /// that, and <c>TaskItemStampTests</c> keeps the list from drifting — it fails
+    /// when a mutator is added without deciding whether it restamps.
+    /// </para>
+    /// <para>
+    /// Two edits inside the same clock tick get the same instant, which is fine:
+    /// this value only breaks ties in an order the server has already decided, and
+    /// the device id breaks the ties it leaves.
+    /// </para></summary>
+    private void Touch() => UpdatedAt = DateTimeOffset.UtcNow;
 
     private SubItem FindSubItem(Guid subItemId) =>
         _subItems.FirstOrDefault(s => s.Id == subItemId)

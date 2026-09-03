@@ -10,65 +10,86 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What the Storage tab tells the reader the folder is, and where to keep it.
+/// What the Storage tab tells the reader to do with the folder.
 /// <para>
-/// Copy is normally nobody's test, and this is the exception: the paragraph used
-/// to invite the reader to point the workspace at a synced folder, and doing that
-/// is what produced the conflicted database copies and the silently reverted
-/// status edits recorded as R9 in
-/// <c>.arc42/11-risks-and-technical-debt.md</c>. Since local ADR 0003 the folder
-/// holds one binary SQLite file, which no file-sync product can merge — so the
-/// screen was not merely describing the pre-0003 world, it was the instruction
-/// that lost the data.
+/// This screen is the only place the app gives storage advice, and the advice it
+/// used to give - every entry is its own markdown file, so point this at a synced
+/// folder - stopped being true when local ADR 0003 made the store one SQLite
+/// database. Somebody followed it onto OneDrive, which cannot merge a binary
+/// file, and lost committed status edits to six conflicted copies. That is R9 in
+/// <c>.arc42/11-risks-and-technical-debt.md</c>, and its mitigation says the copy
+/// must be corrected regardless of when sync ships.
 /// </para>
 /// <para>
-/// Pinned on the two claims that matter rather than on the whole sentence: that
-/// the store is named for what it is, and that the invitation is gone. Wording
-/// stays free to change; the promise does not.
+/// Pinned in a test rather than left to review because the sentence was wrong for
+/// three releases without anybody noticing, and because the absence of the old
+/// advice is the half that actually protects the reader: new copy can be added
+/// alongside a retired warning and read as complete.
 /// </para>
 /// </summary>
-public sealed class SettingsStorageGuidanceTests
+public sealed class SettingsStorageCopyTests
 {
+    /// <summary>The fact the reader needs first, because it is what makes the
+    /// warning below follow: one file, not a folder of them.</summary>
     [Fact]
-    public void The_storage_tab_says_the_folder_holds_a_database_rather_than_a_file_per_entry()
+    public void The_copy_says_the_backlog_is_a_single_database_file()
     {
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        Assert.Contains("SQLite", Guidance(settings.Component), StringComparison.Ordinal);
+        var copy = Description(settings.Component);
+
+        Assert.Contains("one SQLite database", copy, StringComparison.Ordinal);
+        Assert.Contains("single binary file", copy, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The sentence that has to stay gone. Asked as "does it name a file-sync
-    /// product as somewhere to put this" rather than by matching the old wording,
-    /// because the defect is the advice and not the phrasing that carried it.
+    /// The warning names a product rather than only describing a category. "Do not
+    /// use a file-sync folder" is not advice somebody recognises their own OneDrive
+    /// folder in, and recognising it is the entire point.
     /// </summary>
     [Fact]
-    public void The_storage_tab_warns_against_a_file_synced_folder_instead_of_inviting_one()
+    public void The_copy_warns_that_a_file_sync_folder_loses_edits()
     {
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        var guidance = Guidance(settings.Component);
+        var copy = Description(settings.Component);
 
-        Assert.Contains("OneDrive", guidance, StringComparison.Ordinal);
-        Assert.DoesNotContain("Point this at a synced", guidance, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("travels with it", guidance, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("OneDrive", copy, StringComparison.Ordinal);
+        Assert.Contains("local", copy, StringComparison.Ordinal);
+        Assert.Contains("lose edits", copy, StringComparison.Ordinal);
     }
 
-    /// <summary>Every paragraph of the block, joined, so a claim moving between
-    /// them does not break the assertion.</summary>
-    private static string Guidance(IRenderedComponent<Settings> component) =>
-        string.Join(
-            ' ',
-            component.FindAll("[data-testid='storage-path-guidance']").Select(paragraph => paragraph.TextContent.Trim()));
+    /// <summary>
+    /// The regression that matters. Asserted over the whole tab and not just the
+    /// one paragraph, so the retired advice cannot come back somewhere else on the
+    /// screen and still pass.
+    /// </summary>
+    [Fact]
+    public void The_tab_no_longer_advises_pointing_the_folder_at_a_synced_one()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        // Tabs names its panels "tabpanel-{id}", and a panel renders its content
+        // only while it is the active one - hence opening the tab above.
+        var tab = settings.Component.Find("#tabpanel-storage").TextContent;
+
+        Assert.DoesNotContain("markdown file with YAML", tab, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("travels with it", tab, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("synced or version-controlled", tab, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Description(IRenderedComponent<Settings> component) =>
+        component.Find("[data-testid='storage-path-description']").TextContent;
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
 
     private static SettingsRenderContext RenderSettings()
     {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-guidance-tests", Guid.NewGuid().ToString("n"));
+        var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-copy-tests", Guid.NewGuid().ToString("n"));
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
@@ -143,9 +164,6 @@ public sealed class SettingsStorageGuidanceTests
                 if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
             }
             catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
             {
             }
         }
