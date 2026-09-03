@@ -359,7 +359,12 @@ public sealed class MarkdownViewMetaFenceTests
         // fix: the pane is a track a reader drags, so the window is 1920px wide
         // while the column being measured is 240. A media query would have answered
         // about the wrong box.
-        var body = Rule(".file-view__body {");
+        // Named with its combinator, the way .file-view > .file-view__header is
+        // asked for in FileViewHeaderLayoutTests. ".file-view__body {" on its own is
+        // a substring of ".file-view--editing .file-view__body {", which is stated
+        // earlier and is a different rule about a different state — the lookup would
+        // read that one and report the container as missing.
+        var body = Rule(".file-view > .file-view__body {");
 
         Assert.Contains("container-type: inline-size", body, StringComparison.Ordinal);
         Assert.Contains("container-name: file-view-body", body, StringComparison.Ordinal);

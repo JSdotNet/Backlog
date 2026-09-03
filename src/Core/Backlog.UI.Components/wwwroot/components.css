@@ -6718,7 +6718,7 @@ select.field__input option {
 
    Inline size only, and named, so a rule says which box it is measuring — the
    convention app.css already follows for `backlog-list`, `tools-panel` and
-   `tools-table`, each of which is a pane a reader resizes.
+   `tools-inventory`, each of which is a pane a reader resizes.
 
    What a query here measures is the container's content box, which is the column
    the markdown view is drawn in: the padding above is outside it. So a width
