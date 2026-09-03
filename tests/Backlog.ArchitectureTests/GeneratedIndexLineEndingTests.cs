@@ -44,6 +44,13 @@ public class GeneratedIndexLineEndingTests
     private static readonly string[] AuthoredSpecifications =
         [":(glob)**/_archify/*.json", ":(exclude,glob)**/_archify/index.json"];
 
+    /// <summary>The two generators that write a pinned index, by the path each is
+    /// invoked at. <c>.gitattributes</c> has to name both: the rules there are not
+    /// one workflow's private arrangement, and the next generator to be added needs
+    /// the comment to read as a list it belongs on.</summary>
+    private static readonly string[] Generators =
+        ["build/Update-KnowledgeIndex.ps1", "tools/diagrams/archify-artifacts.mjs"];
+
     [Fact]
     public void Every_generated_index_is_pinned_to_lf()
     {
@@ -135,8 +142,12 @@ public class GeneratedIndexLineEndingTests
             path => path,
             _ => new Dictionary<string, string>(StringComparer.Ordinal));
 
+        // -z separates the paths going in as well as the fields coming back. Joined
+        // with newlines instead, git reads the whole blob as one path with a linefeed
+        // in its name, matches no pattern, and answers "unspecified" for every
+        // attribute — which reads exactly like a missing .gitattributes rule.
         var output = Git(
-            string.Join('\n', paths) + '\n',
+            string.Join('\0', paths) + '\0',
             ["check-attr", "--stdin", "-z", "text", "eol"]);
 
         // -z emits a flat NUL-separated stream of path, attribute, value triples.
