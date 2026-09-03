@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 114,
-    "edges": 214,
+    "nodes": 115,
+    "edges": 219,
     "nodesByFolder": {
-      "arc42": 87,
+      "arc42": 88,
       "domain": 17,
       "tech": 7,
       "design": 3
     },
     "nodesByType": {
-      "file": 42,
+      "file": 43,
       "chapter": 72
     },
     "nodesByStatus": {
       "active": 74,
-      "proposed": 12,
+      "proposed": 13,
       "draft": 21,
       "adopted": 7
     },
     "edgesByType": {
       "contains": 51,
-      "related": 163
+      "related": 168
     }
   },
   "problems": [],
@@ -1103,6 +1103,23 @@
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
             ".domain/tasks/domain.md#task"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "label": "ADR 0006: Additive, idempotent bootstrapping is the local store's migration mechanism",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "status": "proposed",
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/11-risks-and-technical-debt.md",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
           ]
         }
       },
@@ -3258,6 +3275,46 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/11-risks-and-technical-debt.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/11-risks-and-technical-debt.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "type": "related"
         }
       },
