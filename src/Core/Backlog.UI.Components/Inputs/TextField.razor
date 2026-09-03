@@ -58,6 +58,13 @@ else
     /// an incomplete date reads as empty. A host for which empty means "clear the
     /// field" should therefore splat an <c>onchange</c> handler rather than bind
     /// <see cref="ValueChanged"/>: a date commits when it is a date.
+    /// </para>
+    /// <para>
+    /// <c>password</c> is here for the same reason as the date types — a masked field
+    /// differs from a text one in nothing but this attribute — and because splatting
+    /// it does not work: a lowercase <c>type</c> on the component binds to this
+    /// parameter, so a host that wrote <c>type="password"</c> got a text box and no
+    /// warning. Every secret in the app was on screen as it was typed.
     /// </para></summary>
     [Parameter]
     public string Type { get; set; } = "text";
@@ -228,7 +235,7 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Type is not ("text" or "number" or "url" or "email" or "date" or "time" or "datetime-local")) Type = "text";
+        if (Type is not ("text" or "number" or "url" or "email" or "password" or "date" or "time" or "datetime-local")) Type = "text";
     }
 
     private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
