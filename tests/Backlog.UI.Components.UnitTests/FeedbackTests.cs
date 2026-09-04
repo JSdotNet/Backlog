@@ -41,6 +41,48 @@ public sealed class SaveIndicatorTests
     }
 }
 
+public sealed class AlertTests
+{
+    /// <summary>
+    /// The line an alert draws is one line. A host with something to put after
+    /// the sentence — the issue a report became, and a way to open it — puts it
+    /// in this slot rather than writing a second paragraph beside the component,
+    /// which is how a status line ends up announced twice.
+    /// </summary>
+    [Fact]
+    public void Trailing_content_joins_the_message_inside_the_same_line()
+    {
+        using var context = new BunitContext();
+
+        var alert = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Created")
+            .Add(a => a.Role, "status")
+            .Add(a => a.ChildContent, "<a href=\"https://github.com/JSdotNet/Backlog/issues/101\">JSdotNet/Backlog#101</a>"));
+
+        var line = alert.Find("p");
+
+        Assert.Equal("status", line.GetAttribute("role"));
+        Assert.Contains("Created", line.TextContent);
+
+        var link = Assert.Single(line.QuerySelectorAll("a"));
+        Assert.Equal("https://github.com/JSdotNet/Backlog/issues/101", link.GetAttribute("href"));
+    }
+
+    /// <summary>The content qualifies a message; it does not replace one. An
+    /// alert with nothing to say is still nothing at all, so a host can keep
+    /// binding it straight to a nullable message.</summary>
+    [Fact]
+    public void Content_without_a_message_is_still_nothing_at_all()
+    {
+        using var context = new BunitContext();
+
+        var alert = context.Render<Alert>(parameters => parameters
+            .Add(a => a.ChildContent, "<a href=\"https://example.test\">Nowhere</a>"));
+
+        Assert.Equal(string.Empty, alert.Markup.Trim());
+    }
+}
+
 public sealed class SkeletonTests
 {
     [Theory]

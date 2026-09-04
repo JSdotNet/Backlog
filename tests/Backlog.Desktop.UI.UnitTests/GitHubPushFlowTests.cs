@@ -286,18 +286,46 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Contains("Screenshot capture failed: Permission denied.", harness.Client.CreatedBody);
     }
 
-    [Fact]
-    public async Task A_screenshot_upload_failure_still_files_the_issue()
+    /// <summary>Both origins, because a pasted image takes the same upload and
+    /// must fall back the same way — the report is the point, the picture is
+    /// evidence.</summary>
+    [Theory]
+    [InlineData("image/jpeg")]
+    [InlineData("image/png")]
+    public async Task A_screenshot_upload_failure_still_files_the_issue(string mediaType)
     {
         var harness = Build("JSdotNet/Backlog");
         harness.Client.UploadFailure = new GitHubException("GitHub refused the request — the token may lack repo scope.");
-        var screenshot = new GitHubFeedbackScreenshot("data:image/jpeg;base64,AAAA", "image/jpeg", 800, 600, 42);
+        var screenshot = new GitHubFeedbackScreenshot($"data:{mediaType};base64,AAAA", mediaType, 800, 600, 42);
 
         var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
 
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
         Assert.Contains("Screenshot upload failed:", harness.Client.CreatedBody);
         Assert.DoesNotContain("![Screenshot]", harness.Client.CreatedBody);
+    }
+
+    /// <summary>
+    /// The committed file is named after what it actually is. The capture path
+    /// only ever produced a JPEG, so the extension was hard-coded to match it;
+    /// a pasted image is whatever the clipboard held, and a PNG committed as
+    /// <c>.jpg</c> is a file GitHub serves under the wrong type.
+    /// </summary>
+    [Theory]
+    [InlineData("image/jpeg", ".jpg")]
+    [InlineData("image/png", ".png")]
+    [InlineData("image/webp", ".webp")]
+    [InlineData("image/gif", ".gif")]
+    public async Task The_committed_file_takes_its_extension_from_the_media_type(string mediaType, string extension)
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var screenshot = new GitHubFeedbackScreenshot($"data:{mediaType};base64,AAAA", mediaType, 640, 480, 24);
+
+        await harness.Feedback.ReportAsync("Broken view", null, screenshot);
+
+        Assert.NotNull(harness.Client.UploadedPath);
+        Assert.EndsWith(extension, harness.Client.UploadedPath);
+        Assert.StartsWith("feedback-screenshots/", harness.Client.UploadedPath);
     }
 
     private async Task<EntryRow> WriteEntryAsync(TasksDesktopState state, string text)
