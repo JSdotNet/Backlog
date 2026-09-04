@@ -2498,6 +2498,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _saveStateSettle?.Dispose();
         _saveStateSettle = null;
 
+        // Nothing new after disposal. The linked source would be born cancelled and
+        // the wait would end immediately, so this is not a correctness fix — it is
+        // that a state which has been handed back should not be scheduling work, and
+        // a test run holding a thousand of them should not be paying for it either.
+        if (_disposed) return;
+
         if (state is not AppSaveState.Saved) return;
 
         var settle = CancellationTokenSource.CreateLinkedTokenSource(_untilDisposed);
