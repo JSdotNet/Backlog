@@ -3,9 +3,8 @@
 <PageTitle>File content — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File content"
-           Summary="`FileContent` is the half of a file pane that moves: the file rendered, or shown as code, or set beside an earlier version of itself, or replaced by a body the host brought — in the one scroll region the reader can see. Four things can be in it and only ever one at a time, and which one is never decided here: `ShowsComparison`, `SuppliedBody` and `RendersMarkdown` are answers, because the header's controls and this region have to agree about which mode the pane is in and the way to guarantee that is for neither of them to choose. It reads nothing either — the blocks arrive parsed, the frontmatter arrives read, the comparison arrives aligned. What is genuinely this component's is the region itself: its class, its tab stop, its accessible name, and how tall it may grow before it scrolls. The half that names the file is on *File header*; the pane that composes both is on *File view*."
+           Summary="`FileContent` is the half of a file pane that moves: the file rendered, or shown as code, or set beside an earlier version of itself, or replaced by a body the host brought — in the one scroll region the reader can see. Four things can be in it and only ever one at a time, and which one is never decided here: `ShowsComparison`, `SuppliedBody` and `RendersMarkdown` are answers, because the header's controls and this region have to agree about which mode the pane is in and the way to guarantee that is for neither of them to choose. It reads nothing either — the blocks arrive parsed, the frontmatter arrives read, the comparison arrives aligned, each cached against the text it came from, because a file open in an editor re-renders on every keystroke and parsing here would redo the whole file per character. What is genuinely this component's is the region itself: its class, its tab stop, its accessible name, and how tall it may grow before it scrolls. The half that names the file is on *File header*; the pane that composes both is on *File view*."
            Guidelines="@Rules">
-    <Alert Message="@ReadingNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="Prose, or source"
            Description="`RendersMarkdown` is the whole of the choice, and it arrives already made: how a file's name decides whether it is read as prose or as source is the pane's, because the pane is what does the reading. Given true the blocks go to `MarkdownView`; given false the text goes to `CodeView`, numbered, because the reason to look at source in a pane like this is usually to say where in it something is.
@@ -20,7 +19,7 @@ The frame around each is the harness's. This component has no box of its own —
                 <FileContent Name="shared.md"
                              RendersMarkdown="true"
                              Blocks="@SampleBlocks"
-                             MarkdownSource="@Sample"
+                             MarkdownSource="@FileFixtures.SharedTechnologies"
                              MaxHeight="14rem"
                              TestId="file-content-markdown" />
             </div>
@@ -64,7 +63,7 @@ Which of those a file wants is the layout's business rather than the component's
                 <FileContent Name="shared.md"
                              RendersMarkdown="true"
                              Blocks="@SampleBlocks"
-                             MarkdownSource="@Sample"
+                             MarkdownSource="@FileFixtures.SharedTechnologies"
                              MaxHeight="8rem"
                              TestId="file-content-short-cap" />
             </div>
@@ -74,7 +73,7 @@ Which of those a file wants is the layout's business rather than the component's
                 <FileContent Name="shared.md"
                              RendersMarkdown="true"
                              Blocks="@SampleBlocks"
-                             MarkdownSource="@Sample"
+                             MarkdownSource="@FileFixtures.SharedTechnologies"
                              MaxHeight="18rem"
                              TestId="file-content-tall-cap" />
             </div>
@@ -226,33 +225,8 @@ It is an `EmptyState` inside the region rather than a message where the comparis
         new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
     ];
 
-    private const string ReadingNotice =
-        "Nothing here reads the file. The blocks arrive parsed, the frontmatter arrives read and the "
-        + "comparison arrives aligned, all three cached against the text they came from — and a file open "
-        + "in an editor re-renders on every keystroke, so parsing in this component would throw that "
-        + "caching away and do the whole file's worth of work per character. Which mode is showing is "
-        + "handed down for a different reason: the header's controls and this region have to agree, and "
-        + "two components each deciding for themselves is exactly how they come to disagree.";
-
-    private const string Sample = """
-        # Shared Technologies
-
-        What the whole product is built on, and why each choice was made.
-
-        - The runtime, pinned
-        - The UI framework
-        - What was weighed against both
-
-        ## Hosting
-
-        Where it runs, and what it costs to move.
-
-        ## Storage
-
-        One file per chapter, and the index derived from them.
-        """;
-
-    private static readonly IReadOnlyList<MdBlock> SampleBlocks = MarkdownPreview.ParseDocument(Sample);
+    private static readonly IReadOnlyList<MdBlock> SampleBlocks =
+        MarkdownPreview.ParseDocument(FileFixtures.SharedTechnologies);
 
     private const string ShortSample = """
         # Notes

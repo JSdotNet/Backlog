@@ -25,29 +25,17 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// above it at once.</item>
 /// </list>
 /// <para>
-/// The rule has exceptions, and each is a decision rather than an argument. The
-/// file pane — <c>file-view</c> with <c>file-view/header</c> and
-/// <c>file-view/content</c> under it — sits at the bottom of Content because the
-/// owner put it there, not because everything it composes is above it. It is not,
-/// and the nesting inverts the rule a second time: the pane is shown before the two
-/// halves it is made of, because the owner asked for the halves to read as the pane
-/// taken apart. <c>markdown/references</c> is in Content for
-/// the same kind of reason: it is a page about an inline, and it draws components
-/// the Knowledge base chapter two groups below introduces. Both are recorded where
-/// they sit rather than argued away, and both notes say which way the rule was
-/// bent.
-/// </para>
-/// <para>
-/// Knowledge base and Integrations sit as high as the rule allows and no higher.
-/// Both extend MarkdownView, so both have to follow Content; putting either above
-/// it would show an extension of a component before the component.
-/// </para>
-/// <para>
-/// Task list and Roadmap are chapters of their own rather than rows in a bigger
-/// group. Each is a small family of components with a convention attached — how a
-/// row states what it is waiting on, how a bar states which quarter it lands in —
-/// and a convention read as one of nine sibling links is a convention nobody
-/// reads.
+/// <c>StorybookOrderTests</c> enforces the rule from this file. It reads the pages
+/// in the order they appear here, takes each component's own chapter to be the
+/// first page that documents its library folder and draws it, and fails on a page
+/// that draws a component whose chapter comes later. The bends it allows are the
+/// ones recorded in the comments below, each a decision rather than an argument:
+/// Foundations draws an Alert, a Spinner and a Badge as chrome for its
+/// measurement; Inputs draws the SelectField its repeat picker is; Selection bar
+/// fills its slot with a TaskActionPane; Data table fills two cells from
+/// Integrations; References draws the record a reference also lives in. A bend
+/// recorded here and not in the test's list fails, and so does one listed there
+/// that this file no longer makes.
 /// </para>
 /// <para>
 /// What the pages themselves say is how a component is used. What it is allowed to
@@ -70,6 +58,13 @@ internal static class StorybookIndex
 
     public static IReadOnlyList<Group> Groups { get; } =
     [
+        // Foundations is the one page that bends the rule by nature: a token page
+        // precedes every component page, and it draws a Spinner while it waits
+        // for the document, an Alert when a type family is not loaded, and a
+        // Badge on every swatch's contrast mark. Feedback and Badges introduce
+        // those three later. They are chrome for the measurement rather than its
+        // subject, so the bend is recorded — here and in StorybookOrderTests —
+        // rather than resolved by moving a token page under two component pages.
         new("Overview",
         [
             new("", "Introduction", "Why the library exists and what this host is for."),
@@ -77,13 +72,17 @@ internal static class StorybookIndex
         ]),
 
         // The smallest things first: a control that takes one value or performs
-        // one act. Badges belong here rather than in Content, which is where they
-        // used to sit. A badge is not something you read a document for — it is a
-        // value with a class on it, sitting on the rows, headers and pickers this
-        // group is about, and the pages that follow put one on almost everything.
+        // one act, then the values those controls carry, then the one page here
+        // made out of the others.
         new("Input and action",
         [
             new("buttons", "Buttons", "AppButton, IconButton, ButtonGroup, ToggleButton, CopyButton."),
+
+            // A recorded bend: the repeat picker is a SelectField, and Selects
+            // introduces that two pages down. The repeat is one of the
+            // dates-and-times set a scheduled thing takes, and the picker is the
+            // smallest part of that story, so it stays with the dates rather
+            // than splitting the set across two chapters.
             new("inputs", "Inputs", "TextField, TextArea, SearchBox, Toggle, Checkbox — plus the dates, times and repeats a scheduled thing is set with, and TaskAction over them."),
 
             // Directly after Inputs and not folded into it. Every control on that
@@ -92,14 +91,24 @@ internal static class StorybookIndex
             // bargain with the host and the only reason the component exists.
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
-            new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
+            // Badges before Selects, and by the rule: BadgeSelect draws its
+            // options as a Badge, and the ready-made selectors show the
+            // StatusBadge a picked value renders as. A badge is a value with a
+            // class on it, sitting on the rows, headers and pickers this group is
+            // about, which is why it is here and not in Content.
             new("badges", "Badges", "Badge, StatusBadge, PriorityBadge, TagChip, MetadataBadge: a value, and the class that says what kind of value it is."),
+            new("selects", "Selects", "SelectField, BadgeSelect, EnumSelect, TagMultiSelect and the three ready-made selectors."),
 
             // Last in the group, because it is the one page here made out of the
             // others: the bar is a Checkbox from Inputs, an AppButton from
             // Buttons and a slot the host fills with whatever selectors it
             // needs. Nothing is shown before its parts, so it reads after all
             // three.
+            //
+            // A recorded bend: the slot demo fills the slot with a TaskActionPane
+            // and its TaskActionGroup, whose chapter is Task list, well below.
+            // That is the composition the backlog arrived at, and a slot shown
+            // with nothing in it would not say what the slot is for.
             new("selection-bar", "Selection bar", "SelectionBar: the count, the select-all, the way out of a selection, and a slot for whatever a host can do to every picked row at once.")
         ]),
 
@@ -119,25 +128,49 @@ internal static class StorybookIndex
             new("overlays", "Overlays", "Modal and ConfirmDialog.")
         ]),
 
-        // The base content items — what a block of markdown, a snippet and a
-        // diagram render as — and then, at the bottom, the file pane built out of
-        // them. The other surfaces are still in Combined usage: a folder, a
-        // document with comments, an editor beside its read view, a comparison.
+        // The base content items — what a snippet, a table, a diagram and a block
+        // of markdown render as — and then the file pane built out of them. The
+        // other surfaces are in Combined usage: a folder, a document with
+        // comments, an editor beside its read view, a comparison.
         //
-        // The file pane is here by the owner's call and not by the rule, and the
-        // rule does not reach it: FileView composes markdown, code, a comparison,
-        // badges, selects and a metadata record, and the record's own chapter is
-        // two groups below this one. So the honest reading of this group is "the
-        // content items, and then one surface placed by hand" — recorded rather
-        // than argued away, because a comment arguing for an order the file does
-        // not follow is worse than no comment at all. The argument for the call is
-        // a reader's: someone looking for how to show a file looks under Content.
+        // Ordered by the rule. Code first: the Story chrome draws a CodeView under
+        // every sample on every page, and each markdown subpage draws one beside
+        // its read view. Data table before the diagram pages, because the C4 page
+        // lays a workspace's elements out as a DataTable. Diagrams before
+        // Markdown, because Diagrams in markdown hands a fence to DiagramView and
+        // the page that introduces DiagramView has to come first. Markdown and its
+        // subpages after those, and the file pane last, after every content item
+        // it draws.
         //
-        // Among the three file pages the rule does hold, which is why they are in
-        // this order. File header and File content document the two halves the pane
-        // is made of; File view is the container over them.
+        // The file pane is in Content rather than Combined usage because a reader
+        // looking for how to show a file looks here. What it composes below the
+        // page's own markup — a metadata record from the Knowledge base chapter, a
+        // comparison from Combined usage — is drawn inside FileHeader and
+        // FileContent rather than by the pages, so the order test does not see it
+        // and it is noted here rather than listed as a bend.
         new("Content",
         [
+            new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
+
+            // A recorded bend: a DataTable cell is a template the caller fills,
+            // and the examples fill some of theirs with a ProviderMark and an
+            // IntegrationStateChip from the Integrations chapter below. The
+            // component is a base content item — rows of records under headings —
+            // so it belongs here by kind, and what it borrows is borrowed in
+            // exactly the part it declines to own. Moving the page under
+            // Integrations would file a table under a subject it is not about.
+            new("data-table", "Data table", "DataTable: rows of records under column headings, in sections or flat — the frame is the component's and the cells are the caller's."),
+
+            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data.", Exact: true),
+
+            // Directly under the page that introduces DiagramView, because it puts
+            // DiagramView to a use that page does not: a source that is not a
+            // fence at all — a Structurizr workspace read into mermaid at render
+            // time — and an element list drawn as the DataTable above.
+            new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
+            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
+            new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
+
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, each beside the source that produced it.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and what each button writes."),
@@ -151,57 +184,25 @@ internal static class StorybookIndex
             //
             // Tags before References, and by the rule: everything the Tags page
             // draws — TagChip, TagMultiSelect, the markdown inline itself — is in
-            // Input and action or on the parent page above. References is where the
-            // rule bends. It draws KnowledgeReferenceLink and a metadata record,
-            // and the Knowledge base chapter that introduces both is two groups
-            // below this one. Recorded rather than resolved, for the reason the
-            // file pane's note gives: the owner's call is a reader's argument —
-            // somebody who has just read what an inline renders as looks for what
-            // a path in a sentence renders as in the same place — and the page is
-            // about the inline, not about the field.
+            // Input and action or on the parent page above. References is a
+            // recorded bend. It is the page that introduces KnowledgeReferenceLink,
+            // but it also draws a MetadataView, and the Knowledge base chapter that
+            // introduces the record is two groups below. The page is about the
+            // inline, not about the field, and somebody who has just read what an
+            // inline renders as looks for what a path in a sentence renders as in
+            // the same place.
             new("markdown/tags", "Tags", "The `#tag` inline: what makes one, what it renders as, and why the chip in a body is not the TagChip component even though the two share a class."),
             new("markdown/references", "References", "A path written in a body: what a reference is, and the two places one appears — in prose, through the inline-target hook, and in a metadata record."),
-            new("code", "Code", "CodeView: a snippet with syntax highlighting, line numbers and a copy button."),
-            new("diagrams", "Diagrams", "DiagramView for mermaid, GraphView for node/edge data.", Exact: true),
 
-            // Directly under the page that introduces DiagramView, because it puts
-            // DiagramView beside something else and cannot be read before it. Not a
-            // component chapter at all: it is evidence about a rule `.design` has
-            // already settled, kept where the diagrams it compares are.
-            new("diagrams/archify", "Mermaid beside Archify", "The same diagram drawn twice — the live mermaid render next to a generated Archify document — and what the second one adds, loses and costs."),
-
-            // Beside its neighbour above and for the same reason: it puts DiagramView
-            // to a use the Diagrams page does not introduce. Where that page compares
-            // two renderers of one fence, this one shows a source that is not a fence
-            // at all — a Structurizr workspace read into mermaid at render time.
-            new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
-            new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
-            new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
-
-            // Last of the base content items, and one of the places the ordering
-            // rule is bent rather than followed: a DataTable cell is a template the caller
-            // fills, and the examples fill some of theirs with a provider mark and a
-            // state chip from the Integrations chapter below. The component is a base
-            // content item — rows of records under headings — so it belongs here by
-            // kind, and what it borrows is borrowed in exactly the part it declines to
-            // own. Recorded rather than resolved: moving the page under Integrations
-            // would file a table under a subject it is not about.
-            new("data-table", "Data table", "DataTable: rows of records under column headings, in sections or flat — the frame is the component's and the cells are the caller's."),
-
-            // The file pane, after every content item it draws. See the note on the
-            // group for why it is in Content at all — and note that it is not the
-            // only page here placed by hand: the markdown subpages above include one
-            // that borrows from the Knowledge base chapter below, and the data table
-            // borrows from Integrations.
-            //
-            // The pane first, then its two halves as subpages under it. This inverts
-            // "nothing is shown before its parts" and does so on purpose: the owner
-            // asked for the halves to sit under the pane, and a reader looking for how
-            // to show a file looks for the pane, not for one end of it. What the
-            // nesting buys is the relationship — the halves read as the pane taken
-            // apart rather than as two more components in a list of nine — and it is
-            // carried by the href alone, since a subpage's path under its parent's is
-            // what the sidebar indents on.
+            // The file pane, after every content item it draws, and then its two
+            // halves as subpages under it. The pane first inverts "nothing is
+            // shown before its parts" and does so on purpose: a reader looking for
+            // how to show a file looks for the pane, not for one end of it, and the
+            // nesting makes the halves read as the pane taken apart. The href
+            // alone carries that, since a subpage's path under its parent's is
+            // what the sidebar indents on. The pages draw FileView, FileHeader and
+            // FileContent each on its own page, so the order test has nothing to
+            // say about the inversion.
             //
             // Header before content, and by the rule rather than by taste: the header
             // is where a file's own record is drawn, and the content page refers to it
@@ -256,9 +257,7 @@ internal static class StorybookIndex
             // read without the surface it sits on is only half of what an author
             // wrote. That is the rule holding rather than bending: File header is in
             // Content, which is above this group, so the header has been introduced
-            // by the time this page borrows it. It is also the reason this page no
-            // longer precedes File view — the file pane moved above the whole
-            // Knowledge base chapter, and the note on Content says why.
+            // by the time this page borrows it.
             new("knowledge-base/chapter-and-file", "Chapter and file", "The two shapes a whole record takes: a chapter's block folded into its heading, and a file's drawn wherever the surface says which file this is — bare, and in the header it was drawn for."),
 
             // After Chapter and file rather than beside Fields, and that is the
@@ -327,20 +326,15 @@ internal static class StorybookIndex
         // arrives having read them recognises the parts instead of meeting them for
         // the first time inside something bigger.
         //
-        // Ordered among themselves by the same rule, with one gap left in it. The
-        // document comes first, the folder that lists files after it, and the editor
-        // and the comparison last — they are a document twice over, once as source
-        // and once as rendering.
+        // Ordered among themselves by the same rule. The document comes first, the
+        // folder that lists files after it, and the editor and the comparison last
+        // — they are a document twice over, once as source and once as rendering.
         //
-        // The gap is the file the folder lists: File view moved to Content by the
-        // owner's call, so the folder's "after the file that shows one" now points
-        // at a page in another group. Folder view stays where it is, and the
-        // asymmetry is deliberate rather than overlooked. A folder is not a base
-        // content item — it is a surface over a tree of entries, and what it draws a
-        // row with is TreeView from Menus rather than anything in Content — so the
-        // argument that moved the file pane does not reach it, and moving it anyway
-        // would be a second rearrangement nobody asked for. If it ever follows, the
-        // sentence above is the one to fix.
+        // The file the folder lists is in Content, not here: a reader looking for
+        // how to show a file looks there. Folder view stays where it is, because a
+        // folder is not a base content item — it is a surface over a tree of
+        // entries, drawn with TreeView from Menus rather than anything in Content —
+        // so the argument that placed the file pane does not reach it.
         new("Combined usage",
         [
             new("markdown-document", "Markdown document", "MarkdownDocument and every option a read view takes: a way into the editor, a copy button, comments inline and comments in the margin."),

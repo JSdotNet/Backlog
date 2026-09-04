@@ -35,4 +35,18 @@
     <EmbeddedResource Include="..\..\..\.design\*.md" LogicalName="design/%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!--
+    The one Archify artifact the Diagrams page shows, embedded for the same
+    reason the guidelines are: StorybookDiagramArtifacts hands DiagramView the
+    document as content, exactly as the application does out of a repository
+    clone, so it has to be reachable wherever the host runs. The specification
+    beside it is not embedded — the fixture names its path and never reads it,
+    and it is in the repository so the artifact can be regenerated.
+
+    The LogicalName is what the fixture asks for; see the README in that folder.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Components\Shared\Archify\slice-flow.architecture.html" LogicalName="archify/slice-flow.architecture.html" />
+  </ItemGroup>
+
 </Project>

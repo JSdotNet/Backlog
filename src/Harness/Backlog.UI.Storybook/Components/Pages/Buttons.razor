@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="Variants and sizes"
-           Description="Variant and size are modifiers on the same button, so any combination is valid. There are two sizes because the product uses two — an earlier third, Medium, emitted a .btn--medium class that no stylesheet defined, so it rendered identically to the default."
+           Description="Variant and size are modifiers on the same button, so any combination is valid. There are two sizes, Small and Default, and Default emits no size modifier."
            Code="@VariantCode">
         <div class="sb-stack">
             @foreach (var size in Sizes)
@@ -62,9 +62,9 @@
     </Story>
 
     <Story Name="DeleteButton"
-           Description="The one destructive button. It was three before — a danger button with a word on it in the roadmap dialogs, a bare 🗑 glyph in the entry footer, and a third of those on the end of every task row — and three controls for one act is three answers to &quot;what does deleting look like here&quot;. The emoji was the worse of them: it renders differently on every platform and carries no colour of its own, so the one irreversible act on the screen was also the quietest one on it.
+           Description="The one destructive button, for every surface that deletes something — a milestone in a roadmap dialog, an entry from its footer, the bin on the end of a task row. Label replaces the default word, ShowIcon drops the glyph, and Size and Disabled are AppButton's.
 
-The glyph is drawn rather than fetched, like CopyButton's, because the shipping heads are offline-capable WebViews.
+The glyph is drawn inline rather than fetched, like CopyButton's, because the shipping heads are offline-capable WebViews.
 
 Lead is placement, not styling. A footer is a flex row that pushes its children to the end; a button marked as the lead takes the free space instead, so delete sits at the far end of the row from the button that confirms rather than beside it — a mis-aimed click there is the one click that cannot be taken back."
            Code="@DeleteButtonCode">

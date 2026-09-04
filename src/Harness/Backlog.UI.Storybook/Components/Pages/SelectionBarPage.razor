@@ -11,9 +11,7 @@
 
 The acts are the host's. Nothing about them is this component's business, which is why they arrive as a render fragment rather than as a list of fields.
 
-What the host puts in that fragment is its own decision, and this shows the one the backlog arrived at after getting it wrong twice in opposite directions. It began as a row of bare selects and buttons — fourteen of them in the real bar, none of which said what it was for until you opened it, against the visible budget of four in `#action-density-and-overflow`. Naming them with `TaskActionPane` in its column shape fixed that and cost three hundred and eighty pixels of the list underneath, because a row there reserves a line, groups balance into sixteen-rem columns, and the lead and trailing slots are bands of their own.
-
-What is here now is the same pane in `Band`, which flows its groups across the width instead of down it, with one act per group rather than one per field. The resting bar is a short row of triggers; pressing one opens that group's controls beside it and wraps the band to a second line, and pressing another puts the first away."
+What the host puts in that fragment is its own decision; this is the backlog's. It is `TaskActionPane` in `Band`, which flows its groups across the width instead of down it, with one act per group rather than one per field. The resting bar is a short row of triggers; pressing one opens that group's controls beside it and wraps the band to a second line, and pressing another puts the first away."
            Code="@BarCode">
         <div class="sb-stack" data-testid="selection-bar-partial">
             <SelectionBar Count="@_count"
@@ -144,9 +142,7 @@ Press Escape with the focus anywhere in the bar below."
     </Story>
 
     <Story Name="Partial and whole"
-           Description="The two states of the select-all box, one under the other so the boxes can be compared rather than described. Some of them shows a bar across a filled box — the indeterminate state `.design/interaction-guidelines.md#focus-and-selection` asks for by name; all of them shows an ordinary tick.
-
-Worth looking at the box and not only the count, because these two were indistinguishable until the mixed state was drawn on the box: `aria-checked=“mixed”` was correct all along, and the only rule keyed off `checkbox--mixed` italicised a label that a bar with no visible label never renders. A partial selection therefore looked plainly unchecked to anybody not using a screen reader.
+           Description="The two states of the select-all box, one under the other so the boxes can be compared rather than described. Some of them shows a bar across a filled box and `aria-checked=“mixed”`; all of them shows an ordinary tick.
 
 The count also reads in the singular at one — “1 items selected” is the shape of a number nobody proof-read — and the noun is the host's: the library counts “items” because it has no vocabulary of its own, so a list of entries says “tasks” and a list of files says “files”."
            Code="@CountCode">

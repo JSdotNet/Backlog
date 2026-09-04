@@ -260,6 +260,14 @@ workflow, sequence, dataflow, lifecycle. Class and ER diagrams have none, so a
 bounded context's aggregate model is always Mermaid, and the app offers nothing
 for it rather than offering something it cannot deliver.
 
+The review surface is Storybook → *Diagrams* → **With an Archify artifact**,
+which draws one committed artifact through `DiagramView`'s own artifact mode — the
+switch, the default, full screen — and **Artifact out of date**, which draws the
+same fence after an edit so the notice and the render offer can be seen. The
+retired Mermaid-beside-Archify comparison page put the two renderers side by side
+in a frame of its own; these stories exercise the component the app actually
+ships.
+
 ## Risks and Gaps
 
 ```meta

@@ -3,25 +3,16 @@
 <PageTitle>Diagrams — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams"
-           Summary="DiagramView renders mermaid in the browser and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer."
+           Summary="DiagramView renders mermaid in the browser, offers an Archify artifact as a second renderer where the host has one, and shows the source for everything else. GraphView hands arbitrary node/edge data to a JS renderer."
            Guidelines="@Rules">
 
     <Story Name="Flow diagram with decisions"
-           Description="A process with branches, which is what most entries draw. Mermaid runs on theme 'base' with themeVariables read from the live tokens, so nodes carry the brand colour instead of mermaid's own grey-and-lavender dark theme — a diagram should look like it belongs to this product, not like a screenshot pasted into it."
+           Description="A process with branches, which is what most entries draw. Rendered by backlogDiagrams.render, which loads mermaid on first use and runs it on theme 'base' with themeVariables read from the live tokens, so the diagram takes the stylesheet's colours. The source stays available under the diagram."
            Code="@FlowCode"
            Source="@FlowWithDecisions"
            SourceLanguage="mermaid"
            SourceLabel="entry-lifecycle.mmd">
         <DiagramView Title="Entry lifecycle" Language="mermaid" Source="@FlowWithDecisions" />
-    </Story>
-
-    <Story Name="Mermaid flowchart"
-           Description="Rendered by backlogDiagrams.render, which loads mermaid on first use. The source stays available under the diagram."
-           Code="@FlowchartCode"
-           Source="@Flowchart"
-           SourceLanguage="mermaid"
-           SourceLabel="slice-flow.mmd">
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@Flowchart" />
     </Story>
 
     <Story Name="Mermaid sequence diagram"
@@ -31,6 +22,28 @@
            SourceLanguage="mermaid"
            SourceLabel="auto-save.mmd">
         <DiagramView Title="Auto-save" Language="mermaid" Source="@Sequence" />
+    </Story>
+
+    <Story Name="With an Archify artifact"
+           Description="Nothing on the call changes. The host registers an IDiagramArtifactSource and DiagramView asks it, per source, whether a picture exists; here the storybook's fixture answers for this one fence with a committed artifact, matched on the normalized source the same way the app matches a chapter's.
+
+The switch in the header appears only when an artifact exists. The artifact shows by default, the reader can switch to Mermaid and back, and Full screen is offered for the artifact only — a drawn mermaid diagram is an SVG in the page and has nothing to go full screen with."
+           Code="@ArtifactCode"
+           Source="@StorybookDiagramArtifacts.ComponentMap"
+           SourceLanguage="mermaid"
+           SourceLabel="slice-flow.mmd">
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@StorybookDiagramArtifacts.ComponentMap" />
+    </Story>
+
+    <Story Name="Artifact out of date"
+           Description="The same fence with one label edited. The fixture still knows an artifact for this diagram, but it was authored from the earlier text, so the lookup by hash misses: the reader sees the mermaid — the rendering that is current — and a notice saying why the picture is not on screen.
+
+Render artifact is what the app would press to re-run the generator over the specification beside the chapter and put the artifact back. The storybook serves a committed file and cannot run it, so the fixture reports that instead."
+           Code="@OutOfDateCode"
+           Source="@StorybookDiagramArtifacts.ComponentMapEdited"
+           SourceLanguage="mermaid"
+           SourceLabel="slice-flow.mmd (edited)">
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@StorybookDiagramArtifacts.ComponentMapEdited" />
     </Story>
 
     <Story Name="A language that cannot be rendered"
@@ -60,6 +73,7 @@
     private static readonly DesignGuideline[] Rules =
     [
         new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws which kind of picture."),
+        new("component-libraries.md#archify-artifacts", "What a diagram with an artifact carries, and why the fence stays the answer when the artifact is stale."),
         new("color-scheme.md#chart-roles", "The hues a node, an edge and a lane may use."),
         new("interaction-guidelines.md#motion-and-reduced-motion", "Whether a layout may animate as it settles.")
     ];
@@ -77,15 +91,6 @@
             Review -- yes --> Done([Done])
             Active -.blocked.-> Blocked[Blocked]
             Blocked --> Active
-        """;
-
-    private const string Flowchart = """
-        flowchart TD
-            A[Desktop UI] --> B[Backlog.UI.Components]
-            C[Mobile UI] --> B
-            D[Storybook] --> B
-            B --> E[components.css]
-            B --> F[components.js]
         """;
 
     private const string Sequence = """
@@ -140,16 +145,29 @@
             Triage -- yes --> Active[In progress]
         """;
 
-    private const string FlowchartCode = """
-        <DiagramView Title="Slice flow" Language="mermaid" Source="@source" />
-        """;
-
     private const string GraphCode = """
         <GraphView Title="Component library" Data="new { nodes = ..., edges = ... }" />
         """;
 
     private const string SequenceCode = """
         <DiagramView Title="Auto-save" Language="mermaid" Source="@source" ShowSource="false" />
+        """;
+
+    // The two artifact stories share their sources with the fixture rather than
+    // declaring copies: DiagramView finds an artifact by the hash of the source,
+    // so a page-side copy that drifted by a character would silently turn the
+    // first story into the second.
+    private const string ArtifactCode = """
+        @* Program.cs — the host answers IDiagramArtifactSource; the call is unchanged. *@
+        builder.Services.AddSingleton<IDiagramArtifactSource, StorybookDiagramArtifacts>();
+
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@source" />
+        """;
+
+    private const string OutOfDateCode = """
+        @* The same call. The source is the fence after an edit, so the artifact
+           the source knows no longer matches it. *@
+        <DiagramView Title="Slice flow" Language="mermaid" Source="@editedSource" />
         """;
 
     private const string PlantUmlCode = """

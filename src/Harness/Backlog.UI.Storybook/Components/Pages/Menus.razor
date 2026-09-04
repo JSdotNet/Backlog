@@ -24,16 +24,29 @@ No open-in-VS-Code button here: a tree of rows is a tree of rows, and this one h
     </Story>
 
     <Story Name="OpenFolderButton"
-           Description="“Open this in VS Code”, as a control of its own — one button used in two headers, because `TreeView` puts it beside its heading and `FolderView` puts it in its own.
+           Description="“Open this in VS Code”, as a control of its own in its three states, and then where a host meets it: `TreeView` draws it beside its heading once it is given a root folder that can be opened. Folder view puts the same button in a folder's own header, and shows it there.
 
 The icon is `aria-hidden` and the accessible name says which folder. The SVG is drawn here rather than fetched, so it renders in a WebView with no egress. `Busy` keeps it in place and the same size."
            Code="@OpenButtonCode">
-        <div class="sb-row" data-testid="open-folder-states">
-            <OpenFolderButton Label="Open .arc42 in VS Code"
-                              OnClick="OnOpenFolder"
-                              TestId="open-folder-idle" />
-            <OpenFolderButton Label="Opening .design in VS Code" Busy="true" TestId="open-folder-busy" />
-            <OpenFolderButton Label="Open .tech in VS Code" Disabled="true" TestId="open-folder-disabled" />
+        <div class="sb-stack">
+            <div class="sb-row" data-testid="open-folder-states">
+                <OpenFolderButton Label="Open .arc42 in VS Code"
+                                  OnClick="OnOpenFolder"
+                                  TestId="open-folder-idle" />
+                <OpenFolderButton Label="Opening .design in VS Code" Busy="true" TestId="open-folder-busy" />
+                <OpenFolderButton Label="Open .tech in VS Code" Disabled="true" TestId="open-folder-disabled" />
+            </div>
+            <TreeView Nodes="ArchitectureChapters"
+                      RootFolder="ArchitectureFolder"
+                      HeadingLabel="Architecture"
+                      HeadingTestId="open-folder-tree-heading"
+                      OpenButtonTestId="open-folder-in-tree"
+                      OnOpenFolder="OnOpenFolderNode"
+                      OnNodeSelected="OnArchitectureChapterSelected" />
+            <p>
+                The other header that hosts it is a folder's own, on
+                <a href="folder-view">Folder view</a>.
+            </p>
         </div>
     </Story>
 
@@ -142,6 +155,16 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
         new("empty", string.Empty, TreeNodeKind.Message, true, "No technology chapters have been generated.")
     ];
 
+    // The tree under the OpenFolderButton story has its own root and rows, so the
+    // TreeView story above keeps a tree with nowhere on disk to open.
+    private static readonly TreeNode ArchitectureFolder = new("arc42-root", ".arc42", TreeNodeKind.Folder);
+
+    private static readonly IReadOnlyList<TreeNode> ArchitectureChapters =
+    [
+        TreeNode.Leaf("arc42-root-1", "Introduction and goals"),
+        TreeNode.Leaf("arc42-root-5", "Building block view")
+    ];
+
     private static readonly IReadOnlyList<MenuItem> MenuItems =
     [
         new("open", "Open", "↗"),
@@ -189,6 +212,10 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
 
     private void OnOpenFolder() => _lastAction = "Open folder: .arc42";
 
+    private void OnOpenFolderNode(TreeNode folder) => _lastAction = $"Open folder from tree: {folder.Label}";
+
+    private void OnArchitectureChapterSelected(TreeNode node) => _lastAction = $"Tree: {node.Label}";
+
     private void OnMenuItemSelected(MenuItem item) => _lastAction = $"Menu: {item.Label}";
 
     private void OnContextItemSelected(MenuItem item) => _lastAction = $"Context: {item.Label}";
@@ -203,8 +230,7 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
     private const string OpenButtonCode = """
         <OpenFolderButton Label="Open .arc42 in VS Code" OnClick="OpenAsync" />
 
-        @* The same control, reached through the two components that host it. *@
-        <FolderView Name=".arc42" Entries="@entries" OnOpenFolder="OpenAsync" />
+        @* The same control, drawn by TreeView beside its heading once it has a root folder. *@
         <TreeView Nodes="@nodes" RootFolder="@root" OnOpenFolder="OpenAsync" />
         """;
 

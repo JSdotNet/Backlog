@@ -14,12 +14,12 @@
             <div class="sb-stack">
                 <p class="sb-label">Source</p>
                 <TextArea Value="@_source"
-                          ValueChanged="OnSourceChangedAsync"
+                          ValueChanged="OnSourceChanged"
                           AriaLabel="Markdown source"
                           Rows="18"
                           AutoGrow="false"
                           TestId="markdown-source" />
-                <SaveIndicator State="_saveState" TestId="markdown-save-indicator" />
+                <SaveIndicator State="_save.State" TestId="markdown-save-indicator" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Read view</p>
@@ -146,8 +146,11 @@ That is why the Markdown chapter uses no `##` anywhere — half of each sample w
         """;
 
     private string _source = InitialSource;
-    private SaveState _saveState = SaveState.Idle;
-    private CancellationTokenSource? _saveDelay;
+
+    /// <summary>Stands in for the real auto-save: Saving while the keystrokes are
+    /// still arriving, Saved once they have stopped for 600ms. The save itself
+    /// writes nowhere — this page is the host, and this host has no store.</summary>
+    private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(600), () => Task.CompletedTask);
 
     // Parsed once per change rather than once per read: the page re-renders on
     // every keystroke, and the fixed samples never change at all.
@@ -167,80 +170,69 @@ That is why the Markdown chapter uses no `##` anywhere — half of each sample w
 
     private int DoneCount => Tasks.Count(item => item.Done is true);
 
-    private async Task OnSourceChangedAsync(string value)
+    /// <summary>The indicator re-renders on the save's own transitions — the one
+    /// after the delay arrives outside any event handler.</summary>
+    protected override void OnInitialized() =>
+        _save.StateChanged += () => InvokeAsync(StateHasChanged);
+
+    private void OnSourceChanged(string value)
     {
         _source = value;
         _blocks = MarkdownPreview.Parse(_source);
-        await MarkSavingAsync();
+        _save.Touch();
     }
 
     /// <summary>The read view reports which task was clicked; the source stays
     /// the truth, so the click is a text rewrite. MarkdownPreview.ToggleTask
     /// does the counting, because only the code that assigned the index knows
-    /// which lines it skipped.</summary>
-    private void ToggleTask(int taskIndex)
+    /// which lines it skipped.
+    ///
+    /// <para>A toggle is a discrete change, not a stream of keystrokes: there is
+    /// nothing to wait for, so it saves at once and drops any typing debounce
+    /// still in flight.</para></summary>
+    private Task ToggleTask(int taskIndex)
     {
         _source = MarkdownPreview.ToggleTask(_source, taskIndex);
         _blocks = MarkdownPreview.Parse(_source);
-        MarkSaved();
+        return _save.SaveNowAsync();
     }
 
-    /// <summary>A toggle is a discrete change, not a stream of keystrokes: there
-    /// is nothing to wait for, so it lands as Saved immediately and cancels any
-    /// typing debounce still in flight.</summary>
-    private void MarkSaved()
-    {
-        _saveDelay?.Cancel();
-        _saveState = SaveState.Saved;
-    }
-
-    /// <summary>Stands in for the real auto-save: Saving while the keystrokes are
-    /// still arriving, Saved once they stop.</summary>
-    private async Task MarkSavingAsync()
-    {
-        _saveDelay?.Cancel();
-        _saveDelay?.Dispose();
-        _saveDelay = new CancellationTokenSource();
-        var token = _saveDelay.Token;
-
-        _saveState = SaveState.Saving;
-        StateHasChanged();
-
-        try
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(600), token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        _saveState = SaveState.Saved;
-        StateHasChanged();
-    }
-
-    public void Dispose()
-    {
-        _saveDelay?.Cancel();
-        _saveDelay?.Dispose();
-    }
+    public void Dispose() => _save.Dispose();
 
     private const string EditCode = """
-        <TextArea Value="@_source" ValueChanged="OnSourceChangedAsync" AriaLabel="Markdown source" Rows="18" />
-        <SaveIndicator State="_saveState" />
+        <TextArea Value="@_source" ValueChanged="OnSourceChanged" AriaLabel="Markdown source" Rows="18" />
+        <SaveIndicator State="_save.State" />
 
         <MarkdownView Blocks="_blocks" OnTaskItemToggled="ToggleTask" />
+
+        @code {
+            // Saving while the keystrokes are still arriving, Saved 600ms after
+            // they stop. The library owns the timing; the host owns the save.
+            private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(600), SaveAsync);
+
+            protected override void OnInitialized() =>
+                _save.StateChanged += () => InvokeAsync(StateHasChanged);
+
+            private void OnSourceChanged(string value)
+            {
+                _source = value;
+                _blocks = MarkdownPreview.Parse(_source);
+                _save.Touch();
+            }
+
+            public void Dispose() => _save.Dispose();
+        }
         """;
 
     private const string ToggleCode = """
         @code {
-            private void ToggleTask(int taskIndex)
+            private Task ToggleTask(int taskIndex)
             {
                 // Never count the checkboxes yourself: the index came from the
                 // parser, and only the parser knows which lines it skipped.
                 _source = MarkdownPreview.ToggleTask(_source, taskIndex);
                 _blocks = MarkdownPreview.Parse(_source);
-                MarkSaved();   // discrete change — no debounce
+                return _save.SaveNowAsync();   // discrete change — no debounce
             }
         }
         """;

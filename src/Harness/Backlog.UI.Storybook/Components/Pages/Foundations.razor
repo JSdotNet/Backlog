@@ -16,7 +16,7 @@
     else
     {
         <Story Name="Colour"
-               Description="Grouped by role. Each semantic is a pair — the ink that carries the meaning, and the surface it sits on — so success, information, warning and error read as one family rather than as eight unrelated values. Thresholds come from .design/color-scheme.md, not from plain WCAG: AAA (7:1) for primary body text, 4.5:1 for supporting text, 3:1 for focus rings and control edges. --color-text-disabled is exempt there, because signalling unavailability is the point of it.">
+               Description="Grouped by role. Each semantic is a pair — the ink that carries the meaning, and the surface it sits on — so success, information, warning and error read as one family rather than as eight unrelated values. Which pair each token is scored against, and the ratio it has to clear, is in the linked chapter.">
             @foreach (var group in _tokens.ColorGroups)
             {
                 <div class="sb-token-group">
@@ -42,12 +42,6 @@
                         there is no <code>@@font-face</code> rule and no webfont link in any host. Text falls
                         through to the next family in the stack, so the product renders in the system UI font
                         everywhere and the type tokens describe an intention rather than a fact.
-                    </p>
-                    <p>
-                        Closing the gap is a product decision rather than a styling one. The shipping heads are
-                        offline-capable MAUI apps, so a CDN is not an option: either the woff2 files ship from
-                        the library's own <code>wwwroot</code>, or the tokens are changed to name the system
-                        stack the product is really using.
                     </p>
                 </div>
             }

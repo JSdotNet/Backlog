@@ -11469,7 +11469,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 632,
+          "line": 637,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -11485,7 +11485,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 659,
+          "line": 664,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -11501,7 +11501,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 686,
+          "line": 691,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -11518,7 +11518,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 722,
+          "line": 727,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -11695,7 +11695,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 263,
+          "line": 271,
           "status": "active"
         }
       },
@@ -11708,7 +11708,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 287,
+          "line": 295,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
