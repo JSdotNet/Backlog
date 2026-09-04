@@ -24,7 +24,7 @@
     }
     else if (Icon is not null)
     {
-        <span class="btn__icon" aria-hidden="true">@Icon</span>
+        <span class="@IconClassValue" aria-hidden="true">@Icon</span>
     }
     @ChildContent
 </button>
@@ -53,8 +53,17 @@
     [Parameter]
     public RenderFragment? Icon { get; set; }
 
+    /// <summary>The icon is the whole button, with no label beside it. Only the
+    /// component rendering the button knows this: the label is a text node rather
+    /// than an element, so a CSS <c>:only-child</c> test would count a labelled
+    /// button as an icon-only one and take away the gap it needs.</summary>
+    [Parameter]
+    public bool IconAlone { get; set; }
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    private string IconClassValue => IconAlone ? "btn__icon btn__icon--alone" : "btn__icon";
 
     [Parameter]
     public EventCallback<MouseEventArgs> OnClick { get; set; }
