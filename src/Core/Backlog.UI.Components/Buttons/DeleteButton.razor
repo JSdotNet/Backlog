@@ -42,8 +42,8 @@
     <ChildContent>
         @if (Bare)
         {
-            @* The glyph is the whole button, and it is the only element in it:
-               `.btn__icon:only-child` takes back the gap the icon keeps for a
+            @* The glyph is the whole button. `IconAlone` marks it
+               `.btn__icon--alone`, which takes back the gap the icon keeps for a
                label that is not there. *@
         }
         else if (ChildContent is not null)
