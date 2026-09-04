@@ -11,7 +11,7 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// <summary>
 /// Brings in a plan and turns it into backlog entries in one step.
 /// <para>
-/// Per ADR 0004 a plan is not a file format of its own — it is ordinary entry
+/// Per ADR 0007 a plan is not a file format of its own — it is ordinary entry
 /// text with more than one top-level heading. This handler does exactly what a
 /// hand-typed multi-entry paste does (<see cref="EntryTextParser.SplitSegments"/>,
 /// <see cref="EntryTextParser.Parse"/>) and adds only what a single paste cannot
@@ -27,7 +27,7 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// <param name="DefaultRepo">The Import dialog's optional "Target repository"
 /// field. Applied as an entry's <c>repo:</c> value only when that entry's own
 /// text names none — the per-entry token stays the power-user override this
-/// never touches. See ADR 0004's `repo:` resolution.</param>
+/// never touches. See ADR 0007's `repo:` resolution.</param>
 /// <param name="RepoMatches">What the reader said in the Import dialog about the
 /// repository names the plan actually mentions: the name as the plan wrote it,
 /// mapped to the alias of the known repository they meant. Only the names they
@@ -51,7 +51,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         "import.empty_plan",
         "Nothing in that text parsed to an entry with a title.");
 
-    /// <summary>Two entries in the document claim the same <c>id:</c>. ADR 0004
+    /// <summary>Two entries in the document claim the same <c>id:</c>. ADR 0007
     /// reads an <c>id:</c> as the one name a prompt goes by inside its plan, and
     /// every use of it here depends on that: an <c>after:</c> naming a doubled id
     /// has two answers, and on a re-import both segments match the one stored
@@ -95,7 +95,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
 
         // Pass 1: resolve each parsed entry's identity against what is already
         // stored, before anything about the batch is written. None of the
-        // entries has a real id yet — see ADR 0004 — so this is the only place
+        // entries has a real id yet — see ADR 0007 — so this is the only place
         // that link can be made.
         var outcomes = new List<Outcome>(parsedEntries.Count);
         var nextOrder = existing.Count;
@@ -203,7 +203,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     }
 
     /// <summary>The one <c>#tag</c> every parsed entry has in common, or null
-    /// when there is none. Per ADR 0004 this becomes <c>import_plan_id</c> —
+    /// when there is none. Per ADR 0007 this becomes <c>import_plan_id</c> —
     /// there is no separate plan-id field or wrapper document. An entry pasted
     /// without a shared tag still imports; it just cannot be matched by a later
     /// re-import.</summary>

@@ -1412,9 +1412,13 @@ h1, h2, h3 {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
 
+    /* The rail follows the option's width, which the rule above has already
+       narrowed, so what is left to tighten is its floor. The height floor stays:
+       it is the half of the click target a narrowing option cannot give back, and
+       2.75rem x 1.5rem still clears the 1.75rem x 2.25rem the old box had here. */
     .header-group__pin {
-        min-width: 1.75rem;
-        padding: var(--spacing-xs) 0;
+        min-width: 2.75rem;
+        padding: 0;
     }
 }
 
@@ -2101,6 +2105,17 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/*
+  The sections strip holds cells two rows deep — a pin rail over an option —
+  beside the band option, which has no rail. Stretch, so all of them take the
+  strip's height: centred, the band option would float in the middle of the
+  group and the hairline beside it would stop short of both edges. The surface
+  switcher holds bare options only and keeps the centring above.
+*/
+.header-group--sections {
+    align-items: stretch;
+}
+
 .header-group__option {
     display: inline-flex;
     align-items: center;
@@ -2167,10 +2182,17 @@ h1, h2, h3 {
   keeps it belong together, and a rule between them would say they were two
   choices. The surface switcher still holds bare options side by side, which is
   why the option-to-option rule above stays.
+
+  The cell stacks the pair rather than seating them side by side. Beside the
+  option the pin was a box as tall as the cell and a fifth as wide, so its
+  pinned fill read as a vertical strip running down the option's side — which is
+  the whole of feedback #283. Stacked, the pin is a rail across the option's top
+  edge and the fill runs with the strip instead of against it.
 */
 
 .header-group__pane {
     display: inline-flex;
+    flex-direction: column;
     align-items: stretch;
 }
 
@@ -2181,19 +2203,28 @@ h1, h2, h3 {
 }
 
 /*
-  Quieter than the option it follows: pinning is the rarer act, and a pin drawn
-  at the option's weight would read as a second thing to choose between.
+  Quieter than the option it leads: pinning is the rarer act, and a pin drawn at
+  the option's weight would read as a second thing to choose between.
+
+  Wide and shallow, where the box beside the option was narrow and tall. The
+  floor is stated on the width for that reason: 3rem x 1.5rem is the area the
+  2rem x 2.25rem box had, and the rail in fact takes the option's own width,
+  which is several times it.
 */
 .header-group__pin {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2rem;
-    min-height: 2.25rem;
-    padding: var(--spacing-xs);
+    width: 100%;
+    min-width: 3rem;
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-xs);
     border: 0;
-    /* Reserved, as on the option, so pinning does not shift the row. */
-    border-bottom: var(--border-width-2) solid transparent;
+    /* Reserved, as on the option, so pinning does not shift the row — on the top
+       edge, because the option's selected underline already owns the bottom one.
+       Opposite edges is what keeps the four combinations of selected and pinned
+       four different pictures rather than two rules on one edge. */
+    border-top: var(--border-width-2) solid transparent;
     background: transparent;
     font-size: var(--font-size-sm);
     line-height: 1;
@@ -2213,10 +2244,10 @@ h1, h2, h3 {
     outline-offset: -2px;
 }
 
-/* Two channels again — fill and underline — because colour alone is ruled out. */
+/* Two channels again — fill and rule — because colour alone is ruled out. */
 .header-group__pin--pinned {
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    border-bottom-color: var(--color-primary);
+    border-top-color: var(--color-primary);
     opacity: 1;
 }
 

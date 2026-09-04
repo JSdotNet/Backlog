@@ -9,7 +9,7 @@ namespace Backlog.Modules.Tasks.Services;
 /// One rule in one place, because two use cases need it and they must not
 /// disagree: the ordinary text save, and Import. The only difference between
 /// them is what happens to a name nothing recognises, which is exactly the
-/// leniency ADR 0004 grants Import and nothing else — so it is the difference
+/// leniency ADR 0007 grants Import and nothing else — so it is the difference
 /// between the two methods here rather than two implementations of the whole
 /// rule.
 /// </para>
@@ -51,7 +51,7 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
 
     /// <summary>
     /// The same rule, plus the one thing Import may do that nothing else may: a
-    /// name nothing recognises is registered on the spot, per ADR 0004, so a plan
+    /// name nothing recognises is registered on the spot, per ADR 0007, so a plan
     /// can introduce a repository to the workspace just by mentioning it.
     /// </summary>
     /// <param name="matches">What the reader said in the Import dialog: the name

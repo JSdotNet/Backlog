@@ -7,7 +7,7 @@ using Backlog.Modules.Tasks.Features.ImportPlan;
 namespace Backlog.Modules.Tasks.UnitTests;
 
 /// <summary>
-/// Per ADR 0004, Import is a use case over the ordinary entry-text grammar: a
+/// Per ADR 0007, Import is a use case over the ordinary entry-text grammar: a
 /// plan is a block of text naming more than one entry, split and parsed exactly
 /// as a hand-typed multi-entry paste would be, with two-pass dependency
 /// resolution and upsert-by-<c>(import_plan_id, import_item_id)</c> on top.
@@ -35,7 +35,7 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>
-    /// Neither prompt has a real id when the document is parsed — see ADR 0004's
+    /// Neither prompt has a real id when the document is parsed — see ADR 0007's
     /// two-pass rule. The first prompt names the second as a dependency before
     /// the second has been created, so the dependency can only resolve once both
     /// entries exist.
@@ -99,7 +99,7 @@ public sealed class ImportPlanTests
     /// A plan written before <c>follow-up</c> stopped being a type still imports.
     /// <para>
     /// Import reuses the entry text grammar rather than parsing a language of its
-    /// own (ADR 0004), so it inherits the retired token along with everything else:
+    /// own (ADR 0007), so it inherits the retired token along with everything else:
     /// the word names no type any more, and the entry falls to the default the way
     /// it would for any word the grammar does not know. A plan is the most likely
     /// place for that text to survive — it is written once, pasted later, and
@@ -241,7 +241,7 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>No tag is common to every entry, so there is nothing to derive a
-    /// plan id from — both entries still import, per ADR 0004's accepted
+    /// plan id from — both entries still import, per ADR 0007's accepted
     /// limitation, they simply cannot be matched by a later re-import.</summary>
     [Fact]
     public async Task No_shared_tag_still_imports_but_carries_no_plan_id()
@@ -462,7 +462,7 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>A name the registry already knows resolves to that repository's
-    /// id and nothing is registered — per ADR 0004 auto-registration is what
+    /// id and nothing is registered — per ADR 0007 auto-registration is what
     /// happens to an <em>unrecognized</em> name, so a plan naming repositories
     /// that already exist must leave the registry exactly as it found it.</summary>
     [Fact]

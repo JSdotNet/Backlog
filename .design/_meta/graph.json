@@ -1262,7 +1262,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "action-density-and-overflow",
           "level": 2,
-          "line": 361,
+          "line": 362,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#density",
@@ -1280,7 +1280,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "timelines-and-roadmaps",
           "level": 2,
-          "line": 413,
+          "line": 414,
           "status": "active",
           "related": [
             ".design/color-scheme.md#chart-roles",
@@ -1298,7 +1298,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 443,
+          "line": 444,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",

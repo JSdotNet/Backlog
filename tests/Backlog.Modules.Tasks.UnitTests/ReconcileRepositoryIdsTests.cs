@@ -94,7 +94,7 @@ public class ReconcileRepositoryIdsTests
     }
 
     /// <summary>
-    /// Where ADR 0004's line now sits. A typo'd <c>repo:xyz</c> is alias-shaped,
+    /// Where ADR 0007's line now sits. A typo'd <c>repo:xyz</c> is alias-shaped,
     /// resolves to nothing, and the shape guard means it is never registered — so
     /// a mistyped token never quietly adds a repository somebody then has to go
     /// and delete.

@@ -816,7 +816,7 @@ public sealed class TasksDesktopState : IDisposable
 
     /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
-    /// turns it into backlog entries in one step. Per ADR 0004 this is a use case
+    /// turns it into backlog entries in one step. Per ADR 0007 this is a use case
     /// over the same grammar every entry already goes through, so the only thing
     /// this class adds on top of an ordinary save is showing what the import
     /// produced.

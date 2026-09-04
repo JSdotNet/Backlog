@@ -235,15 +235,31 @@
                     </ToggleButton>
                 }
 
-                @* A pane and its pin are one cell: the section, then the act of keeping
-                   it. Switching to a section closes the panes the reader did not pin,
-                   so the pin is the only way to ask for two at once — which is why it
-                   sits on the option rather than somewhere else in the chrome. The
-                   band has no pin because it takes no width from the panes and so has
-                   nothing to be saved from. *@
+                @* A pane and its pin are one cell, the pin first: it rails along the
+                   option's top edge, so leading the cell keeps DOM order, reading order
+                   and tab order the same one. Switching to a section closes the panes
+                   the reader did not pin, so the pin is the only way to ask for two at
+                   once — which is why it sits on the option rather than somewhere else
+                   in the chrome. It used to stand beside the option, where its pinned
+                   fill read as a vertical strip down the option's side (#283); the top
+                   edge is also the one edge the option's selected underline does not
+                   already own. The band has no pin because it takes no width from the
+                   panes and so has nothing to be saved from. *@
                 @if (InboxPaneOptionVisible)
                 {
                     <span class="header-group__pane">
+                        <ToggleButton BaseClass="header-group__pin"
+                                      PressedCssClass="header-group__pin--pinned"
+                                      Pressed="@PanePinned(GlobalPane.Inbox)"
+                                      TestId="inbox-pane-pin"
+                                      aria-controls="inbox-pane"
+                                      Disabled="@PinToggleDisabled(GlobalPane.Inbox)"
+                                      AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
+                                      Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
+                                      PressedChanged="ToggleInboxPin">
+                            📌
+                        </ToggleButton>
+
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="InboxPaneVisible"
@@ -257,33 +273,10 @@
                                                 Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                                 TestId="inbox-feature-status" />
                         </ToggleButton>
-
-                        <ToggleButton BaseClass="header-group__pin"
-                                      PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Inbox)"
-                                      TestId="inbox-pane-pin"
-                                      aria-controls="inbox-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Inbox)"
-                                      AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
-                                      Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
-                                      PressedChanged="ToggleInboxPin">
-                            📌
-                        </ToggleButton>
                     </span>
                 }
 
                 <span class="header-group__pane">
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="TasksPaneVisible"
-                                  id="backlog-pane-option"
-                                  TestId="backlog-pane-option"
-                                  aria-controls="backlog-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
-                                  PressedChanged="ToggleTasksPane">
-                        Tasks
-                    </ToggleButton>
-
                     <ToggleButton BaseClass="header-group__pin"
                                   PressedCssClass="header-group__pin--pinned"
                                   Pressed="@PanePinned(GlobalPane.Tasks)"
@@ -295,11 +288,34 @@
                                   PressedChanged="ToggleTasksPin">
                         📌
                     </ToggleButton>
+
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="TasksPaneVisible"
+                                  id="backlog-pane-option"
+                                  TestId="backlog-pane-option"
+                                  aria-controls="backlog-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
+                                  PressedChanged="ToggleTasksPane">
+                        Tasks
+                    </ToggleButton>
                 </span>
 
                 @if (KnowledgePaneOptionVisible)
                 {
                     <span class="header-group__pane">
+                        <ToggleButton BaseClass="header-group__pin"
+                                      PressedCssClass="header-group__pin--pinned"
+                                      Pressed="@PanePinned(GlobalPane.Knowledge)"
+                                      TestId="knowledge-pane-pin"
+                                      aria-controls="repository-knowledge-pane"
+                                      Disabled="@PinToggleDisabled(GlobalPane.Knowledge)"
+                                      AriaLabel="@PinLabel(GlobalPane.Knowledge, "Knowledge")"
+                                      Title="@PinTitle(GlobalPane.Knowledge, "Knowledge")"
+                                      PressedChanged="ToggleKnowledgePin">
+                            📌
+                        </ToggleButton>
+
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="KnowledgePaneVisible"
@@ -312,18 +328,6 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(KnowledgeFeatures.RepositoryKnowledge)"
                                                 Title="@FeatureStatusTitle(KnowledgeFeatures.RepositoryKnowledge)"
                                                 TestId="knowledge-feature-status" />
-                        </ToggleButton>
-
-                        <ToggleButton BaseClass="header-group__pin"
-                                      PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Knowledge)"
-                                      TestId="knowledge-pane-pin"
-                                      aria-controls="repository-knowledge-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Knowledge)"
-                                      AriaLabel="@PinLabel(GlobalPane.Knowledge, "Knowledge")"
-                                      Title="@PinTitle(GlobalPane.Knowledge, "Knowledge")"
-                                      PressedChanged="ToggleKnowledgePin">
-                            📌
                         </ToggleButton>
                     </span>
                 }

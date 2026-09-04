@@ -100,7 +100,7 @@ internal static class TaskEntryFields
         entry.SetEffort(parsed.Effort);
 
         // `repo:` and `id:` round-trip the same way every other named token
-        // does — general grammar, not Import-specific, per ADR 0004: an entry
+        // does — general grammar, not Import-specific, per ADR 0007: an entry
         // saved through the ordinary text-save path carries them exactly as
         // one saved through Import does.
         entry.SetRepoIds(parsed.RepoIds ?? []);
