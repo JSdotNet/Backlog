@@ -145,6 +145,38 @@
                         </div>
                     }
 
+                    @* Its own container, and deliberately not one of the groups
+                       either side of it. Both of those are sets of filters — one
+                       radiogroup for tags, one for statuses — and this changes
+                       nothing about which rows are in view: it changes what the
+                       rows offer. Inside a radiogroup it would be announced as a
+                       third status to filter by, which is the one thing it is not.
+
+                       A ToggleButton wearing the same chip classes, because it is
+                       the same gesture as My Day and No repo: a state that stays
+                       on until it is pressed again, with aria-pressed saying so.
+                       Matching their shape is also what gives it their focus ring
+                       rather than a second one written here.
+
+                       Escape belongs to this container rather than to the pane —
+                       see OnSelectionBarKeyDown for what stopped it being wider —
+                       and it leaves the mode outright rather than closing a group
+                       first: innermost-first is a rule about where the reader is
+                       standing, and from up here the open group may be scrolled
+                       out of view behind the rows. Two presses with nothing
+                       visibly happening on the first is not a hierarchy, it is a
+                       key that looks stuck. *@
+                    <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.SelectionMode"
+                                      TestId="bulk-select-toggle"
+                                      Title="@(State.SelectionMode ? "Stop picking tasks" : "Pick tasks to act on in bulk")"
+                                      PressedChanged="OnSelectionModeChanged">
+                            Select
+                        </ToggleButton>
+                    </div>
+
                     <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
                         @foreach (var filter in State.StatusFilters)
                         {
@@ -187,7 +219,8 @@
                                   SelectAllChanged="OnSelectAllChanged"
                                   OnClear="OnClearSelection"
                                   CssClass="backlog-bulk-bar"
-                                  TestId="bulk-bar">
+                                  TestId="bulk-bar"
+                                  @onkeydown="OnSelectionBarKeyDown">
                         <Actions>
                             @RenderBulkActions()
                         </Actions>
@@ -235,11 +268,17 @@
                        contrast once the row is hovered or the button focused. Quiet, but
                        present, because an affordance that appears on hover cannot be
                        found by touch or by keyboard. *@
+                    @* SelectionEnabled is the mode below and not a standing yes.
+                       TaskListView's own parameter is off by default for exactly
+                       this reason — a gutter on every list in the product would
+                       spend a tab stop and a column of chrome per row — and this
+                       pane used to hand it a literal `true`, which put a checkbox
+                       within reach of every row a reader hovered while scanning. *@
                     <TaskListView @ref="_list"
                                   Tasks="@EntryTasks()"
                                   Universe="@DependencyUniverse()"
                                   SelectedId="@SelectedTaskId"
-                                  SelectionEnabled="true"
+                                  SelectionEnabled="@State.SelectionMode"
                                   SelectedIds="@State.SelectedIds"
                                   SelectedIdsChanged="OnSelectionChanged"
                                   OnSelectedTabForward="MoveFocusToDetailAsync"
@@ -713,22 +752,83 @@
     // --- The bulk bar ------------------------------------------------------
 
     /// <summary>
-    /// The eight fields a reader can change across a whole selection, in the
-    /// order the detail pane states them: what it is filed against, where it has
-    /// got to, how it ranks, what kind of thing it is, then the three dates, then
-    /// its labels.
+    /// The eight fields a reader can change across a whole selection, as one band
+    /// of five acts across the width of the bar.
     /// <para>
     /// Every one of them is a control the library already ships and the pane
     /// already uses elsewhere — nothing here is a second implementation of a
-    /// selector (`.github/instructions/ui-components.instructions.md`). Three of
-    /// them are <c>SelectField</c> rather than the ready-made
-    /// <c>StatusSelector</c>, <c>PrioritySelector</c> and <c>EnumSelect</c>: those
-    /// three draw the value they currently hold, and this bar holds none — a
-    /// select opening on "medium" would be claiming a ranking the selection does
-    /// not have, and the value already showing could not then be picked. The
-    /// detail pane reaches for <c>SelectField</c> for type, priority and effort
-    /// for a related reason, so this is the pane's own convention rather than a
-    /// departure from it.
+    /// selector (`.github/instructions/ui-components.instructions.md`).
+    /// </para>
+    /// <para>
+    /// The shape has been wrong twice, in opposite directions, and both are worth
+    /// writing down because the second one looked like the fix for the first.
+    /// </para>
+    /// <para>
+    /// It began as fourteen unlabelled controls abreast on one line inside the
+    /// bar, against the visible budget of four in
+    /// `.design/interaction-guidelines.md#action-density-and-overflow` — which
+    /// also says the budgets are deliberately smaller than the act set, because "a
+    /// busy surface's resting state is a short row and a menu". Nothing said what
+    /// any control was for until you opened it.
+    /// </para>
+    /// <para>
+    /// Adopting the open entry's <c>TaskActionPane</c> named them, and cost three
+    /// hundred and eighty pixels of the list to do it. That pane is built for a
+    /// panel docked beside a column: a row reserves a full line, groups balance
+    /// into sixteen-rem columns, and the lead and trailing slots are bands of
+    /// their own. In a bar every one of those is a line of the list underneath,
+    /// and the columns spread <em>groups</em> sideways rather than the rows in one
+    /// — so nine rows became nine lines with the right half of the bar empty.
+    /// </para>
+    /// <para>
+    /// What is here now is the same pane in <c>Band</c>, which flows the groups
+    /// across the width, plus one act per group rather than one act per field. The
+    /// resting bar is five triggers on a single line — My Day, Repository,
+    /// Classification, Scheduling, Tags — which is the "short row" the density
+    /// rule asks for and near enough its budget of four to argue about. Pressing
+    /// one opens that group's controls beside its trigger, wrapping the band to a
+    /// second line; pressing another puts the first away. Nine controls in a row
+    /// would have used the width just as well and would have been the first
+    /// mistake again with labels on it.
+    /// </para>
+    /// <para>
+    /// One group open at a time, for the reason <see cref="SchedulePicker"/> gives
+    /// on the other half of the split: two open pickers is a question about which
+    /// of them the keyboard belongs to that nobody asked. A trigger is
+    /// <c>Togglable</c> and <c>Set</c> while its group is open, so the state is
+    /// <c>aria-pressed</c> and a colour rather than only the controls appearing
+    /// somewhere to the right of it. My Day is neither: it is set unconditionally
+    /// because it has no state of its own to report over a mixed selection, so a
+    /// pressed reading there would be a claim rather than a fact.
+    /// </para>
+    /// <para>
+    /// A group opens all of its own controls rather than one more level of rows.
+    /// Two presses reach any value that way; a trigger per field inside a trigger
+    /// per group would have been three, which is a worse bargain than the one this
+    /// bar started with. It is also what lets the wide controls be wide only while
+    /// they are open — the tag picker's chips need most of the bar and reserve
+    /// none of it closed, which is the thing <c>Trailing</c> got wrong by keeping
+    /// Tags on screen in a band of its own below everything else.
+    /// </para>
+    /// <para>
+    /// My Day is first and prominent and is the one act with no controls behind
+    /// it: it is a decision somebody makes again every morning where the rest are
+    /// facts about the entries, so it applies on the press. Two directions on the
+    /// one row rather than a toggle, because a toggle has to read as pressed or
+    /// not and half a selection being in My Day is neither — <c>Set</c> is simply
+    /// true and the ✕ is the way back off.
+    /// </para>
+    /// <para>
+    /// Status is a <c>StatusSelector</c> and the two beside it are
+    /// <c>SelectField</c>, which is not an inconsistency: a status is a badge
+    /// everywhere in this product — the list row draws one, the open entry draws
+    /// one — and a bulk bar drawing it as a bare list would say the status changed
+    /// here is a different kind of thing. Priority and type have no badge to
+    /// match, and the detail pane reaches for <c>SelectField</c> for both. All
+    /// three open on the field's own name rather than on a value, because a
+    /// selection of twenty rows has twenty statuses and a control claiming one of
+    /// them would also make that one unpickable — <c>IncludeEmptyOption</c> is the
+    /// hook <c>StatusSelector</c> grew for it.
     /// </para>
     /// <para>
     /// Clearing is offered on exactly the three fields that have an absent state:
@@ -749,132 +849,222 @@
     /// </para>
     /// </summary>
     private RenderFragment RenderBulkActions() =>
-        @<text>
-        @if (KnowledgeRepositories.Count > 0)
-        {
-            <RepositorySelector CurrentValue=""
-                                Options="@RepositoryOptions()"
-                                Label="Set the repository of the selected tasks"
-                                EmptyLabel="Repository"
-                                TestId="bulk-repo"
-                                OnChanged="OnBulkRepositoryAsync" />
-        }
+        @<TaskActionPane Band="true" TestId="bulk-actions">
+            <Groups>
 
-        <SelectField CurrentValue=""
-                     Options="@StatusSelectorOptions()"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="Status"
-                     Label="Set the status of the selected tasks"
-                     TestId="bulk-status"
-                     CssClass="entry-doc__schedule-select"
-                     OnChanged="OnBulkStatusAsync" />
+                @* First, prominent, and the only act here that runs on the press
+                   rather than opening something. *@
+                <TaskActionGroup Label="Today" TestId="bulk-group-myday">
+                    <TaskAction Icon="☀"
+                                Label="My Day"
+                                Set="true"
+                                Prominent="true"
+                                OnSet="OnBulkMyDaySetAsync"
+                                OnClear="OnBulkMyDayClearAsync"
+                                TestId="bulk-action-myday" />
+                </TaskActionGroup>
 
-        <SelectField CurrentValue=""
-                     Options="@PrioritySelectorOptions()"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="Priority"
-                     Label="Set the priority of the selected tasks"
-                     TestId="bulk-priority"
-                     CssClass="entry-doc__schedule-select"
-                     OnChanged="OnBulkPriorityAsync" />
+                @* One field, and a group anyway: the caption is what a reader who
+                   cannot see the band gets instead of the gaps in it, and "Filing"
+                   is the word that says a repository is not a classification. *@
+                @if (KnowledgeRepositories.Count > 0)
+                {
+                    <TaskActionGroup Label="Filing" TestId="bulk-group-filing">
+                        <TaskAction Icon="🗂"
+                                    Label="Repository"
+                                    Set="@IsBulkGroupOpen(BulkGroup.Filing)"
+                                    Expanded="@IsBulkGroupOpen(BulkGroup.Filing)"
+                                    Controls="@BulkGroupControlsId(BulkGroup.Filing)"
+                                    OnSet="() => ToggleBulkGroup(BulkGroup.Filing)"
+                                    TestId="bulk-action-repo" />
 
-        <SelectField CurrentValue=""
-                     Options="@TypeSelectorOptions()"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="Type"
-                     Label="Set the type of the selected tasks"
-                     TestId="bulk-type"
-                     CssClass="entry-doc__schedule-select"
-                     OnChanged="OnBulkTypeAsync" />
+                        @if (IsBulkGroupOpen(BulkGroup.Filing))
+                        {
+                            <span class="backlog-bulk__controls"
+                                  id="@BulkGroupControlsId(BulkGroup.Filing)"
+                                  @onkeydown:stopPropagation="true">
+                                <RepositorySelector CurrentValue=""
+                                                    Options="@RepositoryOptions()"
+                                                    Label="Set the repository of the selected tasks"
+                                                    EmptyLabel="Repository"
+                                                    TestId="bulk-repo"
+                                                    OnChanged="OnBulkRepositoryAsync" />
+                            </span>
+                        }
+                    </TaskActionGroup>
+                }
 
-        @* Two buttons rather than a toggle, and that is the difference between a
-           row and a set: a toggle has to read as pressed or not, and half a
-           selection being in My Day is neither. So the reader says which way
-           rather than being shown a state that cannot be true. *@
-        <span class="backlog-bulk__pair">
-            <AppButton Size="ButtonSize.Small"
-                       TestId="bulk-myday-set"
-                       OnClick="OnBulkMyDaySetAsync">
-                Add to My Day
-            </AppButton>
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       TestId="bulk-myday-clear"
-                       OnClick="OnBulkMyDayClearAsync">
-                Remove from My Day
-            </AppButton>
-        </span>
+                <TaskActionGroup Label="Classification" TestId="bulk-group-classification">
+                    <TaskAction Icon="◉"
+                                Label="Classification"
+                                Set="@IsBulkGroupOpen(BulkGroup.Classification)"
+                                Expanded="@IsBulkGroupOpen(BulkGroup.Classification)"
+                                Controls="@BulkGroupControlsId(BulkGroup.Classification)"
+                                OnSet="() => ToggleBulkGroup(BulkGroup.Classification)"
+                                TestId="bulk-action-classification" />
 
-        @* @onchange rather than ValueChanged, for the reason the detail pane's own
-           date field gives: a half-typed date raises input events that read as
-           empty, and empty here would clear the date on every selected row while
-           somebody was still typing it. A date commits when it is a date. *@
-        <span class="backlog-bulk__pair">
-            <TextField Bare="true"
-                       Type="date"
-                       AriaLabel="Set the due date of the selected tasks"
-                       InputCssClass="entry-doc__schedule-input"
-                       data-testid="bulk-due-input"
-                       Value=""
-                       @onchange="OnBulkDuePickedAsync" />
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       AriaLabel="Clear the due date of the selected tasks"
-                       TestId="bulk-due-clear"
-                       OnClick="OnBulkDueClearAsync">
-                Clear due date
-            </AppButton>
-        </span>
+                    @if (IsBulkGroupOpen(BulkGroup.Classification))
+                    {
+                        <span class="backlog-bulk__controls"
+                              id="@BulkGroupControlsId(BulkGroup.Classification)"
+                              @onkeydown:stopPropagation="true">
+                            @* Slug is handed over empty rather than left to be derived:
+                               with no value BadgeSelect falls back to `draft`, and the
+                               pill would arrive wearing a status the selection was never
+                               in. Empty means "no modifier", so it is the plain badge. *@
+                            <StatusSelector CurrentValue=""
+                                            Options="@StatusSelectorOptions()"
+                                            IncludeEmptyOption="true"
+                                            EmptyLabel="Status"
+                                            Slug=""
+                                            Label="Set the status of the selected tasks"
+                                            TestId="bulk-status"
+                                            OnChanged="OnBulkStatusAsync" />
 
-        <span class="backlog-bulk__pair">
-            <TextField Bare="true"
-                       Type="datetime-local"
-                       AriaLabel="Set the reminder on the selected tasks"
-                       InputCssClass="entry-doc__schedule-input"
-                       data-testid="bulk-remind-input"
-                       Value=""
-                       @onchange="OnBulkReminderPickedAsync" />
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       AriaLabel="Clear the reminder on the selected tasks"
-                       TestId="bulk-remind-clear"
-                       OnClick="OnBulkReminderClearAsync">
-                Clear reminder
-            </AppButton>
-        </span>
+                            <SelectField CurrentValue=""
+                                         Options="@PrioritySelectorOptions()"
+                                         IncludeEmptyOption="true"
+                                         EmptyLabel="Priority"
+                                         Label="Set the priority of the selected tasks"
+                                         TestId="bulk-priority"
+                                         OnChanged="OnBulkPriorityAsync" />
 
-        @* Picked first, applied on the button. Unlike every other control here,
-           adding tags is naturally more than one answer — so the chips
-           accumulate and one press writes them, rather than the reader paying a
-           save per row per tag. *@
-        <span class="backlog-bulk__pair">
-            <TagMultiSelect Options="@BulkTagOptions()"
-                            SelectedValues="@_bulkTags"
-                            SelectedValuesChanged="tags => _bulkTags = tags"
-                            AllowCreate="true"
-                            Placeholder="Add tags"
-                            CssClass="entry-doc__tag-picker"
-                            TestId="bulk-tags-add" />
-            <AppButton Size="ButtonSize.Small"
-                       Disabled="@(_bulkTags.Count == 0)"
-                       TestId="bulk-tags-apply"
-                       OnClick="OnBulkAddTagsAsync">
-                Add tags
-            </AppButton>
-        </span>
+                            <SelectField CurrentValue=""
+                                         Options="@TypeSelectorOptions()"
+                                         IncludeEmptyOption="true"
+                                         EmptyLabel="Type"
+                                         Label="Set the type of the selected tasks"
+                                         TestId="bulk-type"
+                                         OnChanged="OnBulkTypeAsync" />
+                        </span>
+                    }
+                </TaskActionGroup>
 
-        @if (SelectionTagOptions() is { Count: > 0 } removable)
-        {
-            <SelectField CurrentValue=""
-                         Options="@removable"
-                         IncludeEmptyOption="true"
-                         EmptyLabel="Remove tag"
-                         Label="Remove a tag from the selected tasks"
-                         TestId="bulk-tag-remove"
-                         CssClass="entry-doc__schedule-select"
-                         OnChanged="OnBulkRemoveTagAsync" />
-        }
-        </text>;
+                <TaskActionGroup Label="Scheduling" TestId="bulk-group-scheduling">
+                    <TaskAction Icon="🗓"
+                                Label="Scheduling"
+                                Set="@IsBulkGroupOpen(BulkGroup.Scheduling)"
+                                Expanded="@IsBulkGroupOpen(BulkGroup.Scheduling)"
+                                Controls="@BulkGroupControlsId(BulkGroup.Scheduling)"
+                                OnSet="() => ToggleBulkGroup(BulkGroup.Scheduling)"
+                                TestId="bulk-action-scheduling" />
+
+                    @if (IsBulkGroupOpen(BulkGroup.Scheduling))
+                    {
+                        <span class="backlog-bulk__controls"
+                              id="@BulkGroupControlsId(BulkGroup.Scheduling)"
+                              @onkeydown:stopPropagation="true">
+                            @* @onchange rather than ValueChanged, for the reason the
+                               detail pane's own date field gives: a half-typed date
+                               raises input events that read as empty, and empty here
+                               would clear the date on every selected row while somebody
+                               was still typing it. A date commits when it is a date.
+
+                               A labelled button for the clear rather than a row's ✕. The
+                               row here is the group's trigger, and there is no row per
+                               field to hang a ✕ on any more — so the pair says which
+                               date it clears in words, which is also the only honest
+                               thing to say about a field that has no value to show. *@
+                            <span class="backlog-bulk__pair">
+                                <TextField Bare="true"
+                                           Compact="true"
+                                           Type="date"
+                                           AriaLabel="Set the due date of the selected tasks"
+                                           data-testid="bulk-due-input"
+                                           Value=""
+                                           @onchange="OnBulkDuePickedAsync" />
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           AriaLabel="Clear the due date of the selected tasks"
+                                           TestId="bulk-due-clear"
+                                           OnClick="OnBulkDueClearAsync">
+                                    Clear due date
+                                </AppButton>
+                            </span>
+
+                            <span class="backlog-bulk__pair">
+                                <TextField Bare="true"
+                                           Compact="true"
+                                           Type="datetime-local"
+                                           AriaLabel="Set the reminder on the selected tasks"
+                                           data-testid="bulk-remind-input"
+                                           Value=""
+                                           @onchange="OnBulkReminderPickedAsync" />
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           AriaLabel="Clear the reminder on the selected tasks"
+                                           TestId="bulk-remind-clear"
+                                           OnClick="OnBulkReminderClearAsync">
+                                    Clear reminder
+                                </AppButton>
+                            </span>
+                        </span>
+                    }
+                </TaskActionGroup>
+
+                @* Read once for the group rather than per control: the removal
+                   select needs both the options and whether there are any, and the
+                   two must be the same answer. *@
+                @{
+                    var removable = SelectionTagOptions();
+                }
+                <TaskActionGroup Label="Tags" TestId="bulk-group-tags">
+                    <TaskAction Icon="🏷"
+                                Label="Tags"
+                                Set="@IsBulkGroupOpen(BulkGroup.Tags)"
+                                Expanded="@IsBulkGroupOpen(BulkGroup.Tags)"
+                                Controls="@BulkGroupControlsId(BulkGroup.Tags)"
+                                OnSet="() => ToggleBulkGroup(BulkGroup.Tags)"
+                                TestId="bulk-action-tags" />
+
+                    @if (IsBulkGroupOpen(BulkGroup.Tags))
+                    {
+                        <span class="backlog-bulk__controls"
+                              id="@BulkGroupControlsId(BulkGroup.Tags)"
+                              @onkeydown:stopPropagation="true">
+                            @* Picked first, applied on the button. Unlike every other
+                               control here, adding tags is naturally more than one
+                               answer — so the chips accumulate and one press writes
+                               them, rather than the reader paying a save per row per
+                               tag. Wide while it is open and nothing at all while it is
+                               closed, which is the whole argument for opening a group
+                               rather than reserving a column for it. *@
+                            <span class="backlog-bulk__pair">
+                                <TagMultiSelect Options="@BulkTagOptions()"
+                                                SelectedValues="@_bulkTags"
+                                                SelectedValuesChanged="tags => _bulkTags = tags"
+                                                AllowCreate="true"
+                                                Placeholder="Add tags"
+                                                CssClass="backlog-bulk__tags"
+                                                TestId="bulk-tags-add" />
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@(_bulkTags.Count == 0)"
+                                           TestId="bulk-tags-apply"
+                                           OnClick="OnBulkAddTagsAsync">
+                                    Add tags
+                                </AppButton>
+                            </span>
+
+                            @* Offered disabled rather than left out when the selection
+                               wears no tag: `#action-density-and-overflow` is explicit
+                               that an unavailable act occupies the slot it would have
+                               occupied, carrying its reason, because a reader who never
+                               sees an act concludes the product cannot do it. The reason
+                               is the control's own empty label, which is the one place
+                               on an inline select there is room to say it. *@
+                            <SelectField CurrentValue=""
+                                         Options="@removable"
+                                         IncludeEmptyOption="true"
+                                         EmptyLabel="@(removable.Count == 0 ? "No tags to remove" : "Remove tag")"
+                                         Disabled="@(removable.Count == 0)"
+                                         Label="Remove a tag from the selected tasks"
+                                         TestId="bulk-tag-remove"
+                                         OnChanged="OnBulkRemoveTagAsync" />
+                        </span>
+                    }
+                </TaskActionGroup>
+            </Groups>
+        </TaskActionPane>;
 
     /// <summary>What the list reported, handed straight to the state — which
     /// prunes it to the rows actually in view on the way in.</summary>
@@ -882,14 +1072,144 @@
 
     private void OnSelectAllChanged(bool selected) => State.SetSelectAllVisible(selected);
 
-    /// <summary>Leaving the selection puts the draft tags away with it. The result
-    /// itself is a toast now and dismisses on its own timer, so there is no longer
-    /// a sentence pinned under the list for this to have to clear.</summary>
+    /// <summary>The chip above the list, either way. Pressed buys the gutter and
+    /// nothing else: the bar stays away until a row is actually picked, because a
+    /// row of controls that apply to nothing is what it would otherwise be, at the
+    /// top of a surface a reader came to scan. Un-pressed is the whole thing put
+    /// down, which is the same act as the bar's own way out.</summary>
+    private void OnSelectionModeChanged(bool pressed)
+    {
+        if (pressed)
+        {
+            State.SetSelectionMode(true);
+            return;
+        }
+
+        OnClearSelection();
+    }
+
+    /// <summary>
+    /// Escape on the chip: out of the mode, in one press.
+    /// <para>
+    /// No group step here, unlike the bar. Innermost-first is a rule about where
+    /// the reader is standing, and standing on the chip they are nowhere near an
+    /// open group — which may be scrolled out of view behind the rows. A first
+    /// press that closed something invisible and a second that did the thing they
+    /// asked for is not a hierarchy, it is a key that looks stuck.
+    /// </para>
+    /// </summary>
+    private void OnSelectionChipKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape" && State.SelectionMode) OnClearSelection();
+    }
+
+    /// <summary>
+    /// Escape on the bar: the open group, and then the mode.
+    /// <para>
+    /// Three levels rather than two, and the innermost one is not decided here. A
+    /// control keeps its own Escape — the tag picker closes its suggestion popup,
+    /// a select closes the list the browser opened — and that keystroke is about
+    /// the control, not about the group holding it. So a group's controls sit
+    /// inside an element that stops the key climbing (the same element
+    /// <c>aria-controls</c> names), and this handler only ever hears an Escape
+    /// pressed on the bar's own chrome or on a group's trigger.
+    /// </para>
+    /// <para>
+    /// Without that boundary this method took the whole group down from under a
+    /// reader who had asked for nothing but their popup back:
+    /// <c>TagMultiSelect</c> prevents the default on Escape and does not stop it
+    /// propagating, so dismissing the suggestions also threw away the picker, the
+    /// chips already accumulated in it and the two acts beside it. Which is
+    /// exactly the "two decisions out of one keystroke" the next paragraph
+    /// refuses.
+    /// </para>
+    /// <para>
+    /// The order is the one <see cref="OnDetailKeyDownAsync"/> already argues for
+    /// on the other half of the split: closing the whole thing from under a reader
+    /// who asked to leave one control would take two decisions out of one
+    /// keystroke.
+    /// </para>
+    /// <para>
+    /// On the chip and on the bar, and deliberately not on the pane around them.
+    /// The list between the two is where a row's inline rename lives, and Escape
+    /// there already means "abandon this title" — the field raises it, does not
+    /// stop it propagating, and a pane-wide handler would therefore throw away the
+    /// reader's whole picked set every time they backed out of a rename. The list
+    /// also holds the add-entry field, whose Escape means the same for a task that
+    /// does not exist yet. Neither of those is a key this mode may take, so
+    /// Escape from a row is not offered at all rather than offered destructively;
+    /// the chip and the bar are the two surfaces that are only ever about the
+    /// selection, and both of them answer.
+    /// </para>
+    /// </summary>
+    private void OnSelectionBarKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is not "Escape") return;
+
+        // The open group first, and only then the mode.
+        if (_openBulkGroup is not null)
+        {
+            _openBulkGroup = null;
+            return;
+        }
+
+        if (State.SelectionMode) OnClearSelection();
+    }
+
+    /// <summary>Leaving the selection puts the draft tags away with it.
+    /// <para>
+    /// It leaves the mode as well, which is what <c>ClearSelection</c> now means:
+    /// the bar's "clear selection" used to empty the set and leave a column of
+    /// boxes behind it, so the bar went and every gutter stayed.
+    /// </para>
+    /// <para>
+    /// What it no longer has to put away is the bar's own sentence. That used to be
+    /// pinned under the list until something replaced it, so leaving the selection
+    /// had to clear it or leave a result about rows nobody was looking at any more;
+    /// it is a toast on the shell's channel now and dismisses on its own timer.
+    /// </para></summary>
     private void OnClearSelection()
     {
         State.ClearSelection();
         _bulkTags = [];
+        _openBulkGroup = null;
     }
+
+    /// <summary>Which of the bar's groups currently has its controls open, if
+    /// any. One at a time, for the reason <see cref="SchedulePicker"/> gives on
+    /// the other half of the split: two open pickers is a question about which of
+    /// them the keyboard belongs to that nobody asked. It is also what keeps the
+    /// band two lines rather than however many groups a reader has poked.</summary>
+    private BulkGroup? _openBulkGroup;
+
+    /// <summary>The groups that have controls to open. My Day is not one of them:
+    /// it applies on the press, so there is nothing for it to be open
+    /// <em>into</em>.</summary>
+    private enum BulkGroup
+    {
+        Filing,
+        Classification,
+        Scheduling,
+        Tags
+    }
+
+    private bool IsBulkGroupOpen(BulkGroup group) => _openBulkGroup == group;
+
+    /// <summary>The element a group's trigger opens, by id. Two jobs in one
+    /// element: what <c>aria-controls</c> names, and where Escape stops climbing
+    /// out of a control — see <see cref="OnSelectionBarKeyDown"/>.
+    /// <para>
+    /// Derived from the group rather than generated per instance, because only one
+    /// bulk bar is ever on screen: a Guid here would be an id nothing can predict
+    /// and nothing needs to.
+    /// </para></summary>
+    private static string BulkGroupControlsId(BulkGroup group) =>
+        $"bulk-controls-{group.ToString().ToLowerInvariant()}";
+
+    /// <summary>Opens a group's controls, or closes them if it was already the
+    /// open one — pressing the trigger twice puts it back.</summary>
+    private void ToggleBulkGroup(BulkGroup group) =>
+        _openBulkGroup = IsBulkGroupOpen(group) ? null : group;
 
     /// <summary>Every tag anything in the backlog uses, plus the roadmap's — the
     /// same vocabulary the detail pane's picker offers, without the one-entry
@@ -963,9 +1283,11 @@
 
         await ApplyBulkAsync(() => State.BulkAddTagsAsync(picked));
 
-        // Emptied once the write has happened rather than before it: the chips are
-        // what the reader is looking at while the batch runs, and clearing first
-        // would take the subject of the sentence away mid-save.
+        // Emptied after the write rather than before it, and the reason is that
+        // the picked set is what the write is about: the closure above reads it,
+        // so clearing first would hand the batch an empty list. Not for the
+        // reader's sake — ApplyBulkAsync closes the group before its first await,
+        // so the chips are off screen either way.
         _bulkTags = [];
     }
 
@@ -978,6 +1300,12 @@
     /// nothing at all rather than raising a toast about no rows.</summary>
     private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
     {
+        // The group that opened these controls has had its answer, so it closes —
+        // the same close-on-commit the detail pane's own date and select handlers
+        // do, and what puts the bar back to one line rather than leaving it on
+        // whatever the reader last touched.
+        _openBulkGroup = null;
+
         var outcome = await change();
 
         if (outcome.Total == 0) return;

@@ -307,8 +307,7 @@ public class DesignTokenTests
     [Fact]
     public void Every_colour_the_library_declares_matches_the_value_in_dotdesign()
     {
-        var declared = DeclaredColors(Path.Combine(
-            Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
+        var declared = DesignPalette.DeclaredColors(DesignPalette.LibraryStylesheet);
 
         var specified = DesignPalette.SpecifiedColors();
 
@@ -377,7 +376,14 @@ public class DesignTokenTests
     /// host stylesheet is in neither side of its comparison and stays invisible: the
     /// error red <c>#E4626F</c> lived in four places in the desktop stylesheet
     /// without ever being a token or appearing in <c>.design</c>. A colour in one of
-    /// our own stylesheets has to be a token reference.</summary>
+    /// our own stylesheets has to be a token reference.
+    ///
+    /// <para>Read through <see cref="WithoutComments"/>, like every other rule here.
+    /// The regex cannot tell a colour from any other run of hex digits behind a
+    /// <c>#</c>, and the comments in these stylesheets cite the feedback a rule came
+    /// from by issue number — <c>#283</c> is three hex digits and was reported as a
+    /// raw literal in prose that paints nothing. Only a colour the browser would
+    /// actually apply is this rule's business.</para></summary>
     [Fact]
     public void No_application_stylesheet_uses_a_raw_colour_literal()
     {
@@ -390,7 +396,7 @@ public class DesignTokenTests
             var path = Relative(stylesheet);
             string[] tolerated = ToleratedColorLiterals.TryGetValue(path, out var known) ? known : [];
 
-            var offenders = ColorLiteral.Matches(File.ReadAllText(stylesheet.FullName))
+            var offenders = ColorLiteral.Matches(WithoutComments(File.ReadAllText(stylesheet.FullName)))
                 .Select(match => match.Value)
                 .Where(literal => !tolerated.Contains(literal, StringComparer.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -403,6 +409,117 @@ public class DesignTokenTests
                 + "be a token, or nothing records what it means and nothing checks what it contrasts "
                 + "against: declare it on :root in components.css, give it a row and a measured contrast "
                 + "pair in .design/color-scheme.md, then reference it by name here.");
+        }
+    }
+
+    /// <summary>The semantic meanings whose token is a surface and only a surface.
+    /// <c>.design/color-scheme.md#semantic-soft-surface-tokens</c> is explicit that
+    /// these are background tokens: something readable is rendered <em>on</em> one,
+    /// and painting one as ink puts a near-black value on a near-black page.</summary>
+    private static readonly string[] SemanticSurfaces = ["success", "warning", "error", "info"];
+
+    /// <summary>A <c>color</c> declaration — the ink, not
+    /// <c>background-color</c> or <c>border-color</c>, which the hyphen before the
+    /// property name rules out — set to one of the semantic surface tokens. The
+    /// sanctioned foregrounds escape it by name: <c>--color-error-text</c> does not
+    /// end the token where <c>--color-error</c> does.
+    ///
+    /// <para>The token name may be followed by a comma as well as by the closing
+    /// paren, because <c>var(--color-success, #1A3A22)</c> is the same defect wearing
+    /// a fallback: it renders the identical 1.03:1 near-black ink, and the fallback
+    /// form is already in live use in these stylesheets for other tokens, so a guard
+    /// that only matched <c>)</c> would wave the regression straight through.</para></summary>
+    private static readonly Regex SurfacePaintedAsInk = new(
+        $@"(?<!-)\bcolor:\s*var\(--color-(?:{string.Join('|', SemanticSurfaces)})\s*[,)]",
+        RegexOptions.Compiled);
+
+    /// <summary>The counterpart to
+    /// <see cref="No_application_stylesheet_uses_a_raw_colour_literal"/>: that rule
+    /// catches a colour with no token, and this one catches a colour with the wrong
+    /// token. Both come out of the same hole — the palette declares a semantic
+    /// meaning as a surface and nothing sanctioned as its ink — so a rule that needs
+    /// a legible success or error string either invents a literal or reaches for the
+    /// surface token, and the second is the quieter failure: it passes every other
+    /// test here while rendering at 1.49:1.
+    ///
+    /// <para>Reads the library's own stylesheet as well as the applications'. A
+    /// component's rule has exactly the same hole under it, and the library is where
+    /// a mistake would be repeated across every host at once.</para></summary>
+    [Fact]
+    public void No_stylesheet_paints_a_semantic_surface_token_as_ink()
+    {
+        var stylesheets = OurStylesheets()
+            .Append(new FileInfo(DesignPalette.LibraryStylesheet))
+            .ToList();
+
+        Assert.NotEmpty(stylesheets);
+
+        var offenders = stylesheets
+            .SelectMany(stylesheet => SurfacePaintedAsInk
+                .Matches(File.ReadAllText(stylesheet.FullName))
+                .Select(match => $"{Relative(stylesheet)}: {match.Value}"))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "A semantic colour is a surface, so painting it as text puts a near-black value on a "
+            + "near-black page and the line disappears. Use the sanctioned foreground for that meaning "
+            + $"— --color-<meaning>-text — or add one the way color-error-text was added: {string.Join("; ", offenders)}");
+    }
+
+    /// <summary>A <c>font-weight</c> written as a bare number, so the value can be
+    /// held against the scale. A range — <c>100 900</c> in an <c>@font-face</c> — is
+    /// not a single step and is not what this asks about.</summary>
+    private static readonly Regex NumericFontWeight = new(
+        @"font-weight\s*:\s*(?<value>\d+)\s*(?=[;}])",
+        RegexOptions.Compiled);
+
+    /// <summary>The rule the type scale already states, applied to the weight scale
+    /// beside it. <c>.design/typography-and-layout.md</c> declares exactly five
+    /// weights, and says of the sizes beside them that a stylesheet "MUST NOT
+    /// introduce sizes outside this scale". A weight outside its own table is that
+    /// same drift, and nothing was looking for it.
+    ///
+    /// <para><c>800</c> is why this exists. Eight eyebrow labels in the desktop
+    /// stylesheet were set to it while the identical shape elsewhere in the same
+    /// file used 700, so a value the design folder never names had spread across
+    /// five screens by copy — visibly, because the fallback face carries a real 800.</para>
+    ///
+    /// <para>Only a bare number is judged. <c>var(--font-weight-*)</c> resolves to a
+    /// declared token by definition, and a keyword — <c>inherit</c>, <c>bolder</c> —
+    /// is a relationship to whatever is around it rather than a step off the scale.</para></summary>
+    [Fact]
+    public void No_application_stylesheet_uses_a_weight_outside_the_declared_scale()
+    {
+        var declared = DesignTypography.SpecifiedWeights();
+        var stylesheets = OurStylesheets().ToList();
+
+        // Both premises before the rule: an empty scale would make every weight an
+        // offender, and an empty enumeration would let this pass while reading
+        // nothing at all.
+        Assert.NotEmpty(declared);
+        Assert.NotEmpty(stylesheets);
+
+        foreach (var stylesheet in stylesheets)
+        {
+            var offenders = NumericFontWeight
+                .Matches(WithoutComments(File.ReadAllText(stylesheet.FullName)))
+                .Select(match => match.Groups["value"].Value)
+                .Where(weight => !declared.Contains(weight))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(weight => weight, StringComparer.Ordinal)
+                .ToList();
+
+            Assert.True(
+                offenders.Count == 0,
+                $"{Relative(stylesheet)} sets font-weight to {string.Join(", ", offenders)}, and "
+                + ".design/typography-and-layout.md declares only "
+                + $"{string.Join(", ", declared.OrderBy(weight => weight, StringComparer.Ordinal))}. "
+                + "Move it to the nearest declared weight, or give the new one a row in that table "
+                + "first: an undeclared weight is drawn by whichever face the stack happens to carry, "
+                + "and nothing records what it is for.");
         }
     }
 

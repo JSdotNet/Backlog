@@ -261,6 +261,8 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
 
 `Togglable` is for a value with nothing to pick: My Day is on or off, so pressing it again is how it comes off and there is no ✕. For the others, `OnSet` opens whichever field above this story fits, and `OnClear` unsets it.
 
+`Expanded` is the other half of that, and the distinction is not cosmetic: `Togglable` emits `aria-pressed`, which says &quot;this thing is on&quot;, and a row that reveals other controls is not on — it is open. The last row here is that shape. It carries `aria-expanded` and an `aria-controls` naming what appeared, and it is nullable because absent is the common answer: most rows reveal nothing, and an `aria-expanded=&quot;false&quot;` on one of those promises a disclosure that is not there. `Set` still drives what the row *draws*, so a host usually feeds both from the one flag and gets the forward colour and the announcement together.
+
 `Disabled` is for an act the host cannot perform yet, and it keeps its slot rather than disappearing — a reader who never sees an act concludes the product cannot do it. `DisabledReason` is the sentence that slot then owes: hover the last row for the pointer's copy, and a screen reader hears the same words through the button's `aria-describedby`. The title sits on the wrapper because a disabled button raises no pointer events of its own.
 
 `Compact` is for an act that shares a row with another rather than owning one of its own — no visible label, no value, sized to the icon. The label does not disappear, it becomes the button's `aria-label`: an icon alone says nothing to a screen reader. The last two rows show it plain and disabled, side by side the way the entry pane puts one next to &quot;Waiting for&quot;."
@@ -299,6 +301,27 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
                         OnClear="() => _repeats = false"
                         TestId="action-repeat" />
 
+            @* A disclosure rather than a toggle: pressing it reveals the controls
+               below it, so it says aria-expanded and names them. *@
+            <TaskAction Icon="◉"
+                        Label="Classification"
+                        Set="@_classifying"
+                        Expanded="@_classifying"
+                        Controls="sb-action-classification"
+                        OnSet="() => _classifying = !_classifying"
+                        TestId="action-disclosure" />
+
+            @if (_classifying)
+            {
+                <div class="sb-row" id="sb-action-classification" data-testid="action-disclosure-panel">
+                    <SelectField CurrentValue="" Options="@RepeatOptions" IncludeEmptyOption="true"
+                                 EmptyLabel="Repeat" Label="Repeat" TestId="action-disclosure-select"
+                                 OnChanged="_ => { }" />
+                    <TextField Bare="true" Compact="true" Type="date" AriaLabel="Due date"
+                               Value="@_due" ValueChanged="v => _due = v" />
+                </div>
+            }
+
             <TaskAction Icon="📎"
                         Label="Add file"
                         Disabled="true"
@@ -319,6 +342,23 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
                             DisabledReason="Save this task first, so something can wait for it."
                             TestId="action-followup-compact-disabled" />
             </div>
+        </div>
+    </Story>
+
+    <Story Name="A field small enough for a strip"
+           Description="`Compact` is the same field at the size a toolbar has room for: a smaller radius, a tighter pad, the extra-small type, and a width that is its own value rather than its container's.
+
+It is a modifier and not a shape, so it composes over whatever skin the field already wears — including a host's own, where the host has replaced `InputCssClass` for an error style. The default field beside it is the form input, which is the right control in a dialog row and about twice the height a selection bar can spare.
+
+It exists because two panels had each written a private class to get here, which is the point at which a size stops being a host's business. A shared control whose resting appearance only arrives when the host names a string is a control with no resting appearance."
+           Code="@CompactCode">
+        <div class="sb-row">
+            <TextField Bare="true" Type="date" AriaLabel="Due date, default"
+                       Value="@_due" ValueChanged="v => _due = v" data-testid="input-date-default" />
+            <TextField Bare="true" Compact="true" Type="date" AriaLabel="Due date, compact"
+                       Value="@_due" ValueChanged="v => _due = v" data-testid="input-date-compact" />
+            <TextField Bare="true" Compact="true" Type="datetime-local" AriaLabel="Reminder, compact"
+                       Value="@_remindAt" ValueChanged="v => _remindAt = v" data-testid="input-remind-compact" />
         </div>
     </Story>
 
@@ -367,6 +407,15 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
         new("typography-and-layout.md#density", "Control heights, label pairing and how tight a form is allowed to be.")
     ];
 
+    private const string CompactCode = """
+        @* The form input, which is what a dialog row wants. *@
+        <TextField Bare="true" Type="date" AriaLabel="Due date" Value="@_due" />
+
+        @* The same control on a strip. Geometry only, so it stacks on top of a
+           host's own input class rather than replacing it. *@
+        <TextField Bare="true" Compact="true" Type="date" AriaLabel="Due date" Value="@_due" />
+        """;
+
     private static readonly IReadOnlyList<SelectorOption> RepeatOptions =
     [
         new("daily", "Every day"),
@@ -388,6 +437,7 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
     private bool _inMyDay = true;
     private bool _reminded = true;
     private bool _dueSet;
+    private bool _classifying = true;
     private bool _repeats;
     private string _alias = "backlog";
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
@@ -513,6 +563,14 @@ A repeat is a SelectField over the repeat tokens themselves, so what the picker 
                     Disabled="@(FollowUpReason(row) is not null)"
                     DisabledReason="@FollowUpReason(row)"
                     OnSet="() => State.NewFollowUpRow(row)" />
+
+        @* A disclosure: aria-expanded rather than aria-pressed, and aria-controls
+           naming the element that appeared. *@
+        <TaskAction Icon="◉" Label="Classification"
+                    Set="@IsOpen(Group.Classification)"
+                    Expanded="@IsOpen(Group.Classification)"
+                    Controls="@ControlsId(Group.Classification)"
+                    OnSet="() => Toggle(Group.Classification)" />
         """;
 
     private const string BareCode = """

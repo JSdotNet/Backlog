@@ -483,7 +483,6 @@
                    Next="@(string.Equals(_nextId, task.Id, StringComparison.Ordinal))"
                    Selectable="@SelectionEnabled"
                    SelectionChecked="@_selected.Contains(task.Id)"
-                   SelectionActive="@(_selected.Count > 0)"
                    SelectionChanged="@SelectionRequest"
                    Draggable="@(Reorderable && !task.Done)"
                    Dragging="@(string.Equals(_dragging, task.Id, StringComparison.Ordinal))"

@@ -61,21 +61,32 @@ standalone UI colors, and do not invent a second, stronger semantic palette.
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-success` | `#1A3A22` | Success banners, confirmation panels, positive status surfaces |
+| `color-success-text` | `#72C086` | Success text and icons — the legible foreground for the `color-success` surface, and for a confirmation line with no surface behind it |
 | `color-warning` | `#3D2E00` | Warning banners, caution panels, non-blocking alert surfaces |
 | `color-error` | `#3D0A0D` | Error banners, validation summaries, destructive-status surfaces |
 | `color-error-text` | `#EC8E97` | Error text, icons and input outlines — the legible foreground for the `color-error` surface, and for error text with no surface behind it |
 | `color-info` | `#0A2C31` | Informational notices, neutral announcement surfaces |
 
-`color-error-text` is the one deliberate exception to "surfaces only", and it
-exists because the rule above left a hole. Foreground text on a `color-error`
-panel covers a banner, but a bare error status line, an error icon, or an error
-input outline has no error surface behind it and so had no sanctioned colour at
-all. Two unsanctioned answers grew up in that gap: a raw `#E4626F` repeated
-through the desktop stylesheet, and a `--color-danger` that product code
-referenced but nothing ever declared. This token is the missing answer. It is a
-**foreground only** — it is never painted as a background, and it does not open
-the door to a second semantic palette, because it serves the one meaning that
-needed one.
+`color-error-text` and `color-success-text` are the two deliberate exceptions to
+"surfaces only", and they exist because the rule above left a hole. Foreground
+text on a semantic panel covers a banner, but a bare status line, a status icon,
+or an input outline has no semantic surface behind it and so had no sanctioned
+colour at all. Both are **foregrounds only** — neither is ever painted as a
+background — and they do not open the door to a second semantic palette, because
+they serve the two meanings that needed one. `color-warning` and `color-info` get
+no counterpart: no rule paints either as text, and a token nothing uses is a
+value nothing measures.
+
+Each is a legibility correction to the colour already in use rather than a new
+colour: same hue, same saturation, lightness lifted until the binding pair
+passes. The binding pair is `color-background-raised` in both cases — it is the
+lightest surface either ink sits on, and a status string lands in a dropdown, a
+popover or a badge next.
+
+**`color-error-text`.** Two unsanctioned answers grew up in the gap: a raw
+`#E4626F` repeated through the desktop stylesheet, and a `--color-danger` that
+product code referenced but nothing ever declared. This token is the missing
+answer.
 
 **The value is derived, not picked.** `#E4626F`, the incumbent literal, is
 hsl(354, 70.7%, 63.9%) and measures 5.59:1 on `color-background`, 4.86:1 on
@@ -109,6 +120,33 @@ binding pair is the raised surface, as it was for the incumbent. 72% lightness
 (`#EA858F`, 4.80:1 on raised) is the lowest lightness that passes at all; 74% was
 chosen so the binding pair is not sitting 0.3 above the threshold, where a later
 surface adjustment would quietly push it back under.
+
+**`color-success-text`.** The success meaning fell into the same hole and took
+the other way out of it. Nothing invented a literal: `.setting__status--ok` in
+the desktop stylesheet painted the Settings confirmation line in `color-success`
+itself, the surface token used as ink. That is **1.49:1** on `color-background`,
+1.29:1 on `color-background-alt` and 1.03:1 on `color-background-raised` — a
+near-black green on a near-black page, which is not a weak colour choice but an
+invisible line. This token is what that rule should have named.
+
+**The value is derived, not picked**, the same way. `#72C086` is
+hsl(135, 38.2%, **60.0%**) against `#1A3A22`'s hsl(135, 38.1%, 16.5%): the hue
+and the saturation of the colour already in use, with only the lightness lifted.
+It is a legibility correction to `color-success`, not a second green.
+
+| Pairing | Required | `color-success-text` |
+|---|---|---|
+| on `color-background` | 4.5:1 | **8.55:1** |
+| on `color-background-alt` | 4.5:1 | **7.43:1** |
+| on `color-background-raised` | 4.5:1 | **5.58:1** |
+| on the `color-success` surface | 4.5:1 | **5.74:1** |
+| as a border vs `color-background` | 3:1 | **8.55:1** |
+| as a border vs `color-background-alt` | 3:1 | **7.43:1** |
+| as a border vs `color-background-raised` | 3:1 | **5.58:1** |
+
+Same formula, same binding pair: the raised surface at 5.58:1, with the same
+margin above 4.5 that `color-error-text` was tuned for, so a later surface
+adjustment does not quietly push it back under.
 
 ### Neutral / Text
 
@@ -207,6 +245,7 @@ Copy-paste reference of every color token and its single dark value.
 | `color-primary-dark` | `#D4A72C` |
 | `color-secondary` | `#ADB5BD` |
 | `color-success` | `#1A3A22` |
+| `color-success-text` | `#72C086` |
 | `color-warning` | `#3D2E00` |
 | `color-error` | `#3D0A0D` |
 | `color-error-text` | `#EC8E97` |
@@ -224,7 +263,7 @@ Copy-paste reference of every color token and its single dark value.
 | `color-border-strong` | `#737379` |
 | `color-border-focus` | `#F2C14E` |
 
-The twenty-one tokens above are the whole colour palette. `components.css` declares
+The twenty-two tokens above are the whole colour palette. `components.css` declares
 exactly these, plus the code-block theme in `#syntax-highlighting-tokens`, the
 band identity set in `#band-identity-tokens`, and the derived role tokens in
 `#role-tokens`; anything else in product code is a literal and MUST be replaced by
@@ -440,14 +479,14 @@ status: active
 related: [".design/design-principles.md#dark-mode-only", ".design/accessibility.md#contrast"]
 ```
 
-Two component families need role names the twenty palette tokens do not provide:
+Two component families need role names the twenty-two palette tokens do not provide:
 a chart needs a series colour, a track, a gridline and a baseline, and an
 integration affordance needs a live state, a landed one, a quiet one and the two
 surfaces the product acts on. Like the code theme these are **themes, not a
 second palette** — with one difference that matters: **every value below is
 derived.** Each is a `var()` of a palette token or a `color-mix()` of one against
 the surface it is drawn on, so none holds a colour of its own, the palette is
-still twenty colours, and there is no new value for this file to disagree with.
+still twenty-two colours, and there is no new value for this file to disagree with.
 
 ### Badge and chip tones
 
@@ -706,10 +745,11 @@ or when the stylesheet declares a colour this file does not name. The deviation
 chapter is excluded from that comparison, because its second column is
 deliberately a value the product does not use.
 
-Materialized: all twenty-one palette tokens, all ten code tokens, and the five
+Materialized: all twenty-two palette tokens, all ten code tokens, and the five
 band identity tokens. The band set adds no new colour value — each is a value one
-of the other two families already carries — so the number of distinct colours the
-product declares is unchanged at twenty-five.
+of the other two families already carries — so it moves the count not at all;
+`color-success-text` does, because `#72C086` is a value nothing else carries.
+The number of distinct colours the product declares is twenty-five.
 
 Not yet materialized: the per-stack mapping above is web-only in practice —
 there is no mobile MAUI `ResourceDictionary` and no IDE webview yet, so the CSS

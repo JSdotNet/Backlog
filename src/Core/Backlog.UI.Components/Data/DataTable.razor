@@ -84,7 +84,10 @@
                         }
                         @foreach (var item in section.Items)
                         {
-                            <tr class="@(Part("row"))" @key="Key(item)">
+                            @* The row's own class first, so a host's modifier reads as a
+                               modifier on it, and the splat last, so an attribute a host
+                               needs on the row it did not draw can still get there. *@
+                            <tr class="@RowClass(item)" @key="Key(item)" @attributes="RowAttributes?.Invoke(item)">
                                 @Row(item)
                             </tr>
                         }
@@ -135,6 +138,34 @@
     [Parameter]
     public Func<TItem, object>? RowKey { get; set; }
 
+    /// <summary>
+    /// What one row's <c>tr</c> wears beside <c>…__row</c>: a modifier for a row
+    /// that reads differently from the ones around it — switched off, stale, out of
+    /// date. Null or empty for a row with nothing to say.
+    /// <para>
+    /// Added to the row's class rather than replacing it, unlike every other class
+    /// hook in this library. The others name an element the host is dressing, where
+    /// this names one the host never draws — so replacing the class here would take
+    /// the frame with it, and the row would stop being a row of this table.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TItem, string?>? RowCssClass { get; set; }
+
+    /// <summary>
+    /// Attributes for one row's <c>tr</c>: the data attribute a driver scopes a
+    /// shared per-row test id by, a title, an aria state.
+    /// <para>
+    /// The row element is this component's, so without this a caller that has to
+    /// address one row from outside the table has no way in short of drawing the
+    /// row itself. What the frame already writes is not for this — a <c>class</c>
+    /// here replaces the row's own instead of adding to it, which is what
+    /// <see cref="RowCssClass"/> is for.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<TItem, IReadOnlyDictionary<string, object>?>? RowAttributes { get; set; }
+
     /// <summary>Names the table when no visible caption does.</summary>
     [Parameter]
     public string? AriaLabel { get; set; }
@@ -177,6 +208,11 @@
         ?? (Items.Count == 0 ? [] : [new DataTableSection<TItem>(null, Items)]);
 
     private object Key(TItem item) => RowKey?.Invoke(item) ?? item!;
+
+    /// <summary>One row's class: this table's, and whatever the host adds to it.</summary>
+    private string RowClass(TItem item) => RowCssClass?.Invoke(item) is { Length: > 0 } extra
+        ? $"{Part("row")} {extra}"
+        : Part("row");
 
     private string Counted(int count) => count == 1 ? $"1 {RowNoun}" : $"{count} {RowNoun}s";
 

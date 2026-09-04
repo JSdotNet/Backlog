@@ -230,8 +230,9 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// A pane and its pin are one cell of the strip, in that order: the thing being
-    /// kept, then the act of keeping it. The band is deliberately not one of them —
+    /// A pane and its pin are one cell of the strip, the rail first: it draws along
+    /// the option's top edge, so leading the cell is what keeps DOM order, reading
+    /// order and tab order the same one. The band is deliberately not one of them —
     /// it competes with nothing for width, so there is nothing for a pin to save it
     /// from.
     /// <para>
@@ -260,7 +261,7 @@ public sealed class GlobalPaneMarkupTests
             var option = home.IndexOf($"TestId=\"{pane}-pane-option\"", StringComparison.Ordinal);
             var pin = home.IndexOf($"TestId=\"{pane}-pane-pin\"", StringComparison.Ordinal);
 
-            Assert.True(option >= 0 && pin > option, $"The {pane} pin must follow its own option.");
+            Assert.True(pin >= 0 && option > pin, $"The {pane} rail must lead its own option.");
         }
     }
 
@@ -299,9 +300,11 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Pinned is drawn the way selected is — a tinted fill and the primary underline
-    /// together — because colour alone is the one channel the accessibility rules rule
-    /// out. And a pin that cannot be taken says so rather than merely failing.
+    /// Pinned is drawn the way selected is — a tinted fill and a primary rule together
+    /// — because colour alone is the one channel the accessibility rules rule out. The
+    /// rule is the rail's top edge rather than an underline, which is what keeps it off
+    /// the option's own selected edge. And a pin that cannot be taken says so rather
+    /// than merely failing.
     /// </summary>
     [Fact]
     public void The_pin_states_are_drawn_with_more_than_colour()
@@ -309,10 +312,82 @@ public sealed class GlobalPaneMarkupTests
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
         var pinned = RuleFor(css, ".header-group__pin--pinned {");
-        Assert.Contains("border-bottom-color: var(--color-primary);", pinned, StringComparison.Ordinal);
+        Assert.Contains("border-top-color: var(--color-primary);", pinned, StringComparison.Ordinal);
         Assert.Contains("background:", pinned, StringComparison.Ordinal);
 
         Assert.Contains("cursor: not-allowed;", RuleFor(css, ".header-group__pin:disabled {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Feedback #283: the pin was a full-height box on the option's right, so its
+    /// pinned fill read as a vertical strip running down the option's side. The cell
+    /// stacks instead — the rail along the option's top edge — and nothing about
+    /// pinning is drawn beside the option any more.
+    /// <para>
+    /// The top edge rather than the bottom one because the option's selected state
+    /// already owns the bottom. With the two states on opposite edges of the cell,
+    /// selected+pinned, selected alone, pinned alone and neither stay four different
+    /// pictures instead of two rules stacked on one edge.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_pin_rails_along_the_top_edge_rather_than_beside_the_option()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        Assert.Contains("flex-direction: column;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
+
+        // The cells and the pinless band option share one height, so the hairlines
+        // between them span the strip rather than stopping at the option's own row.
+        Assert.Contains("align-items: stretch;", RuleFor(css, ".header-group--sections {"), StringComparison.Ordinal);
+
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
+
+        // The full-height side box is the shape that read as a strip. It must not
+        // come back, whichever edge the fill is drawn on.
+        Assert.DoesNotContain("min-height: 2.25rem;", pin, StringComparison.Ordinal);
+
+        // Reserved on the edge each state will draw on, so neither pinning nor
+        // selecting moves the row.
+        Assert.Contains("border-top: var(--border-width-2) solid transparent;", pin, StringComparison.Ordinal);
+        Assert.Contains(
+            "border-bottom: var(--border-width-2) solid transparent;",
+            RuleFor(css, ".header-group__option {"),
+            StringComparison.Ordinal);
+
+        // Opposite edges: the option underlines selected, the rail overlines pinned.
+        Assert.DoesNotContain("border-bottom", RuleFor(css, ".header-group__pin--pinned {"), StringComparison.Ordinal);
+        Assert.Contains(
+            "border-bottom-color: var(--color-primary);",
+            RuleFor(css, ".header-group__option--selected {"),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A rail is wide and shallow where the side box was narrow and tall, so its floor
+    /// is stated on the width: 3rem x 1.5rem is the area the 2rem x 2.25rem box had,
+    /// and in practice the rail takes the option's own width — several times that.
+    /// <para>
+    /// The compact step narrows the floor rather than the height for the same reason.
+    /// It used to take the box down to 1.75rem x 2.25rem; 2.75rem x 1.5rem clears it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rail_keeps_the_click_target_the_side_box_had()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.Contains("min-width: 3rem;", pin, StringComparison.Ordinal);
+        Assert.Contains("min-height: 1.5rem;", pin, StringComparison.Ordinal);
+
+        var compact = CompactRuleFor(css, ".header-group__pin {");
+        Assert.Contains("min-width: 2.75rem;", compact, StringComparison.Ordinal);
+
+        // The height floor survives the step, which is the half of the target the
+        // narrowing option cannot give back.
+        Assert.DoesNotContain("min-height", compact, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -754,6 +829,16 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
 
+        // And nowhere else under src/ either. The shell was the last caller: it
+        // opened the hatch on a triaged inbox item without selecting the row, which
+        // is an editor with no surface to render in — the same anti-pattern one file
+        // over, so the guard covers both files rather than only the one it was
+        // written for.
+        Assert.DoesNotContain(
+            "State.BeginEdit",
+            NormalizeLineEndings(File.ReadAllText(FindHomeRazor())),
+            StringComparison.Ordinal);
+
         // The source is reached deliberately instead — the shortcut
         // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
         // control for it: the row that used to open it said "Markdown" under a body
@@ -899,6 +984,20 @@ public sealed class GlobalPaneMarkupTests
             Assert.Contains("flex: 1 0 auto;", rules, StringComparison.Ordinal);
             Assert.DoesNotContain("min-height: 0;", rules, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>The 960px step's override of a rule. Indentation alone separates it
+    /// from the rule it overrides, because a top-level rule starts at column zero —
+    /// which is also why <see cref="RuleFor"/> keeps finding that one.</summary>
+    private static string CompactRuleFor(string css, string block)
+    {
+        var media = css.IndexOf("@media (max-width: 960px) {", StringComparison.Ordinal);
+        Assert.True(media >= 0, "The compact breakpoint is no longer in the stylesheet.");
+
+        var start = css.IndexOf("    " + block, media, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"The compact step has no override for `{block}`.");
+
+        return css[start..css.IndexOf('}', start)];
     }
 
     private static string RuleFor(string css, string block)

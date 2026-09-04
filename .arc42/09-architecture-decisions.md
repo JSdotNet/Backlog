@@ -133,3 +133,8 @@ related: [".arc42/04-solution-strategy.md"]
   makes the first non-additive change the trigger for a versioned mechanism. Written
   to discharge D3 before local ADR 0005's `updated_at` and `deleted_at` reached a
   table holding live user data.
+- **[ADR 0007 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0007-import-reuses-the-entry-text-grammar.md)**
+  *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
+  not a format of its own, so `EntryTextParser` stays the only grammar the product has
+  to parse and a plan stays hand-editable. Upload and paste feed one path, and `after:`
+  across a fresh batch is resolved by Import in two passes rather than by the parser.

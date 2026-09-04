@@ -1063,23 +1063,6 @@
       },
       {
         "data": {
-          "id": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "label": "ADR 0004: Import reuses the entry text grammar; a plan is multi-task entry text",
-          "type": "file",
-          "folder": "arc42",
-          "path": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "status": "proposed",
-          "related": [
-            ".domain/tasks/features.md#import",
-            ".domain/tasks/domain.md#task",
-            ".design/content-editing.md#scheduling-and-dependency-tokens",
-            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
-          ]
-        }
-      },
-      {
-        "data": {
           "id": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "label": "ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical",
           "type": "file",
@@ -1132,6 +1115,23 @@
             ".arc42/11-risks-and-technical-debt.md",
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "label": "ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "status": "proposed",
+          "related": [
+            ".domain/tasks/features.md#import",
+            ".domain/tasks/domain.md#task",
+            ".design/content-editing.md#scheduling-and-dependency-tokens",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"
           ]
         }
@@ -11385,7 +11385,7 @@
           "path": ".design/color-scheme.md",
           "slug": "surface-and-border-deviation",
           "level": 2,
-          "line": 140,
+          "line": 178,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast",
@@ -11402,7 +11402,7 @@
           "path": ".design/color-scheme.md",
           "slug": "full-token-reference",
           "level": 2,
-          "line": 195,
+          "line": 233,
           "status": "active"
         }
       },
@@ -11415,7 +11415,7 @@
           "path": ".design/color-scheme.md",
           "slug": "syntax-highlighting-tokens",
           "level": 2,
-          "line": 233,
+          "line": 272,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -11432,7 +11432,7 @@
           "path": ".design/color-scheme.md",
           "slug": "band-identity-tokens",
           "level": 2,
-          "line": 271,
+          "line": 310,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -11450,7 +11450,7 @@
           "path": ".design/color-scheme.md",
           "slug": "role-tokens",
           "level": 2,
-          "line": 436,
+          "line": 475,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -11467,7 +11467,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 593,
+          "line": 632,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -11483,7 +11483,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 620,
+          "line": 659,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -11499,7 +11499,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 647,
+          "line": 686,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -11516,7 +11516,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 683,
+          "line": 722,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -12575,7 +12575,7 @@
           "path": ".design/color-scheme.md",
           "slug": "chart-roles",
           "level": 3,
-          "line": 518
+          "line": 557
         }
       },
       {
@@ -12587,7 +12587,7 @@
           "path": ".design/color-scheme.md",
           "slug": "badge-and-chip-tones",
           "level": 3,
-          "line": 452
+          "line": 491
         }
       }
     ],
@@ -18634,46 +18634,6 @@
       },
       {
         "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/features.md#import",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/tasks/features.md#import",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.domain/tasks/domain.md#task",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".domain/tasks/domain.md#task",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
-          "id": "related:.arc42/adr/0004-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-          "source": ".arc42/adr/0004-import-reuses-the-entry-text-grammar.md",
-          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-          "type": "related"
-        }
-      },
-      {
-        "data": {
           "id": "related:.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md->.arc42/02-constraints.md#technical-constraints",
           "source": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "target": ".arc42/02-constraints.md#technical-constraints",
@@ -18844,6 +18804,46 @@
         "data": {
           "id": "related:.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "source": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0007-import-reuses-the-entry-text-grammar.md->.domain/tasks/features.md#import",
+          "source": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/tasks/features.md#import",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0007-import-reuses-the-entry-text-grammar.md->.domain/tasks/domain.md#task",
+          "source": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0007-import-reuses-the-entry-text-grammar.md->.design/content-editing.md#scheduling-and-dependency-tokens",
+          "source": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "target": ".design/content-editing.md#scheduling-and-dependency-tokens",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0007-import-reuses-the-entry-text-grammar.md->.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "source": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
+          "target": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0007-import-reuses-the-entry-text-grammar.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "source": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
           "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "type": "related"
         }

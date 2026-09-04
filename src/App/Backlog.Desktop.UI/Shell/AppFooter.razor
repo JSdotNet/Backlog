@@ -116,13 +116,23 @@
        aria-labelledby="app-update-title"
        aria-describedby="app-update-description">
     <Header>
-        <header class="app-update-dialog__header">
-            <div>
-                <p class="app-update-dialog__eyebrow">Application updates</p>
-                <h2 id="app-update-title">Update Backlog</h2>
-            </div>
-            <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
-        </header>
+        @* The library's section header, dressed as this dialog. The heading is
+           styled by element here, so its class hook is handed a blank rather than
+           a name — and the close button is a direct child, which is what a blank
+           actions class leaves behind. The description is not in the header: it
+           belongs to the dialog body, where aria-describedby points at it. *@
+        <SectionHeader BaseClass="app-update-dialog__header"
+                       TextCssClass=""
+                       EyebrowCssClass="app-update-dialog__eyebrow"
+                       TitleCssClass=""
+                       ActionsCssClass=""
+                       Eyebrow="Application updates"
+                       TitleId="app-update-title"
+                       Title="Update Backlog">
+            <Actions>
+                <IconButton AriaLabel="Close update window" CssClass="btn--ghost" Disabled="@_updateBusy" OnClick="CloseUpdateWindow">x</IconButton>
+            </Actions>
+        </SectionHeader>
     </Header>
     <ChildContent>
         <p id="app-update-description" class="app-update-dialog__description">

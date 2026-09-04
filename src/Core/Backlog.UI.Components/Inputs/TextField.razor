@@ -94,6 +94,26 @@ else
     [Parameter]
     public string InputCssClass { get; set; } = "field__input";
 
+    /// <summary>
+    /// The small inline shape: a field on a strip rather than a row in a form.
+    /// <para>
+    /// The default input is a form input — full width, form padding — which is
+    /// right in a dialog and far too big beside a chip on a toolbar. Both panels
+    /// that needed the small one were passing a private class of their own to get
+    /// it, which is the arrangement <c>ui-components.instructions.md</c> exists to
+    /// stop: two hosts naming the same string to make a control the right size
+    /// means the size belongs to the library.
+    /// </para>
+    /// <para>
+    /// Added to the input's class rather than replacing it, so it is a modifier
+    /// over whatever skin the field is wearing — including a host's own, if the
+    /// host replaced <see cref="InputCssClass"/>. It changes the geometry and
+    /// nothing else: a compact field is the same control, smaller.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
     /// <summary>Something inside the input's trailing edge: a state marker, a
     /// unit, a lock. The library positions it and pads the input to leave room,
     /// so a long value scrolls behind nothing and a click on it still lands in
@@ -190,7 +210,7 @@ else
     /// is how they stop matching.</summary>
     private RenderFragment InputPart =>
         @<input id="@FieldId"
-                class="@InputCssClass"
+                class="@InputClass"
                 data-testid="@BareTestId"
                 type="@Type"
                 value="@Value"
@@ -202,6 +222,9 @@ else
                 aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
                 @oninput="OnInput"
                 @attributes="AdditionalAttributes" />;
+
+    private string InputClass =>
+        Compact ? $"{InputCssClass} field__input--compact" : InputCssClass;
 
     protected override void OnParametersSet()
     {

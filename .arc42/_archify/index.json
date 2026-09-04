@@ -45,7 +45,7 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "26bdc1b5a16f8354cddc45e4fb61015e4307501e5afd69dff05f0552ee29a9f6": {
+    "2680537cbe0584c5126423700cdc0ea18213d867918875d82d013e99662348a7": {
       "chapter": "05-building-block-view.md",
       "ordinal": 4,
       "type": "architecture",
@@ -64,17 +64,6 @@
       "kind": "flowchart",
       "spec": "05-building-block-view.2.architecture.standard.json",
       "artifact": "05-building-block-view.2.architecture.standard.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
-    "2e06800d5fda4f07e3c5f03d1f6917004623c6c142844919a701c958f0d23a70": {
-      "chapter": "07-deployment-view.md",
-      "ordinal": 3,
-      "type": "architecture",
-      "quality": "showcase",
-      "kind": "flowchart",
-      "spec": "07-deployment-view.3.architecture.json",
-      "artifact": "07-deployment-view.3.architecture.html",
       "checksPassed": 9,
       "checkCount": 9
     },
@@ -141,6 +130,17 @@
       "kind": "graph",
       "spec": "05-building-block-view.3.architecture.standard.json",
       "artifact": "05-building-block-view.3.architecture.standard.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "81ef2c8769cf075c17a0e85ba1a69be1303e1bf309087745f8ce64345d1cdad5": {
+      "chapter": "07-deployment-view.md",
+      "ordinal": 3,
+      "type": "architecture",
+      "quality": "showcase",
+      "kind": "flowchart",
+      "spec": "07-deployment-view.3.architecture.json",
+      "artifact": "07-deployment-view.3.architecture.html",
       "checksPassed": 9,
       "checkCount": 9
     },

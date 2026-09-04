@@ -27,7 +27,8 @@ internal sealed class TasksPaneHost : IDisposable
         AppFeatureSettingsStore features,
         GitHubIntegration gitHub,
         FakeGitHubClient client,
-        string root)
+        string root,
+        string storageRoot)
     {
         Context = context;
         State = state;
@@ -35,6 +36,7 @@ internal sealed class TasksPaneHost : IDisposable
         Features = features;
         GitHub = gitHub;
         Client = client;
+        StorageRoot = storageRoot;
         _tempDirs.Add(root);
     }
 
@@ -54,6 +56,12 @@ internal sealed class TasksPaneHost : IDisposable
 
     public FakeGitHubClient Client { get; }
 
+    /// <summary>The folder the store this host composed actually reads and writes.
+    /// Handed out so a test can stand a second list over the same backlog, which is
+    /// what a write arriving from the other machine's copy of the app is — see
+    /// <see cref="FromElsewhereAsync"/>.</summary>
+    public string StorageRoot { get; }
+
     /// <summary>Composes the pane's world. <paramref name="repositories"/> is the
     /// settings text a person would have typed into Settings, so a test that wants
     /// GitHub configured says so in the same words the app does.</summary>
@@ -71,6 +79,7 @@ internal sealed class TasksPaneHost : IDisposable
 
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
+        var storageRoot = store.RootDirectory;
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         if (repositories.Length > 0)
@@ -104,7 +113,7 @@ internal sealed class TasksPaneHost : IDisposable
         context.Services.AddSingleton(toasts);
         context.Services.AddSingleton<IToastChannel>(toasts);
 
-        return new TasksPaneHost(context, state, toasts, features, gitHub, client, root);
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, root, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();
@@ -125,6 +134,51 @@ internal sealed class TasksPaneHost : IDisposable
     /// there now, so a test about one has to say which entry is open — the pane
     /// beside the list is the subject, not the row in it.</summary>
     public Task OpenAsync(EntryRow row) => State.SelectAsync(row);
+
+    /// <summary>
+    /// Runs one act against a second list over the same folder — the other
+    /// machine's copy of the app arriving through a synced folder — and then moves
+    /// the store's timestamp, which is what says the bytes landed.
+    /// <para>
+    /// A whole second state rather than a hand-written row, for the reason
+    /// <c>TasksExternalChangePollingTests</c> gives: what is under test is this
+    /// list noticing a write it did not make, and only a real write through the
+    /// module leaves the store the way a real one does.
+    /// </para>
+    /// </summary>
+    public async Task FromElsewhereAsync(Func<TasksDesktopState, Task> write)
+    {
+        var settings = new WorkspaceSettingsStore(StorageRoot, Path.Combine(StorageRoot, "elsewhere.json"));
+
+        using (var elsewhere = TasksTestHost.StateFor(settings, GitHub))
+        {
+            await elsewhere.InitializeAsync();
+            await write(elsewhere);
+        }
+
+        TouchStore();
+    }
+
+    /// <summary>As <see cref="FromElsewhereAsync"/>, for the one act every test
+    /// of it wants: the other machine wrote a new entry.</summary>
+    public Task WriteFromElsewhereAsync(string text) =>
+        FromElsewhereAsync(async elsewhere =>
+        {
+            var row = new EntryRow { RawText = text };
+            elsewhere.Rows.Add(row);
+            elsewhere.BeginEdit(row);
+            await elsewhere.EndEditAsync(row);
+        });
+
+    /// <summary>What a synced folder does when the other machine's copy arrives:
+    /// the bytes are already there, and the timestamp is what says so. Stamped a
+    /// second into the future because a file written moments ago can otherwise
+    /// carry the timestamp it already had.</summary>
+    public void TouchStore()
+    {
+        var database = Path.Combine(StorageRoot, "backlog.db");
+        File.SetLastWriteTimeUtc(database, File.GetLastWriteTimeUtc(database).AddSeconds(1));
+    }
 
     /// <summary>
     /// Everything this host composed, given back in the order the app gives it

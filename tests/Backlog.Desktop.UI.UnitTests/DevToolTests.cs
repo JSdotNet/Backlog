@@ -1259,6 +1259,7 @@ public class ApplicationCatalogTests
                   "group": "Team developer tools",
                   "note": "Also on PATH as code.cmd.",
                   "detectOnly": true,
+                  "installerType": "exe",
                   "probe": { "command": "code", "args": ["--version"], "shell": true, "encoding": "utf-16le" },
                   "enabled": true
                 }
@@ -1273,6 +1274,7 @@ public class ApplicationCatalogTests
         Assert.Equal(DevToolProvider.Winget, application.Provider);
         Assert.Equal("Team developer tools", application.Group);
         Assert.Equal("Also on PATH as code.cmd.", application.Note);
+        Assert.Equal("exe", application.InstallerType);
         Assert.True(application.DetectOnly);
         Assert.True(application.Enabled);
         Assert.Equal("app:Microsoft.VisualStudioCode", application.Key);
@@ -1548,10 +1550,38 @@ public class ApplicationCatalogTests
         Assert.False(entry.ContainsKey("group"));
         Assert.False(entry.ContainsKey("detectOnly"));
         Assert.False(entry.ContainsKey("hosts"));
+        Assert.False(entry.ContainsKey("installerType"));
 
         var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
         Assert.Equal(DevToolProvider.Winget, application.Provider);
         Assert.True(application.ProviderRecognised);
+        Assert.Null(application.InstallerType);
+    }
+
+    /// <summary>A package whose manifest publishes more than one installer needs
+    /// the entry to name the one it means, so the draft's pin has to survive into
+    /// the file — a catalog that dropped it would install through whichever
+    /// installer winget preferred on the day.</summary>
+    [Fact]
+    public async Task Adding_a_winget_application_that_pins_an_installer_writes_the_pin()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "Anthropic.Claude", DisplayName: "Claude Desktop")
+            {
+                Provider = DevToolProvider.Winget,
+                InstallerType = "exe"
+            });
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
+
+        Assert.Equal("exe", entry["installerType"]!.GetValue<string>());
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
+        Assert.Equal("exe", application.InstallerType);
     }
 
     [Fact]
