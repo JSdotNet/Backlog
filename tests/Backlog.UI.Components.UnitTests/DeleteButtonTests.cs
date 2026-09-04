@@ -122,7 +122,14 @@ public sealed class DeleteButtonTests
 
         Assert.Equal("BUTTON", bin.TagName);
         Assert.Equal("task-item__delete", bin.GetAttribute("class"));
-        Assert.Same(view.Find("li.task-item"), bin.ParentElement);
+        // The row itself, by what it is rather than by instance: `Find` hands back a
+        // bUnit wrapper and `ParentElement` the element under it, so the two are never
+        // the same object even when they are the same node.
+        var row = bin.ParentElement;
+
+        Assert.NotNull(row);
+        Assert.Equal("LI", row!.TagName);
+        Assert.Contains("task-item", row.ClassList);
 
         // DeleteButton's drawn bin, not a glyph of the row's own: a lid, a bin and
         // the two lines down its face, in currentColor.
@@ -143,14 +150,66 @@ public sealed class DeleteButtonTests
         // bUnit brings no layout engine to see what the cascade did with it.
         var css = Css();
 
-        var start = css.IndexOf("\n.btn__icon:only-child {", StringComparison.Ordinal);
-        Assert.True(start >= 0, "components.css has no rule for .btn__icon:only-child.");
+        var start = css.IndexOf("\n.btn__icon--alone {", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.css has no rule for .btn__icon--alone.");
 
         var close = css.IndexOf('}', start);
-        Assert.True(close > start, "The rule for .btn__icon:only-child in components.css is never closed.");
+        Assert.True(close > start, "The rule for .btn__icon--alone in components.css is never closed.");
         Assert.Matches(@"margin-right:\s*0", css[start..close]);
+
+        // And it is keyed on the marker the button supplies, never on the shape of
+        // the DOM: `:only-child` counts elements and the label is a text node, so
+        // that form of the rule matched every labelled icon button too.
+        Assert.DoesNotContain(".btn__icon:only-child", css, StringComparison.Ordinal);
     }
 
     private static string Css() => File.ReadAllText(RepositoryRoot.File(
         "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
+
+    // --- The gap the icon keeps for a label ---------------------------------
+
+    /// <summary>
+    /// Bare marks the glyph as the whole button, so the stylesheet can close the
+    /// gap the icon keeps for a word beside it.
+    /// </summary>
+    [Fact]
+    public void A_bare_button_marks_its_icon_as_having_no_label()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<DeleteButton>(p => p
+            .Add(b => b.Bare, true)
+            .Add(b => b.AriaLabel, "Delete it"));
+
+        var icon = view.Find(".btn__icon");
+
+        Assert.Contains("btn__icon--alone", icon.ClassList);
+    }
+
+    /// <summary>
+    /// The regression the first attempt at that rule caused. A label is a text node
+    /// rather than an element, so <c>.btn__icon--alone</c> held on a labelled
+    /// icon button too and closed the gap on every one of them -- twelve on the
+    /// Buttons storybook page alone. The marker has to come from the button, which
+    /// is the only thing that knows whether a word follows the glyph.
+    /// </summary>
+    [Fact]
+    public void A_labelled_button_keeps_the_gap_between_its_icon_and_its_word()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<DeleteButton>(p => p
+            .AddChildContent("Delete"));
+
+        var icon = view.Find(".btn__icon");
+
+        Assert.DoesNotContain("btn__icon--alone", icon.ClassList);
+
+        // The label really is a bare text node beside the icon -- which is why the
+        // selector could not tell the two cases apart on its own.
+        Assert.Equal("Delete", view.Find("button").TextContent.Trim());
+        Assert.Single(view.FindAll("button > *"));
+    }
 }

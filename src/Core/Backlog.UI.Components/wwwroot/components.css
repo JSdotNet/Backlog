@@ -5263,8 +5263,12 @@ body.is-resizing-pane {
 
 /* The gap is for the label beside it, and a bare button — DeleteButton's Bare,
    the bin on a task row — has no label. Kept, it becomes padding down one side
-   of a square the size of the glyph, which reads as the icon being misaligned. */
-.btn__icon:only-child {
+   of a square the size of the glyph, which reads as the icon being misaligned.
+
+   The button says so rather than the selector working it out: a label is a text
+   node, not an element, so `:only-child` holds on a labelled icon button too and
+   would close the gap on every one of them. */
+.btn__icon--alone {
     margin-right: 0;
 }
 
