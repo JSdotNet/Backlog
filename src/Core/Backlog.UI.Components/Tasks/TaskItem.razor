@@ -371,18 +371,25 @@
            The click stops here. Deleting a task is not opening one, which is the
            same reason the pencil and the copy button stop theirs.
 
+           DeleteButton, bare, rather than a button of this row's own. It was a bare
+           emoji here, which is the thing that component was added to retire: a 🗑
+           renders differently on every platform and carries no colour of its own,
+           so the one irreversible act on the row was drawn by whatever font the
+           reader happened to have. The glyph is drawn now, and the row goes on
+           dressing the square by name — `.task-item__delete` is what the stylesheet
+           quietens until the row is reached and what components.js keeps out of the
+           row-drag gesture.
+
            The glyph is aria-hidden and the label carries the meaning, naming the row
            the way the pencil names itself: "Delete Wire up the store" rather than
            "Delete", so a screen reader reading down a column of these says which
            one each of them is. *@
-        <button type="button"
-                class="task-item__delete"
-                aria-label="@($"Delete {Task.Title}")"
-                data-testid="@Suffix("delete")"
-                @onclick="() => OnDelete.InvokeAsync(Task.Id)"
-                @onclick:stopPropagation="true">
-            <span aria-hidden="true">🗑</span>
-        </button>
+        <DeleteButton Bare="true"
+                      BaseClass="task-item__delete"
+                      AriaLabel="@($"Delete {Task.Title}")"
+                      TestId="@Suffix("delete")"
+                      StopPropagation="true"
+                      OnClick="() => OnDelete.InvokeAsync(Task.Id)" />
     }
 
     @if (HasFold)

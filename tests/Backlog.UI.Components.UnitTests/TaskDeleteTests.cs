@@ -46,7 +46,7 @@ public sealed class TaskDeleteTests
         // itself — with the glyph hidden so the label is what carries the meaning.
         Assert.Equal("BUTTON", bin.TagName);
         Assert.Equal("Delete Write it down", bin.GetAttribute("aria-label"));
-        Assert.Equal("🗑", bin.TextContent.Trim());
+        Assert.NotNull(bin.QuerySelector("svg"));
         Assert.Equal("true", bin.QuerySelector("span")?.GetAttribute("aria-hidden"));
     }
 
