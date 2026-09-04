@@ -13,14 +13,27 @@
 /// broken.
 /// </para>
 /// <para>
+/// That measurement is history and is left standing as history: it is the evidence
+/// these steps exist at all, and rewriting it to today's numbers would erase the
+/// case it was taken from. The strip is four chips and about 230px now — Done and
+/// Archived are gone from it — which is why the step that collapses it moved down
+/// to 30rem, where it is true, instead of hiding three chips at a width where four
+/// fit.
+/// </para>
+/// <para>
 /// Status collapses and tags do not, until tags leave altogether. A tag exists
 /// because somebody typed it and its count is where the work is; status is one of a
-/// fixed six and only the chosen one has to stay legible.
+/// fixed four and only the chosen one has to stay legible.
 /// </para>
 /// </summary>
 public sealed class FilterBarLayoutTests
 {
     private const string CollapseStep = "@container backlog-list (max-width: 38rem) {";
+
+    /// <summary>Where the status strip comes down to the chosen chip. Its own step,
+    /// below the one that takes the tag pile and the row cluster: those have
+    /// nothing to do with the strip's width and never did.</summary>
+    private const string StatusStep = "@container backlog-list (max-width: 30rem) {";
 
     private const string TightenStep = "@container backlog-list (max-width: 26rem) {";
 
@@ -42,11 +55,11 @@ public sealed class FilterBarLayoutTests
     public void Only_the_status_chips_collapse()
     {
         var css = Css();
-        var collapse = Block(css, CollapseStep);
+        var status = Block(css, StatusStep);
 
         Assert.Contains(
             ".filter-group--status .chip:not(.chip--active):not(:first-child)",
-            collapse,
+            status,
             StringComparison.Ordinal);
 
         // The rule this replaced was unscoped, so it hid every other group's chips
@@ -54,19 +67,22 @@ public sealed class FilterBarLayoutTests
         Assert.DoesNotContain(".filter-group .chip", css, StringComparison.Ordinal);
 
         // One decision per group: status loses its unchosen chips, tags loses the
-        // group, and nothing else on the bar is touched at this step.
-        Assert.DoesNotContain(".filter-group--scope", collapse, StringComparison.Ordinal);
+        // group, and nothing else on the bar is touched at either step.
+        Assert.DoesNotContain(".filter-group--scope", Block(css, CollapseStep), StringComparison.Ordinal);
+        Assert.DoesNotContain(".filter-group--scope", status, StringComparison.Ordinal);
 
         var tighten = Block(css, TightenStep);
 
         Assert.Contains(".chip__count", tighten, StringComparison.Ordinal);
         Assert.Contains("gap: var(--spacing-xs);", tighten, StringComparison.Ordinal);
 
-        // The collapse has to come first in source order, because the tighten step
-        // matches everywhere the collapse step does.
+        // Widest first, all three of them: each step matches everywhere the ones
+        // above it do, so a narrower rule written earlier would be overridden by
+        // the wider one it was supposed to replace.
         Assert.True(
-            css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
-            "The narrower container step must come after the wider one it overrides.");
+            css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(StatusStep, StringComparison.Ordinal)
+            && css.IndexOf(StatusStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
+            "Each narrower container step must come after the wider ones it overrides.");
     }
 
     /// <summary>
@@ -122,6 +138,7 @@ public sealed class FilterBarLayoutTests
 
         Assert.Contains(".filter-group--tags {", collapse, StringComparison.Ordinal);
 
+        Assert.DoesNotContain(".filter-group--tags", Block(css, StatusStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags", Block(css, TightenStep), StringComparison.Ordinal);
     }
 

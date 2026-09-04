@@ -145,8 +145,8 @@ public sealed class HomeRepositoryScopeTests
         Assert.Null(switchElement.GetAttribute("aria-label"));
         var labelId = switchElement.GetAttribute("aria-labelledby");
         Assert.False(string.IsNullOrWhiteSpace(labelId));
-        Assert.Equal("Repository colours", component.Find("#" + labelId).TextContent.Trim());
-        Assert.Contains("Repository colours", control.TextContent);
+        Assert.Equal("Colors", component.Find("#" + labelId).TextContent.Trim());
+        Assert.Contains("Colors", control.TextContent);
     }
 
     [Fact]
@@ -355,7 +355,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            TasksCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable,
+            toasts: sp.GetRequiredService<IToastChannel>()));
+        TasksTestHost.AddToastChannel(context.Services);
 
         return new Harness(root, context, gitHubSettings);
     }

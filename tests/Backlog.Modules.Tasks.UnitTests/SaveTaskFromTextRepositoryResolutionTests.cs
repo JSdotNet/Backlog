@@ -85,7 +85,7 @@ public class SaveTaskFromTextRepositoryResolutionTests
     }
 
     /// <summary>
-    /// The line ADR 0004 draws, asserted where it is easiest to cross. Import
+    /// The line ADR 0007 draws, asserted where it is easiest to cross. Import
     /// triggers registration; a <c>repo:</c> token somebody typed does not — so a
     /// typo does not quietly add a repository to the workspace that somebody then
     /// has to go and delete.

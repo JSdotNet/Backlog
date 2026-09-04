@@ -20,8 +20,9 @@ namespace Backlog.Modules.Roadmap.DomainModels;
 /// <para>
 /// Every refusal comes back as a <see cref="Result"/> rather than an exception. A
 /// circular dependency, a date that does not make a window, an id that is no longer
-/// there — each of those is something a person does by accident while planning, and
-/// per ADR 0004 an outcome the caller is expected to handle is data, not a throw.
+/// there — each of those is something a person does by accident while planning,
+/// and per inherited ADR 0004 an outcome the caller is expected to handle is
+/// data, not a throw.
 /// </para>
 /// <para>
 /// A plan with nothing in it is a valid plan: a first run, or everything delivered.

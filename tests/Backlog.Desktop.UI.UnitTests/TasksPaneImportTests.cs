@@ -60,9 +60,13 @@ public sealed class TasksPaneImportTests
         await SubmitAsync(pane, TwoPrompts);
 
         Assert.Empty(pane.FindAll("[data-testid='import-plan-dialog']"));
+
+        // The counts are a toast now, drawn by the tray MainLayout mounts rather
+        // than by this pane — so the assertion asks the channel what was published
+        // instead of asking a render that never contained it. Same id, same words.
         Assert.Equal(
             "Imported: 2 created, 0 updated, 0 skipped.",
-            pane.Find("[data-testid='import-plan-result']").TextContent.Trim());
+            host.Toasts.Visible.Single(toast => toast.TestId == "import-plan-result").Message);
 
         // A row carries the canonical text rather than a title of its own, so the
         // heading each imported entry landed with is read back off that.
@@ -94,7 +98,7 @@ public sealed class TasksPaneImportTests
 
         Assert.NotNull(pane.Find("[data-testid='import-plan-dialog']"));
         Assert.Contains("id:same", pane.Find(".import-plan-form__error").TextContent, StringComparison.Ordinal);
-        Assert.Empty(pane.FindAll("[data-testid='import-plan-result']"));
+        Assert.DoesNotContain(host.Toasts.Visible, toast => toast.TestId == "import-plan-result");
 
         // Nothing half-landed while the refusal was being reported.
         Assert.Empty(host.State.Rows);

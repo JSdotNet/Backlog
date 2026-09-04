@@ -163,7 +163,10 @@ at a newer revision would silently revert it.
 Reduced-motion, page hiding, print and canonical export all preserve the complete
 static meaning, and the artifact's own Live/Still control keeps the last word;
 what the patch adds is that lifting any of those puts the loop back, instead of
-settling the diagram for the life of the document. Inside the app,
+settling the diagram for the life of the document. A second patch to the same
+template — recorded beside the first — keeps that control's accessible name in step,
+which an unguarded call in the Motion Governor used to abort before it was written.
+Inside the app,
 `backlogDiagrams.renderArtifact` lifts embed mode's blanket `animation: none` so
 the artifact's governor can decide — without that lift, a correctly generated
 artifact still would not move.

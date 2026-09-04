@@ -6,7 +6,7 @@ Pinned revision: `af45e517fb9441e769593c1bf0a6395de1acb7ca`.
 ## What this folder is
 
 The upstream repository's `archify/` subfolder, verbatim except for the one omission
-and the one change below. That folder is the documented unit of distribution: `npx skills add
+and the two changes below. That folder is the documented unit of distribution: `npx skills add
 tt-a1i/archify -g` and the manual `archify.zip` install both produce exactly this
 directory as a skill folder. Vendoring it is therefore the supported way to use
 Archify, not a repackaging of it.
@@ -63,6 +63,31 @@ fixed the knowledge panes and left the storybook comparison page frozen.
 `ArchifyArtifactMotionTests` fails if a re-copy drops this. It checks the template as
 well as all 42 artifacts, so the loss is reported on the re-copy itself rather than
 after the next regeneration — by which point every artifact is static again.
+`assets/template.html` — the Motion Governor guards its guided-views pause on the
+function, not just on the object.
+
+Upstream's `render()` calls `Archify.guidedViews.isPlaying()` behind nothing but a test
+that `Archify.guidedViews` exists. The object is always there to be truthy: its module
+returns a stub — `{ count: 0, active }` — when the document carries no guided views, and
+that is every artifact this repository renders. So the call throws `TypeError:
+Archify.guidedViews.isPlaying is not a function` on every pause, tab hide and
+reduced-motion transition.
+
+- The call site reads `Archify.guidedViews && Archify.guidedViews.isPlaying &&
+  Archify.guidedViews.isPlaying()`. That is upstream's own shape, not a new idiom: the
+  two sibling call sites in the same file — the camera's `interruptCamera` and the
+  diagram guide's `open` — already guard the function this way.
+
+The throw is worse than it looks. It lands after the ambient-motion state has been
+settled, so pause and resume themselves still work — but it aborts the rest of
+`render()`, skipping the `lastEffectivePaused` update and the motion button's
+`aria-label` and `title` refresh. The Live/Still button's accessible name therefore never
+moves off "Pause motion" for the life of the document. With the trace above now looping
+indefinitely, that button is this artifact's WCAG 2.2.2 pause affordance, so a pause
+control whose name is stuck is a defect on exactly the control the loop depends on.
+
+`ArchifyArtifactMotionTests` fails if a re-copy drops this one too, and checks the
+template alongside all 42 artifacts for the same reason.
 
 ## `bin/` needs a .gitignore negation
 
@@ -95,7 +120,7 @@ support.
 ## Updating
 
 Re-copy the folder at a newer revision, drop `test/`, record the new SHA above,
-re-apply the change in **What was changed**, then regenerate every artifact and confirm
+re-apply both changes in **What was changed**, then regenerate every artifact and confirm
 each still reports 9 of 9 checks:
 
 ```bash

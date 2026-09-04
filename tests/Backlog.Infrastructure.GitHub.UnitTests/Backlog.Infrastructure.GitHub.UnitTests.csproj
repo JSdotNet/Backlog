@@ -4,4 +4,11 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- GhCliTransport can only be driven through the executable it launches, so
+         the stand-in for `gh` has to be next to the test assembly for GhStub to
+         copy. See gh-stub.cmd and GhStub.cs. -->
+    <None Update="gh-stub.cmd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1563,9 +1563,9 @@ public static class DevToolConfiguration
     /// than a truncated catalog.</para>
     ///
     /// <para>The bar is deliberately low: an object, at least one of the two
-    /// arrays, and an id on every entry. Anything stricter would reject a
-    /// catalog carrying a property this version has not met yet, and the file is
-    /// hand-edited often enough that that is a real shape rather than a
+    /// arrays, and something to address every entry by. Anything stricter would
+    /// reject a catalog carrying a property this version has not met yet, and the
+    /// file is hand-edited often enough that that is a real shape rather than a
     /// hypothetical one.</para>
     /// </summary>
     public static bool TryReadCatalog(string json, out JsonObject root, out string error)
@@ -1616,10 +1616,16 @@ public static class DevToolConfiguration
         // grouping marker in the catalog is a "group" property on a real entry
         // rather than an object of its own: an entry with no id has nothing for an
         // override to address and nothing for a button to act on.
-        if (!EveryEntryCarriesAnId(plugins, "plugins", "name", out error)
-            || !EveryEntryCarriesAnId(servers, "mcpServers", "packageId", out error)
-            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, "name", out error)
-            || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, ApplicationIdName, out error))
+        //
+        // An MCP server satisfies that bar two ways, because the catalog has always
+        // held both kinds: one installed as a .NET tool and addressed by its package
+        // id, and one registered by the command that starts it — which is how the
+        // Aspire CLI server is wired, and how this repository's own catalog ships it.
+        // Demanding a packageId of both made the product refuse a file it produced.
+        if (!EveryEntryCarriesAnId(plugins, "plugins", out error, "name")
+            || !EveryEntryCarriesAnId(servers, "mcpServers", out error, "packageId", "command")
+            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, out error, "name")
+            || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, out error, ApplicationIdName))
         {
             return false;
         }
@@ -2017,7 +2023,19 @@ public static class DevToolConfiguration
         ["mcpServers"] = new JsonArray()
     };
 
-    private static bool EveryEntryCarriesAnId(JsonArray? array, string arrayName, string idName, out string error)
+    /// <summary>
+    /// Whether every entry in <paramref name="array"/> can be addressed, by any
+    /// one of <paramref name="idNames"/>.
+    ///
+    /// <para>Several properties rather than one because identity is not always the
+    /// same property: an MCP server is addressed by its package id when it is a
+    /// .NET tool and by its command when it is not, and either is enough.</para>
+    ///
+    /// <para>The reason names the offending entry. A catalog runs to dozens of
+    /// entries, and "one of them is missing something" leaves the person who
+    /// pasted it to find which by eye.</para>
+    /// </summary>
+    private static bool EveryEntryCarriesAnId(JsonArray? array, string arrayName, out string error, params string[] idNames)
     {
         error = string.Empty;
 
@@ -2026,19 +2044,34 @@ public static class DevToolConfiguration
             return true;
         }
 
-        foreach (var node in array)
+        for (var index = 0; index < array.Count; index++)
         {
-            if (node is JsonObject entry && !string.IsNullOrWhiteSpace(GetString(entry, idName)))
+            var node = array[index];
+            if (node is JsonObject entry && idNames.Any(idName => !string.IsNullOrWhiteSpace(GetString(entry, idName))))
             {
                 continue;
             }
 
-            error = $"Every entry in \"{arrayName}\" needs a \"{idName}\".";
+            var required = string.Join(" or ", idNames.Select(idName => $"{ArticleFor(idName)} \"{idName}\""));
+            error = $"{DescribeEntry(node, index)} in \"{arrayName}\" needs {required}.";
             return false;
         }
 
         return true;
     }
+
+    /// <summary>How to point at the entry that was refused: by its name when it
+    /// has one, and otherwise by the only handle left, its place in the array —
+    /// counted from one, because that is how a person reads a list.</summary>
+    private static string DescribeEntry(JsonNode? node, int index)
+    {
+        var name = node is JsonObject entry ? GetString(entry, "name") : string.Empty;
+
+        return string.IsNullOrWhiteSpace(name) ? $"Entry {index + 1}" : $"The \"{name}\" entry";
+    }
+
+    private static string ArticleFor(string word) =>
+        word.Length > 0 && "aeiou".Contains(char.ToLowerInvariant(word[0])) ? "an" : "a";
 
     private static async Task<JsonObject> ReadCatalogAsync(string path, CancellationToken ct)
     {

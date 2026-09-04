@@ -353,6 +353,13 @@ public sealed class InboxTriageOpensTheEntryTests
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+
+        // Home publishes its transient results on this, and injects it hard rather
+        // than resolving it: a screen that silently lost the reader's only feedback
+        // is worse than one that refuses to construct. So a host that renders Home
+        // has to register it, the same as the other four.
+        TasksTestHost.AddToastChannel(context.Services);
+
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

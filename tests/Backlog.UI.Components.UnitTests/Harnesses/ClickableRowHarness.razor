@@ -1,0 +1,28 @@
+@* A bare delete inside a region that opens on click — the arrangement a task row
+   is, reduced to the one thing being asserted. It takes a real click handler on
+   the outer element because that is what StopPropagation has to beat; a test that
+   only read the parameter back would pass whatever the markup did with it. *@
+
+<div class="harness-row" @onclick="Open">
+    <DeleteButton Bare="true"
+                  BaseClass="harness-row__delete"
+                  AriaLabel="Delete this row"
+                  TestId="row-delete"
+                  StopPropagation="true"
+                  OnClick="Delete" />
+</div>
+
+@code {
+    /// <summary>Raised when the delete is pressed.</summary>
+    [Parameter]
+    public Action? OnDelete { get; set; }
+
+    /// <summary>Raised when the region around it takes a click — which is the
+    /// thing that must not happen when the delete is the thing pressed.</summary>
+    [Parameter]
+    public Action? OnOpen { get; set; }
+
+    private void Delete() => OnDelete?.Invoke();
+
+    private void Open() => OnOpen?.Invoke();
+}

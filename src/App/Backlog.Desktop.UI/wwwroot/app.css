@@ -128,8 +128,8 @@ h1, h2, h3 {
 
 /*
   The footer band. Two controls that are about the application rather than about
-  whatever page is above them: which build this is, and how to report that it is
-  wrong.
+  whatever page is above them — which build this is, and how to report that it is
+  wrong — with the save state between them.
 
   The horizontal padding repeats `.shell`'s deliberately rather than inheriting it.
   The footer is a sibling of the page now, so it sits outside the page's padding box
@@ -146,6 +146,15 @@ h1, h2, h3 {
   records for every utility button in this app. Being in a footer neither creates
   that gap nor excuses widening it.)
 
+  Which leaves the block padding as the only thing on this band that was not already
+  standing on a floor, and it is where the height came out of. `--spacing-xs` rather
+  than zero, and that is a floor too: `.design/accessibility.md#focus-visibility`
+  draws focus as an outline at `--border-width-2` offset 2px, so a focused control
+  puts 4px of ink outside its border box. With no block padding the bottom of that
+  ring lands on or past this band's own edge and `.app-shell`'s `overflow: hidden`
+  clips it. 4px is exactly the ring's reach, so it is the shortest this band can be
+  without taking the focus indicator with it.
+
   Nothing in this block may ever grow a `transform`, `filter`, `backdrop-filter`,
   `contain`, `perspective` or `will-change`. Any one of them makes this element the
   containing block for `position: fixed` descendants, and the update window and the
@@ -157,16 +166,58 @@ h1, h2, h3 {
     align-items: center;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: var(--spacing-xs) var(--spacing-lg);
     border-top: var(--border-width) solid var(--color-border);
 }
 
-/* The version leads at the left edge and pushes everything after it to the right,
-   which is the same auto-margin idiom `.app-header__status` uses one level up. The
-   margin sits on the version rather than on the Report issue button because the
-   button is feature-gated and may not be rendered at all. */
-.app-footer .app-version {
+/* The auto margin that pushes everything after it to the right — the same idiom
+   `.app-header__status` uses one level up. It was on the version, because the
+   Report issue button is feature-gated and may not be rendered at all; it is on
+   this slot now, which is unconditional for the same reason and is also in the
+   middle. That matters: the indicator inside comes and goes several times a save,
+   and with the margin on the version each appearance would walk Report issue left
+   and each settle would walk it back. Here the movement is spent on slack. */
+.app-footer__status {
+    display: inline-flex;
+    align-items: center;
     margin-right: auto;
+}
+
+/* A line of no height sitting between the page and the band, whose only job is to
+   be something the toast tray can be positioned against. Its bottom edge is the
+   footer's top edge, so a tray anchored to it rises off the band without anything
+   here naming the band's height — which is the point, because that height is
+   content-driven and was just changed.
+
+   It is a sibling of the footer rather than a child of it, and that is not a
+   preference. The update window and the feedback dialog are `position: fixed`
+   Modals rendered from inside `.app-footer`, and a positioned ancestor of a fixed
+   element becomes its containing block — see the warning on `.app-footer` above.
+   `position: relative` is safe here because nothing fixed is inside this element,
+   and it is left at `z-index: auto` so it creates no stacking context and the
+   tray's own z-index still competes at the root. */
+.app-toast-anchor {
+    position: relative;
+    flex: 0 0 auto;
+    height: 0;
+    min-height: 0;
+}
+
+/* The library's host is fixed to the viewport's bottom-right corner, which on this
+   shell would put it on top of the footer band. Anchored to the line above the band
+   instead, it rises off the footer's top border — and it keeps doing so when that
+   band changes height, because nothing here names one.
+
+   `--spacing-lg` on the inline end is not arbitrary: it repeats `.shell`'s and
+   `.app-footer`'s own horizontal padding, so a toast's right edge lines up with the
+   page content above it and the Report issue button below it. `--spacing-sm` on the
+   block end is the gap `.design/interaction-guidelines.md#feedback-and-toasts` gives
+   toasts to stack with, spent here between the stack and the band. */
+.toast-host.app-toast-tray {
+    position: absolute;
+    inset-block-start: auto;
+    inset-block-end: var(--spacing-sm);
+    inset-inline-end: var(--spacing-lg);
 }
 
 .app-header {
@@ -1274,21 +1325,22 @@ h1, h2, h3 {
   rarer rather than impossible: the reader can still drag the panel out to 48rem.
 
   Status collapses first and areas never do. An area exists because somebody typed
-  it and its count is where the work is; status is one of a fixed six, and the
+  it and its count is where the work is; status is one of a fixed few, and the
   chosen one is the only one that has to stay legible. Collapsing gives back most
   of those 369px, which is the only move here that actually buys the areas their
   room — tightening the gaps first would have bought about 20px of it.
 */
 
-/* 38rem: the full status strip (369px) plus the gap between the groups plus the
-   ~200px an "All" chip and a pile or two need comes to roughly 585px, so the strip
-   stops fitting a shade above that. Below this the group shows the chosen status
-   and nothing else, which is the one chip a reader is looking for. */
-@container backlog-list (max-width: 38rem) {
-    .filter-group--status .chip:not(.chip--active):not(:first-child) {
-        display: none;
-    }
+/* 38rem: the width the tag pile and the row's trailing cluster stop fitting at.
+   The pile has no ceiling at all — an entry wears any number of tags and every
+   distinct one gets a chip — and the cluster is a pencil, a repository picker, a
+   status pill and a copy button, which together come to most of a 38rem column.
 
+   This number used to be attributed to the status strip as well, back when that
+   strip was six chips and 369px wide. It is four chips and about 230px now, so the
+   status rule moved down to the 30rem step below, where it is actually true. The
+   remaining rules here never depended on the strip's width. */
+@container backlog-list (max-width: 38rem) {
     /* The tag group goes entirely, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
@@ -1350,6 +1402,21 @@ h1, h2, h3 {
         min-height: 0;
         padding: 0;
         color: transparent;
+    }
+}
+
+/* 30rem: the four-chip strip (~230px) plus the gap between the groups plus the
+   ~200px the scope pile needs comes to about 440px, so it stops fitting a shade
+   below 480px. Below this the group shows the chosen status and nothing else,
+   which is the one chip a reader is looking for.
+
+   It used to collapse at 38rem, when the strip was six chips and 369px wide.
+   Losing Done and Archived shrank it, so the step that hides it moved down with
+   it rather than going on hiding three chips at a width where four fit — a bar
+   that collapses before it has to is a bar lying about what it can show. */
+@container backlog-list (max-width: 30rem) {
+    .filter-group--status .chip:not(.chip--active):not(:first-child) {
+        display: none;
     }
 }
 
@@ -2373,7 +2440,6 @@ h1, h2, h3 {
 }
 
 .ai-panel__body,
-.ai-panel__error,
 .ai-panel__answer p {
     color: var(--color-text-secondary);
 }
@@ -2399,12 +2465,6 @@ h1, h2, h3 {
     display: flex;
     justify-content: flex-end;
     margin-top: var(--spacing-sm);
-}
-
-.ai-panel__error {
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-error);
 }
 
 .ai-panel__answer {
@@ -3931,34 +3991,11 @@ h1, h2, h3 {
     padding-bottom: var(--spacing-sm);
 }
 
-/* What the last import produced, under the split rather than over it. It is a
-   footer for the list above and not a banner: the reader opened the dialog to go
-   and check "3 created, 1 updated" against the entries, so the line reports and
-   gets out of the way.
-
-   Alert renders a <p>, and a <p> in a flex column with default margins was a tall
-   full-width band under the list saying six words. What makes it a footer is the
-   rule above it and the type inside it — the same border and the same secondary
-   ink the bar at the top of this pane uses, so the two ends of the surface match.
-   Inline padding aligned with the workspace's own so the sentence starts where the
-   list does.
-
-   A result, not an alarm — it reports what the import produced and stays until the
-   next one replaces it, so it reads at the weight of `.setting__status` rather than
-   borrowing the error surface. It wraps anywhere because a repository alias in the
-   message can be one long unbroken word, and a footer one line tall is only a
-   footer while that word cannot push it wider than the pane. */
-.import-plan-result {
-    margin: 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-    background: var(--color-background-alt);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    text-align: left;
-    overflow-wrap: anywhere;
-}
-
+/* The import and bulk-edit results used to be a compact footer rule here, drawn
+   under the split. They are toasts now — raised on the shared channel and rendered
+   by the tray MainLayout mounts — so the sentence no longer takes a strip of the
+   pane and no longer stays until something replaces it. Nothing else ever wore
+   `.import-plan-result`, so the rule went with them. */
 
 .knowledge-pane {
     overflow: visible;

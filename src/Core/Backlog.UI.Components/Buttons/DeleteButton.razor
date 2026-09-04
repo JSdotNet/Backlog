@@ -17,9 +17,18 @@
     confirms — a mis-aimed click there is the one click that cannot be taken
     back. `btn--lead` takes the free space, so delete sits at the far end from
     save rather than next to it.
+
+    Bare is the row's shape of it. A step in a task list offers the act in a 2rem
+    square with no room for a word, and the row's own stylesheet already says what
+    that square looks like: quiet until the row is under the pointer, because a
+    column of lit bins reads as a list of things to delete. So Bare drops the word
+    and the variant modifier with it — a filled danger slab has nothing to fill
+    there — and BaseClass hands the whole class over, the way AppButton's does.
+    What converges is the glyph and the semantics, which is where the emoji was.
 *@
 
-<AppButton Variant="ButtonVariant.Danger"
+<AppButton Variant="@VariantValue"
+           BaseClass="@BaseClass"
            Size="@Size"
            Disabled="@Disabled"
            Busy="@Busy"
@@ -28,9 +37,16 @@
            TestId="@TestId"
            OnClick="OnClick"
            Icon="@(ShowIcon ? TrashGlyph : null)"
+           IconAlone="@Bare"
            @attributes="AttributeValues">
     <ChildContent>
-        @if (ChildContent is not null)
+        @if (Bare)
+        {
+            @* The glyph is the whole button. `IconAlone` marks it
+               `.btn__icon--alone`, which takes back the gap the icon keeps for a
+               label that is not there. *@
+        }
+        else if (ChildContent is not null)
         {
             @ChildContent
         }
@@ -64,6 +80,21 @@
     /// <summary>Drops the glyph, for a row too tight to carry one.</summary>
     [Parameter]
     public bool ShowIcon { get; set; } = true;
+
+    /// <summary>The glyph on its own: no word, and no variant modifier for the
+    /// host's own class to have to override. For an in-row control the size of an
+    /// icon, where the host's stylesheet already says what that square looks like
+    /// -- the bin on a task row. Give it an <see cref="AriaLabel"/>: a button with
+    /// no words in it says nothing to a screen reader without one.</summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
+    /// <summary>Replaces <c>btn</c>, and with it the stem the variant and size
+    /// modifiers are built on -- <see cref="AppButton.BaseClass"/>, passed
+    /// through, so a host that already names this button in its own stylesheet
+    /// keeps that name rather than growing a second control under it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "btn";
 
     [Parameter]
     public ButtonSize Size { get; set; } = ButtonSize.Default;
@@ -113,6 +144,12 @@
             return merged;
         }
     }
+
+    /// <summary>Bare drops the modifier as well as the word. It is derived from
+    /// <see cref="BaseClass"/>, so on a host's own stem it would be a second name
+    /// nothing styles -- and where it is <c>btn--danger</c> it is a filled slab,
+    /// which is not what an icon-sized control in a row is.</summary>
+    private ButtonVariant VariantValue => Bare ? ButtonVariant.None : ButtonVariant.Danger;
 
     private string? ClassValue
     {

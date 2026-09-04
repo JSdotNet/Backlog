@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @using Backlog.Infrastructure.FileSystem
 @inject TasksDesktopState State
+@inject IToastChannel Toasts
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAzureFoundryChatClient AzureFoundryChat
@@ -99,7 +100,7 @@
                 <Toggle CssClass="header-switch"
                         LabelCssClass="header-switch__label"
                         ControlCssClass="toggle__track header-switch__track"
-                        Label="Repository colours"
+                        Label="Colors"
                         Id="repository-colours-switch"
                         TestId="repository-colours-toggle"
                         Checked="State.RepositoryColoursVisible"
@@ -337,21 +338,14 @@
         @* Region C — how the workspace is doing. Ambient rather than actionable,
            which is why it is the quietest thing in the row and why it no longer
            sits in the middle of the navigation. The auto margin lives here now, so
-           the status and the utilities travel to the right edge together. *@
-        <div class="app-header__status">
-            @* The library's indicator, not a second copy of it. The hand-rolled block
-               that used to sit here emitted the same two elements and the same
-               classes, and got aria-live wrong by omission: a live region that never
-               announces is the one thing this control exists to do. AppSaveState has
-               no Idle, so the mapping below never reaches SaveState.Idle and the
-               indicator is never the hidden shape. The wording stays the app's. *@
-            <SaveIndicator State="@SaveIndicatorState"
-                           SavingText="Saving…"
-                           SavedText="Saved"
-                           FailedText="Couldn't save"
-                           id="save-state-indicator"
-                           TestId="save-state-indicator" />
+           the status and the utilities travel to the right edge together.
 
+           The save state used to lead this region and no longer does. It was the
+           one thing here that was true of the window rather than of this screen,
+           and it was therefore missing from every other route — so it went to the
+           band AppFooter mounts under all of them. The sync control stayed, because
+           checking GitHub is a thing you do to the list in front of you. *@
+        <div class="app-header__status">
             @* Monitoring is a deliberate act, not a background poll: the backlog has
                to open instantly and offline, so nothing here waits on GitHub until
                somebody asks it to. *@
@@ -455,7 +449,10 @@
                     @(_aiBusy ? "Asking..." : "Ask")
                 </AppButton>
             </div>
-            <Alert Message="@_aiError" BaseClass="ai-panel__error" TestId="ai-error" />
+            @* The failure used to be a line under this box. It is a toast now: the
+               panel is a takeover the reader opens over their work, and a refusal
+               that stayed pinned inside it was still there next time they opened it.
+               See AskAiAsync, where each catch publishes on its way out. *@
             @if (_aiAnswer is not null)
             {
                 <article class="ai-panel__answer" data-testid="ai-answer">
@@ -601,25 +598,12 @@
     private const double MinSidePaneWidthRem = SidePaneWidth.MinRem;
     private string _aiQuestion = string.Empty;
     private string? _aiAnswer;
-    private string? _aiError;
     private bool _aiBusy;
 
-    // The shell's save state in the library's vocabulary. The two enums are
-    // deliberately not the same type: AppSaveState is the backlog's, named for
-    // what the store did, and SaveState is what an indicator draws. Error maps
-    // onto Failed, which is the same word in the other vocabulary — and the same
-    // "save-indicator--error" modifier the hand-rolled block emitted, so the
-    // stylesheet is untouched.
-    //
-    // There is no Idle arm because AppSaveState has none: the backlog is always
-    // in one of these three states, so the indicator's hidden shape is
-    // unreachable from here and the header never loses the line.
-    private SaveState SaveIndicatorState => State.SaveState switch
-    {
-        AppSaveState.Saving => SaveState.Saving,
-        AppSaveState.Error => SaveState.Failed,
-        _ => SaveState.Saved
-    };
+    /// <summary>The id the refusal carried while it was an inline alert under the
+    /// question box. It rides on the toast now, so a selector written against
+    /// either surface still finds the sentence.</summary>
+    private const string AiErrorTestId = "ai-error";
 
     protected override async Task OnInitializedAsync()
     {
@@ -813,7 +797,6 @@
         if (_aiBusy) return;
 
         _aiBusy = true;
-        _aiError = null;
         _aiAnswer = null;
 
         try
@@ -823,15 +806,15 @@
         }
         catch (AzureFoundryException ex)
         {
-            _aiError = ex.Message;
+            Toasts.Publish(ToastMessage.Error(ex.Message, AiErrorTestId));
         }
         catch (HttpRequestException ex)
         {
-            _aiError = $"Azure Foundry could not be reached: {ex.Message}";
+            Toasts.Publish(ToastMessage.Error($"Azure Foundry could not be reached: {ex.Message}", AiErrorTestId));
         }
         catch (TaskCanceledException)
         {
-            _aiError = "Azure Foundry did not answer before the request timed out.";
+            Toasts.Publish(ToastMessage.Error("Azure Foundry did not answer before the request timed out.", AiErrorTestId));
         }
         finally
         {
