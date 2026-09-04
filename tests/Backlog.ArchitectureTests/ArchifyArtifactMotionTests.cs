@@ -240,8 +240,7 @@ public class ArchifyArtifactMotionTests
     [Fact]
     public void The_vendored_template_keeps_the_looping_trace()
     {
-        var template = Path.Combine(
-            RepositoryRoot.Root.FullName, "tools", "archify", "assets", "template.html");
+        var template = TemplateFile();
 
         Assert.True(
             File.Exists(template),
@@ -252,6 +251,49 @@ public class ArchifyArtifactMotionTests
 
         AssertLoopingTrace(html, TemplatePath);
         AssertResumableGovernor(html, TemplatePath);
+    }
+
+    /// <summary>
+    /// The Motion Governor guards its guided-views pause on the function, not just on the
+    /// object.
+    ///
+    /// <para><c>Archify.guidedViews</c> is always there to be truthy. Its module returns a stub
+    /// — <c>{ count: 0, active }</c> — when the document carries no guided views, and that is
+    /// every artifact in this repository: all forty-two ship an empty
+    /// <c>archify-guided-views-data</c> payload. So the object test passes and the call it was
+    /// meant to guard throws <c>TypeError: Archify.guidedViews.isPlaying is not a function</c>.</para>
+    ///
+    /// <para>The throw lands in <c>render()</c> after ambient motion has already been settled
+    /// and before <c>lastEffectivePaused</c> is written, so pausing still looks like it works
+    /// while the rest of the render is skipped — including the motion button's
+    /// <c>aria-label</c> and <c>title</c>. That button is the WCAG 2.2.2 pause affordance for a
+    /// trace that now loops indefinitely, and its accessible name never left "Pause motion".
+    /// The two sibling call sites in the same runtime — the camera's interrupt and the diagram
+    /// guide's open — already carry the guard, so this was an inconsistency rather than a
+    /// design choice.</para>
+    ///
+    /// <para>Asserted as the whole call site rather than as the identifiers in it, for the
+    /// reason <see cref="AmbientLatches"/> gives: a comment naming <c>isPlaying</c> must not be
+    /// able to satisfy the rule, and the unguarded form must not be able to hide behind one.
+    /// The template is checked alongside the artifacts so an upstream re-copy fails on itself
+    /// rather than after the next regeneration.</para>
+    /// </summary>
+    [Fact]
+    public void The_motion_governor_guards_its_guided_views_pause()
+    {
+        var template = TemplateFile();
+
+        Assert.True(
+            File.Exists(template),
+            "tools/archify/assets/template.html is missing. Every artifact's stylesheet and viewer "
+            + "runtime is rendered from it, so nothing can be regenerated without it.");
+
+        AssertGuardedGuidedViewsPause(File.ReadAllText(template), TemplatePath);
+
+        foreach (var artifact in Artifacts())
+        {
+            AssertGuardedGuidedViewsPause(File.ReadAllText(artifact.FullName), Relative(artifact));
+        }
     }
 
     /// <summary>Both ambient trace rules carry an infinite iteration count. Checked the same
@@ -291,6 +333,40 @@ public class ArchifyArtifactMotionTests
         }
     }
 
+    /// <summary>The guided-views pause carries the guard the sibling call sites use, and the
+    /// unguarded form is nowhere in the file. Checked the same way in a rendered artifact and in
+    /// the template it was rendered from.</summary>
+    private static void AssertGuardedGuidedViewsPause(string html, string relative)
+    {
+        Assert.True(
+            html.Contains(GuardedGuidedViewsPause, StringComparison.Ordinal),
+            $"{relative} does not pause guided views through the guarded call site the rest of the "
+            + "runtime uses. Archify.guidedViews degrades to a stub without isPlaying when a document "
+            + "carries no guided views, which is every artifact here, so the call throws and takes the "
+            + "remainder of render() with it — the motion button's accessible name never leaves \"Pause "
+            + "motion\". Match the shape the camera and diagram-guide call sites already use rather "
+            + "than inventing a guard, and regenerate the artifact from the template rather than "
+            + "editing the HTML.");
+
+        Assert.False(
+            html.Contains(UnguardedGuidedViewsCall, StringComparison.Ordinal),
+            $"{relative} still calls Archify.guidedViews.isPlaying() behind nothing but a test that "
+            + "Archify.guidedViews exists. The object is a stub without that function in every artifact "
+            + "here, so the call throws on every pause, tab hide and reduced-motion transition.");
+    }
+
+    /// <summary>The Motion Governor's guided-views pause, whole. The transition prefix is part of
+    /// it: the governor pauses guided views only on the way into a paused state, where the two
+    /// sibling call sites carry the same isPlaying guard without one.</summary>
+    private const string GuardedGuidedViewsPause =
+        "if (paused && lastEffectivePaused !== true && Archify.guidedViews "
+        + "&& Archify.guidedViews.isPlaying && Archify.guidedViews.isPlaying()) {";
+
+    /// <summary>The form that throws: the object is guarded, the function it is called for is
+    /// not.</summary>
+    private const string UnguardedGuidedViewsCall =
+        "Archify.guidedViews && Archify.guidedViews.isPlaying()";
+
     /// <summary>What a looping trace's iteration count has to read.</summary>
     private const string Infinite = "infinite";
 
@@ -319,6 +395,10 @@ public class ArchifyArtifactMotionTests
 
     /// <summary>The vendored template, named once for the failure messages.</summary>
     private const string TemplatePath = "tools/archify/assets/template.html";
+
+    /// <summary>The vendored template on disk.</summary>
+    private static string TemplateFile() =>
+        Path.Combine(RepositoryRoot.Root.FullName, "tools", "archify", "assets", "template.html");
 
     /// <summary>
     /// The two ambient trace rules, matched on the last token of the <c>animation</c>
