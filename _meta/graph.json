@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 790,
-    "edges": 1636,
+    "edges": 1637,
     "nodesByFolder": {
       "arc42": 88,
       "domain": 501,
@@ -37,7 +37,7 @@
     },
     "edgesByType": {
       "contains": 663,
-      "related": 825,
+      "related": 826,
       "depends-on": 146,
       "implements": 2
     }
@@ -1099,7 +1099,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-            ".domain/tasks/domain.md#task"
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#device"
           ]
         }
       },
@@ -12274,7 +12275,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "action-density-and-overflow",
           "level": 2,
-          "line": 361,
+          "line": 362,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#density",
@@ -12292,7 +12293,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "timelines-and-roadmaps",
           "level": 2,
-          "line": 413,
+          "line": 414,
           "status": "active",
           "related": [
             ".design/color-scheme.md#chart-roles",
@@ -12310,7 +12311,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 443,
+          "line": 444,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -18774,6 +18775,14 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/naming.md#device",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/tasks/naming.md#device",
           "type": "related"
         }
       },

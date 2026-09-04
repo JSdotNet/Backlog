@@ -2,7 +2,7 @@
 
 ```meta
 status: proposed
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/tasks/domain.md#task"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/tasks/domain.md#task", ".domain/tasks/naming.md#device"]
 issue: null
 ```
 
@@ -243,6 +243,66 @@ Service-to-Azure access uses **managed identity** with a Cosmos data-plane role
 assignment. No connection strings, no account keys, nothing in configuration to
 leak — the posture inherited ADR 0013 asks for.
 
+### The database filename
+
+**The local database stays `backlog.db` on every device.** A per-device filename
+is rejected as a pre-sync mitigation, and left available to the sync slice, where
+the device identity above already exists to supply the name.
+
+The question is whether `SqliteTaskRepository.DatabaseFileName` — today a constant
+`"backlog.db"`, combined with whatever root the workspace points at — should
+become something like `backlog-JS-DESKTOP.db`, so that two machines sharing a
+synced root never contend for one file.
+
+It would work as far as it goes. Two devices would write two files; the `-wal` and
+`-shm` sidecars derive from the database name and would separate with it, so the
+worst hazard — a sidecar arriving without its matching file and rolling back
+committed transactions — goes with them; and OneDrive would have nothing to
+conflict. **It would also convert a loud failure into a silent one.** Each device
+reads only its own file, so the two backlogs diverge and nothing says so. The loss
+recorded as R9 was noticed at all because edits visibly reverted; two quietly
+divergent backlogs would be discovered weeks later, and file sync would go on
+replicating both files to both machines for no benefit. That is not a smaller
+failure than the one it prevents. It is a less visible one.
+
+Three further things make it the wrong change to make first:
+
+- **It would disable the only cross-device freshness the product has.**
+  `TasksDesktopState` polls the newest timestamp across `backlog.db` and its two
+  sidecars for exactly one reason, which its own summary states: two machines can
+  share one `backlog.db` through a synced folder, and the second has no way to be
+  told about the first one's writes. A per-device name leaves that watcher
+  watching a file no other machine ever writes. Until the sync service ships, the
+  shared file is what makes the second machine see anything at all.
+- **It needs a device identity, and the product should have exactly one.** The
+  pairing registration credential above is it. `Environment.MachineName` exists
+  today and is the obvious shortcut, but a machine can be renamed and two machines
+  can share a name, so a file named from it is neither stable nor unique — and
+  adopting it would leave two device identities free to disagree. Naming the file
+  from the pairing identity means the rename cannot precede pairing.
+- **Renaming an existing database is not additive.** Local ADR 0006 permits three
+  shapes and this is none of them; it is precisely the non-additive change that
+  supersedes 0006 and forces a versioned migration mechanism to be built. Spending
+  that on a file name, against a hazard the sync service removes anyway, inverts
+  the order of the work.
+
+**What the residual hazard needs is detection, not a rename.** R9's mitigation now
+rests on the user keeping the workspace root off a synced disk, and nothing in the
+app checks: a root already on OneDrive stays there. A startup check that
+recognises a known sync provider's folder — OneDrive, Dropbox, Google Drive,
+iCloud — and says so on the Storage screen closes that gap without touching the
+schema. It also covers the whole root rather than one file in it, which matters
+here: `_roadmap/plan.json` sits under the same root with the same hazard, and one
+root-level check answers for it too, where a per-device filename would have to be
+invented separately for every file the root holds.
+
+Once the sync service ships, the workspace root goes back to being a local folder
+and the hazard is structural rather than advisory. Per-device filenames stay
+available then as belt and braces, on terms this record states in advance: named
+from the pairing identity, and adopted for **new roots only**, leaving an existing
+`backlog.db` where it is so the change stays additive and ADR 0006 stands. That is
+a judgement for the slice that builds sync, not a prerequisite for it.
+
 ### Deployment
 
 **Bicep under `infra/sync/`, provisioned and deployed with `azd`**, alongside the
@@ -314,6 +374,11 @@ Negative:
   survives a sparse key unchanged.
 - Cosmos serverless has a 20 GB logical partition ceiling. Irrelevant at personal
   scale, and a hard wall if the product ever stops being single-user.
+- **The file-sync hazard survives until this decision is built.** The filename
+  decision above deliberately declines the one change that would blunt it early,
+  on the grounds that it trades a visible failure for an invisible one. What
+  stands in its place until then is a warning the user can ignore, plus detection
+  that is not written yet.
 
 Neutral:
 
@@ -329,6 +394,10 @@ Neutral:
   row nobody has ordered.
 - Nothing here makes Azure canonical for anything, and nothing here changes what
   canonical means for a task. ADR 0003 stands.
+- The database file keeps the name `backlog.db` on every device, so nothing that
+  reads a workspace root by that name changes: `WorkspaceSettingsStore.DatabasePath`,
+  the external-change poller and its sidecar watch, and the tests that pin the
+  path all stand as written.
 
 ## Open questions
 
@@ -340,8 +409,16 @@ Neutral:
   desktop file system and there is no blob storage. A task that syncs but whose
   attachment does not is a partial replica, and this pass does not resolve it.
 - **Roadmap plan.** `_roadmap/plan.json` is a single JSON file under the same
-  workspace root and has the same file-sync hazard, unexercised so far. Out of
-  scope here, and it will need the same treatment.
+  workspace root and has the same file-sync hazard, unexercised so far. Whether it
+  syncs, and how, is out of scope here and will need the same treatment. Its share
+  of the *hazard* is already answered: the detection described under **The database
+  filename** is a check on the root, so it covers the plan file as it covers the
+  database.
+- **Whether the sync slice adopts per-device filenames after all.** This record
+  declines them now and states the terms on which they could land later — named
+  from the pairing identity, new roots only. Whether that belt and braces earns its
+  cost once the hazard is already structural is a judgement for the slice that
+  builds sync.
 - **Whether `sort_order` is frozen or dual-written** while the sparse key is
   introduced. Freezing it is simpler and leaves an older build reading a stale
   order; dual-writing keeps that build correct and reintroduces on every drag the

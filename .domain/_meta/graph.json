@@ -8006,7 +8006,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-            ".domain/tasks/domain.md#task"
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#device"
           ],
           "outOfScope": true
         }

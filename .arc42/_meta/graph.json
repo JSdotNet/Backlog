@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 115,
-    "edges": 220,
+    "nodes": 116,
+    "edges": 221,
     "nodesByFolder": {
       "arc42": 88,
-      "domain": 17,
+      "domain": 18,
       "tech": 7,
       "design": 3
     },
     "nodesByType": {
       "file": 43,
-      "chapter": 72
+      "chapter": 73
     },
     "nodesByStatus": {
       "active": 74,
       "proposed": 13,
-      "draft": 21,
+      "draft": 22,
       "adopted": 7
     },
     "edgesByType": {
       "contains": 51,
-      "related": 169
+      "related": 170
     }
   },
   "problems": [],
@@ -1086,7 +1086,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
-            ".domain/tasks/domain.md#task"
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#device"
           ]
         }
       },
@@ -1768,6 +1769,28 @@
           "related": [
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#device",
+          "label": "Device",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "device",
+          "level": 2,
+          "line": 275,
+          "status": "draft",
+          "aliases": [
+            "machine",
+            "PC"
+          ],
+          "related": [
+            ".domain/tasks/features.md#multi-device-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ],
           "outOfScope": true
         }
@@ -3244,6 +3267,14 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/domain.md#task",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/tasks/naming.md#device",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/tasks/naming.md#device",
           "type": "related"
         }
       },

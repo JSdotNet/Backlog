@@ -125,6 +125,11 @@ related: [".arc42/04-solution-strategy.md"]
   for that device. Amends local ADR 0003 without superseding it, and replaces
   file-syncing the database — which produced six conflicted copies and silent
   data loss — with a store built for concurrent writers. Task aggregate only.
+  Also settles the local file name: it stays `backlog.db` on every device, because
+  a per-device name trades a visible failure for two silently divergent backlogs
+  and would disable the external-change polling the second machine currently
+  depends on. Detecting a root inside a sync provider's folder is the named
+  mitigation instead.
 - **[ADR 0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)**
   *(proposed)*: names the mechanism the SQLite adapter has been using unlabelled for
   three schema changes — additive `ALTER TABLE` guarded by `PRAGMA table_info`, plus
