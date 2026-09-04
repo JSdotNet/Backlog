@@ -22,7 +22,11 @@ namespace Backlog.Infrastructure.GitHub;
 /// the Shell's lives in its <c>FeedbackReporter</c>.
 /// </para>
 /// </summary>
-public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClient client, IGitHubConnectionProbe probe)
+public sealed class GitHubIntegration(
+    GitHubSettingsStore settings,
+    IGitHubClient client,
+    IGitHubConnectionProbe probe,
+    IGhCliAccountSource? cliAccounts = null)
 {
     public GitHubSettingsStore Settings => settings;
 
@@ -43,6 +47,26 @@ public sealed class GitHubIntegration(GitHubSettingsStore settings, IGitHubClien
         probe.Invalidate();
         return probe.DescribeAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Every login the <c>gh</c> CLI is signed in to on this machine.
+    /// <para>
+    /// Here rather than injected into Settings directly, for the reason this type
+    /// exists at all: a screen takes one adapter for GitHub rather than four, and
+    /// "which identities can this machine speak as" is the same question
+    /// <see cref="DescribeConnectionAsync"/> answers, asked as a list instead of as
+    /// a sentence. It is what lets the Accounts panel offer the accounts <c>gh</c>
+    /// already holds rather than making somebody paste a token per identity.
+    /// </para>
+    /// <para>
+    /// The source is optional and an absent one answers with an empty list rather
+    /// than throwing. A host that registered none is a host with no CLI to ask,
+    /// which degrades the picker to manual entry in exactly the way a machine
+    /// without <c>gh</c> already does.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<GhCliAccount>> ListCliAccountsAsync(CancellationToken cancellationToken = default) =>
+        cliAccounts?.ListAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<GhCliAccount>>([]);
 
     /// <summary>Creates an issue from a title and body somebody else composed.
     /// What makes a good issue out of a backlog entry, a knowledge chapter or a

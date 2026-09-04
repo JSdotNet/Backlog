@@ -108,32 +108,60 @@ public class RazorComponentResolutionTests
         file.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
         || file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}");
 
-    /// <summary>The namespaces in scope for a file: every <c>_Imports.razor</c> from its
-    /// own folder up to the repository root, because Razor applies them cumulatively.</summary>
+    /// <summary>
+    /// The namespaces in scope for a file: the ones it imports itself, plus every
+    /// <c>_Imports.razor</c> from its own folder up to the repository root, because
+    /// Razor applies those cumulatively.
+    /// <para>
+    /// The file's own directives count as much as an inherited one, and reading only
+    /// the inherited half reported a page that imports what it needs as if it did
+    /// not. The settings screen is the case that proves it: its folder cannot carry
+    /// an <c>_Imports.razor</c> at all — the generated class would shadow the
+    /// component the page declares, which does not compile — so the two lines such a
+    /// file would have held are written on the page instead.
+    /// </para>
+    /// </summary>
     private static HashSet<string> ImportedNamespaces(FileInfo file)
     {
         var namespaces = new HashSet<string>(StringComparer.Ordinal);
 
+        AddUsings(namespaces, file);
+
         for (var folder = file.Directory; folder is not null; folder = folder.Parent)
         {
-            var imports = new FileInfo(Path.Combine(folder.FullName, "_Imports.razor"));
-            if (imports.Exists)
-            {
-                // global:: is optional and carries no meaning for this rule. Several
-                // modules write every import as `@using global::Backlog.Something`
-                // so a bare "Backlog" cannot bind to Backlog.Modules; reading the
-                // name without stripping the prefix saw "global" and reported every
-                // one of those imports as missing.
-                foreach (Match match in Regex.Matches(File.ReadAllText(imports.FullName), @"@using\s+(?:global::)?([A-Za-z0-9_.]+)"))
-                {
-                    namespaces.Add(match.Groups[1].Value);
-                }
-            }
+            AddUsings(namespaces, new FileInfo(Path.Combine(folder.FullName, "_Imports.razor")));
 
             if (string.Equals(folder.FullName, Repository.Root.FullName, StringComparison.OrdinalIgnoreCase)) break;
         }
 
         return namespaces;
+    }
+
+    /// <summary>
+    /// Every namespace one file imports.
+    /// <para>
+    /// Anchored to the start of a line because a Razor directive is only a directive
+    /// there — a storybook page holding <c>@using</c> inside sample markup is showing
+    /// the words, not importing anything, and counting those would quietly excuse a
+    /// real omission.
+    /// </para>
+    /// <para>
+    /// global:: is optional and carries no meaning for this rule. Several modules
+    /// write every import as <c>@using global::Backlog.Something</c> so a bare
+    /// "Backlog" cannot bind to Backlog.Modules; reading the name without stripping
+    /// the prefix saw "global" and reported every one of those imports as missing.
+    /// </para>
+    /// </summary>
+    private static void AddUsings(HashSet<string> namespaces, FileInfo file)
+    {
+        if (!file.Exists) return;
+
+        foreach (Match match in Regex.Matches(
+                     File.ReadAllText(file.FullName),
+                     @"(?m)^\s*@using\s+(?:global::)?([A-Za-z0-9_.]+)"))
+        {
+            namespaces.Add(match.Groups[1].Value);
+        }
     }
 
     /// <summary>Capitalised tag names, which is what a component usage looks like.
