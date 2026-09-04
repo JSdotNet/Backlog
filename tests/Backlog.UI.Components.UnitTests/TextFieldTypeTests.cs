@@ -12,6 +12,12 @@ namespace Backlog.UI.Components.UnitTests;
 /// <c>Type="date"</c> and rendered a text box for as long as that story existed,
 /// with nothing anywhere to say so. These are what say so.
 /// </para>
+/// <para>
+/// <c>password</c> was on the unknown side of that line, and every secret field in
+/// Settings splatted a lowercase <c>type="password"</c> believing it bypassed the
+/// allowlist. It does not — the splat binds to <see cref="TextField.Type"/> — so the
+/// keys were typed in the clear.
+/// </para>
 /// </summary>
 public class TextFieldTypeTests
 {
@@ -20,6 +26,7 @@ public class TextFieldTypeTests
     [InlineData("number")]
     [InlineData("url")]
     [InlineData("email")]
+    [InlineData("password")]
     [InlineData("date")]
     [InlineData("time")]
     [InlineData("datetime-local")]
@@ -36,7 +43,6 @@ public class TextFieldTypeTests
 
     [Theory]
     [InlineData("color")]
-    [InlineData("password")]
     [InlineData("file")]
     public void An_unknown_type_falls_back_to_text(string type)
     {

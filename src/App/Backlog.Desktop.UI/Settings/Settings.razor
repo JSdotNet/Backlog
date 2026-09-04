@@ -152,10 +152,14 @@
             <div class="setting-columns">
                 @if (UsageMetricsEnabled)
                 {
-                    <section class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
-                        <h2 class="setting__title">AI usage organization APIs</h2>
+                    @* Claude and GitHub are two vendors, two credentials and two failure
+                       modes, so they are two cards. One card mixing them meant a change to
+                       either endpoint saved both and reported through a single status line
+                       that could not say which vendor it was talking about. *@
+                    <section class="setting" data-testid="claude-usage-settings" aria-label="Claude usage API settings">
+                        <h2 class="setting__title">Claude usage API</h2>
                         <p class="setting__body">
-                            Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+                            What Backlog needs to read your Claude usage and cost reports.
                         </p>
 
                         @* Every field on this page is the shared TextField wearing
@@ -165,7 +169,7 @@
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
                                    InputCssClass="setting__input"
-                                   Label="Claude organization API endpoint"
+                                   Label="Organization API endpoint"
                                    Id="claude-usage-endpoint"
                                    data-testid="claude-usage-endpoint-input"
                                    Type="url"
@@ -173,22 +177,8 @@
                                    autocomplete="off"
                                    Value="@_draftClaudeUsageEndpoint"
                                    ValueChanged="value => _draftClaudeUsageEndpoint = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
-
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="GitHub organization API endpoint"
-                                   Id="github-usage-endpoint"
-                                   data-testid="github-usage-endpoint-input"
-                                   Type="url"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Value="@_draftGitHubUsageEndpoint"
-                                   ValueChanged="value => _draftGitHubUsageEndpoint = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
 
                         @* Which actor in the Claude organization is you. Not an endpoint
                            and not a secret, but it belongs beside them rather than in a
@@ -208,18 +198,56 @@
                                    autocomplete="off"
                                    Value="@_draftClaudeUsageActor"
                                    ValueChanged="value => _draftClaudeUsageActor = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
 
-                        <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
-                            @if (_usageEndpointsMessage is not null)
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Claude API key"
+                                   Id="claude-api-key"
+                                   data-testid="claude-api-key-input"
+                                   Type="password"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   HelpText="@ClaudeApiKeyHint"
+                                   Placeholder="@(Claude.Current.AdminApiKey is null ? "sk-ant-admin01-..." : "stored - hidden")"
+                                   Value="@_draftClaudeApiKey"
+                                   ValueChanged="value => _draftClaudeApiKey = value"
+                                   @onchange="ApplyClaudeApiKey"
+                                   @onkeydown="OnClaudeApiKeyDown" />
+
+                        @* The workspace narrows the message and cost reports. It does not
+                           narrow the Claude Code report, which is per-actor — that is what
+                           the account field above is for. *@
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Workspace (optional)"
+                                   Id="claude-workspace"
+                                   data-testid="claude-workspace-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="wrkspc_..."
+                                   HelpText="Reports one workspace instead of the whole organization. Leave it empty for everything."
+                                   Value="@_draftClaudeWorkspace"
+                                   ValueChanged="value => _draftClaudeWorkspace = value"
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
+
+                        <p class="setting__status" data-testid="claude-usage-status" role="status">
+                            @if (_claudeUsageMessage is not null)
                             {
-                                <span>@_usageEndpointsMessage</span>
+                                <span>@_claudeUsageMessage</span>
                             }
                             else
                             {
                                 <span>
-                                    Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.
+                                    Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code>.
+                                    @if (!Claude.Current.IsConfigured)
+                                    {
+                                        <text> Claude needs a key before it can report anything.</text>
+                                    }
                                     @if (string.IsNullOrWhiteSpace(Claude.Current.Actor))
                                     {
                                         <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
@@ -231,8 +259,58 @@
                                 </span>
                             }
                         </p>
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="claude-clear-key-button"
+                                       Disabled="@(Claude.Current.AdminApiKey is null)"
+                                       OnClick="ClearClaudeApiKey">
+                                Forget Claude key
+                            </AppButton>
+                        </div>
+
                         <p class="setting__note">
-                            These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
+                            Everything here is auto-saved. The key is kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                        </p>
+                    </section>
+
+                    <section class="setting" data-testid="github-usage-settings" aria-label="GitHub usage API settings">
+                        <h2 class="setting__title">GitHub usage API</h2>
+                        <p class="setting__body">
+                            What Backlog needs to read organization Copilot seat activity.
+                        </p>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Organization API endpoint"
+                                   Id="github-usage-endpoint"
+                                   data-testid="github-usage-endpoint-input"
+                                   Type="url"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Value="@_draftGitHubUsageEndpoint"
+                                   ValueChanged="value => _draftGitHubUsageEndpoint = value"
+                                   @onchange="ApplyGitHubUsageSettings"
+                                   @onkeydown="OnGitHubUsageKeyDown" />
+
+                        <p class="setting__status" data-testid="github-usage-status" role="status">
+                            @if (_gitHubUsageMessage is not null)
+                            {
+                                <span>@_gitHubUsageMessage</span>
+                            }
+                            else
+                            {
+                                <span>Usage metrics calls GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>. Copilot metrics are organization-scoped and owner-only.</span>
+                            }
+                        </p>
+
+                        @* No token field here. GitHub authenticates per repository, on the
+                           Repositories tab, and signing in with the GitHub CLI is preferred
+                           over a token at all - so a second place to type one would be a
+                           second place for it to go stale. *@
+                        <p class="setting__note">
+                            Auto-saved. GitHub access is set up per repository on the Repositories tab, or by signing in with the GitHub CLI.
                         </p>
                     </section>
                 }
@@ -289,16 +367,13 @@
                                    @onchange="ApplyAzureFoundryConnection"
                                    @onkeydown="OnAzureFoundryKeyDown" />
 
-                        @* type="password" is not one of TextField's four, so it is
-                           splatted rather than passed as Type: the component would
-                           fall back to text and show the key. *@
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
                                    InputCssClass="setting__input"
                                    Label="API key"
                                    Id="azure-foundry-api-key"
                                    data-testid="azure-foundry-api-key-input"
-                                   type="password"
+                                   Type="password"
                                    spellcheck="false"
                                    autocomplete="off"
                                    Placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
@@ -780,7 +855,7 @@
                                                    Label="Personal access token"
                                                    Id="@($"github-token-{activeRepo.Alias}")"
                                                    data-testid="github-token-input"
-                                                   type="password"
+                                                   Type="password"
                                                    spellcheck="false"
                                                    autocomplete="off"
                                                    Placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
@@ -930,8 +1005,14 @@
     private string? _azureFoundryMessage;
     private string _draftClaudeUsageEndpoint = string.Empty;
     private string _draftClaudeUsageActor = string.Empty;
+    private string _draftClaudeWorkspace = string.Empty;
     private string _draftGitHubUsageEndpoint = string.Empty;
-    private string? _usageEndpointsMessage;
+    private string? _claudeUsageMessage;
+    private string? _gitHubUsageMessage;
+
+    /// <summary>Typed, never loaded. The stored key is not read back into the field -
+    /// the placeholder is what says one is already there.</summary>
+    private string _draftClaudeApiKey = string.Empty;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
@@ -1052,24 +1133,39 @@
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
     }
 
-    private void ApplyUsageEndpoints()
+    private void ApplyClaudeUsageSettings()
     {
-        var claudeError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
+        var endpointError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
         var actorError = Claude.SetActor(_draftClaudeUsageActor);
-        var githubError = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+        var workspaceError = Claude.SetWorkspaceId(_draftClaudeWorkspace);
 
-        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, actorError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
-        if (string.IsNullOrWhiteSpace(_usageEndpointsMessage))
+        _claudeUsageMessage = string.Join(" ", new[] { endpointError, actorError, workspaceError }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        if (string.IsNullOrWhiteSpace(_claudeUsageMessage))
         {
-            _usageEndpointsMessage = "AI usage API settings updated.";
+            _claudeUsageMessage = "Claude usage API settings updated.";
         }
 
         SyncUsageEndpointDrafts();
     }
 
-    private void OnUsageEndpointKeyDown(KeyboardEventArgs e)
+    private void OnClaudeUsageKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") ApplyUsageEndpoints();
+        if (e.Key == "Enter") ApplyClaudeUsageSettings();
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    private void ApplyGitHubUsageSettings()
+    {
+        var error = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+
+        _gitHubUsageMessage = string.IsNullOrWhiteSpace(error) ? "GitHub usage API settings updated." : error;
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnGitHubUsageKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyGitHubUsageSettings();
         else if (e.Key == "Escape") SyncUsageEndpointDrafts();
     }
 
@@ -1077,8 +1173,46 @@
     {
         _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
         _draftClaudeUsageActor = Claude.Current.Actor ?? string.Empty;
+        _draftClaudeWorkspace = Claude.Current.WorkspaceId ?? string.Empty;
         _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
     }
+
+    /// <summary>
+    /// Said, not enforced. Anthropic accepts a personal or service account key that
+    /// isn't scoped to a workspace as well as an admin key, and a workspace-scoped key
+    /// - which it refuses - looks the same. So this names the one that fails rather
+    /// than claiming the key is wrong.
+    /// </summary>
+    private string? ClaudeApiKeyHint =>
+        Claude.Current.IsConfigured && !Claude.Current.LooksLikeAdminKey
+            ? "That isn't an Admin API key. It will still be sent - Anthropic also takes a personal or "
+              + "service account key - but a key scoped to a workspace is refused."
+            : null;
+
+    private void ApplyClaudeApiKey()
+    {
+        // Blank never clears: that is what the button is for, and a blur on an empty
+        // field is far more likely than a deliberate erasure.
+        if (string.IsNullOrWhiteSpace(_draftClaudeApiKey)) return;
+
+        var error = Claude.SetAdminApiKey(_draftClaudeApiKey);
+        _claudeUsageMessage = error ?? "Claude API key stored.";
+        _draftClaudeApiKey = string.Empty;
+    }
+
+    private void ClearClaudeApiKey()
+    {
+        var error = Claude.ClearAdminApiKey();
+        _claudeUsageMessage = error ?? "Claude API key forgotten.";
+        _draftClaudeApiKey = string.Empty;
+    }
+
+    private void OnClaudeApiKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyClaudeApiKey();
+        else if (e.Key == "Escape") _draftClaudeApiKey = string.Empty;
+    }
+
     private void EnsureActiveSettingsPage()
     {
         if (!IsSettingsPageAvailable(_activePage))

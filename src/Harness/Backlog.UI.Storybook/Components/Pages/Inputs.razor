@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="TextField"
-           Description="Label, help text and error message are all optional; when an error is set it replaces the help text and is announced. `Type` takes text, number, url and email here — the date and time types have a story of their own below."
+           Description="Label, help text and error message are all optional; when an error is set it replaces the help text and is announced. `Type` takes text, number, url, email and password here — the date and time types have a story of their own below. `password` must be passed as `Type`, never splatted as a lowercase `type`: the splat binds to the parameter and an unknown type falls back to text, which is how a masked field quietly stops masking."
            Code="@TextFieldCode">
         <div class="sb-grid">
             <div>
@@ -42,6 +42,16 @@
                            HelpText="Lowercase letters and hyphens."
                            TestId="input-alias" />
                 <p class="sb-state">Type a capital letter to see the error state.</p>
+            </div>
+            <div>
+                <TextField Label="API key"
+                           Type="password"
+                           Value="@_secret"
+                           ValueChanged="v => _secret = v"
+                           Placeholder="stored - hidden"
+                           HelpText="Masked as it is typed; a host stores it and never renders it back."
+                           TestId="input-secret" />
+                <p class="sb-state" data-testid="input-secret-value">@Show(new string('*', _secret.Length))</p>
             </div>
             <div>
                 <TextField Label="Disabled" Value="Cannot be edited" Disabled="true" />
@@ -440,6 +450,7 @@ It exists because two panels had each written a private class to get here, which
     private bool _classifying = true;
     private bool _repeats;
     private string _alias = "backlog";
+    private string _secret = string.Empty;
     private string _notes = "The read view and the editor show the same text.\nAdd a line to see AutoGrow work.";
     private string _query = string.Empty;
     private string _folder = @"C:\Repos\Backlog";

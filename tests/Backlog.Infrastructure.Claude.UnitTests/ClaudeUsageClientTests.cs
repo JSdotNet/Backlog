@@ -150,19 +150,23 @@ public class ClaudeUsageClientTests
         Assert.Contains("individual accounts", availability.Reason, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Anthropic accepts an admin key, an <c>org:admin</c> OAuth token, or a personal or
+    /// service account key that is not scoped to a workspace. Nothing in a key string
+    /// separates a personal key from a workspace-scoped one, so refusing everything
+    /// without the admin prefix turned a working credential away. Only the server can
+    /// decide, and its 401 and 403 already say so in words.
+    /// </summary>
     [Fact]
-    public async Task A_regular_api_key_is_rejected_before_the_request_leaves()
+    public async Task A_key_without_the_admin_prefix_is_sent_rather_than_refused()
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-api03-not-an-admin-key");
+        settings.SetAdminApiKey("sk-ant-api03-personal-key");
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
-        var availability = await client.GetAvailabilityAsync();
-
-        Assert.False(availability.IsAvailable);
-        Assert.Contains("sk-ant-admin", availability.Reason, StringComparison.Ordinal);
+        Assert.True((await client.GetAvailabilityAsync()).IsAvailable);
     }
 
     [Fact]
