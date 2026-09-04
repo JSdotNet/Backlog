@@ -1,3 +1,4 @@
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Storybook.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,6 +7,16 @@ builder.AddServiceDefaults();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// The one exception, and it is the library's own type rather than the
+// application's: ToastTray resolves IToastChannel to know what to draw, so a
+// storybook with nothing registered would render an empty tray forever and prove
+// nothing about it. Registering the real ToastChannel means the story drives the
+// same queue and the same three-at-once cap the app does. Scoped, because a
+// circuit here is one visitor and a singleton would broadcast one reader's toasts
+// to everyone else looking at the page.
+builder.Services.AddScoped<ToastChannel>();
+builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
 
 // Nothing else is registered on purpose: a storybook that needed the
 // application's services would stop being evidence that the components run

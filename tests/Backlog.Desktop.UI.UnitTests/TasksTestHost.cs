@@ -86,8 +86,26 @@ internal static class TasksTestHost
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null) =>
-        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings);
+        ITasksRefreshSettings? refreshSettings = null,
+        IToastChannel? toasts = null) =>
+        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings, toasts);
+
+    /// <summary>
+    /// The notification channel a screen publishes on and MainLayout's tray reads
+    /// back, registered the way an application host registers it.
+    /// <para>
+    /// Any test that renders <c>TasksPane</c> or <c>Home</c> needs it: both take a
+    /// hard <c>@inject IToastChannel</c>, because a screen that silently lost the
+    /// only feedback a reader gets is worse than one that fails to construct.
+    /// The concrete type is registered as well as the interface so a test can read
+    /// <c>Visible</c> back without casting.
+    /// </para>
+    /// </summary>
+    public static void AddToastChannel(IServiceCollection services)
+    {
+        services.AddSingleton<ToastChannel>();
+        services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
+    }
 
     /// <summary>
     /// The repository directory a test host stands in with: it knows nothing and

@@ -1,5 +1,6 @@
 ﻿@page "/feedback"
 @implements IDisposable
+@inject IToastChannel Toasts
 
 <PageTitle>Feedback — Backlog UI Storybook</PageTitle>
 
@@ -161,6 +162,25 @@
         </ToastHost>
     </Story>
 
+    <Story Name="ToastTray"
+           Description="The same two components, wired to the channel the application publishes on rather than to a list the page holds. A screen calls Publish and never learns where the message is drawn; this tray is the only thing that draws one.
+
+                        Raise four in a row to see the rule the channel enforces: .design/interaction-guidelines.md#feedback-and-toasts allows three at once and queues the rest, so the fourth appears only once one of the three has gone — by its own timer or by its dismiss button."
+           Code="@TrayCode">
+        <div class="sb-row">
+            @foreach (var severity in Severities)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" OnClick="() => Publish(severity)">
+                    Publish @severity.ToString()
+                </AppButton>
+            }
+        </div>
+
+        <p class="sb-state" data-testid="tray-visible">Showing: @Toasts.Visible.Count of @ToastChannel.MaxVisible</p>
+
+        <ToastTray TestId="toast-tray" />
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -204,6 +224,24 @@
 
     private void Dismiss(int id) => _toasts.RemoveAll(toast => toast.Id == id);
 
+    protected override void OnInitialized() => Toasts.Changed += OnToastsChanged;
+
+    // The tray redraws itself; this is only for the count line beside it, which is
+    // the page's own text rather than the component's.
+    private void OnToastsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void Publish(ToastSeverity severity)
+    {
+        var message = $"A {severity} notification, published from the storybook.";
+
+        Toasts.Publish(severity switch
+        {
+            ToastSeverity.Error => ToastMessage.Error(message),
+            ToastSeverity.Warning => ToastMessage.Warning(message),
+            _ => ToastMessage.Info(message)
+        });
+    }
+
     private async Task RunSaveAsync()
     {
         _saveRun?.Cancel();
@@ -231,6 +269,7 @@
 
     public void Dispose()
     {
+        Toasts.Changed -= OnToastsChanged;
         _saveRun?.Cancel();
         _saveRun?.Dispose();
     }
@@ -287,5 +326,15 @@
         <ToastHost>
             <Toast Message="@toast.Message" Severity="toast.Severity" OnDismissed="() => Dismiss(toast.Id)" />
         </ToastHost>
+        """;
+
+    private const string TrayCode = """
+        @inject IToastChannel Toasts
+
+        <ToastTray />
+
+        @code {
+            private void Report(string message) => Toasts.Publish(ToastMessage.Error(message));
+        }
         """;
 }

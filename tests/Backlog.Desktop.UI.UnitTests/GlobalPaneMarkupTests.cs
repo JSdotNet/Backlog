@@ -728,6 +728,13 @@ public sealed class GlobalPaneMarkupTests
         {
             Assert.DoesNotContain(containing, block, StringComparison.Ordinal);
         }
+
+        // The band is as short as its contents allow: 2.25rem of control, and block
+        // padding at exactly the reach of a focus ring. Shorter would clip the ring
+        // against .app-shell's overflow — .design/accessibility.md#focus-visibility
+        // draws focus as an outline offset 2px, so 4px of ink sits outside the
+        // control — and taller is the 8px this change bought back on every route.
+        Assert.Contains("padding: var(--spacing-xs) var(--spacing-lg);", block, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1003,45 +1010,82 @@ public sealed class GlobalPaneMarkupTests
         return css[start..css.IndexOf('}', start)];
     }
 
+    // The import result used to be pinned here as a compact footer under the list,
+    // with a test of its own holding `.import-plan-result` in place. It is a toast
+    // now — raised on the shared channel, drawn by the tray MainLayout mounts — so
+    // the rule and the test that existed to pin it went together. What replaced
+    // that coverage is the pair of facts below: where the tray is mounted, and what
+    // the element it hangs off is allowed to be.
+
     /// <summary>
-    /// The import result reads as a footer under the list rather than as a band.
+    /// The toast tray is mounted once, by the layout, between the routed page and
+    /// the footer.
     /// <para>
-    /// <c>Alert</c> renders a <c>&lt;p&gt;</c>, and this one is the last child of a
-    /// flex column. With no rule of its own it kept the browser's default paragraph
-    /// margins and the surrounding body type, so "3 created, 1 updated" arrived as a
-    /// tall full-width slab under the entries. It is a status line: a rule above it,
-    /// the pane's own secondary ink, and no margins.
-    /// </para>
-    /// <para>
-    /// Tokens only, and no new ones — <c>.arc42/adr/guidelines/0011</c> keeps the
-    /// custom properties in <c>components.css</c>, which
-    /// <c>Backlog.ArchitectureTests.DesignTokenTests</c> enforces. What is pinned
-    /// here is that the values are token references at all.
+    /// Its position in that order is the whole design. A tray that is a
+    /// <em>descendant</em> of the footer would be a positioned ancestor of the two
+    /// fixed Modals rendered from inside it, which is the thing the warning on
+    /// <c>.app-footer</c> forbids; a tray above <c>@Body</c> would stack the wrong
+    /// way off the band. So this asserts the order rather than merely the presence,
+    /// and it does so alongside
+    /// <see cref="The_layout_wraps_the_routed_body_and_the_footer_in_one_column"/>
+    /// rather than inside it: that test is about the column, this one is about what
+    /// hangs in it.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_import_result_is_a_compact_footer_rather_than_a_band()
+    public void The_toast_tray_hangs_between_the_page_and_the_band()
+    {
+        var layout = NormalizeLineEndings(File.ReadAllText(FindMainLayoutRazor()));
+
+        Assert.Contains("class=\"app-toast-anchor\"", layout, StringComparison.Ordinal);
+        Assert.Contains("<ToastTray", layout, StringComparison.Ordinal);
+
+        var body = layout.IndexOf("@Body", StringComparison.Ordinal);
+        var anchor = layout.IndexOf("class=\"app-toast-anchor\"", StringComparison.Ordinal);
+        var tray = layout.IndexOf("<ToastTray", StringComparison.Ordinal);
+        var footer = layout.IndexOf("<AppFooter />", StringComparison.Ordinal);
+
+        Assert.True(body < anchor, "The tray's anchor follows the routed body.");
+        Assert.InRange(tray, anchor, footer);
+        Assert.True(anchor < footer, "The tray's anchor is a sibling above the footer, never inside it.");
+    }
+
+    /// <summary>
+    /// The anchor is a line of no height that positions the tray, and nothing else.
+    /// <para>
+    /// It exists so the tray can rise off the band without anything naming the
+    /// band's height — that height is content-driven and is not the same as it was.
+    /// Asserted explicitly because the tempting simplification is to move the tray
+    /// inside <c>AppFooter</c> and delete this, and that would silently clip the
+    /// update window and the feedback dialog to the height of the footer. This is
+    /// the assertion that makes that fail loudly instead.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_toast_anchor_takes_no_room_and_creates_no_containing_block()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var footer = RuleFor(css, ".import-plan-result {");
+        var anchor = RuleFor(css, ".app-toast-anchor {");
 
-        // The default paragraph margins are the whole reason the band was tall.
-        Assert.Contains("margin: 0;", footer, StringComparison.Ordinal);
+        Assert.Contains("position: relative;", anchor, StringComparison.Ordinal);
+        Assert.Contains("height: 0;", anchor, StringComparison.Ordinal);
 
-        Assert.Contains("border-top: var(--border-width) solid var(--color-border);", footer, StringComparison.Ordinal);
-        Assert.Contains("font-size: var(--font-size-xs);", footer, StringComparison.Ordinal);
-        Assert.Contains("color: var(--color-text-secondary);", footer, StringComparison.Ordinal);
-        Assert.Contains("text-align: left;", footer, StringComparison.Ordinal);
+        // No z-index, so it creates no stacking context and the tray's own z-index
+        // still competes at the root — which is what puts a toast above the shell.
+        Assert.DoesNotContain("z-index", anchor, StringComparison.Ordinal);
 
-        // Padding is the compaction, and it is expressed in the same spacing scale
-        // the workspace around it is padded with.
-        Assert.Contains("padding: var(--spacing-xs) var(--spacing-sm);", footer, StringComparison.Ordinal);
+        // The library's host is fixed to the viewport corner; this is the modifier
+        // that re-anchors it, and CssClass is the hook ui-components.instructions.md
+        // blesses for exactly that, so no second tray exists.
+        var tray = RuleFor(css, ".toast-host.app-toast-tray {");
 
-        // No literal colour, length or font anywhere in the rule.
-        Assert.DoesNotContain("#", footer, StringComparison.Ordinal);
-        Assert.DoesNotContain("px", footer, StringComparison.Ordinal);
-        Assert.DoesNotContain("rem", footer, StringComparison.Ordinal);
+        Assert.Contains("position: absolute;", tray, StringComparison.Ordinal);
+        Assert.Contains("inset-block-end: var(--spacing-sm);", tray, StringComparison.Ordinal);
+        Assert.Contains("inset-inline-end: var(--spacing-lg);", tray, StringComparison.Ordinal);
+
+        // Tokens only: an offset in pixels here is the drift ADR 0011 exists to stop.
+        Assert.DoesNotContain("px", tray, StringComparison.Ordinal);
     }
 
     /// <summary>
