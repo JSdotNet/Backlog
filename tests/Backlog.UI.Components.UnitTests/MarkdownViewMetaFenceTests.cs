@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -330,6 +332,176 @@ public sealed class MarkdownViewMetaFenceTests
 
         Assert.DoesNotContain("md-view--status-column", view.Find(".md-view").ClassList);
     }
+
+    /// <summary>
+    /// A reading surface too narrow to afford the column takes it back.
+    ///
+    /// <para>The reservation is a fixed <c>7.5rem</c> and the pane it is paid out
+    /// of is not fixed at all. Measured in the desktop knowledge side pane the
+    /// reading column is about 240px, so 120px of it was gutter and the first
+    /// paragraph rendered at about 95px — two words a line, nowhere near the
+    /// 72–90 characters <c>.design/typography-and-layout.md</c> asks for. A column
+    /// that costs half the measure is not a column; it is a document with a margin
+    /// where the words were.</para>
+    ///
+    /// <para>So the reservation is conditional on there being a measure left to
+    /// take it out of. <c>48rem</c> is the <c>md</c> breakpoint that chapter
+    /// lists, and it is the width at which paying the column still leaves
+    /// <c>40.5rem</c> — about eighty characters, inside the measure rather than
+    /// under it.</para>
+    /// </summary>
+    [Fact]
+    public void Too_narrow_to_afford_the_column_the_reading_surface_takes_it_back()
+    {
+        var css = Stylesheet();
+
+        // The reading body is the container, and the container is the whole of the
+        // fix: the pane is a track a reader drags, so the window is 1920px wide
+        // while the column being measured is 240. A media query would have answered
+        // about the wrong box.
+        // Named with its combinator, the way .file-view > .file-view__header is
+        // asked for in FileViewHeaderLayoutTests. ".file-view__body {" on its own is
+        // a substring of ".file-view--editing .file-view__body {", which is stated
+        // earlier and is a different rule about a different state — the lookup would
+        // read that one and report the container as missing.
+        var body = Rule(".file-view > .file-view__body {");
+
+        Assert.Contains("container-type: inline-size", body, StringComparison.Ordinal);
+        Assert.Contains("container-name: file-view-body", body, StringComparison.Ordinal);
+
+        var guard = Rule(Guard);
+
+        Assert.True(
+            Regex.IsMatch(guard, @"\.md-view--status-column\s*\{[^}]*--md-status-column\s*:\s*0"),
+            "Below the breakpoint the reservation has to resolve to nothing, or the pane is still "
+            + $"spending half its measure on a gutter. Rule found:\n{guard}");
+
+        // Stated after the reservation, because a container query carries no
+        // specificity of its own — first one loses, and the first one is 7.5rem.
+        Assert.True(
+            css.IndexOf(".md-view--status-column {", StringComparison.Ordinal)
+            < css.IndexOf(Guard, StringComparison.Ordinal),
+            "The withdrawal is stated before the reservation it withdraws, so the reservation wins and "
+            + "nothing is withdrawn at all.");
+    }
+
+    /// <summary>
+    /// One variable is withdrawn and everything the column was costing goes with
+    /// it.
+    ///
+    /// <para>Three rules spend the reservation — the padding every block stops at,
+    /// the negative margin that reaches the status back into it, and the corner an
+    /// annotated block holds clear — and each reads it from
+    /// <c>--md-status-column</c> rather than restating <c>7.5rem</c>. That is what
+    /// makes the guard above one rule and not four, and it is what keeps a status
+    /// clear of the prose at every width: a padding and a margin that cancel each
+    /// other cannot cancel unequally.</para>
+    ///
+    /// <para>Above the breakpoint none of it moves. The column is still
+    /// <c>7.5rem</c>, every block still stops at the same rule, and the statuses
+    /// down the right of a file still align on one edge — see
+    /// <c>FileViewHeaderLayoutTests.The_files_status_and_the_chapters_statuses_are_one_column</c>,
+    /// which reads that from the header's side.</para>
+    /// </summary>
+    [Fact]
+    public void Withdrawing_the_column_withdraws_everything_it_was_costing()
+    {
+        Assert.Contains(
+            "--md-status-column: 7.5rem",
+            Rule(".md-view--status-column {"),
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "padding-inline-end: var(--md-status-column)",
+            Rule(".md-view--status-column > :not(.md-block-row)"),
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "margin-inline-end: calc(-1 * var(--md-status-column))",
+            Rule(".md-view--status-column .knowledge-record__headline"),
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "var(--md-status-column, 0rem)",
+            Rule(".md-block--affordance {"),
+            StringComparison.Ordinal);
+
+        // And the column is set in exactly two places: the reservation, and the
+        // guard that takes it back. A third would be a width nobody could find
+        // from either of the first two.
+        var settings = Regex.Matches(Stylesheet(), @"--md-status-column\s*:\s*([^;]+);")
+            .Select(match => match.Groups[1].Value.Trim())
+            .ToArray();
+
+        Assert.Equal(["7.5rem", "0rem"], settings);
+    }
+
+    /// <summary>
+    /// The three knowledge panes get this from the one rule, because none of them
+    /// has a rule of its own.
+    ///
+    /// <para><c>Arc42KnowledgePanel</c>, <c>DomainKnowledgePanel</c> and
+    /// <c>DesignKnowledgeView</c> all read a file through the same
+    /// <c>FileView</c> into the same <c>.md-view</c>. A host reserving the column
+    /// itself would be a fourth width to find, and the library would no longer own
+    /// the one the component draws
+    /// (<c>.arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md</c>).</para>
+    /// </summary>
+    [Fact]
+    public void No_host_reserves_the_column_for_itself()
+    {
+        var app = File.ReadAllText(RepositoryRoot.File(
+            "src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"));
+
+        Assert.DoesNotContain("--md-status-column", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("md-view--status-column", app, StringComparison.Ordinal);
+    }
+
+    /// <summary>The container query the reservation is guarded by, as the
+    /// stylesheet states it — one string, so the breakpoint and the container it
+    /// answers to are read from the same place.</summary>
+    private const string Guard = "@container file-view-body (max-width: 48rem)";
+
+    /// <summary>The rule that opens with <paramref name="selector"/>, braces matched
+    /// so a nested block cannot end it early — which is what lets the guard above be
+    /// asked for by its own at-rule. Duplicated per file for the reason the other
+    /// stylesheet tests in this project duplicate it: each asserts on a different
+    /// section, and a shared helper would be a third place to look.</summary>
+    private static string Rule(string selector)
+    {
+        var css = Stylesheet();
+        var start = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"components.css has no rule for {selector}.");
+
+        var depth = 0;
+
+        for (var index = css.IndexOf('{', start); index >= 0 && index < css.Length; index++)
+        {
+            if (css[index] == '{')
+            {
+                depth++;
+            }
+            else if (css[index] == '}' && --depth == 0)
+            {
+                return css[start..(index + 1)];
+            }
+        }
+
+        Assert.Fail($"The rule for {selector} in components.css is never closed.");
+        return string.Empty;
+    }
+
+    /// <summary>The library's stylesheet with its comments stripped and its line
+    /// endings normalised. The comments go because the rules here argue for
+    /// themselves at length and name each other while doing it, so a selector quoted
+    /// in prose would be found instead of the rule.</summary>
+    private static string Stylesheet() =>
+        Regex.Replace(
+            File.ReadAllText(RepositoryRoot.File(
+                "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n"),
+            @"/\*.*?\*/",
+            string.Empty,
+            RegexOptions.Singleline);
 
     private static IRenderedComponent<MarkdownView> Render(
         BunitContext context,

@@ -2489,6 +2489,48 @@ button.md-check {
     margin-inline-end: calc(-1 * var(--md-status-column));
 }
 
+/*
+   And withdrawn where the surface reading the file is too narrow to afford it.
+
+   7.5rem is a fixed price and the pane paying it is not fixed at all. In the
+   desktop knowledge side pane the reading column measures about 240px, so half
+   of it was gutter and a paragraph rendered at about 95px — two words a line,
+   nowhere near the 72–90 characters .design/typography-and-layout.md#density
+   asks for. A column that costs half the measure is not a column; it is a
+   document with a margin where the words were.
+
+   48rem is the `md` breakpoint
+   .design/typography-and-layout.md#layout-grid-and-breakpoints lists, and it is
+   the width at which the reservation is still affordable: 48 less 7.5 leaves
+   40.5rem, about eighty characters, inside the measure rather than under it.
+   Asked of the reading body's own container and not of the window, because the
+   pane is a track a reader drags and the window says nothing about how wide it
+   currently is.
+
+   One declaration, because everything the column costs is spent through this one
+   variable — the padding each block stops at, the negative margin that reaches
+   the status back into it, and the corner an annotated block holds clear. They
+   go together or the padding and the margin stop cancelling, which is a status
+   sitting over the prose. Withdrawn rather than scaled: a narrower column is
+   still a column, and there is no width at which a 240px pane has one to spare.
+
+   What the status does not lose is the heading it belongs to. The headline is
+   the same row it always was — heading first, status held at its trailing edge
+   (.design/content-editing.md#knowledge-metadata-blocks) — and it was already
+   drawn at the block's full width, reaching back over the reservation. Only the
+   prose beneath it changes: it stops at the pane's edge instead of at a rule
+   held open for a pill on another line.
+
+   Stated after the reservation on purpose. A container query adds no specificity
+   of its own, so the later of the two wins, and the later of the two has to be
+   the withdrawal.
+*/
+@container file-view-body (max-width: 48rem) {
+    .md-view--status-column {
+        --md-status-column: 0rem;
+    }
+}
+
 /* One row, anchored to the corner, rather than each control anchoring itself
    there. Both used to be `right: 0` and landed on top of each other the moment a
    host offered both — the comment button under the rewrite button, which is one
@@ -6668,6 +6710,29 @@ select.field__input option {
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
+}
+
+/*
+   The reading body is a container, so what is drawn in it can answer to the
+   width of the pane rather than to the width of the window.
+
+   The two are not the same question, and in this product they are rarely even
+   close: a knowledge side pane is a 24rem track beside a document, on a screen
+   nineteen hundred pixels wide. A `@media` rule asks about the screen, and would
+   have kept every reservation the pane cannot afford.
+
+   Inline size only, and named, so a rule says which box it is measuring — the
+   convention app.css already follows for `backlog-list`, `tools-panel` and
+   `tools-inventory`, each of which is a pane a reader resizes.
+
+   What a query here measures is the container's content box, which is the column
+   the markdown view is drawn in: the padding above is outside it. So a width
+   asked of this container is the measure itself, not the measure plus its
+   margins.
+*/
+.file-view > .file-view__body {
+    container-type: inline-size;
+    container-name: file-view-body;
 }
 
 /* The width the reading body's own scrollbar takes, and so the width
