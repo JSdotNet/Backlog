@@ -81,7 +81,9 @@
     </Story>
 
     <Story Name="Skeleton"
-           Description="Three shapes, and the way they are meant to be used: laid out on the grid of the rows they stand in for. A spinner says work is happening; a skeleton says what is about to arrive and where, which is why lists, cards and tables get one instead. The bars are aria-hidden — the surface waiting for them says once, in a live region, what is being waited for. Under reduced motion the pulse stops altogether rather than degrading to a slower one."
+           Description="Three shapes, meant to be laid out on the grid of the rows they stand in for: a spinner says work is happening; a skeleton says what is about to arrive and where, which is why lists, cards and tables get one instead. The bars are aria-hidden — the surface waiting for them says once, in a live region, what is being waited for. Under reduced motion the pulse stops altogether rather than degrading to a slower one.
+
+Bars inside a table's own cells — the tools pane's placeholder — are the Data table page's subject (data-table), so that sample is drawn there rather than here."
            Code="@SkeletonCode">
         <div class="sb-stack">
             <div class="sb-row">
@@ -96,29 +98,11 @@
                 <span class="sb-label">Block</span>
                 <Skeleton Shape="SkeletonShape.Block" Width="6rem" />
             </div>
-
-            @* The point of the component, rather than a third size of bar: three
-               rows of a table that has not answered yet, on the grid its real
-               rows will use, with a ragged right edge so it reads as names. *@
-            <div style="display: grid; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm)">
-                @foreach (var row in SkeletonRows)
-                {
-                    <div style="display: grid; grid-template-columns: 1.4fr 0.6fr 0.6fr 5rem; gap: 0.75rem; align-items: center">
-                        <div style="display: grid; gap: 0.25rem">
-                            <Skeleton Width="@row" />
-                            <Skeleton Width="50%" />
-                        </div>
-                        <Skeleton Width="3rem" />
-                        <Skeleton Width="3rem" />
-                        <Skeleton Shape="SkeletonShape.Block" />
-                    </div>
-                }
-            </div>
         </div>
     </Story>
 
     <Story Name="SaveIndicator"
-           Description="All four states, plus a run through the sequence the product actually produces: Idle, Saving, Saved."
+           Description="All four states, plus a run through the sequence the product actually produces — Saving while the change is in flight, Saved once it has landed — driven by the same `DebouncedSave` a host binds an indicator to."
            Code="@SaveCode">
         <div class="sb-stack">
             @foreach (var state in SaveStates)
@@ -129,8 +113,8 @@
                 </div>
             }
             <div class="sb-row">
-                <AppButton Variant="ButtonVariant.Primary" OnClick="RunSaveAsync">Run a save</AppButton>
-                <SaveIndicator State="_saveState" TestId="save-indicator-live" />
+                <AppButton Variant="ButtonVariant.Primary" OnClick="RunSave">Run a save</AppButton>
+                <SaveIndicator State="_save.State" TestId="save-indicator-live" />
             </div>
         </div>
     </Story>
@@ -174,11 +158,6 @@
         new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in.")
     ];
 
-    /// <summary>Name-bar widths for the placeholder table. Deliberately uneven:
-    /// bars of one length read as a loading graphic, a ragged edge reads as
-    /// content.</summary>
-    private static readonly string[] SkeletonRows = ["62%", "78%", "45%"];
-
     private static readonly SaveState[] SaveStates =
         [SaveState.Idle, SaveState.Saving, SaveState.Saved, SaveState.Failed];
 
@@ -191,8 +170,14 @@
     private int _nextToastId;
     private int _created;
     private string? _alertMessage;
-    private SaveState _saveState = SaveState.Idle;
-    private CancellationTokenSource? _saveRun;
+
+    /// <summary>The save behind the live indicator. Saving for as long as the
+    /// delay runs, then Saved — the save itself has nothing to write, so the
+    /// delay is the whole of what a reader watches.</summary>
+    private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(1200), () => Task.CompletedTask);
+
+    protected override void OnInitialized() =>
+        _save.StateChanged += () => InvokeAsync(StateHasChanged);
 
     private void ToggleAlert() =>
         _alertMessage = _alertMessage is null ? "Something went wrong, and this line says what." : null;
@@ -204,36 +189,9 @@
 
     private void Dismiss(int id) => _toasts.RemoveAll(toast => toast.Id == id);
 
-    private async Task RunSaveAsync()
-    {
-        _saveRun?.Cancel();
-        _saveRun?.Dispose();
-        _saveRun = new CancellationTokenSource();
-        var token = _saveRun.Token;
+    private void RunSave() => _save.Touch();
 
-        _saveState = SaveState.Idle;
-        StateHasChanged();
-
-        try
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(300), token);
-            _saveState = SaveState.Saving;
-            StateHasChanged();
-
-            await Task.Delay(TimeSpan.FromMilliseconds(1200), token);
-            _saveState = SaveState.Saved;
-            StateHasChanged();
-        }
-        catch (TaskCanceledException)
-        {
-        }
-    }
-
-    public void Dispose()
-    {
-        _saveRun?.Cancel();
-        _saveRun?.Dispose();
-    }
+    public void Dispose() => _save.Dispose();
 
     private const string AlertCode = """
         <Alert Message="@_error" />
@@ -262,25 +220,29 @@
         """;
 
     private const string SkeletonCode = """
-        @* The tools pane's placeholder: the table the rows are coming into, with
-           bars in its cells rather than a second layout that looks like it. *@
-        <div class="tools-panel__skeleton" aria-hidden="true">
-            <DataTable TItem="string" Columns="Columns" Items="Names" CssClass="tools-inventory">
-                <Row Context="name">
-                    <td class="tools-inventory__tool">
-                        <Skeleton Width="@name" />
-                        <Skeleton Width="55%" />
-                    </td>
-                    <td><Skeleton Width="3rem" /></td>
-                    <td><Skeleton Width="3rem" /></td>
-                    <td><Skeleton Shape="SkeletonShape.Block" Width="5rem" /></td>
-                </Row>
-            </DataTable>
+        @* Where the rows are coming, on the grid they will use — never a second
+           layout that only looks like it. The surface, not the bars, says what
+           is being waited for. *@
+        <div aria-hidden="true">
+            <Skeleton Shape="SkeletonShape.Heading" Width="9rem" />
+            <Skeleton Width="62%" />
+            <Skeleton Width="78%" />
+            <Skeleton Shape="SkeletonShape.Block" Width="5rem" />
         </div>
         """;
 
     private const string SaveCode = """
-        <SaveIndicator State="_saveState" />
+        <SaveIndicator State="_save.State" />
+
+        @code {
+            // Touch() on every edit; SaveNowAsync() for a discrete change.
+            private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(600), SaveAsync);
+
+            protected override void OnInitialized() =>
+                _save.StateChanged += () => InvokeAsync(StateHasChanged);
+
+            public void Dispose() => _save.Dispose();
+        }
         """;
 
     private const string ToastCode = """

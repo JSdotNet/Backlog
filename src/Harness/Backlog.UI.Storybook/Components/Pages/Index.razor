@@ -53,11 +53,15 @@
                 automatically and waits for nothing, because it depends on nothing.
             </p>
             <p>
-                Standalone, Kestrel picks the port and prints it. Diagrams fetch mermaid and
-                G6 from a CDN on first use, so on a machine with no egress the
-                <a href="diagrams">Diagrams</a> and <a href="graph-explorer">Graph explorer</a>
-                pages fall back to showing their source instead of a picture. Everything else
-                renders offline.
+                Standalone, Kestrel picks the port and prints it. Mermaid is the one thing
+                fetched from a CDN, on first use, so on a machine with no egress the
+                <a href="diagrams">Diagrams</a> and
+                <a href="markdown/diagrams">Diagrams in markdown</a> pages fall back to
+                showing their source instead of a picture — unless the host has pointed
+                <code>window.backlogDiagramLibrarySources</code> at a local copy. The
+                <a href="graph-explorer">graph explorer</a> and
+                <a href="graph-atlas">graph atlas</a> draw on their own canvas, so they
+                render offline, and so does everything else.
             </p>
         </div>
     </Story>

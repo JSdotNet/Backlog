@@ -43,11 +43,11 @@ Every keystroke is reported through `OnBodyChanged`, and there is no Save button
                       BodyLabel="Prompt"
                       BodyExpanded="true"
                       OnToggle="_ => { }"
-                      OnBodyChanged="EditBodyAsync"
+                      OnBodyChanged="EditBody"
                       TestId="editable" />
         </ul>
         <div class="sb-row">
-            <SaveIndicator State="_saveState" TestId="prompt-editable-save" />
+            <SaveIndicator State="_save.State" TestId="prompt-editable-save" />
         </div>
         <p class="sb-state" data-testid="prompt-editable-state">The host has been told @_bodyChanges @(_bodyChanges == 1 ? "time" : "times") and holds @(_editable.Body?.Length ?? 0) characters.</p>
 
@@ -56,7 +56,7 @@ Every keystroke is reported through `OnBodyChanged`, and there is no Save button
             <TaskListView Tasks="@_editableList"
                           BodyLabel="Prompt"
                           OnToggle="_ => { }"
-                          OnBodyChanged="EditListBodyAsync"
+                          OnBodyChanged="EditListBody"
                           GroupCompleted="false"
                           AriaLabel="Two editable prompts"
                           TestId="editable-list" />
@@ -183,15 +183,15 @@ Each picker offers every row but its own. Add a dependency and everything re-der
     <Story Name="Making one prompt wait for another, by dragging"
            Description="The same chain, wired with the pointer instead of the pickers above. Every row carries a `🔗` handle: press *that* and move, and the row you picked up is being made to wait — let go anywhere on another row and it waits for that one. Let go on the row you are holding, or off the list entirely, and the gesture is abandoned: nothing is written and nothing is said, because you already watched the line go quiet as you left the last row. Press the row itself, or its `⠿` grip, and it is the reorder it always was.
 
-Which of the two a drag is comes entirely from where the press landed, and it cannot change afterwards. That is the design and not an implementation detail: the version before this one had no handle but a drop zone inside each row, and read the mode off whatever the pointer was over at the release. It oscillated — entering a zone retracted the reorder preview, the retraction reflowed the list, the row you were aiming at moved out from under the pointer, and the mode flipped back. The handle settles the question before the gesture starts, which is why the drop target can then be the whole of the other row (`interaction-guidelines.md#reliable-drop-targets-items`: the handle is sized for picking up, the row for releasing).
+Which of the two a drag is comes entirely from where the press landed, and it cannot change afterwards. The handle settles the question before the gesture starts, which is why the drop target can then be the whole of the other row (`interaction-guidelines.md#reliable-drop-targets-items`: the handle is sized for picking up, the row for releasing).
 
 So nothing moves during a link drag. What the rows show instead is what each of them is to it: the row in flight outlined in `color-primary`, every row that will take the drop outlined the same way and filled in under the pointer, and every row that will not — finished, or already waited on — refusing with a not-allowed cursor. A refusal writes nothing and says why in the live region, rather than quietly turning back into a reorder. A link that closes a loop is accepted and named, because which edge in a loop is the wrong one is not this component's call.
 
-And a line follows the pointer out of the handle you pressed, because what you are doing is drawing a dependency and rows tinting themselves does not look like drawing anything. It ends at the pointer while the drop has nowhere to land, and snaps to the centre of the armed row with a dot on it once it has one — the armed row and not the row under the pointer, which are the same row and now provably so: the line snaps to whichever row is wearing `--link-armed`, so it ends where the drop will land rather than where a second hit test would have guessed. The centre because what a link targets is the whole row, where an edge would read as a position in the list, which is what the other drop means: solid `color-primary` at `border-width-2` over a row that will take the drop, dashed `color-error-text` over one that will refuse it, and quiet over nothing at all. Not an insertion line, which `interaction-guidelines.md#drop-indicators` reserves for a drop that chooses a *position* — this drop chooses neither a position nor a half of a row, so there is nothing to place, and the refusal is dashed as well as recoloured rather than being drawn and then contradicted.
+And a line follows the pointer out of the handle you pressed, because what you are doing is drawing a dependency and rows tinting themselves does not look like drawing anything. It ends at the pointer while the drop has nowhere to land, and snaps to the centre of the armed row with a dot on it once it has one — the armed row rather than the row under the pointer: the line snaps to whichever row is wearing `--link-armed`, so it ends where the drop will land rather than where a second hit test would have guessed. The centre because what a link targets is the whole row, where an edge would read as a position in the list, which is what the other drop means: solid `color-primary` at `border-width-2` over a row that will take the drop, dashed `color-error-text` over one that will refuse it, and quiet over nothing at all. Not an insertion line, which `interaction-guidelines.md#drop-indicators` reserves for a drop that chooses a *position* — this drop chooses neither a position nor a half of a row, so there is nothing to place, and the refusal is dashed as well as recoloured rather than being drawn and then contradicted.
 
 Two things about that line are the same invariant this whole gesture rests on. It is drawn in `components.js`, one paint per animation frame for the length of the drag, so following the cursor never costs a circuit round trip — `TaskListView` renders an empty overlay to draw into and not one pixel of the curve. And the overlay is fixed to the viewport, outside the `<ul>`, pointer-transparent throughout: it can move no row, and it can never take the hit that decides which row the pointer is over.
 
-Where the line ends and what colour it is both come from the classes the rows are already wearing, so nothing in the script decides for a second time which row this drop is about or whether the two may be linked. That is not tidiness. The first version of this line worked its own snap out from the pointer, and the two answers went out of step the moment the script's was fresher than the component's: cross a row in transit, come back, release on the row in your hand, and the line had gone quiet while the crossed row was still lit and still took the drop. One answer, published once, read by the tint and the line alike — a quiet line is now a drop that writes nothing, and there is nothing else for it to mean.
+Where the line ends and what colour it is both come from the classes the rows are already wearing, so nothing in the script decides for a second time which row this drop is about or whether the two may be linked. One answer, published once, read by the tint and the line alike: a quiet line is a drop that writes nothing, and there is nothing else for it to mean.
 
 Order and dependency are independent facts about the same pair of rows, so one gesture never writes both — `OnReorder` and `OnLink` are exclusive. Alt+Shift+Arrow is the keyboard's half, beside the Alt+Arrow that moves the row; on a finished row it says why rather than nothing. `OnLink` reports two ids and writes nothing; this page owns the array, exactly as it owns the pickers."
            Code="@LinkCode">
@@ -224,19 +224,6 @@ Order and dependency are independent facts about the same pair of rows, so one g
         </div>
     </Story>
 
-    <Story Name="What is deliberately not here"
-           Description="A prompt on a row and an order between rows are the two things a list can show. Everything below is a decision about what happens off the list.">
-        <dl class="sb-grid" data-testid="prompt-open-questions">
-            @foreach (var question in OpenQuestions)
-            {
-                <div class="sb-stack">
-                    <dt class="sb-label">@question.Name</dt>
-                    <dd><p>@question.Detail</p></dd>
-                </div>
-            }
-        </dl>
-    </Story>
-
 </StoryPage>
 
 @code {
@@ -249,8 +236,6 @@ Order and dependency are independent facts about the same pair of rows, so one g
         new("interaction-guidelines.md#drop-indicators", "The tokens the line drawn while linking borrows, and why it is not an insertion line."),
         new("accessibility.md#target-sizes-and-text", "The 44 × 44 the 🔗 handle owes as a press target of its own.")
     ];
-
-    private sealed record OpenQuestion(string Name, string Detail);
 
     private const string ReviewBody = """
         You are reviewing a change to the Backlog UI component library.
@@ -312,8 +297,12 @@ Order and dependency are independent facts about the same pair of rows, so one g
         new("release-note", "Draft the release note", Group: "Prompts", Body: EditableBody);
 
     private int _bodyChanges;
-    private SaveState _saveState = SaveState.Idle;
-    private CancellationTokenSource? _saveDelay;
+
+    /// <summary>Stands in for the real auto-save, the same way the entry page does:
+    /// Saving while the keystrokes are still arriving, Saved once they have stopped
+    /// for 600ms. The product has no save button anywhere, so the indicator this
+    /// drives is the only thing that says the edit landed.</summary>
+    private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(600), () => Task.CompletedTask);
 
     /// <summary>The same listener, handed to a list rather than to a row. Both
     /// rows can be edited or neither can, which is the only shape the answer
@@ -383,29 +372,10 @@ Order and dependency are independent facts about the same pair of rows, so one g
         new("send", "Send the summary", Group: "Prompts")
     ];
 
-    private static readonly IReadOnlyList<OpenQuestion> OpenQuestions =
-    [
-        new("How a prompt is run",
-            "The row holds the text, offers to copy it, and — when a host is listening — lets it be edited. What model reads it, with what context, and what comes back is not something a list of tasks can know, and a component with a Run button on it would have decided all three. Nothing on this page runs anything."),
-
-        new("Where the chain is kept",
-            "DependsOn is on the row the host handed over, and the states are derived on every render. Nothing here writes an order down, because the host is the only thing that knows whether one survives a reload. There is no dependency-editor component either: the pickers on this page are the page's own, built out of TagMultiSelect, because a chain is data the host owns and the control that edits data belongs where the data does."),
-
-        new("Whether a task may have a body at all",
-            "A row folds a body when it has one and offers nothing when it does not. Putting an “add a prompt” affordance on every row would be this library deciding that every task is a document — including “ring the dentist” — and which rows carry one is the host's call. The host says so by putting text in Body."),
-
-        new("Where a body is saved, and how it is undone",
-            "Editing raises every keystroke and stops there. There is no save button, because there is none anywhere in the product; the indicator on this page stands in for the real auto-save. Undo is the host's for the same reason: the row keeps no draft, so it has nothing to put back — which is exactly why it offers no Escape rather than an Escape that quietly did nothing."),
-
-        new("What an AI does with the result",
-            "Nothing on this page moves a task on when a prompt finishes. Whether a run marks its task done, opens the next one, or waits to be told is a product decision, and the component is already shaped for either: the host ticks the row, and the chain re-derives."),
-
-        new("How a cycle gets fixed",
-            "The chain names the rows caught in one and stops there. Which dependency in a loop is the wrong one is a question only the person who wrote them can answer, and a component that broke the loop somewhere would have answered it for them."),
-
-        new("What the reader sees while a prompt runs",
-            "Nothing here has a progress state for a body. A row can be blocked, ready or done, and “a model is part-way through this one” is none of those — it is a fact about a run rather than about a task, and inventing a fourth state for it would put a vocabulary in the row that the product has not agreed on yet.")
-    ];
+    /// <summary>The indicator re-renders on the save's own transitions — the one
+    /// after the delay arrives outside any event handler.</summary>
+    protected override void OnInitialized() =>
+        _save.StateChanged += () => InvokeAsync(StateHasChanged);
 
     private void ToggleChain(string id) =>
         _chain = [.. _chain.Select(task => task.Id == id ? task with { Done = !task.Done } : task)];
@@ -419,17 +389,17 @@ Order and dependency are independent facts about the same pair of rows, so one g
     /// <summary>What the host does with a keystroke: applies it to the row it owns
     /// and starts saving. Nothing is validated and nothing is trimmed — the text
     /// the reader typed is the text the host holds.</summary>
-    private async Task EditBodyAsync(TaskBodyChange change)
+    private void EditBody(TaskBodyChange change)
     {
         _editable = _editable with { Body = change.Body };
         _bodyChanges++;
-        await MarkSavingAsync();
+        _save.Touch();
     }
 
     /// <summary>The same handler, applying to a list instead of to one row. The
     /// change names the row it came from, which is the only thing the host needs
     /// to find it again.</summary>
-    private async Task EditListBodyAsync(TaskBodyChange change)
+    private void EditListBody(TaskBodyChange change)
     {
         _editableList =
         [
@@ -438,7 +408,7 @@ Order and dependency are independent facts about the same pair of rows, so one g
         ];
 
         _bodyChanges++;
-        await MarkSavingAsync();
+        _save.Touch();
     }
 
     /// <summary>Every row but this one, as options. A task that waits on itself is
@@ -498,38 +468,7 @@ Order and dependency are independent facts about the same pair of rows, so one g
     private static string Titles(IReadOnlyList<TaskRow> tasks) =>
         tasks.Count == 0 ? "(none)" : string.Join(", ", tasks.Select(task => task.Title));
 
-    /// <summary>Stands in for the real auto-save, the same way the entry page does:
-    /// Saving while the keystrokes are still arriving, Saved once they stop. The
-    /// product has no save button anywhere, so this line is the only thing that
-    /// says the edit landed.</summary>
-    private async Task MarkSavingAsync()
-    {
-        _saveDelay?.Cancel();
-        _saveDelay?.Dispose();
-        _saveDelay = new CancellationTokenSource();
-        var token = _saveDelay.Token;
-
-        _saveState = SaveState.Saving;
-        StateHasChanged();
-
-        try
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(600), token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        _saveState = SaveState.Saved;
-        StateHasChanged();
-    }
-
-    public void Dispose()
-    {
-        _saveDelay?.Cancel();
-        _saveDelay?.Dispose();
-    }
+    public void Dispose() => _save.Dispose();
 
     private const string BodyCode = """
         @* The body is markdown and nothing else. Optional: leave it off and the
@@ -581,20 +520,23 @@ Order and dependency are independent facts about the same pair of rows, so one g
         @* No OnBodyChanged and the body is a read-only MarkdownView: no toggle,
            no editor, nothing disabled. *@
         <TaskItem Task="@_row" BodyLabel="Prompt" OnBodyChanged="EditBody" />
-        <SaveIndicator State="_saveState" />
+        <SaveIndicator State="_save.State" />
 
         @* Or to a whole list, which hands it to every row it draws. The change
            names the row it came from. *@
         <TaskListView Tasks="@_tasks" BodyLabel="Prompt" OnBodyChanged="EditBody" />
 
         @code {
+            // Saving while keys arrive, Saved 600ms after they stop.
+            private readonly DebouncedSave _save = new(TimeSpan.FromMilliseconds(600), SaveAsync);
+
             // Every keystroke, with the whole body. The row holds no draft: it
             // reads the text back out of the Task on the next render, so the host
             // applying the change is what makes the editor show it.
-            private async Task EditBody(TaskBodyChange change)
+            private void EditBody(TaskBodyChange change)
             {
                 _row = _row with { Body = change.Body };
-                await MarkSavingAsync();   // Saving while keys arrive, Saved after
+                _save.Touch();
             }
         }
         """;

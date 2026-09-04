@@ -1,4 +1,6 @@
+using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Storybook.Components;
+using Backlog.UI.Storybook.Components.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,9 +9,17 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// The one registration, and it is a fixture rather than an application
+// service: a committed Archify artifact for one known fence, so the Diagrams
+// page can show DiagramView's artifact mode. It answers null for every other
+// diagram, which leaves every other page rendering exactly as it would with
+// nothing registered.
+builder.Services.AddSingleton<IDiagramArtifactSource, StorybookDiagramArtifacts>();
+
 // Nothing else is registered on purpose: a storybook that needed the
 // application's services would stop being evidence that the components run
-// without it.
+// without it. The fixture above does not bend that — no module, adapter or
+// application project is referenced, and UiLibraryBoundaryTests holds the line.
 
 var app = builder.Build();
 

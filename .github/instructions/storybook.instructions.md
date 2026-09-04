@@ -111,6 +111,12 @@ as exceptions because the rule is written.
 2. every page is reachable from the index;
 3. every `.design` chapter and anchor a page names still resolves to a heading.
 
+`tests/Backlog.ArchitectureTests/StorybookOrderTests.cs`:
+
+4. every page draws only components a page above it in `StorybookIndex` has
+   introduced — nothing is shown before its parts — and each bend the index
+   records is listed in the test's `RecordedBends`, and nothing else is.
+
 `UiLibraryBoundaryTests` keeps all of that possible by proving the library
 references no module, adapter, or application — a component that reads state
 instead of taking a parameter cannot be rendered here at all.

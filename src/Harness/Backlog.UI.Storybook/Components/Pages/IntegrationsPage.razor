@@ -3,11 +3,8 @@
 <PageTitle>Availability and lifecycle — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Availability and lifecycle"
-           Summary="The substrate under every integration affordance: a readiness — whether the product can perform an outward act at all, and if not why — and a lifecycle running from idle to succeeded or failed. Both are records the host hands in; no component here advances anything on its own. The acts themselves are on Actions; the artifacts they produce are on References."
+           Summary="The substrate under every integration affordance: a readiness — whether the product can perform an outward act at all, and if not why — and a lifecycle running from idle to succeeded or failed. Both are records the host hands in; no component here advances anything on its own. The acts themselves are on Actions, where the two marked hand-offs are drawn beside the unmarked AI acts; the artifacts they produce are on References; the unmarked proposal card and the marked one it came back beside are on AI."
            Guidelines="@Rules">
-    <Alert Message="@AbsorbsNotice" Role="note" CssClass="sb-callout" />
-
-    <Alert Message="@MarkRule" Role="note" CssClass="sb-callout" />
 
     <Story Name="Nothing here takes a bare Disabled"
            Description="IntegrationAction has no `Disabled` parameter. The only way to make one inert is to hand it an `IntegrationReadiness`, and that record cannot be constructed without a cause — so an unavailable act always carries the reason it is unavailable.
@@ -259,37 +256,6 @@ The first three panels below are the same panel on three pretend surfaces at thr
         new("interaction-guidelines.md#error-states", "What a failed act shows, and what it offers next."),
         new("design-principles.md#local-first-offline-first-ux", "Why an outward act is never the thing that has to work.")
     ];
-
-    /// <summary>What this family is for, stated once at the top of the section
-    /// rather than in a story — it is the reason the whole chapter exists and not
-    /// a property of any one component on it.</summary>
-    private const string AbsorbsNotice =
-        "This family exists to absorb improvisation that is already in the product. TasksPane.razor "
-        + "hand-rolls .badge--gh-{state} anchors, a GitHubStateClass helper that lowercases an enum, two "
-        + "IconButtons whose busy state is a literal ellipsis character, and a span.entry-doc__cli-mark "
-        + "reading gh where a Copilot mark belongs; DomainKnowledgePanel.razor draws the same anchor with a "
-        + "fixed badge--gh-unknown, having no issue state to derive. "
-        + "Every one of those has a component on these five pages. Migrating them is a deliberate "
-        + "follow-up rather than part of this change, so the library and its storybook can be reviewed "
-        + "on their own and the migration validated on its own.";
-
-    /// <summary>The second organising rule of the section, and the one a reader
-    /// is most likely to get backwards: which affordances wear a vendor mark. It
-    /// sits beside the first because it governs every page here — the acts on
-    /// Actions, the sessions on References, the cards on AI — rather than any one
-    /// component.</summary>
-    private const string MarkRule =
-        "A vendor mark is a passport stamp: it appears exactly when work crosses out of this "
-        + "application, and never otherwise. Ask AI, Resolve comments with AI and Rewrite part with AI "
-        + "are this product's own features — nothing leaves, so they carry no Claude mark, no Copilot "
-        + "mark and no vendor name, and what they write is attributed to \"AI\", full stop. Sending a "
-        + "prompt or a section to a Claude or a GitHub Copilot session to be implemented in a related "
-        + "repository does leave, and so does the session that comes back and has to be tracked; both "
-        + "are provider-specific and both are marked. So the mark is not decoration and it is not a "
-        + "logo budget: it is the reader's only cue that something went somewhere. The two hand-offs "
-        + "and the unmarked AI acts are drawn side by side on Actions; the unmarked proposal card and "
-        + "the marked one it came back beside are on AI; the sessions a hand-off produces are on "
-        + "References.";
 
     /// <summary>One cell of the lifecycle row: the state, the spec that produces
     /// it, and what the component emits for it.</summary>

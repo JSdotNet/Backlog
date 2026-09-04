@@ -6,8 +6,6 @@
            Summary="One workspace, authored once in c4hero, explored here. The source below is Structurizr DSL; every picture is produced from it at render time by C4DslReader, C4LayoutEngine and C4SvgWriter — this product's own renderer, not mermaid — and C4Explorer adds the layer c4hero calls Explore — a Views panel over the four levels, drilling in by clicking a box, a breadcrumb, search, the Highlighter, pan and zoom, a minimap and a presentation mode."
            Guidelines="@Rules">
 
-    <Alert Message="@StandingRule" Role="note" CssClass="sb-callout" />
-
     <Story Name="The explorer"
            Description="Everything on one surface, because exploring is one activity. Start on the landscape and work down: **click a system** to open its container view, **click a container** to open its components. Only the cards that lead somewhere invite the click — the rest keep the pan cursor, because an offer is a promise. Each card is a `g.node` whose id ends in the element's alias, so a click resolves by identifier and never by matching the label text.
 
@@ -24,13 +22,9 @@ The breadcrumb and Back answer different questions on purpose. The breadcrumb is
     </Story>
 
     <Story Name="The diagram on its own"
-           Description="`C4DiagramView` without the explorer around it: the picture, and nothing that navigates it. This is what replaced the mermaid rendering.
+           Description="`C4DiagramView` without the explorer around it: the picture, and nothing that navigates it. Hand it the `C4Diagram` that `C4LayoutEngine.Build` lays out from a workspace and a view, an `Id` for the svg and an `AriaLabel`. Everything is drawn by this product — the card, the glyph, the dashed frame, the curved edges — so it takes the stylesheet's tokens rather than writing colours inline, and a level is told apart by weight and glyph rather than by a hue of its own.
 
-Mermaid could not be made to look like the tool the model is authored in. It sizes its boxes from their own text, draws no icon, routes edges its own way, and writes every colour inline where no stylesheet can reach — so a C4 view was always going to look like a mermaid diagram however it was themed. Everything here is drawn by this product: the card, the glyph, the dashed frame, the curved edges.
-
-The palette is depth on one hue rather than a hue per level. `color-scheme.md#chart-roles` says the palette carries exactly one saturated hue, and that a second hue claims *this is a different kind of quantity* — a C4 level is not a different kind of thing, it is the same architecture seen closer. The glyph carries what the ramp cannot, which is the rule the technology atlas already follows.
-
-The DOM contract is mermaid's on purpose. Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what the explorer's viewer reads for click-to-drill, dimming and the search ring — so the renderer was swapped underneath the viewer without changing a line of it."
+Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what the explorer's viewer reads for click-to-drill, dimming and the search ring — so a diagram drawn on its own and one inside the explorer share one DOM contract."
            Code="@DiagramUsage"
            SourceLabel="emitted svg"
            Source="@Emitted"
@@ -43,7 +37,7 @@ The DOM contract is mermaid's on purpose. Every card is a `g.node` whose id is `
     <Story Name="What a level means"
            Description="`include *` does not mean every element in the model — it means the default set for that kind of view, which is what keeps a container view of one system from being a drawing of all of them. All people and top-level systems for a landscape; the scope plus its direct neighbours for a context; the scope's own containers plus the neighbours of those, with other systems left closed, for a container view.
 
-Drilling is offered only where a view exists to drill to. c4hero picks a level and frames it; this reader cannot invent a view the workspace never declared, so a system with no container view gets no drill affordance — an offer is a promise, the same rule the Archify button follows."
+Drilling is offered only where a view exists to drill to. c4hero picks a level and frames it; this reader cannot invent a view the workspace never declared, so a system with no container view gets no drill affordance — an offer is a promise."
            Code="@LevelsCode"
            Language="csharp">
         <DataTable TItem="LevelRow"
@@ -61,7 +55,7 @@ Drilling is offered only where a view exists to drill to. c4hero picks a level a
     </Story>
 
     <Story Name="The Highlighter's four facets"
-           Description="Tag, technology, team and status — and only the ones **the open view actually draws**. Offering everything in the model was the first version and it was wrong in the way that matters: most of a workspace-wide list matches nothing on the picture in front of you, so almost every chip dimmed the whole diagram. A filter that is mostly dead options is a catalogue. The values below are the container view's; drill into a component and they change, because the picture did.
+           Description="Tag, technology, team and status — and only the ones **the open view actually draws**, so no chip is a dead option that dims the whole diagram. The values below are the container view's; drill into a component and they change, because the picture did.
 
 A facet with nothing in it is absent rather than an empty dropdown, so a view that names no owner gets no Team facet at all.
 
@@ -121,11 +115,6 @@ That behaviour is the whole safeguard. This reader is a second implementation of
         new("accessibility.md#target-sizes-and-text", "Why every pointer gesture here has a control beside it. A box in an SVG is not a focusable target, so clicking to drill in cannot be the only way to drill in."),
         new("color-scheme.md#chart-roles", "One saturated hue, by rule — which is why a C4 level is told apart by weight and glyph here rather than by a hue of its own.")
     ];
-
-    private const string StandingRule =
-        "The C4 model lives beside the architecture chapters in `.arc42/_c4/`, authored in c4hero and referenced from the chapters "
-        + "it documents. It does not replace the `C4Context` and `C4Container` mermaid fences those chapters carry — "
-        + "those stay canonical, and this is a parallel, richer drawing of the same facts. Behind the `c4-diagrams` feature key, off by default.";
 
     private const string DiagramUsage = """
         <C4DiagramView Diagram="@C4LayoutEngine.Build(workspace, view)"

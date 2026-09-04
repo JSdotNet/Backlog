@@ -5,7 +5,6 @@
 <StoryPage Title="Metadata"
            Summary="This repository keeps its own documentation in five folders — `.arc42`, `.domain`, `.backlog`, `.tech` and `.design` — and every addressable heading in them carries a fenced `meta` block. `MetadataView` and `MetadataBadge` read that record and draw it, and each is an addition to a component that was already there. Three subpages go below the record: State, Fields — every kind of metadata on its own, drawn by the smallest component for its value — and Chapter and file, where the two shapes a whole record takes are drawn side by side. What an address in `related`, `depends-on` or `implements` actually is has its own page under Markdown → References, because a reference turns up in the prose of a chapter as well as in its record. Where the record sits and what it may say are the rules linked above."
            Guidelines="@Rules">
-    <Alert Message="@OptInNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="A chapter is a heading, a record, and prose"
            Description="The convention, on a sample that is not invented: it is the top of this repository's own `.tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
@@ -64,7 +63,7 @@ Nothing here knows which of the two it is in. The order of the rows and the ques
     <Story Name="A field is a row, and the row is a component"
            Description="Every field above is the same three elements — a row, the field&#39;s name, and a cell holding whatever its values draw as — and only the cell differs. `MetadataField` is those three elements, and the record renders one per field it has something to say about.
 
-It was five near-identical fragments inside `MetadataView` before that, which meant the `dt`/`dd` pairing a screen reader depends on was rebuilt once per field and had five chances to be got wrong instead of one. What a host reuses it for is a record of its own: the row takes a `BaseClass`, a label class and a value class, so a settings panel or a spec sheet can lay out label-and-value pairs without a second implementation of the pair.
+One component means the `dt`/`dd` pairing a screen reader depends on is built once rather than once per field. What a host reuses it for is a record of its own: the row takes a `BaseClass`, a label class and a value class, so a settings panel or a spec sheet can lay out label-and-value pairs without a second implementation of the pair.
 
 It never asks whether there is anything to say. That question belongs to the caller, because only the caller knows what empty means for its own field — an absent list, a blank scalar and an estimate of zero are three different answers, and zero is an estimate that still shows. The `dl` belongs to the record too: a row that brought its own list would break the pairing for every other row.
 
@@ -259,12 +258,6 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar this block reads."),
         new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes.")
     ];
-
-    private const string OptInNotice =
-        "Everything on this page and its two subpages is opt-in. MarkdownView renders a meta fence as a "
-        + "fenced code block until a host sets RenderKnowledgeMetadata, and MetadataBadge renders the "
-        + "strip it always did until something asks for more — so a surface that adopts none of this is "
-        + "unaffected by all of it.";
 
     /// <summary>One field of the schema, with the line a file writes it as. The
     /// line is not decoration: the shape column claims a syntax, and the line is

@@ -3,9 +3,8 @@
 <PageTitle>Domain type markers — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Type markers"
-           Summary="A subpage of Knowledge base: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words."
+           Summary="A subpage of Knowledge base: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words. The four families the stories are grouped under are headings on this page and nothing in the product: every mark is drawn in currentColor, and what tells one family from another is shape."
            Guidelines="@Rules">
-    <Alert Message="@FamilyNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="Structure"
            Description="What the model is made of, and the family the three primitives were chosen for. Read the six together and the grammar is visible: a boundary means one consistency unit, so `aggregate` and `entity` both draw one and `value-object` draws none; a filled dot means identity, so `entity` has one and `value-object` never can; a diamond means defined by its value, so it is the whole of `value-object` and doubled for the shared set.
@@ -184,13 +183,6 @@ Here the mark is sized in px rather than in em, which is the one case that needs
         new("content-editing.md#knowledge-metadata-blocks", "The fenced block the `type` these marks draw is written in."),
         new("typography-and-layout.md#metadata-lines", "The strip a recognised `type` stops being a row in.")
     ];
-
-    private const string FamilyNotice =
-        "The four families below are headings on this page and nothing in the product. The set groups into "
-        + "Structure, Behaviour, Capability and Language, and it is tempting to tint them — .design/color-scheme.md "
-        + "forbids it: a new language MUST map onto the existing tokens and MUST NOT add a colour, badge families "
-        + "get no per-value tone, and color-band-1..5 is closed to a listed set of repository-identity consumers. "
-        + "So every mark on this page is currentColor, and what tells two families apart is shape.";
 
     /// <summary>One mark, and what its shape is saying. The gloss is the reason
     /// the page exists: a glyph nobody can read the grammar of is decoration.</summary>

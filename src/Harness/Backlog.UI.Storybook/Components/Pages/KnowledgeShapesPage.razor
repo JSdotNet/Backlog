@@ -5,10 +5,11 @@
 <StoryPage Title="Chapter and file"
            Summary="A subpage of Knowledge base: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. Every story shows the `meta` fence its record was parsed from."
            Guidelines="@Rules">
-    <Alert Message="@ShapeNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="One record, both shapes"
            Description="The same parsed block, drawn as a chapter's and as a file's. Nothing about the record decides which: the fields are identical, and the shape is a fact about what the block was written under.
+
+Neither component draws markup of its own. Both are `MetadataView` with the headline decided and, for a file, the answer to what happens when there is no record — so a chapter and a file are the same record, the same rows and the same status control, differing in the one thing that is genuinely different about them. A `meta` fence with no heading above it is neither: a record standing on its own, which `MarkdownBlockView` draws with `MetadataView` directly.
 
 Read the two headlines. On the left the heading *is* the record's first line — a chapter is a part of a document, and its status belongs on the line a reader is already looking at when they wonder whether that part is current. On the right the headline is the file's name and the line of detail under it, because the file's block answers for the whole document and a reader meets it where the document is identified rather than where its prose starts.
 
@@ -43,7 +44,7 @@ The fence is in the disclosure below rather than beside the two columns, and tha
     <Story Name="Chapter metadata"
            Description="Where a reader meets it: reading a knowledge document, under every addressable `##`. `MarkdownView` decides which fence belongs to which heading — the convention is that the block sits directly under the heading it describes, before any prose — and hands the pair here. So the heading is required: a chapter record with no heading to fold into is the base component under a name that promises otherwise.
 
-The status is held to the right edge of the heading's line, and the row never wraps. Wrapping was what used to put a long heading and its status on two rows, which left the answer to “is this current?” underneath the thing it was describing. Now the heading is the item that gives — it shrinks and wraps its own text — and baseline alignment keeps the status on the heading's *first* line rather than drifting down beside its last. The second example is a heading long enough to show it.
+The status is held to the right edge of the heading's line, and the row never wraps: the heading is the item that gives — it shrinks and wraps its own text — and baseline alignment keeps the status on the heading's *first* line rather than drifting down beside its last. The second example is a heading long enough to show it.
 
 `ShowFields` is the reading surface's dial, not a different shape. Off, the record keeps its headline and drops the tier underneath: on a surface that is showing the file itself, those rows are the fence read back as label-and-value pairs, and the status is the part a reader came for.
 
@@ -181,13 +182,6 @@ The first pair is the point of the story and reads left to right. On the left, t
         new("design-principles.md#low-chrome-content-first", "How much of a pane a file's own record may take."),
         new("README.md#status-vocabulary", "The status words either block may carry.")
     ];
-
-    private const string ShapeNotice =
-        "Neither component draws markup of its own. Both are MetadataView with the headline decided and, "
-        + "for a file, the answer to “what if there is no record?” — so a chapter and a file are the same "
-        + "record, the same rows and the same status control, differing in the one thing that is genuinely "
-        + "different about them. A third case is neither: a `meta` fence with no heading above it is a "
-        + "record standing on its own, and MarkdownBlockView draws that with MetadataView directly.";
 
     /// <summary>
     /// One block, read once, drawn by both shapes. Deliberately the same instance

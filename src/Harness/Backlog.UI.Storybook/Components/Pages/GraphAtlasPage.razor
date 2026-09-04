@@ -30,7 +30,7 @@
     </Story>
 
     <Story Name="Every tone"
-           Description="The six marks the ladder can produce, side by side. Colour walks one ramp because the palette carries one saturated hue; shape carries what the ramp cannot, so hold is a square and retired or unrecognised is a hollow ring."
+           Description="The six marks the ladder can produce, side by side. Colour is a step on the ramp and shape carries the rest: hold is a square, and retired or unrecognised is a hollow ring."
            Code="@ToneCode">
         <GraphAtlas Title="Tones"
                     Description="One node per tone, so every mark is on screen at once."
@@ -41,7 +41,8 @@
     </Story>
 
     <Story Name="Nothing to draw"
-           Description="An empty model is a sentence, not a blank canvas. The message is the caller's, because only the caller knows what is missing.">
+           Description="An empty model is a sentence, not a blank canvas. The message is the caller's, because only the caller knows what is missing."
+           Code="@EmptyCode">
         <GraphAtlas Title="Empty atlas"
                     Description="No nodes were handed over."
                     Data="EmptyModel"
@@ -96,7 +97,8 @@
                             Data="LibraryModel"
                             Nodes="LibraryNodes"
                             AriaLabel="Library knowledge atlas"
-                            IndexLabel="Library, grouped" />
+                            IndexLabel="Library, grouped"
+                            CssClass="sb-atlas" />
             }
         </div>
     </Story>
@@ -116,6 +118,16 @@
         {
             <GraphAtlas Data="LibraryModel" Nodes="LibraryNodes" AriaLabel="Library knowledge atlas" />
         }
+        """;
+
+    private const string EmptyCode = """
+        @* The sentence comes in with the model: emptyMessage is what the canvas
+           draws when nodes is empty, and no Nodes means no index beside it. *@
+        <GraphAtlas Title="Empty atlas"
+                    Description="No nodes were handed over."
+                    Data="@(new { nodes = Array.Empty<object>(), edges = Array.Empty<object>(), emptyMessage = "Nothing has been mapped yet." })"
+                    AriaLabel="Empty atlas"
+                    IndexLabel="Nothing" />
         """;
 
     private const string IndexCode = """

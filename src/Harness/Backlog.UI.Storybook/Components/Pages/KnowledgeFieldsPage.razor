@@ -3,9 +3,8 @@
 <PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Fields"
-           Summary="A subpage of Knowledge base: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
+           Summary="A subpage of Knowledge base: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eleven stories share nine shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
            Guidelines="@Rules">
-    <Alert Message="@ShapeNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="kind"
            Description="What kind of thing the entry is, out of a closed vocabulary — `format`, `runtime`, `framework`, `library`. That closedness is the fact worth drawing, so it is a classification chip rather than a value: a bare `framework` in a code span could have come from any field in the block, and an outlined chip says “this entry has been filed as one of a small number of things”.
@@ -49,7 +48,7 @@ Zero is an estimate and draws its badge; absent draws nothing. Nobody has sized 
     </Story>
 
     <Story Name="issue"
-           Description="A GitHub issue, drawn through the family the product already draws GitHub references with. `MetadataIssueLink` renders nothing of its own now: it maps the two forms a knowledge file writes onto an `IntegrationLinkRef` and hands it to `IntegrationLink`, which is where the provider mark, the label and the repository beside it come from. Three application screens still hand-roll `.badge--gh` for this shape; what this settles is that a knowledge field is not a fourth copy of it.
+           Description="A GitHub issue, drawn through the family the product already draws GitHub references with. `MetadataIssueLink` renders nothing of its own: it maps the two forms a knowledge file writes onto an `IntegrationLinkRef` and hands it to `IntegrationLink`, which is where the provider mark, the label and the repository beside it come from.
 
 Only one of the two forms can be followed. A URL is an address a browser can be handed; the `owner/repo#number` shorthand needs a remote this library knows nothing about, and guessing one would produce a link to somewhere the issue is not. So the shorthand arrives with no URL and gets the inert span `IntegrationLink`'s tri-state already has for that case — not link-coloured and not reachable by tab, because a reference nobody can follow should not invite a click or take a tab stop to refuse one.
 
@@ -165,7 +164,7 @@ A key is not a status, so no slug is passed. `FeatureStatusBadge` derives its mo
 
 Explicitly not references: the flag lives in the application's own catalog rather than in a knowledge folder, so there is no chapter to address, no graph edge, and no key this library could validate. And an identity link rather than a status mapping — `status` says how settled the written model is, a flag's own maturity says whether the running behaviour can be relied on, and nothing here infers one from the other.
 
-Until it was modelled it was drawn as an unrecognised field: twelve `.domain` chapters write it today, and every one of them showed up under Extra, which is the story below."
+Twelve `.domain` chapters write it today. A key the reader does not model lands under Extra instead, which is the story below."
            Code="@KeyCode">
         @Field("feature-flag", "feature-flag: [inbox-pane, inbox-filters]",
             ".domain features.md Feature and Sub-feature chapters. Twelve write it today.", "MetadataKeyList",
@@ -209,15 +208,6 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
         new("typography-and-layout.md#metadata-lines", "How a field and its value sit above the prose they describe."),
         new("color-scheme.md#badge-and-chip-tones", "The tone a classification, an estimate, an alias and a flag key are drawn in.")
     ];
-
-    private const string ShapeNotice =
-        "One component per value shape, not one per field. Eleven stories share nine shapes: a scalar, "
-        + "a list of plain strings, a list of addresses, a list of aliases, a list of application keys, "
-        + "a classification, an estimate, a GitHub reference, and the keys nobody modelled. Which shape a "
-        + "field has is the thing worth knowing about it — two fields with the same shape are drawn by the "
-        + "same component and cannot drift apart. Three fields draw no visible label, because their value "
-        + "already says which field it is; the name stays in the markup for anyone listening rather than "
-        + "looking.";
 
     /// <summary>
     /// The frame every story on this page shares: the line an author writes, which

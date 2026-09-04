@@ -114,7 +114,7 @@
     </Story>
 
     <Story Name="Section header in a host's own classes"
-           Description="Every class the header draws is a parameter whose default is the library's own name, so a pane that already has this shape in its own stylesheet hands the names over and keeps the markup it had. A blank one leaves that element with no class attribute at all — which is what the two dialogs need, because they style their heading by element — and a blank actions class drops the wrapper so the controls stay direct children of the header. Element is the same kind of hook one level up: the AI panel drew this shape in a div, and adopting the component was not allowed to change that."
+           Description="Every class the header draws is a parameter whose default is the library's own name, so a pane that already has this shape in its own stylesheet hands the names over and keeps the markup it had. A blank one leaves that element with no class attribute at all, for a host that styles its heading by element, and a blank actions class drops the wrapper so the controls stay direct children of the header. Element is the same kind of hook one level up, for a host whose stylesheet expects the header to be a div."
            Code="@SectionHookCode">
         <div class="sb-stack">
             <SectionHeader Element="div"
@@ -132,7 +132,7 @@
     </Story>
 
     <Story Name="FoldControl"
-           Description="ChildContent is the region that folds, and the trigger shows and hides it. It used to be the label instead, so this example rendered a Toggle and a TextField inside the <button> and clicking folded nothing — the control looked misaligned because form controls were being laid out inside a trigger, and looked dead because there was no region."
+           Description="ChildContent is the region that folds, and the trigger shows and hides it. Label is the trigger's text: form controls go in the region, never in the label, because a control laid out inside a button is neither reachable nor aligned."
            Code="@FoldCode">
         <div class="sb-stack">
             <FoldControl Expanded="_foldOpen"
@@ -316,7 +316,7 @@ Left and Right still describe the separator rather than the number, so here Left
                        TitleId="app-update-title"
                        Title="Update Backlog">
             <Actions>
-                <IconButton AriaLabel="Close update window" CssClass="btn--ghost">x</IconButton>
+                <IconButton AriaLabel="Close update window">x</IconButton>
             </Actions>
         </SectionHeader>
         """;

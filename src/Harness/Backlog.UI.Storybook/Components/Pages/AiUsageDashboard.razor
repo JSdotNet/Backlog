@@ -3,7 +3,7 @@
 <PageTitle>AI usage and cost — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="AI usage and cost"
-           Summary="The metric components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."
+           Summary="The metric components composed into the view they were built for: what AI cost this fortnight, on what, and for whom. Each piece on its own — and its unavailable, loading and empty states — is on Usage metrics."
            Guidelines="@Rules">
 
     <Story Name="The whole view"
@@ -104,78 +104,6 @@ Every figure is consistent with every other: the tiles, the bars, the part-to-wh
         </div>
     </Story>
 
-    <Story Name="Before a credential exists"
-           Code="@UnavailableCode"
-           Description="What the same view looks like on a machine where nobody has configured a usage API yet — which is every machine, until someone does. Both usage clients answer an availability question before a data question, and this is that answer rendered.
-
-It is not an error state and it does not use the error surface. Each tile keeps its label so the reader can still see what the dashboard would show, and the reason is the provider's own sentence, because it is the only thing on screen naming the credential that is missing.">
-        <div class="sb-dashboard">
-            <MetricGrid Label="AI usage and cost, unavailable" TestId="dashboard-unavailable-tiles">
-                <MetricTile Label="Spend"
-                            Emphasis="true"
-                            Status="MetricStatusKind.Unavailable"
-                            StatusMessage="No Claude admin key is configured. Usage and cost reporting needs an admin key for the organization."
-                            TestId="dashboard-unavailable-spend" />
-
-                <MetricTile Label="Copilot seats"
-                            Status="MetricStatusKind.Unavailable"
-                            StatusMessage="@UsageFixtures.NoCredential"
-                            TestId="dashboard-unavailable-seats" />
-            </MetricGrid>
-
-            <div class="sb-dashboard-panel">
-                <h3 class="sb-dashboard-panel__title">Copilot seats</h3>
-                <MetricBreakdown Rows="NoRows"
-                                 AriaLabel="Copilot seats"
-                                 NameHeading="Seat"
-                                 Status="MetricStatusKind.Unavailable"
-                                 StatusMessage="@UsageFixtures.NoCredential"
-                                 TestId="dashboard-unavailable-table" />
-            </div>
-        </div>
-    </Story>
-
-    <Story Name="While it loads, and when the period is empty"
-           Code="@LoadingCode"
-           Description="The two states between “no credential” and “here are your figures”. Loading keeps the labels and the layout, so the grid does not reflow under the reader when the numbers arrive.
-
-Empty is a fact about the period rather than a failure, and it says so in those terms. A team that took a fortnight off has no usage, and a dashboard that renders that as an error trains people to ignore its errors.">
-        <div class="sb-dashboard">
-            <MetricGrid Label="AI usage and cost, loading" TestId="dashboard-loading-tiles">
-                <MetricTile Label="Spend" Emphasis="true" Status="MetricStatusKind.Loading" TestId="dashboard-loading-spend" />
-                <MetricTile Label="Input served from cache" Status="MetricStatusKind.Loading" TestId="dashboard-loading-cache" />
-                <MetricTile Label="Total tokens" Status="MetricStatusKind.Loading" TestId="dashboard-loading-tokens" />
-                <MetricTile Label="Sessions" Status="MetricStatusKind.Loading" TestId="dashboard-loading-sessions" />
-            </MetricGrid>
-
-            <div class="sb-dashboard-split">
-                <div class="sb-dashboard-panel">
-                    <h3 class="sb-dashboard-panel__title">Where the tokens went</h3>
-                    <MetricBreakdownBar Parts="NoParts"
-                                        Label="By kind, cheapest first"
-                                        EmptyMessage="No tokens in this period."
-                                        TestId="dashboard-empty-kinds" />
-                </div>
-
-                <div class="sb-dashboard-panel">
-                    <h3 class="sb-dashboard-panel__title">Where the money went</h3>
-                    <MetricBars Points="NoPoints"
-                                Label="@($"Per day, in {UsageFixtures.Currency}")"
-                                EmptyMessage="No spend in this period."
-                                TestId="dashboard-empty-cost" />
-                </div>
-            </div>
-
-            <div class="sb-dashboard-panel">
-                <h3 class="sb-dashboard-panel__title">By model</h3>
-                <MetricBreakdown Rows="NoRows"
-                                 AriaLabel="Usage and cost by model"
-                                 NameHeading="Model"
-                                 TestId="dashboard-empty-models" />
-            </div>
-        </div>
-    </Story>
-
     <Story Name="Where the data comes from"
            Description="This page is drawn from figures written out by hand in the storybook, not from the usage clients — the storybook references the component library and the service defaults and nothing else, and that missing reference is what proves the library carries no domain.
 
@@ -204,13 +132,8 @@ The shapes are copied, though, so the mapping to a real report is direct:">
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#chart-roles", "The hues this view's series are drawn in."),
-        new("design-principles.md#ai-first-surfaces", "What the product owes a reader about what AI cost."),
-        new("interaction-guidelines.md#empty-loading-and-error-states", "What the view shows before a credential, and while it loads.")
+        new("design-principles.md#ai-first-surfaces", "What the product owes a reader about what AI cost.")
     ];
-
-    private static readonly IReadOnlyList<MetricRow> NoRows = [];
-    private static readonly IReadOnlyList<MetricPart> NoParts = [];
-    private static readonly IReadOnlyList<MetricPoint> NoPoints = [];
 
     private sealed record Mapped(string OnPage, string From);
 
@@ -222,7 +145,7 @@ The shapes are copied, though, so the mapping to a real report is direct:">
         new("By model", "ClaudeUsageResult.Model, with ClaudeCodeModelUsage.EstimatedCost"),
         new("By person, and the sessions and commits under each", "ClaudeCodeDailyUsage — Actor, Sessions, Commits, PullRequests"),
         new("Copilot seats", "CopilotSeat — Login, PlanType, LastActivityEditor, LastActivityAt"),
-        new("Every “not available” state on this page", "ClaudeUsageAvailability.Reason and CopilotUsageAvailability.Reason"),
+        new("The “not available” states, shown per piece on Usage metrics", "ClaudeUsageAvailability.Reason and CopilotUsageAvailability.Reason"),
         new("The budget cap", "Nothing yet — no setting holds a spend cap, so the meter's Max is the one figure here a host would have to introduce")
     ];
 
@@ -245,33 +168,5 @@ The shapes are copied, though, so the mapping to a real report is direct:">
         <MetricBreakdownBar Parts="@byKind" Label="By kind, cheapest first" />
         <MetricBars Points="@byDay" Label="Cost per day" />
         <MetricBreakdown Rows="@bySeat" AriaLabel="Copilot seats" NameHeading="Seat" />
-        """;
-
-    private const string UnavailableCode = """
-        @* Status instead of Value. The label stays, so the reader still sees what would
-           be here; the message is the caller's, because only the caller knows which
-           credential is missing. *@
-        <MetricTile Label="Spend"
-                    Emphasis="true"
-                    Status="MetricStatusKind.Unavailable"
-                    StatusMessage="No Claude admin key is configured." />
-
-        <MetricBreakdown Rows="NoRows"
-                         AriaLabel="Copilot seats"
-                         NameHeading="Seat"
-                         Status="MetricStatusKind.Unavailable"
-                         StatusMessage="@message" />
-        """;
-
-    private const string LoadingCode = """
-        @* Loading is a status, so the tile keeps its label and shows nothing where the
-           figure will be. Empty is not: the data arrived and said nothing, which is a
-           fact about the period, so it is an EmptyMessage on the component that would
-           have drawn it. *@
-        <MetricTile Label="Spend" Emphasis="true" Status="MetricStatusKind.Loading" />
-
-        <MetricBreakdownBar Parts="NoParts"
-                            Label="By kind, cheapest first"
-                            EmptyMessage="No tokens in this period." />
         """;
 }
