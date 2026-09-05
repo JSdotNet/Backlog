@@ -1,0 +1,188 @@
+name: Deploy Sync
+
+# Provisions and deploys the cloud sync tier (local ADR 0005) from infra/sync/
+# with the Azure Developer CLI.
+#
+# Unlike Deploy Foundry, this workflow runs on a GitHub-hosted runner and
+# authenticates with an OIDC federated credential: there is no publish profile,
+# no service principal secret, and nothing to rotate. The federated credential
+# and the resource group are created by hand once — see docs/deployment/sync.md.
+
+on:
+  push:
+    branches:
+      - main
+    # Only the paths that can change what is deployed. Without this, every push
+    # to main would redeploy a service that did not change.
+    paths:
+      - 'infra/sync/**'
+      - 'azure.yaml'
+      - 'src/Modules/Sync/**'
+      - 'src/Aspire/Backlog.Aspire.ServiceDefaults/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/deploy-sync.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to run'
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - provision
+          - deploy
+      environment_name:
+        description: 'GitHub environment; also names the azd environment'
+        required: true
+        default: backlog-sync
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sync-${{ inputs.environment_name || 'backlog-sync' }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  sync:
+    name: Provision and deploy Sync
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name || 'backlog-sync' }}
+    permissions:
+      contents: read
+      # Required for the OIDC federated credential. This is the whole reason no
+      # secret is stored: the runner mints a short-lived token Azure trusts.
+      id-token: write
+
+    env:
+      # A push to main always does the real thing; a manual run picks.
+      DEPLOY_MODE: ${{ inputs.mode || 'deploy' }}
+      AZURE_ENV_NAME: ${{ inputs.environment_name || 'backlog-sync' }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify deployment target
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Fail before touching Azure, with the name of the variable that is
+          # missing, rather than letting azd fail on a half-configured environment.
+          $required = @{
+            AZURE_CLIENT_ID       = $env:AZURE_CLIENT_ID
+            AZURE_TENANT_ID       = $env:AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID = $env:AZURE_SUBSCRIPTION_ID
+            AZURE_RESOURCE_GROUP  = $env:AZURE_RESOURCE_GROUP
+            AZURE_LOCATION        = $env:AZURE_LOCATION
+          }
+
+          $missing = $required.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key }
+          if ($missing) {
+            Write-Output "::error::Set these variables on the GitHub environment '$env:AZURE_ENV_NAME': $($missing -join ', '). See docs/deployment/sync.md."
+            exit 1
+          }
+
+          if ($env:AZURE_SUBSCRIPTION_ID -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+            Write-Output "::error::AZURE_SUBSCRIPTION_ID must be a GUID."
+            exit 1
+          }
+
+          if ($env:AZURE_RESOURCE_GROUP -notmatch '^[A-Za-z0-9._()-]{1,90}$') {
+            Write-Output "::error::AZURE_RESOURCE_GROUP contains characters Azure does not allow in a resource group name."
+            exit 1
+          }
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up azd
+        uses: Azure/setup-azd@0b7e3a35ab00f2eee7080c845eb39c3f0ebfa553 # v2.4.0
+
+      - name: Sign in to Azure
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          azd auth login `
+            --client-id $env:AZURE_CLIENT_ID `
+            --tenant-id $env:AZURE_TENANT_ID `
+            --federated-credential-provider github
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::Federated sign-in failed. Confirm the app registration has a federated credential for this repository and ref, and that AZURE_CLIENT_ID/AZURE_TENANT_ID are correct."
+            exit 1
+          }
+
+      - name: Select azd environment
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # The runner is fresh every run, so the environment is recreated rather
+          # than restored. Everything it needs comes from the GitHub environment
+          # variables above; nothing is carried between runs.
+          azd env new $env:AZURE_ENV_NAME `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --location $env:AZURE_LOCATION `
+            --no-prompt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          # infra/sync/main.bicep is resource-group scoped, so azd deploys into an
+          # existing group instead of creating one.
+          azd env set AZURE_RESOURCE_GROUP $env:AZURE_RESOURCE_GROUP
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Preview infrastructure changes
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          azd provision --preview --no-prompt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Provision infrastructure
+        if: env.DEPLOY_MODE == 'provision' || env.DEPLOY_MODE == 'deploy'
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          azd provision --no-prompt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Deploy the sync service
+        if: env.DEPLOY_MODE == 'deploy'
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          azd deploy sync --no-prompt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Write deployment summary
+        if: always()
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          $endpoint = 'not resolved'
+          $values = azd env get-values --output json 2>$null | ConvertFrom-Json
+          if ($values -and $values.SYNC_SERVICE_URI) { $endpoint = $values.SYNC_SERVICE_URI }
+
+          @(
+            "### Sync deployment"
+            ""
+            "- Mode: ``$env:DEPLOY_MODE``"
+            "- Environment: ``$env:AZURE_ENV_NAME``"
+            "- Subscription: ``$env:AZURE_SUBSCRIPTION_ID``"
+            "- Resource group: ``$env:AZURE_RESOURCE_GROUP``"
+            "- Region: ``$env:AZURE_LOCATION``"
+            "- Service endpoint: ``$endpoint``"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

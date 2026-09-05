@@ -87,3 +87,9 @@ build/.local/
 # directory rather than its contents because git does not look inside an excluded
 # directory, so `!tools/archify/bin/**` on its own would keep it invisible.
 !tools/archify/bin/
+
+# azd environment state (azure.yaml, infra/sync/). Holds the resolved
+# subscription, resource group and every provisioning output for a named
+# environment, per developer machine. Deployment targets that matter are written
+# down in docs/deployment/sync.md instead.
+.azure/
