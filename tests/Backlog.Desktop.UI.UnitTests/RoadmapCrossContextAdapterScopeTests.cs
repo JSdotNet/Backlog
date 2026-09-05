@@ -2,6 +2,7 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
@@ -58,7 +59,7 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton(store);
         services.AddSingleton<ITaskRepository>(_ => new RootedSqliteTaskRepository(() => store.RootDirectory));
-        services.AddSingleton<IRoadmapPlanRepository>(_ => new RootedJsonRoadmapPlanRepository(() => store.RootDirectory));
+        services.AddSingleton<IRoadmapPlanRepository>(_ => new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory));
         // Both hosts register the GitHub settings store and then the Backlog
         // adapter over it, so Import can resolve a plan's `repo:` names. It is
         // here for the same reason everything else is: a graph missing it is not

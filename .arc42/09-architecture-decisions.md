@@ -109,7 +109,10 @@ related: [".arc42/04-solution-strategy.md"]
   replaces one-markdown-file-per-task plus its derived JSON index and order sidecar
   with a single local SQLite database, so no two files can disagree about a task,
   while keeping a task's content as markdown and leaving the published entry text
-  language untouched.
+  language untouched. Amended on 2026-09-05: the record originally gave the roadmap
+  plan as its counter-example, a document that stayed JSON on disk. The plan is a
+  `roadmap_plan` row in the same database now — folded in for local ADR 0005's
+  file-sync hazard, not for anything the original reasoning got wrong.
 - **[ADR 0004 — One generated local database holds the derived knowledge layer; markdown stays canonical](adr/0004-knowledge-index-is-a-generated-local-database.md)**
   *(proposed)*: replaces the committed `_meta/*.json` indexes with a single
   generated, uncommitted SQLite database per knowledge repository, so branches stop
@@ -144,7 +147,10 @@ related: [".arc42/04-solution-strategy.md"]
   by bookkeeping — permits exactly three shapes, forbids everything non-additive, and
   makes the first non-additive change the trigger for a versioned mechanism. Written
   to discharge D3 before local ADR 0005's `updated_at` and `deleted_at` reached a
-  table holding live user data.
+  table holding live user data. Since 2026-09-05 it reaches the roadmap plan too,
+  which it explicitly did not when written: *creating* the `roadmap_plan` table falls
+  under ADR 0003's idempotent `IF NOT EXISTS` DDL rather than one of the three
+  column-level shapes, but any column added to it later is this record's business.
 - **[ADR 0007 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0007-import-reuses-the-entry-text-grammar.md)**
   *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
   not a format of its own, so `EntryTextParser` stays the only grammar the product has

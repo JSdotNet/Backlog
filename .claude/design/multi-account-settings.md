@@ -91,12 +91,18 @@ these additions and one correction.
    `Program.cs:110-113`) — a captive dependency in both hosts.
 
 **Correction to the brief:** the brief asks that migration "satisfy `.arc42/adr/0006`".
-ADR 0006 governs **the local SQLite store**, and its own Open Questions say so:
-*"Whether the roadmap plan needs the same record. `_roadmap/plan.json` is read and
-written whole as one document, so schema change there is a parsing concern rather than
-a DDL one, and this record does not reach it."* `repos.json`, `github.json` and
-`claude.json` are in exactly that category — read and written whole. ADR 0006 does not
-literally reach them.
+ADR 0006 governs **the local SQLite store** — its three permitted shapes are all DDL
+against a table, so a document that is read and written whole is outside it by
+construction. `repos.json`, `github.json` and `claude.json` are exactly that: JSON
+documents on disk, per-device, rewritten entire. ADR 0006 does not literally reach
+them, and shape change there is a parsing concern rather than a migration one.
+
+*(This paragraph used to make the point by quoting ADR 0006's open question about the
+roadmap plan, which was the other document in that category. That quotation is gone:
+the plan moved into `backlog.db` on 2026-09-05 and ADR 0006 does now reach it. The
+argument above stands on its own without it — and the settings files stay JSON
+precisely because they are per-device and must not sync, which was never true of the
+plan.)*
 
 That is not a licence to be sloppy. The registry split already adopted ADR 0006's
 discipline **voluntarily** — additive fields, idempotent by construction, deliberately

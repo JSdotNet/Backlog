@@ -7829,7 +7829,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 308,
+          "line": 314,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -7873,7 +7873,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 148,
+          "line": 150,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -7891,7 +7891,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 296,
+          "line": 302,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -7961,7 +7961,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 173,
+          "line": 179,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -7980,7 +7980,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 145,
+          "line": 151,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -8028,7 +8028,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 73,
+          "line": 79,
           "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",

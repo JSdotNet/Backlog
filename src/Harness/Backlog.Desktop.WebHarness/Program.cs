@@ -17,6 +17,7 @@ using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
@@ -61,10 +62,10 @@ builder.Services.AddSingleton<ITaskRepository>(sp =>
 builder.Services.AddTasksModule();
 
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
-// the host picks the adapter. One JSON document under the same storage root,
+// the host picks the adapter. One document row in the same database the tasks use,
 // following the same folder.
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
-    new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+    new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
