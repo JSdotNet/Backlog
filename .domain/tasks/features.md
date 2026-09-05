@@ -623,7 +623,9 @@ Join a second machine to the same backlog by entering a short code shown on the
 first, once. There is no account and no sign-in: personal use requires no login
 (`.arc42/02-constraints.md`), so devices are paired to each other rather than to
 an identity. A paired device holds its own credential and can reach exactly one
-person's tasks and no one else's.
+person's tasks and no one else's — a boundary the sync service enforces by
+scoping every query to the owner the credential names, not one the cloud store
+enforces on its own.
 
 ## Roadmap planning
 

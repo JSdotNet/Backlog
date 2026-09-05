@@ -11,7 +11,7 @@ uniformly. Shared data types define the vocabulary exchanged between them.
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".domain/capture/domain.md#source-adapter"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".arc42/06-runtime-view.md#copilot-app-session-capture", ".arc42/08-crosscutting-concepts.md#session-record-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/capture/domain.md#source-adapter", ".domain/sessions/domain.md#session-log"]
 ```
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
@@ -28,8 +28,34 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
   workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
-- **Optional cloud sync** for multi-device. Conflict resolution:
-  **new items always create; edits are last-write-wins**.
+- **Optional cloud sync** for multi-device, carrying three kinds of state: the
+  Task aggregate, session records, and the phone's captures. A capture is a task
+  in the making, so it travels as a task document rather than as a third shape.
+  Conflict resolution for tasks: **new items always create; edits are
+  last-write-wins**. Session records do not reconcile at all — only the machine
+  that ran a session writes records for it, so there is never a second version to
+  discard and the lost-edit failure mode does not reach them.
+- **Four kinds of state deliberately stay on the machine** — agent transcripts
+  (the sanitization boundary that lets session records travel at all), workspace
+  settings (they describe one machine's disk), feature flags (per-device by
+  design, so an experiment on one machine is not a change on both), and the
+  derived knowledge layer (regenerated on the second machine, not shipped to it).
+  The roadmap plan is on neither list: it has the same file-sync hazard as the
+  database and no answer yet.
+- **Two containers in the cloud replica** — `tasks` and `sessions`, both
+  partitioned on `/ownerId`. Separate because each wants its own change feed, its
+  own indexing policy, and its own retention, and because serverless billing
+  levies no per-container charge to trade against.
+- **Retention is a store setting, not code.** Container TTL expires task
+  tombstones after 180 days and whole session records after 12 months. Nothing
+  reaps, so there is no scheduled job to fail silently at exactly the moment
+  nobody is watching — which is when a code-based reaper stops running.
+- **The sync service, not the store, keeps a device inside its own data.** The
+  service holds an account-scoped managed identity and can see every partition of
+  both containers; what confines a device is service code reading the `ownerId`
+  out of that device's JWT and refusing to issue a query outside the partition it
+  names. The isolation is one check in one service, not a property of the storage
+  layer.
 - **Never file-sync the local store.** The workspace root is a local folder. A
   binary SQLite database in OneDrive or any other file-sync product is
   unmergeable, and its WAL sidecars sync out of step with it, so committed
@@ -47,14 +73,22 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 ## Task Sync
 
 ```meta
-status: proposed
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/tasks/domain.md#task"]
+status: active
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/capture/domain.md#capture", ".domain/sessions/domain.md#session-log", ".domain/tasks/domain.md#task"]
 ```
 
-How the general sync position above is realized for the Task aggregate. Proposed;
-see local ADR 0005. The Task aggregate is the only thing synced in this pass —
-the roadmap plan, workspace settings, feature flags, and the knowledge layer stay
-local.
+How the general sync position above is realized for the Task aggregate. The
+direction is settled by local ADR 0005, which is accepted; none of the cloud side
+is built yet.
+
+Tasks are one of three kinds of state that sync. Session records travel on
+different terms, covered under
+`.arc42/08-crosscutting-concepts.md#session-record-sync`; the phone's
+captures are not a third shape at all, because a capture becomes a task document
+in the same `tasks` container the moment it is pushed. What stays on the machine
+— agent transcripts, workspace settings, feature flags, and the derived
+knowledge layer — is listed under
+`.arc42/08-crosscutting-concepts.md#storage-and-sync`.
 
 **Reconciliation between equals, not client and server.** Each device's SQLite
 database is canonical for that device. Azure holds a replica and the change feed
@@ -64,7 +98,7 @@ over it, and carries no invariant, no query path, and no domain logic.
 sequenceDiagram
     participant A as Desktop A (canonical)
     participant S as Sync Service
-    participant C as Cosmos DB (replica)
+    participant C as Cosmos DB (tasks container)
     participant B as Desktop B (canonical)
 
     Note over A: Edit applied locally first — never blocks on network
@@ -91,10 +125,50 @@ sequenceDiagram
 - **Pairing, not accounts.** A first device generates an `ownerId`; a second is
   paired with a short code entered once, out of band. Each holds its own
   registration credential in the OS credential store and exchanges it for a
-  short-lived JWT. `ownerId` is the Cosmos partition key, so a token reaches
-  exactly one person's partition.
+  short-lived JWT. `ownerId` is the Cosmos partition key of both containers.
+- **The service, not the partition key, is what keeps a device inside its own
+  data.** The partition key organizes the store; it authorizes nothing. Access to
+  Cosmos is a managed identity with an account-scoped data-plane role, so as far
+  as Cosmos is concerned the service may read every partition. What confines a
+  device is the service reading `ownerId` out of the presented JWT and refusing
+  to issue a query outside that partition — one check, in one service, standing
+  in front of a credential that can see everything. Cosmos cannot authorize a
+  device-session principal it has never heard of, so this is the only place the
+  check can live.
+- **Tombstones expire by container TTL**, at 180 days, rather than by anything
+  the service runs. The number is chosen against how long a device may plausibly
+  stay offline: a tombstone that expired first would let a returning device push
+  its still-live copy and resurrect a task the person deleted.
 - **Offline is unchanged.** Losing connectivity costs cross-device freshness and
   nothing else.
+
+## Session Record Sync
+
+```meta
+status: active
+related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/sessions/domain.md#session-log"]
+```
+
+Session records replicate through the same service and the same pairing identity,
+into the `sessions` container, and reconcile on different terms — which is not a
+special case bolted on, but a consequence of who writes them.
+
+- **Single-writer, so last-write-wins does not apply.** A session ran on one
+  machine and only that machine holds the evidence for it, so there is never a
+  second version to discard. The conflict policy under
+  `.arc42/08-crosscutting-concepts.md#task-sync`, and the silent loss it accepts,
+  is not reachable here.
+- **Machine-stamped and append-only.** Each record names the machine that wrote
+  it, and the service accepts a record only from the machine it names. A session
+  that moves gets a later record rather than an edit to an earlier one, so the
+  container needs neither a tombstone nor an `updated_at`.
+- **The sanitization boundary is a whitelist, not a filter.** A record carries
+  session id, machine id, repository alias (not path), branch, started at, last
+  activity at, turn count, and duration count. Never prompts, never tool output,
+  never file contents. A filter that misses a field leaks it; a whitelist that
+  misses one merely omits it, and adding a field is a decision taken in local
+  ADR 0005 rather than settled in the pushing code.
+- **Retention is a 12-month container TTL**, and nothing else removes a record.
 
 ## Knowledge Index
 
