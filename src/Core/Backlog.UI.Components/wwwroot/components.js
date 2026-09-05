@@ -829,6 +829,25 @@
         dot.setAttribute('r', snap ? String(TASK_LINK_DOT_R) : '0');
     }
 
+    // A right-click on a row asks for its menu, and asking must not move the
+    // focus. The browser's default for a mousedown is to focus the nearest
+    // focusable thing under the pointer — the row's own Open button — which is a
+    // focusout from wherever the reader was, and a host that closes a pane when
+    // the focus leaves it (the desktop pane's open entry) would close it on the
+    // way to a menu that is very likely about that entry. The default is refused
+    // here, at the press, because by the time the contextmenu event arrives the
+    // host has already been told the focus left. A text field keeps its press:
+    // its own menu, with Paste on it, is the one a right-click there wants.
+    document.addEventListener('mousedown', (event) => {
+        if (event.button !== 2) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.closest('.task-item[data-task-id]')) return;
+        if (target.closest('input, textarea, [contenteditable="true"]')) return;
+
+        event.preventDefault();
+    });
+
     document.addEventListener('pointerdown', (event) => {
         // The primary button only. A right-click opens a menu and a middle-click is
         // not a gesture this list claims.

@@ -94,11 +94,19 @@
 
    aria-grabbed describes what the row *is* rather than which element the pointer
    has to start on. *@
+@* The right-click is heard on the row itself, so it lands wherever on the
+   row the pointer is — the circle, the title, the metadata line — and it takes
+   the browser's own menu away only while there is something to put in its
+   place. See ContextMenuArmed: with nobody listening, or with the title or the
+   body open as a text field, the row stays out of it and the browser's menu is
+   the one that opens. *@
 <li class="@ClassValue"
     data-testid="@TestId"
     data-task-id="@Task.Id"
     data-draggable="@(Draggable ? "true" : null)"
-    aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)">
+    aria-grabbed="@(Draggable ? (Dragging ? "true" : "false") : null)"
+    @oncontextmenu="OnContextMenuAsync"
+    @oncontextmenu:preventDefault="ContextMenuArmed">
 
     @if (CanSelect)
     {
@@ -811,6 +819,28 @@
     /// </summary>
     [Parameter]
     public EventCallback<string> OnDelete { get; set; }
+
+    /// <summary>
+    /// Raised by a right-click on the row: this task, by id, and where the
+    /// pointer was.
+    /// <para>
+    /// The gesture and nothing else. A row cannot know what a host would put in a
+    /// menu — the desktop pane's answer is My Day, a due date and a delete; a
+    /// document's would be something else — so the row reports that a menu was
+    /// asked for and where, and the host draws one. <c>ContextMenu</c> in the
+    /// Menus folder is the one it is expected to reach for, and the storybook
+    /// shows the two wired together.
+    /// </para>
+    /// <para>
+    /// It is also what takes the browser's own menu away. With nobody listening
+    /// the right-click keeps its default, because a row that swallowed the gesture
+    /// and offered nothing in its place would have broken right-click for no
+    /// one's benefit. The same holds while the title or the body is a text field:
+    /// a field's own menu is the one with Paste on it, and it stays.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<TaskContextMenu> OnContextMenu { get; set; }
 
     /// <summary>
     /// Whether the title is a field from the start, with no pencil to press first.
@@ -1663,6 +1693,19 @@
     private Task OnSelectionClickAsync(MouseEventArgs e) =>
         SelectionChanged.InvokeAsync(
             new TaskSelectionToggle(Task.Id, !SelectionChecked, e.ShiftKey));
+
+    /// <summary>Whether a right-click is this row's to answer: somebody is
+    /// listening, and no text field on the row is open. Read at render time by
+    /// the preventDefault directive on the row, which is why it is a property the
+    /// handler shares rather than a check inside the handler alone — the browser
+    /// has to be told before the press whether its menu is wanted.</summary>
+    private bool ContextMenuArmed => OnContextMenu.HasDelegate && !RenameOpen && !_editingBody;
+
+    // Task is this row's parameter here, so the type has to be spelled out.
+    private System.Threading.Tasks.Task OnContextMenuAsync(MouseEventArgs e) =>
+        ContextMenuArmed
+            ? OnContextMenu.InvokeAsync(new TaskContextMenu(Task.Id, e.ClientX, e.ClientY))
+            : System.Threading.Tasks.Task.CompletedTask;
 
     private string ClassValue => string.Join(' ', new[]
     {
