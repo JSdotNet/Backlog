@@ -86,30 +86,41 @@ The managed model endpoint the product's own AI features call.
 ```meta
 status: candidate
 type: service
-related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
+related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/08-crosscutting-concepts.md#session-record-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
 ```
 
-The cloud data store for the task and session replicas.
+The cloud data store for cross-device coordination state: serverless, one account,
+one database, **two containers**.
 
-- **Used for** — two containers in one serverless account, both partitioned on
-  `/ownerId`: `tasks` (the replicated Task aggregate and its tombstones) and
-  `sessions` (machine-stamped, append-only session records). Buffered webhook
-  events and the machine registry are still ahead of it.
-- **Why** — serverless bills per request with no floor, the aggregate is already
-  a document, and the change feed *is* the sync protocol rather than a polling
-  query plus a watermark table. Local ADR 0005 closed the choice against
-  PostgreSQL that `.arc42/04-solution-strategy.md#technology-choices` had left
-  open, and gives the reasoning in full.
+- **Used for** — the replica the devices reconcile through. `tasks` holds the
+  Task aggregate, and the phone's captures land in it as task documents rather
+  than as a shape of their own; `sessions` holds machine-stamped, append-only
+  session records. Both are partitioned on `/ownerId`. Buffered webhook events and
+  the machine registry sit on the same account with their own short expiries
+  (7 days / 24 hours). Two containers and not one because each wants its own
+  change feed, its own indexing policy, and its own retention — and serverless
+  levies no per-container charge to trade against.
+- **Why** — settled by local ADR 0005 rather than left open. **TTL is the
+  retention mechanism**, and the numbers are concrete: 180 days on `tasks`,
+  expiring a tombstone and never a live task, and 12 months on `sessions`,
+  expiring the whole record. Nothing reaps, so there is no scheduled job to fail
+  silently. Beyond TTL: serverless bills per request with no floor, which suits
+  one person's sync traffic where an always-on relational tier charges for an idle
+  database; the aggregate is already a document, so no second relational schema
+  needs versioning; and the change feed *is* the sync protocol, answered natively
+  from a continuation token.
 - **How** — `infra/sync/main.bicep` declares the account with
   `disableLocalAuth: true`, so it will not accept an account key at all; the
-  service arrives as a managed identity holding the built-in data-plane
-  contributor role. Retention is container TTL: `sessions` expires whole records
-  at 12 months, while `tasks` enables TTL without a default so live tasks never
-  expire and only tombstones carry the 180-day value. Local runs use the Cosmos
-  preview emulator started by the Aspire AppHost, so no Azure account is needed
-  to build or test the sync path. Candidate rather than adopted because nothing
-  is deployed yet, and the service still holds capture state in memory.
+  service reaches it as a managed identity holding the built-in data-plane
+  contributor role. The `sessions` retention above is a container TTL; the 180
+  days on `tasks` is a provisioned value the service stamps on a tombstone,
+  because one container has one TTL and a container-level 180 days would expire
+  live tasks too. Local runs use the Cosmos preview emulator started by the
+  Aspire AppHost, so no Azure account is needed to build or test the sync path.
+- **Status** — `candidate` and no higher. The template and its `Deploy Sync`
+  workflow exist, but nothing is provisioned in Azure, the sync service still
+  holds state in memory, and none of it has been validated by real use.
 
 ## Azure Key Vault
 

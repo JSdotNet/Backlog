@@ -6,27 +6,27 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 116,
-    "edges": 223,
+    "nodes": 117,
+    "edges": 235,
     "nodesByFolder": {
-      "arc42": 88,
+      "arc42": 89,
       "domain": 18,
       "tech": 7,
       "design": 3
     },
     "nodesByType": {
       "file": 43,
-      "chapter": 73
+      "chapter": 74
     },
     "nodesByStatus": {
-      "active": 76,
-      "proposed": 11,
+      "active": 78,
+      "proposed": 10,
       "draft": 22,
       "adopted": 7
     },
     "edgesByType": {
-      "contains": 51,
-      "related": 172
+      "contains": 52,
+      "related": 183
     }
   },
   "problems": [],
@@ -664,7 +664,11 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#source-adapter"
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/sessions/domain.md#session-log"
           ]
         }
       },
@@ -677,14 +681,36 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 47,
-          "status": "proposed",
+          "line": 73,
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "label": "Session Record Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "session-record-sync",
+          "level": 2,
+          "line": 145,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/sessions/domain.md#session-log"
           ]
         }
       },
@@ -697,7 +723,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 99,
+          "line": 173,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -715,7 +741,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 158,
+          "line": 232,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -733,7 +759,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 185,
+          "line": 259,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -749,7 +775,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 206,
+          "line": 280,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -765,7 +791,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 222,
+          "line": 296,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -781,7 +807,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 234,
+          "line": 308,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1529,6 +1555,26 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/domain.md#session-log",
+          "label": "Session Log",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-log",
+          "level": 2,
+          "line": 46,
+          "status": "active",
+          "related": [
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".domain/sessions/dependencies.md",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".domain/tasks/domain.md#task",
           "label": "Task",
           "type": "chapter",
@@ -1656,24 +1702,6 @@
             ".domain/technology-stack/domain.md#technology-registry",
             ".domain/monitoring/domain.md#progress-signal",
             ".arc42/08-crosscutting-concepts.md#shared-data-types"
-          ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
-          "id": ".domain/sessions/domain.md#session-log",
-          "label": "Session Log",
-          "type": "chapter",
-          "folder": "domain",
-          "path": ".domain/sessions/domain.md",
-          "slug": "session-log",
-          "level": 2,
-          "line": 40,
-          "status": "active",
-          "related": [
-            ".domain/dev-pc-management/domain.md#machine-registry",
-            ".domain/sessions/dependencies.md"
           ],
           "outOfScope": true
         }
@@ -2189,6 +2217,14 @@
           "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#task-sync",
           "source": ".arc42/08-crosscutting-concepts.md",
           "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
           "type": "contains"
         }
       },
@@ -2730,9 +2766,41 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#source-adapter",
           "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
           "target": ".domain/capture/domain.md#source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
@@ -2770,9 +2838,65 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/capture/domain.md#capture",
+          "source": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "target": ".domain/capture/domain.md#capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "target": ".domain/sessions/domain.md#session-log",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/tasks/domain.md#task",
           "source": ".arc42/08-crosscutting-concepts.md#task-sync",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
