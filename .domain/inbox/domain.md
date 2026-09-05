@@ -35,8 +35,30 @@ always preserved, that status only advances through the defined lifecycle
 decision records exactly one `Routing Target`. Deferred items carry an optional
 `deferred_until` review date and resurface as `unprocessed` when it is reached.
 
-The Inbox Item aggregate has no owned child entities; `Tag` and `Routing Target`
-are value objects owned by the root.
+Before triage decides where an item goes, a reader has to be able to see what
+it is and where it came from. So an item states its `Content Kind` — what the
+captured content *is*, which is a different fact from the `Capture Source`
+channel it arrived through: a video is a video whether the YouTube monitor found
+it, the phone shared it, or somebody pasted the link. Its `Source` keeps that
+channel together with the person who shared it, when someone did. And an item
+may carry a `PARA Lean`: the drawer a reader would reach for first, which is how
+the queue is read one drawer at a time, without being the routing decision
+itself.
+
+The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`
+and `Source` are value objects owned by the root.
+
+### Invariants
+
+| Rule | Enforced at | Evidence |
+|---|---|---|
+| The original source link and `captured_at` are preserved unchanged for the life of the item. | all mutations | untested |
+| Status only advances through the defined lifecycle (`unprocessed` → `triaged` → routed / deferred / archived). | all mutations | untested |
+| A routing decision records exactly one `Routing Target`. | Triage | untested |
+| A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached. | scheduled review | untested |
+| Every item has a `Content Kind`; `text` is the kind of an item nobody has looked at. | constructor | untested |
+| A `Source` person, when present, is a stored `@name` tag — the sigil is the whole of the difference from a general tag. | constructor | untested |
+| A `PARA Lean` is a reading aid and never substitutes for a `Routing Target`: an item with a lean and no routing decision is still `unprocessed`. | all mutations | untested |
 
 ### Routing Target
 
@@ -58,7 +80,68 @@ status: draft
 
 A `#keyword` extracted during classification or applied during triage.
 `auto_generated` distinguishes suggested tags from user-applied ones. Equality is
-by canonical `name`.
+by canonical `name`. A person is not a tag: `@name` is recorded on `Source`,
+not here.
+
+### Source
+
+```meta
+type: value-object
+status: draft
+related: [.domain/capture/domain.md#source-metadata]
+```
+
+Where the item came from: the `Capture Source` channel it arrived through and,
+optionally, the `person` who shared it as a stored `@name` tag. Two facts and
+not one, because they answer different questions — a link shared by a colleague
+and the same link clipped alone arrive through different channels and mean
+different things to the reader triaging them. The channel is provenance mirrored
+from Capture; the person is provenance the channel cannot carry. Immutable once
+set; equality is by value.
+
+### Content Kind
+
+```meta
+type: enum
+status: draft
+```
+
+What the captured content is, as a reader sorting the queue would name it —
+distinct from `Capture Source`, which says how it arrived:
+
+- `text` — a plain note; the kind every source can produce and the kind an
+  item is until somebody says otherwise.
+- `article` — a web page worth reading, clipped or linked.
+- `link` — a bare URL not yet known to be an article.
+- `youtube` — a video, from the YouTube monitor or a shared link.
+- `image` — a picture or screenshot.
+- `document` — a file: a PDF, an office document, an archive.
+- `email` — a newsletter or mail ingested from an IMAP inbox.
+- `code` — a selection from an IDE-class host, or a fenced snippet.
+- `voice` — a dictated memo from the mobile app.
+- `claude-artifact` — an artifact a Claude session produced and shared.
+
+The set will grow; a kind nobody has drawn yet is shown as its plain word rather
+than breaking the queue. `article`, `link`, `youtube`, `image`, `document`,
+`email` and `claude-artifact` are *reference* kinds — collected material rather
+than a thought of the reader's own — which is the distinction PARA files under
+Resources.
+
+### PARA Lean
+
+```meta
+type: enum
+status: draft
+related: [.domain/second-brain/domain.md#para-category]
+```
+
+The PARA drawer an unprocessed item leans towards — `projects`, `areas`,
+`resources` or `archive` — restated here from Second Brain's `PARA Category`
+because the Inbox sits upstream of Second Brain and may not reference it. A lean
+and not a filing: triage is where an item is actually routed, and the lean only
+says which drawer a reader would reach for first, so the queue can be read one
+drawer at a time. Absent means nobody has said, and the queue shows such items
+as unsorted rather than guessing.
 
 ### Inbox Status
 

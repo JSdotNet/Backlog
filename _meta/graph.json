@@ -10,24 +10,24 @@
     ".design"
   ],
   "stats": {
-    "nodes": 790,
-    "edges": 1637,
+    "nodes": 797,
+    "edges": 1652,
     "nodesByFolder": {
       "arc42": 88,
-      "domain": 501,
+      "domain": 508,
       "backlog": 4,
       "tech": 99,
       "design": 98
     },
     "nodesByType": {
       "file": 127,
-      "chapter": 654,
+      "chapter": 661,
       "heading": 9
     },
     "nodesByStatus": {
       "active": 205,
       "proposed": 47,
-      "draft": 424,
+      "draft": 431,
       "deprecated": 4,
       "done": 3,
       "adopted": 84,
@@ -36,8 +36,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 663,
-      "related": 826,
+      "contains": 670,
+      "related": 834,
       "depends-on": 146,
       "implements": 2
     }
@@ -2846,7 +2846,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "routing-target",
           "level": 3,
-          "line": 41,
+          "line": 63,
           "status": "draft"
         }
       },
@@ -2859,8 +2859,53 @@
           "path": ".domain/inbox/domain.md",
           "slug": "tag",
           "level": 3,
-          "line": 52,
+          "line": 74,
           "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#source",
+          "label": "Source",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "source",
+          "level": 3,
+          "line": 86,
+          "status": "draft",
+          "related": [
+            ".domain/capture/domain.md#source-metadata"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#content-kind",
+          "label": "Content Kind",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "content-kind",
+          "level": 3,
+          "line": 102,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#para-lean",
+          "label": "PARA Lean",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "para-lean",
+          "level": 3,
+          "line": 130,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/domain.md#para-category"
+          ]
         }
       },
       {
@@ -2872,7 +2917,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "inbox-status",
           "level": 3,
-          "line": 63,
+          "line": 146,
           "status": "draft"
         }
       },
@@ -2885,7 +2930,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "capture-source",
           "level": 3,
-          "line": 77,
+          "line": 160,
           "status": "draft"
         }
       },
@@ -2898,7 +2943,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "triage",
           "level": 2,
-          "line": 87,
+          "line": 170,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -2915,7 +2960,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "classification",
           "level": 2,
-          "line": 102,
+          "line": 185,
           "status": "draft"
         }
       },
@@ -2928,7 +2973,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "itemtriaged",
           "level": 2,
-          "line": 115,
+          "line": 198,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -2946,7 +2991,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 151,
+          "line": 234,
           "status": "draft"
         }
       },
@@ -2978,6 +3023,27 @@
       },
       {
         "data": {
+          "id": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "label": "Read the queue as PARA drawers",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/features.md",
+          "slug": "read-the-queue-as-para-drawers",
+          "level": 3,
+          "line": 23,
+          "status": "draft",
+          "feature-flag": [
+            "inbox-pane"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#para-lean",
+            ".domain/inbox/domain.md#content-kind",
+            ".domain/second-brain/domain.md#para-category"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/features.md#triage-workflow",
           "label": "Triage workflow",
           "type": "chapter",
@@ -2985,7 +3051,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "triage-workflow",
           "level": 2,
-          "line": 23,
+          "line": 42,
           "status": "draft",
           "depends-on": [
             ".domain/inbox/features.md#incoming-queue"
@@ -3001,7 +3067,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "per-item-triage-actions",
           "level": 3,
-          "line": 33,
+          "line": 52,
           "status": "draft"
         }
       },
@@ -3014,7 +3080,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "quick-triage-shortcuts",
           "level": 3,
-          "line": 43,
+          "line": 62,
           "status": "draft"
         }
       },
@@ -3027,7 +3093,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "classification-and-enrichment",
           "level": 2,
-          "line": 52,
+          "line": 71,
           "status": "draft"
         }
       },
@@ -3040,7 +3106,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "routing",
           "level": 2,
-          "line": 63,
+          "line": 82,
           "status": "draft",
           "depends-on": [
             ".domain/inbox/features.md#triage-workflow"
@@ -3060,7 +3126,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "route-to-tasks",
           "level": 3,
-          "line": 74,
+          "line": 93,
           "status": "draft",
           "related": [
             ".domain/tasks/features.md#task-creation"
@@ -3076,7 +3142,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "route-to-second-brain",
           "level": 3,
-          "line": 84,
+          "line": 103,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#knowledge-capture"
@@ -3092,7 +3158,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "defer",
           "level": 3,
-          "line": 94,
+          "line": 113,
           "status": "draft"
         }
       },
@@ -3105,7 +3171,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "archive",
           "level": 3,
-          "line": 104,
+          "line": 123,
           "status": "draft"
         }
       },
@@ -3118,7 +3184,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "queue-health",
           "level": 2,
-          "line": 113,
+          "line": 132,
           "status": "draft",
           "related": [
             ".domain/monitoring/features.md#inbox-and-queue-health"
@@ -3196,6 +3262,68 @@
       },
       {
         "data": {
+          "id": ".domain/inbox/naming.md#content-kind",
+          "label": "Content Kind",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "content-kind",
+          "level": 2,
+          "line": 39,
+          "status": "draft",
+          "aliases": [
+            "InboxItemKind",
+            "CaptureKinds",
+            "kind"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#content-kind"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/naming.md#source",
+          "label": "Source",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "source",
+          "level": 2,
+          "line": 53,
+          "status": "draft",
+          "aliases": [
+            "InboxSource",
+            "person"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#source"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/naming.md#para-lean",
+          "label": "PARA Lean",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "para-lean",
+          "level": 2,
+          "line": 66,
+          "status": "draft",
+          "aliases": [
+            "ParaCategory",
+            "Para",
+            "drawer"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#para-lean"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/naming.md#triage",
           "label": "Triage",
           "type": "chapter",
@@ -3203,7 +3331,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "triage",
           "level": 2,
-          "line": 39,
+          "line": 81,
           "status": "draft",
           "aliases": [
             "Triage"
@@ -3222,7 +3350,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "routing-target",
           "level": 2,
-          "line": 52,
+          "line": 94,
           "status": "draft",
           "aliases": [
             "RoutingTarget"
@@ -3241,7 +3369,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "inbox-status",
           "level": 2,
-          "line": 64,
+          "line": 106,
           "status": "draft",
           "aliases": [
             "InboxStatus"
@@ -13668,6 +13796,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#source",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#para-lean",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#inbox-status",
           "source": ".domain/inbox/domain.md#inbox-item",
           "target": ".domain/inbox/domain.md#inbox-status",
@@ -13719,6 +13871,14 @@
           "id": "contains:.domain/inbox/features.md->.domain/inbox/features.md#incoming-queue",
           "source": ".domain/inbox/features.md",
           "target": ".domain/inbox/features.md#incoming-queue",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/features.md#incoming-queue->.domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "source": ".domain/inbox/features.md#incoming-queue",
+          "target": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
           "type": "contains"
         }
       },
@@ -13815,6 +13975,30 @@
           "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#capture-source",
           "source": ".domain/inbox/naming.md",
           "target": ".domain/inbox/naming.md#capture-source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#content-kind",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#content-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#source",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#para-lean",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#para-lean",
           "type": "contains"
         }
       },
@@ -19636,6 +19820,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/inbox/domain.md#source->.domain/capture/domain.md#source-metadata",
+          "source": ".domain/inbox/domain.md#source",
+          "target": ".domain/capture/domain.md#source-metadata",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/domain.md#para-lean->.domain/second-brain/domain.md#para-category",
+          "source": ".domain/inbox/domain.md#para-lean",
+          "target": ".domain/second-brain/domain.md#para-category",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/inbox/domain.md#triage->.domain/tasks/domain.md#task",
           "source": ".domain/inbox/domain.md#triage",
           "target": ".domain/tasks/domain.md#task",
@@ -19679,6 +19879,30 @@
           "id": "related:.domain/inbox/features.md#incoming-queue->.domain/capture/features.md#normalized-delivery",
           "source": ".domain/inbox/features.md#incoming-queue",
           "target": ".domain/capture/features.md#normalized-delivery",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/inbox/domain.md#para-lean",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/second-brain/domain.md#para-category",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/second-brain/domain.md#para-category",
           "type": "related"
         }
       },
@@ -19751,6 +19975,30 @@
           "id": "related:.domain/inbox/naming.md#capture-source->.domain/inbox/domain.md#capture-source",
           "source": ".domain/inbox/naming.md#capture-source",
           "target": ".domain/inbox/domain.md#capture-source",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#content-kind->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/naming.md#content-kind",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#source->.domain/inbox/domain.md#source",
+          "source": ".domain/inbox/naming.md#source",
+          "target": ".domain/inbox/domain.md#source",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#para-lean->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/naming.md#para-lean",
+          "target": ".domain/inbox/domain.md#para-lean",
           "type": "related"
         }
       },

@@ -36,6 +36,48 @@ Same published enum as the Capture context's Capture Source
 (see `.domain/capture/naming.md#capture-source`); the Inbox conforms to it
 rather than defining its own value set.
 
+## Content Kind
+
+```meta
+type: term
+status: draft
+aliases: [InboxItemKind, CaptureKinds, kind]
+related: [.domain/inbox/domain.md#content-kind]
+```
+
+What a captured thing *is* — text, article, link, youtube, image, document,
+email, code, voice, claude-artifact — as opposed to `Capture Source`, which is
+how it arrived. The shared component library spells the same values as slugs
+(`CaptureKinds`); the Inbox's enum maps onto them.
+
+## Source
+
+```meta
+type: term
+status: draft
+aliases: [InboxSource, person]
+related: [.domain/inbox/domain.md#source]
+```
+
+The channel an item arrived through plus, optionally, the person who shared it
+as a stored `@name` tag. The person is provenance, not a tag: it never appears in
+an item's `Tag` set.
+
+## PARA Lean
+
+```meta
+type: term
+status: draft
+aliases: [ParaCategory, Para, drawer]
+related: [.domain/inbox/domain.md#para-lean]
+```
+
+The PARA drawer an unprocessed item is read under before triage routes it. The
+same four values as Second Brain's `PARA Category`
+(see `.domain/second-brain/naming.md`), restated because Inbox is upstream;
+"drawer" is the reader's word for one of them on screen, and "unsorted" is the
+absence of a lean.
+
 ## Triage
 
 ```meta
