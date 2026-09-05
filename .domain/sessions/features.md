@@ -28,13 +28,57 @@ inventories.
 ```meta
 type: sub-feature
 status: active
+related: [.domain/sessions/features.md#open-on-the-live-sessions]
 ```
 
-A session that is running now and a session that finished last week appear in the
-same list, distinguished by their state rather than by which list they are in.
-Separating them would force the reader to know which list to look in before knowing
-whether the session had ended — which is usually the thing they are trying to find
-out.
+A session that is running now and a session that finished last week are rows in the
+same list, distinguished by their state rather than by which list they are in. Two
+lists would force the reader to know which one to look in before knowing whether the
+session had ended — which is usually the thing they are trying to find out.
+
+The list **opens on part of itself**, and that is a smaller concession than splitting
+it. One list narrowed by a control is still one list: the rows left out are one press
+away under the same heading, the count beside the title names both numbers whenever
+any are being left out, and the empty state the narrowing can produce says which
+states it kept and how many sessions are on the other side. A reader looking for a
+session has one place to look and one control to move.
+
+What two lists would have cost is exactly what none of that costs. A finished session
+is never *somewhere else* — only not currently shown, by a choice the reader can see
+they made.
+
+### Open on the live sessions
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/domain.md#session-view, .domain/sessions/naming.md#session-view]
+```
+
+The list opens on the sessions that are still going, and a `Live` / `All` choice sits
+first in the row of controls above it — before the grouping, because it decides which
+rows exist before the grouping decides where they sit. "What is going on right now" is
+the question somebody opens this for, and several hundred finished records are the
+answer to a different one.
+
+Live means running **or** stalled, both. Stalled is computed from silence rather than
+declared by the agent — nothing writes "I have stopped" — so a stalled session is one
+nobody can show has ended, and a default that dropped it would hide the row most worth
+looking at: the one that may be sitting there waiting on the reader.
+
+The choice is not remembered. Every open starts on `Live`, the way the grouping starts
+at `Nothing`, because a reader should not have to remember having already answered
+"what is going on right now" — and a view silently restored from last week is how a
+reader concludes the product has lost their sessions.
+
+**The default is only as good as the evidence under it, and for one agent that is
+thin.** Claude leaves a record per running session, so its live rows are evidence.
+Copilot leaves no liveness marker at all: its sessions read as running while their
+record is fresh and as finished once it has been quiet for longer than the
+`Stale Threshold`, and they never read as stalled. A Copilot session that is genuinely
+running but has said nothing for half an hour therefore falls out of this view. That is
+a limit of what Copilot writes down rather than a rule this product wanted, and it is
+why the way back to `All` is named in the empty state instead of left to be discovered.
 
 ### Only what the agent recorded
 
@@ -112,11 +156,19 @@ without the two being separate lists.
 ```meta
 type: sub-feature
 status: active
+related: [.domain/sessions/features.md#open-on-the-live-sessions]
 ```
 
-The total is the same whichever grouping is chosen, and the surface says the total
-beside the control that carves it up — so a grouping can be trusted not to be a
-filter in disguise.
+The total is the same whichever grouping is chosen, and the surface keeps that total
+on screen beside the title, above the controls that act on the list — so a grouping
+can be trusted not to be a filter in disguise.
+
+That count is what carries the guarantee, and it answers to the view and never to the
+grouping: it does not move while `Group by` moves the same rows around. When the view
+is leaving some of them out the count names both numbers — kept and total — so the
+total is still there to be checked against, with the reader's own subtraction stated
+beside it rather than folded into it. One number where two are owed would let the only
+control that removes rows borrow the innocence of the ones that do not.
 
 ## Honest partial answers
 

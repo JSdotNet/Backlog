@@ -3794,8 +3794,9 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* The grouping strip, above the table rather than inside it: it scopes the whole
-   list, and a control inside the table's frame would read as the table's own. */
+/* The filter strips — Show and Group by — above the table rather than inside it:
+   they scope the whole list, and a control inside the table's frame would read as
+   the table's own. */
 .sessions-panel__filters {
     display: flex;
     flex: none;

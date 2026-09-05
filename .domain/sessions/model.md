@@ -78,6 +78,11 @@ classDiagram
         <<service>>
         +SessionState assess(ActivityWindow, now)
     }
+    class SessionView {
+        <<service>>
+        +AgentSession[] show(AgentSession[], which)
+        +bool isLive(AgentSession)
+    }
     class SessionGrouping {
         <<service>>
         +SessionGroup[] group(AgentSession[], by)
@@ -108,6 +113,8 @@ classDiagram
     SessionEnrichmentSummary --> ReportingCapability : reports
     LivenessAssessment ..> ActivityWindow : reads
     LivenessAssessment ..> SessionState : yields
+    SessionView ..> AgentSession : reads
+    SessionView ..> SessionState : asks
     SessionGrouping ..> AgentSession : reads
     SessionGrouping ..> SessionGroup : yields
     SessionActivityPublishing ..> AgentSession : observes
@@ -136,6 +143,21 @@ classDiagram
   `Activity Window` and a clock and yields a state. Nothing persists it and nothing
   transitions into it, which is why `flow.md` shows the states as a reading and not
   as a machine with events on its edges.
+
+- **`Session View` and `Session Grouping` are two operations, and only one of them
+  subtracts.** They read the same list, are drawn the same way, and sit in the same row
+  of controls — but grouping yields `SessionGroup`s holding every session it was handed,
+  while the view yields a list that may be shorter than the one it read. The diagram
+  gives the view no `SessionGroup` edge for that reason: what it returns is sessions,
+  in the order it received them. Composition is view first, then grouping, so the
+  grouping never sees what the view left out — which is why an environment with nothing
+  live on it has no section rather than an empty one.
+
+- **`Session View` depends on `SessionState` and not on `ActivityWindow`.** By the time
+  a view is applied, `Liveness Assessment` has already turned a window and a clock into
+  a state, so the view's dashed edge stops at the state. That is the structural reason
+  "live" is one definition and not two, and it is also why changing view costs no
+  reading: there is no clock on that edge to have moved.
 
 - **`Session Catalog` points at the same `AgentSession` instances the log holds**, and
   additionally carries what could not be read and how many were discovered. It is the

@@ -62,8 +62,13 @@ derivation rather than a structural relationship.
 Invariants:
 
 - A session appears **once**, however many records the environment holds for it. An
-  agent may leave one record per process and another per transcript; those are
-  evidence of one session, not two.
+  agent may leave one record per process and another per transcript, and may file the
+  same transcript under two working folders when a session moved between them — a
+  session that changed folder went somewhere, it did not become two. All of that is
+  evidence of one session, and the most recent of those records is the one that
+  describes it, because it is the one the agent went on writing. The collapse happens
+  before anything counts or truncates, so how many sessions an environment holds is a
+  number of sessions and never a number of files.
 - A session's `Session State` is **derived from the evidence available**, never
   asserted. Running and Stalled both require liveness evidence; with none, a session
   is Finished. A state no evidence supports is not reported at all — there is no
@@ -73,7 +78,11 @@ Invariants:
   from a recorded one and wrong.
 - The log **says how complete it is**. It may describe fewer sessions than exist, and
   when it does, how many exist is part of the answer rather than a detail the reader
-  is left to discover.
+  is left to discover. That completeness is the *reading's* and only the reading's:
+  what a reader's chosen `Session View` then leaves off the screen is theirs, is
+  applied after the log has answered, and is accounted for separately. Reporting one
+  number for both subtractions would have the log confess to a shortfall the reader
+  asked for.
 
 **Records replicate; none of the above changes when they do.** Local ADR 0005 puts
 session records in the same cloud replica as tasks, so a record gathered on one
@@ -303,6 +312,48 @@ nobody would look for it.
 Invocation semantics: query-oriented; evaluated per reading, never persisted. A
 session is not moved into `stalled` by anything — it simply reads as stalled while
 the silence lasts, and reads as running again the moment the agent writes.
+
+## Session View
+
+```meta
+type: domain-service
+status: active
+related: [.domain/sessions/domain.md#session-log, .domain/sessions/domain.md#session-state, .domain/sessions/features.md#open-on-the-live-sessions, .domain/sessions/naming.md#session-view]
+```
+
+Narrows a set of `Agent Session`s to the ones a reader currently wants in front of
+them: the live ones, or all of them.
+
+It decides nothing about liveness. The `Session Log`'s invariant on derived
+`Session State` has already settled that question, and this service does no more than
+read the answer — which is why "live" here can only mean running or stalled. A second
+place that worked out for itself whether a session was still going would be a second
+definition of live, free to drift from the first, and the two would disagree first on
+exactly the sessions a reader most needs to trust.
+
+A service of its own rather than one more member of `Session Grouping`, and that is
+the part worth arguing. Grouping guarantees that every session in is a session out; a
+"live" grouping would falsify that guarantee while sitting in the same strip as
+environment and agent, leaving the reader one control whose options sometimes
+rearrange the list and sometimes shorten it. Two operations with two guarantees is the
+honest shape: exactly one of them removes sessions, and the surface can therefore say
+which one did.
+
+**View first, then grouping.** A set is narrowed and then carved up, never the reverse,
+so an environment with nothing live on it loses its section rather than keeping an
+empty one. The view also does not reorder — ordering is the grouping's answer to give,
+and a narrowing that sorted would be a second answer to what "most recently active
+first" means.
+
+Pure, like `Session Grouping`: no clock, no I/O, no state. The clock was already spent
+by `Liveness Assessment`, which is what lets a reader change view without anything
+being read again — and what makes two views of one reading two renderings of the same
+facts rather than two readings that might disagree.
+
+Invocation semantics: query/composition-oriented; invoked per view, never stored. Which
+view is in force is the reader's choice, is not part of this context's state, and is
+not part of what a reading returns — a surface holding it starts at the live view every
+time it is opened.
 
 ## Session Grouping
 
