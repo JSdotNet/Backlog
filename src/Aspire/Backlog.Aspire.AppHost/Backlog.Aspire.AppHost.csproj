@@ -4,18 +4,21 @@
     <OutputType>Exe</OutputType>
     <IsAspireHost>true</IsAspireHost>
     <!--
-      Aspire 13.5 asks every AppHost to opt in to the CLI bundle, which makes
-      `dotnet run` acquire a version-pinned CLI through dnx and delegate to
-      `aspire run`. Left off here so this package update changes versions only:
-      opting in changes how the host is launched, not which version it resolves,
-      and that belongs in its own change. ASPIRE010 is the advisory for staying
-      opted out, so it is silenced deliberately rather than left to nag.
+      Opted in to the Aspire CLI bundle: `dotnet run` on this project acquires
+      the CLI pinned to the Aspire.AppHost.Sdk version above through dnx and
+      delegates to `aspire run`, so a machine without the Aspire CLI installed
+      gets the matching one rather than a different one. The first run on a
+      machine downloads it. ASPIRE010, the advisory for staying opted out, is no
+      longer suppressed: nothing here should silence an Aspire advisory now that
+      the deferral it covered is over.
     -->
-    <AspireUseCliBundle>false</AspireUseCliBundle>
-    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.DevTunnels" />
+    <PackageReference Include="Aspire.Hosting.Foundry" />
+    <PackageReference Include="Aspire.Hosting.Maui" />
   </ItemGroup>
 </Project>

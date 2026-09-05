@@ -79,18 +79,33 @@ The managed model endpoint the product's own AI features call.
 ```meta
 status: candidate
 type: service
-related: [".arc42/07-deployment-view.md#cloud-deployment-azure"]
+related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/08-crosscutting-concepts.md#session-record-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
 ```
 
-The cloud data store for cross-device coordination state.
+The cloud data store for cross-device coordination state: serverless, one account,
+one database, **two containers**.
 
-- **Used for** — sync state, buffered webhook events, and the machine registry,
-  all with TTL-based expiry (7 days / 24 hours).
-- **Why** — TTL support and a serverless tier match a small, transient,
-  document-shaped workload. The choice against PostgreSQL is still open in
-  `.arc42/04-solution-strategy.md#technology-choices`; the sync service currently
-  holds state in memory.
+- **Used for** — the replica the devices reconcile through. `tasks` holds the
+  Task aggregate, and the phone's captures land in it as task documents rather
+  than as a shape of their own; `sessions` holds machine-stamped, append-only
+  session records. Both are partitioned on `/ownerId`. Buffered webhook events and
+  the machine registry sit on the same account with their own short expiries
+  (7 days / 24 hours). Two containers and not one because each wants its own
+  change feed, its own indexing policy, and its own retention — and serverless
+  levies no per-container charge to trade against.
+- **Why** — settled by local ADR 0005 rather than left open. **TTL is the
+  retention mechanism**, and the numbers are concrete: 180 days on `tasks`,
+  expiring a tombstone and never a live task, and 12 months on `sessions`,
+  expiring the whole record. Nothing reaps, so there is no scheduled job to fail
+  silently. Beyond TTL: serverless bills per request with no floor, which suits
+  one person's sync traffic where an always-on relational tier charges for an idle
+  database; the aggregate is already a document, so no second relational schema
+  needs versioning; and the change feed *is* the sync protocol, answered natively
+  from a continuation token.
+- **Status** — `candidate` and no higher because none of it is built: the choice
+  is decided, but the sync service still holds state in memory and nothing has
+  been validated by real use.
 
 ## Azure Key Vault
 

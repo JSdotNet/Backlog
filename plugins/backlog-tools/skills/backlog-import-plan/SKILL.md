@@ -43,11 +43,13 @@ mechanics; do not invent syntax beyond it.
      prompt to update the target repository's own knowledge folders or devbook once it is
      done. Every entry carries this; never skip it.
    - **Metadata line.** The type the source material describes, `prompt` by default for a
-     prompt to run; always an explicit `!status` — `!ready` once its prerequisites are
-     satisfied, `!draft` while it is still being shaped; `repo:<name>` once per target
-     repository; `id:<slug>` when a later entry in this plan depends on it; `after:<id>` once
-     per prerequisite, including across repositories; the shared `#tag`; and only the
-     `*priority`, `@area` or `due:` the source material actually implies.
+     prompt to run; always `!ready`, on every entry whatever its place in the chain — order
+     is carried by `after:`, never by holding a later entry at `!draft`; always an
+     `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized from the instructions
+     the entry actually carries; `repo:<name>` once per target repository; `id:<slug>` when a
+     later entry in this plan depends on it; `after:<id>` once per prerequisite, including
+     across repositories; the shared `#tag`; and only the `*priority`, `@area` or `due:` the
+     source material actually implies.
 4. Assemble the entries into one Markdown document per `assets/backlog-import-grammar.md`.
 5. Produce the output: write it to the given path (default `<plan-slug>-import-plan.md` in
    the current working directory) when a file was asked for or implied, and show the full
@@ -59,7 +61,7 @@ mechanics; do not invent syntax beyond it.
 ## Output expectations
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
-- Every entry states a type and a `!status`, plus `repo:` and the plan's shared `#tag`.
+- Every entry states a type, `!ready`, an `effort:`, `repo:`, and the plan's shared `#tag`.
 - `id:`/`after:` correctly express the plan's dependency order, including cross-repository
   dependencies.
 - No file changes outside the produced plan document; no call to the Backlog app or GitHub.
