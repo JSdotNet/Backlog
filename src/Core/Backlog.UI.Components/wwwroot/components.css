@@ -7774,7 +7774,7 @@ select.field__input option {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }

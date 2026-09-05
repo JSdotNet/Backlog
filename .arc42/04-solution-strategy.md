@@ -74,7 +74,7 @@ related: [".arc42/09-architecture-decisions.md"]
 | **Desktop** | .NET MAUI Blazor Hybrid (WinUI 3 head on Windows, Razor UI in embedded WebView2); SQLite for tasks, JSON for settings. See `.arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md` — chosen so the desktop client can be launched from an Aspire AppHost and driven end-to-end with Playwright (via WebView2's CDP debugging port), while keeping the same native filesystem access and background-worker guarantees as plain WinUI 3. |
 | **Mobile** | .NET MAUI (preferred, C#) with Blazor Hybrid or Blazor WebAssembly PWA as the closest fallback options; JSON-backed local storage |
 | **IDE** | VS Code extension (TypeScript, webview) and Visual Studio extension (C#, WPF) |
-| **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB / PostgreSQL |
+| **Cloud** | C# / ASP.NET Core Minimal APIs on .NET, Azure hosting, Cosmos DB for NoSQL (serverless). The choice against PostgreSQL is settled by `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`: native TTL, per-request billing with no floor, a document that matches the aggregate as already persisted, and a change feed that is the sync protocol. |
 
 The cloud-service stack follows the organization's .NET ADRs (see
 `.arc42/09-architecture-decisions.md`). Desktop, mobile, and IDE stacks are chosen

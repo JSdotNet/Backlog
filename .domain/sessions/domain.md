@@ -29,6 +29,12 @@ updates that a configured session reports as it moves. Those updates are an
 **enrichment layer**, not a second authority. They say more about what a known
 session was doing; they do not decide that a session existed in the first place.
 
+Evidence can also **travel between the person's own machines**, so the environment
+that ran a session need not be the one they are sitting at. That is replication,
+not a third kind of evidence: a record read on the second machine is still the
+record the first machine wrote. See
+`.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+
 This subject was first modelled inside
 [Dev PC Management](../dev-pc-management/domain.md#machine-registry) as
 Copilot Session Tracking on the Machine, when Copilot was the only agent the
@@ -42,7 +48,7 @@ modelling it.
 ```meta
 type: aggregate
 status: active
-related: [.domain/dev-pc-management/domain.md#machine-registry, .domain/sessions/dependencies.md]
+related: [.domain/dev-pc-management/domain.md#machine-registry, .domain/sessions/dependencies.md, .arc42/08-crosscutting-concepts.md#session-record-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 Everything one environment can say about the agent sessions it has a record of.
@@ -68,6 +74,49 @@ Invariants:
 - The log **says how complete it is**. It may describe fewer sessions than exist, and
   when it does, how many exist is part of the answer rather than a detail the reader
   is left to discover.
+
+**Records replicate; none of the above changes when they do.** Local ADR 0005 puts
+session records in the same cloud replica as tasks, so a record gathered on one
+machine can be read on another. Every invariant survives intact, because the thing
+that replicates is a record, not an authority:
+
+- **Still single-writer.** A session ran on one environment and only that
+  environment holds the evidence for it, so only that environment writes records
+  for it. There is nothing to reconcile: no second version, no last-write-wins,
+  and no lost-edit failure mode. A session that moves gets a later record rather
+  than an edit to an earlier one, which is the shape this context already has.
+- **Still one environment per log.** A reading that spans machines is a
+  composition of several Session Logs, exactly as grouping by environment already
+  is. A replicated record names the environment that gathered it, so nothing
+  asserts a fact nobody gathered.
+- **Still derived, never asserted.** `Session State` is worked out on every
+  reading from the evidence that reached the reader. A record whose environment is
+  a machine away is stale rather than wrong, and the derivation says so by reading
+  `stalled` or `finished` from the timestamps it has.
+- **Only a whitelist travels**, fixed by local ADR 0005: the session id, the
+  environment, the repository **alias** rather than the working folder, the
+  branch, the activity window, and the turn and duration counts. Never prompts,
+  never tool output, never file contents — which is the whole reason a record can
+  leave the machine at all. A field not on the list does not travel, so
+  `working_folder` does not: it describes one machine's disk and means nothing on
+  the other.
+- **The list is one field short of this context's identity, and that has to be
+  settled where the list lives.** `Session Identity` is `agent` plus `session_id`,
+  never `session_id` alone, because two agents may issue the same string; a record
+  that travelled without its agent would let the receiving log merge two unrelated
+  sessions — exactly the failure the identity rule exists to prevent. Widening the
+  whitelist is a decision for local ADR 0005 rather than something the pushing code
+  settles, so it is named here as an open point rather than assumed.
+- **Retention is the store's, not this context's.** A replicated record expires
+  after twelve months by container TTL. Nothing here reaps, and nothing here
+  deletes a record.
+
+**Replication is not the Collections MCP and changes nothing about it.** The MCP
+stays exactly what it already is: optional, reached through an anti-corruption
+layer, never authoritative for whether a session existed. It supplies a second
+kind of evidence about a session this context already knows; replication moves
+records this context already holds. Neither stands in for the other, and a
+replicated record with no activity stream is a perfectly good record.
 
 ### Agent Session
 

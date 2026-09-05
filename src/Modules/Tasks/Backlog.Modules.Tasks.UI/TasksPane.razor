@@ -289,6 +289,7 @@
                                   OnReorder="OnEntryReorderedAsync"
                                   OnLink="OnEntryLinkedAsync"
                                   OnTagSelected="OnRowTagSelected"
+                                  OnContextMenu="OnEntryContextMenu"
                                   GroupCompleted="true"
                                   RowCopyValue="@EntryCopyText"
                                   RowCssClass="@RepositoryMark"
@@ -348,6 +349,21 @@
                    Busy="@_importBusy"
                    Options="@RepositoryOptions()"
                    OnImport="OnImportAsync" />
+
+@* The menu a right-click on an entry row opens. What it holds is this pane's
+   answer and not the row's: the row reported the gesture and where it landed,
+   and every item is an act the detail pane already offers, reached without
+   opening the entry. Outside the section on purpose — the section closes the
+   open entry when the focus leaves both halves, and the menu's backdrop takes
+   the focus the moment it opens; see the guard in OnPaneFocusOutAsync. *@
+<ContextMenu Open="@_rowMenuOpen"
+             OpenChanged="OnRowMenuOpenChanged"
+             X="@_rowMenuX"
+             Y="@_rowMenuY"
+             Items="@RowMenuItems()"
+             AriaLabel="Entry actions"
+             TestId="entry-menu"
+             OnItemSelected="OnRowMenuItemAsync" />
 
 @code {
     /// <summary>
@@ -441,6 +457,29 @@
         Effort,
         Attachment
     }
+
+    /// <summary>The row a right-click asked for a menu on. Held from the gesture
+    /// until the menu closes, because the items are built from the row's own
+    /// state — what each one says depends on whether the row is in My Day, due,
+    /// done — and the choice arrives after the menu has been drawn.</summary>
+    private EntryRow? _rowMenuRow;
+
+    private bool _rowMenuOpen;
+
+    private double _rowMenuX;
+
+    private double _rowMenuY;
+
+    private const string RowMenuMyDay = "myday";
+    private const string RowMenuImportant = "important";
+    private const string RowMenuDone = "done";
+    private const string RowMenuDueToday = "due-today";
+    private const string RowMenuDueTomorrow = "due-tomorrow";
+    private const string RowMenuDuePick = "due-pick";
+    private const string RowMenuDueClear = "due-clear";
+    private const string RowMenuMoveUp = "move-up";
+    private const string RowMenuMoveDown = "move-down";
+    private const string RowMenuDelete = "delete";
 
     protected override void OnInitialized()
     {
@@ -1415,6 +1454,143 @@
         if (EntryFor(move.Id) is { } row && EntryFor(move.TargetId) is { } target)
         {
             await State.MoveEntryAsync(row, target);
+        }
+    }
+
+    // --- Row menu ----------------------------------------------------------
+
+    /// <summary>A right-click on a row. The list said which row and where the
+    /// pointer was; what goes in the menu is decided when it is drawn, from the
+    /// row's state at that moment — see <see cref="RowMenuItems"/>.</summary>
+    private void OnEntryContextMenu(TaskContextMenu request)
+    {
+        if (EntryFor(request.Id) is not { } row) return;
+
+        _rowMenuRow = row;
+        _rowMenuX = request.X;
+        _rowMenuY = request.Y;
+        _rowMenuOpen = true;
+    }
+
+    private void OnRowMenuOpenChanged(bool open)
+    {
+        _rowMenuOpen = open;
+        if (!open) _rowMenuRow = null;
+    }
+
+    /// <summary>
+    /// What a right-click on an entry offers, in the order Microsoft To Do settled
+    /// on: the three marks a reader puts on a task, then when it is due, then where
+    /// it sits, then the one act that ends the row.
+    /// <para>
+    /// Every item is an act the detail pane already has — the same writes, reached
+    /// without opening the entry. The labels read the row's state so each one names
+    /// the change it would make rather than the field it would touch: a row already
+    /// in My Day is offered the way out, a finished row the way back. "Remove due
+    /// date" is offered disabled rather than hidden when there is nothing to
+    /// remove, on the terms
+    /// <c>.design/interaction-guidelines.md#action-density-and-overflow</c> sets: an
+    /// item that vanishes reads as a thing the product cannot do.
+    /// </para>
+    /// <para>
+    /// Move up and Move down are the explicit commands
+    /// <c>.design/interaction-guidelines.md#keyboard-accessible-reordering</c> asks
+    /// a context menu to carry. They move along the order on screen — the same
+    /// neighbour Alt+Arrow would swap with — so a finished row, folded into
+    /// Completed, has nowhere to go and both are disabled.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MenuItem> RowMenuItems()
+    {
+        if (_rowMenuRow is not { } row) return [];
+
+        // Nothing here asks whether the row may be written. The state refuses a
+        // write it will not make, exactly as it does for the detail pane's own
+        // controls, and a menu that second-guessed it would be a second answer.
+        var done = row.PreviewStatus is EntryStatus.Done;
+        var important = IsImportant(row);
+        var (above, below) = RowMenuNeighbours(row);
+
+        return
+        [
+            new(RowMenuMyDay, IsInMyDay(row) ? "Remove from My Day" : "Add to My Day", "☀"),
+            new(RowMenuImportant, important ? "Remove importance" : "Mark as important", important ? "★" : "☆"),
+            new(RowMenuDone, done ? "Mark as not completed" : "Mark as completed", done ? "○" : "✓"),
+            MenuItem.Divider("schedule"),
+            new(RowMenuDueToday, "Due today", "🗓"),
+            new(RowMenuDueTomorrow, "Due tomorrow", "🗓"),
+            new(RowMenuDuePick, "Pick a date", "🗓"),
+            new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
+            MenuItem.Divider("order"),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null),
+            MenuItem.Divider("end"),
+            new(RowMenuDelete, "Delete task", "🗑", Destructive: true)
+        ];
+    }
+
+    /// <summary>The rows a move from the menu would swap with: the open rows the
+    /// list is drawing, in the order it draws them, with the finished ones left
+    /// out exactly as the list leaves them out of its own order.</summary>
+    private (EntryRow? Above, EntryRow? Below) RowMenuNeighbours(EntryRow row)
+    {
+        if (row.PreviewStatus is EntryStatus.Done) return (null, null);
+
+        var open = State.FilteredRows.Where(candidate => candidate.PreviewStatus is not EntryStatus.Done).ToList();
+        var index = open.IndexOf(row);
+        if (index < 0) return (null, null);
+
+        return (
+            index > 0 ? open[index - 1] : null,
+            index < open.Count - 1 ? open[index + 1] : null);
+    }
+
+    /// <summary>High or above. "Important" is Microsoft To Do's word for the one
+    /// mark a task carries; this product ranks in four steps, so marking one
+    /// important lifts it to High and removing the mark puts it back at Medium —
+    /// the default, where a task with no opinion about itself sits.</summary>
+    private static bool IsImportant(EntryRow row) => row.PreviewPriority is Priority.High or Priority.Critical;
+
+    private async Task OnRowMenuItemAsync(MenuItem item)
+    {
+        if (_rowMenuRow is not { } row) return;
+
+        switch (item.Id)
+        {
+            case RowMenuMyDay:
+                await OnMyDayToggledAsync(row);
+                break;
+            case RowMenuImportant:
+                await State.ChangePriorityAsync(row, IsImportant(row) ? Priority.Medium : Priority.High);
+                break;
+            case RowMenuDone:
+                await State.ToggleDoneAsync(row);
+                break;
+            case RowMenuDueToday:
+                await State.ChangeDueAsync(row, Today);
+                break;
+            case RowMenuDueTomorrow:
+                await State.ChangeDueAsync(row, Today.AddDays(1));
+                break;
+            case RowMenuDuePick:
+                // The one item that opens the entry rather than writing to it: the
+                // date field lives in the detail pane, and a second one inside a
+                // menu would be a second implementation of the same control.
+                await State.SelectAsync(row);
+                _openPicker = SchedulePicker.Due;
+                break;
+            case RowMenuDueClear:
+                await State.ChangeDueAsync(row, null);
+                break;
+            case RowMenuMoveUp:
+                if (RowMenuNeighbours(row).Above is { } above) await State.MoveEntryAsync(row, above);
+                break;
+            case RowMenuMoveDown:
+                if (RowMenuNeighbours(row).Below is { } below) await State.MoveEntryAsync(row, below);
+                break;
+            case RowMenuDelete:
+                await OnDeleteTaskAsync(row);
+                break;
         }
     }
 
@@ -2572,6 +2748,12 @@
         }
 
         if (!left) return;
+
+        // The row menu's backdrop takes the focus the moment the menu opens, and
+        // it sits outside both halves. That is the reader asking a row for its
+        // menu, not leaving the entry — and as often as not the entry is the one
+        // the menu is about.
+        if (_rowMenuOpen) return;
 
         // Picking a different row is a switch, not a departure — and by the time
         // the JS round trip above resolves, that click's own selection may already

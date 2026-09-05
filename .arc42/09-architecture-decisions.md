@@ -121,13 +121,20 @@ related: [".arc42/04-solution-strategy.md"]
   Extends local ADR 0003 to a second corpus without making a database canonical for
   knowledge.
 - **[ADR 0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)**
-  *(proposed)*: answers the question local ADR 0003 did not ask — what happens when
-  one person runs the desktop on two machines. A serverless Cosmos DB container and
-  the existing sync service carry a replica of the Task aggregate and the change feed
-  over it, reconciled last-write-wins; each device's SQLite database stays canonical
+  *(accepted)*: answers the question local ADR 0003 did not ask — what happens when
+  one person runs the desktop on two machines. A serverless Cosmos DB account with
+  two containers, `tasks` and `sessions`, and the existing sync service carry a
+  replica and the change feed over it; each device's SQLite database stays canonical
   for that device. Amends local ADR 0003 without superseding it, and replaces
   file-syncing the database — which produced six conflicted copies and silent
-  data loss — with a store built for concurrent writers. Task aggregate only.
+  data loss — with a store built for concurrent writers. Three kinds of state:
+  the Task aggregate reconciled last-write-wins, session records that are
+  single-writer and therefore reconcile not at all, and the phone's captures, which
+  arrive as task documents. Retention is container TTL rather than code — 180 days
+  for task tombstones, 12 months for session records. The per-owner boundary is
+  enforced by the sync service scoping every query to the `ownerId` in the device's
+  JWT, not by the partition key: the managed identity is account-scoped and can see
+  every partition.
   Also settles the local file name: it stays `backlog.db` on every device, because
   a per-device name trades a visible failure for two silently divergent backlogs
   and would disable the external-change polling the second machine currently
