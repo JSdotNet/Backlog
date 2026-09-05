@@ -27,7 +27,7 @@ Sigils (no colon; order sigils before named tokens):
 | Sigil | Kind | Values |
 |---|---|---|
 | *(none)* | type | `prompt`, `task`, `idea` |
-| `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` |
+| `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` — an entry stating none is imported at `ready`; write `!draft` to hold one back |
 | `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
 | `@` | area | any slug, e.g. `@repos` |
 | `#` | tag | any slug, e.g. `#vscode-desktop-rollout` |
