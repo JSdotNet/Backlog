@@ -8035,7 +8035,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 473,
+          "line": 476,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -8052,7 +8052,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 503,
+          "line": 506,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -8069,7 +8069,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 534,
+          "line": 537,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -8089,7 +8089,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 551,
+          "line": 554,
           "status": "draft",
           "related": [
             ".domain/tasks/flow.md"
@@ -8105,7 +8105,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 568,
+          "line": 571,
           "status": "deprecated",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -8123,7 +8123,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-device-sync",
           "level": 2,
-          "line": 589,
+          "line": 592,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -8145,7 +8145,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 613,
+          "line": 616,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
@@ -8165,7 +8165,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 628,
+          "line": 631,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -8186,7 +8186,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 659,
+          "line": 662,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -10315,7 +10315,7 @@
           "path": ".tech/shared.md",
           "slug": "opentelemetry",
           "level": 2,
-          "line": 285,
+          "line": 295,
           "status": "adopted",
           "version": "1.18.0",
           "depends-on": [
@@ -10337,7 +10337,7 @@
           "path": ".tech/shared.md",
           "slug": "sqlite",
           "level": 2,
-          "line": 304,
+          "line": 314,
           "status": "adopted",
           "alternatives": [
             "Markdown files with YAML frontmatter",
@@ -10362,7 +10362,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftdatasqlite",
           "level": 2,
-          "line": 325,
+          "line": 335,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10380,7 +10380,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionsdependencyinjection",
           "level": 2,
-          "line": 341,
+          "line": 351,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10397,7 +10397,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionshttp",
           "level": 2,
-          "line": 358,
+          "line": 368,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10414,7 +10414,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionshttpresilience",
           "level": 2,
-          "line": 373,
+          "line": 383,
           "status": "adopted",
           "version": "10.9.0",
           "depends-on": [
@@ -10431,7 +10431,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionsservicediscovery",
           "level": 2,
-          "line": 389,
+          "line": 399,
           "status": "adopted",
           "version": "10.9.0",
           "depends-on": [
@@ -10448,7 +10448,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionslogging",
           "level": 2,
-          "line": 405,
+          "line": 415,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10468,7 +10468,7 @@
           "path": ".tech/shared.md",
           "slug": "yamldotnet",
           "level": 2,
-          "line": 422,
+          "line": 432,
           "status": "hold",
           "version": "18.1.0",
           "alternatives": [
@@ -10492,7 +10492,7 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 443,
+          "line": 453,
           "status": "adopted",
           "related": [
             ".arc42/02-constraints.md#organizational--process-constraints"
@@ -10508,7 +10508,7 @@
           "path": ".tech/shared.md",
           "slug": "anthropic-claude-platform",
           "level": 2,
-          "line": 458,
+          "line": 468,
           "status": "candidate",
           "alternatives": [
             "Local accumulation of per-response token counts"
@@ -10528,7 +10528,7 @@
           "path": ".tech/shared.md",
           "slug": "github-copilot-usage-apis",
           "level": 2,
-          "line": 479,
+          "line": 489,
           "status": "candidate",
           "depends-on": [
             ".tech/shared.md#github-platform"
@@ -11028,7 +11028,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 307,
+          "line": 322,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -11050,7 +11050,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 334,
+          "line": 349,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [
@@ -11071,7 +11071,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 367,
+          "line": 382,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -11089,7 +11089,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 384,
+          "line": 399,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [

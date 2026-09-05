@@ -1671,7 +1671,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 307,
+          "line": 322,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -1694,7 +1694,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 334,
+          "line": 349,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [

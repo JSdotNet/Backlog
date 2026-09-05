@@ -1,3 +1,4 @@
+@implements IDisposable
 @inject KnowledgeMenu KnowledgeMenu
 @inject KnowledgeFolderOpenService KnowledgeFolderOpen
 @inject KnowledgeScope Scope
@@ -174,6 +175,47 @@
     /// storage folder.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
+
+    protected override void OnInitialized() => KnowledgeMenu.Changed += OnKnowledgeChanged;
+
+    /// <summary>
+    /// A folder, a repository or the storage root moved under the pane. Both
+    /// halves of what is on screen are read from settings that just changed —
+    /// which sections there are, and what the menu lists inside the one being
+    /// read — and neither the alias nor the visible-section fingerprint has moved,
+    /// so <see cref="RefreshMenuAsync"/> would skip it. <see cref="ReloadMenuAsync"/>
+    /// is what forgets that guard; the render it ends in re-reads the scope, which
+    /// is why the section strip needs nothing of its own here.
+    /// <para>
+    /// The whole body sits inside <c>InvokeAsync</c>, not just the re-render. Most
+    /// of what raises this arrives on the renderer's dispatcher, but a pull
+    /// announces itself from <c>KnowledgeUpdateService.PullAsync</c>, which resumes
+    /// on a threadpool continuation — and the reload writes <c>_menuTree</c>,
+    /// <c>_expandedMenuNodes</c> and <c>_selectedChapterPaths</c>, which the render
+    /// path reads and indexes into. Every other caller of
+    /// <see cref="ReloadMenuAsync"/> was already on the dispatcher, so this is the
+    /// one entry that has to say so.
+    /// </para>
+    /// <para>
+    /// The version answer goes with the folder it was asked about. Keeping it
+    /// would leave the pane reporting this clone three commits behind on the
+    /// strength of a check run against the directory that just stopped being the
+    /// one on screen — the staleness <see cref="ForgetUpdateStateOnScopeChange"/>
+    /// exists to prevent, arriving by the one route that never changes the alias.
+    /// A pull is the single case that gets here holding a fresh answer, and it
+    /// assigns that answer after this has run, so forgetting costs it nothing.
+    /// </para>
+    /// </summary>
+    private async void OnKnowledgeChanged() =>
+        await InvokeAsync(async () =>
+        {
+            _updateState = KnowledgeUpdateState.NotChecked;
+            _folderOpenError = null;
+            await ReloadMenuAsync();
+            StateHasChanged();
+        });
+
+    public void Dispose() => KnowledgeMenu.Changed -= OnKnowledgeChanged;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -453,10 +495,12 @@
             _updateBusy = false;
         }
 
-        // A pull replaces the files the menu was built from, so the menu is rebuilt
-        // from them. The panels hear it from the folder source instead — the pull
-        // announced itself there — which is why nothing here reaches into them.
-        if (pulling) await ReloadMenuAsync();
+        // A pull replaces the files the menu was built from and says so on the
+        // folder source, which is where the menu hears it now — the same way the
+        // panels always did, and the reason nothing here reaches into any of them.
+        // Rebuilding it here as well would walk every enabled folder a second time
+        // for one press. The announcement is on the success path only, which is
+        // also the only path that changed a file, so nothing is left unreloaded.
     }
 
     /// <summary>
