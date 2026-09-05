@@ -229,18 +229,42 @@ references one. See [`src/Harness/README.md`](src/Harness/README.md).
 dotnet run --project src/Aspire/Backlog.Aspire.AppHost
 ```
 
-The AppHost starts the sync service and the two web test harnesses. The remaining
-resources need something Aspire cannot provide on its own — a desktop
-window, an Android emulator, or a VS Code extension host — so they are registered
-with **explicit start** and launched on demand from the dashboard:
+The AppHost is opted in to the Aspire CLI bundle, so this acquires the CLI pinned
+to the AppHost SDK version and delegates to `aspire run` — the first run on a
+machine downloads it. The AppHost starts the sync service, the Foundry test
+service, and the three web test harnesses. The remaining resources need something
+Aspire cannot provide on its own — a desktop window, an Android emulator, a CLI,
+or a VS Code extension host — so they are registered with **explicit start** and
+launched on demand from the dashboard:
 
 | Resource | Starts | Needs |
 |---|---|---|
-| `sync`, `desktop-web-harness`, `mobile-web-harness` | automatically | — |
+| `sync`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, `ui-storybook` | automatically | — |
 | `desktop` | on demand | Windows desktop session |
-| `mobile-android` | on demand | running Android emulator or attached device |
+| `mobile-android` | on demand | running Android emulator or attached device; its **Set run target** command chooses the target framework and the `adb` serial |
+| `mobile-maui-android-emulator` | on demand | Android emulator, started for you; reaches `sync` through `mobile-tunnel`, so start the tunnel first — the head waits for the tunnel's endpoint before it comes up |
+| `mobile-tunnel` | on demand | `devtunnel` CLI and a signed-in account; publishes `sync`'s HTTP endpoint so the emulator can reach it off its own loopback |
 | `ide-vscode-build` | on demand | `npm install` in `src/App/Backlog.Ide.VsCode` |
 | `ide-vscode-host` | on demand | `code` on PATH |
+
+`mobile-maui` itself is not in the table because it is not something you start. It
+is the parent `Aspire.Hosting.Maui` registration, a container whose build is
+deferred until one of its platform children runs; `mobile-maui-android-emulator`
+is that child, and the one with the start button.
+
+`foundry-local` is not in that table because it is not on every machine.
+`RunAsFoundryLocal()` launches the `foundry` CLI as the app model comes up rather
+than when the resource is started, so explicit start cannot hold it back and a
+machine without the CLI would carry a failed resource through every run. The
+AppHost therefore registers it **only when `foundry` is on PATH** — and where it
+is registered, it starts with the app model rather than on demand. Not seeing it
+in the dashboard means this machine has no Foundry Local, not that something went
+wrong.
+
+`desktop-web-harness` carries a **Reset local data** command that deletes the task
+database and the workspace settings. Every git worktree of this repository shares
+one per-user `Backlog.Debug` workspace, so it resets every session on the machine,
+not only this one.
 
 Each channel with a MAUI head also has a browser harness sharing the same Razor
 components, so the UI can be developed and tested without a device:
