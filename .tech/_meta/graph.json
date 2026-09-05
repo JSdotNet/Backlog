@@ -6,17 +6,17 @@
     ".tech"
   ],
   "stats": {
-    "nodes": 117,
-    "edges": 316,
+    "nodes": 120,
+    "edges": 320,
     "nodesByFolder": {
       "tech": 99,
-      "arc42": 15,
+      "arc42": 18,
       "design": 2,
       "domain": 1
     },
     "nodesByType": {
-      "file": 16,
-      "chapter": 100,
+      "file": 17,
+      "chapter": 102,
       "heading": 1
     },
     "nodesByStatus": {
@@ -24,12 +24,12 @@
       "candidate": 13,
       "hold": 1,
       "none": 1,
-      "active": 16,
+      "active": 19,
       "draft": 2
     },
     "edgesByType": {
       "contains": 90,
-      "related": 123,
+      "related": 127,
       "depends-on": 103
     }
   },
@@ -394,7 +394,11 @@
             "Azure Table Storage"
           ],
           "related": [
-            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -407,7 +411,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-key-vault",
           "level": 2,
-          "line": 95,
+          "line": 110,
           "status": "candidate",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
@@ -423,7 +427,7 @@
           "path": ".tech/cloud.md",
           "slug": "firebase-cloud-messaging",
           "level": 2,
-          "line": 109,
+          "line": 124,
           "status": "candidate",
           "alternatives": [
             "Azure Notification Hubs"
@@ -1968,6 +1972,101 @@
       },
       {
         "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "label": "Storage and Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "storage-and-sync",
+          "level": 2,
+          "line": 10,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
+            ".arc42/06-runtime-view.md#copilot-app-session-capture",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/sessions/domain.md#session-log"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "label": "Task Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "task-sync",
+          "level": 2,
+          "line": 73,
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
+            ".domain/tasks/domain.md#task"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "label": "Session Record Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "session-record-sync",
+          "level": 2,
+          "line": 145,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/sessions/domain.md#session-log"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "label": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/09-architecture-decisions.md",
+            ".arc42/11-risks-and-technical-debt.md",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+            ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#device"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
           "id": ".arc42/07-deployment-view.md#local-deployment-desktop",
           "label": "Local Deployment (Desktop)",
           "type": "chapter",
@@ -2031,26 +2130,6 @@
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
             ".domain/tasks/domain.md#task"
-          ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
-          "id": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
-          "label": "Storage and Sync",
-          "type": "chapter",
-          "folder": "arc42",
-          "path": ".arc42/08-crosscutting-concepts.md",
-          "slug": "storage-and-sync",
-          "level": 2,
-          "line": 10,
-          "status": "active",
-          "related": [
-            ".arc42/02-constraints.md#technical-constraints",
-            ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
-            ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#source-adapter"
           ],
           "outOfScope": true
         }
@@ -3336,6 +3415,38 @@
           "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/07-deployment-view.md#cloud-deployment-azure",
           "source": ".tech/cloud.md#azure-cosmos-db",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "type": "related"
         }
       },
