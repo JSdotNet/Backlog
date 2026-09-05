@@ -7,7 +7,7 @@
   ],
   "stats": {
     "nodes": 116,
-    "edges": 221,
+    "edges": 223,
     "nodesByFolder": {
       "arc42": 88,
       "domain": 18,
@@ -19,14 +19,14 @@
       "chapter": 73
     },
     "nodesByStatus": {
-      "active": 74,
-      "proposed": 13,
+      "active": 75,
+      "proposed": 12,
       "draft": 22,
       "adopted": 7
     },
     "edgesByType": {
       "contains": 51,
-      "related": 170
+      "related": 172
     }
   },
   "problems": [],
@@ -1074,7 +1074,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-          "status": "proposed",
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -1086,6 +1086,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task",
             ".domain/tasks/naming.md#device"
           ]
@@ -3259,6 +3261,22 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/capture/domain.md#capture",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/capture/domain.md#capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },

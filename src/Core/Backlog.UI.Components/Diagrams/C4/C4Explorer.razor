@@ -250,6 +250,12 @@
     private bool _presenting;
     private int _zoom = 100;
 
+    /// <summary>Whether a viewer was ever asked for. Set on the first attach, which
+    /// only happens from <c>OnAfterRenderAsync</c> — a static prerender never gets
+    /// there, yet its request scope still disposes the component, and the runtime
+    /// it would dispose through has no circuit behind it.</summary>
+    private bool _attached;
+
     [Parameter, EditorRequired]
     public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
 
@@ -529,6 +535,7 @@
     private async Task AttachAsync()
     {
         _self ??= DotNetObjectReference.Create(this);
+        _attached = true;
 
         try
         {
@@ -543,11 +550,12 @@
                 drillable);
             await ApplyHighlightAsync();
         }
-        catch (JSException)
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
         {
-            // No viewer. The diagram is still on screen and every control that does
-            // not need it — the Views panel, the breadcrumb, the drill list — still
-            // works, which is the degradation worth having.
+            // No viewer, or no circuit left to reach one through. The diagram is
+            // still on screen and every control that does not need it — the Views
+            // panel, the breadcrumb, the drill list — still works, which is the
+            // degradation worth having.
         }
     }
 
@@ -579,14 +587,20 @@
 
     public async ValueTask DisposeAsync()
     {
-        try
+        // Only after a viewer was asked for. A prerender disposes the component
+        // without ever reaching OnAfterRender, and asking its static runtime to tear
+        // down a viewer that was never created is the one call it refuses loudly.
+        if (_attached)
         {
-            await Js.InvokeVoidAsync("backlogC4Explorer.dispose", _frameId);
-        }
-        catch (Exception exception) when (exception is JSException or JSDisconnectedException or TaskCanceledException)
-        {
-            // The circuit is already gone, which is the usual way a component is
-            // disposed. There is nothing left to detach from.
+            try
+            {
+                await Js.InvokeVoidAsync("backlogC4Explorer.dispose", _frameId);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+                // The circuit is already gone, which is the usual way a component is
+                // disposed. There is nothing left to detach from.
+            }
         }
 
         _self?.Dispose();

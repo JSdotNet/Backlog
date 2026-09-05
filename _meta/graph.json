@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 793,
-    "edges": 1650,
+    "edges": 1652,
     "nodesByFolder": {
       "arc42": 88,
       "domain": 504,
@@ -25,8 +25,8 @@
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 208,
-      "proposed": 47,
+      "active": 209,
+      "proposed": 46,
       "draft": 424,
       "deprecated": 4,
       "done": 3,
@@ -37,7 +37,7 @@
     },
     "edgesByType": {
       "contains": 666,
-      "related": 836,
+      "related": 838,
       "depends-on": 146,
       "implements": 2
     }
@@ -1087,7 +1087,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-          "status": "proposed",
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -1099,6 +1099,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task",
             ".domain/tasks/naming.md#device"
           ]
@@ -8098,7 +8100,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 473,
+          "line": 476,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -8115,7 +8117,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 503,
+          "line": 506,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -8132,7 +8134,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 534,
+          "line": 537,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -8152,7 +8154,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 551,
+          "line": 554,
           "status": "draft",
           "related": [
             ".domain/tasks/flow.md"
@@ -8168,7 +8170,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 568,
+          "line": 571,
           "status": "deprecated",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -8186,7 +8188,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-device-sync",
           "level": 2,
-          "line": 589,
+          "line": 592,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -8208,7 +8210,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 613,
+          "line": 616,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
@@ -8228,7 +8230,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 628,
+          "line": 631,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -8249,7 +8251,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 659,
+          "line": 662,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -18856,6 +18858,22 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/capture/domain.md#capture",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/capture/domain.md#capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
