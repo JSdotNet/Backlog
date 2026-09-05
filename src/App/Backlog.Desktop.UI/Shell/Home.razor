@@ -515,7 +515,7 @@
             <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
+                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
                 }
 
                 @if (TasksPaneVisible)
@@ -549,7 +549,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" />
+                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
                         }
 
                         @if (KnowledgePaneVisible)
@@ -894,6 +894,13 @@
     /// shell only passes it along; the projection itself belongs to the context
     /// that owns the entries.</summary>
     private IReadOnlyList<InboxItem> InboxItems => TasksDrafts.ForInbox(State.Rows);
+
+    /// <summary>How the reader last asked the Inbox to fold. Held here rather than
+    /// in the pane because the pane is drawn in one of two slots depending on
+    /// which other panes are open, and moving slots re-mounts it: triage opens the
+    /// backlog beside the Inbox, and a choice held in the pane would reset to a
+    /// flat list at exactly that moment.</summary>
+    private InboxGrouping _inboxGrouping;
 
     private void SynchronizePaneAvailability()
     {
