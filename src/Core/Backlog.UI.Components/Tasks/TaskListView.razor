@@ -476,6 +476,7 @@
                    EditingChanged="editing => SetEditing(task.Id, editing)"
                    OnEditMove="MoveEdit"
                    OnDelete="@DeleteRequest"
+                   OnContextMenu="OnContextMenu"
                    AllowCopy="@AllowCopy"
                    CopyValue="@RowCopyValue?.Invoke(task)"
                    BodyLabel="@BodyLabel"
@@ -641,6 +642,13 @@
     /// </summary>
     [Parameter]
     public EventCallback<string> OnDelete { get; set; }
+
+    /// <summary>Straight through to every row, exactly like OnRename: a right-click
+    /// reports which row was asked and where the pointer was, and the host draws
+    /// the menu — see <see cref="TaskItem.OnContextMenu"/>. Unsupplied, every row
+    /// keeps the browser's own.</summary>
+    [Parameter]
+    public EventCallback<TaskContextMenu> OnContextMenu { get; set; }
 
     /// <summary>Straight through to every row, exactly like OnRename: whether a
     /// body can be edited is one answer for the whole list, and a list that

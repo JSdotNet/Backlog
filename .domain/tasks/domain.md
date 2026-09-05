@@ -39,7 +39,10 @@ the task into a self-chosen grouping — blank is normalized to unfiled, and the
 taxonomy is deliberately theirs, not a fixed enum; and `order`, a manual rank used
 to hand-sequence tasks within the backlog (tasks that have never been ranked
 share the default and fall back to recency). Both are freely re-settable and
-carry no lifecycle invariant of their own.
+carry no lifecycle invariant of their own. Both are also aggregate state rather
+than a display preference, so both travel with the task to the person's other
+machines: a sequence arranged by hand is an edit, and an edit that did not travel
+would quietly revert on the other device.
 
 Beyond that working-set placement the task carries four scheduling attributes,
 all optional and none of them load-bearing for the lifecycle. `due_on` is the
@@ -144,9 +147,10 @@ but never registers or owns it.
 
 Two attributes exist so the same task can live on more than one of the person's
 machines. `updated_at` is the moment the task last changed, in UTC, restamped by
-the device on every mutation; `deleted_at` marks a task as deleted without
-removing it. Neither carries a lifecycle invariant of its own, and neither is
-ever set by hand.
+the device on every mutation — including a change to `order` or `area`, which is
+what makes those travel; `deleted_at` marks a task as deleted without removing
+it. Neither carries a lifecycle invariant of its own, and neither is ever set by
+hand.
 
 They are here rather than in the storage adapter because reconciliation is a
 domain rule, not a persistence detail. When the same task is edited on two

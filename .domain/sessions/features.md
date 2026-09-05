@@ -127,7 +127,7 @@ practice, without removing any of them.
 ```meta
 type: sub-feature
 status: active
-related: [.domain/sessions/naming.md#environment]
+related: [.domain/sessions/naming.md#environment, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 A section per environment, named after it, with its own count — so "how many are
@@ -135,7 +135,11 @@ running on that box" is read rather than counted.
 
 Single-valued for as long as an environment can only read its own records: one
 section, named after the machine the reader is sitting at. It becomes the useful
-grouping the moment a second environment reports.
+grouping the moment a second environment reports, which local ADR 0005 names as
+the point session records start replicating between the person's machines. A
+section for a machine the reader is not sitting at is answered from replicated
+records, so it is as fresh as the last time that machine synced and no fresher —
+which the derived state already shows, without needing a caveat of its own.
 
 ### Group by agent
 

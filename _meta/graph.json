@@ -10,10 +10,10 @@
     ".design"
   ],
   "stats": {
-    "nodes": 793,
-    "edges": 1652,
+    "nodes": 794,
+    "edges": 1673,
     "nodesByFolder": {
-      "arc42": 88,
+      "arc42": 89,
       "domain": 504,
       "backlog": 4,
       "tech": 99,
@@ -21,12 +21,12 @@
     },
     "nodesByType": {
       "file": 127,
-      "chapter": 657,
+      "chapter": 658,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 209,
-      "proposed": 46,
+      "active": 211,
+      "proposed": 45,
       "draft": 424,
       "deprecated": 4,
       "done": 3,
@@ -36,8 +36,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 666,
-      "related": 838,
+      "contains": 667,
+      "related": 858,
       "depends-on": 146,
       "implements": 2
     }
@@ -677,7 +677,11 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#source-adapter"
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/sessions/domain.md#session-log"
           ]
         }
       },
@@ -690,14 +694,36 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 47,
-          "status": "proposed",
+          "line": 73,
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "label": "Session Record Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "session-record-sync",
+          "level": 2,
+          "line": 145,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/sessions/domain.md#session-log"
           ]
         }
       },
@@ -710,7 +736,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 99,
+          "line": 173,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -728,7 +754,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 158,
+          "line": 232,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -746,7 +772,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 185,
+          "line": 259,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -762,7 +788,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 206,
+          "line": 280,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -778,7 +804,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 222,
+          "line": 296,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -794,7 +820,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 234,
+          "line": 308,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -6417,7 +6443,9 @@
           "status": "active",
           "related": [
             ".domain/context-map.md",
-            ".domain/dev-pc-management/domain.md#machine-registry"
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -6440,11 +6468,13 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-log",
           "level": 2,
-          "line": 40,
+          "line": 46,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
-            ".domain/sessions/dependencies.md"
+            ".domain/sessions/dependencies.md",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -6457,7 +6487,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent-session",
           "level": 3,
-          "line": 81,
+          "line": 130,
           "status": "active"
         }
       },
@@ -6470,7 +6500,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 3,
-          "line": 100,
+          "line": 149,
           "status": "active"
         }
       },
@@ -6483,7 +6513,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 3,
-          "line": 111,
+          "line": 160,
           "status": "active"
         }
       },
@@ -6496,7 +6526,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "activity-window",
           "level": 3,
-          "line": 125,
+          "line": 174,
           "status": "active"
         }
       },
@@ -6509,7 +6539,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-stream",
           "level": 3,
-          "line": 137,
+          "line": 186,
           "status": "active"
         }
       },
@@ -6522,7 +6552,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-entry",
           "level": 3,
-          "line": 152,
+          "line": 201,
           "status": "active"
         }
       },
@@ -6535,7 +6565,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-enrichment-summary",
           "level": 3,
-          "line": 167,
+          "line": 216,
           "status": "active"
         }
       },
@@ -6548,7 +6578,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 3,
-          "line": 182,
+          "line": 231,
           "status": "active"
         }
       },
@@ -6561,7 +6591,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 3,
-          "line": 197,
+          "line": 246,
           "status": "active"
         }
       },
@@ -6574,7 +6604,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 3,
-          "line": 210,
+          "line": 259,
           "status": "active"
         }
       },
@@ -6587,7 +6617,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "reporting-capability",
           "level": 3,
-          "line": 228,
+          "line": 277,
           "status": "active"
         }
       },
@@ -6600,7 +6630,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "liveness-assessment",
           "level": 2,
-          "line": 246,
+          "line": 295,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
@@ -6617,7 +6647,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-view",
           "level": 2,
-          "line": 267,
+          "line": 316,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -6636,7 +6666,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 309,
+          "line": 358,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -6653,7 +6683,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-publishing",
           "level": 2,
-          "line": 335,
+          "line": 384,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6671,7 +6701,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 355,
+          "line": 404,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6689,7 +6719,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 375,
+          "line": 424,
           "status": "active"
         }
       },
@@ -6702,7 +6732,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 388,
+          "line": 437,
           "status": "active"
         }
       },
@@ -6822,7 +6852,8 @@
           "line": 125,
           "status": "active",
           "related": [
-            ".domain/sessions/naming.md#environment"
+            ".domain/sessions/naming.md#environment",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -6835,7 +6866,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "group-by-agent",
           "level": 3,
-          "line": 140,
+          "line": 144,
           "status": "active"
         }
       },
@@ -6848,7 +6879,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "grouping-never-hides-a-session",
           "level": 3,
-          "line": 150,
+          "line": 154,
           "status": "active",
           "related": [
             ".domain/sessions/features.md#open-on-the-live-sessions"
@@ -6864,7 +6895,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "honest-partial-answers",
           "level": 2,
-          "line": 169,
+          "line": 173,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-catalog"
@@ -6880,7 +6911,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "name-the-source-that-could-not-be-read",
           "level": 3,
-          "line": 180,
+          "line": 184,
           "status": "active"
         }
       },
@@ -6893,7 +6924,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "say-how-much-was-left-out",
           "level": 3,
-          "line": 193,
+          "line": 197,
           "status": "active",
           "related": [
             ".domain/sessions/naming.md#session-limit"
@@ -6909,7 +6940,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 209,
+          "line": 213,
           "status": "proposed",
           "depends-on": [
             ".domain/sessions/features.md#session-inventory"
@@ -6929,7 +6960,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "optional-collections-mcp-reporting",
           "level": 3,
-          "line": 226,
+          "line": 230,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-activity-publishing",
@@ -6946,7 +6977,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "latest-meaningful-activity",
           "level": 3,
-          "line": 241,
+          "line": 245,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-enrichment-summary",
@@ -6963,7 +6994,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "reporting-degrades-honestly",
           "level": 3,
-          "line": 256,
+          "line": 260,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#reporting-capability"
@@ -6979,7 +7010,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "turn-the-area-off",
           "level": 2,
-          "line": 271,
+          "line": 275,
           "status": "active"
         }
       },
@@ -7400,7 +7431,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item",
           "level": 3,
-          "line": 167,
+          "line": 171,
           "status": "draft"
         }
       },
@@ -7413,7 +7444,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection-ref",
           "level": 3,
-          "line": 190,
+          "line": 194,
           "status": "draft"
         }
       },
@@ -7426,7 +7457,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence",
           "level": 3,
-          "line": 201,
+          "line": 205,
           "status": "draft"
         }
       },
@@ -7439,7 +7470,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "attachment",
           "level": 3,
-          "line": 218,
+          "line": 222,
           "status": "draft"
         }
       },
@@ -7452,7 +7483,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "usage-event",
           "level": 3,
-          "line": 241,
+          "line": 245,
           "status": "draft"
         }
       },
@@ -7465,7 +7496,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "ai-work-log",
           "level": 3,
-          "line": 251,
+          "line": 255,
           "status": "draft"
         }
       },
@@ -7478,7 +7509,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-type",
           "level": 3,
-          "line": 262,
+          "line": 266,
           "status": "draft",
           "related": [
             ".domain/tasks/naming.md#dependency"
@@ -7494,7 +7525,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-status",
           "level": 3,
-          "line": 273,
+          "line": 277,
           "status": "draft"
         }
       },
@@ -7507,7 +7538,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 282,
+          "line": 286,
           "status": "draft"
         }
       },
@@ -7520,7 +7551,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 291,
+          "line": 295,
           "status": "draft"
         }
       },
@@ -7533,7 +7564,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 300,
+          "line": 304,
           "status": "draft"
         }
       },
@@ -7546,7 +7577,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 309,
+          "line": 313,
           "status": "draft"
         }
       },
@@ -7559,7 +7590,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 319,
+          "line": 323,
           "status": "draft"
         }
       },
@@ -7572,7 +7603,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 338,
+          "line": 342,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -7589,7 +7620,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 352,
+          "line": 356,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7607,7 +7638,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 394,
+          "line": 398,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7624,7 +7655,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskprojected",
           "level": 2,
-          "line": 421,
+          "line": 425,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7642,7 +7673,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskcompleted",
           "level": 2,
-          "line": 449,
+          "line": 453,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7660,7 +7691,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 475,
+          "line": 479,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7678,7 +7709,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 504,
+          "line": 508,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -7695,7 +7726,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 539,
+          "line": 543,
           "status": "draft"
         }
       },
@@ -8230,7 +8261,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 631,
+          "line": 633,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -8251,7 +8282,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 662,
+          "line": 664,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -9614,7 +9645,11 @@
             "Azure Table Storage"
           ],
           "related": [
-            ".arc42/07-deployment-view.md#cloud-deployment-azure"
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -9627,7 +9662,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-key-vault",
           "level": 2,
-          "line": 95,
+          "line": 110,
           "status": "candidate",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure"
@@ -9643,7 +9678,7 @@
           "path": ".tech/cloud.md",
           "slug": "firebase-cloud-messaging",
           "level": 2,
-          "line": 109,
+          "line": 124,
           "status": "candidate",
           "alternatives": [
             "Azure Notification Hubs"
@@ -10357,7 +10392,7 @@
           "path": ".tech/shared.md",
           "slug": "opentelemetry",
           "level": 2,
-          "line": 285,
+          "line": 295,
           "status": "adopted",
           "version": "1.18.0",
           "depends-on": [
@@ -10379,7 +10414,7 @@
           "path": ".tech/shared.md",
           "slug": "sqlite",
           "level": 2,
-          "line": 304,
+          "line": 314,
           "status": "adopted",
           "alternatives": [
             "Markdown files with YAML frontmatter",
@@ -10404,7 +10439,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftdatasqlite",
           "level": 2,
-          "line": 325,
+          "line": 335,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10422,7 +10457,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionsdependencyinjection",
           "level": 2,
-          "line": 341,
+          "line": 351,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10439,7 +10474,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionshttp",
           "level": 2,
-          "line": 358,
+          "line": 368,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10456,7 +10491,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionshttpresilience",
           "level": 2,
-          "line": 373,
+          "line": 383,
           "status": "adopted",
           "version": "10.9.0",
           "depends-on": [
@@ -10473,7 +10508,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionsservicediscovery",
           "level": 2,
-          "line": 389,
+          "line": 399,
           "status": "adopted",
           "version": "10.9.0",
           "depends-on": [
@@ -10490,7 +10525,7 @@
           "path": ".tech/shared.md",
           "slug": "microsoftextensionslogging",
           "level": 2,
-          "line": 405,
+          "line": 415,
           "status": "adopted",
           "version": "10.0.11",
           "depends-on": [
@@ -10510,7 +10545,7 @@
           "path": ".tech/shared.md",
           "slug": "yamldotnet",
           "level": 2,
-          "line": 422,
+          "line": 432,
           "status": "hold",
           "version": "18.1.0",
           "alternatives": [
@@ -10534,7 +10569,7 @@
           "path": ".tech/shared.md",
           "slug": "github-platform",
           "level": 2,
-          "line": 443,
+          "line": 453,
           "status": "adopted",
           "related": [
             ".arc42/02-constraints.md#organizational--process-constraints"
@@ -10550,7 +10585,7 @@
           "path": ".tech/shared.md",
           "slug": "anthropic-claude-platform",
           "level": 2,
-          "line": 458,
+          "line": 468,
           "status": "candidate",
           "alternatives": [
             "Local accumulation of per-response token counts"
@@ -10570,7 +10605,7 @@
           "path": ".tech/shared.md",
           "slug": "github-copilot-usage-apis",
           "level": 2,
-          "line": 479,
+          "line": 489,
           "status": "candidate",
           "depends-on": [
             ".tech/shared.md#github-platform"
@@ -11045,7 +11080,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 280,
+          "line": 295,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -11067,7 +11102,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 307,
+          "line": 322,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [
@@ -11088,7 +11123,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 340,
+          "line": 355,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -11106,7 +11141,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 357,
+          "line": 372,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [
@@ -12938,6 +12973,14 @@
           "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#task-sync",
           "source": ".arc42/08-crosscutting-concepts.md",
           "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/08-crosscutting-concepts.md->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".arc42/08-crosscutting-concepts.md",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
           "type": "contains"
         }
       },
@@ -18327,9 +18370,41 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/capture/domain.md#source-adapter",
           "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
           "target": ".domain/capture/domain.md#source-adapter",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#storage-and-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
@@ -18367,9 +18442,65 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/capture/domain.md#capture",
+          "source": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "target": ".domain/capture/domain.md#capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "target": ".domain/sessions/domain.md#session-log",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#task-sync->.domain/tasks/domain.md#task",
           "source": ".arc42/08-crosscutting-concepts.md#task-sync",
           "target": ".domain/tasks/domain.md#task",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/07-deployment-view.md#cloud-deployment-azure",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.domain/sessions/domain.md#session-log",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".domain/sessions/domain.md#session-log",
           "type": "related"
         }
       },
@@ -21343,6 +21474,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/dependencies.md->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".domain/sessions/dependencies.md",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/dependencies.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/dependencies.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/domain.md#session-log->.domain/dev-pc-management/domain.md#machine-registry",
           "source": ".domain/sessions/domain.md#session-log",
           "target": ".domain/dev-pc-management/domain.md#machine-registry",
@@ -21354,6 +21501,22 @@
           "id": "related:.domain/sessions/domain.md#session-log->.domain/sessions/dependencies.md",
           "source": ".domain/sessions/domain.md#session-log",
           "target": ".domain/sessions/dependencies.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-log->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".domain/sessions/domain.md#session-log",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-log->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/domain.md#session-log",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "type": "related"
         }
       },
@@ -21522,6 +21685,14 @@
           "id": "related:.domain/sessions/features.md#group-by-environment->.domain/sessions/naming.md#environment",
           "source": ".domain/sessions/features.md#group-by-environment",
           "target": ".domain/sessions/naming.md#environment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#group-by-environment->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/features.md#group-by-environment",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "type": "related"
         }
       },
@@ -23274,6 +23445,38 @@
           "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/07-deployment-view.md#cloud-deployment-azure",
           "source": ".tech/cloud.md#azure-cosmos-db",
           "target": ".arc42/07-deployment-view.md#cloud-deployment-azure",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#azure-cosmos-db->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".tech/cloud.md#azure-cosmos-db",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "type": "related"
         }
       },

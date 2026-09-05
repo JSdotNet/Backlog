@@ -1604,7 +1604,11 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#source-adapter"
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/sessions/domain.md#session-log"
           ],
           "outOfScope": true
         }
@@ -1671,7 +1675,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 280,
+          "line": 295,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -1694,7 +1698,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 307,
+          "line": 322,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [

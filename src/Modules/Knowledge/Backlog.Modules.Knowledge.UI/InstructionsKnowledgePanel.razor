@@ -1,3 +1,4 @@
+@implements IDisposable
 @inject GitHubSettingsStore Repositories
 @inject InstructionSourceDiscovery InstructionSources
 @inject IKnowledgeFolderSource Folders
@@ -162,6 +163,51 @@
             : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
+
+    protected override void OnInitialized() => Folders.Changed += OnKnowledgeChanged;
+
+    /// <summary>A folder that moved or changed underneath the panel. A refresh
+    /// rather than a load, the same as the other four areas: the scope did not
+    /// change, so the document stays selected.
+    /// <para>
+    /// An open editing surface keeps the buffer nobody saved yet, and it does so
+    /// on its own: <see cref="KnowledgeChapterEditor"/> adopts re-read text only
+    /// when the chapter it was handed is the one it already holds and nothing is
+    /// pending, so the re-read here reaches a surface that declines it. Asserted
+    /// both ways round in <c>KnowledgeFolderChangeRefreshTests</c> — a folder
+    /// replaced in place and a folder moved — because it is the panel that would
+    /// have to grow a guard if that ever stopped being true.
+    /// </para>
+    /// <para>
+    /// Guarded, because <c>InstructionSourceDiscovery.Discover</c> walks every
+    /// instruction root and reads every file under it, and unlike
+    /// <c>KnowledgeMenu</c> it does not turn a bad read into a message on the
+    /// record. Reached from the folder source there is no renderer pipeline
+    /// underneath to catch what it throws, so a folder that moved to somewhere
+    /// unreadable would take down the thread that raised the event. The last list
+    /// that did read stays on screen — a locked file mid-pull is transient, and
+    /// blanking the panel for it would be the worse answer of the two. Inside
+    /// <c>InvokeAsync</c> for the reason the pane gives: a pull announces itself
+    /// off the dispatcher, and this writes fields the render path reads.
+    /// </para></summary>
+    private async void OnKnowledgeChanged() =>
+        await InvokeAsync(async () =>
+        {
+            try
+            {
+                Discover();
+                await LoadSelectedChapterAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // Nothing to record and nothing to show: the list that last read
+                // stays up, and the next parameter set asks again.
+            }
+
+            StateHasChanged();
+        });
+
+    public void Dispose() => Folders.Changed -= OnKnowledgeChanged;
 
     protected override async Task OnParametersSetAsync()
     {
