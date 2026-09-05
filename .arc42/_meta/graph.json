@@ -1756,7 +1756,7 @@
           "path": ".tech/shared.md",
           "slug": "sqlite",
           "level": 2,
-          "line": 304,
+          "line": 314,
           "status": "adopted",
           "alternatives": [
             "Markdown files with YAML frontmatter",
