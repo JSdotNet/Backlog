@@ -6,6 +6,18 @@ namespace Backlog.Desktop.UI.Knowledge;
 
 public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
 {
+    /// <summary>Re-published from the folder source so an open pane can rebuild
+    /// its menu when the configured folder moves. The four knowledge stores
+    /// forward it the same way; this is the one the pane subscribes to, and the
+    /// only one, because a second forwarder on <see cref="KnowledgeScope"/> would
+    /// only reload the same menu twice for one folder change — everything the
+    /// scope answers is re-read on the render the reload brings with it.</summary>
+    public event Action? Changed
+    {
+        add => source.Changed += value;
+        remove => source.Changed -= value;
+    }
+
     public Task<KnowledgeMenuTree> LoadAsync(
         IReadOnlyCollection<string> visibleAreaKeys,
         string? repositoryAlias = null,
