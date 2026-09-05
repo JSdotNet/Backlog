@@ -558,7 +558,7 @@
           "path": ".tech/desktop.md",
           "slug": "background-workers",
           "level": 2,
-          "line": 97,
+          "line": 100,
           "status": "candidate",
           "depends-on": [
             ".tech/shared.md#net-runtime"
@@ -577,7 +577,7 @@
           "path": ".tech/desktop.md",
           "slug": "github-cli",
           "level": 2,
-          "line": 114,
+          "line": 117,
           "status": "adopted",
           "alternatives": [
             "Octokit.NET",
@@ -600,7 +600,7 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 133,
+          "line": 136,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
@@ -620,7 +620,7 @@
           "path": ".tech/desktop.md",
           "slug": "app-installer-appinstaller",
           "level": 2,
-          "line": 157,
+          "line": 160,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#msix-packaging"
@@ -1929,7 +1929,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 148,
+          "line": 150,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -2030,6 +2030,8 @@
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
             ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
@@ -2064,7 +2066,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 43,
+          "line": 45,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -2082,7 +2084,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 95,
+          "line": 97,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",

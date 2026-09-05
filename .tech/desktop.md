@@ -86,9 +86,12 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB"]
 The file-backed persistence layer, implemented in-app rather than bought in.
 
 - **Used for** — `Backlog.Infrastructure.Sqlite` holds the canonical `tasks`
-  table; `RootedSqliteTaskRepository` binds it to the workspace root the user
-  chose, so the desktop head and the web harness open the same database the same
-  way. Settings stay JSON files beside it.
+  table and the `roadmap_plan` table, the latter a single document row per
+  workspace; `RootedSqliteTaskRepository` and `RootedSqliteRoadmapPlanRepository`
+  bind them to the workspace root the user chose, so the desktop head and the web
+  harness open the same database the same way. Each adapter creates only its own
+  table — the two modules share the file, not the schema. Settings and feature
+  flags stay JSON files beside it, per-device on purpose.
 - **Why** — `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`
   replaced the earlier markdown-document store and its two derived indexes with
   one database that cannot disagree with itself. Markdown remains the *content*

@@ -18,8 +18,10 @@ related: [".arc42/05-building-block-view.md#desktop-app", ".arc42/08-crosscuttin
 The desktop app is installed on Windows machines and is the canonical deployment. Everything needed for core workflows runs here.
 
 - **Local Storage** — one SQLite database (`backlog.db`) under a user-owned root is
-  the source of truth for tasks; JSON files hold the workspace settings and feature
-  flags. A task's content is markdown text inside the database.
+  the source of truth for tasks and for the roadmap plan, which is a single document
+  row in it; JSON files hold the workspace settings and feature flags, which are
+  per-device. A task's content is markdown text inside the database. One file to back
+  up, and one to keep off a synced disk.
 - **Repository Knowledge** — knowledge folders are not deployed with the app. They
   live in each registered repository's own working copy, wherever the user cloned it,
   and are read in place; the generated index over them (`_meta/knowledge.db`) is

@@ -16,9 +16,12 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
   source of truth. Tasks live in one SQLite database (`backlog.db`) under the
-  workspace root, with a task's content held as markdown text; JSON files hold the
-  workspace settings and feature flags. Markdown is the content of a task, not the
-  storage format. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+  workspace root, with a task's content held as markdown text, and the roadmap plan
+  is one document row in that same database; JSON files hold the workspace settings
+  and feature flags, which are per-device and deliberately not shared. Markdown is
+  the content of a task, not the storage format. One database file, two tables with
+  an owner each — Tasks and Roadmap Planning share the file and not the schema. See
+  `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
 - **Knowledge is the other way round** — a repository's knowledge folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: a task is owned by the app, a knowledge chapter is
@@ -54,7 +57,11 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deploymen
 How the general sync position above is realized for the Task aggregate. Proposed;
 see local ADR 0005. The Task aggregate is the only thing synced in this pass —
 the roadmap plan, workspace settings, feature flags, and the knowledge layer stay
-local.
+local. The settings and flags stay local *by decision*, because they describe one
+machine; the roadmap plan stays local only because nothing carries it yet. Since
+2026-09-05 it lives in `backlog.db` with an `updated_at` of its own, so it could
+replicate on the same terms as a task once there is a transport — see ADR 0005's
+open questions.
 
 **Reconciliation between equals, not client and server.** Each device's SQLite
 database is canonical for that device. Azure holds a replica and the change feed

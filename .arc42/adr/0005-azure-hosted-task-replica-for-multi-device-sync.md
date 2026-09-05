@@ -74,9 +74,14 @@ leave the two channels that most need it exactly where they are.
   to it, and shipping it would create exactly the second copy that record exists to
   remove.
 
-The roadmap plan is on neither list. It has the same file-sync hazard as the
-database and no answer yet; it stays an open question below rather than being
-quietly filed under either heading.
+The roadmap plan is on neither list, and the reason changed on 2026-09-05. It used
+to have the same file-sync hazard as the database, because it was a file under the
+same root; it is a row in `backlog.db` now, so that half is closed by construction
+rather than by a mitigation. What is still open is whether it **syncs**, and on what
+terms. The row carries `updated_at`, so it *can* replicate on the same terms as a
+task whenever this record's transport is built — which is the point of having added
+the column before anything needed it. It stays an open question below on those
+narrower grounds.
 
 ## Context
 
@@ -500,10 +505,17 @@ rests on the user keeping the workspace root off a synced disk, and nothing in t
 app checks: a root already on OneDrive stays there. A startup check that
 recognises a known sync provider's folder — OneDrive, Dropbox, Google Drive,
 iCloud — and says so on the Storage screen closes that gap without touching the
-schema. It also covers the whole root rather than one file in it, which matters
-here: `_roadmap/plan.json` sits under the same root with the same hazard, and one
-root-level check answers for it too, where a per-device filename would have to be
-invented separately for every file the root holds.
+schema. It also covers the whole root rather than one file in it, which is the
+durable argument for putting the check on the root: a per-device filename would have
+to be invented separately for every file the root holds, and the root's contents are
+not fixed.
+
+When this was written the roadmap plan was the standing example — `_roadmap/plan.json`
+sat under the same root with the same hazard. It no longer does; it moved into
+`backlog.db` on 2026-09-05, which removed that file rather than mitigating it. The
+argument is left standing on its own terms because the check is still the right shape,
+and because the workspace settings and feature flags remain per-device JSON files
+under the same root by deliberate choice.
 
 Once the sync service ships, the workspace root goes back to being a local folder
 and the hazard is structural rather than advisory. Per-device filenames stay
@@ -656,12 +668,16 @@ Neutral:
   sessions and captures does not widen it to attachments, and nothing in this record
   makes the partial replica whole. Resolving it means either blob storage or an
   explicit statement, on the screen, that attachments are machine-local.
-- **Roadmap plan.** `_roadmap/plan.json` is a single JSON file under the same
-  workspace root and has the same file-sync hazard, unexercised so far. Whether it
-  syncs, and how, is out of scope here and will need the same treatment. Its share
-  of the *hazard* is already answered: the detection described under **The database
-  filename** is a check on the root, so it covers the plan file as it covers the
-  database.
+- **Roadmap plan — half answered, and the half that remains is narrower.** Its share
+  of the *hazard* is closed outright: as of 2026-09-05 the plan is a `roadmap_plan`
+  row in `backlog.db` rather than `_roadmap/plan.json`, so there is no second file
+  under the root for a sync product to conflict, and no second sync protocol to keep
+  correct. The row was given `updated_at` in the same change, written from the table's
+  first day, so last-write-wins is expressible for a plan without the back-seeding the
+  `tasks` table needed. What is still open is whether the plan **replicates** at all
+  and on what terms — whether it becomes a third container, a document in one of the
+  two, or stays local like the settings. Nothing here decides that; the point is that
+  the decision is now free to be made on its merits rather than forced by a file.
 - **Whether the sync slice adopts per-device filenames after all.** This record
   declines them now and states the terms on which they could land later — named
   from the pairing identity, new roots only. Whether that belt and braces earns its

@@ -11,7 +11,7 @@
   ],
   "stats": {
     "nodes": 790,
-    "edges": 1639,
+    "edges": 1641,
     "nodesByFolder": {
       "arc42": 88,
       "domain": 501,
@@ -37,7 +37,7 @@
     },
     "edgesByType": {
       "contains": 663,
-      "related": 828,
+      "related": 830,
       "depends-on": 146,
       "implements": 2
     }
@@ -575,7 +575,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates",
           "level": 3,
-          "line": 43,
+          "line": 45,
           "status": "active",
           "related": [
             ".tech/desktop.md#msix-packaging",
@@ -592,7 +592,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "local-deployment-mobile",
           "level": 2,
-          "line": 82,
+          "line": 84,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#mobile-app",
@@ -609,7 +609,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "installation-and-updates-mobile",
           "level": 3,
-          "line": 95,
+          "line": 97,
           "status": "active",
           "related": [
             ".tech/mobile.md#apk-packaging",
@@ -626,7 +626,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 148,
+          "line": 150,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -643,7 +643,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "provisioning-and-delivery",
           "level": 3,
-          "line": 214,
+          "line": 216,
           "status": "proposed",
           "related": [
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
@@ -690,7 +690,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 47,
+          "line": 50,
           "status": "proposed",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
@@ -710,7 +710,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 99,
+          "line": 106,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -728,7 +728,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 158,
+          "line": 165,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -746,7 +746,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 185,
+          "line": 192,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -762,7 +762,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 206,
+          "line": 213,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -778,7 +778,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 222,
+          "line": 229,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -794,7 +794,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 234,
+          "line": 241,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1057,6 +1057,8 @@
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/07-deployment-view.md",
             ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
             ".domain/tasks/domain.md#task"
           ]
         }
@@ -9713,7 +9715,7 @@
           "path": ".tech/desktop.md",
           "slug": "background-workers",
           "level": 2,
-          "line": 97,
+          "line": 100,
           "status": "candidate",
           "depends-on": [
             ".tech/shared.md#net-runtime"
@@ -9732,7 +9734,7 @@
           "path": ".tech/desktop.md",
           "slug": "github-cli",
           "level": 2,
-          "line": 114,
+          "line": 117,
           "status": "adopted",
           "alternatives": [
             "Octokit.NET",
@@ -9755,7 +9757,7 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 133,
+          "line": 136,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
@@ -9775,7 +9777,7 @@
           "path": ".tech/desktop.md",
           "slug": "app-installer-appinstaller",
           "level": 2,
-          "line": 157,
+          "line": 160,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#msix-packaging"
@@ -18625,6 +18627,22 @@
           "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
           "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
           "target": ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md->.arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+          "source": ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+          "target": ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
           "type": "related"
         }
       },
