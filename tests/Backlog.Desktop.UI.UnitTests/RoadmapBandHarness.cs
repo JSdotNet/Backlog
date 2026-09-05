@@ -1,12 +1,16 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
 
 using Bunit;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -104,25 +108,52 @@ public abstract class RoadmapBandHarness : IDisposable
     }
 
     /// <summary>
-    /// Puts a band colour into the plan file the way a build from before the choice
+    /// Puts a band colour into the stored plan the way a build from before the choice
     /// moved to Settings wrote one.
     /// <para>
     /// Written into the JSON rather than through the module, because the module no
     /// longer has a way to write one — which is the whole point of the migration these
     /// tests are about.
     /// </para>
+    /// <para>
+    /// The JSON is the <c>document</c> column of the plan's row rather than a file:
+    /// the plan moved into <c>backlog.db</c>, and a legacy colour has to be staged
+    /// where a legacy colour would actually be found. The document is read out,
+    /// mutated and written back whole, because that is what the repository above it
+    /// does — there is one row and it is always rewritten entire.
+    /// </para>
     /// </summary>
     protected async Task StoreLegacyBandColourAsync(string alias, int colour)
     {
-        var path = Path.Combine(
-            Settings.RootDirectory,
-            JsonRoadmapPlanRepository.RoadmapFolderName,
-            JsonRoadmapPlanRepository.PlanFileName);
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = SqliteTaskRepository.DatabasePathFor(Settings.RootDirectory),
+            Mode = SqliteOpenMode.ReadWrite
+        }.ToString());
+        await connection.OpenAsync();
 
-        var document = JsonNode.Parse(await File.ReadAllTextAsync(path))!.AsObject();
+        await using var read = connection.CreateCommand();
+        read.CommandText = "SELECT document FROM roadmap_plan WHERE id = $id;";
+        read.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
+
+        // A plan must already have been saved: every caller adds an item first, and a
+        // colour attached to no plan is not a state any build ever wrote.
+        var stored = await read.ExecuteScalarAsync() as string;
+        Assert.NotNull(stored);
+
+        var document = JsonNode.Parse(stored)!.AsObject();
         document["bands"] = new JsonObject { [alias] = colour };
 
-        await File.WriteAllTextAsync(path, document.ToJsonString());
+        await using var write = connection.CreateCommand();
+        write.CommandText = "UPDATE roadmap_plan SET document = $document, updated_at = $updated_at WHERE id = $id;";
+        write.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
+        write.Parameters.AddWithValue("$document", document.ToJsonString());
+        // The column is NOT NULL and means an instant, so a hand-written row owes it a
+        // real one rather than a placeholder that would read back as a corrupt stamp.
+        write.Parameters.AddWithValue(
+            "$updated_at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+
+        await write.ExecuteNonQueryAsync();
     }
 
     protected void Configure(params string[] lines)

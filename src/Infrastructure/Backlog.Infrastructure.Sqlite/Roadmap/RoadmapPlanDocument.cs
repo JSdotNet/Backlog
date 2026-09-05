@@ -1,26 +1,33 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.DomainModels;
 
-namespace Backlog.Infrastructure.FileSystem.Roadmap;
+namespace Backlog.Infrastructure.Sqlite.Roadmap;
 
 /// <summary>
-/// The on-disk shape of <c>_roadmap/plan.json</c> — the whole plan as one
-/// document.
+/// The stored shape of the roadmap plan — the whole plan as one document, held in
+/// the <c>document</c> column of the single <c>roadmap_plan</c> row.
 /// <para>
-/// One file rather than a file per item, unlike the backlog beside it. The plan is
+/// One document rather than a row per item, unlike the tasks beside it. The plan is
 /// one consistency boundary: a dependency edge is only meaningful with every other
 /// node in view, so there is no half of it worth writing on its own. Keeping the
 /// edges in the same document as the nodes also means a plan can never be read in a
 /// state where an arrow points at something that has not loaded yet.
 /// </para>
 /// <para>
-/// The cost is real and worth naming: every edit rewrites the file, so diffs are
-/// noisier than per-item markdown would be and two processes writing at once would
-/// have one of them lose. The write is therefore atomic (see
-/// <see cref="JsonRoadmapPlanRepository"/>), and <see cref="Version"/> exists so a
-/// later shape change can be read rather than guessed at.
+/// The cost is real and worth naming: every edit rewrites the whole document, so two
+/// processes writing at once would have one of them lose. The write is a single
+/// UPSERT and therefore atomic (see <see cref="SqliteRoadmapPlanRepository"/>), and
+/// <see cref="Version"/> exists so a later shape change can be read rather than
+/// guessed at.
+/// </para>
+/// <para>
+/// This shape crossed the move from <c>_roadmap/plan.json</c> unchanged, on purpose:
+/// folding the plan into <c>backlog.db</c> is a change of medium, and changing the
+/// content in the same breath would have made one change impossible to review as
+/// two.
 /// </para>
 /// <para>
 /// Dates are written as plain <c>yyyy-MM-dd</c> — no time, no offset. A planned day
@@ -30,7 +37,24 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// </summary>
 internal sealed record RoadmapPlanDocument
 {
-    /// <summary>The only shape written so far. A file with a higher version is
+    /// <summary>
+    /// How the document is written and read. It lives on the document rather than on
+    /// the repository because it is part of this shape's contract, not of the store
+    /// that happens to hold it.
+    /// <para>
+    /// Written compact. The file version indented it so a person could open the plan
+    /// in an editor; nothing opens the column that way, and the JSON payloads in the
+    /// <c>tasks</c> table beside it are compact for the same reason.
+    /// </para>
+    /// </summary>
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        // An item that named no lane, no entry and no notes carries no keys for them.
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>The only shape written so far. A document with a higher version is
     /// read as far as it can be rather than refused — a plan that opens without
     /// the field somebody's newer build added beats a plan that will not open.</summary>
     public const int CurrentVersion = 1;
@@ -86,16 +110,23 @@ internal sealed record RoadmapItemDocument
     /// <para>
     /// The JSON name stays <c>backlogEntryId</c>, which is what it was called when the
     /// Backlog bounded context was renamed to Tasks. The property is ours to rename;
-    /// the key is not, because it is already written into every <c>plan.json</c> on
-    /// disk. Under this file's camelCase policy a plain rename would serialize as
-    /// <c>taskId</c>, and every existing plan would silently come back with its links
-    /// dropped — the plan would still load, which is what makes it dangerous.
+    /// the key is not. Under this document's camelCase policy a plain rename would
+    /// serialize as <c>taskId</c>, and every stored plan would silently come back with
+    /// its links dropped — the plan would still load, which is what makes it
+    /// dangerous.
+    /// </para>
+    /// <para>
+    /// The move into <c>backlog.db</c> was the one moment this key was free: nothing
+    /// carried over from the JSON file, so a rename would have cost nothing that day.
+    /// It stays anyway. From the first save this build makes, the key is written into
+    /// somebody's database, and a shape worth keeping stable across a sync replica is
+    /// not worth churning for tidiness.
     /// </para></summary>
     [JsonPropertyName("backlogEntryId")]
     public string? TaskId { get; init; }
 
     /// <summary>The slug this item is known by wherever tags are used. Additive and
-    /// safe to omit: a plan.json written before tags existed simply has no <c>tag</c>,
+    /// safe to omit: a document written before tags existed simply has no <c>tag</c>,
     /// and the item derives one from its title on load — which is why this did not
     /// bump <see cref="RoadmapPlanDocument.Version"/>.</summary>
     public string? Tag { get; init; }
@@ -130,9 +161,14 @@ internal sealed record RoadmapItemDocument
     };
 
     /// <summary>The item, or null when the block does not describe one. A block
-    /// without a usable id or title is skipped rather than thrown on: this file is
-    /// meant to be hand-editable, and a half-typed block should cost its own entry
-    /// and nothing else.</summary>
+    /// without a usable id or title is skipped rather than thrown on: one unreadable
+    /// block should cost its own entry and nothing else, rather than the whole plan.
+    /// <para>
+    /// This outlived the reason it was written for. The document was a file somebody
+    /// could hand-edit, so a half-typed block was the expected way to break one; the
+    /// tolerance is worth keeping anyway, because a plan that opens missing one item
+    /// still beats a plan that will not open.
+    /// </para></summary>
     internal RoadmapItem? ToItem()
     {
         if (!Guid.TryParse(Id, out var id) || string.IsNullOrWhiteSpace(Title)) return null;
@@ -147,7 +183,7 @@ internal sealed record RoadmapItemDocument
             Dependencies.Of(RoadmapWire.ParseIds(DependsOn)),
             Guid.TryParse(TaskId, out var entryId) ? entryId : null,
             Notes,
-            // No tag in the file means a plan.json from before tags existed; the item
+            // No tag means a document from before tags existed; the item
             // derives one from its title when handed null.
             string.IsNullOrWhiteSpace(Tag) ? null : PlanningTag.Of(Tag),
             KnowledgeReferences.Of(Knowledge));
@@ -171,7 +207,7 @@ internal sealed record RoadmapMilestoneDocument
     public List<string> DependsOn { get; init; } = [];
 
     /// <summary>Whether the whole plan is read against this date. Omitted when false,
-    /// so an ordinary milestone costs no line in a file meant to be read by hand —
+    /// so an ordinary milestone costs no key in the stored document —
     /// which needs the explicit condition, because the serializer's null rule has
     /// nothing to say about a bool.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -206,10 +242,10 @@ internal sealed record RoadmapMilestoneDocument
 }
 
 /// <summary>
-/// Maps the Roadmap module's enums to and from the strings written in
-/// <c>plan.json</c>, the same way <c>EnumMap</c> does for the backlog: the file says
-/// <c>high</c> and <c>release</c> rather than a number, so it stays readable and a
-/// reordered enum cannot silently reinterpret a stored plan.
+/// Maps the Roadmap module's enums to and from the strings written into the stored
+/// document, the same way <c>EnumMap</c> does for the tasks in the table beside it:
+/// the document says <c>high</c> and <c>release</c> rather than a number, so it stays
+/// readable and a reordered enum cannot silently reinterpret a stored plan.
 /// </summary>
 internal static class RoadmapWire
 {
@@ -232,9 +268,8 @@ internal static class RoadmapWire
     };
 
     /// <summary>An unreadable or missing priority falls back to medium rather than
-    /// failing the load. Somebody typing <c>urgent</c> into the file has said
-    /// something about one item; refusing to open their whole plan over it would be
-    /// a poor trade.</summary>
+    /// failing the load. A document carrying <c>urgent</c> has said something about
+    /// one item; refusing to open the whole plan over it would be a poor trade.</summary>
     internal static PlanningPriority ParsePriority(string? value) => Normalize(value) switch
     {
         "low" => PlanningPriority.Low,
