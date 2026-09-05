@@ -147,10 +147,14 @@ public static class AgentSessionLimits
 /// <see cref="AgentSessionLimits.PerAgent"/> from each agent.</param>
 /// <param name="Unreadable">The sources that could not be read, by name.</param>
 /// <param name="Discovered">
-/// How many session records existed, before the cap. Carried so a capped list can
-/// say so: a surface that showed 200 of 842 without mentioning the 842 would be
-/// presenting a truncated list as the whole history, which is the one thing a
-/// capped list must not do.
+/// How many sessions existed, before the cap. Sessions and not files: an agent can
+/// file one session twice — a live marker beside its own transcript, or a transcript
+/// under two project folders after the session's cwd changed — and both halves of
+/// this number collapse those before counting, so it does not mean one thing for
+/// live sessions and another for past ones. Carried so a capped list can say so: a
+/// surface that showed 200 of 842 without mentioning the 842 would be presenting a
+/// truncated list as the whole history, which is the one thing a capped list must
+/// not do.
 /// </param>
 public sealed record AgentSessionCatalog(
     IReadOnlyList<AgentSession> Sessions,
@@ -172,6 +176,94 @@ public sealed record AgentSessionCatalog(
 public interface IAgentSessionSource
 {
     Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>Which sessions the reader wants in front of them at all.</summary>
+public enum AgentSessionView
+{
+    /// <summary>
+    /// The ones the reading called Running or Stalled.
+    /// <para>
+    /// What that rests on is not the same for both agents, and the difference decides
+    /// which sessions this view can hold. Claude writes a file per running session, so
+    /// its live rows are evidence. Copilot leaves no liveness marker at all, so its
+    /// reader has only a timeout: a session goes Finished once its folder has been
+    /// quiet for longer than <see cref="AgentSessionStates.StaleAfter"/>, and it never
+    /// reads Stalled. A Copilot session that is genuinely running but quiet therefore
+    /// falls out of this view rather than sitting in it under the wrong word.
+    /// </para>
+    /// </summary>
+    Live,
+
+    /// <summary>Everything the source described, evidence or not.</summary>
+    All
+}
+
+/// <summary>
+/// Choosing which sessions to show. A pure function over the sessions it is given,
+/// the same way <see cref="AgentSessionGroups"/> is — and the composition is view
+/// first, then grouping: a surface filters the list and groups what survived, never
+/// the other way round, so a machine with nothing live on it loses its section
+/// rather than keeping an empty one.
+/// <para>
+/// A separate operation rather than a fourth member of
+/// <see cref="AgentSessionGrouping"/>, and that is the part worth arguing. A
+/// <c>Live</c> grouping would sit in the same strip as Environment and Type while
+/// doing something neither of them does — every grouping carries every session, and
+/// that is a documented invariant with a test holding it up. Adding a member that
+/// dropped rows would falsify it, and would leave the reader with one control whose
+/// options sometimes rearrange the list and sometimes shorten it.
+/// </para>
+/// </summary>
+public static class AgentSessionViews
+{
+    /// <summary>
+    /// The sessions this view admits, in the order they were given. Ordering is the
+    /// grouping's job; a filter that also sorted would be a second answer to what
+    /// "most recently active first" means.
+    /// </summary>
+    public static IReadOnlyList<AgentSession> Of(IReadOnlyList<AgentSession> sessions, AgentSessionView view)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        return view switch
+        {
+            AgentSessionView.Live => [.. sessions.Where(IsLive)],
+
+            // The same list back, not a copy of it: All is the absence of a filter,
+            // and rebuilding the list would be work done to change nothing.
+            _ => sessions
+        };
+    }
+
+    /// <summary>
+    /// Whether the reading called this session still going.
+    /// <para>
+    /// Public deliberately, and the only place this product spells the Session Log's
+    /// invariant out in code: Running and Stalled both require liveness evidence,
+    /// and with none a session is Finished — see <c>.domain/sessions/domain.md</c>.
+    /// A second surface asking "is this one still going" asks here rather than
+    /// writing the same two-state test again and drifting from it.
+    /// </para>
+    /// <para>
+    /// The invariant is the domain's; how well a reader can honour it is the
+    /// reader's. This asks the state it was handed and nothing more, so it is only
+    /// as true as the derivation behind it — which for Copilot is a timeout rather
+    /// than evidence. <see cref="AgentSessionView.Live"/> carries that difference in
+    /// full; do not read this method's name as a promise the readers all keep.
+    /// </para>
+    /// </summary>
+    public static bool IsLive(AgentSession session) =>
+        session.State is AgentSessionState.Running or AgentSessionState.Stalled;
+
+    /// <summary>What a view is called on screen. Here rather than in the pane, for
+    /// the reason <see cref="AgentSessionGroups.Label(AgentSessionKind)"/> is: a
+    /// control and a sentence about it cannot disagree if there is one word.</summary>
+    public static string Label(AgentSessionView view) => view switch
+    {
+        AgentSessionView.Live => "Live",
+        _ => "All"
+    };
 }
 
 /// <summary>How the reader wants the list carved up.</summary>
