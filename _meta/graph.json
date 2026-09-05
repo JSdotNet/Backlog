@@ -10,22 +10,22 @@
     ".design"
   ],
   "stats": {
-    "nodes": 790,
-    "edges": 1637,
+    "nodes": 793,
+    "edges": 1650,
     "nodesByFolder": {
       "arc42": 88,
-      "domain": 501,
+      "domain": 504,
       "backlog": 4,
       "tech": 99,
       "design": 98
     },
     "nodesByType": {
       "file": 127,
-      "chapter": 654,
+      "chapter": 657,
       "heading": 9
     },
     "nodesByStatus": {
-      "active": 205,
+      "active": 208,
       "proposed": 47,
       "draft": 424,
       "deprecated": 4,
@@ -36,8 +36,8 @@
       "none": 9
     },
     "edgesByType": {
-      "contains": 663,
-      "related": 826,
+      "contains": 666,
+      "related": 836,
       "depends-on": 146,
       "implements": 2
     }
@@ -6455,7 +6455,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent-session",
           "level": 3,
-          "line": 72,
+          "line": 81,
           "status": "active"
         }
       },
@@ -6468,7 +6468,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 3,
-          "line": 91,
+          "line": 100,
           "status": "active"
         }
       },
@@ -6481,7 +6481,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 3,
-          "line": 102,
+          "line": 111,
           "status": "active"
         }
       },
@@ -6494,7 +6494,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "activity-window",
           "level": 3,
-          "line": 116,
+          "line": 125,
           "status": "active"
         }
       },
@@ -6507,7 +6507,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-stream",
           "level": 3,
-          "line": 128,
+          "line": 137,
           "status": "active"
         }
       },
@@ -6520,7 +6520,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-entry",
           "level": 3,
-          "line": 143,
+          "line": 152,
           "status": "active"
         }
       },
@@ -6533,7 +6533,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-enrichment-summary",
           "level": 3,
-          "line": 158,
+          "line": 167,
           "status": "active"
         }
       },
@@ -6546,7 +6546,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 3,
-          "line": 173,
+          "line": 182,
           "status": "active"
         }
       },
@@ -6559,7 +6559,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 3,
-          "line": 188,
+          "line": 197,
           "status": "active"
         }
       },
@@ -6572,7 +6572,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 3,
-          "line": 201,
+          "line": 210,
           "status": "active"
         }
       },
@@ -6585,7 +6585,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "reporting-capability",
           "level": 3,
-          "line": 219,
+          "line": 228,
           "status": "active"
         }
       },
@@ -6598,11 +6598,30 @@
           "path": ".domain/sessions/domain.md",
           "slug": "liveness-assessment",
           "level": 2,
-          "line": 237,
+          "line": 246,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
             ".domain/sessions/flow.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#session-view",
+          "label": "Session View",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-view",
+          "level": 2,
+          "line": 267,
+          "status": "active",
+          "related": [
+            ".domain/sessions/domain.md#session-log",
+            ".domain/sessions/domain.md#session-state",
+            ".domain/sessions/features.md#open-on-the-live-sessions",
+            ".domain/sessions/naming.md#session-view"
           ]
         }
       },
@@ -6615,7 +6634,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 258,
+          "line": 309,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -6632,7 +6651,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-publishing",
           "level": 2,
-          "line": 284,
+          "line": 335,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6650,7 +6669,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 304,
+          "line": 355,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -6668,7 +6687,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 324,
+          "line": 375,
           "status": "active"
         }
       },
@@ -6681,7 +6700,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 337,
+          "line": 388,
           "status": "active"
         }
       },
@@ -6721,7 +6740,27 @@
           "slug": "live-and-past-sessions-together",
           "level": 3,
           "line": 26,
-          "status": "active"
+          "status": "active",
+          "related": [
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "label": "Open on the live sessions",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "open-on-the-live-sessions",
+          "level": 3,
+          "line": 50,
+          "status": "active",
+          "related": [
+            ".domain/sessions/domain.md#session-view",
+            ".domain/sessions/naming.md#session-view"
+          ]
         }
       },
       {
@@ -6733,7 +6772,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "only-what-the-agent-recorded",
           "level": 3,
-          "line": 39,
+          "line": 83,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#working-location"
@@ -6749,7 +6788,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "re-read-on-request",
           "level": 3,
-          "line": 56,
+          "line": 100,
           "status": "active"
         }
       },
@@ -6762,7 +6801,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 70,
+          "line": 114,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-grouping"
@@ -6778,7 +6817,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "group-by-environment",
           "level": 3,
-          "line": 81,
+          "line": 125,
           "status": "active",
           "related": [
             ".domain/sessions/naming.md#environment"
@@ -6794,7 +6833,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "group-by-agent",
           "level": 3,
-          "line": 96,
+          "line": 140,
           "status": "active"
         }
       },
@@ -6807,8 +6846,11 @@
           "path": ".domain/sessions/features.md",
           "slug": "grouping-never-hides-a-session",
           "level": 3,
-          "line": 106,
-          "status": "active"
+          "line": 150,
+          "status": "active",
+          "related": [
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
         }
       },
       {
@@ -6820,7 +6862,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "honest-partial-answers",
           "level": 2,
-          "line": 117,
+          "line": 169,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-catalog"
@@ -6836,7 +6878,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "name-the-source-that-could-not-be-read",
           "level": 3,
-          "line": 128,
+          "line": 180,
           "status": "active"
         }
       },
@@ -6849,7 +6891,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "say-how-much-was-left-out",
           "level": 3,
-          "line": 141,
+          "line": 193,
           "status": "active",
           "related": [
             ".domain/sessions/naming.md#session-limit"
@@ -6865,7 +6907,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 157,
+          "line": 209,
           "status": "proposed",
           "depends-on": [
             ".domain/sessions/features.md#session-inventory"
@@ -6885,7 +6927,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "optional-collections-mcp-reporting",
           "level": 3,
-          "line": 174,
+          "line": 226,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-activity-publishing",
@@ -6902,7 +6944,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "latest-meaningful-activity",
           "level": 3,
-          "line": 189,
+          "line": 241,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-enrichment-summary",
@@ -6919,7 +6961,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "reporting-degrades-honestly",
           "level": 3,
-          "line": 204,
+          "line": 256,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#reporting-capability"
@@ -6935,7 +6977,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "turn-the-area-off",
           "level": 2,
-          "line": 219,
+          "line": 271,
           "status": "active"
         }
       },
@@ -7268,6 +7310,29 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/naming.md#session-view",
+          "label": "Session View",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "session-view",
+          "level": 2,
+          "line": 247,
+          "status": "active",
+          "aliases": [
+            "AgentSessionView",
+            "view",
+            "live",
+            "all"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#session-view",
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/sessions/naming.md#session-grouping",
           "label": "Session Grouping",
           "type": "chapter",
@@ -7275,7 +7340,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 247,
+          "line": 277,
           "status": "active",
           "aliases": [
             "AgentSessionGrouping"
@@ -15324,6 +15389,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/domain.md",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#session-grouping",
           "source": ".domain/sessions/domain.md",
           "target": ".domain/sessions/domain.md#session-grouping",
@@ -15375,6 +15448,14 @@
           "id": "contains:.domain/sessions/features.md#session-inventory->.domain/sessions/features.md#live-and-past-sessions-together",
           "source": ".domain/sessions/features.md#session-inventory",
           "target": ".domain/sessions/features.md#live-and-past-sessions-together",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/features.md#session-inventory->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#session-inventory",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "contains"
         }
       },
@@ -15599,6 +15680,14 @@
           "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#reporting-capability",
           "source": ".domain/sessions/naming.md",
           "target": ".domain/sessions/naming.md#reporting-capability",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#session-view",
           "type": "contains"
         }
       },
@@ -21268,6 +21357,38 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/domain.md#session-log",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/domain.md#session-log",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/domain.md#session-state",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/domain.md#session-state",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/naming.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/domain.md#session-grouping->.domain/sessions/domain.md#session-log",
           "source": ".domain/sessions/domain.md#session-grouping",
           "target": ".domain/sessions/domain.md#session-log",
@@ -21340,6 +21461,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/features.md#live-and-past-sessions-together->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#live-and-past-sessions-together",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#open-on-the-live-sessions->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#open-on-the-live-sessions->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "target": ".domain/sessions/naming.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/features.md#only-what-the-agent-recorded->.domain/sessions/domain.md#working-location",
           "source": ".domain/sessions/features.md#only-what-the-agent-recorded",
           "target": ".domain/sessions/domain.md#working-location",
@@ -21359,6 +21504,14 @@
           "id": "related:.domain/sessions/features.md#group-by-environment->.domain/sessions/naming.md#environment",
           "source": ".domain/sessions/features.md#group-by-environment",
           "target": ".domain/sessions/naming.md#environment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#grouping-never-hides-a-session->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#grouping-never-hides-a-session",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "related"
         }
       },
@@ -21599,6 +21752,22 @@
           "id": "related:.domain/sessions/naming.md#reporting-capability->.domain/sessions/domain.md#reporting-capability",
           "source": ".domain/sessions/naming.md#reporting-capability",
           "target": ".domain/sessions/domain.md#reporting-capability",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#session-view->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/naming.md#session-view",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#session-view->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/naming.md#session-view",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "related"
         }
       },
