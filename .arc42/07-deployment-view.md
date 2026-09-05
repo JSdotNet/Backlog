@@ -162,7 +162,7 @@ flowchart TB
             AppService["Azure Container Apps\n(consumption, scale-to-zero)"]
         end
         subgraph "Data"
-            CosmosDB["Azure Cosmos DB (serverless)\ntasks replica + change feed,\nsync state, webhook events,\nmachine registry"]
+            CosmosDB["Azure Cosmos DB (serverless)\ntasks + sessions containers,\nchange feed per container,\nwebhook events, machine registry"]
             KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
         end
     end
@@ -199,8 +199,10 @@ Deployment considerations:
 
 - **Single region** is sufficient for a personal tool; a single App Service /
   Container App instance meets demand.
-- **TTL-based cleanup** — sync payloads (7 days) and webhook events (24h) expire
-  automatically, keeping storage minimal.
+- **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs and no
+  scheduled job can fail silently. Local ADR 0005 fixes the two retentions: task
+  tombstones at 180 days and session records at 12 months. Webhook events (24h)
+  are still ahead of it.
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
@@ -208,31 +210,45 @@ Deployment considerations:
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
 - **No keys in configuration** — the container app reaches Cosmos through a
-  system-assigned managed identity with a data-plane role assignment. Connection
-  strings and account keys are not issued at all, per inherited ADR 0013.
+  user-assigned managed identity with a data-plane role assignment, and the
+  account carries `disableLocalAuth`, so a key cannot be used even if one existed.
+  Connection strings and account keys are not issued at all, per inherited ADR
+  0013. The identity is user-assigned rather than system-assigned because a
+  system-assigned one does not exist until its container app does, which leaves
+  the app unable to be granted the registry pull it needs in order to start.
 
 ### Provisioning and Delivery
 
 ```meta
-status: proposed
+status: active
 related: [".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0003-aspire-for-web-services.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md"]
 ```
 
-Proposed; introduced with local ADR 0005 and not yet built. `infra/` currently
-holds only `foundry/`.
+Introduced with local ADR 0005. The artifacts exist — `infra/sync/main.bicep`,
+`azure.yaml`, and `.github/workflows/deploy-sync.yml` — and the Cosmos emulator
+runs locally. **Nothing has been provisioned in Azure yet:** the resource group,
+the OIDC federated credential and the budget alert are deliberate manual
+prerequisites, and `docs/deployment/sync.md` is where they are written down.
 
 | Concern | Approach |
 |---|---|
-| **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. |
-| **Provision and deploy** | `azd` (Azure Developer CLI), driven from the Aspire AppHost so local and deployed topology stay the same shape. |
-| **Environments** | One (`prod`). A personal tool does not earn a staging ring. |
-| **CI/CD** | GitHub Actions on push to `main`, authenticating with **OIDC federated credentials** — no publish profile, no service principal secret in the repository. |
-| **Local development** | The Cosmos DB emulator as an Aspire resource, so the sync path builds and tests with no cloud account. |
-| **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. |
+| **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. Resource-group scoped, so it deploys into a group created by hand rather than creating one. |
+| **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
+| **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
+| **CI/CD** | GitHub Actions on push to `main` — path-filtered to the sync service and its infrastructure — authenticating with **OIDC federated credentials**. No publish profile, no service principal secret in the repository. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same two containers, so the sync path builds and tests with no cloud account. |
+| **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Application observability only: no domain data is written to either, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. |
+
+The Bicep declares one resource ADR 0005 did not name: a container registry.
+`azd` deploying a container app has to push the built image somewhere. It issues
+no credentials — admin user is off, and the same managed identity that reaches
+Cosmos holds the pull role.
 
 Indicative cost at single-user volume: Cosmos serverless a few cents per month,
 Container Apps zero while scaled to zero, Key Vault and Log Analytics inside the
-free grants — well under €5/month.
+free grants — well under €5/month. The registry is the one line item that is a
+small fixed charge rather than a consumption one, so it is the only resource here
+that costs anything while nobody is syncing.
 
 ```mermaid
 flowchart LR
@@ -242,8 +258,13 @@ flowchart LR
     Bicep --> ACA["Container Apps"]
     Bicep --> Cosmos["Cosmos DB (serverless)"]
     Bicep --> KV["Key Vault"]
-    Bicep --> LA["Log Analytics"]
+    Bicep --> LA["Log Analytics\n+ Application Insights"]
+    Bicep --> ACR["Container Registry"]
+    Bicep --> MI["User-assigned\nmanaged identity"]
+    AZD -->|"Built image"| ACR
     ACA -.->|"Managed identity\ndata-plane role"| Cosmos
+    ACA -.->|"Managed identity\nAcrPull"| ACR
+    ACA -.->|"Application telemetry only"| LA
 ```
 
 

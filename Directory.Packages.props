@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
     <!--
       Foundry Local and the MAUI project resource ship one preview build per

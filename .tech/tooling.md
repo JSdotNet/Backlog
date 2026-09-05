@@ -167,7 +167,9 @@ The infrastructure-as-code language for the Azure resources this repository
 deploys.
 
 - **Used for** — `infra/foundry/main.bicep` and its `.bicepparam`, which declare
-  the AI Services account and its model deployments.
+  the AI Services account and its model deployments; and `infra/sync/main.bicep`,
+  which declares the cloud sync tier — Cosmos DB, Container Apps, Key Vault, Log
+  Analytics, and Application Insights.
 - **Why** — first-party, typed, and it what-ifs before it deploys.
 
 ## Azure CLI
@@ -186,6 +188,31 @@ The deployment and diagnostics entry point for Azure.
 - **Why** — it is what the self-hosted runner is already signed in to; the
   workflow fails with an explicit message when it is not, rather than deploying
   into the wrong subscription.
+
+## Azure Developer CLI
+
+```meta
+status: adopted
+type: tool
+depends-on: [".tech/tooling.md#bicep"]
+related: [".tech/cloud.md#azure-cosmos-db", ".tech/cloud.md#azure-container-apps", ".tech/tooling.md#github-actions", ".arc42/07-deployment-view.md#provisioning-and-delivery"]
+alternatives: ["Azure CLI"]
+```
+
+The provision-and-deploy driver for the cloud sync tier.
+
+- **Used for** — `azure.yaml` and `.github/workflows/deploy-sync.yml`, which
+  provision `infra/sync/main.bicep` and then build, push, and deploy
+  `Backlog.Modules.Sync.Api` as a container app.
+- **Why** — the Azure CLI deploys a template but does not build and push a
+  container image; `azd` does both from one service definition, so the workflow
+  does not have to hand-roll a build-tag-push-update sequence around it. The
+  foundry deployment stays on the Azure CLI: it deploys no code, so the half of
+  `azd` that earns its keep here would be unused there.
+- **How** — resource-group scoped, so `azd` deploys into a group created by hand
+  rather than creating one. `azd auth login --federated-credential-provider
+  github` means the workflow stores no secret; the runner mints a short-lived
+  OIDC token instead. See `docs/deployment/sync.md`.
 
 ## Aspire CLI
 
