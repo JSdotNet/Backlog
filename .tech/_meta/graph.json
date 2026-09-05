@@ -1829,7 +1829,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 280,
+          "line": 295,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -1851,7 +1851,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 307,
+          "line": 322,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [
@@ -1872,7 +1872,7 @@
           "path": ".tech/tooling.md",
           "slug": "ajv",
           "level": 2,
-          "line": 340,
+          "line": 355,
           "status": "adopted",
           "version": "^8.17.1",
           "depends-on": [
@@ -1890,7 +1890,7 @@
           "path": ".tech/tooling.md",
           "slug": "simple-icons",
           "level": 2,
-          "line": 357,
+          "line": 372,
           "status": "adopted",
           "version": "16.28.0",
           "depends-on": [

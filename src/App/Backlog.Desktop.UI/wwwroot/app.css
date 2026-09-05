@@ -2546,6 +2546,156 @@ h1, h2, h3 {
     font-weight: 600;
 }
 
+/* The triage action keeps to one line and its own width; the body beside it
+   is what wraps. A two-line "Open in / backlog" at pane width reads as two
+   controls. */
+.inbox-pane__item > .btn {
+    flex: none;
+    white-space: nowrap;
+}
+
+.inbox-pane__item-body {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The meta line: kind, filing, and provenance, as one wrapping row of small
+   text. The kind mark and its word are one unit that never breaks apart, which
+   is what the nested inline-flex is for. */
+.inbox-pane__item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.inbox-pane__meta-separator {
+    color: var(--color-text-disabled);
+}
+
+/* The source badge is the library's dashed source family; the person beside it
+   is the library's person chip. Both are quiet on purpose: provenance is read,
+   not acted on, so neither is filled. */
+.inbox-pane__source {
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__item-tags {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__repository {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* --- PARA drawers and the lens ------------------------------------------- */
+
+.inbox-pane__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.inbox-pane__toolbar-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__drawers {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* A drawer: the library's fold wearing this pane's names. The trigger reads as
+   a drawer label — the name in the primary ink, the count as a quiet pill at
+   the far end — which is what lets a queue of forty read as five drawers. The
+   region is the library's, so `hidden` is the library's rule and the fold
+   actually folds. */
+.inbox-pane__drawer {
+    min-width: 0;
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid rgba(108, 117, 125, 0.24);
+}
+
+.inbox-pane__drawer-fold .fold__trigger {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+}
+
+.inbox-pane__drawer-fold > .fold__region {
+    padding-left: var(--spacing-md);
+}
+
+/* A section inside a drawer: one project, one area, one tag, one repository.
+   Quieter than the drawer above it — the drawer is the heading and this is a
+   row of the drawer that happens to fold. */
+.inbox-pane__groups {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__group {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__group-fold .fold__trigger {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.inbox-pane__group-fold > .fold__region {
+    padding-left: var(--spacing-sm);
+}
+
+.inbox-pane__drawer-fold .fold__label,
+.inbox-pane__group-fold .fold__label {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pane__group-count {
+    flex: none;
+    min-width: 1.6em;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
 /* --- Installed tools side pane ------------------------------------------- */
 
 /* The pane, and the container its own content answers to.
