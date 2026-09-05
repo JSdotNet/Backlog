@@ -20,8 +20,8 @@
     },
     "nodesByStatus": {
       "draft": 417,
-      "proposed": 39,
-      "active": 55,
+      "proposed": 38,
+      "active": 56,
       "deprecated": 4,
       "none": 1
     },
@@ -7994,7 +7994,7 @@
           "type": "file",
           "folder": "arc42",
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-          "status": "proposed",
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -8006,6 +8006,8 @@
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task",
             ".domain/tasks/naming.md#device"
           ],
