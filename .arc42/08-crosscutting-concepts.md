@@ -16,9 +16,12 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
   source of truth. Tasks live in one SQLite database (`backlog.db`) under the
-  workspace root, with a task's content held as markdown text; JSON files hold the
-  workspace settings and feature flags. Markdown is the content of a task, not the
-  storage format. See `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+  workspace root, with a task's content held as markdown text, and the roadmap plan
+  is one document row in that same database; JSON files hold the workspace settings
+  and feature flags, which are per-device and deliberately not shared. Markdown is
+  the content of a task, not the storage format. One database file, two tables with
+  an owner each — Tasks and Roadmap Planning share the file and not the schema. See
+  `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
 - **Knowledge is the other way round** — a repository's knowledge folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: a task is owned by the app, a knowledge chapter is
@@ -40,8 +43,11 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   settings (they describe one machine's disk), feature flags (per-device by
   design, so an experiment on one machine is not a change on both), and the
   derived knowledge layer (regenerated on the second machine, not shipped to it).
-  The roadmap plan is on neither list: it has the same file-sync hazard as the
-  database and no answer yet.
+  The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
+  than it was: it is a document row in `backlog.db` rather than a file beside it, so
+  it no longer carries the database's file-sync hazard, and the row stamps
+  `updated_at` so it *could* replicate on a task's terms. Whether it should is the
+  open question — see `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 - **Two containers in the cloud replica** — `tasks` and `sessions`, both
   partitioned on `/ownerId`. Separate because each wants its own change feed, its
   own indexing policy, and its own retention, and because serverless billing

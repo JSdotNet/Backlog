@@ -1,29 +1,31 @@
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.DomainModels;
 
-namespace Backlog.Infrastructure.FileSystem.Roadmap;
+namespace Backlog.Infrastructure.Sqlite.Roadmap;
 
 /// <summary>
 /// A <see cref="IRoadmapPlanRepository"/> that follows a folder somebody can move.
 /// <para>
-/// The desktop lets you point the app at a different storage folder while it is
+/// The desktop lets you point the app at a different workspace root while it is
 /// running. Handlers should not have to know that, and the container cannot
 /// re-resolve a singleton on a settings change, so the current root is read per call
 /// and the underlying repository is rebuilt only when it actually changes — the same
-/// arrangement as <c>RootedFileBacklogRepository</c>.
+/// arrangement as <see cref="RootedSqliteTaskRepository"/>, which now follows the
+/// same root to the same file.
 /// </para>
 /// </summary>
-public sealed class RootedJsonRoadmapPlanRepository(Func<string> currentRootDirectory) : IRoadmapPlanRepository
+public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDirectory) : IRoadmapPlanRepository
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
 
     private string? _rootDirectory;
-    private JsonRoadmapPlanRepository? _repository;
+    private SqliteRoadmapPlanRepository? _repository;
 
-    public string PlanPath => Current.PlanPath;
+    /// <summary>The database the repository is pointed at right now.</summary>
+    public string DatabasePath => Current.DatabasePath;
 
-    private JsonRoadmapPlanRepository Current
+    private SqliteRoadmapPlanRepository Current
     {
         get
         {
@@ -33,7 +35,7 @@ public sealed class RootedJsonRoadmapPlanRepository(Func<string> currentRootDire
                 || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
             {
                 _rootDirectory = root;
-                _repository = new JsonRoadmapPlanRepository(root);
+                _repository = new SqliteRoadmapPlanRepository(root);
             }
 
             return _repository;

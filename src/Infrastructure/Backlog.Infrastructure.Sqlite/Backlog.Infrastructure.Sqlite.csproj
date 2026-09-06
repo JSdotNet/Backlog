@@ -2,8 +2,14 @@
 
   <!--
     Cross-cutting SQLite adapter: the canonical local store for Backlog
-    Management's tasks. Implements ports declared by the module; no module may
-    reference this project except through its own port interfaces.
+    Management's tasks and for Roadmap Planning's stored plan. Implements ports
+    declared by those modules; no module may reference this project except through
+    its own port interfaces.
+
+    Two tables in one file, with an owner each. Inherited ADR 0014 puts persistence
+    in the hands of the module that owns the data, so neither adapter here reads,
+    writes, or creates the other's table - what they share is a database file, not
+    a schema.
 
     It is a separate project from Backlog.Infrastructure.FileSystem on purpose.
     That project holds the adapters that genuinely are files - the workspace
@@ -16,6 +22,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <!-- Roadmap Planning's IRoadmapPlanRepository, answered under Roadmap/ by one
+         document row in the same database the tasks use. An adapter referencing a
+         module implementation is the normal direction; the module never sees this
+         project. -->
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
   </ItemGroup>
 
   <ItemGroup>

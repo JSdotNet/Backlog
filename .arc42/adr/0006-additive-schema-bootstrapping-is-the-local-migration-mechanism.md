@@ -126,6 +126,26 @@ the device holds about a row it has no other record of. A task nobody has edited
 since really did last change when it was made. `deleted_at` gets no seed, because
 there null **is** the value: it is what "this task is live" says.
 
+### Applying it to the roadmap plan
+
+**The roadmap plan is inside this record now, and was not when it was written.** It
+was `_roadmap/plan.json`, read and written whole as one document, so schema change
+there was a parsing concern rather than a DDL one and this record did not reach it.
+Since 2026-09-05 it is a `roadmap_plan` row in `backlog.db`, so it does.
+
+Note which half, because the seam is easy to get wrong. *Creating* that table is not
+one of the three shapes above, which are all column-level — it is covered by local ADR
+0003's idempotent `IF NOT EXISTS` DDL run on every open, which is why a database full
+of tasks gains the table and loses nothing. Any *column* added to `roadmap_plan` later
+is this record's business and must take one of the three shapes.
+
+One asymmetry is worth recording, because it looks like a violation and is not.
+`roadmap_plan.updated_at` is `NOT NULL` where `tasks.updated_at` is nullable. The
+nullable-always rule governs a column added by `ALTER TABLE` to a table that already
+has rows, which cannot answer for the rows that predate it; this column shipped with
+its table, so no row has ever been without one. That is also why it needs no seeding
+statement of the kind `tasks` required.
+
 ## Consequences
 
 Positive:
@@ -169,6 +189,6 @@ Neutral:
 - **Where a check belongs, if anywhere.** Nothing enforces that a new statement
   in the bootstrap is one of the three allowed shapes; a reviewer does. Whether
   that is worth an architecture test is not decided.
-- **Whether the roadmap plan needs the same record.** `_roadmap/plan.json` is
-  read and written whole as one document, so schema change there is a parsing
-  concern rather than a DDL one, and this record does not reach it.
+*(The roadmap plan was listed here as an open question until 2026-09-05, when it
+moved into `backlog.db` and this record began to reach it. See **Applying it to the
+roadmap plan** above.)*

@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <!-- The plan aggregate and the port the roadmap adapter answers. Referenced
+         directly rather than leaned on transitively through the adapter: these tests
+         build a RoadmapPlan by hand, so the module is a first-class input here and a
+         reference that says so cannot be removed by a change to the adapter's own. -->
+    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
