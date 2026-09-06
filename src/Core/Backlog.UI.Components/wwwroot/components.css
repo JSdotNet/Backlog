@@ -2260,6 +2260,25 @@ button.md-check {
     margin-right: 0.38em;
 }
 
+/* --- Capture kind marker ------------------------------------------------ */
+/*
+   The ten content-kind glyphs an inbox row leads with. Sized in px by the
+   component, because the mark sits on a meta line at a fixed density rather
+   than leading a heading, and nudged the same fraction the knowledge marker is
+   so a 16-grid glyph sits on the small text's baseline instead of riding above
+   it.
+
+   No colour of its own, for the reason the component's header gives: a video
+   is not red and a document is not blue here, because a new language maps onto
+   the existing tokens and adds none. The mark inherits whatever ink the meta
+   line is set in.
+*/
+.capture-kind-marker {
+    display: inline-block;
+    flex: none;
+    vertical-align: -0.12em;
+}
+
 /* --- Copy button --------------------------------------------------------- */
 /*
    The button and the line that says whether it worked. The line is laid out
