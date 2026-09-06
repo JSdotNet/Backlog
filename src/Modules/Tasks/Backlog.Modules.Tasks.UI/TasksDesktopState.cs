@@ -261,10 +261,29 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     public bool NoRepositoryOnly { get; private set; }
 
-    /// <summary>The selected tag, bare and lower-cased the way
-    /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
-    /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
-    public string SelectedTag { get; private set; } = string.Empty;
+    private readonly HashSet<string> _selectedTags = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The tags being filtered by, bare and lower-cased the way
+    /// <c>EntryTextParser.NormalizeTags</c> stores them.
+    /// <see cref="UntaggedTag"/> is a member like any other and asks for the
+    /// entries carrying no tag at all.
+    /// <para>
+    /// A set rather than one value, because an entry wears any number of tags and
+    /// so "the sync work and the desktop work" is one question rather than two —
+    /// the same reason the chips are pressable scopes rather than a radiogroup.
+    /// Empty means every tag, which is what leaves the group with no "All" chip of
+    /// its own: unpressing the last one is already the gesture that chip was.
+    /// </para>
+    /// </summary>
+    public IReadOnlySet<string> SelectedTags => _selectedTags;
+
+    /// <summary>Whether a tag is in the selection — read by the chip in the bar, to
+    /// draw it pressed and to word its tooltip. The tag on a row drives the same
+    /// selection but reads nothing back: it is a stateless way in and out, and the
+    /// bar is the one place the selection is shown.</summary>
+    public bool IsTagSelected(string? tag) =>
+        !string.IsNullOrEmpty(tag) && _selectedTags.Contains(tag);
 
     /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
     /// because the parser strips the leading <c>#</c>, lower-cases, and would never
@@ -287,13 +306,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// The tags actually in use, in alphabetical order, and empty when nothing in
-    /// scope carries one — which is what takes the whole group off the bar rather
-    /// than leaving a lone "All" chip filtering nothing.
+    /// scope carries one — which is what takes the whole group off the bar.
     /// <para>
-    /// Unlike an area, an entry has any number of tags, so a row is counted under
-    /// every tag it wears. The counts are occurrences rather than a partition; only
-    /// "All" is a row count, and it is the same pool the area and My Day chips count
-    /// against — see <see cref="ScopedRows"/>.
+    /// Unlike a status, an entry has any number of tags, so a row is counted under
+    /// every tag it wears. The counts are occurrences rather than a partition, taken
+    /// over the same pool the My Day and No repo chips count against — see
+    /// <see cref="ScopedRows"/>. Nothing in the group counts rows, because the chip
+    /// that used to is gone: with the chips pressable, "all of them" is no chip at
+    /// all.
     /// </para>
     /// </summary>
     public List<TagFilterOption> TagFilters { get; private set; } = [];
@@ -761,12 +781,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
-    /// <summary>Selects a tag, bare and lower-cased the way the parser stores one.
-    /// <see cref="UntaggedTag"/> asks for the entries with no tags; null or empty
-    /// asks for all of them.</summary>
-    public void SetTagFilter(string? tag)
+    /// <summary>Adds a tag to the selection, or takes it back out when it is
+    /// already there. Bare and lower-cased the way the parser stores one;
+    /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
+    /// both directions, so an empty selection — every tag unpressed — is how the
+    /// reader gets back to all of them.</summary>
+    public void ToggleTagFilter(string? tag)
     {
-        SelectedTag = tag ?? string.Empty;
+        if (string.IsNullOrEmpty(tag)) return;
+
+        if (!_selectedTags.Remove(tag)) _selectedTags.Add(tag);
+
         ApplyFilter();
     }
 
@@ -2627,15 +2652,19 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         // Tags narrow inside the scope the same way status does, and compose with
         // both. An entry wears any number of them, so this asks whether the row
-        // carries the selected one rather than whether it *is* that one — which is
-        // the whole difference between a tag and an area.
-        if (SelectedTag == UntaggedTag)
+        // carries one of the selected tags rather than whether it *is* one of them —
+        // which is the whole difference between a tag and a status.
+        //
+        // A union across the selection, and it cannot be much else: the rows wearing
+        // both of two tags is a question about one row, while the rows wearing
+        // either is the question the bar is asking — where work is filed. It also
+        // makes every press strictly widening, so a reader adding a chip never
+        // watches the list shrink under them.
+        if (_selectedTags.Count > 0)
         {
-            rows = rows.Where(x => x.PreviewTags.Count == 0);
-        }
-        else if (SelectedTag.Length > 0)
-        {
-            rows = rows.Where(x => x.PreviewTags.Contains(SelectedTag, StringComparer.OrdinalIgnoreCase));
+            rows = rows.Where(x =>
+                (x.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
+                || x.PreviewTags.Any(_selectedTags.Contains));
         }
 
         // A row being written right now always stays put, even if what was just
@@ -2711,7 +2740,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// Tags exist for the same reason areas do — somebody typed one — so the group
     /// is rebuilt from what is in the current repository scope, and disappears
     /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
-    /// holding one dead "All" chip would be charging every reader for a feature only
+    /// with nothing pressable in it would be charging every reader for a feature only
     /// the taggers use.
     /// <para>
     /// Read off <c>PreviewTags</c>, which is the union of the metadata line, the
@@ -2737,8 +2766,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// The counts do not follow it down, and the difference is the point. Which
     /// entries a tag is <em>offered for</em> is a question about the reader's
     /// attention; how many rows the tag <em>has</em> is a question about the list,
-    /// and the list is unchanged — finished entries are still there under "All", so a
-    /// chip promising fewer rows than pressing it produces would simply be wrong. A
+    /// and the list is unchanged — finished entries are still there with no tag
+    /// pressed, so a chip promising fewer rows than pressing it produces would simply
+    /// be wrong. A
     /// count still answers "how much is over there" over the whole repository scope,
     /// the way the area and My Day counts beside it do.
     /// </para>
@@ -2759,7 +2789,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (offered.Count == 0)
         {
             TagFilters = [];
-            SelectedTag = string.Empty;
+            _selectedTags.Clear();
             return;
         }
 
@@ -2770,7 +2800,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
 
-        var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
+        // No "All" of its own. The bar already carries one, in the status group,
+        // and a second would be the duplicate the reader wrote in about — so the
+        // group starts empty and "all of them" is the state it is in with nothing
+        // pressed.
+        var options = new List<TagFilterOption>();
 
         foreach (var group in used)
         {
@@ -2795,11 +2829,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         // A tag leaves the bar when the last entry wearing it drops it — or finishes
         // it, which is the same event as far as the bar is concerned. Either way the
-        // selection cannot stay on a chip that is no longer there.
-        if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
-        {
-            SelectedTag = string.Empty;
-        }
+        // selection cannot keep a tag that is no longer on a chip — and only that
+        // one: the rest of what the reader asked for is still on the bar and still
+        // answerable.
+        var remaining = options.Select(o => o.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        _selectedTags.RemoveWhere(tag => !remaining.Contains(tag));
     }
 
     /// <summary>Done and archived are one state — "there is nothing left to do
@@ -2854,7 +2889,8 @@ public sealed record StatusFilterOption(string Label, string Wire);
 /// tag, and for a person the <c>@</c> that is already part of the value;
 /// <paramref name="Value"/> is the lower-cased tag exactly as the parser stores it.
 /// <paramref name="Count"/> is an occurrence count rather than a share of the
-/// rows — see <c>TasksDesktopState.TagFilters</c>.</summary>
+/// rows, and it does not move when another chip is pressed — see
+/// <c>TasksDesktopState.TagFilters</c>.</summary>
 public sealed record TagFilterOption(string Label, string Value, int Count);
 
 /// <summary>One thing the app read out of an entry's meta line. <paramref

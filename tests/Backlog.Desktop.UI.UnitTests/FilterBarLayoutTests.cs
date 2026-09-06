@@ -110,23 +110,36 @@ public sealed class FilterBarLayoutTests
         Assert.Contains("flex: 0 0 auto;", Block(css, ".filter-group--scope {"), StringComparison.Ordinal);
         Assert.Contains("flex: 0 1 auto;", Block(css, ".filter-group--status {"), StringComparison.Ordinal);
 
-        // And the tag chips are never collapsed one by one, at either step.
+        // And the tag chips are never collapsed one by one to buy width — the group
+        // grows and shrinks whole. The one rule that does reach a single chip is not
+        // a width tactic: below 38rem a group with something picked keeps the pressed
+        // chips and drops the rest, which is what stops the group going and taking
+        // the only way out of the selection with it.
         Assert.DoesNotContain(".filter-group--tags .chip", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".filter-group--tags--picked .chip", Block(css, StatusStep), StringComparison.Ordinal);
+        Assert.DoesNotContain(".filter-group--tags--picked .chip", Block(css, TightenStep), StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Below 38rem the tag group leaves the bar altogether, and it is the only group
-    /// allowed to.
+    /// Below 38rem the tag group leaves the bar while nothing is picked, and it is
+    /// the only group allowed to leave at all.
     /// <para>
     /// Every other group is the whole of its own question — there is nowhere else to
     /// pick a status, My Day or No repo, so hiding one would take the answer with it.
-    /// A tag is also on the rows, and <c>TagFilterTests</c> pins the half of this
-    /// that makes it safe: pressing a row's tag filters by it and pressing the one
-    /// already chosen clears it, so the way back does not go with the group.
+    /// A tag is also on the rows, which is what once made the group safe to drop
+    /// outright.
     /// </para>
     /// <para>
-    /// The narrower step must say nothing about the group any more. A rule that
-    /// fired below a rule that had already removed its subject is the next reader's
+    /// That stopped being enough when the selection became a set. A row's tag now
+    /// adds and removes only itself rather than putting every row back, and
+    /// "Untagged" is on no row at all — so a selection could outlive every control
+    /// that could undo it. Hence the pair of rules: the group goes while the
+    /// selection is empty, and comes back narrowed to the pressed chips once it is
+    /// not. <c>TagFilterTests</c> pins the modifier this hangs on.
+    /// </para>
+    /// <para>
+    /// The narrower steps must still say nothing about the group. A rule that fired
+    /// below a rule that had already removed its subject is the next reader's
     /// evidence that the subject is still there.
     /// </para>
     /// </summary>
@@ -136,7 +149,15 @@ public sealed class FilterBarLayoutTests
         var css = Css();
         var collapse = Block(css, CollapseStep);
 
-        Assert.Contains(".filter-group--tags {", collapse, StringComparison.Ordinal);
+        Assert.Contains(
+            ".filter-group--tags:not(.filter-group--tags--picked) {",
+            collapse,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            ".filter-group--tags--picked .chip:not(.chip--active) {",
+            collapse,
+            StringComparison.Ordinal);
 
         Assert.DoesNotContain(".filter-group--tags", Block(css, StatusStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags", Block(css, TightenStep), StringComparison.Ordinal);
