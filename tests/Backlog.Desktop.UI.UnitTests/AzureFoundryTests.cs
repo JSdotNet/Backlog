@@ -93,7 +93,7 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         var client = new AzureFoundryChatClient(new HttpClient(handler), new AzureFoundrySettingsStore(NewSettingsPath()));
 
         var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            client.AskAsync(new AzureFoundryChatRequest("content", "question")));
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));
 
         Assert.Contains("Configure Azure Foundry", ex.Message);
         Assert.Equal(0, handler.RequestCount);
@@ -104,8 +104,8 @@ public sealed class AzureFoundryChatClientTests : IDisposable
     {
         var client = BuildConfiguredClient(new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
-        await Assert.ThrowsAsync<AzureFoundryException>(() => client.AskAsync(new AzureFoundryChatRequest("", "question")));
-        await Assert.ThrowsAsync<AzureFoundryException>(() => client.AskAsync(new AzureFoundryChatRequest("content", "")));
+        await Assert.ThrowsAsync<AzureFoundryException>(() => client.AskAsync(new AzureFoundryChatRequest("", "question"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<AzureFoundryException>(() => client.AskAsync(new AzureFoundryChatRequest("content", ""), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         });
         var client = BuildConfiguredClient(handler);
 
-        var response = await client.AskAsync(new AzureFoundryChatRequest("# Item", "What matters?"));
+        var response = await client.AskAsync(new AzureFoundryChatRequest("# Item", "What matters?"), TestContext.Current.CancellationToken);
 
         Assert.Equal("Use the first backlog item.", response.Answer);
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
@@ -148,7 +148,7 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         var client = BuildConfiguredClient(handler);
 
         var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
-            client.AskAsync(new AzureFoundryChatRequest("content", "question")));
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));
 
         Assert.Contains("Azure Foundry returned 400", ex.Message);
         Assert.EndsWith("...", ex.Message);

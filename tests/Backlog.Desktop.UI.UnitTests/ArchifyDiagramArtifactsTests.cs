@@ -659,7 +659,7 @@ public sealed class ArchifyDiagramArtifactsTests
         workspace.WriteChapter("flow.md", Flowchart);
 
         using var artifacts = workspace.Artifacts();
-        var error = await artifacts.AuthorAsync(Flowchart);
+        var error = await artifacts.AuthorAsync(Flowchart, TestContext.Current.CancellationToken);
 
         Assert.Null(error);
         var request = Assert.Single(workspace.Launcher.Requests);
@@ -676,7 +676,7 @@ public sealed class ArchifyDiagramArtifactsTests
         workspace.WriteChapter("model.md", ClassDiagram);
 
         using var artifacts = workspace.Artifacts();
-        var error = await artifacts.AuthorAsync(ClassDiagram);
+        var error = await artifacts.AuthorAsync(ClassDiagram, TestContext.Current.CancellationToken);
 
         Assert.Equal("No Archify diagram type fits this kind of diagram.", error);
         Assert.Empty(workspace.Launcher.Requests);

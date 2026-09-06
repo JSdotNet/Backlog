@@ -31,9 +31,9 @@ public sealed class GitHubCredentialResolverTests : IDisposable
             Repositories = [new GitHubRepositoryRef("backlog", "octo", "demo")]
         });
 
-        Assert.Null(await resolver.ResolveAsync("repos/octo/demo/issues"));
-        Assert.Null(await resolver.ResolveAsync(null));
-        Assert.Null(await resolver.ResolveAsync("user"));
+        Assert.Null(await resolver.ResolveAsync("repos/octo/demo/issues", TestContext.Current.CancellationToken));
+        Assert.Null(await resolver.ResolveAsync(null, TestContext.Current.CancellationToken));
+        Assert.Null(await resolver.ResolveAsync("user", TestContext.Current.CancellationToken));
     }
 
     /// <summary>An unbound repository's own token is a credential, and it is
@@ -47,7 +47,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
             Repositories = [new GitHubRepositoryRef("backlog", "octo", "demo") { Token = "ghp_demo" }]
         });
 
-        var credential = await resolver.ResolveAsync("repos/octo/demo/issues");
+        var credential = await resolver.ResolveAsync("repos/octo/demo/issues", TestContext.Current.CancellationToken);
 
         Assert.NotNull(credential);
         Assert.Equal("ghp_demo", credential.Token);
@@ -62,7 +62,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
     {
         var resolver = Resolver(Bound("JSdotNet", token: "ghp_jsdotnet"));
 
-        var credential = await resolver.ResolveAsync("repos/JSdotNet/Backlog/issues");
+        var credential = await resolver.ResolveAsync("repos/JSdotNet/Backlog/issues", TestContext.Current.CancellationToken);
 
         Assert.NotNull(credential);
         Assert.Equal("ghp_jsdotnet", credential.Token);
@@ -83,7 +83,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         };
 
         var credential = await new GitHubCredentialResolver(() => settings, accounts)
-            .ResolveAsync("repos/innovadis-dev/spec-manager/issues");
+            .ResolveAsync("repos/innovadis-dev/spec-manager/issues", TestContext.Current.CancellationToken);
 
         Assert.Equal("gho_innobv", credential!.Token);
         Assert.Equal("j-schepers_innobv", credential.Account);
@@ -108,7 +108,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
             Repositories = [new GitHubRepositoryRef("spec", "innovadis-dev", "spec-manager") { Account = "j-schepers_innobv" }]
         });
 
-        var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => resolver.ResolveAsync(path));
+        var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => resolver.ResolveAsync(path, TestContext.Current.CancellationToken));
 
         Assert.Contains("j-schepers_innobv", exception.Message, StringComparison.Ordinal);
         Assert.Contains("this machine has no credential", exception.Message, StringComparison.Ordinal);
@@ -126,7 +126,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         });
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues"));
+            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues", TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "
@@ -146,7 +146,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         var resolver = new GitHubCredentialResolver(() => settings, new StubGhCliAccountSource());
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues"));
+            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues", TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "
@@ -174,7 +174,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         });
 
         await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues"));
+            resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues", TestContext.Current.CancellationToken));
     }
 
     // --- The availability predicate -------------------------------------------
@@ -207,7 +207,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         var resolver = new GitHubCredentialResolver(store, new StubGhCliAccountSource());
 
         Assert.False(resolver.HasAnyCredential);
-        Assert.Null(await resolver.ResolveAsync("repos/octo/demo/issues"));
+        Assert.Null(await resolver.ResolveAsync("repos/octo/demo/issues", TestContext.Current.CancellationToken));
 
         Assert.Null(store.SetRepositories([new GitHubRepositoryRef("backlog", "octo", "demo")]));
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_added_after_construction"));
@@ -215,7 +215,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         Assert.True(resolver.HasAnyCredential);
         Assert.Equal(
             "ghp_added_after_construction",
-            (await resolver.ResolveAsync("repos/octo/demo/issues"))!.Token);
+            (await resolver.ResolveAsync("repos/octo/demo/issues", TestContext.Current.CancellationToken))!.Token);
     }
 
     // --- The hard rule --------------------------------------------------------
@@ -245,7 +245,7 @@ public sealed class GitHubCredentialResolverTests : IDisposable
         // The call resolves, so the token really was in hand.
         Assert.Equal(
             "gho_never_written_down",
-            (await resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues"))!.Token);
+            (await resolver.ResolveAsync("repos/innovadis-dev/spec-manager/issues", TestContext.Current.CancellationToken))!.Token);
 
         // And a write after it does not put it anywhere.
         Assert.Null(store.SetShowRepositoryColours(true));

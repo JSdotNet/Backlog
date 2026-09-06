@@ -42,7 +42,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
     {
         var harness = CreateHarness();
 
-        var state = await harness.Service.CheckAsync(null);
+        var state = await harness.Service.CheckAsync(null, TestContext.Current.CancellationToken);
 
         Assert.Equal(KnowledgeUpdateAvailability.NotApplicable, state.Availability);
         Assert.Equal(0, harness.Git.ChecksRequested);
@@ -55,7 +55,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
         harness.Git.NextCheck = new LocalGitRepositoryUpdateCheck(
             LocalGitRepositoryCurrency.UpToDate, 0, 0, false, "origin/main", "On the latest version of origin/main.");
 
-        var state = await harness.Service.CheckAsync(harness.Alias);
+        var state = await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(KnowledgeUpdateAvailability.UpToDate, state.Availability);
         Assert.False(state.CanPull);
@@ -69,7 +69,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
         harness.Git.NextCheck = new LocalGitRepositoryUpdateCheck(
             LocalGitRepositoryCurrency.Behind, 0, 3, false, "origin/main", "3 commits behind origin/main.");
 
-        var state = await harness.Service.CheckAsync(harness.Alias);
+        var state = await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(KnowledgeUpdateAvailability.UpdateAvailable, state.Availability);
         Assert.True(state.CanPull);
@@ -99,7 +99,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
         harness.Git.NextCheck = new LocalGitRepositoryUpdateCheck(
             currency, 0, behind, hasLocalChanges, "origin/main", "the reason git gave");
 
-        var state = await harness.Service.CheckAsync(harness.Alias);
+        var state = await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(KnowledgeUpdateAvailability.Blocked, state.Availability);
         Assert.False(state.CanPull);
@@ -116,7 +116,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
             "Pulled the latest JSdotNet/Backlog into the clone.",
             new LocalGitRepositoryUpdateCheck(LocalGitRepositoryCurrency.UpToDate, 0, 0, false, "origin/main", "On the latest version of origin/main."));
 
-        var state = await harness.Service.PullAsync(harness.Alias);
+        var state = await harness.Service.PullAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, harness.Folders.ContentChangedAnnouncements);
         Assert.Equal(KnowledgeUpdateAvailability.UpToDate, state.Availability);
@@ -129,7 +129,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
         var harness = CreateHarness();
         harness.Git.NextPull = LocalGitRepositoryPullResult.Failed("There are local changes in the clone.");
 
-        var state = await harness.Service.PullAsync(harness.Alias);
+        var state = await harness.Service.PullAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, harness.Folders.ContentChangedAnnouncements);
         Assert.Equal(KnowledgeUpdateAvailability.Blocked, state.Availability);
@@ -141,7 +141,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
     {
         var harness = CreateHarness();
 
-        var state = await harness.Service.PullAsync(null);
+        var state = await harness.Service.PullAsync(null, TestContext.Current.CancellationToken);
 
         Assert.Equal(KnowledgeUpdateAvailability.NotApplicable, state.Availability);
         Assert.Equal(0, harness.Git.PullsRequested);
@@ -153,7 +153,7 @@ public sealed class KnowledgeUpdateServiceTests : IDisposable
     {
         var harness = CreateHarness();
 
-        await harness.Service.CheckAsync(harness.Alias);
+        await harness.Service.CheckAsync(harness.Alias, TestContext.Current.CancellationToken);
 
         Assert.Equal(harness.CloneDirectory, harness.Git.LastCloneDirectory);
         Assert.Equal("JSdotNet/Backlog", harness.Git.LastRepository?.FullName);

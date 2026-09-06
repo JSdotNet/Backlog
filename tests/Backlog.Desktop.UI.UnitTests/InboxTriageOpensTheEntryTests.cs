@@ -212,7 +212,7 @@ public sealed class InboxTriageOpensTheEntryTests
 
         // On disk rather than only on the row: the flush is the point, and a row
         // still holding the text would prove nothing about the save.
-        var stored = await harness.Entries.ListAsync();
+        var stored = await harness.Entries.ListAsync(TestContext.Current.CancellationToken);
         Assert.Contains(stored, entry => entry.Title == "Deploy SpecManager twice");
     }
 

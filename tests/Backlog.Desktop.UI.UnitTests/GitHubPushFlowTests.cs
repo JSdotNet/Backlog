@@ -315,7 +315,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             600,
             42);
 
-        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         // A data: URL embedded straight in the body is stripped by GitHub's
         // markdown sanitizer and never renders — the fix commits the screenshot
@@ -336,7 +336,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.");
+        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.", TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
@@ -350,7 +350,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         harness.Client.UploadFailure = new GitHubException("GitHub refused the request — the token may lack repo scope.");
         var screenshot = new GitHubFeedbackScreenshot("data:image/jpeg;base64,AAAA", "image/jpeg", 800, 600, 42);
 
-        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
         Assert.Contains("Screenshot upload failed:", harness.Client.CreatedBody);

@@ -26,7 +26,7 @@ public class CostInsightsTests
             claude: new StubSpendSource { Report = Spend(12.34m) },
             copilot: new StubSpendSource { Availability = InsightAvailability.Unavailable("No admin rights.") });
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.True(month.HasValue);
         var provider = Assert.Single(month.Value!.Providers);
@@ -41,7 +41,7 @@ public class CostInsightsTests
             claude: new StubSpendSource { Availability = InsightAvailability.Unavailable("No Anthropic key.") },
             copilot: new StubSpendSource { Availability = InsightAvailability.Unavailable("No admin rights.") });
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.False(month.HasValue);
         Assert.Contains("No Anthropic key.", month.Availability.Reason, StringComparison.Ordinal);
@@ -55,7 +55,7 @@ public class CostInsightsTests
             claude: new StubSpendSource { Report = Spend(5m) },
             copilot: new StubSpendSource { Throw = new InvalidOperationException("GitHub answered 403.") });
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.True(month.HasValue);
         _ = Assert.Single(month.Value!.Providers);
@@ -70,7 +70,7 @@ public class CostInsightsTests
     {
         var claude = new StubSpendSource { Report = Spend(1m) };
 
-        var month = await Costs(claude, Silent()).GetThisMonthAsync();
+        var month = await Costs(claude, Silent()).GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.True(month.HasValue);
         var provider = Assert.Single(month.Value!.Providers);
@@ -88,7 +88,7 @@ public class CostInsightsTests
             claude: new StubSpendSource { Report = Spend(9m) with { IsEstimate = true } },
             copilot: new StubSpendSource { Report = Spend(3m) });
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.True(month.HasValue);
         Assert.True(Assert.Single(month.Value!.Providers, one => one.Provider == SpendProvider.Claude).IsEstimate);
@@ -114,7 +114,7 @@ public class CostInsightsTests
             },
             copilot: Silent());
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.False(month.HasValue);
         Assert.Contains("exchange rate", month.Availability.Reason, StringComparison.OrdinalIgnoreCase);
@@ -130,7 +130,7 @@ public class CostInsightsTests
     {
         var costs = Costs(new StubSpendSource(), Silent());
 
-        var month = await costs.GetThisMonthAsync();
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
 
         Assert.True(month.HasValue);
         var provider = Assert.Single(month.Value!.Providers);
@@ -142,7 +142,7 @@ public class CostInsightsTests
     {
         var costs = Costs(new StubSpendSource { Report = Spend(1m) }, Silent());
 
-        var trend = await costs.GetTrendAsync();
+        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
         var series = Assert.Single(trend.Value!.ByProvider);
@@ -162,7 +162,7 @@ public class CostInsightsTests
             },
             copilot: Silent());
 
-        var trend = await costs.GetTrendAsync();
+        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
         var series = Assert.Single(trend.Value!.ByProvider);
@@ -189,7 +189,7 @@ public class CostInsightsTests
                     [new SpendEntry(new DateOnly(2026, 8, 4), "gpt-5", null, new DashboardMoney(9m, "USD"))])
             });
 
-        var byModel = await costs.GetByModelAsync();
+        var byModel = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
 
         Assert.True(byModel.HasValue);
         Assert.Collection(
@@ -218,14 +218,14 @@ public class CostInsightsTests
         var copilot = new StubSpendSource { Report = Spend(3m) };
         var costs = Costs(claude, copilot);
 
-        _ = await costs.GetThisMonthAsync();
-        _ = await costs.GetByModelAsync();
+        _ = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+        _ = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
 
         // Month and by-model read the same window, so they share one fetch; the
         // trend reads a longer one and fetches on its own.
         Assert.Equal(1, claude.Calls);
 
-        _ = await costs.GetTrendAsync();
+        _ = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, claude.Calls);
         Assert.Equal(2, copilot.Calls);

@@ -21,7 +21,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design", "domain"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design", "domain"], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["Domain", "Design"], tree.Roots.Select(node => node.Label));
         var domain = tree.Roots.Single(node => node.AreaKey == "domain");
@@ -46,7 +46,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["domain"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["domain"], cancellationToken: TestContext.Current.CancellationToken);
 
         var domain = Assert.Single(tree.Roots);
         var localization = Assert.Single(domain.Children, node => node.Kind == KnowledgeMenuNodeKind.Folder && node.Label == "Localization");
@@ -62,7 +62,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design"], cancellationToken: TestContext.Current.CancellationToken);
 
         var design = Assert.Single(tree.Roots);
         Assert.Equal("Design", design.Label);
@@ -78,7 +78,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"], cancellationToken: TestContext.Current.CancellationToken);
 
         var instructions = Assert.Single(tree.Roots);
         Assert.Equal("instructions", instructions.AreaKey);
@@ -101,7 +101,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"], cancellationToken: TestContext.Current.CancellationToken);
 
         var arc42 = Assert.Single(tree.Roots);
         Assert.Equal(
@@ -122,7 +122,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["arc42"], cancellationToken: TestContext.Current.CancellationToken);
 
         var arc42 = Assert.Single(tree.Roots);
         Assert.Equal(
@@ -148,7 +148,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["design"], cancellationToken: TestContext.Current.CancellationToken);
 
         var design = Assert.Single(tree.Roots);
         Assert.Equal(
@@ -171,7 +171,7 @@ public sealed class KnowledgeMenuTests : IDisposable
         var settings = NewSettingsStore();
         ConfigureRepository(settings, repo);
 
-        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"]);
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"], cancellationToken: TestContext.Current.CancellationToken);
 
         var instructions = Assert.Single(tree.Roots);
         Assert.Equal([".github", ".claude", ".agent"], instructions.Children.Select(node => node.Label));

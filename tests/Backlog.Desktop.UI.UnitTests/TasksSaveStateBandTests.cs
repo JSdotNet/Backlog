@@ -53,7 +53,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
         var raised = 0;
         state.Changed += () => raised++;
 
-        await Task.Delay(PastTheDwell);
+        await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
 
         Assert.Equal(AppSaveState.Idle, state.SaveState);
 
@@ -77,7 +77,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
 
-        await Task.Delay(PastTheDwell);
+        await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
     }
@@ -166,14 +166,14 @@ public sealed class TasksSaveStateBandTests : IDisposable
         };
 
         // Partway into the first dwell, so the settle it armed is still pending.
-        await Task.Delay(1000);
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
 
         var since = Stopwatch.StartNew();
         await state.StartCopilotCliAsync(row);
 
         Assert.Equal(AppSaveState.Saved, state.SaveState);
 
-        await wentQuiet.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await wentQuiet.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         since.Stop();
 
         Assert.True(

@@ -36,7 +36,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             new DateOnly(2026, 2, 13),
             PlanningPriority.High,
             ["backlog"],
-            "platform");
+            "platform", cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -67,7 +67,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             "Work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 2, 13),
-            repositoryAliases: ["backlog"]);
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -94,7 +94,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             "Work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 2, 13),
-            repositoryAliases: ["backlog"]);
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -121,7 +121,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     public async Task AMilestoneIsDrawnOnItsOwnRow()
     {
         Configure("JSdotNet/Backlog");
-        await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), MilestoneKind.Release, ["backlog"]);
+        await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 3, 31), MilestoneKind.Release, ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -133,7 +133,7 @@ public class RoadmapBandTests : RoadmapBandHarness
     [Fact]
     public async Task RescheduleFromTheTimeline_IsStored()
     {
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
         var itemId = added.Value.Id;
 
         using var context = Context();
@@ -144,7 +144,7 @@ public class RoadmapBandTests : RoadmapBandHarness
         await band.InvokeAsync(() => timeline.Instance.OnBarChanged.InvokeAsync(
             new RoadmapChange(bar.Id, bar.RowId, new DateOnly(2026, 2, 2), new DateOnly(2026, 2, 6), RoadmapDrag.Move)));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         var stored = plan.Items.Single(item => item.Id == itemId);
 
         Assert.Equal(new DateOnly(2026, 2, 2), stored.Start);
@@ -160,13 +160,13 @@ public class RoadmapBandTests : RoadmapBandHarness
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             repositoryAliases: ["backlog"],
-            lane: "platform");
+            lane: "platform", cancellationToken: TestContext.Current.CancellationToken);
         await Planning.AddItemAsync(
             "Other work",
             new DateOnly(2026, 1, 12),
             new DateOnly(2026, 1, 16),
             repositoryAliases: ["backlog"],
-            lane: "migration");
+            lane: "migration", cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -179,14 +179,14 @@ public class RoadmapBandTests : RoadmapBandHarness
         await band.InvokeAsync(() => timeline.Instance.OnBarChanged.InvokeAsync(
             new RoadmapChange(bar.Id, migrationRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         Assert.Equal("migration", plan.Items.Single(item => item.Id == added.Value.Id).Lane);
     }
 
     [Fact]
     public async Task ARefusedRescheduleIsExplained_AndTheChartGoesBackToWhatWasStored()
     {
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -200,7 +200,7 @@ public class RoadmapBandTests : RoadmapBandHarness
 
         Assert.NotNull(band.Find("[data-testid=\"roadmap-band-error\"]"));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         var stored = plan.Items.Single(item => item.Id == added.Value.Id);
         Assert.Equal(new DateOnly(2026, 1, 5), stored.Start);
         Assert.Equal(new DateOnly(2026, 1, 9), stored.End);
@@ -213,7 +213,7 @@ public class RoadmapBandTests : RoadmapBandHarness
             "Old work",
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
-            repositoryAliases: ["retired"]);
+            repositoryAliases: ["retired"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -225,9 +225,9 @@ public class RoadmapBandTests : RoadmapBandHarness
     [Fact]
     public async Task ADependencyIsDrawnAsAnArrow()
     {
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16));
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id)).IsSuccess);
+        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
