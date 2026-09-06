@@ -65,6 +65,7 @@ flowchart LR
         Foundry["Azure AI Foundry"]:::adopted
         Cosmos["Azure Cosmos DB"]:::candidate
         KeyVault["Azure Key Vault"]:::candidate
+        AzureMonitor["Azure Monitor"]:::candidate
         FCM["Firebase Cloud Messaging"]:::candidate
         Git["Git"]:::adopted
         PowerShell["PowerShell"]:::adopted
@@ -165,6 +166,7 @@ flowchart LR
         CPM["Central Package Management"]:::adopted
         Npm["npm"]:::adopted
         Bicep["Bicep"]:::adopted
+        Azd["Azure Developer CLI"]:::adopted
         AspireCli["Aspire CLI"]:::adopted
         Actions["GitHub Actions"]:::adopted
         CodeQL["CodeQL"]:::adopted
@@ -273,6 +275,7 @@ flowchart LR
     CPM --> NuGet
     Npm --> NodeJS
     Bicep --> AzureCli
+    Azd --> Bicep
     AspireCli --> Aspire
     Actions --> GitHubPlatform
     CodeQL --> Actions
@@ -298,7 +301,7 @@ below them. They are the three text formats (`Markdown`, `JSON`, `YAML`), the tw
 base runtimes (`.NET Runtime`, `Node.js`), the two operating systems and the JDK
 (`Windows`, `Android`, `Java JDK`), the external services (`GitHub Platform`,
 `Anthropic Claude Platform`, `Azure AI Foundry`, `Azure Cosmos DB`,
-`Azure Key Vault`, `Firebase Cloud Messaging`), and the four host-level tools
+`Azure Key Vault`, `Azure Monitor`, `Firebase Cloud Messaging`), and the four host-level tools
 (`Git`, `PowerShell`, `Azure CLI`, `Claude Code`).
 
 ## Status ladder
