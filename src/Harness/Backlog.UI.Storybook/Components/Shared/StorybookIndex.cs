@@ -65,6 +65,11 @@ internal static class StorybookIndex
         // those three later. They are chrome for the measurement rather than its
         // subject, so the bend is recorded — here and in StorybookOrderTests —
         // rather than resolved by moving a token page under two component pages.
+        //
+        // The icon set is not one of those bends: it is introduced here, on its
+        // own chapter, because a glyph is a foundation in the same sense a type
+        // scale is and `typography-and-layout.md` governs both in one chapter.
+        // Every page under it may draw one without borrowing from anywhere.
         new("Overview",
         [
             new("", "Introduction", "Why the library exists and what this host is for."),

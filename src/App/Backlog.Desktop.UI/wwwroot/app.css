@@ -1480,9 +1480,12 @@ h1, h2, h3 {
     }
 
     /* The rail follows the option's width, which the rule above has already
-       narrowed, so what is left to tighten is its floor. The height floor stays:
-       it is the half of the click target a narrowing option cannot give back, and
-       2.75rem x 1.5rem still clears the 1.75rem x 2.25rem the old box had here. */
+       narrowed, so what is left to tighten is its floor. Height is neither
+       tightened nor restated here: the cell fixes one height for both its rows at
+       every width, and a floor in this step could only argue with it. What the
+       rail keeps here is what it has at any width — the option's whole span, which
+       even beside the shortest word is about twice the 1.75rem the old side box
+       was left with, and four times it beside Knowledge. */
     .header-group__pin {
         min-width: 2.75rem;
         padding: 0;
@@ -2195,6 +2198,12 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font: inherit;
     font-size: var(--font-size-sm);
+    /* Tight, because a pane's option gives its height floor up to the cell and
+       then has to fit what the rail leaves: at this size the inherited 1.5 line
+       box is taller than that room and the label would clip. Nothing changes on
+       the surface switcher, where the 2.25rem floor above still decides the
+       height and the line box never reaches it. */
+    line-height: var(--line-height-tight);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
 }
@@ -2255,12 +2264,35 @@ h1, h2, h3 {
   pinned fill read as a vertical strip running down the option's side — which is
   the whole of feedback #283. Stacked, the pin is a rail across the option's top
   edge and the fill runs with the strip instead of against it.
+
+  Stacking cost height at first, because each row kept a floor of its own: the
+  sections strip stood a rail taller than the surface switcher beside it, which
+  is two header groups drawn at two heights for a difference a reader has no
+  reason to see. So the cell states the height now — one bare option, 2.25rem —
+  and the two rows divide it rather than add up to it. The rail takes its 1rem
+  off the top and the option below fills the rest. The pin keeps the edge it
+  belongs to and the header goes back to one row height.
 */
 
 .header-group__pane {
     display: inline-flex;
     flex-direction: column;
     align-items: stretch;
+    /* What the rail's floor and the option's forfeit below add up to, and the one
+       number either of them is measured against: a cell with a pin is exactly a
+       bare option tall, so every member of both groups measures the same. */
+    min-height: 2.25rem;
+}
+
+/* The option inside a cell gives up its own floor and its vertical padding: it
+   is no longer measuring itself, it is filling what the rail left of the cell.
+   Only the vertical padding, so the compact step's narrower side padding still
+   reaches it — this selector outranks that one. */
+.header-group__pane > .header-group__option {
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    flex: 1 1 auto;
 }
 
 .header-group__option + .header-group__pane,
@@ -2274,9 +2306,12 @@ h1, h2, h3 {
   the option's weight would read as a second thing to choose between.
 
   Wide and shallow, where the box beside the option was narrow and tall. The
-  floor is stated on the width for that reason: 3rem x 1.5rem is the area the
-  2rem x 2.25rem box had, and the rail in fact takes the option's own width,
-  which is several times it.
+  floor is stated on the width for that reason, and the height floor is only what
+  the rail needs to hold its glyph. On paper 3rem x 1rem is the smaller box of the
+  two, and in practice the rail is not a box: it is a band as wide as the option
+  it leads — four rem of it for Tasks and eight for Knowledge and its flag, where
+  the side box was never wider than its own 2rem floor. What the rail gives up in
+  depth, which is the cell's to reclaim, it takes back in reach.
 */
 .header-group__pin {
     display: inline-flex;
@@ -2284,7 +2319,7 @@ h1, h2, h3 {
     justify-content: center;
     width: 100%;
     min-width: 3rem;
-    min-height: 1.5rem;
+    min-height: 1rem;
     padding: 0 var(--spacing-xs);
     border: 0;
     /* Reserved, as on the option, so pinning does not shift the row — on the top
@@ -2293,9 +2328,23 @@ h1, h2, h3 {
        four different pictures rather than two rules on one edge. */
     border-top: var(--border-width-2) solid transparent;
     background: transparent;
-    font-size: var(--font-size-sm);
+    /* Stated, not inherited, and the emoji is why it was missing: a <button> arrives
+       from the user agent with an ink of its own, and an emoji painted over it
+       regardless. A stroke drawn in currentColor does not — left unstated it took the
+       agent's near-black into a dark header and the glyph all but disappeared. The
+       option beside it has always said this; the rail only ever got away with not
+       saying it. */
+    color: var(--color-text-secondary);
+    /* No font-size any more. It sized an emoji, and the glyph that replaced it is
+       sized by its own width and height — which is what the iconography rules ask
+       for and the one thing they forbid doing with type. */
     line-height: 1;
-    opacity: 0.45;
+    /* Quiet, but a stroke rather than a full-colour glyph now carries it, and 0.45 was
+       set when it did not: two pixels of line at that alpha sit under the 3:1 the
+       iconography rules hold an icon to. This clears it while leaving the rail well
+       short of the option's weight, which is the whole point of dimming it at all.
+       The disabled step below stays where it is: an inert control is exempt. */
+    opacity: 0.6;
     cursor: pointer;
     transition: background var(--transition-fast), opacity var(--transition-fast);
 }
@@ -2321,6 +2370,89 @@ h1, h2, h3 {
 .header-group__pin:disabled {
     cursor: not-allowed;
     opacity: 0.2;
+}
+
+/*
+  The glyph the rail holds, dressed here because nowhere else can: the pin
+  replaces the library's base class, so none of the `.btn svg` rules reach it and
+  this sheet owns everything the drawing needs. Addressed by the class Home.razor
+  hands the glyph through its CssClass, rather than by the component's own
+  self-named one or by the element: `.chevron-up-icon` and an `svg` selector alike
+  would take hold of whatever a later caller put in this rail, and this rule is
+  about the rail's own drawing rather than about chevrons. Block, so it brings no
+  line box of its own into a rail that is 1rem tall.
+
+  Direction is the third channel under the fill and the top rule, and one drawing
+  carries both states rather than two components: the chevron points up while the
+  pane is loose, at the edge the rail runs along, so the control asks to be pushed,
+  and it turns half a turn down once pinned, so it asks to be pushed back. Which
+  state a drawing stands for stays the host's rule — ChevronUpIcon ships no
+  `Pinned` parameter for exactly that reason, since two hosts with two conventions
+  could not both have it — and an angle set here is that rule stated by the host,
+  in the one place that already knows what pinned looks like.
+
+  This is a channel and not decoration. `.design/accessibility.md#iconography-accessibility`
+  forbids an icon's colour being the sole carrier of meaning, and
+  `.design/interaction-guidelines.md#workspace-panes` names this very control:
+  "a pinned pane's control MUST be visually distinct from an unpinned one through
+  more than colour alone". Up versus down is a non-colour channel, alongside the
+  `--pinned` fill and the primary top rule. Three channels rather than the two
+  required, because the rail is small and the fill is deliberately quiet —
+  direction is the one a reader can see from across the strip, and the one left to
+  a reader who takes no meaning from the fill's colour at all. Shape used to carry
+  it as a second drawing; it carries it as an angle now, and either way it is load
+  bearing. Do not drop the rotation as ornament.
+
+  The transform is composed out of two custom properties, and it has to be. Write
+  the pinned turn as its own `transform` and the hover lift as another, and a
+  hovered pinned rail loses its rotation: `.header-group__pin:hover:not(:disabled)
+  .header-group__pin-glyph` outranks `.header-group__pin--pinned
+  .header-group__pin-glyph`, so the hover declaration wins the cascade and drops
+  the 180deg on the floor. Each rule below therefore sets only the variable it
+  owns and this one composes them, so lift and turn survive in any combination.
+  Do not "simplify" it back into two competing `transform` declarations.
+
+  Transitioned, where the tilt this replaced deliberately was not. That reasoning
+  was about a tilt: it was the state itself rather than a move between states, and
+  a state that animates into place is briefly wrong. What happens here is a move —
+  the glyph travelling the pixel the gesture asks for, and turning over to face the
+  other way — so it eases the way every other move in this sheet does, on the same
+  token. Transitioning the composed `transform` covers both, because both are in it.
+
+  The turn cannot clip. The rail's 1rem floor less the 2px it reserves along its
+  top edge leaves a 14px content box around a 12px glyph, so there is 1px of slack
+  above and 1px below. A 180deg rotation about the glyph's own centre — the default
+  `transform-origin`, and the glyph is a square — maps that 12px box onto itself,
+  so the bounding box after the turn is the box before it and the slack is
+  unchanged. Only the lift spends any of it, and it spends exactly the pixel there
+  is.
+*/
+.header-group__pin-glyph {
+    display: block;
+    --pin-lift: 0;
+    --pin-turn: 0deg;
+    transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));
+    transition: transform var(--transition-fast);
+}
+
+/* Push up to pin, said before the press: the glyph rises a pixel toward the edge
+   the chevron is pointing at, so the control shows the gesture rather than only
+   naming it in the label. One pixel is exactly the slack there is, by the
+   arithmetic above — the lift lands the drawing flush against the top of the
+   content box and never through it, and anything more would clip. The lift is all
+   this rule sets, so hovering a pinned rail leaves its turn alone. */
+.header-group__pin:hover:not(:disabled) .header-group__pin-glyph {
+    --pin-lift: -1px;
+}
+
+/* And once the press lands the glyph stays up and turns over: it holds the pixel
+   the hover took it to, so the travel reads as one movement that ended in a kept
+   pane rather than a hover effect that let go of it, and it now points down at the
+   push that releases the pane. Both variables, because a pinned rail keeps the
+   lift whether or not the pointer is still on it. */
+.header-group__pin--pinned .header-group__pin-glyph {
+    --pin-lift: -1px;
+    --pin-turn: 180deg;
 }
 
 /* --- Header accent and utilities ------------------------------------------ */

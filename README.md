@@ -119,8 +119,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
-| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local task store, one SQLite database behind `ITaskRepository`. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, and the stored roadmap plan |
+| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -138,8 +138,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
-| `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite task store — round-tripping an aggregate, and rank order |
-| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the stored roadmap plan. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
+| `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |
+| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the knowledge graph and the roadmap item rollup. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
