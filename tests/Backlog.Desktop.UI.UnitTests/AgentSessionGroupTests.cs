@@ -55,9 +55,14 @@ public sealed class AgentSessionGroupTests
     }
 
     /// <summary>
-    /// The reason the row count beside the pane's title does not move when the
-    /// grouping does. Grouping is not a filter, and this is the assertion that says
-    /// so rather than the comment that claims it.
+    /// The count grouping was given is the count it hands back. Grouping is not a
+    /// filter, and this is the assertion that says so rather than the comment that
+    /// claims it.
+    /// <para>
+    /// What the badge beside the pane's title says is the pane's business, not this
+    /// one's: a view now sits in front of the grouping and does remove rows. See
+    /// <see cref="AgentSessionViewTests"/>.
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData(AgentSessionGrouping.None)]

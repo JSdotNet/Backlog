@@ -17,7 +17,7 @@
     The shell decides *whether* there is a sessions pane — the feature flag and the
     header toggle stay there — and this decides what is in one.
 
-    Three things this pane deliberately is not:
+    Two things this pane deliberately is not:
 
     It is not a monitor. It reads the folders once when it opens and again when
     somebody asks, and there is no timer. A surface that re-read itself every few
@@ -32,9 +32,23 @@
     it. When the cap takes anything, the line under the title names both numbers: a
     capped list presented as the whole history is the one thing a cap must not do.
 
-    It is not a filter. Grouping rearranges the rows and removes none of them, which
-    is why the count in the header does not change when the grouping does — and why
-    that count is worth having beside a control that carves the same rows up.
+    And one thing it is. It opens on the live sessions — the ones the reading called
+    Running or Stalled — because "what is going on right now" is the question somebody
+    opens this for, and eight hundred finished records are the answer to a different
+    one. What that reading rests on is not the same for both agents, and the reader of
+    this pane pays for the difference: Claude writes a file per running session, so its
+    live rows are evidence, while Copilot's state is a timeout on top of a folder that
+    leaves no liveness marker at all. A Copilot session that is genuinely running but
+    has been quiet for over half an hour reads as Finished, and this view does not
+    hold it. The view is the filter, and it is the only control here that removes a
+    row: grouping still moves rows and removes none, which is why the badge does not
+    move when the grouping does.
+
+    Two subtractions, two lines, and they must not be confused for each other. The
+    subtitle says what the *reading* left out — the cap, and its numbers are the
+    catalog's. The badge says what the *view* is hiding, and it names both numbers
+    whenever it is hiding any. A list that was capped and filtered and reported one
+    number for both would be blaming the cap for the reader's own choice.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
@@ -54,14 +68,40 @@
                    Title="Claude and Copilot"
                    Description="@Subtitle">
         <Actions>
-            @* The library's badge wearing this pane's count class. It counts rows,
-               not groups, so it stays put while the grouping control moves them. *@
+            @* The library's badge wearing this pane's count class. It answers to the
+               view and not to the grouping: it stays put while Group by moves the
+               same rows around, and it changes — and names both numbers — the moment
+               Show leaves some of them out. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
     <div class="sessions-panel__filters" data-testid="sessions-filters">
+        @* First, because it decides which rows exist before Group by decides where
+           they sit — and reading left to right is the order the two controls apply.
+
+           A one-of-many strip rather than a Toggle, even though there are two
+           options and a switch would fit. A role="switch" states a boolean
+           *setting*, and this is not one: it resets to Live on every open, and a
+           setting that silently forgets itself reads as broken. A strip that comes
+           back to its first option reads as where you are looking, which is what
+           this is — and it is exactly what Group by already does in returning to
+           "Nothing". *@
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Show</span>
+            <ButtonGroup AriaLabel="Which sessions to show" TestId="sessions-view-filter">
+                @foreach (var view in Views)
+                {
+                    <ToggleButton Pressed="_view == view"
+                                  PressedChanged="_ => ChooseView(view)"
+                                  TestId="@($"sessions-view-{Slug(view)}")">
+                        @AgentSessionViews.Label(view)
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
         <div class="sessions-filter">
             <span class="sessions-filter__label">Group by</span>
             @* A one-of-many strip over a closed set of three, which is what the
@@ -101,7 +141,9 @@
             <Alert Message="@UnreadableMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-unreadable" />
         }
 
-        @if (_loading && Count == 0)
+        @* Total, not Shown: a refresh of a fully-filtered list has nothing on screen
+           and is not a first read, and this message would flash on every one of them. *@
+        @if (_loading && Total == 0)
         {
             <p class="sessions-panel__empty">Reading the sessions on this PC.</p>
         }
@@ -113,8 +155,8 @@
                        RowKey="@(session => (object)$"{session.Kind}/{session.Id}")"
                        RowNoun="session"
                        AriaLabel="Claude and Copilot sessions on this PC"
-                       EmptyMessage="No sessions on this PC."
-                       EmptyDescription="Neither Claude nor Copilot has left a session record in this profile yet."
+                       EmptyMessage="@EmptyMessage"
+                       EmptyDescription="@EmptyDescription"
                        TestId="sessions-table">
                 <Row Context="session">
                     @* The folder is the second line of the name rather than a column
@@ -166,6 +208,14 @@
 </section>
 
 @code {
+    /// <summary>The views on offer, in the order the strip lists them. Live first,
+    /// because it is the view the pane opens in.</summary>
+    private static readonly AgentSessionView[] Views =
+    [
+        AgentSessionView.Live,
+        AgentSessionView.All
+    ];
+
     /// <summary>The groupings on offer, in the order the strip lists them. Ungrouped
     /// first, because it is the shape the list has when the pane opens.</summary>
     private static readonly AgentSessionGrouping[] Groupings =
@@ -193,13 +243,15 @@
     private const string Missing = "—";
 
     private AgentSessionCatalog _catalog = AgentSessionCatalog.Empty;
+    private AgentSessionView _view = AgentSessionView.Live;
     private AgentSessionGrouping _grouping = AgentSessionGrouping.None;
     private bool _loading;
 
     /// <summary>When the list was read, so "12 minutes ago" is measured against the
-    /// reading rather than against the render. Two renders of the same list — a
-    /// grouping change — then say the same thing about the same row, which is what a
-    /// control that only rearranges rows should do.</summary>
+    /// reading rather than against the render. Neither strip re-reads anything: a
+    /// grouping change and a view change are both a second render of one reading, and
+    /// pinning the clock to the reading is what makes them say the same thing about
+    /// the same row. Only Refresh moves this.</summary>
     private DateTimeOffset _readAt = DateTimeOffset.UtcNow;
 
     /// <summary>Raised when somebody dismisses the pane. Whether that returns to the
@@ -258,7 +310,17 @@
         }
     }
 
+    /// <summary>Held here and nowhere else, so it lasts exactly as long as this
+    /// pane does: closing and reopening is a new pane, and a new pane opens on
+    /// Live. A stored view would make "what is going on right now" a question the
+    /// reader had to remember having answered.</summary>
+    private void ChooseView(AgentSessionView view) => _view = view;
+
     private void ChooseGrouping(AgentSessionGrouping grouping) => _grouping = grouping;
+
+    /// <summary>The rows this view admits, before any grouping. View first, then
+    /// grouping: the grouping never sees what the view left out.</summary>
+    private IReadOnlyList<AgentSession> Visible => AgentSessionViews.Of(_catalog.Sessions, _view);
 
     /// <summary>
     /// The sections to render, derived from the module's own grouping rather than
@@ -267,21 +329,71 @@
     /// may not see a module and the module may not depend on a control library.
     /// </summary>
     private IReadOnlyList<DataTableSection<AgentSession>> Sections =>
-        [.. AgentSessionGroups.Of(_catalog.Sessions, _grouping)
+        [.. AgentSessionGroups.Of(Visible, _grouping)
             .Select(group => new DataTableSection<AgentSession>(group.Name, group.Sessions))];
 
-    private int Count => _catalog.Sessions.Count;
+    /// <summary>What the reading found. The subtitle's number and the second half of
+    /// the badge's.</summary>
+    private int Total => _catalog.Sessions.Count;
 
-    private string CountLabel => Count == 1 ? "1 session" : $"{Count} sessions";
+    /// <summary>What the view kept. The row count.</summary>
+    private int Shown => Visible.Count;
+
+    /// <summary>
+    /// Both numbers whenever the view is hiding some, and one number when it is
+    /// hiding none. Never "of" on a Live view over an all-live catalog: "2 of 2
+    /// sessions" would send a reader looking for two rows that do not exist.
+    /// <para>
+    /// The noun agrees with the total on both branches, because the total is the
+    /// number it is the noun for. A profile holding exactly one session record, over,
+    /// opens on Live with nothing on screen — and "0 of 1 sessions" would be the badge
+    /// disagreeing with the very number it is quoting.
+    /// </para>
+    /// </summary>
+    private string CountLabel => Shown == Total
+        ? (Total == 1 ? "1 session" : $"{Total} sessions")
+        : (Total == 1 ? $"{Shown} of 1 session" : $"{Shown} of {Total} sessions");
 
     /// <summary>
     /// Both numbers when the cap took something, and only the honest claim when it
     /// did not. "The most recent" on an uncapped list would be hedging about a list
     /// that is in fact complete.
+    /// <para>
+    /// This line describes the *reading* and deliberately not the view, which is why
+    /// its count is the catalog's rather than the rows on screen. The cap and the
+    /// view are two different subtractions; "the 2 most recent of 842" over a
+    /// four-session reading filtered to two would be attributing one to the other.
+    /// The badge is where the view's own subtraction is reported.
+    /// </para>
     /// </summary>
     private string Subtitle => _catalog.Capped
-        ? $"The {Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
+        ? $"The {Total} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
         : "The sessions this PC has a record of, most recently active first.";
+
+    /// <summary>
+    /// Nothing on this machine, or nothing this view admits — two different facts,
+    /// and telling a reader with three finished sessions that there are none would
+    /// be blaming the machine for their own filter.
+    /// </summary>
+    private string EmptyMessage => Total == 0
+        ? "No sessions on this PC."
+        : "No live sessions right now.";
+
+    /// <summary>The description names both states out loud, and names the way back
+    /// out. "Live" in the title above is only checkable if the sentence under it
+    /// says which states that means and how many rows are on the other side.</summary>
+    private string EmptyDescription => Total == 0
+        ? "Neither Claude nor Copilot has left a session record in this profile yet."
+        : Total == 1
+            ? $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the 1 session it has a record of."
+            : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {Total} sessions it has a record of.";
+
+    /// <summary>The other view's own word, read from the module rather than written
+    /// out here. This is the one sentence in the product that names a view in prose,
+    /// and it names the button the reader has to press — so it asks the button's
+    /// label for it. "running or stalled" beside it stays literal: those are states,
+    /// not the view. See <see cref="AgentSessionViews.Label"/>.</summary>
+    private static string AllLabel => AgentSessionViews.Label(AgentSessionView.All);
 
     private string UnreadableMessage =>
         $"Could not read {string.Join(" or ", _catalog.Unreadable)} on this PC. Everything else below is complete.";
@@ -291,6 +403,12 @@
         AgentSessionGrouping.Environment => "Environment",
         AgentSessionGrouping.Kind => "Type",
         _ => "Nothing"
+    };
+
+    private static string Slug(AgentSessionView view) => view switch
+    {
+        AgentSessionView.All => "all",
+        _ => "live"
     };
 
     private static string Slug(AgentSessionGrouping grouping) => grouping switch

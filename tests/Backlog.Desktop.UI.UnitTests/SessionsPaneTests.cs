@@ -6,16 +6,18 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The pane asks its port and renders the answer. What is asserted here is the part
-/// that is the pane's own: that the grouping control rearranges the rows without
-/// removing any, that a source which could not be read is named rather than
-/// swallowed, and that "no sessions" and "could not read" do not look alike.
+/// that is the pane's own: that it opens on the live sessions and says so in both
+/// numbers, that the grouping control rearranges the rows without removing any
+/// while the view is the control that does remove them, that a source which could
+/// not be read is named rather than swallowed, and that "no sessions", "nothing
+/// live" and "could not read" do not look alike.
 /// </summary>
 public sealed class SessionsPaneTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 8, 19, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Every_session_is_a_row_saying_what_the_agent_recorded()
+    public void Every_live_session_is_a_row_saying_what_the_agent_recorded()
     {
         using var context = Context(Sample);
 
@@ -25,7 +27,8 @@ public sealed class SessionsPaneTests
         {
             var rows = pane.FindAll(".data-table__row");
 
-            Assert.Equal(3, rows.Count);
+            // The two the machine has liveness evidence for, out of four records.
+            Assert.Equal(2, rows.Count);
 
             // Most recently active first, before any grouping is asked for.
             var first = rows[0];
@@ -59,15 +62,26 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() => Assert.Contains("—", pane.Find(".data-table__row").TextContent));
     }
 
+    /// <summary>
+    /// The badge answers to the view, and it names both numbers whenever the view
+    /// is hiding any. "2 sessions" over a catalog of four would be the badge
+    /// agreeing with the rows and lying about the machine.
+    /// </summary>
     [Fact]
-    public void The_row_count_beside_the_title_counts_rows()
+    public void The_count_beside_the_title_says_how_many_of_how_many()
     {
         using var context = Context(Sample);
 
         var pane = context.Render<SessionsPane>();
 
         pane.WaitForAssertion(() =>
-            Assert.Equal("3 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        // Nothing hidden, so nothing to qualify.
+        pane.WaitForAssertion(() =>
+            Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
     }
 
     [Fact]
@@ -77,7 +91,9 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-group-environment']")));
+        // All first, deliberately: this test is about the grouping, and measuring it
+        // through the live view would make it an assertion about the filter instead.
+        ShowAll(pane);
         pane.Find("[data-testid='sessions-group-environment']").Click();
 
         pane.WaitForAssertion(() =>
@@ -87,7 +103,7 @@ public sealed class SessionsPaneTests
                 pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
 
             Assert.Equal(
-                ["1 session", "2 sessions"],
+                ["1 session", "3 sessions"],
                 pane.FindAll(".data-table__group-count").Select(count => count.TextContent.Trim()));
         });
     }
@@ -99,7 +115,7 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-group-type']")));
+        ShowAll(pane);
         pane.Find("[data-testid='sessions-group-type']").Click();
 
         pane.WaitForAssertion(() => Assert.Equal(
@@ -108,8 +124,8 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
-    /// Grouping rearranges and never filters, which is why the count in the header is
-    /// worth having beside a control that carves the same rows up.
+    /// Grouping rearranges and never filters. The view is the control that removes
+    /// rows, so this holds the view still and moves only the grouping.
     /// </summary>
     [Fact]
     public void Grouping_moves_rows_and_removes_none()
@@ -118,7 +134,8 @@ public sealed class SessionsPaneTests
 
         var pane = context.Render<SessionsPane>();
 
-        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll(".data-table__row").Count));
+        ShowAll(pane);
+        pane.WaitForAssertion(() => Assert.Equal(4, pane.FindAll(".data-table__row").Count));
 
         foreach (var grouping in new[] { "environment", "type", "none" })
         {
@@ -126,8 +143,8 @@ public sealed class SessionsPaneTests
 
             pane.WaitForAssertion(() =>
             {
-                Assert.Equal(3, pane.FindAll(".data-table__row").Count);
-                Assert.Equal("3 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+                Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+                Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             });
         }
     }
@@ -144,6 +161,183 @@ public sealed class SessionsPaneTests
             Assert.Equal("true", pane.Find("[data-testid='sessions-group-none']").GetAttribute("aria-pressed"));
             Assert.Empty(pane.FindAll(".data-table__group"));
         });
+    }
+
+    // --- The view ---------------------------------------------------------
+
+    [Fact]
+    public void Live_is_the_view_the_pane_opens_in()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>
+    /// Stalled is silence, not an ending. A session nobody has typed at for
+    /// three quarters of an hour is still registered on the machine, and a live
+    /// view that dropped it would be answering a question about typing rather than
+    /// about what is running.
+    /// </summary>
+    [Fact]
+    public void A_stalled_session_is_live_because_silence_is_not_an_ending()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var stalled = pane.FindAll(".data-table__row")
+                .Single(row => row.TextContent.Contains("JSdotNet/Archify"));
+
+            Assert.NotEmpty(stalled.QuerySelectorAll(".badge--integration-stalled"));
+        });
+    }
+
+    [Fact]
+    public void A_finished_session_is_not_in_the_live_view()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.DoesNotContain("JSdotNet/Project-Guidelines-MCP", pane.Markup);
+            Assert.Empty(pane.FindAll(".badge--integration-finished"));
+        });
+    }
+
+    [Fact]
+    public void Switching_to_all_brings_the_finished_sessions_back()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+            Assert.Contains("JSdotNet/Project-Guidelines-MCP", pane.Markup);
+            Assert.Equal("false", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>
+    /// A live view over an all-live catalog is hiding nothing, and "2 of 2
+    /// sessions" would invite the reader to go looking for the two it left out.
+    /// </summary>
+    [Fact]
+    public void The_count_says_one_number_when_the_view_hides_nothing()
+    {
+        using var context = Context([Sample[0], Sample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var count = pane.Find("[data-testid='sessions-count']").TextContent.Trim();
+
+            Assert.Equal("2 sessions", count);
+            Assert.DoesNotContain(" of ", count);
+        });
+    }
+
+    /// <summary>
+    /// The noun agrees with the total, not with the rows. One session record on the
+    /// machine, over, and the pane opens on Live with nothing on screen: "0 of 1
+    /// sessions" would have the badge contradicting the number it is quoting, and
+    /// this is the shape of catalog — a fresh profile after one session — where the
+    /// reader meets it first.
+    /// </summary>
+    [Fact]
+    public void The_count_agrees_with_the_total_when_the_view_hides_the_only_session()
+    {
+        using var context = Context([Sample[1]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll(".data-table__row"));
+            Assert.Equal("0 of 1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// "No sessions on this PC" over a machine holding three of them would be the
+    /// pane blaming the machine for the reader's own filter. The empty state names
+    /// the view, and names the way back out of it.
+    /// </summary>
+    [Fact]
+    public void A_view_that_hides_everything_says_so_rather_than_saying_there_is_nothing()
+    {
+        using var context = Context([Sample[1], Sample[2]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Contains("No live sessions right now.", pane.Markup);
+            Assert.DoesNotContain("No sessions on this PC.", pane.Markup);
+
+            // Both states named out loud, so the word "live" in the title above is
+            // checkable against something rather than being a term of art.
+            Assert.Contains("Choose All to see the 2 sessions it has a record of.", pane.Markup);
+        });
+    }
+
+    /// <summary>
+    /// The subtitle describes the reading, and the reading is the whole catalog.
+    /// A capped and filtered list that said "the 2 most recent of 842" would be
+    /// attributing the view's subtraction to the cap.
+    /// </summary>
+    [Fact]
+    public void The_subtitle_counts_the_reading_and_not_the_view()
+    {
+        using var context = Context(Sample, discovered: 842);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
+
+            Assert.Contains("4", subtitle);
+            Assert.Contains("842", subtitle);
+            Assert.DoesNotContain("2 most recent", subtitle);
+        });
+    }
+
+    /// <summary>
+    /// The choice is not persisted anywhere — not in a store, not in a static
+    /// field. A second pane is a second opening, and an opening starts on Live.
+    /// </summary>
+    [Fact]
+    public void Reopening_the_pane_opens_on_live_again()
+    {
+        using var context = Context(Sample);
+
+        var first = context.Render<SessionsPane>();
+
+        ShowAll(first);
+        first.WaitForAssertion(() =>
+            Assert.Equal("true", first.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed")));
+
+        var second = context.Render<SessionsPane>();
+
+        second.WaitForAssertion(() =>
+            Assert.Equal("true", second.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed")));
     }
 
     /// <summary>
@@ -235,8 +429,13 @@ public sealed class SessionsPaneTests
         {
             var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
 
-            Assert.Contains("3", subtitle);
+            Assert.Contains("4", subtitle);
             Assert.Contains("842", subtitle);
+
+            // Capped and filtered are two different subtractions and the subtitle
+            // owns only one of them. "The 2 most recent of 842" would be a claim
+            // about the reading that the reading never made.
+            Assert.DoesNotContain("2 most recent", subtitle);
         });
     }
 
@@ -266,6 +465,10 @@ public sealed class SessionsPaneTests
             .Add(p => p.RepositoryColour, repository =>
                 repository == "JSdotNet/Backlog" ? 4 : null));
 
+        // The session that carries the placed repository is a finished one, so this
+        // asks for every row before measuring which of them wears a colour.
+        ShowAll(pane);
+
         pane.WaitForAssertion(() =>
         {
             var marked = pane.FindAll(".sessions-table__repository")
@@ -292,6 +495,10 @@ public sealed class SessionsPaneTests
         var pane = context.Render<SessionsPane>(parameters => parameters
             .Add(p => p.RepositoryColour, _ => null));
 
+        // All, for the reason the test above asks for it: the same sample, so the
+        // three colouring tests are measuring the same rows.
+        ShowAll(pane);
+
         pane.WaitForAssertion(() => Assert.All(
             pane.FindAll(".sessions-table__repository"),
             cell => Assert.DoesNotContain("repo-mark", cell.ClassName)));
@@ -306,6 +513,8 @@ public sealed class SessionsPaneTests
         using var context = Context(Sample);
 
         var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
 
         pane.WaitForAssertion(() => Assert.All(
             pane.FindAll(".sessions-table__repository"),
@@ -336,6 +545,20 @@ public sealed class SessionsPaneTests
             Assert.Equal("sessions-panel__subtitle", subtitle.GetAttribute("class"));
             Assert.NotNull(header.QuerySelector(".sessions-panel__header-actions .sessions-panel__count"));
         });
+    }
+
+    /// <summary>
+    /// Switches to the whole list, and waits for the strip to say so. Several tests
+    /// below are about the grouping rather than the view, and they have to get the
+    /// view out of the way before they can measure the grouping at all.
+    /// </summary>
+    private static void ShowAll(IRenderedComponent<SessionsPane> pane)
+    {
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-view-all']")));
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("true", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed")));
     }
 
     private static BunitContext Context(
@@ -386,7 +609,22 @@ public sealed class SessionsPaneTests
             Branch: "main",
             StartedAt: Noon.AddDays(-3),
             LastActivityAt: Noon.AddDays(-3).AddMinutes(20),
-            State: AgentSessionState.Finished)
+            State: AgentSessionState.Finished),
+        // Quiet for three quarters of an hour, still registered. Here so the sample
+        // holds one of each thing the view has to decide about — 1 Running, 1
+        // Stalled, 2 Finished — and on DEV-TOWER so it moves a group's count
+        // without moving any group's name.
+        new(
+            Id: "7c4d1e88",
+            Kind: AgentSessionKind.Copilot,
+            Environment: "DEV-TOWER",
+            Title: "JSdotNet/Archify",
+            WorkingFolder: @"C:\Users\dev\.copilot\repos\archify",
+            Repository: "JSdotNet/Archify",
+            Branch: "main",
+            StartedAt: Noon.AddHours(-3),
+            LastActivityAt: Noon.AddMinutes(-45),
+            State: AgentSessionState.Stalled)
     ];
 
     private sealed class StubSessionSource(

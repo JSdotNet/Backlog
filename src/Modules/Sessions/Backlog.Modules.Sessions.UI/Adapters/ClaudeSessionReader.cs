@@ -174,9 +174,9 @@ internal sealed class ClaudeSessionReader
     }
 
     /// <summary>
-    /// The most recent <paramref name="room"/> transcripts as sessions, and how many
-    /// there were altogether. Both numbers, because they differ and the surface has
-    /// to be able to say so.
+    /// The most recent <paramref name="room"/> sessions the history holds, and how many
+    /// sessions were in it altogether. Both numbers, because they differ and the surface
+    /// has to be able to say so.
     /// </summary>
     private async Task<(List<AgentSession> Sessions, int Discovered)> ReadHistoryAsync(
         HashSet<string> alreadySeen,
@@ -196,7 +196,36 @@ internal sealed class ClaudeSessionReader
             .Where(file => !alreadySeen.Contains(Path.GetFileNameWithoutExtension(file.Name)))
             .ToList();
 
-        var transcripts = all
+        // One session, one row — even when two project folders hold a transcript for it.
+        //
+        // A transcript is filed under the folder the session ran in, so a session whose
+        // cwd changed — resumed in a worktree it did not start in — is written under a
+        // second slug while keeping its id. That is one session filed twice rather than
+        // two sessions, so two rows would be wrong on its own terms; it was worse than
+        // wrong on screen, for the reason the live dedupe above gives. Found on a real
+        // profile, where one of 377 transcripts was filed under two worktrees.
+        //
+        // The more recently written file wins, because it is the more current record of
+        // the same session: it names the folder that session ended up in, and it is the
+        // copy the agent went on appending to. Ties go to the path that sorts first, and
+        // that tie-break is not decoration: two copies written in the same instant would
+        // otherwise be separated by whichever the directory walk happened to reach first,
+        // which nothing guarantees, and the row's folder and branch would change between
+        // two refreshes of an unchanged profile.
+        //
+        // Deduped before the cap, not after, so a session filed twice costs one place in
+        // the list rather than two.
+        var newest = all
+            .GroupBy(
+                file => Path.GetFileNameWithoutExtension(file.Name),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(duplicates => duplicates
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .ThenBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
+                .First())
+            .ToList();
+
+        var transcripts = newest
             .OrderByDescending(file => file.LastWriteTimeUtc)
             .Take(room);
 
@@ -223,7 +252,10 @@ internal sealed class ClaudeSessionReader
                 State: AgentSessionState.Finished));
         }
 
-        return (sessions, all.Count);
+        // Sessions found, not files found. A session filed under two folders was never
+        // two sessions, and counting it twice would have the subtitle overstate what
+        // this machine has been doing.
+        return (sessions, newest.Count);
     }
 
     /// <summary>
