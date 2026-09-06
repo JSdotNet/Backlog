@@ -244,8 +244,30 @@
                    in the chrome. It used to stand beside the option, where its pinned
                    fill read as a vertical strip down the option's side (#283); the top
                    edge is also the one edge the option's selected underline does not
-                   already own. The band has no pin because it takes no width from the
-                   panes and so has nothing to be saved from. *@
+                   already own. The rail takes its height out of the cell rather than on
+                   top of it, so a cell with a pin measures exactly what a bare option
+                   measures and this group sits level with the surface switcher beside
+                   it. The band has no pin because it takes no width from the panes and
+                   so has nothing to be saved from.
+
+                   The glyph is the library's, and it hides itself: ToggleButton drops
+                   child content straight into the button with no wrapper, so a glyph
+                   that named itself would be announced after the AriaLabel below
+                   rather than instead of it.
+
+                   One glyph in both states, and its direction is the state: the
+                   chevron points up while the pane is loose, at the edge the rail
+                   runs along, so the control asks to be pushed; once pinned the
+                   stylesheet turns it half a turn to point down, so it asks to be
+                   pushed back. Which state a drawing stands for is this header's
+                   reading and not the library's — that is why ChevronUpIcon ships
+                   no Pinned parameter — but the reading is now carried by an angle
+                   rather than by choosing between two components, so it belongs in
+                   the sheet with the pixel of lift beside it rather than in a branch
+                   here. header-group__pin-glyph is the hook that rule is keyed on;
+                   CssClass is the library's own way of handing it over, and a rule
+                   keyed on the component's self-named class would take hold of any
+                   chevron a later caller put in this rail as well. *@
                 @if (InboxPaneOptionVisible)
                 {
                     <span class="header-group__pane">
@@ -258,7 +280,7 @@
                                       AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
                                       Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
                                       PressedChanged="ToggleInboxPin">
-                            📌
+                            <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
                         </ToggleButton>
 
                         <ToggleButton BaseClass="header-group__option"
@@ -287,7 +309,7 @@
                                   AriaLabel="@PinLabel(GlobalPane.Tasks, "Tasks")"
                                   Title="@PinTitle(GlobalPane.Tasks, "Tasks")"
                                   PressedChanged="ToggleTasksPin">
-                        📌
+                        <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
                     </ToggleButton>
 
                     <ToggleButton BaseClass="header-group__option"
@@ -314,7 +336,7 @@
                                       AriaLabel="@PinLabel(GlobalPane.Knowledge, "Knowledge")"
                                       Title="@PinTitle(GlobalPane.Knowledge, "Knowledge")"
                                       PressedChanged="ToggleKnowledgePin">
-                            📌
+                            <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
                         </ToggleButton>
 
                         <ToggleButton BaseClass="header-group__option"

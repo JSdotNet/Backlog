@@ -36,11 +36,13 @@ public class StorybookOrderTests
     /// reading order, that draws it; a page outside its folder's chapters drawing
     /// it is a borrow, and a borrow is only allowed from a page above.
     ///
-    /// <para>Two folders are documented on chapters named for something else:
+    /// <para>Three folders are documented on chapters named for something else:
     /// <c>Metadata</c> on the Knowledge base pages, because a metadata record is a
-    /// knowledge chapter's, and <c>Tasks</c> on Inputs as well as Task list,
-    /// because <c>TaskAction</c> is introduced with the date, time and repeat it
-    /// sits over.</para></summary>
+    /// knowledge chapter's; <c>Tasks</c> on Inputs as well as Task list, because
+    /// <c>TaskAction</c> is introduced with the date, time and repeat it sits over;
+    /// and <c>Icons</c> on Foundations, because a glyph is a foundation the way a
+    /// type scale is — one grid and one stroke weight every page under it borrows —
+    /// and `typography-and-layout.md` keeps the two in one chapter.</para></summary>
     private static readonly IReadOnlyDictionary<string, string[]> Chapters = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["Badges"] = ["badges"],
@@ -50,6 +52,7 @@ public class StorybookOrderTests
         ["Data"] = ["data-table"],
         ["Diagrams"] = ["diagrams", "graph-explorer", "graph-atlas"],
         ["Feedback"] = ["feedback"],
+        ["Icons"] = ["foundations"],
         ["Inputs"] = ["inputs", "file-field"],
         ["Integrations"] = ["integrations"],
         ["Knowledge"] = ["knowledge-base", "markdown/references"],
