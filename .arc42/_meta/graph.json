@@ -19,8 +19,8 @@
       "chapter": 74
     },
     "nodesByStatus": {
-      "active": 77,
-      "proposed": 11,
+      "active": 78,
+      "proposed": 10,
       "draft": 22,
       "adopted": 7
     },
@@ -630,8 +630,8 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "provisioning-and-delivery",
           "level": 3,
-          "line": 214,
-          "status": "proposed",
+          "line": 220,
+          "status": "active",
           "related": [
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
             ".arc42/adr/guidelines/0003-aspire-for-web-services.md",
@@ -1764,7 +1764,7 @@
           "path": ".tech/tooling.md",
           "slug": "knowledge-meta-generator",
           "level": 2,
-          "line": 253,
+          "line": 280,
           "status": "adopted",
           "depends-on": [
             ".tech/shared.md#nodejs",
