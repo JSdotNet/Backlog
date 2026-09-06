@@ -8,9 +8,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// A thin pass-through over the workspace settings, and deliberately still its
 /// own type. The module declares the port; which adapter answers it, and over
-/// what, is the host's business — and the settings store answers two other
-/// audiences (the GitHub repository behind the folder, and the knowledge folder
-/// list) that the module may not see.
+/// what, is the host's business — and the settings store answers three other
+/// audiences (the GitHub repository behind the folder, the knowledge folder
+/// list, and the Inbox context's folder) that the module may not see.
 /// </para>
 /// </summary>
 public sealed class WorkspaceTaskStore(WorkspaceSettingsStore settings) : ITaskStore
@@ -28,8 +28,6 @@ public sealed class WorkspaceTaskStore(WorkspaceSettingsStore settings) : ITaskS
     public bool IsDefaultRoot => settings.IsDefaultRoot;
 
     public string DatabasePath => settings.DatabasePath;
-
-    public string InboxDirectory => settings.InboxDirectory;
 
     public string? TryUseRoot(string? path) => settings.TryUseRoot(path);
 
