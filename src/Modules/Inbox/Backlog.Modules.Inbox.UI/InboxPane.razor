@@ -3,6 +3,27 @@
     InboxItem and nothing else — the pane has no idea a backlog row exists, which
     is what keeps triage a decision the Inbox owns rather than a view of someone
     else's list.
+
+    PARA is the structure, not a view. The queue is always read as drawers —
+    Projects, Areas, Resources, Archive, and the Unsorted that PARA does not
+    name — each a fold carrying its count, so a queue of forty reads as five
+    drawers rather than forty rows. Inside a drawer the rows are sectioned by
+    what the drawer is made of: Projects per project, Areas per area. The
+    "Split by" switch is a lens over that — by tag, or by repository — and never
+    replaces the drawers, because a tag is something an item has and a drawer is
+    where it goes.
+
+    Each row says three things before its title: what kind of thing it is (a
+    mark and the word — never the mark alone), where it came from (the channel
+    as a dashed source badge, and the person who shared it as a person chip),
+    and what it is filed under.
+
+    The structure is computed in InboxGroups rather than here, so the drawers,
+    sections and counts can be asserted without a DOM. What this file owns is
+    only the fold state: which drawers and sections are closed. Drawer folds are
+    keyed by drawer alone, so switching lenses does not reopen a drawer the
+    reader shut; section folds are keyed by lens as well, so switching from tags
+    to repositories and back finds the sections where they were left.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
@@ -26,18 +47,82 @@
         }
         else
         {
-            <ul class="inbox-pane__list" data-testid="inbox-pane-list">
-                @foreach (var item in Items)
+            @* The lens: one control, three pressed states. A ButtonGroup of
+               ToggleButtons rather than a select, because the reader flips
+               between tags and repositories while scanning, and a dropdown costs
+               a click to see the choices every time. *@
+            <div class="inbox-pane__toolbar">
+                <span class="inbox-pane__toolbar-label" id="inbox-pane-group-label">Split by</span>
+                <ButtonGroup AriaLabel="Split each drawer by" CssClass="inbox-pane__group-by" TestId="inbox-pane-group-by">
+                    @foreach (var choice in Choices)
+                    {
+                        <ToggleButton Pressed="@(Effective == choice.Grouping)"
+                                      PressedChanged="_ => SetGrouping(choice.Grouping)"
+                                      CssClass="btn--small inbox-pane__group-choice"
+                                      TestId="@($"inbox-pane-group-{choice.Slug}")"
+                                      Title="@choice.Title">@choice.Label</ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+
+            <div class="inbox-pane__drawers" data-testid="inbox-pane-drawers">
+                @foreach (var drawer in Drawers)
                 {
-                    <li class="inbox-pane__item" @key="item.Key">
-                        <div>
-                            <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title)</p>
-                            <p class="inbox-pane__item-meta">Draft · @(string.IsNullOrWhiteSpace(item.Area) ? "Unfiled" : item.Area)</p>
-                        </div>
-                        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OnOpen.InvokeAsync(item)">Open in backlog</AppButton>
-                    </li>
+                    <div class="inbox-pane__drawer" data-inbox-drawer="@drawer.Key" data-testid="inbox-pane-drawer">
+                        @* The library's fold owns the region here, so `hidden` is
+                           the library's rule and not one this pane has to restate. *@
+                        <FoldControl CssClass="inbox-pane__drawer-fold"
+                                     Expanded="@IsDrawerExpanded(drawer)"
+                                     ExpandedChanged="value => SetDrawerExpanded(drawer, value)"
+                                     AriaLabel="@($"{drawer.Name}, {Counted(drawer.Items.Count)}")"
+                                     TestId="inbox-pane-drawer-toggle">
+                            <LabelContent>
+                                <span class="inbox-pane__drawer-name">@drawer.Name</span>
+                                <span class="inbox-pane__group-count" data-testid="inbox-pane-drawer-count">@drawer.Items.Count</span>
+                            </LabelContent>
+                            <ChildContent>
+                                @if (drawer.IsSectioned)
+                                {
+                                    <div class="inbox-pane__groups" data-testid="inbox-pane-groups">
+                                        @foreach (var section in drawer.Sections)
+                                        {
+                                            <div class="inbox-pane__group" data-inbox-group="@section.Key" data-testid="inbox-pane-group">
+                                                <FoldControl CssClass="inbox-pane__group-fold"
+                                                             Expanded="@IsSectionExpanded(section)"
+                                                             ExpandedChanged="value => SetSectionExpanded(section, value)"
+                                                             AriaLabel="@($"{section.Name}, {Counted(section.Items.Count)}")"
+                                                             TestId="inbox-pane-group-toggle">
+                                                    <LabelContent>
+                                                        <span class="inbox-pane__group-name">@section.Name</span>
+                                                        <span class="inbox-pane__group-count" data-testid="inbox-pane-group-count">@section.Items.Count</span>
+                                                    </LabelContent>
+                                                    <ChildContent>
+                                                        <ul class="inbox-pane__list inbox-pane__list--grouped" aria-label="@section.Name" data-testid="inbox-pane-list">
+                                                            @foreach (var item in section.Items)
+                                                            {
+                                                                @Row(item)
+                                                            }
+                                                        </ul>
+                                                    </ChildContent>
+                                                </FoldControl>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <ul class="inbox-pane__list" aria-label="@drawer.Name" data-testid="inbox-pane-list">
+                                        @foreach (var item in drawer.Items)
+                                        {
+                                            @Row(item)
+                                        }
+                                    </ul>
+                                }
+                            </ChildContent>
+                        </FoldControl>
+                    </div>
                 }
-            </ul>
+            </div>
         }
     </div>
 </section>
@@ -50,4 +135,125 @@
     /// receiving context's business, not the Inbox's.</summary>
     [Parameter]
     public EventCallback<InboxItem> OnOpen { get; set; }
+
+    /// <summary>The lens over the drawers. None by default, which is each
+    /// drawer's own subdivision rather than no subdivision.
+    /// <para>Bindable, and the shell binds it, because the shell draws this pane
+    /// in one of two slots depending on which other panes are open and moving
+    /// slots is a re-mount. A choice held only here would reset the moment
+    /// triage opened the backlog beside it — the reader's lens dropping as a
+    /// side effect of picking something out of a drawer.</para></summary>
+    [Parameter]
+    public InboxGrouping Grouping { get; set; } = InboxGrouping.None;
+
+    [Parameter]
+    public EventCallback<InboxGrouping> GroupingChanged { get; set; }
+
+    private sealed record Choice(InboxGrouping Grouping, string Slug, string Label, string Title);
+
+    private static readonly Choice[] Choices =
+    [
+        new(InboxGrouping.None, "none", "None", "Each drawer as it is: projects per project, areas per area"),
+        new(InboxGrouping.Tag, "tag", "Tag", "One section per tag inside every drawer"),
+        new(InboxGrouping.Repository, "repo", "Repo", "One section per repository inside every drawer")
+    ];
+
+    private InboxGrouping? _grouping;
+
+    /// <summary>Which drawers and sections are folded shut. Open is the default,
+    /// so the set holds the exceptions.</summary>
+    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal);
+
+    /// <summary>The lens in force: what was pressed here since the last render
+    /// the parent set, else what the parent set. A host that does not bind
+    /// still gets a working switch.</summary>
+    private InboxGrouping Effective => _grouping ?? Grouping;
+
+    private IReadOnlyList<InboxDrawer> Drawers => InboxGroups.Build(Items, Effective);
+
+    private Task SetGrouping(InboxGrouping grouping)
+    {
+        _grouping = grouping;
+        return GroupingChanged.InvokeAsync(grouping);
+    }
+
+    private bool IsDrawerExpanded(InboxDrawer drawer) => !_collapsed.Contains(DrawerKey(drawer));
+
+    private void SetDrawerExpanded(InboxDrawer drawer, bool expanded) => SetExpanded(DrawerKey(drawer), expanded);
+
+    private bool IsSectionExpanded(InboxGroup section) => !_collapsed.Contains(SectionKey(section));
+
+    private void SetSectionExpanded(InboxGroup section, bool expanded) => SetExpanded(SectionKey(section), expanded);
+
+    private void SetExpanded(string key, bool expanded)
+    {
+        if (expanded) _collapsed.Remove(key);
+        else _collapsed.Add(key);
+    }
+
+    /// <summary>A drawer's fold outlives the lens: shutting Archive is a decision
+    /// about Archive, whichever way its rows are split.</summary>
+    private static string DrawerKey(InboxDrawer drawer) => "drawer:" + drawer.Key;
+
+    private string SectionKey(InboxGroup section) => $"{Effective}:{section.Key}";
+
+    private static string Counted(int count) => count == 1 ? "1 item" : $"{count} items";
+
+    private static string Filed(InboxItem item) => string.IsNullOrWhiteSpace(item.Area) ? "Unfiled" : item.Area;
+
+    /// <summary>One row. The same row wherever it sits, so a reader who splits a
+    /// drawer does not learn a second layout — and so the triage button is the
+    /// first button in every row, which is what the shell's tests reach for.</summary>
+    private RenderFragment Row(InboxItem item) => @<li class="inbox-pane__item" @key="item.Key" data-inbox-kind="@InboxItemKinds.Slug(item.Kind)">
+        <div class="inbox-pane__item-body">
+            <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title)</p>
+            <p class="inbox-pane__item-meta">
+                @* The kind: a mark and the word. The mark is aria-hidden because
+                   the word is right beside it, and the word is never dropped
+                   because shape alone is not a carrier. *@
+                <span class="inbox-pane__kind" data-testid="inbox-pane-item-kind">
+                    <CaptureKindMarker Value="@InboxItemKinds.Slug(item.Kind)" CssClass="inbox-pane__kind-mark" />
+                    <span class="inbox-pane__kind-label">@InboxItemKinds.Label(item.Kind)</span>
+                </span>
+                <span class="inbox-pane__meta-separator" aria-hidden="true">·</span>
+                <span class="inbox-pane__filed">@Filed(item)</span>
+                @if (item.Source is { } source)
+                {
+                    <span class="inbox-pane__meta-separator" aria-hidden="true">·</span>
+                    <Badge Kind="source"
+                           Slug="@source.Channel"
+                           CssClass="inbox-pane__source"
+                           Title="@($"Captured via {source.ChannelLabel}")"
+                           TestId="inbox-pane-item-source">@source.ChannelLabel</Badge>
+                    @if (!string.IsNullOrWhiteSpace(source.Person))
+                    {
+                        @* Not clickable, so the chip's Label has nowhere to go; the
+                           tooltip rides as a plain title on the chip itself. *@
+                        <TagChip Text="@TagText.Display(source.Person)"
+                                 CssClass="inbox-pane__person"
+                                 title="@($"Shared by {TagText.Display(source.Person)}")"
+                                 TestId="inbox-pane-item-person" />
+                    }
+                }
+            </p>
+            @if (item.Tags.Count > 0 || !string.IsNullOrWhiteSpace(item.Repository))
+            {
+                <p class="inbox-pane__item-tags">
+                    @if (!string.IsNullOrWhiteSpace(item.Repository))
+                    {
+                        <Badge Kind="kind"
+                               Slug="repository"
+                               CssClass="inbox-pane__repository"
+                               Title="@($"Repository: {item.Repository}")"
+                               TestId="inbox-pane-item-repository">@item.Repository</Badge>
+                    }
+                    @foreach (var tag in item.Tags)
+                    {
+                        <TagChip Text="@TagText.Display(tag)" CssClass="inbox-pane__tag" TestId="inbox-pane-item-tag" />
+                    }
+                </p>
+            }
+        </div>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OnOpen.InvokeAsync(item)">Open in backlog</AppButton>
+    </li>;
 }

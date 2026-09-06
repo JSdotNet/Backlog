@@ -338,6 +338,17 @@ html, body {
    margins go, because the sample sits in a flex row beside a status pill and a
    heading's own top margin would push it off that pill's line — which is the
    thing the story is showing. */
+/* A kind mark and its word, as an inbox row's meta line keeps them: one unit
+   that never breaks apart. The gap is the same fraction the row uses. */
+.sb-meta-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
 .sb-heading-sample {
     margin: 0;
 }

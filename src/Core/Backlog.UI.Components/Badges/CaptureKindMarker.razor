@@ -1,0 +1,189 @@
+@*
+    The mark of a captured thing's kind: what an inbox item is before anybody
+    has decided what to do with it.
+
+    Ten glyphs on one 16x16 grid, drawn in the library's state-icon voice —
+    stroked at 1.6, never filled, currentColor throughout — so they sit beside
+    KnowledgeTypeMarker and the state icons as one family rather than a second
+    icon set. The one fill is YouTube's play triangle, for the reason
+    KnowledgeTypeMarker fills its identity dots: a hollow triangle inside a
+    rounded frame reads as a warning sign, and the filled one is the shape every
+    reader already knows.
+
+    Monochrome, and that is a rule rather than an omission. It would be easy to
+    tint a video red and a document blue; .design/color-scheme.md forbids it —
+    a new language MUST map onto the existing tokens and MUST NOT add a colour,
+    and badge families get no per-value tone. Shape carries the difference, and
+    the word beside the mark carries it for anyone shape does not reach.
+
+    Drawn here rather than fetched, for the reason ProviderMark's header gives:
+    a component that needs the network to show itself is no use in a WebView
+    with no egress. No sprite, no icon font, no CDN.
+
+    Naming and the tooltip are two parameters, as on KnowledgeTypeMarker.
+    `Labelled` is role="img" plus an aria-label and adds no text node;
+    `ShowTooltip` is a <title> element and does. A mark beside its own printed
+    label — the ordinary case in an inbox row — passes neither and is
+    aria-hidden, so a listener hears the word once.
+
+    The shapes inside each arm are written joined, closing `/>` on the line of
+    the next, so the svg contains no whitespace text nodes. Same reason as the
+    knowledge marker: a mark has no business growing text.
+
+    An unrecognised value renders nothing at all. The set will grow, and a value
+    set that grows must never make a row look broken — the caller keeps showing
+    the plain word and asks CaptureKinds.IsRecognised when it needs to know.
+*@
+
+@if (CaptureKinds.IsRecognised(Value))
+{
+    <svg class="@ClassValue"
+         viewBox="0 0 16 16"
+         width="@Size"
+         height="@Size"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.6"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         role="@(Labelled ? "img" : null)"
+         aria-label="@(Labelled ? Label : null)"
+         aria-hidden="@(Labelled ? null : "true")"
+         focusable="false"
+         data-testid="@TestId"
+         @attributes="AdditionalAttributes">
+        @if (Labelled && ShowTooltip)
+        {
+            <title>@Label</title>
+        }
+        @if (Slug is "text")
+        {
+            @* Lines of prose: the note, which is what every source can produce. *@
+            <path d="M3 4.2h10"
+            /><path d="M3 8h10"
+            /><path d="M3 11.8h6.2" />
+        }
+        else if (Slug is "article")
+        {
+            @* A page with a headline and columns under it: something to read. *@
+            <rect x="2.4" y="2.2" width="11.2" height="11.6" rx="1.6"
+            /><path d="M4.8 5.2h6.4"
+            /><path d="M4.8 8h2.6"
+            /><path d="M4.8 10.6h2.6"
+            /><path d="M9.2 8h2"
+            /><path d="M9.2 10.6h2" />
+        }
+        else if (Slug is "link")
+        {
+            @* Two chain links: a URL and nothing yet known about what is behind it. *@
+            <path d="M6.6 9.4 9.4 6.6"
+            /><path d="M7.2 4.9l1.3-1.3a2.6 2.6 0 0 1 3.7 3.7L10.9 8.6"
+            /><path d="M8.8 11.1l-1.3 1.3a2.6 2.6 0 0 1-3.7-3.7l1.3-1.3" />
+        }
+        else if (Slug is "youtube")
+        {
+            @* A rounded frame with the play triangle in it. The one filled shape
+               in the set, because a hollow triangle in a frame is a warning sign. *@
+            <rect x="1.8" y="3.4" width="12.4" height="9.2" rx="2.6"
+            /><path d="M6.7 6.1v3.8L10 8Z" fill="currentColor" stroke="none" />
+        }
+        else if (Slug is "image")
+        {
+            @* A frame, a sun, and a horizon: the picture every file browser draws. *@
+            <rect x="2.2" y="2.6" width="11.6" height="10.8" rx="1.6"
+            /><circle cx="5.9" cy="6.3" r="1.2"
+            /><path d="M2.6 12.2 6.8 8.6l2.3 2 1.8-1.5 2.7 2.4" />
+        }
+        else if (Slug is "document")
+        {
+            @* A sheet with the corner turned: a file, whatever is in it. *@
+            <path d="M4 2.2h5.2l3.6 3.6v8H4Z"
+            /><path d="M9.2 2.2v3.6h3.6"
+            /><path d="M6.2 9h3.6"
+            /><path d="M6.2 11.4h3.6" />
+        }
+        else if (Slug is "email")
+        {
+            @* An envelope: the flap is what makes it one. *@
+            <rect x="1.8" y="3.6" width="12.4" height="8.8" rx="1.6"
+            /><path d="M2.4 4.6 8 8.8l5.6-4.2" />
+        }
+        else if (Slug is "code")
+        {
+            @* Angle brackets with a slash between: source, as every editor marks it. *@
+            <path d="M5.4 4.6 2.2 8l3.2 3.4"
+            /><path d="M10.6 4.6 13.8 8l-3.2 3.4"
+            /><path d="M9.2 3.2 6.8 12.8" />
+        }
+        else if (Slug is "voice")
+        {
+            @* The microphone the mobile capture field already draws, so a memo
+               reads as the thing that button made. *@
+            <rect x="6" y="1.75" width="4" height="7.5" rx="2"
+            /><path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75"
+            /><path d="M8 12.25v2" />
+        }
+        else if (Slug is "claude-artifact")
+        {
+            @* A frame with a spark in it: something a session made, not something
+               found. The spark is the four-pointed star, drawn as two strokes. *@
+            <rect x="2.2" y="2.2" width="11.6" height="11.6" rx="2.2"
+            /><path d="M8 4.6v6.8"
+            /><path d="M4.6 8h6.8"
+            /><path d="M5.6 5.6 10.4 10.4"
+            /><path d="M10.4 5.6 5.6 10.4" />
+        }
+    </svg>
+}
+
+@code {
+    /// <summary>The kind, as a slug from <see cref="CaptureKinds.All"/>. A value
+    /// the set has never heard of renders nothing, so a caller may write this
+    /// unconditionally beside a word it is still showing.</summary>
+    [Parameter, EditorRequired]
+    public string? Value { get; set; }
+
+    /// <summary>Names the mark to assistive technology, and only then: a mark
+    /// beside its own printed label would otherwise be announced twice. The
+    /// caller that has taken the word off the screen is the caller that passes
+    /// this.</summary>
+    [Parameter]
+    public bool Labelled { get; set; }
+
+    /// <summary>Whether a named mark also carries a <c>title</c>, the pointer
+    /// user's tooltip. Coupled to <see cref="Labelled"/>: a tooltip on a mark
+    /// hidden from assistive technology would be a fact only a mouse could
+    /// reach.</summary>
+    [Parameter]
+    public bool ShowTooltip { get; set; } = true;
+
+    /// <summary>Edge length. A px value by default because the mark leads a
+    /// row's meta line at a fixed density, the way the state icons do; a
+    /// heading passes an em.</summary>
+    [Parameter]
+    public string Size { get; set; } = "14px";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Slug => CaptureKinds.Normalise(Value!);
+
+    /// <summary>The field and its value together, so a listener hears which
+    /// fact became a picture.</summary>
+    private string Label => "kind: " + CaptureKinds.Label(Slug);
+
+    private string ClassValue
+    {
+        get
+        {
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"capture-kind-marker capture-kind-marker--{Slug}{extra}";
+        }
+    }
+}
