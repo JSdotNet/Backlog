@@ -46,8 +46,9 @@ public sealed class RoadmapItem
         TaskId = taskId;
         Notes = notes;
         // Derived from the title when none was given, so every item — freshly added,
-        // rehydrated, or read from a plan.json written before tags existed — always has
-        // one. Done here rather than in each caller so the guarantee has a single home.
+        // rehydrated, or read from a stored plan written before tags existed — always
+        // has one. Done here rather than in each caller so the guarantee has a single
+        // home.
         Tag = tag ?? PlanningTag.From(title);
         KnowledgeRefs = knowledgeRefs ?? KnowledgeReferences.Empty;
     }

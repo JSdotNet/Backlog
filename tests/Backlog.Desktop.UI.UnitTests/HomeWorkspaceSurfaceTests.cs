@@ -959,6 +959,67 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// Push up to pin, push down to release — one drawing in both states, and the
+    /// stylesheet's rotation is what tells them apart. The rail holds a single
+    /// chevron whether the pane is loose or pinned; what changes in the markup is the
+    /// <c>header-group__pin--pinned</c> class the button takes, which is the hook the
+    /// turn and the lift are keyed on.
+    /// <para>
+    /// Worth a rendering test rather than a reading of Home.razor because the class
+    /// is what carries the state into the sheet. An <c>aria-pressed</c> that flipped
+    /// while the class stayed put would leave the rotation permanently off and the
+    /// visible state resting on the tinted fill's colour alone — and nothing about
+    /// the modifier being spelled correctly in a parameter proves it is wired to the
+    /// value the button reports.
+    /// </para>
+    /// <para>
+    /// The glyph carries the class the stylesheet lifts and turns, in both states, so
+    /// there is nothing for a state change to drop. A rail that agreed on that class
+    /// only while unpinned would lose its dressing at the moment the state it is
+    /// dressing arrives.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rail_keeps_one_chevron_and_takes_the_pinned_class_when_the_pane_is_pinned()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var pin = component.Find("[data-testid='backlog-pane-pin']");
+            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+            Assert.DoesNotContain("header-group__pin--pinned", pin.ClassList);
+
+            // One drawing, and the shared hook on it: a rail holding two glyphs would
+            // be two states at once, and one holding none would be a bare button.
+            var glyphs = pin.QuerySelectorAll("svg");
+            Assert.Single(glyphs);
+            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
+            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
+        });
+
+        component.Find("[data-testid='backlog-pane-pin']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var pin = component.Find("[data-testid='backlog-pane-pin']");
+            Assert.Equal("true", pin.GetAttribute("aria-pressed"));
+
+            // The class the turn is keyed on arrives with the pressed state, on the
+            // same element — the sheet reaches the glyph through this button.
+            Assert.Contains("header-group__pin--pinned", pin.ClassList);
+
+            // And the same single drawing is still there to be turned. The pin glyph
+            // it used to be swapped for no longer exists in the library.
+            var glyphs = pin.QuerySelectorAll("svg");
+            Assert.Single(glyphs);
+            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
+            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
+        });
+    }
+
+    /// <summary>
     /// One pin per pane and none for the band, all starting unpressed: keeping a pane
     /// through a switch is the deliberate act, not the default.
     /// </summary>
