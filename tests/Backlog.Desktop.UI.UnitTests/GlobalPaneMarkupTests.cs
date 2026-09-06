@@ -319,6 +319,110 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
+    /// The rail holds the library's glyph, not the emoji it started as. An emoji is
+    /// a font's drawing rather than the product's — it arrives in someone else's
+    /// colour, at whatever weight the platform ships, and it is sized by type, which
+    /// is the one thing the iconography rules forbid. So the pin's <c>font-size</c>
+    /// goes with it: nothing in the cell is sized by type any more.
+    /// <para>
+    /// Push up to pin, push down to release. One drawing carries both states and its
+    /// direction is the state: the rail renders a chevron unconditionally, pointing
+    /// up at the edge it runs along while the pane is loose, and the stylesheet turns
+    /// it half a turn down once the pane is pinned. Direction is a channel under the
+    /// fill and the top rule and it is not colour, which is what
+    /// <c>accessibility.md#iconography-accessibility</c> asks for; a rotation nobody
+    /// recognised as a state would be the first thing a later edit dropped, so it is
+    /// asserted rather than left to the comment beside it.
+    /// </para>
+    /// <para>
+    /// The travel is the other half of the sentence: a pixel toward the top edge on
+    /// hover, so the control moves the way it is asking to be moved, and the same
+    /// pixel once pinned, so the glyph stays where the push left it. Both are
+    /// composed through custom properties rather than written as two
+    /// <c>transform</c> declarations, because the hover selector outranks the pinned
+    /// one and would otherwise take the rotation off a hovered pinned rail. Stated
+    /// in this sheet because it has to be — the pin replaces the shared button's
+    /// base class, so none of the library's <c>.btn svg</c> rules reach the glyph.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_pin_turns_its_chevron_over_and_is_drawn_with_the_shared_glyph_rather_than_an_emoji()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        // One glyph per pin and no more: three panes each draw the chevron once and
+        // unconditionally, and the band draws none.
+        Assert.Equal(3, home.Split("<ChevronUpIcon Size=\"12\" CssClass=\"header-group__pin-glyph\" />").Length - 1);
+
+        // Unconditionally is the point, so the branch that used to choose a drawing
+        // has to be gone rather than merely unreachable — a leftover arm would put a
+        // second glyph back in the rail the moment it was edited.
+        Assert.DoesNotContain("PinIcon", home, StringComparison.Ordinal);
+        foreach (var pane in new[] { "Inbox", "Tasks", "Knowledge" })
+        {
+            Assert.DoesNotContain($"@if (PanePinned(GlobalPane.{pane}))", home, StringComparison.Ordinal);
+        }
+
+        // Escaped rather than pasted, so the assertion cannot pass because an editor
+        // re-encoded the character it is looking for. U+1F4CC is the pushpin emoji.
+        Assert.DoesNotContain("\U0001F4CC", home, StringComparison.Ordinal);
+
+        // The declaration and not the word: the rule still explains in a comment why
+        // it no longer sets one.
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.DoesNotContain("font-size:", pin, StringComparison.Ordinal);
+
+        // And the declaration the emoji let the rule go without. A <button> arrives
+        // from the user agent carrying an ink of its own; an emoji painted over it
+        // regardless, so nobody noticed the rail never said what colour it drew in.
+        // A stroke in currentColor takes that ink instead, which put a near-black
+        // glyph in a dark header at about 1.2:1 — the icon rules ask for 3.
+        Assert.Contains("color: var(--color-text-secondary);", pin, StringComparison.Ordinal);
+
+        // The shared hook, not the component's self-named class: a rule keyed on
+        // `.chevron-up-icon` would take hold of any chevron a later caller put here,
+        // and the pin glyph the sheet used to also dress is gone from the library
+        // altogether — so no rule anywhere may still be reaching for it.
+        var glyph = RuleFor(css, ".header-group__pin-glyph {");
+        Assert.Contains("display: block;", glyph, StringComparison.Ordinal);
+        Assert.Contains("transition: transform var(--transition-fast);", glyph, StringComparison.Ordinal);
+        Assert.DoesNotContain("pin-icon", css, StringComparison.Ordinal);
+
+        // The composed transform, and the two variables it is composed of. The base
+        // rule owns the expression; every state rule below sets one variable and
+        // never the transform, which is what lets a hovered pinned rail keep both.
+        Assert.Contains("--pin-lift: 0;", glyph, StringComparison.Ordinal);
+        Assert.Contains("--pin-turn: 0deg;", glyph, StringComparison.Ordinal);
+        Assert.Contains(
+            "transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));",
+            glyph,
+            StringComparison.Ordinal);
+
+        // The nudge on hover: the lift and nothing else, so hovering does not reach
+        // the turn. One pixel is all the slack the rail has — its 1rem floor less the
+        // 2px it reserves on the top edge leaves a 14px content box around a 12px
+        // glyph, so a pixel lands the drawing flush with the top and no further. The
+        // turn spends none of that slack: half a turn about a square glyph's own
+        // centre maps its box onto itself.
+        var hovered = RuleFor(css, ".header-group__pin:hover:not(:disabled) .header-group__pin-glyph {");
+        Assert.Contains("--pin-lift: -1px;", hovered, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform:", hovered, StringComparison.Ordinal);
+
+        // And the pinned state: the same pixel held, plus the half turn that says
+        // push back. Both variables, because a pinned rail keeps the lift whether or
+        // not the pointer is still on it.
+        var pinned = RuleFor(css, ".header-group__pin--pinned .header-group__pin-glyph {");
+        Assert.Contains("--pin-lift: -1px;", pinned, StringComparison.Ordinal);
+        Assert.Contains("--pin-turn: 180deg;", pinned, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform:", pinned, StringComparison.Ordinal);
+
+        // The tilt is gone rather than merely unused: an unpinned pin used to be the
+        // pin drawing rotated 45 degrees, and the chevron replaced it.
+        Assert.DoesNotContain("rotate(45deg)", css, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Feedback #283: the pin was a full-height box on the option's right, so its
     /// pinned fill read as a vertical strip running down the option's side. The cell
     /// stacks instead — the rail along the option's top edge — and nothing about
@@ -328,6 +432,14 @@ public sealed class GlobalPaneMarkupTests
     /// already owns the bottom. With the two states on opposite edges of the cell,
     /// selected+pinned, selected alone, pinned alone and neither stay four different
     /// pictures instead of two rules stacked on one edge.
+    /// </para>
+    /// <para>
+    /// Stacking is not allowed to cost height. The cell states the height a bare
+    /// option has, and the two rows divide it rather than add up to it: the rail
+    /// takes its floor off the top and the option gives up its own floor and its
+    /// vertical padding to fill the rest. Otherwise the sections group stands a rail
+    /// taller than the surface switcher beside it, which is two header groups drawn
+    /// at two heights for a difference nobody can read.
     /// </para>
     /// </summary>
     [Fact]
@@ -348,6 +460,17 @@ public sealed class GlobalPaneMarkupTests
         // come back, whichever edge the fill is drawn on.
         Assert.DoesNotContain("min-height: 2.25rem;", pin, StringComparison.Ordinal);
 
+        // The cell is a bare option tall, which is the height the surface switcher
+        // beside it takes, and the rail comes out of that rather than on top of it.
+        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__option {"), StringComparison.Ordinal);
+        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
+
+        var paneOption = RuleFor(css, ".header-group__pane > .header-group__option {");
+        Assert.Contains("min-height: 0;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("padding-top: 0;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("padding-bottom: 0;", paneOption, StringComparison.Ordinal);
+
         // Reserved on the edge each state will draw on, so neither pinning nor
         // selecting moves the row.
         Assert.Contains("border-top: var(--border-width-2) solid transparent;", pin, StringComparison.Ordinal);
@@ -365,28 +488,38 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// A rail is wide and shallow where the side box was narrow and tall, so its floor
-    /// is stated on the width: 3rem x 1.5rem is the area the 2rem x 2.25rem box had,
-    /// and in practice the rail takes the option's own width — several times that.
+    /// The rail's target is its width, not its height. Height is the half it gives
+    /// back: the cell is one bare option tall and the rail takes 1rem of that, where
+    /// the side box stood the whole 2.25rem. What it has instead is the option's
+    /// entire width — four rem beside Tasks and eight beside Knowledge and its flag,
+    /// where the box was never wider than its own 2rem floor. So the rail is shallow
+    /// and long where the box was narrow and tall, and a pointer travelling the strip
+    /// meets it across the whole of the option rather than at one end of it. The 3rem
+    /// floor is the guarantee under that, for the day the shortest word in the strip
+    /// gets shorter.
     /// <para>
-    /// The compact step narrows the floor rather than the height for the same reason.
-    /// It used to take the box down to 1.75rem x 2.25rem; 2.75rem x 1.5rem clears it.
+    /// The compact step narrows the floor and says nothing about height, because the
+    /// cell fixes the height at every width and a second floor here could only argue
+    /// with it. 2.75rem is the floor a narrowed option can still be measured against.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_rail_keeps_the_click_target_the_side_box_had()
+    public void The_rail_takes_its_target_from_the_option_width_rather_than_its_own_height()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
         var pin = RuleFor(css, ".header-group__pin {");
+        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
         Assert.Contains("min-width: 3rem;", pin, StringComparison.Ordinal);
-        Assert.Contains("min-height: 1.5rem;", pin, StringComparison.Ordinal);
+
+        // Deep enough for the glyph and the reserved top rule, and no deeper: the
+        // rest of the cell belongs to the option under it.
+        Assert.Contains("min-height: 1rem;", pin, StringComparison.Ordinal);
 
         var compact = CompactRuleFor(css, ".header-group__pin {");
         Assert.Contains("min-width: 2.75rem;", compact, StringComparison.Ordinal);
 
-        // The height floor survives the step, which is the half of the target the
-        // narrowing option cannot give back.
+        // Height is the cell's to state, at this width as at any other.
         Assert.DoesNotContain("min-height", compact, StringComparison.Ordinal);
     }
 
