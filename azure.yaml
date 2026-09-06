@@ -1,0 +1,25 @@
+# Azure Developer CLI (azd) definition for the Backlog sync service.
+#
+# Scope is deliberately narrow: this file provisions and deploys the cloud sync
+# tier only, from infra/sync/. The Azure AI Foundry resources under infra/foundry/
+# stay on their own `az deployment group` workflow — they are a different resource
+# group, a different lifecycle, and nothing about them benefits from azd.
+#
+# See docs/deployment/sync.md for the target, the manual prerequisites, and how to
+# run this.
+name: backlog-sync
+metadata:
+  template: backlog-sync@0.1.0
+
+infra:
+  provider: bicep
+  path: infra/sync
+  module: main
+
+services:
+  sync:
+    project: ./src/Modules/Sync/Backlog.Modules.Sync.Api
+    language: dotnet
+    # No Dockerfile: the .NET SDK's own container publish builds the image, so the
+    # service has one less artifact to keep in step with its csproj.
+    host: containerapp

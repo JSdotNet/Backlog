@@ -287,6 +287,25 @@ commands. A target is a GitHub environment plus a matching
 `infra/foundry/<environment>.bicepparam` file, so another subscription can be added
 without changing the workflow.
 
+## Deploying the sync service
+
+The cloud sync tier is described in `infra/sync/` and `azure.yaml`, and is
+provisioned and deployed with the **Azure Developer CLI** through the **Deploy
+Sync** GitHub Actions workflow. That one runs on a GitHub-hosted runner and
+authenticates with an **OIDC federated credential**, so no publish profile or
+service principal secret is stored in the repository.
+
+See [`docs/deployment/sync.md`](docs/deployment/sync.md) for the deployment
+target, the four manual prerequisites, and how to run it locally. Nothing is
+provisioned in Azure yet — the resource group, the federated credential and the
+budget alert are created by hand once, and the doc says how.
+
+**Local development needs no Azure account.** The Aspire AppHost starts the
+Cosmos DB emulator as a container, declaring the same database and the same two
+containers the deployed account has, so the sync path builds and runs offline.
+Docker must be running; the emulator image is large and its first cold start
+takes a couple of minutes, after which the container is reused.
+
 ## Installing the desktop app
 
 The Windows desktop app is distributed as a signed **MSIX** sideloaded from
