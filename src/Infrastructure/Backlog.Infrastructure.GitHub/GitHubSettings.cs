@@ -22,6 +22,13 @@ public sealed class GitHubSettings
     /// <summary>Repositories in the order they were configured.</summary>
     public List<GitHubRepositoryRef> Repositories { get; init; } = [];
 
+    /// <summary>
+    /// The GitHub identities this machine can speak as, in the order they were
+    /// configured. Empty is what a settings file written before accounts existed
+    /// reads as, and is every install's starting point.
+    /// </summary>
+    public List<GitHubAccount> Accounts { get; init; } = [];
+
     /// <summary>Legacy global token read from older settings files and migrated
     /// onto repositories when saved again.</summary>
     public string? Token { get; init; }
@@ -120,29 +127,146 @@ public sealed class GitHubSettings
     /// difference.</summary>
     public int? VisibleColourFor(string? alias) => ShowRepositoryColours ? ColourFor(alias) : null;
 
-    public string? TokenForPath(string? path)
+    /// <summary>The configured account one login names, or null when this machine
+    /// holds none. Matched without regard to case, the way GitHub compares a
+    /// login.</summary>
+    public GitHubAccount? Account(string? login) =>
+        string.IsNullOrWhiteSpace(login)
+            ? null
+            : Accounts.FirstOrDefault(a => GitHubAccount.IsSameLogin(a.Login, login));
+
+    /// <summary>
+    /// Whether this machine is configured to reach GitHub with a token at all.
+    /// <para>
+    /// A different question from "which credential authenticates this path", and
+    /// keeping the two apart is the whole point. This one is asked once, by the
+    /// availability probe, and means "is there any token anywhere". The other is
+    /// asked per call by <see cref="AccountForPath"/>, and is never permitted to
+    /// borrow a credential across repositories — that borrowing is the defect.
+    /// </para>
+    /// <para>
+    /// Pasted tokens only. Whether <c>gh</c> can produce a token for a CLI-backed
+    /// account is a subprocess away and this is a synchronous predicate; a machine
+    /// whose only credential is <c>gh</c> is answered by the CLI transport, which
+    /// probes it properly.
+    /// </para>
+    /// </summary>
+    public bool HasAnyCredential => HasRepositoryToken || Accounts.Any(a => a.HasToken);
+
+    /// <summary>
+    /// Which identity a call on one API path has to go out as.
+    /// <para>
+    /// Monotone in specificity, evaluated per call:
+    /// </para>
+    /// <list type="number">
+    /// <item>Bound to an account — that account's credential, and no other. A
+    /// binding this machine cannot satisfy fails naming it rather than falling
+    /// through, because falling through is how a call for one owner's repository
+    /// left carrying another owner's credential and came back a 404.</item>
+    /// <item>Unbound, and the repository carries a token of its own — that token.
+    /// Unchanged from today, and the token control in Settings already calls itself
+    /// a fallback.</item>
+    /// <item>Anything else — the default: whatever this machine is signed in as.
+    /// That is today's behaviour, which is what makes this change invisible to
+    /// somebody who never opens the Accounts panel.</item>
+    /// </list>
+    /// <para>
+    /// Handles all five path shapes the clients actually send, not just
+    /// <c>repos/</c>: the organization and user shapes the Copilot and billing
+    /// clients build used to fall past the repository lookup entirely and take the
+    /// arbitrary first token in the list.
+    /// </para>
+    /// </summary>
+    public GitHubAccountChoice AccountForPath(string? path)
     {
-        var repository = RepositoryFromApiPath(path);
-        return repository?.Token
-            ?? Repositories.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.Token))?.Token;
+        if (string.IsNullOrWhiteSpace(path)) return GitHubAccountChoice.Default;
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0) return GitHubAccountChoice.Default;
+
+        return parts[0].ToLowerInvariant() switch
+        {
+            "repos" when parts.Length >= 3 => ChoiceForRepository(parts[1], parts[2]),
+
+            // Copilot reports and the organization billing endpoints. There is no
+            // repository in the path, so the answer is whatever the repositories
+            // under that owner agree on.
+            "orgs" or "organizations" when parts.Length >= 2 => ChoiceForOwner(parts[1]),
+
+            // The user billing endpoints name a login outright, which is a stronger
+            // statement than any repository could make about them.
+            "users" when parts.Length >= 2 => ChoiceForLogin(parts[1]),
+
+            _ => GitHubAccountChoice.Default
+        };
     }
 
+    /// <summary>
+    /// The token already in hand for one API path, or null.
+    /// <para>
+    /// It used to hand a path with no token of its own the first token in the list,
+    /// wherever in the list that was. That fallback is deleted: it is how a call for
+    /// one owner's repository left carrying another owner's credential and came back
+    /// a 404, and it was reachable for every path this lookup could not read as a
+    /// repository, which was every organization and user path the Copilot and
+    /// billing clients send.
+    /// </para>
+    /// <para>
+    /// Null does not mean "no way to authenticate". A CLI-backed account's token
+    /// does not exist until somebody goes and fetches it, which is why the transport
+    /// asks <see cref="IGitHubCredentialResolver"/> rather than this, and why the
+    /// availability probe asks <see cref="HasAnyCredential"/> rather than calling
+    /// this with no path.
+    /// </para>
+    /// </summary>
+    public string? TokenForPath(string? path) => AccountForPath(path).Token;
 
-    private GitHubRepositoryRef? RepositoryFromApiPath(string? path)
+    private GitHubAccountChoice ChoiceForRepository(string owner, string name)
     {
-        if (string.IsNullOrWhiteSpace(path)) return null;
+        var repository = Repositories.FirstOrDefault(r =>
+            string.Equals(r.Owner, owner, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
 
-        var trimmed = path.TrimStart('/');
-        const string prefix = "repos/";
-        if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+        if (repository is null) return GitHubAccountChoice.Default;
+        if (repository.Account is { } login) return Bind(login, repository.FullName);
 
-        var parts = trimmed[prefix.Length..].Split('/', 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length < 2) return null;
-
-        return Repositories.FirstOrDefault(r =>
-            string.Equals(r.Owner, parts[0], StringComparison.OrdinalIgnoreCase)
-            && string.Equals(r.Name, parts[1], StringComparison.OrdinalIgnoreCase));
+        return string.IsNullOrWhiteSpace(repository.Token)
+            ? GitHubAccountChoice.Default
+            : GitHubAccountChoice.RepositoryToken(repository.Token, repository.FullName);
     }
+
+    /// <summary>
+    /// The binding every configured repository under one owner shares.
+    /// <para>
+    /// Repositories that disagree fall back to the default rather than picking one,
+    /// because there is no honest way to choose: an organization report is about all
+    /// of them at once. Falling back is safe — it is what happens today — and the
+    /// Accounts panel is where a disagreement would be worth naming.
+    /// </para>
+    /// </summary>
+    private GitHubAccountChoice ChoiceForOwner(string owner)
+    {
+        var bound = Repositories
+            .Where(r => string.Equals(r.Owner, owner, StringComparison.OrdinalIgnoreCase) && r.Account is not null)
+            .Select(r => r.Account!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return bound.Count == 1 ? Bind(bound[0], owner) : GitHubAccountChoice.Default;
+    }
+
+    private GitHubAccountChoice ChoiceForLogin(string login) =>
+        Account(login) is { } account
+            ? GitHubAccountChoice.Bound(account, login)
+            : GitHubAccountChoice.Default;
+
+    /// <summary>A binding, satisfied by this machine's account row or reported as
+    /// the unsatisfied binding it is.</summary>
+    private GitHubAccountChoice Bind(string login, string subject) =>
+        Account(login) is { } account
+            ? GitHubAccountChoice.Bound(account, subject)
+            : GitHubAccountChoice.Unsatisfied(login, subject);
+
     /// <summary>The multi-line text shown in Settings, one repository per line.</summary>
     public string ToText() => string.Join('\n', Repositories.Select(r => r.ToLine()));
 
@@ -340,7 +464,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]),
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
@@ -352,7 +477,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = [.. Current.Repositories.Select(r => IsSame(r, target) ? r with { Token = CleanToken(token) } : r)],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
@@ -368,7 +494,8 @@ public sealed class GitHubSettingsStore
             Repositories = [.. Current.Repositories],
             Token = null,
             ApiEndpoint = CleanEndpoint(apiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
 
     public string? RemoveRepository(string alias)
@@ -384,7 +511,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = [.. Current.Repositories.Where(r => !IsSame(r, target))],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
@@ -401,7 +529,8 @@ public sealed class GitHubSettingsStore
                     : r)
             ],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
@@ -431,7 +560,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = [.. Current.Repositories.Select(r => IsSame(r, target) ? r with { Colour = colour } : r)],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
@@ -453,7 +583,8 @@ public sealed class GitHubSettingsStore
         {
             Repositories = [.. Current.Repositories],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = show
+            ShowRepositoryColours = show,
+            Accounts = [.. Current.Accounts]
         });
 
     /// <summary>
@@ -492,11 +623,126 @@ public sealed class GitHubSettingsStore
                     : r)
             ],
             ApiEndpoint = Current.ApiEndpoint,
-            ShowRepositoryColours = Current.ShowRepositoryColours
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
+        });
+    }
+
+    /// <summary>
+    /// Replaces the accounts this machine can speak as.
+    /// <para>
+    /// Local only, so it is not refused while the shared registry is unreadable:
+    /// which logins this machine holds a credential for is not a statement about
+    /// which repositories exist, and an install whose workspace file is corrupt
+    /// should still be able to say who it is.
+    /// </para>
+    /// </summary>
+    public string? SetAccounts(IEnumerable<GitHubAccount> accounts) =>
+        Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. accounts]
+        });
+
+    /// <summary>
+    /// Records how this machine satisfies one account: through the <c>gh</c> CLI,
+    /// or with a pasted personal access token.
+    /// <para>
+    /// A CLI-backed account is stored with no token at all, whatever was passed.
+    /// <c>gho_</c> tokens are OAuth tokens <c>gh</c> rotates, so one written into
+    /// the settings file would be a stale secret in a file — and the invariant is
+    /// enforced here, at the one door every account write comes through, rather
+    /// than trusted to each caller.
+    /// </para>
+    /// </summary>
+    public string? SetAccountCredential(string login, GitHubCredentialKind credential, string? token)
+    {
+        if (Current.Account(login) is not { } target) return NotAnAccount(login);
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts =
+            [
+                .. Current.Accounts.Select(a => GitHubAccount.IsSameLogin(a.Login, target.Login)
+                    ? a with { Credential = credential, Token = token }
+                    : a)
+            ]
+        });
+    }
+
+    /// <summary>
+    /// Forgets one account on this machine.
+    /// <para>
+    /// The repositories bound to it are deliberately left alone. The binding is
+    /// workspace data and this is a machine act; rewriting the shared registry
+    /// because somebody removed a local credential would let one install erase the
+    /// other's configuration. What it leaves behind is an unsatisfied binding,
+    /// which is a real state with a name — "this workspace expects that login and
+    /// this machine has no credential for it" — and is reported rather than guessed
+    /// around.
+    /// </para>
+    /// </summary>
+    public string? RemoveAccount(string login)
+    {
+        if (Current.Account(login) is not { } target) return NotAnAccount(login);
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts.Where(a => !GitHubAccount.IsSameLogin(a.Login, target.Login))]
+        });
+    }
+
+    /// <summary>
+    /// Records which account a repository is worked as, or clears the binding so it
+    /// falls back to whatever this machine's default is.
+    /// <para>
+    /// A shared write, and it mirrors <see cref="SetRepositoryColour"/> exactly,
+    /// because the binding is the same kind of fact: part of what a repository
+    /// <em>is</em> in this workspace rather than something about this machine. It is
+    /// refused while the registry is unreadable for the same reason every other
+    /// shared write is.
+    /// </para>
+    /// </summary>
+    public string? SetRepositoryAccount(string alias, string? login)
+    {
+        if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
+        if (Find(alias) is not { } target) return NotConfigured;
+
+        var requested = GitHubAccount.NormalizeLogin(login);
+        string? bound = null;
+
+        if (requested is not null)
+        {
+            if (Current.Account(requested) is not { } account) return NotAnAccount(requested);
+
+            // Stored with the account's own spelling rather than whatever was typed,
+            // so the shared registry states the login the way its owner writes it.
+            bound = account.Login;
+        }
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories.Select(r => IsSame(r, target) ? r with { Account = bound } : r)],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
         });
     }
 
     private const string NotConfigured = "That repository is no longer configured.";
+
+    /// <summary>The refusal a login that names no account gets. The same shape as
+    /// the colour range check: it names the value that was not understood rather
+    /// than describing the rule.</summary>
+    private static string NotAnAccount(string login) => $"'{login}' is not a configured account.";
 
     /// <summary>The repository a mutator's key names. All six repository mutators
     /// still take an alias, still resolve it through the one lookup the whole app
@@ -534,6 +780,7 @@ public sealed class GitHubSettingsStore
         var normalized = new GitHubSettings
         {
             Repositories = NormalizeRepositories(settings.Repositories),
+            Accounts = NormalizeAccounts(settings.Accounts),
             Token = null,
             ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = settings.ShowRepositoryColours
@@ -556,9 +803,10 @@ public sealed class GitHubSettingsStore
         return error;
     }
 
-    /// <summary>The shared half: one row per repository, holding the id, the alias
-    /// and the chosen hue and nothing else. No token ever reaches this file, and no
-    /// clone path.</summary>
+    /// <summary>The shared half: one row per repository, holding the id, the alias,
+    /// the chosen hue and the account it is worked as, and nothing else. No token
+    /// ever reaches this file, and no clone path. The account is a login, never a
+    /// credential — which is why it may travel.</summary>
     private string? WriteRegistry(GitHubSettings settings) =>
         WriteRegistryRows(
         [
@@ -566,7 +814,8 @@ public sealed class GitHubSettingsStore
             {
                 Id = r.FullName,
                 Alias = r.Alias,
-                Colour = r.Colour
+                Colour = r.Colour,
+                Account = r.Account
             })
         ]);
 
@@ -597,6 +846,25 @@ public sealed class GitHubSettingsStore
             var dto = new SettingsDto
             {
                 Repositories = rows,
+                Accounts =
+                [
+                    .. settings.Accounts.Select(account => new AccountDto
+                    {
+                        Login = account.Login,
+                        DisplayName = account.DisplayName,
+                        Credential = account.Credential.ToString(),
+
+                        // Belt and braces on the one invariant this file must never
+                        // break. A gh-sourced token is fetched per call and held in
+                        // memory; the normalizer already drops it, and this makes
+                        // the rule true at the point of writing too.
+                        Token = account.Credential is GitHubCredentialKind.PersonalAccessToken
+                            ? account.Token
+                            : null,
+                        Host = account.Host,
+                        ApiEndpoint = account.ApiEndpoint
+                    })
+                ],
                 Token = null,
                 ApiEndpoint = settings.ApiEndpoint,
                 ShowRepositoryColours = settings.ShowRepositoryColours
@@ -740,7 +1008,8 @@ public sealed class GitHubSettingsStore
                     {
                         Id = row.Id,
                         Alias = row.Alias,
-                        Colour = row.Colour
+                        Colour = row.Colour,
+                        Account = row.Account
                     })
                 ]) is null;
 
@@ -821,6 +1090,13 @@ public sealed class GitHubSettingsStore
                         Token = CleanToken(overlay?.Token) ?? CleanToken(local.Token),
                         Colour = CleanColour(identity.Colour),
 
+                        // The binding comes from the shared row, never from the
+                        // overlay. While the registry is unreadable the identities
+                        // are the legacy local ones, which state no account — so
+                        // every repository correctly reads as unbound and falls back
+                        // to the default rather than to a guess.
+                        Account = identity.Account,
+
                         // A repository with no overlay row starts from the defaults,
                         // which is exactly where a repository registered on another
                         // install has to start.
@@ -834,6 +1110,26 @@ public sealed class GitHubSettingsStore
                                 Path = f.Path
                             }))
                     };
+                })
+            ]),
+            Accounts = NormalizeAccounts(
+            [
+                .. local.Accounts
+                    .Where(row => !string.IsNullOrWhiteSpace(row.Login))
+                    .Select(row => new GitHubAccount(row.Login!.Trim())
+                {
+                    DisplayName = CleanLabel(row.DisplayName),
+
+                    // An unrecognized value reads as the CLI, which is the default a
+                    // brand new account gets. A settings file written by a later
+                    // build with a kind this one has never heard of degrades to "ask
+                    // gh" rather than refusing to open.
+                    Credential = Enum.TryParse<GitHubCredentialKind>(row.Credential, ignoreCase: true, out var kind)
+                        ? kind
+                        : GitHubCredentialKind.GhCli,
+                    Token = CleanToken(row.Token),
+                    Host = CleanLabel(row.Host),
+                    ApiEndpoint = CleanEndpoint(row.ApiEndpoint)
                 })
             ]),
             Token = CleanToken(local.Token),
@@ -947,6 +1243,7 @@ public sealed class GitHubSettingsStore
             return new LocalFile
             {
                 Rows = dto.Repositories,
+                Accounts = dto.Accounts,
                 Token = dto.Token,
                 ApiEndpoint = dto.ApiEndpoint,
                 ShowRepositoryColours = dto.ShowRepositoryColours
@@ -972,6 +1269,14 @@ public sealed class GitHubSettingsStore
     /// only a changed <c>owner/name</c> — a genuinely different repository — loses
     /// it.
     /// </para>
+    /// <para>
+    /// The account binding is carried the same way the hue is, and for a reason
+    /// worth stating plainly: <see cref="SetRepositories"/> rebuilds every row from
+    /// parsed text, and the grammar has no account in it. Anything this method does
+    /// not carry across is destroyed the moment somebody edits the repositories text
+    /// box — for the binding that would mean silently sending the next call out as
+    /// the wrong identity, which is exactly the failure the binding exists to stop.
+    /// </para>
     /// </summary>
     private GitHubRepositoryRef PreserveExistingRepositorySettings(GitHubRepositoryRef repository)
     {
@@ -983,6 +1288,7 @@ public sealed class GitHubSettingsStore
             {
                 Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
                 Colour = CleanColour(repository.Colour),
+                Account = GitHubAccount.NormalizeLogin(repository.Account),
                 KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
             };
         }
@@ -992,6 +1298,7 @@ public sealed class GitHubSettingsStore
             CloneDirectory = string.IsNullOrWhiteSpace(repository.CloneDirectory) ? existing.CloneDirectory : repository.CloneDirectory,
             Token = CleanToken(repository.Token) ?? existing.Token ?? CleanToken(Current.Token),
             Colour = CleanColour(repository.Colour) ?? existing.Colour,
+            Account = GitHubAccount.NormalizeLogin(repository.Account) ?? existing.Account,
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
         };
     }
@@ -1003,11 +1310,49 @@ public sealed class GitHubSettingsStore
             CloneDirectory = CleanPath(r.CloneDirectory),
             Token = CleanToken(r.Token),
             Colour = CleanColour(r.Colour),
+            Account = GitHubAccount.NormalizeLogin(r.Account),
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
         })
     ];
 
+    /// <summary>
+    /// The accounts as they are stored: blank logins dropped, one row per login,
+    /// and never a token on an account that says it is backed by the <c>gh</c> CLI.
+    /// <para>
+    /// That last clause is the hard rule of the whole credential design in one
+    /// line. A <c>gho_</c> token is rotated by <c>gh</c>, so one held here would go
+    /// stale and be used anyway. It is fetched per call and kept in memory instead.
+    /// </para>
+    /// </summary>
+    private static List<GitHubAccount> NormalizeAccounts(IEnumerable<GitHubAccount> accounts)
+    {
+        var normalized = new List<GitHubAccount>();
+
+        foreach (var account in accounts)
+        {
+            var login = GitHubAccount.NormalizeLogin(account.Login);
+            if (login is null) continue;
+            if (normalized.Any(known => GitHubAccount.IsSameLogin(known.Login, login))) continue;
+
+            normalized.Add(account with
+            {
+                Login = login,
+                DisplayName = CleanLabel(account.DisplayName),
+                Token = account.Credential is GitHubCredentialKind.PersonalAccessToken
+                    ? CleanToken(account.Token)
+                    : null,
+                Host = CleanLabel(account.Host),
+                ApiEndpoint = CleanEndpoint(account.ApiEndpoint)
+            });
+        }
+
+        return normalized;
+    }
+
     private static string? CleanPath(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+
+    /// <summary>A label as it is stored: trimmed, and null rather than blank.</summary>
+    private static string? CleanLabel(string? label) => string.IsNullOrWhiteSpace(label) ? null : label.Trim();
 
     private static string? CleanToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : token.Trim();
 
@@ -1042,9 +1387,10 @@ public sealed class GitHubSettingsStore
 
     /// <summary>One identity row, already split into the parts the rest of the
     /// class needs.</summary>
-    private sealed record RegistryRow(string Id, string Alias, string Owner, string Name, int? Colour)
+    private sealed record RegistryRow(string Id, string Alias, string Owner, string Name, int? Colour, string? Account)
     {
-        public static RegistryRow? From(RegistryRepositoryDto dto) => From(dto.Id, dto.Alias, CleanColour(dto.Colour));
+        public static RegistryRow? From(RegistryRepositoryDto dto) =>
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account);
 
         /// <summary>
         /// A stored row read as an identity, or null when its <c>id</c> is not a
@@ -1057,7 +1403,11 @@ public sealed class GitHubSettingsStore
         /// owner and name derive from the single <c>/</c> it has to contain.
         /// </para>
         /// </summary>
-        public static RegistryRow? From(string? id, string? alias, int? colour)
+        /// <param name="account">The login the repository is worked as. A label
+        /// rather than a coordinate, so it is carried through as it was written and
+        /// nothing is validated at read time: an account this machine has no row for
+        /// is an unsatisfied binding to report, not a corrupt row to drop.</param>
+        public static RegistryRow? From(string? id, string? alias, int? colour, string? account = null)
         {
             if (string.IsNullOrWhiteSpace(id)) return null;
 
@@ -1073,7 +1423,8 @@ public sealed class GitHubSettingsStore
                 GitHubRepositoryRef.NormalizeAlias(string.IsNullOrWhiteSpace(alias) ? name : alias!),
                 owner,
                 name,
-                colour);
+                colour,
+                GitHubAccount.NormalizeLogin(account));
         }
     }
 
@@ -1082,6 +1433,7 @@ public sealed class GitHubSettingsStore
     private sealed class LocalFile
     {
         public List<RepositoryDto> Rows { get; init; } = [];
+        public List<AccountDto> Accounts { get; init; } = [];
         public string? Token { get; init; }
         public string? ApiEndpoint { get; init; }
         public bool ShowRepositoryColours { get; init; }
@@ -1103,11 +1455,24 @@ public sealed class GitHubSettingsStore
         public string? Id { get; set; }
         public string? Alias { get; set; }
         public int? Colour { get; set; }
+
+        /// <summary>The login this repository is worked as. Omitted when null
+        /// rather than written as null, so a workspace nobody has bound anything in
+        /// produces a file byte for byte identical to the one written before
+        /// accounts existed.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Account { get; set; }
     }
 
     private sealed class SettingsDto
     {
         public List<RepositoryDto> Repositories { get; set; } = [];
+
+        /// <summary>The identities this machine can speak as. Absent reads as
+        /// empty, which is what every install written before accounts existed
+        /// says.</summary>
+        public List<AccountDto> Accounts { get; set; } = [];
+
         public string? Token { get; set; }
         public string? ApiEndpoint { get; set; }
 
@@ -1154,6 +1519,40 @@ public sealed class GitHubSettingsStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public int? Colour { get; set; }
+    }
+
+    /// <summary>
+    /// One account row of the per-user file.
+    /// <para>
+    /// The credential kind is stored as its name rather than its ordinal, so
+    /// reordering the enum cannot silently re-point every account at a different
+    /// kind, and a name this build does not know reads as the CLI rather than
+    /// refusing to open the file.
+    /// </para>
+    /// <para>
+    /// <see cref="Token"/> is only ever written for
+    /// <see cref="GitHubCredentialKind.PersonalAccessToken"/>. A token the
+    /// <c>gh</c> CLI produced is never written down at all — it is rotated by
+    /// <c>gh</c>, so a copy here would be a stale secret in a file.
+    /// </para>
+    /// </summary>
+    private sealed class AccountDto
+    {
+        public string? Login { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? DisplayName { get; set; }
+
+        public string? Credential { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Token { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Host { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ApiEndpoint { get; set; }
     }
 
     private sealed class KnowledgeFolderDto

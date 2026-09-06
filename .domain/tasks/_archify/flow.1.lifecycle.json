@@ -19,8 +19,8 @@
   ],
   "transitions": [
     { "id": "refine", "from": "draft", "to": "ready", "label": "Refined and actionable", "labelDy": 58 },
-    { "id": "start-work", "from": "ready", "to": "in-progress", "label": "Work started", "note": "EntryProjected", "variant": "emphasis", "labelDy": 58 },
-    { "id": "complete", "from": "in-progress", "to": "done", "label": "Work completed", "note": "EntryCompleted", "variant": "emphasis", "labelDy": 58 },
+    { "id": "start-work", "from": "ready", "to": "in-progress", "label": "Work started", "note": "TaskProjected", "variant": "emphasis", "labelDy": 58 },
+    { "id": "complete", "from": "in-progress", "to": "done", "label": "Work completed", "note": "TaskCompleted", "variant": "emphasis", "labelDy": 58 },
     { "id": "archive", "from": "done", "to": "archived", "label": "Archived", "labelDy": 58 },
     { "id": "revise", "from": "ready", "to": "draft", "label": "Revision needed", "fromSide": "top", "toSide": "top", "via": [[248, 80], [94, 80]], "labelSegment": 1 },
     { "id": "pause", "from": "in-progress", "to": "ready", "label": "Paused", "fromSide": "bottom", "toSide": "bottom", "via": [[402, 250], [248, 250]], "labelSegment": 1 },
@@ -33,8 +33,8 @@
       "title": "Forward path",
       "items": [
         "A created entry starts at Draft and is refined until it is actionable",
-        "Ready to In Progress emits EntryProjected, one artifact per repo_id",
-        "Completion emits EntryCompleted, which closes all projections"
+        "Ready to In Progress emits TaskProjected, one artifact per repo_id",
+        "Completion emits TaskCompleted, which closes all projections"
       ]
     },
     {

@@ -1,0 +1,83 @@
+@*
+    A chevron pointing up: two strokes meeting at a peak.
+
+    Drawn here rather than fetched, for the reason DeleteButton's and CopyButton's
+    glyphs give: a control that needs the network to show itself is no use in a
+    WebView with no egress. There is no sprite file, no icon font and no CDN — the
+    shape is in this file, and nothing downstream ships a second asset.
+
+    Lucide's idiom rather than Lucide's file, which is what
+    `.design/typography-and-layout.md#iconography` allows on exactly these terms:
+    an outline on the 24x24 grid, stroked at 2, round caps and joins, filled
+    nowhere. The whole shape is stated in the grid's own units, so a caller
+    changing the size changes nothing about the drawing.
+
+    One direction, and no state in here at all. Which state a drawing stands for is
+    the host's rule, so this file ships no `Pinned` parameter and no second drawing
+    behind one — that decision belongs where two hosts with two conventions can each
+    have their own, which is the call site rather than the library. The desktop
+    shell's section rail reads the pair of directions as its states and turns the
+    glyph in its own stylesheet: up while a pane is loose, so the control says push,
+    and half a turn down once pushed, so it says push back. Nothing about that
+    reaches in here, and a host that reads a chevron some other way — a disclosure
+    that opens downward, a sort that runs ascending — gets the same drawing.
+
+    Hidden from assistive technology by default, because the control that holds a
+    glyph is where the name belongs: the shell's rail is a ToggleButton carrying
+    its own `aria-label`, and a named glyph inside a named button is the label read
+    twice. The attribute is written before the splat, so a caller that has taken
+    the word off the screen can still override it.
+
+    Nothing is coloured or sized here beyond what the caller asks for: the chapter
+    rules out a hard-coded stroke and a font-size scale alike, so the ink comes from
+    whatever the glyph is sitting in and the edge length is an explicit width and
+    height.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* One open outline: up from the right foot, over the peak on the grid's
+       centre line, and down to the left foot. *@
+    <path d="M18 15 12 9 6 15" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>.
+    /// <para>A bare number is the grid's own pixels, which is how the iconography
+    /// scale states its sizes — 12 for the inline indicator, 16 inline with text,
+    /// 20 in a button. Sixteen by default, the size the library's other glyphs are
+    /// drawn at. A unit is allowed too, for a caller that wants the glyph to scale
+    /// with the type it leads.</para></summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>The glyph names itself even though this library styles nothing on
+    /// it: a host that has to reach the drawing inside its own control then has a
+    /// hook that says what it is holding rather than an element selector that would
+    /// catch any glyph put there. A host that moves or turns the drawing for a state
+    /// of its own — as the section rail does, which lifts it on hover and turns it
+    /// once pinned — passes its own class through <c>CssClass</c> and styles that,
+    /// so the rule says which control it is about and not merely which shape.</summary>
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? "chevron-up-icon" : $"chevron-up-icon {CssClass}";
+}

@@ -212,6 +212,29 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
         <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
     </Story>
 
+    <Story Name="Right-click, and what the host puts there"
+           Description="`OnContextMenu` is the gesture and nothing more. The row reports which row was asked and where the pointer was, and the host decides what the menu holds — here the library's own `ContextMenu` from Menus, filled with the acts the desktop pane offers. Nothing is applied: the choice is written below, the way a rename or a delete is on the stories above.
+
+A list nobody is listening to keeps the browser's own menu, and so does a row while its title or body is a text field, because a field's menu is the one with Paste on it."
+           Code="@ContextMenuCode">
+        <div class="sb-menu-wide" data-testid="task-list-menu">
+            <TaskListView Tasks="@Sample"
+                          OnToggle="_ => { }"
+                          OnContextMenu="OpenRowMenu"
+                          AriaLabel="Tasks with a menu"
+                          TestId="menu" />
+            <ContextMenu Open="_rowMenuOpen"
+                         OpenChanged="v => _rowMenuOpen = v"
+                         X="_rowMenuX"
+                         Y="_rowMenuY"
+                         Items="RowMenuItems"
+                         AriaLabel="Task actions"
+                         TestId="task-menu"
+                         OnItemSelected="OnRowMenuItem" />
+        </div>
+        <p class="sb-state" data-testid="task-list-menu-choice">@(_lastMenuChoice ?? "Nothing chosen yet.")</p>
+    </Story>
+
     <Story Name="What a row copies, decided by the host"
            Description="`RowCopyValue` is asked per row, and answering `null` leaves that row copying what it always copied — its title, and its body under it when it has one.
 
@@ -656,6 +679,44 @@ It exists for the row that was projected from a document the task itself does no
         </text>;
     private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
 
+    private bool _rowMenuOpen;
+
+    private double _rowMenuX;
+
+    private double _rowMenuY;
+
+    private string? _rowMenuId;
+
+    private string? _lastMenuChoice;
+
+    /// <summary>The desktop pane's menu, as far as a story can show it: the same
+    /// items in the same order, with nothing behind them. "Remove due date" is
+    /// disabled rather than missing, which is the pane's rule for an act with
+    /// nothing to act on.</summary>
+    private static readonly MenuItem[] RowMenuItems =
+    [
+        new("myday", "Add to My Day", "☀"),
+        new("important", "Mark as important", "☆"),
+        new("done", "Mark as completed", "✓"),
+        MenuItem.Divider("schedule"),
+        new("due-today", "Due today", "🗓"),
+        new("due-tomorrow", "Due tomorrow", "🗓"),
+        new("due-clear", "Remove due date", "🗓", Disabled: true),
+        MenuItem.Divider("end"),
+        new("delete", "Delete task", "🗑", Destructive: true)
+    ];
+
+    private void OpenRowMenu(TaskContextMenu request)
+    {
+        _rowMenuId = request.Id;
+        _rowMenuX = request.X;
+        _rowMenuY = request.Y;
+        _rowMenuOpen = true;
+    }
+
+    private void OnRowMenuItem(MenuItem item) =>
+        _lastMenuChoice = $"{item.Label}: {Sample.FirstOrDefault(t => t.Id == _rowMenuId)?.Title ?? _rowMenuId}.";
+
     /// <summary>This story's host answer: every row but the last hands over a
     /// written-up version of itself, and the last answers null, so one story shows
     /// both halves of the hook.</summary>
@@ -673,6 +734,17 @@ It exists for the row that was projected from a document the task itself does no
         @code {
             private RenderFragment Actions(TaskRow task) =>
                 @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
+        }
+        """;
+
+    private const string ContextMenuCode = """
+        <TaskListView Tasks="@tasks" OnContextMenu="OpenMenu" />
+        <ContextMenu Open="_open" OpenChanged="v => _open = v" X="_x" Y="_y" Items="Items" OnItemSelected="Choose" />
+
+        @code {
+            // The row said which and where; the host says what.
+            private void OpenMenu(TaskContextMenu request) =>
+                (_x, _y, _open) = (request.X, request.Y, true);
         }
         """;
 

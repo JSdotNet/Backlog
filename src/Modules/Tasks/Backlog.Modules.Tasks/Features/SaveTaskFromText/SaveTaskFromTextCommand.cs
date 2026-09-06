@@ -60,7 +60,7 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
     /// canonical and that line stays exactly as it was.
     /// </para>
     /// <para>
-    /// This path never registers. That is the guard that keeps ADR 0004's
+    /// This path never registers. That is the guard that keeps ADR 0007's
     /// sentence true: Import triggers registration, and a `repo:` token somebody
     /// typed does not. A name the registry has never seen is stored as it was
     /// typed and reads as "No repo" until somebody configures it.

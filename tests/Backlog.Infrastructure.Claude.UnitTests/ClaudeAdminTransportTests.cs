@@ -24,6 +24,29 @@ public sealed class ClaudeAdminTransportTests
             handler.Request!.RequestUri!.ToString());
     }
 
+    /// <summary>
+    /// A key without the admin prefix reaches Anthropic instead of being turned away here.
+    /// A personal Console key that is not scoped to a workspace is a documented credential
+    /// for these reports, and it is indistinguishable from a workspace-scoped one by its
+    /// text alone — so the judgement belongs to the server, which answers 401 or 403 with
+    /// an explanation this transport already translates.
+    /// </summary>
+    [Fact]
+    public async Task A_key_without_the_admin_prefix_still_reaches_anthropic()
+    {
+        using var directory = new TemporaryDirectory();
+        var store = new ClaudeSettingsStore(directory.File("claude.json"));
+        store.SetAdminApiKey("sk-ant-api03-personal-key");
+
+        var handler = new RecordingHandler();
+        var transport = new ClaudeAdminTransport(new HttpClient(handler), store);
+
+        await transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages");
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal("sk-ant-api03-personal-key", handler.Request!.Headers.GetValues("x-api-key").Single());
+    }
+
     [Fact]
     public async Task Invalid_endpoint_is_rejected_before_any_http_call()
     {

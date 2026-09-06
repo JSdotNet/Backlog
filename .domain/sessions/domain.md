@@ -29,6 +29,12 @@ updates that a configured session reports as it moves. Those updates are an
 **enrichment layer**, not a second authority. They say more about what a known
 session was doing; they do not decide that a session existed in the first place.
 
+Evidence can also **travel between the person's own machines**, so the environment
+that ran a session need not be the one they are sitting at. That is replication,
+not a third kind of evidence: a record read on the second machine is still the
+record the first machine wrote. See
+`.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+
 This subject was first modelled inside
 [Dev PC Management](../dev-pc-management/domain.md#machine-registry) as
 Copilot Session Tracking on the Machine, when Copilot was the only agent the
@@ -42,7 +48,7 @@ modelling it.
 ```meta
 type: aggregate
 status: active
-related: [.domain/dev-pc-management/domain.md#machine-registry, .domain/sessions/dependencies.md]
+related: [.domain/dev-pc-management/domain.md#machine-registry, .domain/sessions/dependencies.md, .arc42/08-crosscutting-concepts.md#session-record-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 Everything one environment can say about the agent sessions it has a record of.
@@ -56,8 +62,13 @@ derivation rather than a structural relationship.
 Invariants:
 
 - A session appears **once**, however many records the environment holds for it. An
-  agent may leave one record per process and another per transcript; those are
-  evidence of one session, not two.
+  agent may leave one record per process and another per transcript, and may file the
+  same transcript under two working folders when a session moved between them — a
+  session that changed folder went somewhere, it did not become two. All of that is
+  evidence of one session, and the most recent of those records is the one that
+  describes it, because it is the one the agent went on writing. The collapse happens
+  before anything counts or truncates, so how many sessions an environment holds is a
+  number of sessions and never a number of files.
 - A session's `Session State` is **derived from the evidence available**, never
   asserted. Running and Stalled both require liveness evidence; with none, a session
   is Finished. A state no evidence supports is not reported at all — there is no
@@ -67,7 +78,54 @@ Invariants:
   from a recorded one and wrong.
 - The log **says how complete it is**. It may describe fewer sessions than exist, and
   when it does, how many exist is part of the answer rather than a detail the reader
-  is left to discover.
+  is left to discover. That completeness is the *reading's* and only the reading's:
+  what a reader's chosen `Session View` then leaves off the screen is theirs, is
+  applied after the log has answered, and is accounted for separately. Reporting one
+  number for both subtractions would have the log confess to a shortfall the reader
+  asked for.
+
+**Records replicate; none of the above changes when they do.** Local ADR 0005 puts
+session records in the same cloud replica as tasks, so a record gathered on one
+machine can be read on another. Every invariant survives intact, because the thing
+that replicates is a record, not an authority:
+
+- **Still single-writer.** A session ran on one environment and only that
+  environment holds the evidence for it, so only that environment writes records
+  for it. There is nothing to reconcile: no second version, no last-write-wins,
+  and no lost-edit failure mode. A session that moves gets a later record rather
+  than an edit to an earlier one, which is the shape this context already has.
+- **Still one environment per log.** A reading that spans machines is a
+  composition of several Session Logs, exactly as grouping by environment already
+  is. A replicated record names the environment that gathered it, so nothing
+  asserts a fact nobody gathered.
+- **Still derived, never asserted.** `Session State` is worked out on every
+  reading from the evidence that reached the reader. A record whose environment is
+  a machine away is stale rather than wrong, and the derivation says so by reading
+  `stalled` or `finished` from the timestamps it has.
+- **Only a whitelist travels**, fixed by local ADR 0005: the session id, the
+  environment, the repository **alias** rather than the working folder, the
+  branch, the activity window, and the turn and duration counts. Never prompts,
+  never tool output, never file contents — which is the whole reason a record can
+  leave the machine at all. A field not on the list does not travel, so
+  `working_folder` does not: it describes one machine's disk and means nothing on
+  the other.
+- **The list is one field short of this context's identity, and that has to be
+  settled where the list lives.** `Session Identity` is `agent` plus `session_id`,
+  never `session_id` alone, because two agents may issue the same string; a record
+  that travelled without its agent would let the receiving log merge two unrelated
+  sessions — exactly the failure the identity rule exists to prevent. Widening the
+  whitelist is a decision for local ADR 0005 rather than something the pushing code
+  settles, so it is named here as an open point rather than assumed.
+- **Retention is the store's, not this context's.** A replicated record expires
+  after twelve months by container TTL. Nothing here reaps, and nothing here
+  deletes a record.
+
+**Replication is not the Collections MCP and changes nothing about it.** The MCP
+stays exactly what it already is: optional, reached through an anti-corruption
+layer, never authoritative for whether a session existed. It supplies a second
+kind of evidence about a session this context already knows; replication moves
+records this context already holds. Neither stands in for the other, and a
+replicated record with no activity stream is a perfectly good record.
 
 ### Agent Session
 
@@ -254,6 +312,48 @@ nobody would look for it.
 Invocation semantics: query-oriented; evaluated per reading, never persisted. A
 session is not moved into `stalled` by anything — it simply reads as stalled while
 the silence lasts, and reads as running again the moment the agent writes.
+
+## Session View
+
+```meta
+type: domain-service
+status: active
+related: [.domain/sessions/domain.md#session-log, .domain/sessions/domain.md#session-state, .domain/sessions/features.md#open-on-the-live-sessions, .domain/sessions/naming.md#session-view]
+```
+
+Narrows a set of `Agent Session`s to the ones a reader currently wants in front of
+them: the live ones, or all of them.
+
+It decides nothing about liveness. The `Session Log`'s invariant on derived
+`Session State` has already settled that question, and this service does no more than
+read the answer — which is why "live" here can only mean running or stalled. A second
+place that worked out for itself whether a session was still going would be a second
+definition of live, free to drift from the first, and the two would disagree first on
+exactly the sessions a reader most needs to trust.
+
+A service of its own rather than one more member of `Session Grouping`, and that is
+the part worth arguing. Grouping guarantees that every session in is a session out; a
+"live" grouping would falsify that guarantee while sitting in the same strip as
+environment and agent, leaving the reader one control whose options sometimes
+rearrange the list and sometimes shorten it. Two operations with two guarantees is the
+honest shape: exactly one of them removes sessions, and the surface can therefore say
+which one did.
+
+**View first, then grouping.** A set is narrowed and then carved up, never the reverse,
+so an environment with nothing live on it loses its section rather than keeping an
+empty one. The view also does not reorder — ordering is the grouping's answer to give,
+and a narrowing that sorted would be a second answer to what "most recently active
+first" means.
+
+Pure, like `Session Grouping`: no clock, no I/O, no state. The clock was already spent
+by `Liveness Assessment`, which is what lets a reader change view without anything
+being read again — and what makes two views of one reading two renderings of the same
+facts rather than two readings that might disagree.
+
+Invocation semantics: query/composition-oriented; invoked per view, never stored. Which
+view is in force is the reader's choice, is not part of this context's state, and is
+not part of what a reading returns — a surface holding it starts at the live view every
+time it is opened.
 
 ## Session Grouping
 

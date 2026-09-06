@@ -299,6 +299,24 @@ public class DashboardPaneTests
         Assert.Equal("dashboard-title", panel.GetAttribute("aria-labelledby"));
     }
 
+    /// <summary>
+    /// The header is the library SectionHeader now, so what is worth holding is
+    /// that it still renders this pane's own class names - app.css styles all five
+    /// and did not move.
+    /// </summary>
+    [Fact]
+    public void The_header_is_the_shared_component_wearing_this_panes_classes()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var header = pane.Find(".dashboard-panel__header");
+
+        SectionHeaderAdoptionTests.AssertPaneHeader(header, "dashboard-panel", "dashboard-title");
+        SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "dashboard-panel");
+        Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
+    }
+
     private static BunitContext Context(Action<IServiceCollection>? configure = null)
     {
         var context = new BunitContext();

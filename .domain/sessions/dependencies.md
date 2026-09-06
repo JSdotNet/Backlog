@@ -3,7 +3,7 @@
 ```meta
 type: dependencies
 status: active
-related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#machine-registry]
+related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#machine-registry, .arc42/08-crosscutting-concepts.md#session-record-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 > Dependencies this bounded context has on other bounded contexts or modules, and
@@ -15,7 +15,7 @@ related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#machine-re
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | Collections MCP | ACL (Sessions = customer) | Optional append/read of sanitized session-activity documents keyed by `Session Identity` | `.domain/sessions/domain.md#session-activity-stream`, `.domain/sessions/domain.md#session-activity-publishing` | To layer externally reported milestone activity over the locally read session record without making the collection authoritative for session existence. Sessions owns the meaning of the stream and translates to and from the MCP's stored shape. **Planned.** Missing configuration is ordinary; configured-but-unreachable reporting reads as degraded rather than failed. |
-| Dev PC Management | Customer/Supplier (Sessions = customer) | Machine-name lookup against the machine registry | `.domain/dev-pc-management/domain.md#machine-registry` | To say which registered machine an `Environment` corresponds to, when the two name the same box. **Not built.** A locally read session is stamped with the name of the environment that read it, so nothing is asked of the registry today; the dependency becomes real the first time sessions arrive from an environment other than the one reading them. |
+| Dev PC Management | Customer/Supplier (Sessions = customer) | Machine-name lookup against the machine registry | `.domain/dev-pc-management/domain.md#machine-registry` | To say which registered machine an `Environment` corresponds to, when the two name the same box. **Not built.** A locally read session is stamped with the name of the environment that read it, so nothing is asked of the registry today; the dependency becomes real the first time sessions arrive from an environment other than the one reading them, which local ADR 0005 now names as the point session records start replicating between the person's machines. |
 | Repository Management | Conformist | None — the `owner/name` string an agent wrote is held verbatim | `.domain/repository-management/domain.md#repository-registry` | A session's `Working Location` names a repository in that context's form. Conformist and deliberately inert: the string is displayed, never resolved, so a repository this product does not know about still reads correctly. |
 
 ## Inbound dependents (known)
@@ -52,3 +52,14 @@ related: [.domain/context-map.md, .domain/dev-pc-management/domain.md#machine-re
   storage module never becomes the authority for session meaning; the Repository
   Management row stays conformist because the string is held verbatim, and the Dev PC
   Management row remains a future lookup rather than a live call.
+
+- **Replicating session records adds no row to either table above.** Local ADR 0005
+  carries a record this context already wrote to another of the person's machines,
+  where this context reads it again. That is transport, not a supplier: nothing
+  outside the boundary is being asked for a fact, and no other context learns the
+  language. The sync service is infrastructure carrying it, the way the local file
+  system is infrastructure carrying an agent's own record. **It is also not the
+  Collections MCP.** The row above stays exactly as written — optional, ACL-wrapped,
+  never authoritative for whether a session existed — because enriching a known
+  session and moving a held record are different jobs, and neither becomes the other
+  when both are in play.

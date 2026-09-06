@@ -433,14 +433,17 @@ alongside the step only a person can do and the thing worth coming back to
 later. Import reads the type off the entry rather than deciding for the plan
 that its entries are all of a kind.
 
-An entry may also state the [status](domain.md#task-status) it should arrive at,
-so a plan whose opening steps are already agreed can bring them in `ready`
-rather than leaving somebody to promote each one out of `draft` by hand. What
-the plan states is the status the task is created with — the value directly,
-not a lifecycle step applied on top of a new task — so every status is
+An entry may also state the [status](domain.md#task-status) it should arrive at.
+What the plan states is the status the task is created with — the value
+directly, not a lifecycle step applied on top of a new task — so every status is
 reachable this way, the settled ones included, and a plan can record a step
-that was finished before the plan was ever imported. An entry stating no status
-starts at `draft`, like any other new task.
+that was finished before the plan was ever imported, or hold back one still
+being shaped as `draft`. An entry stating no status starts at `ready`. This is
+the one default Import sets differently from a hand-typed task, which starts at
+`draft` because it is being shaped as it is typed: a plan is work already agreed
+and written down to be picked up, and a plan whose every entry landed at `draft`
+would leave somebody promoting each one by hand before
+[Readiness](domain.md#readiness) showed any of it.
 
 The entry's own instructions become that task's body, and the order the plan
 declares between entries becomes an ordinary
@@ -623,7 +626,9 @@ Join a second machine to the same backlog by entering a short code shown on the
 first, once. There is no account and no sign-in: personal use requires no login
 (`.arc42/02-constraints.md`), so devices are paired to each other rather than to
 an identity. A paired device holds its own credential and can reach exactly one
-person's tasks and no one else's.
+person's tasks and no one else's — a boundary the sync service enforces by
+scoping every query to the owner the credential names, not one the cloud store
+enforces on its own.
 
 ## Roadmap planning
 

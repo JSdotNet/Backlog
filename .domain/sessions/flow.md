@@ -40,6 +40,11 @@ stateDiagram-v2
   written per process and a resumed session is a new process, not a revived one.
 - There is no `failed`. A record that stops says nothing about whether the session was
   answered, abandoned or crashed, and this context does not guess between them.
+- A reader's `Session View` is deliberately **not** on this diagram. It reads the three
+  states and moves a session between none of them: a finished session a live view is
+  not showing is finished, not in a fourth state and not in transit towards one.
+  Whether a row is on screen is a property of the reading being displayed, and putting
+  it here would turn the reader's own choice into something that happens to a session.
 
 ## How an environment's sessions are read
 
@@ -70,9 +75,12 @@ sequenceDiagram
   source being unreadable must not cost the reader the other's sessions. Each source
   either contributes its sessions or contributes its name to `unreadable`.
 - **Duplicates are collapsed before anything else.** One session can leave more than
-  one record — a live marker per process and a transcript — and the aggregate's first
-  invariant is that it appears once. The most recent evidence wins, because that is the
-  process actually running.
+  one record — a live marker per process beside its own transcript, or two transcripts
+  when the session changed folder and was filed under both — and the aggregate's first
+  invariant is that it appears once. The most recent record wins: it is the one the
+  agent went on writing, and for a live session it is the process actually running.
+  Before the cap and before the count, so a session filed twice costs one place in the
+  list rather than two and the number travelling back is a number of sessions.
 - **Liveness is assessed last, per session, against one clock.** A single clock per
   reading is what makes two sessions in the same list comparable; assessing each
   against its own would let one row be stale relative to another.

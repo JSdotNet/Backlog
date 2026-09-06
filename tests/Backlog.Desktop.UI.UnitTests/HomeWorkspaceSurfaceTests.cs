@@ -839,8 +839,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// Pressing a section is asking to look at it. The pane that was there makes way,
-    /// because a reader who wanted both would have said so — and the pin beside the
-    /// option is how they say it.
+    /// because a reader who wanted both would have said so — and the pin on the
+    /// option's own edge is how they say it.
     /// </summary>
     [Fact]
     public void Switching_to_a_pane_closes_the_one_it_replaces()
@@ -911,6 +911,115 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The rail draws along the top edge of its option rather than standing beside it,
+    /// which is feedback #283: the old full-height box on the option's right read as a
+    /// vertical strip down its side. The stacking itself is CSS, so what the rendered
+    /// markup owes it is the shape the stylesheet keys on — the cell, the rail leading
+    /// it so DOM order matches the order the reader sees, and the pinned state
+    /// arriving as a class on the rail and not only as <c>aria-pressed</c>.
+    /// </summary>
+    [Fact]
+    public void The_pin_renders_as_a_rail_leading_its_own_cell()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            // The one-height stretch is scoped to this strip, so the modifier is part
+            // of the contract rather than decoration.
+            Assert.Contains(
+                "header-group--sections",
+                component.Find("[data-testid='global-pane-multiselect']").ClassList);
+
+            foreach (var pane in new[] { "inbox", "backlog", "knowledge" })
+            {
+                var pin = component.Find($"[data-testid='{pane}-pane-pin']");
+
+                // Still the shared ToggleButton's own button element.
+                Assert.Equal("BUTTON", pin.TagName);
+                Assert.Contains("header-group__pin", pin.ClassList);
+                Assert.DoesNotContain("header-group__pin--pinned", pin.ClassList);
+
+                // The cell is the pair and nothing else: the rail, then the section.
+                var cell = pin.ParentElement!;
+
+                Assert.Contains("header-group__pane", cell.ClassList);
+                Assert.Equal(2, cell.Children.Length);
+                Assert.Equal($"{pane}-pane-pin", cell.Children[0].GetAttribute("data-testid"));
+                Assert.Equal($"{pane}-pane-option", cell.Children[1].GetAttribute("data-testid"));
+            }
+        });
+
+        component.Find("[data-testid='backlog-pane-pin']").Click();
+
+        component.WaitForAssertion(() => Assert.Contains(
+            "header-group__pin--pinned",
+            component.Find("[data-testid='backlog-pane-pin']").ClassList));
+    }
+
+    /// <summary>
+    /// Push up to pin, push down to release — one drawing in both states, and the
+    /// stylesheet's rotation is what tells them apart. The rail holds a single
+    /// chevron whether the pane is loose or pinned; what changes in the markup is the
+    /// <c>header-group__pin--pinned</c> class the button takes, which is the hook the
+    /// turn and the lift are keyed on.
+    /// <para>
+    /// Worth a rendering test rather than a reading of Home.razor because the class
+    /// is what carries the state into the sheet. An <c>aria-pressed</c> that flipped
+    /// while the class stayed put would leave the rotation permanently off and the
+    /// visible state resting on the tinted fill's colour alone — and nothing about
+    /// the modifier being spelled correctly in a parameter proves it is wired to the
+    /// value the button reports.
+    /// </para>
+    /// <para>
+    /// The glyph carries the class the stylesheet lifts and turns, in both states, so
+    /// there is nothing for a state change to drop. A rail that agreed on that class
+    /// only while unpinned would lose its dressing at the moment the state it is
+    /// dressing arrives.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rail_keeps_one_chevron_and_takes_the_pinned_class_when_the_pane_is_pinned()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var pin = component.Find("[data-testid='backlog-pane-pin']");
+            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
+            Assert.DoesNotContain("header-group__pin--pinned", pin.ClassList);
+
+            // One drawing, and the shared hook on it: a rail holding two glyphs would
+            // be two states at once, and one holding none would be a bare button.
+            var glyphs = pin.QuerySelectorAll("svg");
+            Assert.Single(glyphs);
+            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
+            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
+        });
+
+        component.Find("[data-testid='backlog-pane-pin']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var pin = component.Find("[data-testid='backlog-pane-pin']");
+            Assert.Equal("true", pin.GetAttribute("aria-pressed"));
+
+            // The class the turn is keyed on arrives with the pressed state, on the
+            // same element — the sheet reaches the glyph through this button.
+            Assert.Contains("header-group__pin--pinned", pin.ClassList);
+
+            // And the same single drawing is still there to be turned. The pin glyph
+            // it used to be swapped for no longer exists in the library.
+            var glyphs = pin.QuerySelectorAll("svg");
+            Assert.Single(glyphs);
+            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
+            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
+        });
+    }
+
+    /// <summary>
     /// One pin per pane and none for the band, all starting unpressed: keeping a pane
     /// through a switch is the deliberate act, not the default.
     /// </summary>
@@ -930,6 +1039,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
                 Assert.Equal("false", pin.GetAttribute("aria-pressed"));
                 Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("aria-label")));
+                Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("title")));
+                Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("aria-controls")));
             }
 
             // The band takes no width from the panes, so it has nothing to be saved
@@ -1103,6 +1214,46 @@ public sealed class HomeWorkspaceSurfaceTests
         return option.TextContent.Replace(flag, string.Empty).Trim();
     }
 
+    /// <summary>
+    /// The AI panel header is the library SectionHeader too, and it stays a div:
+    /// the panel is already a section named by this heading, so the header it had
+    /// was never a landmark of its own and adopting the component was not allowed
+    /// to make it one.
+    /// </summary>
+    [Fact]
+    public void The_ai_panel_header_is_the_shared_component_and_stays_a_div()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var header = component.Find(".ai-panel__header");
+
+            Assert.Equal("DIV", header.TagName);
+            Assert.Equal("ai-panel__header", header.GetAttribute("class"));
+
+            var text = header.Children[0];
+            Assert.Null(text.GetAttribute("class"));
+            Assert.Equal("ai-panel__eyebrow", text.Children[0].GetAttribute("class"));
+
+            // Styled by element in app.css, so the heading carries no class - and
+            // the id the panel aria-labelledby points at is on the heading.
+            var heading = text.Children[1];
+            Assert.Equal("H2", heading.TagName);
+            Assert.Null(heading.GetAttribute("class"));
+            Assert.Equal("ai-assistant-title", heading.GetAttribute("id"));
+
+            // The settings link is a direct child, as it was before the swap.
+            Assert.Equal("A", header.Children[1].TagName);
+            Assert.Equal("ai-panel__settings", header.Children[1].GetAttribute("class"));
+        });
+    }
+
     /// <summary>Presses the header option and waits for the band to arrive. The
     /// shell opens collapsed, so every test about a band on screen starts here —
     /// through the same affordance the reader has, rather than by reaching into
@@ -1214,7 +1365,9 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),
-            TasksCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable,
+            toasts: sp.GetRequiredService<IToastChannel>()));
+        TasksTestHost.AddToastChannel(context.Services);
 
         return new Harness(root, context);
     }

@@ -62,18 +62,27 @@
         else
         {
             <article class="domain-context" data-testid="domain-context">
-                <header class="domain-context__header">
-                    <div>
-                        <p class="domain-knowledge__eyebrow">Bounded context</p>
-                        <h3>@SelectedContext.DisplayName</h3>
-                    </div>
-                    @* The library's status badge, which composes exactly the three
-                       classes this span spelled out. FallbackSlug is the domain's own
-                       word rather than the component's "draft" default: a context with
-                       no status reads "none" everywhere else in this panel, and a badge
-                       that invented "draft" would disagree with the store. *@
-                    <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
-                </header>
+                @* The library's section header at h3, wearing this panel's own
+                   names. The heading is styled by element here, so its class hook
+                   is blank, and the badge is a direct child of the header rather
+                   than sitting in a wrapper. *@
+                <SectionHeader Level="3"
+                               BaseClass="domain-context__header"
+                               TextCssClass=""
+                               EyebrowCssClass="domain-knowledge__eyebrow"
+                               TitleCssClass=""
+                               ActionsCssClass=""
+                               Eyebrow="Bounded context"
+                               Title="@SelectedContext.DisplayName">
+                    <Actions>
+                        @* The library's status badge, which composes exactly the three
+                           classes this span spelled out. FallbackSlug is the domain's own
+                           word rather than the component's "draft" default: a context with
+                           no status reads "none" everywhere else in this panel, and a badge
+                           that invented "draft" would disagree with the store. *@
+                        <StatusBadge Kind="domain-status" Status="@SelectedContext.Status" FallbackSlug="none" />
+                    </Actions>
+                </SectionHeader>
 
                 <div class="domain-context__documents">
                     @foreach (var document in SelectedContext.Documents)

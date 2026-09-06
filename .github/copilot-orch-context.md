@@ -45,11 +45,18 @@ Use `--isolated` for Copilot worktrees and any other parallel local session so A
 assigns independent resource ports and user-secrets state per run. For a single human-run
 foreground session, `aspire run` from the repository root is also acceptable.
 
-Or without the Aspire CLI for a single local session:
+Or, for a single local session, without invoking the Aspire CLI yourself:
 
 ```powershell
 dotnet run --project src/Aspire/Backlog.Aspire.AppHost
 ```
+
+The AppHost sets `AspireUseCliBundle=true`, so this is no longer a no-CLI path: `dotnet run`
+acquires the Aspire CLI pinned to the AppHost SDK version through dnx and delegates to
+`aspire run`. The first run on a machine downloads it, so allow for that before reading the
+absence of dashboard output as a failed startup. It still needs no CLI to be installed, and
+it still gets the matching version rather than whatever is on PATH — but it does need network
+access the first time.
 
 Build and test:
 
@@ -59,9 +66,39 @@ dotnet test Backlog.sln
 ```
 
 Only `sync`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, and
-`ui-storybook` start automatically. The `desktop`, `mobile-android`, `ide-vscode-build`, and
-`ide-vscode-host` resources are registered with `WithExplicitStart()` and must be started
-deliberately from the dashboard — do not treat them as failed startups when they sit idle.
+`ui-storybook` start automatically. The `desktop`, `mobile-android`,
+`mobile-maui-android-emulator`, `mobile-tunnel`, `ide-vscode-build`, and
+`ide-vscode-host` resources are registered with
+`WithExplicitStart()` and must be started deliberately from the dashboard — do not treat
+them as failed startups when they sit idle. Each of them needs something this machine may
+not have: a desktop window, an Android emulator, the `devtunnel` CLI and an account,
+`npm`, or `code`.
+
+Start `mobile-tunnel` before `mobile-maui-android-emulator` — that emulator resource is the
+child `AddAndroidEmulator()` adds under the `mobile-maui` parent, and the parent itself is a
+container with nothing to start. The tunnel publishes `sync`'s HTTP endpoint so
+the emulator can reach it off its own loopback, and the head is held until the tunnel's
+endpoint is allocated — started on its own it waits rather than fails.
+
+`foundry-local` is not in either list, because it is not on every machine. Foundry Local
+launches the `foundry` CLI as the app model comes up rather than when the resource is
+started, so `WithExplicitStart()` cannot hold it back — registering it unconditionally on a
+machine without the CLI was measured leaving a `FailedToStart` resource with no start
+command for the whole run, while everything else came up healthy around it. The AppHost
+therefore registers it **only when `foundry` is on PATH**, and where it is registered it
+starts with the app model rather than on demand. Its **absence** from the dashboard is
+expected on a machine without the CLI, not a missing resource. The same conditional wiring
+applies to the Android head's OTLP tunnel: it resolves the dashboard OTLP port while the
+app model is built, and this repository binds every endpoint to `localhost:0`, so it is
+wired only when a run pins that port.
+
+`desktop-web-harness` carries a **Reset local data** resource command. Never run it as part
+of a QA flow unless the task asked for it: every git worktree of this repository shares one
+per-user `Backlog.Debug` workspace, so it wipes the task database and workspace settings of
+every session on the machine, not only this one. The confirmation names the folder it would
+delete from rather than assuming that one: the settings screen can point the workspace at
+any rooted path, and the command refuses rather than deleting if it has moved since the
+AppHost started.
 
 ## Base URLs
 
@@ -110,9 +147,9 @@ orchestration dashboard.
 
 ## Healthy Startup
 
-Startup is healthy when the Aspire dashboard is reachable and `sync`,
-`desktop-web-harness`, `mobile-web-harness`, and `ui-storybook` all reach **Running**. The
-four `WithExplicitStart()` resources staying `NotStarted` is expected, not a failure.
+Startup is healthy when the Aspire dashboard is reachable and `sync`, `azure-foundry-test`,
+`desktop-web-harness`, `mobile-web-harness`, and `ui-storybook` all reach **Running**. Every
+`WithExplicitStart()` resource listed above staying `NotStarted` is expected, not a failure.
 
 `mobile-web-harness` has a `WaitFor(sync)` dependency, so it starts after `sync` becomes
 healthy — a brief wait there is normal. `ui-storybook` waits for nothing, because it
@@ -146,6 +183,25 @@ Two standing exceptions:
   qualify: `src/Core/Backlog.UI.Components` is the shared control library every screen
   renders, so a change there takes the full `playwright-qa` depth against
   `ui-storybook` and `desktop-web-harness`.
+
+### Dashboard telemetry filtering
+
+Aspire 13.5.2 added telemetry filtering to the dashboard, and the `plugin_qa_aspire` MCP
+tools reach the same filtered slice: `list_structured_logs`, `list_traces` and
+`list_console_logs` each take a `resourceName` to limit the answer to one resource and a
+`search` string that is matched server-side across log text, span names, attribute values,
+sources and IDs.
+
+Ask for the slice rather than the stream. A log monitor — `qa:aspire-log-monitor`, or the
+`qa-monitor` agent it delegates to — should pass `resourceName` and `search` on every call
+instead of pulling every line of every resource and filtering the result itself. Pulling
+everything is what fills a session with output nobody reads, and it makes the monitor slower
+to notice the one error it was watching for. The dashboard's own filters are the human-facing
+half of the same thing: when a run is being watched by a person, filter there rather than
+pasting log dumps into the conversation.
+
+This is a QA-side change only. Nothing in the app model configures it, and no code in this
+repository had to change for it.
 
 
 ## Orchestration Skill Sources

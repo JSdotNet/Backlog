@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".domain/tasks/domain.md#task"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/07-deployment-view.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".domain/tasks/domain.md#task"]
 issue: null
 ```
 
@@ -98,13 +98,22 @@ the same.
 `Backlog.Infrastructure.FileSystem`. Infrastructure projects in this solution are
 named for the technology they wrap, and the file-system project describes itself as
 "markdown + JSON on local disk". It keeps the adapters that really are files: the
-workspace settings, the feature flags, the knowledge folder resolver, and Roadmap
-Planning's stored plan document.
+workspace settings, the feature flags, and the knowledge folder resolver.
 
 This decision is about the task store specifically, and not a claim that a database
-is the right home for everything. Roadmap Planning's plan arrived as JSON on disk in
-the same period and stays there: it is one document per workspace, read and written
-whole, with none of the per-item indexing that made markdown-per-task expensive.
+is the right home for everything.
+
+**The roadmap plan is no longer the example this record used to give.** It arrived as
+JSON on disk in the same period, and this record said it stayed there: one document
+per workspace, read and written whole, with none of the per-item indexing that made
+markdown-per-task expensive. All of that is still true of the *document*, and none of
+it was ever the reason it stayed a *file*. What moved it, on 2026-09-05, was the
+hazard local ADR 0005 records: a single file under a root somebody may have pointed
+at a synced folder is a file a sync product will conflict, and the plan would
+otherwise have needed a second sync protocol of its own. It is one document row in
+`backlog.db` now — its own `roadmap_plan` table, owned by Roadmap Planning, sharing
+the file with `tasks` and not the schema. The reasoning above survives; the example
+does not.
 
 ### No migration
 

@@ -33,6 +33,28 @@ Editing hands the same string to the editor that the parser was reading, so a bo
         <p class="sb-state" data-testid="markdown-document-flush">@DocumentFlushState</p>
     </Story>
 
+    <Story Name="Reading a knowledge chapter"
+           Description="`RenderKnowledgeMetadata` says the body is a chapter of a knowledge folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
+
+`KnowledgeFolder` is what turns the status from a word into a value out of that folder's list, so the pill becomes a picker — and a picker is only worth offering if somebody is listening, which is `OnKnowledgeStatusChanged`. Pick one: the fence under the heading is rewritten below, because writing it is the host's and never this component's. `KnowledgeHrefFor` resolves a reference to an address, which is what makes `related` a link rather than a button the host has to handle.
+
+All four are read-mode only. Press **Edit**: the author of a chapter is looking at the fence itself, and the record has nothing to be folded into."
+           Code="@ChapterCode"
+           Source="@_chapterSource"
+           SourceLabel="Value">
+        <div class="sb-surface" data-testid="markdown-document-knowledge">
+            <MarkdownDocument @bind-Value="_chapterSource"
+                              @bind-Editing="_chapterEditing"
+                              RenderKnowledgeMetadata="true"
+                              KnowledgeFolder="KnowledgeFolder.Tech"
+                              OnKnowledgeStatusChanged="HearChapterStatus"
+                              KnowledgeHrefFor="@ChapterHref"
+                              Title="shared.md"
+                              TestId="chapter" />
+        </div>
+        <p class="sb-state" data-testid="markdown-document-chapter-status">@ChapterStatusState</p>
+    </Story>
+
     <Story Name="Copying the source out of a read view"
            Description="`AllowCopy` puts a copy button on a read view, and `Source` is what it copies — the markdown, not the rendering. Pass both: the view renders from `Blocks` and has no way back to the text otherwise.
 
@@ -130,6 +152,46 @@ Editing works the same either way: a fresh remark opens straight into a box with
 
         Press **Edit** to change it, and **Done** to read it again.
         """;
+
+    private string _chapterSource = """
+        # Shared Technologies
+
+        ```meta
+        status: adopted
+        related: [".tech/technology-graph.md"]
+        ```
+
+        The fence above is this chapter's record, and the pill beside the heading
+        is the status out of it. Press **Edit** to see the four lines it was
+        written as.
+        """;
+
+    private bool _chapterEditing;
+    private string? _chapterStatus;
+
+    /// <summary>A real host maps a reference to whatever route it serves the
+    /// chapter on. The storybook serves no knowledge folder, so it points at the
+    /// page that does show how the mapping is written.</summary>
+    private static string? ChapterHref(KnowledgeReference reference) => "/markdown/references";
+
+    /// <summary>What a host does with a pick: write it. This chapter is one
+    /// chapter, so writing it is the one <c>status:</c> line in its fence — a real
+    /// host writes the file the chapter was read from, and owns what happens when
+    /// that file has moved on since.</summary>
+    private void HearChapterStatus(KnowledgeStatusChange change)
+    {
+        var lines = _chapterSource.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var status = Array.FindIndex(lines, line => line.StartsWith("status:", StringComparison.Ordinal));
+        if (status < 0) return;
+
+        lines[status] = $"status: {change.Status}";
+        _chapterSource = string.Join('\n', lines);
+        _chapterStatus = change.Heading;
+    }
+
+    private string ChapterStatusState => _chapterStatus is null
+        ? "no status picked yet"
+        : $"“{_chapterStatus}” written back to its fence";
 
     private bool _editing;
     private int _documentFlushes;
@@ -230,6 +292,27 @@ Editing works the same either way: a fresh remark opens straight into a box with
             // Blur is a save, not an exit. The toolbar is outside the textarea, so
             // reaching for bold blurs it and the editor has to still be there.
             private void Flush() => Save(_source);
+        }
+        """;
+
+    private const string ChapterCode = """
+        @* The knowledge signals a chapter needs, handed to the same component
+           every other body is read through. Read mode only — the editor is the
+           fence as it was written. *@
+        <MarkdownDocument @bind-Value="_chapter"
+                          RenderKnowledgeMetadata="true"
+                          KnowledgeFolder="KnowledgeFolder.Tech"
+                          OnKnowledgeStatusChanged="Write"
+                          KnowledgeHrefFor="@Route"
+                          Title="shared.md" />
+
+        @code {
+            // The host owns the mapping, because only it knows what it serves.
+            private string? Route(KnowledgeReference reference) => $"/knowledge/{reference.Path}";
+
+            // And it owns the writing: the change names the chapter and the block
+            // it came from, and nothing in the component touches the text.
+            private Task Write(KnowledgeStatusChange change) => _chapters.SetStatusAsync(change);
         }
         """;
 

@@ -14,6 +14,7 @@ using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
@@ -23,6 +24,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -72,11 +74,11 @@ public static class MauiProgram
         builder.Services.AddTasksModule();
 
         // The same arrangement for the plan: the Roadmap module brings its use
-        // cases, and the host picks the adapter. One JSON document under the same
-        // storage root, following the same folder, so moving the storage folder
-        // moves the plan with the backlog rather than leaving it behind.
+        // cases, and the host picks the adapter. One document row in the same
+        // database the tasks use, following the same folder, so moving the storage
+        // folder moves the plan with the backlog rather than leaving it behind.
         builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
-            new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+            new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
@@ -98,7 +100,20 @@ public static class MauiProgram
             workspace.RootChanged += store.Reload;
             return store;
         });
-        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+        // Which credential a call leaves with is decided per call, against the
+        // settings as they are at that moment: a repository bound to an account goes
+        // out as that account, and never as whoever `gh` happens to be switched to.
+        // The gh CLI is a source of credentials here as well as a way of sending, so
+        // the account source is registered once and shared — its token cache and its
+        // account list are the things "Check the connection" invalidates.
+        builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+        builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<IGhCliAccountSource>()));
+        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+            accounts: sp.GetRequiredService<IGhCliAccountSource>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.
@@ -141,7 +156,7 @@ public static class MauiProgram
         // AddTasksModule() above because it reads the GitHub settings store and
         // that is only configured by this point. It is what lets an imported plan
         // resolve a `repo:` name against the repositories somebody has configured
-        // — and register one it names that nobody has, per ADR 0004.
+        // — and register one it names that nobody has, per ADR 0007.
         builder.Services.AddTasksAdapters();
 
         builder.Services.AddSingleton<GitHubIntegration>();
@@ -162,6 +177,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<KnowledgeUpdateService>();
         builder.Services.AddSingleton<TasksDesktopState>();
+        // The band under every route reads the backlog's save state through the
+        // library's own interface rather than reaching for the state class, so the
+        // shell's footer never learns which module is the interesting one. Same
+        // lifetime as the state itself: in MAUI there is one window and one user.
+        builder.Services.AddSingleton<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+        // Where a screen puts a message it needs a reader to see, and where the
+        // tray in MainLayout reads it back. Registered as the concrete type with
+        // the interface forwarded to it so both sides resolve the same queue.
+        builder.Services.AddSingleton<ToastChannel>();
+        builder.Services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();

@@ -61,9 +61,21 @@
     else
     {
         <div class="markdown-document__read" data-testid="@Suffix("read")">
+            @* Source alongside the blocks, and not for a copy button — this
+               component's own bar carries that one. It is what lets a status
+               change name the chapter it came from: a knowledge panel addresses a
+               chapter by the anchor it derived from the heading, and there is no
+               way back to one from a block index. Nothing about the rendering
+               changes. *@
             <MarkdownView Blocks="@_blocks"
+                          Source="@_blockSource"
+                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
+                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                          KnowledgeFolder="@KnowledgeFolder"
                           KnowledgeDocumentPath="@KnowledgeDocumentPath"
+                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
                           OnKnowledgeNavigate="@OnKnowledgeNavigate"
+                          KnowledgeHrefFor="@KnowledgeHrefFor"
                           Comments="@Comments"
                           OnAddComment="OnAddComment"
                           OnResolveComment="OnResolveComment"
@@ -74,6 +86,13 @@
 
 @code {
     private IReadOnlyList<MdBlock> _blocks = [];
+
+    /// <summary>The exact text <see cref="_blocks"/> were parsed from, which is
+    /// <see cref="Value"/> less the frontmatter wherever that was left out. The
+    /// read view is handed this and not Value: the two differ by the block the
+    /// blocks do not contain, and the chapters are matched against the headings
+    /// being rendered.</summary>
+    private string? _blockSource;
     private string? _parsed;
     private bool _parsedWithoutFrontmatter;
     private bool _hasParsed;
@@ -190,6 +209,39 @@
     [Parameter]
     public EventCallback<string> OnDeleteComment { get; set; }
 
+    /// <summary>Whether a fenced <c>meta</c> block is read as the knowledge record
+    /// it is, forwarded to the read view so a chapter's status is drawn beside its
+    /// heading instead of as the four lines of YAML that say it.
+    ///
+    /// <para>It travels through here for the same reason
+    /// <see cref="KnowledgeDocumentPath"/> does: this is the read view of every
+    /// knowledge chapter an area lets a reader write, and a chapter that opens
+    /// with a record was showing that record as a code fence. Off by default —
+    /// most markdown in this product is an entry body, where a <c>meta</c> fence
+    /// is only a fenced block.</para>
+    ///
+    /// <para>Read mode only, like the comments: the author of a chapter is looking
+    /// at the fence itself, and the blocks a record is folded into do not exist in
+    /// the editor.</para></summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadata { get; set; }
+
+    /// <summary>Whether a record draws everything under the status as well.
+    /// Forwarded verbatim to the read view, which explains what a host with
+    /// somewhere better to put those rows gains by turning them off. On by
+    /// default, so a host that asks for records and says nothing else gets all of
+    /// them.</summary>
+    [Parameter]
+    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Which knowledge folder the text was read from, forwarded so a
+    /// status can be checked against that folder's vocabulary — which is what
+    /// turns it from a word into a value a reader can pick from a list. Unset,
+    /// the read view is folder-blind and draws the word, which is right for every
+    /// body that is not a chapter of a knowledge folder.</summary>
+    [Parameter]
+    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+
     /// <summary>The repository-relative path of the knowledge document this text
     /// came from, forwarded to the read view so a relative link in it resolves to
     /// the chapter it names instead of to the reader's browser.
@@ -202,10 +254,27 @@
     [Parameter]
     public string? KnowledgeDocumentPath { get; set; }
 
+    /// <summary>Raised when a reader picked a different status beside a chapter's
+    /// heading. It travels with <see cref="KnowledgeFolder"/> and not apart from
+    /// it: naming the folder is what turns the status pill into a list to pick
+    /// from, so a host that names one and does not listen offers a choice this
+    /// component then drops. Nothing here writes it — which file, which fence, and
+    /// what happens when the file has moved on stays the host's.</summary>
+    [Parameter]
+    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+
     /// <summary>Raised with the reference a reader followed out of the read view.
     /// Only the host knows what "go there" means, so nothing here moves.</summary>
     [Parameter]
     public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+
+    /// <summary>Resolves a reference in a record to a link target, forwarded so a
+    /// host that can address a chapter by URL gets a real link rather than a
+    /// button it has to handle. Unset — and it is unset wherever there is no such
+    /// address — the reference stays what <see cref="OnKnowledgeNavigate"/> makes
+    /// it.</summary>
+    [Parameter]
+    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -249,7 +318,8 @@
         //
         // The blocks are the only thing the frontmatter is ever taken out of, so
         // it is taken out here: Value goes to the editor as it is.
-        _blocks = MarkdownPreview.ParseDocument(HideFrontmatter ? MarkdownFrontmatter.Read(Value).Body : Value);
+        _blockSource = HideFrontmatter ? MarkdownFrontmatter.Read(Value).Body : Value;
+        _blocks = MarkdownPreview.ParseDocument(_blockSource);
         _parsed = Value;
         _parsedWithoutFrontmatter = HideFrontmatter;
         _hasParsed = true;

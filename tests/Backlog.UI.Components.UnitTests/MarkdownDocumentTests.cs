@@ -33,6 +33,20 @@ public sealed class MarkdownDocumentTests
         A paragraph.
         """;
 
+    /// <summary>A knowledge chapter, which is a heading with the record that
+    /// describes it written directly underneath — the convention every knowledge
+    /// folder writes its chapters in.</summary>
+    private const string Chapter = """
+        # Shared Technologies
+
+        ```meta
+        status: adopted
+        related: [".tech/technology-graph.md"]
+        ```
+
+        Prose after the block.
+        """;
+
     [Fact]
     public void Leaving_the_text_asks_the_host_to_save()
     {
@@ -351,6 +365,173 @@ public sealed class MarkdownDocumentTests
             .Add(d => d.CanEdit, true));
 
         Assert.Single(editable.FindAll(".markdown-document__bar"));
+    }
+
+    [Fact]
+    public void A_host_that_asks_for_it_gets_the_chapters_record_and_not_its_fence()
+    {
+        // The read view has always known how to draw a `meta` fence as the record
+        // it is. What a host composing this component had no way to say was that
+        // the body is a knowledge chapter, so the record arrived as a code block.
+        using var context = new BunitContext();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true));
+
+        Assert.NotNull(view.Find("dl.knowledge-fields"));
+        Assert.Equal("Shared Technologies", view.Find(".knowledge-record__headline p.md-heading").TextContent);
+        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.Empty(view.FindAll("pre.md-code"));
+    }
+
+    [Fact]
+    public void The_folder_a_host_names_reaches_the_status()
+    {
+        // Naming the folder is what turns the status from a word into a value out
+        // of that folder's list. What is pinned here is only the plumbing: the
+        // folder handed to this component arrives at the record.
+        using var context = new BunitContext();
+
+        var known = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech));
+
+        var select = known.Find(".knowledge-record__headline .status-editor select");
+
+        Assert.Equal("adopted", select.GetAttribute("value"));
+        Assert.Equal(
+            ["candidate", "trial", "adopted", "hold", "retired"],
+            select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
+
+        // Folder-blind is still the default, and a status with no vocabulary
+        // behind it is a word rather than a choice.
+        var blind = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true));
+
+        Assert.Empty(blind.FindAll("select"));
+        Assert.Equal("badge badge--status", blind.Find(".badge--status").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void A_status_a_reader_picks_reaches_the_host()
+    {
+        // Naming the folder is what puts a picker beside the heading, so the
+        // callback that carries the pick has to travel with it. Without it the
+        // reader is offered a choice this component then drops on the floor.
+        using var context = new BunitContext();
+        var changes = new List<KnowledgeStatusChange>();
+        var written = new List<string>();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
+            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
+            .Add(d => d.ValueChanged, EventCallback.Factory.Create<string>(this, written.Add)));
+
+        view.Find(".knowledge-record__headline .status-editor select").Change("retired");
+
+        var change = Assert.Single(changes);
+
+        Assert.Equal("retired", change.Status);
+
+        // Both keys travel because neither is enough on its own: the heading is
+        // what a host knows the chapter as, and the block index is what the view
+        // anchors by — the title's index, not the fence's.
+        Assert.Equal("Shared Technologies", change.Heading);
+        Assert.Equal(0, change.BlockIndex);
+
+        // Nothing here writes it: the text this component was handed is the text
+        // it still holds, and which file and which fence stay the host's.
+        Assert.Empty(written);
+        Assert.Equal(Chapter, view.Instance.Value);
+    }
+
+    [Fact]
+    public void A_href_resolver_reaches_the_records_references()
+    {
+        using var context = new BunitContext();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.KnowledgeHrefFor, reference => $"/knowledge/{reference.Path}"));
+
+        Assert.Equal("/knowledge/.tech/technology-graph.md", view.Find("a.knowledge-ref--link").GetAttribute("href"));
+    }
+
+    [Fact]
+    public void A_host_can_take_the_field_list_off_without_losing_the_status()
+    {
+        using var context = new BunitContext();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.RenderKnowledgeMetadataFields, false));
+
+        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+
+        // Suppressing the rows is not the same as declining to read the block:
+        // the fence does not come back as a code block underneath.
+        Assert.Empty(view.FindAll("pre.md-code"));
+    }
+
+    [Fact]
+    public void The_editor_draws_no_record_however_knowledgeable_the_host_is()
+    {
+        // Read mode only, for the reason the comments have: the blocks a record
+        // is anchored to do not exist while the text is a textarea, and the
+        // author is looking at the fence itself.
+        using var context = new BunitContext();
+        var changes = new List<KnowledgeStatusChange>();
+
+        var view = RenderChapter(context, parameters => parameters
+            .Add(d => d.RenderKnowledgeMetadata, true)
+            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
+            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
+            .Add(d => d.Editing, true));
+
+        Assert.Single(view.FindAll("textarea"));
+        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+
+        // No record means no picker, so there is nothing here to raise a status
+        // change with — the guard covers the callback as much as the rest.
+        Assert.Empty(view.FindAll(".status-editor select"));
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void A_host_that_asks_for_none_of_it_renders_what_it_always_did()
+    {
+        // Every caller that predates the parameters — an entry body, a checklist,
+        // an instruction file — hands none of the four, and a `meta` fence in one
+        // of those is a fenced block and nothing more.
+        using var context = new BunitContext();
+
+        var view = RenderChapter(context);
+
+        Assert.Contains("status: adopted", view.Find("pre.md-code code").TextContent, StringComparison.Ordinal);
+        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll(".knowledge-record"));
+    }
+
+    /// <summary>The same document, holding a knowledge chapter. Its own renderer
+    /// for the reason the frontmattered one has: the shared one below has already
+    /// named the text it hands over.</summary>
+    private static IRenderedComponent<MarkdownDocument> RenderChapter(
+        BunitContext context,
+        Action<ComponentParameterCollectionBuilder<MarkdownDocument>>? extra = null)
+    {
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        return context.Render<MarkdownDocument>(parameters =>
+        {
+            parameters
+                .Add(d => d.Value, Chapter)
+                .Add(d => d.TestId, "doc");
+
+            extra?.Invoke(parameters);
+        });
     }
 
     /// <summary>The same document, holding a file that opens with a frontmatter

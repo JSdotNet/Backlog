@@ -2480,13 +2480,27 @@ public sealed class TaskListTests
         Assert.DoesNotContain("task-item--selected", row.ClassList);
     }
 
-    /// <summary>The gutter appears on hover and on focus, which CSS can do on its
-    /// own — but once anything is selected it has to stay put, because a column
-    /// of boxes that came and went under the pointer would leave the reader
-    /// unable to see what they had already picked. That is a fact about the list
-    /// rather than about the row, so the list says it and the row wears it.</summary>
+    /// <summary>
+    /// Every row of a list that asked for selection carries a box, whether or not
+    /// anything is picked yet.
+    /// <para>
+    /// This used to be a weaker claim, and the weakness was the point of it: the
+    /// gutter was drawn on every selectable row and revealed by hover and by
+    /// focus, so what the list had to promise was only that the boxes stopped
+    /// coming and going <em>once something was selected</em>. That premise is
+    /// gone. <see cref="TaskListView.SelectionEnabled"/> is the mode — a host
+    /// turns it on when a reader asks to pick rows and off again when they are
+    /// done — so a rendered gutter is already a gutter somebody asked for, and
+    /// revealing it a second time on hover would say nothing.
+    /// </para>
+    /// <para>
+    /// Asserted on the box rather than on a class, because the visibility is no
+    /// longer a state the stylesheet holds: a box either exists on the row or it
+    /// does not.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void While_a_selection_is_live_every_gutter_stays_on_screen()
+    public void Every_row_of_a_list_in_selection_mode_carries_a_box()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -2500,8 +2514,26 @@ public sealed class TaskListTests
 
         foreach (var id in new[] { "a", "b", "c" })
         {
-            Assert.Contains("task-item--selecting", view.Find($"[data-testid='list-{id}']").ClassList);
+            Assert.Single(view.FindAll($"[data-testid='list-{id}-select']"));
+            Assert.Single(view.FindAll($"[data-testid='list-{id}'] .task-item__gutter"));
         }
+    }
+
+    /// <summary>And no row carries one with the mode off, which is the other half
+    /// of the same fact: the list is the only thing that decides whether this
+    /// column of boxes exists.</summary>
+    [Fact]
+    public void With_the_mode_off_no_row_carries_a_box()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.SelectedIdsChanged, (IReadOnlyCollection<string> _) => { })
+            .Add(l => l.TestId, "list"));
+
+        Assert.Empty(view.FindAll(".task-item__gutter"));
     }
 
     [Fact]

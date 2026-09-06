@@ -17,11 +17,13 @@ using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.UI.Components.Diagrams;
+using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
@@ -60,10 +62,10 @@ builder.Services.AddSingleton<ITaskRepository>(sp =>
 builder.Services.AddTasksModule();
 
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
-// the host picks the adapter. One JSON document under the same storage root,
+// the host picks the adapter. One document row in the same database the tasks use,
 // following the same folder.
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
-    new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+    new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
@@ -83,7 +85,17 @@ builder.Services.AddSingleton(sp =>
     workspace.RootChanged += store.Reload;
     return store;
 });
-builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+// The same arrangement the desktop host makes: the credential a call leaves with
+// is decided per call, so a repository bound to an account goes out as that
+// account rather than as whoever `gh` happens to be switched to.
+builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    sp.GetRequiredService<IGhCliAccountSource>()));
+builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+    accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
@@ -123,7 +135,7 @@ builder.Services.AddDashboardAdapters();
 // AddTasksModule() above because it reads the GitHub settings store and that is
 // only configured by this point. It is what lets an imported plan resolve a
 // `repo:` name against the repositories somebody has configured — and register one
-// it names that nobody has, per ADR 0004.
+// it names that nobody has, per ADR 0007.
 builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();
@@ -156,6 +168,14 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The save-state band and the toast tray, both mounted by MainLayout under every
+// route. Scoped rather than singleton, and that is forced rather than tidy: this
+// host has one circuit per visitor, a singleton forwarding to a scoped
+// TasksDesktopState is a captive dependency that throws on resolve, and a
+// singleton channel would show one visitor's toasts to every other.
+builder.Services.AddScoped<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+builder.Services.AddScoped<ToastChannel>();
+builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always

@@ -47,13 +47,20 @@
            aria-labelledby="feedback-title"
            aria-describedby="feedback-description">
         <Header>
-            <header class="feedback-dialog__header">
-                <div>
-                    <p class="feedback-dialog__eyebrow">GitHub feedback</p>
-                    <h2 id="feedback-title">Report an issue</h2>
-                </div>
-                <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
-            </header>
+            @* The library's section header, dressed as this dialog — the same
+               arrangement the update dialog uses, so the two keep one shape. *@
+            <SectionHeader BaseClass="feedback-dialog__header"
+                           TextCssClass=""
+                           EyebrowCssClass="feedback-dialog__eyebrow"
+                           TitleCssClass=""
+                           ActionsCssClass=""
+                           Eyebrow="GitHub feedback"
+                           TitleId="feedback-title"
+                           Title="Report an issue">
+                <Actions>
+                    <IconButton AriaLabel="Close feedback dialog" CssClass="btn--ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">x</IconButton>
+                </Actions>
+            </SectionHeader>
         </Header>
         <ChildContent>
             <p id="feedback-description" class="feedback-dialog__description">Send a Desktop app issue to JSdotNet/Backlog. Attach a screenshot if it helps show what's wrong.</p>

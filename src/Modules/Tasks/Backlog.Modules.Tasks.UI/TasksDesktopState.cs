@@ -8,19 +8,31 @@ using Backlog.SharedKernel.Results;
 using System.Globalization;
 
 using Backlog.UI.Components.Badges;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// Global, always-visible persistence state for the quick-edit list, per the
-/// save-state indicator vocabulary in
+/// Persistence state for the quick-edit list, per the save-state indicator
+/// vocabulary in
 /// <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c>.
 /// Offline/Conflict states are out of scope here because this desktop slice
 /// talks to a single local file store with no sync layer yet.
 /// </summary>
 public enum AppSaveState
 {
+    /// <summary>Nothing in flight and nothing recently landed, so the band stays
+    /// quiet rather than reporting a save nobody asked about.
+    /// <para>
+    /// It exists because the indicator moved. While it sat in Home's header it was
+    /// only ever on screen beside the list it was talking about, and a latched
+    /// "Saved" cost nothing. It is the app shell's footer now — every route,
+    /// including Settings — and <c>Saved</c> "MUST NOT nag" is the vocabulary
+    /// chapter's own wording for exactly that: a band asserting something about a
+    /// screen the reader is not on.
+    /// </para></summary>
+    Idle,
     Saved,
     Saving,
     Error
@@ -45,13 +57,27 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable
+public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 {
     private const int DebounceMilliseconds = 750;
 
     /// <summary>How long the tick beside a just-saved row stays up. See
     /// <see cref="FlashSaved"/>.</summary>
     private const int FlashMilliseconds = 900;
+
+    /// <summary>How long "Saved" stays up before the band goes quiet again.
+    /// Longer than the row flash on purpose: that one confirms a row the reader is
+    /// already looking at, this one is a window-wide band they may only glance at a
+    /// second later. See <see cref="ScheduleSaveStateSettle"/>.</summary>
+    private const int SavedDwellMilliseconds = 2000;
+
+    /// <summary>The ids the two integration failures used to carry as inline
+    /// alerts, and still do — the toast takes the same one so a selector written
+    /// against either surface finds the message. See
+    /// <see cref="AnnounceRowFailure"/>.</summary>
+    private const string GitHubFailureTestId = "github-error";
+
+    private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
     private readonly ITaskItems _entryUseCases;
@@ -60,6 +86,13 @@ public sealed class TasksDesktopState : IDisposable
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
     private readonly ITasksRefreshSettings? _refreshSettings;
+
+    /// <summary>Where a failure the reader may not be looking at is announced, or
+    /// null in a host that mounts no tray. Absent rather than silent-by-default,
+    /// the same idiom as <see cref="_refreshSettings"/>: a host that wires no
+    /// channel has said nothing about notifications, and a list that invented one
+    /// would be deciding for it.</summary>
+    private readonly IToastChannel? _toasts;
 
     /// <summary>The last saved state of each persisted row, as the module
     /// describes it. Held so a badge or a GitHub link can be read without
@@ -119,13 +152,18 @@ public sealed class TasksDesktopState : IDisposable
     /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
     private bool _disposed;
 
+    /// <summary>The wait after which a "Saved" band goes quiet, or null when
+    /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
+    private CancellationTokenSource? _saveStateSettle;
+
     public TasksDesktopState(
         ITaskStore store,
         ITaskItems entryUseCases,
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null)
+        ITasksRefreshSettings? refreshSettings = null,
+        IToastChannel? toasts = null)
     {
         _store = store;
         _entryUseCases = entryUseCases;
@@ -135,6 +173,7 @@ public sealed class TasksDesktopState : IDisposable
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
         _untilDisposed = _lifetime.Token;
         _refreshSettings = refreshSettings;
+        _toasts = toasts;
         _store.RootChanged += OnRootChanged;
 
         // Absent rather than off: a host that wires no refresh settings has said
@@ -152,14 +191,24 @@ public sealed class TasksDesktopState : IDisposable
     /// callback (a debounce timer) so the component can re-render.</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// The statuses the strip offers, which is not every status the backlog has.
+    /// <para>
+    /// Done and Archived are deliberately absent. Both are questions about work
+    /// that is over, and a backlog is scanned for what is still open — so the two
+    /// chips that were pressed least were also the two the strip could least
+    /// afford, because the group's width is what squeezes the tag pile beside it.
+    /// Neither status is unreachable: "All" still lists them, and
+    /// <see cref="SetStatusFilter"/> still takes their wire values for anything
+    /// that names one directly.
+    /// </para>
+    /// </summary>
     public List<StatusFilterOption> StatusFilters { get; } =
     [
         new("All", string.Empty),
         new("Draft", "draft"),
         new("Ready", "ready"),
-        new("In progress", "in_progress"),
-        new("Done", "done"),
-        new("Archived", "archived")
+        new("In progress", "in_progress")
     ];
 
     public List<EntryRow> Rows { get; private set; } = [];
@@ -298,7 +347,30 @@ public sealed class TasksDesktopState : IDisposable
             ? $"repo-mark repo-mark--{colour}"
             : null;
 
-    public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
+    /// <summary>What the save-state band is currently saying. Starts quiet: a
+    /// backlog that has just been opened has nothing to report, and asserting
+    /// "Saved" over a list nobody has touched is a claim about a write that never
+    /// happened.</summary>
+    public AppSaveState SaveState { get; private set; } = AppSaveState.Idle;
+
+    /// <summary>
+    /// The same fact in the indicator's vocabulary, for the app shell's footer.
+    /// <para>
+    /// Explicitly implemented, because the property above and the library's
+    /// <c>SaveState</c> type share a name and only one of them can have it here.
+    /// It also says the thing worth saying about the seam: the shell reads through
+    /// <see cref="ISaveStatusSource"/>, not through this class, and the mapping
+    /// between what the store did and what an indicator draws belongs to the module
+    /// that owns the first of those.
+    /// </para>
+    /// </summary>
+    SaveState ISaveStatusSource.Current => SaveState switch
+    {
+        AppSaveState.Saving => Backlog.UI.Components.Feedback.SaveState.Saving,
+        AppSaveState.Saved => Backlog.UI.Components.Feedback.SaveState.Saved,
+        AppSaveState.Error => Backlog.UI.Components.Feedback.SaveState.Failed,
+        _ => Backlog.UI.Components.Feedback.SaveState.Idle
+    };
 
     /// <summary>The one row currently showing its raw markdown. Everything else
     /// shows the rendered document.</summary>
@@ -368,6 +440,59 @@ public sealed class TasksDesktopState : IDisposable
 
     private readonly HashSet<string> _selection = new(StringComparer.Ordinal);
 
+    private bool _selectionMode;
+
+    /// <summary>
+    /// Whether the list is offering a box on every row, because the reader asked
+    /// it to.
+    /// <para>
+    /// A mode rather than a standing feature of the list. The gutter used to be on
+    /// every row of this pane, quiet until a pointer or the keyboard reached it,
+    /// which put a checkbox within reach of every row a reader hovered while
+    /// scanning — chrome in a column whose whole job is reading
+    /// (<c>.design/design-principles.md#low-chrome-content-first</c>). Turning it
+    /// on is now a decision, and while it is off the column is only the work.
+    /// </para>
+    /// <para>
+    /// Here rather than in a field on <c>TasksPane</c>, and that is not tidiness:
+    /// the Blazor <c>Router</c> remounts the pane whenever the route changes, so a
+    /// reader who opened Settings and came back would find the mode off, the
+    /// selection gone and no explanation for either. The selection beside it is
+    /// held here for the same reason.
+    /// </para>
+    /// <para>
+    /// The two are one state and not two, and it is enforced in both directions
+    /// rather than only documented. Leaving the mode empties the selection (see
+    /// <see cref="SetSelectionMode"/>), because a set of picked rows with no boxes
+    /// on screen is a set the reader can neither see nor change; and a selection
+    /// arriving turns the mode on (see <see cref="SetSelection"/> and
+    /// <see cref="SetSelectAllVisible"/>), because the only thing that can pick a
+    /// row is a box, so a non-empty selection with the mode off is a state no
+    /// gesture produces and one the bar would draw over a column with nothing
+    /// ticked in it.
+    /// </para>
+    /// <para>
+    /// The other way round is ordinary and stays: the mode on with nothing picked
+    /// is a reader who has asked for the boxes and not used one yet, which is what
+    /// the gutter is for.
+    /// </para>
+    /// </summary>
+    public bool SelectionMode => _selectionMode;
+
+    /// <summary>Turns the gutter on, or off and empty. Off takes the selection
+    /// with it — a picked set the reader has no boxes to inspect would still be
+    /// what the next bulk act wrote to.</summary>
+    public void SetSelectionMode(bool on)
+    {
+        if (_selectionMode == on) return;
+
+        _selectionMode = on;
+
+        if (!on) _selection.Clear();
+
+        Changed?.Invoke();
+    }
+
     /// <summary>The picked rows, as the list names them.</summary>
     public IReadOnlyCollection<string> SelectedIds => _selection;
 
@@ -418,6 +543,13 @@ public sealed class TasksDesktopState : IDisposable
             _selection.Add(id);
         }
 
+        // A row can only have been picked by a box, and the boxes are the mode.
+        // Anything that reports a selection is therefore reporting from inside it,
+        // and the flag says so rather than leaving a bar over a column with
+        // nothing ticked in it. Pruning to nothing leaves the mode alone: an empty
+        // selection is not a reason to put the gutter away.
+        if (_selection.Count > 0) _selectionMode = true;
+
         Changed?.Invoke();
     }
 
@@ -435,12 +567,31 @@ public sealed class TasksDesktopState : IDisposable
             {
                 _selection.Add(row.TaskId);
             }
+
+            // Same invariant as SetSelection: taking every row is picking rows.
+            // Giving them all back is not leaving the mode, though — the box that
+            // does this is on the bar, and unticking it is not the same act as
+            // putting the whole thing down.
+            _selectionMode = true;
         }
 
         Changed?.Invoke();
     }
 
-    public void ClearSelection() => SetSelectAllVisible(false);
+    /// <summary>Puts the whole thing down: the picked rows and the mode that drew
+    /// the boxes. The bar's own way out, and the toggle's.
+    /// <para>
+    /// Not <see cref="SetSelectAllVisible"/> with <c>false</c>, which is what it
+    /// used to be and is a different act — that one is the select-all box being
+    /// unticked, and a reader who has just untaken every row is still picking
+    /// rows. This one is the reader saying they are done.
+    /// </para></summary>
+    public void ClearSelection()
+    {
+        _selection.Clear();
+        _selectionMode = false;
+        Changed?.Invoke();
+    }
 
     /// <summary>
     /// Whether the selected entry is showing its canonical markdown rather than
@@ -507,11 +658,16 @@ public sealed class TasksDesktopState : IDisposable
     /// </summary>
     public PendingCaret PendingCaret { get; set; }
 
+    /// <summary>The band's sentence, or nothing at all when there is no band. The
+    /// Idle arm is spelled out rather than left to the default: a state that has
+    /// just been constructed has nothing to report, and inheriting "Saved" would
+    /// have it claim a write that never happened.</summary>
     public string SaveStateLabel => SaveState switch
     {
         AppSaveState.Saving => "Saving…",
         AppSaveState.Error => "Couldn't save",
-        _ => "Saved"
+        AppSaveState.Saved => "Saved",
+        _ => string.Empty
     };
 
     /// <summary>Placeholder text shown (via the native textarea placeholder,
@@ -737,7 +893,7 @@ public sealed class TasksDesktopState : IDisposable
 
     /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
-    /// turns it into backlog entries in one step. Per ADR 0004 this is a use case
+    /// turns it into backlog entries in one step. Per ADR 0007 this is a use case
     /// over the same grammar every entry already goes through, so the only thing
     /// this class adds on top of an ordinary save is showing what the import
     /// produced.
@@ -1564,6 +1720,11 @@ public sealed class TasksDesktopState : IDisposable
             _debounceTimers.Clear();
         }
 
+        // Cancelling the lifetime above already ended the wait, since the settle's
+        // token is linked to it; this only gives back the source it was waiting on.
+        _saveStateSettle?.Dispose();
+        _saveStateSettle = null;
+
         _lifetime.Dispose();
     }
 
@@ -1845,10 +2006,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
         {
             row.GitHubError = ex.Message;
+            AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
         }
         catch (Exception)
         {
             row.GitHubError = "Couldn't push to GitHub.";
+            AnnounceRowFailure(row, row.GitHubError, GitHubFailureTestId);
         }
         finally
         {
@@ -1873,9 +2036,20 @@ public sealed class TasksDesktopState : IDisposable
     // and its test went together rather than leaving an orphan on one side or a test
     // guarding a path no reader can take.
 
-    /// <summary>Re-reads one entry's issue state and the pull requests that
-    /// reference it.</summary>
-    public async Task RefreshGitHubAsync(EntryRow row)
+    /// <summary>
+    /// Re-reads one entry's issue state and the pull requests that reference it.
+    /// <para>
+    /// <paramref name="announce"/> is what stops a sweep from becoming a parade.
+    /// A reader who asked about one row is owed a toast about that row; a reader
+    /// who asked about all of them is owed one sentence about all of them, because
+    /// the thing that fails at that scale — a dead token, a dead network — fails
+    /// identically on every row and would otherwise raise one toast each, queued
+    /// eight seconds apart. See <see cref="SyncGitHubAsync"/>, which counts instead.
+    /// The inline line on the row is unaffected either way: that is the record, and
+    /// every row still gets its own.
+    /// </para>
+    /// </summary>
+    public async Task RefreshGitHubAsync(EntryRow row, bool announce = true)
     {
         if (row.IssueLink is not { } link || row.GitHubBusy) return;
 
@@ -1890,10 +2064,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
         {
             row.GitHubError = ex.Message;
+            if (announce) AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
         }
         catch (Exception)
         {
             row.GitHubError = "Couldn't read that issue from GitHub.";
+            if (announce) AnnounceRowFailure(row, row.GitHubError, GitHubFailureTestId);
         }
         finally
         {
@@ -1901,6 +2077,31 @@ public sealed class TasksDesktopState : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>
+    /// Says out loud that one row's integration failed, on top of the line the row
+    /// already carries.
+    /// <para>
+    /// Both, not one or the other, and <c>.design/interaction-guidelines.md#error-states</c>
+    /// is why: a widget that failed is a <em>Section</em>-level error and gets an
+    /// inline card within that section, while the push or the read the reader asked
+    /// for is an <em>Action</em>-level error and gets a toast. A GitHub failure is
+    /// both at once. The inline alert is the record that stays with the entry; the
+    /// toast is what reaches a reader who had already scrolled away.
+    /// </para>
+    /// <para>
+    /// It names the row because the toast is detached from it — the band is at the
+    /// bottom of the window and the entry that failed may not even be on screen,
+    /// so "Couldn't push to GitHub." on its own would be a sentence with no subject.
+    /// </para>
+    /// <para>
+    /// Called where the error is assigned rather than where it is drawn. A publish
+    /// from markup would re-raise the toast on every re-render, and this list
+    /// re-renders on every keystroke somewhere else in it.
+    /// </para>
+    /// </summary>
+    private void AnnounceRowFailure(EntryRow row, string message, string testId) =>
+        _toasts?.Publish(ToastMessage.Error($"{row.PreviewTitle}: {message}", testId));
 
     /// <summary>Refreshes every linked row. Explicit rather than automatic on
     /// load: the backlog must open instantly and offline, so nothing about it
@@ -1912,17 +2113,34 @@ public sealed class TasksDesktopState : IDisposable
         GitHubSyncing = true;
         Changed?.Invoke();
 
+        var linked = Rows.Where(r => r.IssueLink is not null).ToList();
+        var failed = 0;
+
         try
         {
-            foreach (var row in Rows.Where(r => r.IssueLink is not null).ToList())
+            foreach (var row in linked)
             {
-                await RefreshGitHubAsync(row);
+                await RefreshGitHubAsync(row, announce: false);
+                if (row.GitHubError is not null) failed++;
             }
         }
         finally
         {
             GitHubSyncing = false;
             Changed?.Invoke();
+        }
+
+        // One sentence for one gesture. The rows carry their own lines, so nothing
+        // is lost by not naming them here — and naming them here is exactly what
+        // would go wrong, because the failure that takes out a sync takes out every
+        // row at once and the reader would be reading the same message twenty times.
+        if (failed > 0)
+        {
+            var subject = failed == 1 ? "task" : "tasks";
+
+            _toasts?.Publish(ToastMessage.Error(
+                $"{failed} of {linked.Count} {subject} couldn't be read from GitHub.",
+                GitHubFailureTestId));
         }
     }
 
@@ -1947,10 +2165,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (CopilotCliException ex)
         {
             row.CopilotError = ex.Message;
+            AnnounceRowFailure(row, ex.Message, CopilotFailureTestId);
         }
         catch (Exception)
         {
             row.CopilotError = "Couldn't start GitHub Copilot CLI.";
+            AnnounceRowFailure(row, row.CopilotError, CopilotFailureTestId);
         }
         finally
         {
@@ -2222,9 +2442,91 @@ public sealed class TasksDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Moves the save-state band, and tells whoever is drawing it.
+    /// <para>
+    /// The equality guard is not tidiness. <c>Changed</c> re-renders the whole of
+    /// TasksPane, and <c>SetSaveState(Saved)</c> runs at the end of every debounce
+    /// flush — so without it a person typing would redraw the list on every flush
+    /// for a state that had not moved. It is also what
+    /// <c>.design/accessibility.md#screen-reader--announcements</c> requires:
+    /// routine Saving/Saved transitions must be throttled, and re-raising a polite
+    /// live region for a state that did not change is the flood that rule names.
+    /// </para>
+    /// <para>
+    /// What the guard must not swallow is the dwell. A save is still a save when it
+    /// lands on the state the last one left behind, so the settle is rescheduled
+    /// before the guard is consulted — see the note on the call.
+    /// </para>
+    /// </summary>
     private void SetSaveState(AppSaveState state)
     {
+        var moved = SaveState != state;
+
         SaveState = state;
+
+        // The settle is rescheduled either way, and that is the point of doing it
+        // outside the guard. Two saves that both land on Saved without a Saving
+        // between them — StartCopilotCliAsync is one such path — would otherwise
+        // leave the second confirmation inheriting the tail of the first one's
+        // dwell, so a save at 1.9s into the window would be put away 0.1s later.
+        ScheduleSaveStateSettle(state);
+
+        if (moved) Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Puts "Saved" away again after a moment, so the band the shell shows on every
+    /// route is quiet whenever nothing is happening.
+    /// <para>
+    /// Only <see cref="AppSaveState.Saved"/> settles. <c>Saving</c> ends when the
+    /// write does and needs no timer, and <c>Error</c> deliberately has none: a
+    /// failure must stay until the next successful save, because there is nowhere
+    /// else on the shell a reader could afterwards find out that the write did not
+    /// land. <c>.design/interaction-guidelines.md</c> gives an error a retry
+    /// affordance rather than a timeout.
+    /// </para>
+    /// <para>
+    /// Cancellable for <see cref="FlashSaved"/>'s reason, and linked to the same
+    /// lifetime token: the state can be disposed inside the wait, and a settle that
+    /// came back regardless would re-render a window that is gone.
+    /// </para>
+    /// </summary>
+    private void ScheduleSaveStateSettle(AppSaveState state)
+    {
+        _saveStateSettle?.Cancel();
+        _saveStateSettle?.Dispose();
+        _saveStateSettle = null;
+
+        // Nothing new after disposal. The linked source would be born cancelled and
+        // the wait would end immediately, so this is not a correctness fix — it is
+        // that a state which has been handed back should not be scheduling work, and
+        // a test run holding a thousand of them should not be paying for it either.
+        if (_disposed) return;
+
+        if (state is not AppSaveState.Saved) return;
+
+        var settle = CancellationTokenSource.CreateLinkedTokenSource(_untilDisposed);
+        _saveStateSettle = settle;
+
+        _ = SettleSaveStateAsync(settle.Token);
+    }
+
+    private async Task SettleSaveStateAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SavedDwellMilliseconds, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        // Straight to the field rather than back through SetSaveState: that would
+        // schedule a settle for the settle, and Idle has nothing to settle into.
+        SaveState = AppSaveState.Idle;
+        Changed?.Invoke();
     }
 
     private static void RefreshRowFromEntry(EntryRow row, TaskItemDto entry, bool rewriteText)

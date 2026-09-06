@@ -7,7 +7,7 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
-using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -60,10 +60,11 @@ internal static class TasksTestHost
 
     /// <summary>
     /// Roadmap Planning composed the way a host composes it: the module's own use
-    /// cases over the JSON plan document in the same storage root the backlog uses.
+    /// cases over the stored plan document, in the same <c>backlog.db</c> under the
+    /// same storage root the backlog uses.
     /// <para>
-    /// A real plan on disk rather than a stub, for the same reason the backlog gets
-    /// one — the band's whole job is to draw what was stored, and a stub that
+    /// A real plan in a real store rather than a stub, for the same reason the backlog
+    /// gets one — the band's whole job is to draw what was stored, and a stub that
     /// returns a fixture would make every test about the band pass whether the
     /// storage worked or not. A test that wants an empty plan simply does not write
     /// one.
@@ -76,7 +77,7 @@ internal static class TasksTestHost
     public static IRoadmapPlanning PlanningFor(WorkspaceSettingsStore store) =>
         new ServiceCollection()
             .AddSingleton<IRoadmapPlanRepository>(
-                new RootedJsonRoadmapPlanRepository(() => store.RootDirectory))
+                new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory))
             .AddRoadmapModule()
             .BuildServiceProvider()
             .GetRequiredService<IRoadmapPlanning>();
@@ -86,8 +87,26 @@ internal static class TasksTestHost
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null) =>
-        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings);
+        ITasksRefreshSettings? refreshSettings = null,
+        IToastChannel? toasts = null) =>
+        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings, toasts);
+
+    /// <summary>
+    /// The notification channel a screen publishes on and MainLayout's tray reads
+    /// back, registered the way an application host registers it.
+    /// <para>
+    /// Any test that renders <c>TasksPane</c> or <c>Home</c> needs it: both take a
+    /// hard <c>@inject IToastChannel</c>, because a screen that silently lost the
+    /// only feedback a reader gets is worse than one that fails to construct.
+    /// The concrete type is registered as well as the interface so a test can read
+    /// <c>Visible</c> back without casting.
+    /// </para>
+    /// </summary>
+    public static void AddToastChannel(IServiceCollection services)
+    {
+        services.AddSingleton<ToastChannel>();
+        services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
+    }
 
     /// <summary>
     /// The repository directory a test host stands in with: it knows nothing and

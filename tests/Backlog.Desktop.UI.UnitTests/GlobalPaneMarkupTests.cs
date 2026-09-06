@@ -230,8 +230,9 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// A pane and its pin are one cell of the strip, in that order: the thing being
-    /// kept, then the act of keeping it. The band is deliberately not one of them —
+    /// A pane and its pin are one cell of the strip, the rail first: it draws along
+    /// the option's top edge, so leading the cell is what keeps DOM order, reading
+    /// order and tab order the same one. The band is deliberately not one of them —
     /// it competes with nothing for width, so there is nothing for a pin to save it
     /// from.
     /// <para>
@@ -260,7 +261,7 @@ public sealed class GlobalPaneMarkupTests
             var option = home.IndexOf($"TestId=\"{pane}-pane-option\"", StringComparison.Ordinal);
             var pin = home.IndexOf($"TestId=\"{pane}-pane-pin\"", StringComparison.Ordinal);
 
-            Assert.True(option >= 0 && pin > option, $"The {pane} pin must follow its own option.");
+            Assert.True(pin >= 0 && option > pin, $"The {pane} rail must lead its own option.");
         }
     }
 
@@ -299,9 +300,11 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Pinned is drawn the way selected is — a tinted fill and the primary underline
-    /// together — because colour alone is the one channel the accessibility rules rule
-    /// out. And a pin that cannot be taken says so rather than merely failing.
+    /// Pinned is drawn the way selected is — a tinted fill and a primary rule together
+    /// — because colour alone is the one channel the accessibility rules rule out. The
+    /// rule is the rail's top edge rather than an underline, which is what keeps it off
+    /// the option's own selected edge. And a pin that cannot be taken says so rather
+    /// than merely failing.
     /// </summary>
     [Fact]
     public void The_pin_states_are_drawn_with_more_than_colour()
@@ -309,10 +312,215 @@ public sealed class GlobalPaneMarkupTests
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
         var pinned = RuleFor(css, ".header-group__pin--pinned {");
-        Assert.Contains("border-bottom-color: var(--color-primary);", pinned, StringComparison.Ordinal);
+        Assert.Contains("border-top-color: var(--color-primary);", pinned, StringComparison.Ordinal);
         Assert.Contains("background:", pinned, StringComparison.Ordinal);
 
         Assert.Contains("cursor: not-allowed;", RuleFor(css, ".header-group__pin:disabled {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The rail holds the library's glyph, not the emoji it started as. An emoji is
+    /// a font's drawing rather than the product's — it arrives in someone else's
+    /// colour, at whatever weight the platform ships, and it is sized by type, which
+    /// is the one thing the iconography rules forbid. So the pin's <c>font-size</c>
+    /// goes with it: nothing in the cell is sized by type any more.
+    /// <para>
+    /// Push up to pin, push down to release. One drawing carries both states and its
+    /// direction is the state: the rail renders a chevron unconditionally, pointing
+    /// up at the edge it runs along while the pane is loose, and the stylesheet turns
+    /// it half a turn down once the pane is pinned. Direction is a channel under the
+    /// fill and the top rule and it is not colour, which is what
+    /// <c>accessibility.md#iconography-accessibility</c> asks for; a rotation nobody
+    /// recognised as a state would be the first thing a later edit dropped, so it is
+    /// asserted rather than left to the comment beside it.
+    /// </para>
+    /// <para>
+    /// The travel is the other half of the sentence: a pixel toward the top edge on
+    /// hover, so the control moves the way it is asking to be moved, and the same
+    /// pixel once pinned, so the glyph stays where the push left it. Both are
+    /// composed through custom properties rather than written as two
+    /// <c>transform</c> declarations, because the hover selector outranks the pinned
+    /// one and would otherwise take the rotation off a hovered pinned rail. Stated
+    /// in this sheet because it has to be — the pin replaces the shared button's
+    /// base class, so none of the library's <c>.btn svg</c> rules reach the glyph.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_pin_turns_its_chevron_over_and_is_drawn_with_the_shared_glyph_rather_than_an_emoji()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        // One glyph per pin and no more: three panes each draw the chevron once and
+        // unconditionally, and the band draws none.
+        Assert.Equal(3, home.Split("<ChevronUpIcon Size=\"12\" CssClass=\"header-group__pin-glyph\" />").Length - 1);
+
+        // Unconditionally is the point, so the branch that used to choose a drawing
+        // has to be gone rather than merely unreachable — a leftover arm would put a
+        // second glyph back in the rail the moment it was edited.
+        Assert.DoesNotContain("PinIcon", home, StringComparison.Ordinal);
+        foreach (var pane in new[] { "Inbox", "Tasks", "Knowledge" })
+        {
+            Assert.DoesNotContain($"@if (PanePinned(GlobalPane.{pane}))", home, StringComparison.Ordinal);
+        }
+
+        // Escaped rather than pasted, so the assertion cannot pass because an editor
+        // re-encoded the character it is looking for. U+1F4CC is the pushpin emoji.
+        Assert.DoesNotContain("\U0001F4CC", home, StringComparison.Ordinal);
+
+        // The declaration and not the word: the rule still explains in a comment why
+        // it no longer sets one.
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.DoesNotContain("font-size:", pin, StringComparison.Ordinal);
+
+        // And the declaration the emoji let the rule go without. A <button> arrives
+        // from the user agent carrying an ink of its own; an emoji painted over it
+        // regardless, so nobody noticed the rail never said what colour it drew in.
+        // A stroke in currentColor takes that ink instead, which put a near-black
+        // glyph in a dark header at about 1.2:1 — the icon rules ask for 3.
+        Assert.Contains("color: var(--color-text-secondary);", pin, StringComparison.Ordinal);
+
+        // The shared hook, not the component's self-named class: a rule keyed on
+        // `.chevron-up-icon` would take hold of any chevron a later caller put here,
+        // and the pin glyph the sheet used to also dress is gone from the library
+        // altogether — so no rule anywhere may still be reaching for it.
+        var glyph = RuleFor(css, ".header-group__pin-glyph {");
+        Assert.Contains("display: block;", glyph, StringComparison.Ordinal);
+        Assert.Contains("transition: transform var(--transition-fast);", glyph, StringComparison.Ordinal);
+        Assert.DoesNotContain("pin-icon", css, StringComparison.Ordinal);
+
+        // The composed transform, and the two variables it is composed of. The base
+        // rule owns the expression; every state rule below sets one variable and
+        // never the transform, which is what lets a hovered pinned rail keep both.
+        Assert.Contains("--pin-lift: 0;", glyph, StringComparison.Ordinal);
+        Assert.Contains("--pin-turn: 0deg;", glyph, StringComparison.Ordinal);
+        Assert.Contains(
+            "transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));",
+            glyph,
+            StringComparison.Ordinal);
+
+        // The nudge on hover: the lift and nothing else, so hovering does not reach
+        // the turn. One pixel is all the slack the rail has — its 1rem floor less the
+        // 2px it reserves on the top edge leaves a 14px content box around a 12px
+        // glyph, so a pixel lands the drawing flush with the top and no further. The
+        // turn spends none of that slack: half a turn about a square glyph's own
+        // centre maps its box onto itself.
+        var hovered = RuleFor(css, ".header-group__pin:hover:not(:disabled) .header-group__pin-glyph {");
+        Assert.Contains("--pin-lift: -1px;", hovered, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform:", hovered, StringComparison.Ordinal);
+
+        // And the pinned state: the same pixel held, plus the half turn that says
+        // push back. Both variables, because a pinned rail keeps the lift whether or
+        // not the pointer is still on it.
+        var pinned = RuleFor(css, ".header-group__pin--pinned .header-group__pin-glyph {");
+        Assert.Contains("--pin-lift: -1px;", pinned, StringComparison.Ordinal);
+        Assert.Contains("--pin-turn: 180deg;", pinned, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform:", pinned, StringComparison.Ordinal);
+
+        // The tilt is gone rather than merely unused: an unpinned pin used to be the
+        // pin drawing rotated 45 degrees, and the chevron replaced it.
+        Assert.DoesNotContain("rotate(45deg)", css, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Feedback #283: the pin was a full-height box on the option's right, so its
+    /// pinned fill read as a vertical strip running down the option's side. The cell
+    /// stacks instead — the rail along the option's top edge — and nothing about
+    /// pinning is drawn beside the option any more.
+    /// <para>
+    /// The top edge rather than the bottom one because the option's selected state
+    /// already owns the bottom. With the two states on opposite edges of the cell,
+    /// selected+pinned, selected alone, pinned alone and neither stay four different
+    /// pictures instead of two rules stacked on one edge.
+    /// </para>
+    /// <para>
+    /// Stacking is not allowed to cost height. The cell states the height a bare
+    /// option has, and the two rows divide it rather than add up to it: the rail
+    /// takes its floor off the top and the option gives up its own floor and its
+    /// vertical padding to fill the rest. Otherwise the sections group stands a rail
+    /// taller than the surface switcher beside it, which is two header groups drawn
+    /// at two heights for a difference nobody can read.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_pin_rails_along_the_top_edge_rather_than_beside_the_option()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        Assert.Contains("flex-direction: column;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
+
+        // The cells and the pinless band option share one height, so the hairlines
+        // between them span the strip rather than stopping at the option's own row.
+        Assert.Contains("align-items: stretch;", RuleFor(css, ".header-group--sections {"), StringComparison.Ordinal);
+
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
+
+        // The full-height side box is the shape that read as a strip. It must not
+        // come back, whichever edge the fill is drawn on.
+        Assert.DoesNotContain("min-height: 2.25rem;", pin, StringComparison.Ordinal);
+
+        // The cell is a bare option tall, which is the height the surface switcher
+        // beside it takes, and the rail comes out of that rather than on top of it.
+        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__option {"), StringComparison.Ordinal);
+        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
+
+        var paneOption = RuleFor(css, ".header-group__pane > .header-group__option {");
+        Assert.Contains("min-height: 0;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 auto;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("padding-top: 0;", paneOption, StringComparison.Ordinal);
+        Assert.Contains("padding-bottom: 0;", paneOption, StringComparison.Ordinal);
+
+        // Reserved on the edge each state will draw on, so neither pinning nor
+        // selecting moves the row.
+        Assert.Contains("border-top: var(--border-width-2) solid transparent;", pin, StringComparison.Ordinal);
+        Assert.Contains(
+            "border-bottom: var(--border-width-2) solid transparent;",
+            RuleFor(css, ".header-group__option {"),
+            StringComparison.Ordinal);
+
+        // Opposite edges: the option underlines selected, the rail overlines pinned.
+        Assert.DoesNotContain("border-bottom", RuleFor(css, ".header-group__pin--pinned {"), StringComparison.Ordinal);
+        Assert.Contains(
+            "border-bottom-color: var(--color-primary);",
+            RuleFor(css, ".header-group__option--selected {"),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The rail's target is its width, not its height. Height is the half it gives
+    /// back: the cell is one bare option tall and the rail takes 1rem of that, where
+    /// the side box stood the whole 2.25rem. What it has instead is the option's
+    /// entire width — four rem beside Tasks and eight beside Knowledge and its flag,
+    /// where the box was never wider than its own 2rem floor. So the rail is shallow
+    /// and long where the box was narrow and tall, and a pointer travelling the strip
+    /// meets it across the whole of the option rather than at one end of it. The 3rem
+    /// floor is the guarantee under that, for the day the shortest word in the strip
+    /// gets shorter.
+    /// <para>
+    /// The compact step narrows the floor and says nothing about height, because the
+    /// cell fixes the height at every width and a second floor here could only argue
+    /// with it. 2.75rem is the floor a narrowed option can still be measured against.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rail_takes_its_target_from_the_option_width_rather_than_its_own_height()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var pin = RuleFor(css, ".header-group__pin {");
+        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
+        Assert.Contains("min-width: 3rem;", pin, StringComparison.Ordinal);
+
+        // Deep enough for the glyph and the reserved top rule, and no deeper: the
+        // rest of the cell belongs to the option under it.
+        Assert.Contains("min-height: 1rem;", pin, StringComparison.Ordinal);
+
+        var compact = CompactRuleFor(css, ".header-group__pin {");
+        Assert.Contains("min-width: 2.75rem;", compact, StringComparison.Ordinal);
+
+        // Height is the cell's to state, at this width as at any other.
+        Assert.DoesNotContain("min-height", compact, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -653,6 +861,13 @@ public sealed class GlobalPaneMarkupTests
         {
             Assert.DoesNotContain(containing, block, StringComparison.Ordinal);
         }
+
+        // The band is as short as its contents allow: 2.25rem of control, and block
+        // padding at exactly the reach of a focus ring. Shorter would clip the ring
+        // against .app-shell's overflow — .design/accessibility.md#focus-visibility
+        // draws focus as an outline offset 2px, so 4px of ink sits outside the
+        // control — and taller is the 8px this change bought back on every route.
+        Assert.Contains("padding: var(--spacing-xs) var(--spacing-lg);", block, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -746,6 +961,16 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("\"entry-doc__read\"", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("entry-read-view", pane, StringComparison.Ordinal);
         Assert.DoesNotContain("State.BeginEdit", pane, StringComparison.Ordinal);
+
+        // And nowhere else under src/ either. The shell was the last caller: it
+        // opened the hatch on a triaged inbox item without selecting the row, which
+        // is an editor with no surface to render in — the same anti-pattern one file
+        // over, so the guard covers both files rather than only the one it was
+        // written for.
+        Assert.DoesNotContain(
+            "State.BeginEdit",
+            NormalizeLineEndings(File.ReadAllText(FindHomeRazor())),
+            StringComparison.Ordinal);
 
         // The source is reached deliberately instead — the shortcut
         // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
@@ -894,6 +1119,20 @@ public sealed class GlobalPaneMarkupTests
         }
     }
 
+    /// <summary>The 960px step's override of a rule. Indentation alone separates it
+    /// from the rule it overrides, because a top-level rule starts at column zero —
+    /// which is also why <see cref="RuleFor"/> keeps finding that one.</summary>
+    private static string CompactRuleFor(string css, string block)
+    {
+        var media = css.IndexOf("@media (max-width: 960px) {", StringComparison.Ordinal);
+        Assert.True(media >= 0, "The compact breakpoint is no longer in the stylesheet.");
+
+        var start = css.IndexOf("    " + block, media, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"The compact step has no override for `{block}`.");
+
+        return css[start..css.IndexOf('}', start)];
+    }
+
     private static string RuleFor(string css, string block)
     {
         // Anchored to the start of a line, so `.backlog-workspace {` is not found
@@ -904,45 +1143,82 @@ public sealed class GlobalPaneMarkupTests
         return css[start..css.IndexOf('}', start)];
     }
 
+    // The import result used to be pinned here as a compact footer under the list,
+    // with a test of its own holding `.import-plan-result` in place. It is a toast
+    // now — raised on the shared channel, drawn by the tray MainLayout mounts — so
+    // the rule and the test that existed to pin it went together. What replaced
+    // that coverage is the pair of facts below: where the tray is mounted, and what
+    // the element it hangs off is allowed to be.
+
     /// <summary>
-    /// The import result reads as a footer under the list rather than as a band.
+    /// The toast tray is mounted once, by the layout, between the routed page and
+    /// the footer.
     /// <para>
-    /// <c>Alert</c> renders a <c>&lt;p&gt;</c>, and this one is the last child of a
-    /// flex column. With no rule of its own it kept the browser's default paragraph
-    /// margins and the surrounding body type, so "3 created, 1 updated" arrived as a
-    /// tall full-width slab under the entries. It is a status line: a rule above it,
-    /// the pane's own secondary ink, and no margins.
-    /// </para>
-    /// <para>
-    /// Tokens only, and no new ones — <c>.arc42/adr/guidelines/0011</c> keeps the
-    /// custom properties in <c>components.css</c>, which
-    /// <c>Backlog.ArchitectureTests.DesignTokenTests</c> enforces. What is pinned
-    /// here is that the values are token references at all.
+    /// Its position in that order is the whole design. A tray that is a
+    /// <em>descendant</em> of the footer would be a positioned ancestor of the two
+    /// fixed Modals rendered from inside it, which is the thing the warning on
+    /// <c>.app-footer</c> forbids; a tray above <c>@Body</c> would stack the wrong
+    /// way off the band. So this asserts the order rather than merely the presence,
+    /// and it does so alongside
+    /// <see cref="The_layout_wraps_the_routed_body_and_the_footer_in_one_column"/>
+    /// rather than inside it: that test is about the column, this one is about what
+    /// hangs in it.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_import_result_is_a_compact_footer_rather_than_a_band()
+    public void The_toast_tray_hangs_between_the_page_and_the_band()
+    {
+        var layout = NormalizeLineEndings(File.ReadAllText(FindMainLayoutRazor()));
+
+        Assert.Contains("class=\"app-toast-anchor\"", layout, StringComparison.Ordinal);
+        Assert.Contains("<ToastTray", layout, StringComparison.Ordinal);
+
+        var body = layout.IndexOf("@Body", StringComparison.Ordinal);
+        var anchor = layout.IndexOf("class=\"app-toast-anchor\"", StringComparison.Ordinal);
+        var tray = layout.IndexOf("<ToastTray", StringComparison.Ordinal);
+        var footer = layout.IndexOf("<AppFooter />", StringComparison.Ordinal);
+
+        Assert.True(body < anchor, "The tray's anchor follows the routed body.");
+        Assert.InRange(tray, anchor, footer);
+        Assert.True(anchor < footer, "The tray's anchor is a sibling above the footer, never inside it.");
+    }
+
+    /// <summary>
+    /// The anchor is a line of no height that positions the tray, and nothing else.
+    /// <para>
+    /// It exists so the tray can rise off the band without anything naming the
+    /// band's height — that height is content-driven and is not the same as it was.
+    /// Asserted explicitly because the tempting simplification is to move the tray
+    /// inside <c>AppFooter</c> and delete this, and that would silently clip the
+    /// update window and the feedback dialog to the height of the footer. This is
+    /// the assertion that makes that fail loudly instead.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_toast_anchor_takes_no_room_and_creates_no_containing_block()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var footer = RuleFor(css, ".import-plan-result {");
+        var anchor = RuleFor(css, ".app-toast-anchor {");
 
-        // The default paragraph margins are the whole reason the band was tall.
-        Assert.Contains("margin: 0;", footer, StringComparison.Ordinal);
+        Assert.Contains("position: relative;", anchor, StringComparison.Ordinal);
+        Assert.Contains("height: 0;", anchor, StringComparison.Ordinal);
 
-        Assert.Contains("border-top: var(--border-width) solid var(--color-border);", footer, StringComparison.Ordinal);
-        Assert.Contains("font-size: var(--font-size-xs);", footer, StringComparison.Ordinal);
-        Assert.Contains("color: var(--color-text-secondary);", footer, StringComparison.Ordinal);
-        Assert.Contains("text-align: left;", footer, StringComparison.Ordinal);
+        // No z-index, so it creates no stacking context and the tray's own z-index
+        // still competes at the root — which is what puts a toast above the shell.
+        Assert.DoesNotContain("z-index", anchor, StringComparison.Ordinal);
 
-        // Padding is the compaction, and it is expressed in the same spacing scale
-        // the workspace around it is padded with.
-        Assert.Contains("padding: var(--spacing-xs) var(--spacing-sm);", footer, StringComparison.Ordinal);
+        // The library's host is fixed to the viewport corner; this is the modifier
+        // that re-anchors it, and CssClass is the hook ui-components.instructions.md
+        // blesses for exactly that, so no second tray exists.
+        var tray = RuleFor(css, ".toast-host.app-toast-tray {");
 
-        // No literal colour, length or font anywhere in the rule.
-        Assert.DoesNotContain("#", footer, StringComparison.Ordinal);
-        Assert.DoesNotContain("px", footer, StringComparison.Ordinal);
-        Assert.DoesNotContain("rem", footer, StringComparison.Ordinal);
+        Assert.Contains("position: absolute;", tray, StringComparison.Ordinal);
+        Assert.Contains("inset-block-end: var(--spacing-sm);", tray, StringComparison.Ordinal);
+        Assert.Contains("inset-inline-end: var(--spacing-lg);", tray, StringComparison.Ordinal);
+
+        // Tokens only: an offset in pixels here is the drift ADR 0011 exists to stop.
+        Assert.DoesNotContain("px", tray, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -58,6 +58,13 @@ else
     /// an incomplete date reads as empty. A host for which empty means "clear the
     /// field" should therefore splat an <c>onchange</c> handler rather than bind
     /// <see cref="ValueChanged"/>: a date commits when it is a date.
+    /// </para>
+    /// <para>
+    /// <c>password</c> is here for the same reason as the date types — a masked field
+    /// differs from a text one in nothing but this attribute — and because splatting
+    /// it does not work: a lowercase <c>type</c> on the component binds to this
+    /// parameter, so a host that wrote <c>type="password"</c> got a text box and no
+    /// warning. Every secret in the app was on screen as it was typed.
     /// </para></summary>
     [Parameter]
     public string Type { get; set; } = "text";
@@ -93,6 +100,26 @@ else
     /// lives on a wrapper <see cref="Bare"/> does not render.</summary>
     [Parameter]
     public string InputCssClass { get; set; } = "field__input";
+
+    /// <summary>
+    /// The small inline shape: a field on a strip rather than a row in a form.
+    /// <para>
+    /// The default input is a form input — full width, form padding — which is
+    /// right in a dialog and far too big beside a chip on a toolbar. Both panels
+    /// that needed the small one were passing a private class of their own to get
+    /// it, which is the arrangement <c>ui-components.instructions.md</c> exists to
+    /// stop: two hosts naming the same string to make a control the right size
+    /// means the size belongs to the library.
+    /// </para>
+    /// <para>
+    /// Added to the input's class rather than replacing it, so it is a modifier
+    /// over whatever skin the field is wearing — including a host's own, if the
+    /// host replaced <see cref="InputCssClass"/>. It changes the geometry and
+    /// nothing else: a compact field is the same control, smaller.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Compact { get; set; }
 
     /// <summary>Something inside the input's trailing edge: a state marker, a
     /// unit, a lock. The library positions it and pads the input to leave room,
@@ -190,7 +217,7 @@ else
     /// is how they stop matching.</summary>
     private RenderFragment InputPart =>
         @<input id="@FieldId"
-                class="@InputCssClass"
+                class="@InputClass"
                 data-testid="@BareTestId"
                 type="@Type"
                 value="@Value"
@@ -203,9 +230,12 @@ else
                 @oninput="OnInput"
                 @attributes="AdditionalAttributes" />;
 
+    private string InputClass =>
+        Compact ? $"{InputCssClass} field__input--compact" : InputCssClass;
+
     protected override void OnParametersSet()
     {
-        if (Type is not ("text" or "number" or "url" or "email" or "date" or "time" or "datetime-local")) Type = "text";
+        if (Type is not ("text" or "number" or "url" or "email" or "password" or "date" or "time" or "datetime-local")) Type = "text";
     }
 
     private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);

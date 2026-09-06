@@ -13,10 +13,13 @@
     // text, 3:1 for focus rings and control boundaries, and explicitly exempts
     // --color-text-disabled, which signals unavailability on purpose.
     //
-    // These are the twenty-one colour tokens that file defines, which is also
+    // These are the twenty-two colour tokens that file defines, which is also
     // exactly what components.css declares — the code theme in
     // .design/color-scheme.md#syntax-highlighting-tokens is the only other colour
     // in the stylesheet, and it is scored where it is used, on a code block.
+    // "Exactly" is now a test rather than a claim: StorybookCoverageTests reads
+    // this array back and fails if it and components.css disagree either way,
+    // because a token missing from here is a token the page never measures.
     // Grouped by role, in the order a reader needs them: what the brand is, what
     // a state means, what text does, what it sits on, and where the edges are.
     // Each semantic is an ink and the surface it sits on, kept adjacent so the
@@ -36,12 +39,14 @@
             title: 'Semantic',
             tokens: [
                 { name: '--color-success', against: '--color-text-primary', threshold: 4.5 },
+                // The two foregrounds in this group, so each is scored the other
+                // way round: against the surface it has to stay legible on rather
+                // than against the text that sits on it. The raised surface is the
+                // binding pair for both — it is the lightest thing either ink sits
+                // on, and it is what fixed both values.
+                { name: '--color-success-text', against: '--color-background-raised', threshold: 4.5 },
                 { name: '--color-warning', against: '--color-text-primary', threshold: 4.5 },
                 { name: '--color-error', against: '--color-text-primary', threshold: 4.5 },
-                // The one foreground in this group, so it is scored the other way
-                // round: against the surface it has to stay legible on. The raised
-                // surface is the binding pair — it is the lightest thing this ink
-                // sits on, and it is what fixed the value.
                 { name: '--color-error-text', against: '--color-background-raised', threshold: 4.5 },
                 { name: '--color-info', against: '--color-text-primary', threshold: 4.5 }
             ]

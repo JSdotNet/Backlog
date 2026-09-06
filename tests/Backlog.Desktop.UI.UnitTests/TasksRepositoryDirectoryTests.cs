@@ -89,7 +89,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
     }
 
     /// <summary>
-    /// Per ADR 0004 a plan may introduce a repository just by mentioning it. What
+    /// Per ADR 0007 a plan may introduce a repository just by mentioning it. What
     /// the plan states about it is its name and nothing else, so that is what it
     /// is registered with — owner and name standing in as the alias until
     /// somebody corrects them in Settings, which is a placeholder that reads as

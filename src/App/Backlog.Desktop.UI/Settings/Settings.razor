@@ -37,6 +37,11 @@
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
+@* The one namespace this page needs that the app's _Imports does not already
+   carry, written here because this folder cannot have an _Imports of its own -
+   see the note at the top of the file. SelectField is what the account binding
+   below is drawn with. *@
+@using Backlog.UI.Components.Selects
 @inject WorkspaceSettingsStore Store
 @inject ITasksRefreshSettings Refresh
 @inject GitHubIntegration GitHub
@@ -152,10 +157,14 @@
             <div class="setting-columns">
                 @if (UsageMetricsEnabled)
                 {
-                    <section class="setting" data-testid="usage-api-endpoints-settings" aria-label="AI usage API settings">
-                        <h2 class="setting__title">AI usage organization APIs</h2>
+                    @* Claude and GitHub are two vendors, two credentials and two failure
+                       modes, so they are two cards. One card mixing them meant a change to
+                       either endpoint saved both and reported through a single status line
+                       that could not say which vendor it was talking about. *@
+                    <section class="setting" data-testid="claude-usage-settings" aria-label="Claude usage API settings">
+                        <h2 class="setting__title">Claude usage API</h2>
                         <p class="setting__body">
-                            Configure the API roots Backlog uses for organization-scoped Claude and GitHub Copilot usage metrics.
+                            What Backlog needs to read your Claude usage and cost reports.
                         </p>
 
                         @* Every field on this page is the shared TextField wearing
@@ -165,7 +174,7 @@
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
                                    InputCssClass="setting__input"
-                                   Label="Claude organization API endpoint"
+                                   Label="Organization API endpoint"
                                    Id="claude-usage-endpoint"
                                    data-testid="claude-usage-endpoint-input"
                                    Type="url"
@@ -173,22 +182,8 @@
                                    autocomplete="off"
                                    Value="@_draftClaudeUsageEndpoint"
                                    ValueChanged="value => _draftClaudeUsageEndpoint = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
-
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="GitHub organization API endpoint"
-                                   Id="github-usage-endpoint"
-                                   data-testid="github-usage-endpoint-input"
-                                   Type="url"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Value="@_draftGitHubUsageEndpoint"
-                                   ValueChanged="value => _draftGitHubUsageEndpoint = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
 
                         @* Which actor in the Claude organization is you. Not an endpoint
                            and not a secret, but it belongs beside them rather than in a
@@ -208,18 +203,56 @@
                                    autocomplete="off"
                                    Value="@_draftClaudeUsageActor"
                                    ValueChanged="value => _draftClaudeUsageActor = value"
-                                   @onchange="ApplyUsageEndpoints"
-                                   @onkeydown="OnUsageEndpointKeyDown" />
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
 
-                        <p class="setting__status" data-testid="usage-api-endpoints-status" role="status">
-                            @if (_usageEndpointsMessage is not null)
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Claude API key"
+                                   Id="claude-api-key"
+                                   data-testid="claude-api-key-input"
+                                   Type="password"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   HelpText="@ClaudeApiKeyHint"
+                                   Placeholder="@(Claude.Current.AdminApiKey is null ? "sk-ant-admin01-..." : "stored - hidden")"
+                                   Value="@_draftClaudeApiKey"
+                                   ValueChanged="value => _draftClaudeApiKey = value"
+                                   @onchange="ApplyClaudeApiKey"
+                                   @onkeydown="OnClaudeApiKeyDown" />
+
+                        @* The workspace narrows the message and cost reports. It does not
+                           narrow the Claude Code report, which is per-actor — that is what
+                           the account field above is for. *@
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Workspace (optional)"
+                                   Id="claude-workspace"
+                                   data-testid="claude-workspace-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="wrkspc_..."
+                                   HelpText="Reports one workspace instead of the whole organization. Leave it empty for everything."
+                                   Value="@_draftClaudeWorkspace"
+                                   ValueChanged="value => _draftClaudeWorkspace = value"
+                                   @onchange="ApplyClaudeUsageSettings"
+                                   @onkeydown="OnClaudeUsageKeyDown" />
+
+                        <p class="setting__status" data-testid="claude-usage-status" role="status">
+                            @if (_claudeUsageMessage is not null)
                             {
-                                <span>@_usageEndpointsMessage</span>
+                                <span>@_claudeUsageMessage</span>
                             }
                             else
                             {
                                 <span>
-                                    Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code> and GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>.
+                                    Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code>.
+                                    @if (!Claude.Current.IsConfigured)
+                                    {
+                                        <text> Claude needs a key before it can report anything.</text>
+                                    }
                                     @if (string.IsNullOrWhiteSpace(Claude.Current.Actor))
                                     {
                                         <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
@@ -231,8 +264,58 @@
                                 </span>
                             }
                         </p>
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="claude-clear-key-button"
+                                       Disabled="@(Claude.Current.AdminApiKey is null)"
+                                       OnClick="ClearClaudeApiKey">
+                                Forget Claude key
+                            </AppButton>
+                        </div>
+
                         <p class="setting__note">
-                            These endpoints are auto-saved. Keep keys and tokens in their existing secure settings fields; endpoint settings contain no secrets.
+                            Everything here is auto-saved. The key is kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                        </p>
+                    </section>
+
+                    <section class="setting" data-testid="github-usage-settings" aria-label="GitHub usage API settings">
+                        <h2 class="setting__title">GitHub usage API</h2>
+                        <p class="setting__body">
+                            What Backlog needs to read organization Copilot seat activity.
+                        </p>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Organization API endpoint"
+                                   Id="github-usage-endpoint"
+                                   data-testid="github-usage-endpoint-input"
+                                   Type="url"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Value="@_draftGitHubUsageEndpoint"
+                                   ValueChanged="value => _draftGitHubUsageEndpoint = value"
+                                   @onchange="ApplyGitHubUsageSettings"
+                                   @onkeydown="OnGitHubUsageKeyDown" />
+
+                        <p class="setting__status" data-testid="github-usage-status" role="status">
+                            @if (_gitHubUsageMessage is not null)
+                            {
+                                <span>@_gitHubUsageMessage</span>
+                            }
+                            else
+                            {
+                                <span>Usage metrics calls GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>. Copilot metrics are organization-scoped and owner-only.</span>
+                            }
+                        </p>
+
+                        @* No token field here. GitHub authenticates per repository, on the
+                           Repositories tab, and signing in with the GitHub CLI is preferred
+                           over a token at all - so a second place to type one would be a
+                           second place for it to go stale. *@
+                        <p class="setting__note">
+                            Auto-saved. GitHub access is set up per repository on the Repositories tab, or by signing in with the GitHub CLI.
                         </p>
                     </section>
                 }
@@ -289,16 +372,13 @@
                                    @onchange="ApplyAzureFoundryConnection"
                                    @onkeydown="OnAzureFoundryKeyDown" />
 
-                        @* type="password" is not one of TextField's four, so it is
-                           splatted rather than passed as Type: the component would
-                           fall back to text and show the key. *@
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
                                    InputCssClass="setting__input"
                                    Label="API key"
                                    Id="azure-foundry-api-key"
                                    data-testid="azure-foundry-api-key-input"
-                                   type="password"
+                                   Type="password"
                                    spellcheck="false"
                                    autocomplete="off"
                                    Placeholder="@(AzureFoundry.Current.ApiKey is null ? "key" : "stored - hidden")"
@@ -561,6 +641,229 @@
             </div>
         </TabPanel>
 
+    @if (IsSettingsPageAvailable(SettingsPage.Accounts))
+    {
+        @* Read before Repositories on purpose: a repository is bound to one of
+           these, so the list it is picked from has to be the thing already in
+           front of somebody by the time they get there. *@
+        <TabPanel Id="accounts"
+                  Title="Accounts"
+                  Element="section"
+                  BaseClass="setting"
+                  TestId="github-accounts-settings"
+                  aria-label="Account settings">
+            <h2 class="setting__title">GitHub accounts</h2>
+            <p class="setting__body">
+                The GitHub identities this machine can speak as. A repository is worked as one of
+                them on the Repositories tab, so a call for one owner's repository never leaves
+                carrying another owner's identity.
+            </p>
+
+            <p class="setting__status" data-testid="github-accounts-status" role="status">
+                @if (_accountMessage is not null)
+                {
+                    <span class="setting__status--error">@_accountMessage</span>
+                }
+                else
+                {
+                    <span>@AccountsSummary()</span>
+                }
+            </p>
+
+            @* A binding this machine cannot meet is a real state with a name, not
+               a fault: it is the ordinary day-one shape of a second install. It is
+               said here as well as on the repository's own card, because this panel
+               is the place somebody comes to fix it. *@
+            @foreach (var unsatisfied in UnsatisfiedBindings())
+            {
+                <p class="setting__status" data-testid="unsatisfied-binding" role="status">
+                    <span class="setting__status--error">@unsatisfied</span>
+                </p>
+            }
+
+            <div class="setting-columns">
+                <div data-testid="gh-cli-accounts">
+                    <h3 class="knowledge-folders__title">Signed in with the GitHub CLI</h3>
+                    <p class="setting__note">
+                        Adding one of these is the route that holds no secret: Backlog asks
+                        <code>gh</code> for a token when a call needs one and never writes it down,
+                        so the CLI keeps refreshing and revoking it.
+                    </p>
+
+                    @if (DiscoverableCliAccounts.Count == 0)
+                    {
+                        <p class="setting__note" data-testid="gh-cli-accounts-empty">
+                            @(_cliAccounts.Count == 0
+                                ? "The GitHub CLI reported no accounts on this machine. Add a login opposite and paste a personal access token for it instead."
+                                : "Every account the GitHub CLI is signed in to is already configured.")
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="setting__actions">
+                            @foreach (var discovered in DiscoverableCliAccounts)
+                            {
+                                var candidate = discovered;
+
+                                <AppButton Variant="ButtonVariant.None"
+                                           TestId="add-gh-cli-account-button"
+                                           OnClick="() => AddCliAccount(candidate)">
+                                    Add @candidate.Login
+                                </AppButton>
+                            }
+                        </div>
+                    }
+
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   TestId="gh-cli-accounts-refresh-button"
+                                   OnClick="RefreshCliAccountsAsync">
+                            Look again
+                        </AppButton>
+                    </div>
+                </div>
+
+                <div data-testid="add-account">
+                    <h3 class="knowledge-folders__title">Add an account by login</h3>
+                    <p class="setting__note">
+                        For a machine without the GitHub CLI, or a login it does not know about.
+                        Leaving the field saves it, the way every other box on this page works.
+                        Give it a personal access token on its own card below.
+                    </p>
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="@SettingInputClass(_accountMessage)"
+                               Label="GitHub login"
+                               Id="account-login"
+                               data-testid="add-account-login-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               aria-describedby="github-accounts-status"
+                               Placeholder="octocat"
+                               Value="@_draftAccountLogin"
+                               ValueChanged="value => _draftAccountLogin = value"
+                               @onchange="AddAccountFromDraft"
+                               @onkeydown="OnAccountLoginKeyDown" />
+
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   TestId="add-account-button"
+                                   OnClick="AddAccountFromDraft">
+                            Add account
+                        </AppButton>
+                    </div>
+                </div>
+            </div>
+
+            @if (ConfiguredAccounts.Count > 0)
+            {
+                @* One subpage per account, the same shared strip the repository
+                   cards below use - only what is inside the card differs. *@
+                <Tabs Bare="true"
+                      ListCssClass="repo-subpages"
+                      ListTestId="account-subpages"
+                      AriaLabel="Account pages"
+                      TabCssClass="repo-subpage"
+                      ActiveTabCssClass="repo-subpage repo-subpage--active"
+                      ActiveId="@ActiveAccount?.Login"
+                      ActiveIdChanged="ShowAccountPage">
+                    @foreach (var account in ConfiguredAccounts)
+                    {
+                        var activeAccount = account;
+
+                        <TabPanel Id="@activeAccount.Login"
+                                  TabTestId="account-subpage-tab"
+                                  Element="article"
+                                  BaseClass="repo-card"
+                                  TestId="github-account-card"
+                                  aria-label="@($"{activeAccount.Login} account settings")">
+                            <TitleContent>
+                                <span>@activeAccount.Label</span>
+                            </TitleContent>
+                            <ChildContent>
+                                <header class="repo-card__header">
+                                    <div>
+                                        <h3 class="repo-card__title">@activeAccount.Login</h3>
+                                        <p class="repo-card__meta">
+                                            <code>@(activeAccount.Host ?? "github.com")</code>
+                                        </p>
+                                    </div>
+
+                                    <AppButton Variant="ButtonVariant.None"
+                                               TestId="remove-account-button"
+                                               OnClick="() => RemoveAccount(activeAccount)">
+                                        Forget this account
+                                    </AppButton>
+                                </header>
+
+                                @* A name picked from a list of two, which is the shape
+                                   SelectField exists for. Not the colour swatches'
+                                   radiogroup: those are a radiogroup because a colour
+                                   has to be seen to be chosen, and a credential kind is
+                                   a word. *@
+                                <SelectField Form="true"
+                                             Label="Credential"
+                                             Id="@($"account-credential-{activeAccount.Login}")"
+                                             TestId="account-credential-select"
+                                             LabelCssClass="setting__label"
+                                             SelectCssClass="setting__input"
+                                             CurrentValue="@activeAccount.Credential.ToString()"
+                                             Options="@CredentialKindOptions"
+                                             HelpText="How this machine gets a token for this login when a call needs one."
+                                             OnChanged="kind => ApplyAccountCredential(activeAccount, kind)" />
+
+                                @if (activeAccount.Credential is GitHubCredentialKind.PersonalAccessToken)
+                                {
+                                    <TextField Bare="true"
+                                               LabelCssClass="setting__label"
+                                               InputCssClass="setting__input"
+                                               Label="Personal access token"
+                                               Id="@($"account-token-{activeAccount.Login}")"
+                                               data-testid="account-token-input"
+                                               type="password"
+                                               spellcheck="false"
+                                               autocomplete="off"
+                                               Placeholder="@(activeAccount.HasToken ? "stored - hidden" : "ghp_...")"
+                                               Value="@AccountTokenDraft(activeAccount)"
+                                               ValueChanged="value => _draftAccountTokens[activeAccount.Login] = value"
+                                               @onchange="() => ApplyAccountToken(activeAccount)"
+                                               @onkeydown="e => OnAccountTokenKeyDown(e, activeAccount)" />
+
+                                    <div class="setting__actions">
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   TestId="account-clear-token-button"
+                                                   Disabled="@(!activeAccount.HasToken)"
+                                                   OnClick="() => ClearAccountToken(activeAccount)">
+                                            Forget this token
+                                        </AppButton>
+                                    </div>
+                                }
+
+                                <p class="setting__status" data-testid="account-status" role="status">
+                                    @if (AccountProblem(activeAccount) is { } problem)
+                                    {
+                                        <span class="setting__status--error">@problem</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@AccountSummary(activeAccount)</span>
+                                    }
+                                </p>
+
+                                <p class="setting__note">
+                                    Accounts are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately
+                                    outside the backlog folder, so they are never synced or committed with entries.
+                                    A token the GitHub CLI hands over is never written there at all.
+                                </p>
+                            </ChildContent>
+                        </TabPanel>
+                    }
+                </Tabs>
+            }
+        </TabPanel>
+    }
+
         <TabPanel Id="repositories"
                   Title="Repositories"
                   Element="section"
@@ -727,6 +1030,54 @@
                             </p>
                         </div>
 
+                        @* Which of this machine's accounts calls for this repository go
+                           out as. Beside the colour and for the same reason: it is one
+                           fact about the repository rather than about any one surface,
+                           and it is shared workspace data, so it lives here rather than
+                           in the textarea's grammar - which is a thing you type, while
+                           an account is a thing you pick.
+
+                           A SelectField and not a radiogroup of buttons. A colour has to
+                           be seen to be chosen; an account is a name from a list, which
+                           is the shape the library already draws - and its empty option
+                           carries the unbound state, so nothing has to be reset. *@
+                        @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
+                        {
+                            <div class="repo-card__section" data-testid="repo-account">
+                                <h4 class="knowledge-folders__title">Account</h4>
+                                <p class="setting__note">
+                                    Leave it on the default and calls go out as whichever account this
+                                    machine is signed in as, which is what Backlog has always done.
+                                    Accounts are added on the Accounts tab.
+                                </p>
+
+                                <SelectField Form="true"
+                                             Label="Worked as"
+                                             Id="@($"repo-account-{activeRepo.Alias}")"
+                                             TestId="repo-account-select"
+                                             LabelCssClass="setting__label"
+                                             SelectCssClass="setting__input"
+                                             CurrentValue="@activeRepo.Account"
+                                             Options="@AccountOptions(activeRepo)"
+                                             IncludeEmptyOption="true"
+                                             EmptyLabel="Default (whichever account this machine is signed in as)"
+                                             HelpText="@($"The identity {activeRepo.FullName}'s calls leave as.")"
+                                             OnChanged="login => ApplyRepositoryAccount(activeRepo, login)" />
+
+                                <p class="setting__status" data-testid="repo-account-status" role="status">
+                                    @{ var binding = RepositoryBinding(activeRepo); }
+                                    @if (binding.IsUnsatisfied)
+                                    {
+                                        <span class="setting__status--error">@BindingProblem(binding)</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@BindingSummary(binding)</span>
+                                    }
+                                </p>
+                            </div>
+                        }
+
                         @* Two columns: how this machine reaches the repository,
                            and which of its knowledge folders Backlog reads. *@
                         <div class="setting-columns">
@@ -780,7 +1131,7 @@
                                                    Label="Personal access token"
                                                    Id="@($"github-token-{activeRepo.Alias}")"
                                                    data-testid="github-token-input"
-                                                   type="password"
+                                                   Type="password"
                                                    spellcheck="false"
                                                    autocomplete="off"
                                                    Placeholder="@(activeRepo.Token is null ? "ghp_..." : "stored - hidden")"
@@ -930,12 +1281,28 @@
     private string? _azureFoundryMessage;
     private string _draftClaudeUsageEndpoint = string.Empty;
     private string _draftClaudeUsageActor = string.Empty;
+    private string _draftClaudeWorkspace = string.Empty;
     private string _draftGitHubUsageEndpoint = string.Empty;
-    private string? _usageEndpointsMessage;
+    private string? _claudeUsageMessage;
+    private string? _gitHubUsageMessage;
+
+    /// <summary>Typed, never loaded. The stored key is not read back into the field -
+    /// the placeholder is what says one is already there.</summary>
+    private string _draftClaudeApiKey = string.Empty;
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftKnowledgePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftTokens = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftAccountTokens = new(StringComparer.OrdinalIgnoreCase);
+    private string _draftAccountLogin = string.Empty;
+    private string? _accountMessage;
+    private string? _activeAccountLogin;
+
+    /// <summary>What the <c>gh</c> CLI last said it is signed in to. Empty until
+    /// the page has rendered once, and empty for good on a machine without
+    /// <c>gh</c> - which degrades the picker to typing a login rather than
+    /// blocking the panel.</summary>
+    private IReadOnlyList<GhCliAccount> _cliAccounts = [];
     private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
     private const string StorageKnowledgeAlias = "storage";
@@ -945,6 +1312,7 @@
         Features,
         Ai,
         Storage,
+        Accounts,
         Repositories,
     }
 
@@ -986,6 +1354,12 @@
     {
         SettingsPage.Features or SettingsPage.Storage or SettingsPage.Repositories => true,
         SettingsPage.Ai => AiAssistantEnabled || UsageMetricsEnabled,
+
+        // An account is only ever used to authenticate a GitHub call, and the two
+        // features that make one are the integration itself and the organization
+        // usage reports. With neither on there is nothing for the panel to say, so
+        // it is not offered rather than offered empty.
+        SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
         _ => false
     };
 
@@ -1052,24 +1426,39 @@
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
     }
 
-    private void ApplyUsageEndpoints()
+    private void ApplyClaudeUsageSettings()
     {
-        var claudeError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
+        var endpointError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
         var actorError = Claude.SetActor(_draftClaudeUsageActor);
-        var githubError = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+        var workspaceError = Claude.SetWorkspaceId(_draftClaudeWorkspace);
 
-        _usageEndpointsMessage = string.Join(" ", new[] { claudeError, actorError, githubError }.Where(message => !string.IsNullOrWhiteSpace(message)));
-        if (string.IsNullOrWhiteSpace(_usageEndpointsMessage))
+        _claudeUsageMessage = string.Join(" ", new[] { endpointError, actorError, workspaceError }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        if (string.IsNullOrWhiteSpace(_claudeUsageMessage))
         {
-            _usageEndpointsMessage = "AI usage API settings updated.";
+            _claudeUsageMessage = "Claude usage API settings updated.";
         }
 
         SyncUsageEndpointDrafts();
     }
 
-    private void OnUsageEndpointKeyDown(KeyboardEventArgs e)
+    private void OnClaudeUsageKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") ApplyUsageEndpoints();
+        if (e.Key == "Enter") ApplyClaudeUsageSettings();
+        else if (e.Key == "Escape") SyncUsageEndpointDrafts();
+    }
+
+    private void ApplyGitHubUsageSettings()
+    {
+        var error = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
+
+        _gitHubUsageMessage = string.IsNullOrWhiteSpace(error) ? "GitHub usage API settings updated." : error;
+
+        SyncUsageEndpointDrafts();
+    }
+
+    private void OnGitHubUsageKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyGitHubUsageSettings();
         else if (e.Key == "Escape") SyncUsageEndpointDrafts();
     }
 
@@ -1077,8 +1466,46 @@
     {
         _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
         _draftClaudeUsageActor = Claude.Current.Actor ?? string.Empty;
+        _draftClaudeWorkspace = Claude.Current.WorkspaceId ?? string.Empty;
         _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
     }
+
+    /// <summary>
+    /// Said, not enforced. Anthropic accepts a personal or service account key that
+    /// isn't scoped to a workspace as well as an admin key, and a workspace-scoped key
+    /// - which it refuses - looks the same. So this names the one that fails rather
+    /// than claiming the key is wrong.
+    /// </summary>
+    private string? ClaudeApiKeyHint =>
+        Claude.Current.IsConfigured && !Claude.Current.LooksLikeAdminKey
+            ? "That isn't an Admin API key. It will still be sent - Anthropic also takes a personal or "
+              + "service account key - but a key scoped to a workspace is refused."
+            : null;
+
+    private void ApplyClaudeApiKey()
+    {
+        // Blank never clears: that is what the button is for, and a blur on an empty
+        // field is far more likely than a deliberate erasure.
+        if (string.IsNullOrWhiteSpace(_draftClaudeApiKey)) return;
+
+        var error = Claude.SetAdminApiKey(_draftClaudeApiKey);
+        _claudeUsageMessage = error ?? "Claude API key stored.";
+        _draftClaudeApiKey = string.Empty;
+    }
+
+    private void ClearClaudeApiKey()
+    {
+        var error = Claude.ClearAdminApiKey();
+        _claudeUsageMessage = error ?? "Claude API key forgotten.";
+        _draftClaudeApiKey = string.Empty;
+    }
+
+    private void OnClaudeApiKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyClaudeApiKey();
+        else if (e.Key == "Escape") _draftClaudeApiKey = string.Empty;
+    }
+
     private void EnsureActiveSettingsPage()
     {
         if (!IsSettingsPageAvailable(_activePage))
@@ -1131,6 +1558,7 @@
         if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
         {
             await CheckConnectionAsync();
+            await LoadCliAccountsAsync();
         }
     }
 
@@ -1518,5 +1946,309 @@
         }
 
         StateHasChanged();
+    }
+
+    // ---- Accounts -------------------------------------------------------
+
+    /// <summary>The two ways this machine can satisfy an account, in the order
+    /// they are preferred. Static because the list is the enum and the enum does
+    /// not change per render.</summary>
+    private static readonly IReadOnlyList<SelectorOption> CredentialKindOptions =
+    [
+        new(nameof(GitHubCredentialKind.GhCli), "GitHub CLI"),
+        new(nameof(GitHubCredentialKind.PersonalAccessToken), "Personal access token")
+    ];
+
+    private IReadOnlyList<GitHubAccount> ConfiguredAccounts => GitHub.Settings.Current.Accounts;
+
+    /// <summary>The logins <c>gh</c> holds that are not configured yet - the whole
+    /// reason this panel does not start with an empty text box. An account already
+    /// configured is dropped rather than offered again, so the list is a list of
+    /// things left to do.</summary>
+    private IReadOnlyList<GhCliAccount> DiscoverableCliAccounts =>
+        [.. _cliAccounts.Where(candidate => GitHub.Settings.Current.Account(candidate.Login) is null)];
+
+    private GitHubAccount? ActiveAccount => FindActiveAccount();
+
+    private GitHubAccount? FindActiveAccount()
+    {
+        if (ConfiguredAccounts.Count == 0) return null;
+
+        if (!string.IsNullOrWhiteSpace(_activeAccountLogin))
+        {
+            var selected = GitHub.Settings.Current.Account(_activeAccountLogin);
+            if (selected is not null) return selected;
+        }
+
+        return ConfiguredAccounts[0];
+    }
+
+    private void ShowAccountPage(string login) => _activeAccountLogin = GitHubAccount.NormalizeLogin(login);
+
+    private string AccountsSummary() => ConfiguredAccounts.Count switch
+    {
+        0 => "No accounts yet - every call goes out as whichever account this machine is signed in as, which is what Backlog has always done.",
+        1 => $"One account: {ConfiguredAccounts[0].Label}. Bind a repository to it on the Repositories tab.",
+        var count => $"{count} accounts. Each repository picks the one it is worked as on the Repositories tab."
+    };
+
+    /// <summary>
+    /// Adds the login <c>gh</c> reported, backed by the CLI.
+    /// <para>
+    /// github.com is the ordinary case and is stored as no host at all, so a host
+    /// is only written down when it is a GitHub Enterprise Server one - otherwise
+    /// every account on an ordinary machine would carry a value that means "the
+    /// default" spelled out.
+    /// </para>
+    /// </summary>
+    private void AddCliAccount(GhCliAccount candidate) => AddAccount(
+        candidate.Login,
+        GitHubCredentialKind.GhCli,
+        string.Equals(candidate.Host, "github.com", StringComparison.OrdinalIgnoreCase) ? null : candidate.Host);
+
+    /// <summary>Commits the typed login on blur or Enter. A blank box is not a
+    /// refusal - leaving a field empty is the ordinary way of adding nothing, the
+    /// same rule the repository token field follows - so it says nothing rather
+    /// than reporting an error somebody did not ask for.</summary>
+    private void AddAccountFromDraft()
+    {
+        if (string.IsNullOrWhiteSpace(_draftAccountLogin)) return;
+
+        AddAccount(_draftAccountLogin, GitHubCredentialKind.GhCli, null);
+    }
+
+    private void AddAccount(string login, GitHubCredentialKind credential, string? host)
+    {
+        var normalized = GitHubAccount.NormalizeLogin(login);
+
+        if (normalized is null)
+        {
+            _accountMessage = "Type the GitHub login to add.";
+            return;
+        }
+
+        if (GitHub.Settings.Current.Account(normalized) is not null)
+        {
+            _accountMessage = $"'{normalized}' is already configured.";
+            return;
+        }
+
+        _accountMessage = GitHub.Settings.SetAccounts(
+        [
+            .. ConfiguredAccounts,
+            new GitHubAccount(normalized) { Credential = credential, Host = host }
+        ]);
+
+        _draftAccountLogin = string.Empty;
+
+        // The card that just appeared is the one to be looking at: the credential
+        // it needs is chosen there, and a CLI-backed login on a machine without
+        // gh has to be switchable to a pasted token without hunting for it.
+        if (_accountMessage is null) _activeAccountLogin = normalized;
+    }
+
+    /// <summary>Forgets one account on this machine. The repositories bound to it
+    /// are deliberately left alone by the store - the binding is workspace data and
+    /// this is a machine act - so what is left behind is an unsatisfied binding,
+    /// reported above rather than silently repaired.</summary>
+    private void RemoveAccount(GitHubAccount account)
+    {
+        _accountMessage = GitHub.Settings.RemoveAccount(account.Login);
+        _draftAccountTokens.Remove(account.Login);
+
+        if (GitHubAccount.IsSameLogin(_activeAccountLogin, account.Login)) _activeAccountLogin = null;
+    }
+
+    private void ApplyAccountCredential(GitHubAccount account, string? kind)
+    {
+        if (!Enum.TryParse<GitHubCredentialKind>(kind, ignoreCase: true, out var credential)) return;
+
+        // A pasted token survives a change that keeps the kind that can hold one;
+        // switching to the CLI drops it, which the store enforces anyway - a gho_
+        // token is rotated by gh, so one written down would go stale and be sent.
+        _accountMessage = GitHub.Settings.SetAccountCredential(
+            account.Login,
+            credential,
+            credential is GitHubCredentialKind.PersonalAccessToken ? account.Token : null);
+    }
+
+    private string AccountTokenDraft(GitHubAccount account)
+    {
+        if (!_draftAccountTokens.TryGetValue(account.Login, out var draft))
+        {
+            draft = string.Empty;
+            _draftAccountTokens[account.Login] = draft;
+        }
+
+        return draft;
+    }
+
+    private void ApplyAccountToken(GitHubAccount account)
+    {
+        var draft = AccountTokenDraft(account);
+        if (string.IsNullOrWhiteSpace(draft)) return;
+
+        _accountMessage = GitHub.Settings.SetAccountCredential(
+            account.Login,
+            GitHubCredentialKind.PersonalAccessToken,
+            draft);
+        _draftAccountTokens[account.Login] = string.Empty;
+    }
+
+    private void ClearAccountToken(GitHubAccount account)
+    {
+        _accountMessage = GitHub.Settings.SetAccountCredential(
+            account.Login,
+            GitHubCredentialKind.PersonalAccessToken,
+            null);
+        _draftAccountTokens[account.Login] = string.Empty;
+    }
+
+    private void OnAccountTokenKeyDown(KeyboardEventArgs e, GitHubAccount account)
+    {
+        if (e.Key == "Enter") ApplyAccountToken(account);
+        else if (e.Key == "Escape") _draftAccountTokens[account.Login] = string.Empty;
+    }
+
+    private void OnAccountLoginKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddAccountFromDraft();
+        else if (e.Key == "Escape") _draftAccountLogin = string.Empty;
+    }
+
+    /// <summary>
+    /// What stands between this account and a call going out as it, or null when
+    /// nothing does.
+    /// <para>
+    /// Only what can be answered here. Whether <c>gh</c> would really hand over a
+    /// token is a subprocess away, so the CLI case is judged against the list this
+    /// page already read - and only when that list said something, because an empty
+    /// list means "no gh here to ask", not "gh is not signed in as this".
+    /// </para>
+    /// </summary>
+    private string? AccountProblem(GitHubAccount account)
+    {
+        if (account.Credential is GitHubCredentialKind.PersonalAccessToken && !account.HasToken)
+        {
+            return $"No personal access token has been pasted for '{account.Login}', so nothing worked as it can reach GitHub.";
+        }
+
+        if (account.Credential is GitHubCredentialKind.GhCli
+            && _cliAccounts.Count > 0
+            && !_cliAccounts.Any(candidate => GitHubAccount.IsSameLogin(candidate.Login, account.Login)))
+        {
+            return $"The GitHub CLI on this machine is not signed in as '{account.Login}'. Sign in with `gh auth login`, or give this account a personal access token instead.";
+        }
+
+        return null;
+    }
+
+    private static string AccountSummary(GitHubAccount account) =>
+        account.Credential is GitHubCredentialKind.PersonalAccessToken
+            ? $"A personal access token is stored for '{account.Login}'."
+            : $"Backlog asks the GitHub CLI for a token for '{account.Login}' when a call needs one, and never writes it down.";
+
+    /// <summary>The identity one repository's calls actually leave as, worked out
+    /// the same way the transport works it out - by asking the settings for the
+    /// path, rather than by reading the binding and hoping the two agree.</summary>
+    private GitHubAccountChoice RepositoryBinding(GitHubRepositoryRef repository) =>
+        GitHub.Settings.Current.AccountForPath($"repos/{repository.Owner}/{repository.Name}");
+
+    /// <summary>A binding this machine cannot meet, said with both halves somebody
+    /// needs: what was being reached for, which the choice carries as its subject,
+    /// and which account it was to be reached as.</summary>
+    private static string BindingProblem(GitHubAccountChoice binding) => binding.Account is null
+        ? $"{binding.Subject} is worked as '{binding.Login}', and this machine has no account for that login. Add it on the Accounts tab, or pick another one here."
+        : $"{binding.Subject} is worked as '{binding.Login}', and no personal access token has been pasted for it.";
+
+    private static string BindingSummary(GitHubAccountChoice binding)
+    {
+        if (binding.IsBound) return $"Worked as '{binding.Login}'.";
+
+        return binding.Token is null
+            ? "Default - whichever account this machine is signed in as, which is what Backlog has always done."
+            : "Default - falling back to this repository's own personal access token.";
+    }
+
+    /// <summary>Every repository this workspace binds to a login this machine
+    /// cannot satisfy. Empty on every install that never opened this panel.</summary>
+    private IReadOnlyList<string> UnsatisfiedBindings() =>
+    [
+        .. GitHub.Repositories
+            .Select(RepositoryBinding)
+            .Where(binding => binding.IsUnsatisfied)
+            .Select(BindingProblem)
+    ];
+
+    /// <summary>
+    /// The accounts a repository can be bound to.
+    /// <para>
+    /// A binding this machine cannot satisfy is carried as an option of its own,
+    /// first, even though there is no account behind it. Without one the select
+    /// would fall back to its first entry - the empty one - and read as "Default",
+    /// which is the opposite of what the registry says and would hide the very
+    /// state this panel exists to report.
+    /// </para>
+    /// <para>
+    /// The reason an account cannot be used goes into the option's own text rather
+    /// than into <c>SelectorOption.Hint</c>: a native <c>select</c> draws one string
+    /// per option, so a hint on this control would be written and never shown.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SelectorOption> AccountOptions(GitHubRepositoryRef repository)
+    {
+        var options = new List<SelectorOption>();
+
+        if (repository.Account is { } bound && GitHub.Settings.Current.Account(bound) is null)
+        {
+            options.Add(new SelectorOption(bound, $"{bound} - no account on this machine"));
+        }
+
+        options.AddRange(ConfiguredAccounts.Select(account => new SelectorOption(
+            account.Login,
+            AccountProblem(account) is null ? account.Label : $"{account.Label} - no credential on this machine")));
+
+        return options;
+    }
+
+    /// <summary>Binds this repository to an account, or clears the binding back to
+    /// the default. No save button, the way every other choice on this screen
+    /// works.</summary>
+    private void ApplyRepositoryAccount(GitHubRepositoryRef repository, string? login) =>
+        _repoError = GitHub.Settings.SetRepositoryAccount(
+            repository.Alias,
+            string.IsNullOrWhiteSpace(login) ? null : login);
+
+    /// <summary>
+    /// Reads the logins <c>gh</c> is signed in to, once the page is on screen.
+    /// <para>
+    /// After the first render rather than during it, for the same reason the
+    /// connection check is: it is a subprocess, and holding the page up on one
+    /// would make Settings open slowly for everybody to serve one panel.
+    /// </para>
+    /// </summary>
+    private async Task LoadCliAccountsAsync()
+    {
+        try
+        {
+            _cliAccounts = await GitHub.ListCliAccountsAsync();
+        }
+        catch (Exception)
+        {
+            // No gh, or a gh too old to answer. An empty list degrades the picker
+            // to manual entry rather than blocking the panel.
+            _cliAccounts = [];
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>Asks again, so a <c>gh auth login</c> in another window is noticed
+    /// without restarting the app. The connection probe is what forgets the CLI's
+    /// previous answer, so it is re-asked first.</summary>
+    private async Task RefreshCliAccountsAsync()
+    {
+        await CheckConnectionAsync();
+        await LoadCliAccountsAsync();
     }
 }

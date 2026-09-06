@@ -128,6 +128,46 @@ public class DevToolApplicationTests
         Assert.Contains("Microsoft.VCRedist.2015+.x64", args);
     }
 
+    /// <summary>
+    /// A package published through more than one installer needs the catalog to
+    /// say which one it means, or winget picks for itself: Claude Desktop's
+    /// manifest carries both an exe and an MSIX, and the MSIX is the one that
+    /// versions on its own schedule and reads ahead of what winget offers.
+    ///
+    /// <para>The flag goes after <c>--source</c> and before <c>--silent</c>, where
+    /// it sits with the other things that say which package is meant rather than
+    /// with the ones that say how the install is to behave.</para>
+    /// </summary>
+    [Fact]
+    public void A_declared_installer_type_is_pinned_on_the_install()
+    {
+        var args = DevToolCommands.WingetInstall("Anthropic.Claude", "exe").Args;
+
+        var flag = Array.IndexOf([.. args], "--installer-type");
+
+        Assert.Equal("exe", args[flag + 1]);
+        Assert.Equal("winget", args[flag - 1]);
+        Assert.Equal("--source", args[flag - 2]);
+        Assert.Equal("--silent", args[flag + 2]);
+    }
+
+    /// <summary>An entry that pinned nothing is the entry every catalog on every
+    /// machine already holds, and its command line has to stay the one it has
+    /// always been — winget picking its own installer is the documented default,
+    /// not something to spell out on every row.</summary>
+    [Fact]
+    public void An_undeclared_installer_type_leaves_the_install_exactly_as_it_was()
+    {
+        var pinned = DevToolCommands.WingetInstall("Microsoft.VisualStudioCode", null).Args;
+        var plain = DevToolCommands.WingetInstall("Microsoft.VisualStudioCode").Args;
+
+        Assert.DoesNotContain("--installer-type", plain);
+        Assert.Equal(plain, pinned);
+        Assert.Equal(
+            ["install", "--id", "Microsoft.VisualStudioCode", "--exact", "--source", "winget", "--silent", "--accept-source-agreements", "--accept-package-agreements", "--disable-interactivity", "--nowarn"],
+            plain);
+    }
+
     /// <summary>Both listings are unfiltered, which is what makes the whole
     /// catalog cost two process launches instead of one per row.</summary>
     [Fact]
@@ -546,6 +586,49 @@ public class DevToolApplicationTests
         Assert.Equal("wsl", application.Detect.FileName);
         Assert.Equal("cmd.exe", application.Install!.FileName);
         Assert.Equal(["/c", "code", "--install-extension", "x"], application.Install.LaunchArguments);
+    }
+
+    /// <summary>The pin is carried through as the catalog spelled it. Nothing here
+    /// validates it against a list of installer types, because winget owns that
+    /// vocabulary and rejects a value it does not know itself.</summary>
+    [Fact]
+    public void A_declared_installer_type_is_read_onto_the_entry()
+    {
+        var entry = JsonNode.Parse("""
+            {
+              "id": "Anthropic.Claude",
+              "name": "Claude Desktop",
+              "provider": "winget",
+              "installerType": "exe",
+              "enabled": true
+            }
+            """)!.AsObject();
+
+        var application = DevToolConfiguration.ReadApplication(entry)!;
+
+        Assert.Equal("exe", application.InstallerType);
+    }
+
+    /// <summary>A property left blank in a hand-edited file said nothing, and
+    /// nothing is what the record has to carry: a <c>--installer-type</c> with an
+    /// empty value behind it would fail the install rather than default to the
+    /// behaviour the blank row plainly meant.</summary>
+    [Fact]
+    public void A_blank_installer_type_reads_as_none_declared()
+    {
+        var entry = JsonNode.Parse("""
+            {
+              "id": "Anthropic.Claude",
+              "name": "Claude Desktop",
+              "provider": "winget",
+              "installerType": "   ",
+              "enabled": true
+            }
+            """)!.AsObject();
+
+        var application = DevToolConfiguration.ReadApplication(entry)!;
+
+        Assert.Null(application.InstallerType);
     }
 }
 

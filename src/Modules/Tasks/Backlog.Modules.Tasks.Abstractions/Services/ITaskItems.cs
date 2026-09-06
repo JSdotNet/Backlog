@@ -79,7 +79,7 @@ public interface ITaskItems
 
     /// <summary>Brings in a plan — a block of entry text naming more than one
     /// prompt — and turns it into backlog entries in one step. See
-    /// <c>ImportPlanCommand</c> and ADR 0004 for what "brings in" means: the
+    /// <c>ImportPlanCommand</c> and ADR 0007 for what "brings in" means: the
     /// same grammar and repository port every other entry goes through, with
     /// two-pass dependency resolution and upsert-by-plan on top.
     /// <para>

@@ -341,10 +341,10 @@ related: [".design/accessibility.md#target-sizes-and-text", ".design/design-prin
 ```
 
 The desktop shell's header switches between a small set of panes — Inbox,
-Backlog, Knowledge — and holds a pin on each pane's own toggle. Pinning a pane
-here is unrelated to a pinned act in `#action-density-and-overflow`: that one
-exempts a button from overflow collapse, this one exempts a pane from being
-closed by a switch.
+Backlog, Knowledge — and holds a pin on each pane's own cell, railed along the
+top edge of that pane's toggle. Pinning a pane here is unrelated to a pinned
+act in `#action-density-and-overflow`: that one exempts a button from overflow
+collapse, this one exempts a pane from being closed by a switch.
 
 | Rule | Requirement |
 |---|---|
@@ -354,6 +354,7 @@ closed by a switch.
 | The requested pane always wins | Where pinned panes would leave no room for the pane just requested, the requested pane MUST open and the pane(s) it displaces MUST be unpinned as they close, rather than the request being refused. |
 | At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own toggle is disabled rather than left clickable and refused. |
 | Pin state is visible without relying on colour | A pinned pane's control MUST be visually distinct from an unpinned one through more than colour alone (see `accessibility.md`). |
+| The pin belongs to an edge, not a side | A pin control MUST read as part of its pane's own cell and MUST NOT be drawn as a vertical element beside the pane's toggle. Its pinned indication takes the cell's top or bottom edge — the one the toggle's selected state does not already use, so pinned and selected stay separable in all four combinations. |
 
 No review surface: the header strip is application chrome specific to the
 desktop shell, not a shared-library component, so it carries no storybook page.

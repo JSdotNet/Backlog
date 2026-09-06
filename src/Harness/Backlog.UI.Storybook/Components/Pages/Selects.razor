@@ -3,11 +3,13 @@
 <PageTitle>Selects — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Selects"
-           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, the three named selectors built on top of them, a tag picker, and the search box that filters a list."
+           Summary="Everything that picks a value: a plain select, a select that renders as a badge, a select over an enum, the three named selectors built on top of them, and a tag picker. The search box that filters a list is on Inputs."
            Guidelines="@Rules">
 
     <Story Name="SelectField"
-           Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible."
+           Description="A labelled select over string options. Without an empty option the first value is always chosen; with one, 'nothing selected' is expressible.
+
+Both of these are the inline shape wearing nothing but the component's own class: a framed, filled control that reads as a control. The frame is the default and the badge is the opt-out. When the select sits *inside* a badge and borrows the pill's fill and face — which is what `BadgeSelect`, `EnumSelect` and `RepositorySelector` all do further down this page — hand in `badge` through CssClass and the frame steps aside, because a frame around a pill is two skins."
            Code="@SelectFieldCode">
         <div class="sb-columns">
             <div>
@@ -103,7 +105,11 @@
     </Story>
 
     <Story Name="StatusSelector"
-           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states."
+           Description="BadgeSelect with the status badge already chosen, and 'draft' as the fallback slug for a value the caller's vocabulary does not cover. String-in, string-out: the caller names the states.
+
+The third one holds no value on purpose. `IncludeEmptyOption` puts an entry at the top of the list that nothing is set to, for a caller whose subject has no single status — the backlog's bulk bar sets one status across a set of rows that each already have their own, and a control opening on whichever state sorts first would claim a value nothing is in and make that one state unpickable. `Slug` is handed over empty alongside it, because a badge with no value would otherwise fall back to `draft` and arrive wearing a status it does not have.
+
+It is outlined rather than filled, and that is the component's own answer rather than the caller's: with no value there is no state colour to wear, so `badge--unset` replaces the fill it has nothing to put in it."
            Code="@StatusSelectorCode">
         <div class="sb-row">
             <StatusSelector CurrentValue="@_entryStatus"
@@ -114,6 +120,14 @@
                             Options="Statuses"
                             Label="Read-only example"
                             Disabled="true" />
+            <StatusSelector CurrentValue=""
+                            Options="Statuses"
+                            IncludeEmptyOption="true"
+                            EmptyLabel="Status"
+                            Slug=""
+                            Label="Set the status of the selected rows"
+                            TestId="selector-status-empty"
+                            OnChanged="v => _entryStatus = v" />
         </div>
         <p class="sb-state" data-testid="selector-status-value">Status = @Show(_entryStatus)</p>
     </Story>
@@ -192,22 +206,6 @@
                         Placeholder="Pick an entry"
                         TestId="tags-sectioned" />
         <p class="sb-state" data-testid="tags-sectioned-value">[@string.Join(", ", _dependencies)]</p>
-    </Story>
-
-    <Story Name="SearchBox"
-           Description="Debounced: the bound value only changes once typing pauses, so a filter does not re-run per keystroke."
-           Code="@SearchCode">
-        <SearchBox Value="@_query"
-                   ValueChanged="v => _query = v"
-                   Placeholder="Filter entries"
-                   TestId="select-search" />
-        <p class="sb-state" data-testid="select-search-value">Query = @Show(_query)</p>
-        <ul class="sb-stack" style="margin-top: 0.5rem">
-            @foreach (var match in Matches)
-            {
-                <li>@match</li>
-            }
-        </ul>
     </Story>
 
 </StoryPage>
@@ -295,14 +293,6 @@
     private static readonly IReadOnlyList<DemoPriority> ShortList =
         [DemoPriority.Highest, DemoPriority.High, DemoPriority.Medium];
 
-    private static readonly string[] Entries =
-    [
-        "Carve the shared components out of the desktop UI",
-        "Storybook for Backlog.UI.Components",
-        "Markdown read view keeps task indexes stable",
-        "Aspire dashboard shows every harness"
-    ];
-
     private string _area = "product";
     private string? _owner;
     private string _kind = "plugin";
@@ -315,11 +305,6 @@
     private IReadOnlyList<string> _openTags = ["ui", "markdown"];
     private IReadOnlyList<string> _closedTags = ["aspire"];
     private IReadOnlyList<string> _dependencies = [];
-    private string _query = string.Empty;
-
-    private IEnumerable<string> Matches => string.IsNullOrWhiteSpace(_query)
-        ? Entries
-        : Entries.Where(entry => entry.Contains(_query, StringComparison.OrdinalIgnoreCase));
 
     private static string Show(string? value) => string.IsNullOrEmpty(value) ? "(none)" : value;
 
@@ -348,6 +333,13 @@
     private const string StatusSelectorCode = """
         <StatusSelector CurrentValue="@_entryStatus" Options="Statuses"
                         OnChanged="v => _entryStatus = v" />
+
+        @* No single current value: an entry holding none, and no slug so the badge
+           does not fall back to `draft` and claim one. *@
+        <StatusSelector CurrentValue="" Options="Statuses"
+                        IncludeEmptyOption="true" EmptyLabel="Status" Slug=""
+                        Label="Set the status of the selected rows"
+                        OnChanged="OnBulkStatusAsync" />
         """;
 
     private const string PrioritySelectorCode = """
@@ -377,9 +369,5 @@
         <TagMultiSelect Options="Dependencies" SelectedValues="_dependencies"
                         SelectedValuesChanged="v => _dependencies = v"
                         Label="Waiting for" Placeholder="Pick an entry" />
-        """;
-
-    private const string SearchCode = """
-        <SearchBox Value="@_query" ValueChanged="v => _query = v" Placeholder="Filter entries" />
         """;
 }

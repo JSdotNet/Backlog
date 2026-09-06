@@ -56,14 +56,9 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
                 + "individual accounts.");
         }
 
-        if (!current.LooksLikeAdminKey)
-        {
-            return new ClaudeUsageAvailability(
-                false,
-                "The configured key isn't an Admin API key. Usage reports need a key starting with "
-                + "'sk-ant-admin', created by an organization owner.");
-        }
-
+        // A key without the admin prefix is not refused here. Anthropic also accepts a
+        // personal or service account key that isn't scoped to a workspace, and no key
+        // string says which of those it is — Settings warns, and the server decides.
         return await transport.IsAvailableAsync(cancellationToken).ConfigureAwait(false)
             ? new ClaudeUsageAvailability(true, $"Reading organization usage with the {transport.Description}.")
             : new ClaudeUsageAvailability(false, "The Anthropic Admin API isn't reachable right now.");

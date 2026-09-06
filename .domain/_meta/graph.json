@@ -6,28 +6,28 @@
     ".domain"
   ],
   "stats": {
-    "nodes": 516,
-    "edges": 858,
+    "nodes": 527,
+    "edges": 891,
     "nodesByFolder": {
-      "domain": 501,
-      "arc42": 13,
+      "domain": 511,
+      "arc42": 14,
       "design": 2
     },
     "nodesByType": {
       "file": 75,
-      "chapter": 440,
+      "chapter": 451,
       "heading": 1
     },
     "nodesByStatus": {
-      "draft": 417,
-      "proposed": 39,
-      "active": 55,
+      "draft": 424,
+      "proposed": 37,
+      "active": 61,
       "deprecated": 4,
       "none": 1
     },
     "edgesByType": {
-      "contains": 429,
-      "related": 386,
+      "contains": 439,
+      "related": 409,
       "depends-on": 43
     }
   },
@@ -1486,7 +1486,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "routing-target",
           "level": 3,
-          "line": 41,
+          "line": 63,
           "status": "draft"
         }
       },
@@ -1499,8 +1499,53 @@
           "path": ".domain/inbox/domain.md",
           "slug": "tag",
           "level": 3,
-          "line": 52,
+          "line": 74,
           "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#source",
+          "label": "Source",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "source",
+          "level": 3,
+          "line": 86,
+          "status": "draft",
+          "related": [
+            ".domain/capture/domain.md#source-metadata"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#content-kind",
+          "label": "Content Kind",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "content-kind",
+          "level": 3,
+          "line": 102,
+          "status": "draft"
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/domain.md#para-lean",
+          "label": "PARA Lean",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/domain.md",
+          "slug": "para-lean",
+          "level": 3,
+          "line": 130,
+          "status": "draft",
+          "related": [
+            ".domain/second-brain/domain.md#para-category"
+          ]
         }
       },
       {
@@ -1512,7 +1557,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "inbox-status",
           "level": 3,
-          "line": 63,
+          "line": 146,
           "status": "draft"
         }
       },
@@ -1525,7 +1570,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "capture-source",
           "level": 3,
-          "line": 77,
+          "line": 160,
           "status": "draft"
         }
       },
@@ -1538,7 +1583,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "triage",
           "level": 2,
-          "line": 87,
+          "line": 170,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -1555,7 +1600,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "classification",
           "level": 2,
-          "line": 102,
+          "line": 185,
           "status": "draft"
         }
       },
@@ -1568,7 +1613,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "itemtriaged",
           "level": 2,
-          "line": 115,
+          "line": 198,
           "status": "draft",
           "related": [
             ".domain/inbox/domain.md#inbox-item",
@@ -1586,7 +1631,7 @@
           "path": ".domain/inbox/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 151,
+          "line": 234,
           "status": "draft"
         }
       },
@@ -1618,6 +1663,27 @@
       },
       {
         "data": {
+          "id": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "label": "Read the queue as PARA drawers",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/features.md",
+          "slug": "read-the-queue-as-para-drawers",
+          "level": 3,
+          "line": 23,
+          "status": "draft",
+          "feature-flag": [
+            "inbox-pane"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#para-lean",
+            ".domain/inbox/domain.md#content-kind",
+            ".domain/second-brain/domain.md#para-category"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/features.md#triage-workflow",
           "label": "Triage workflow",
           "type": "chapter",
@@ -1625,7 +1691,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "triage-workflow",
           "level": 2,
-          "line": 23,
+          "line": 42,
           "status": "draft",
           "depends-on": [
             ".domain/inbox/features.md#incoming-queue"
@@ -1641,7 +1707,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "per-item-triage-actions",
           "level": 3,
-          "line": 33,
+          "line": 52,
           "status": "draft"
         }
       },
@@ -1654,7 +1720,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "quick-triage-shortcuts",
           "level": 3,
-          "line": 43,
+          "line": 62,
           "status": "draft"
         }
       },
@@ -1667,7 +1733,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "classification-and-enrichment",
           "level": 2,
-          "line": 52,
+          "line": 71,
           "status": "draft"
         }
       },
@@ -1680,7 +1746,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "routing",
           "level": 2,
-          "line": 63,
+          "line": 82,
           "status": "draft",
           "depends-on": [
             ".domain/inbox/features.md#triage-workflow"
@@ -1700,7 +1766,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "route-to-tasks",
           "level": 3,
-          "line": 74,
+          "line": 93,
           "status": "draft",
           "related": [
             ".domain/tasks/features.md#task-creation"
@@ -1716,7 +1782,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "route-to-second-brain",
           "level": 3,
-          "line": 84,
+          "line": 103,
           "status": "draft",
           "related": [
             ".domain/second-brain/features.md#knowledge-capture"
@@ -1732,7 +1798,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "defer",
           "level": 3,
-          "line": 94,
+          "line": 113,
           "status": "draft"
         }
       },
@@ -1745,7 +1811,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "archive",
           "level": 3,
-          "line": 104,
+          "line": 123,
           "status": "draft"
         }
       },
@@ -1758,7 +1824,7 @@
           "path": ".domain/inbox/features.md",
           "slug": "queue-health",
           "level": 2,
-          "line": 113,
+          "line": 132,
           "status": "draft",
           "related": [
             ".domain/monitoring/features.md#inbox-and-queue-health"
@@ -1836,6 +1902,68 @@
       },
       {
         "data": {
+          "id": ".domain/inbox/naming.md#content-kind",
+          "label": "Content Kind",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "content-kind",
+          "level": 2,
+          "line": 39,
+          "status": "draft",
+          "aliases": [
+            "InboxItemKind",
+            "CaptureKinds",
+            "kind"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#content-kind"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/naming.md#source",
+          "label": "Source",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "source",
+          "level": 2,
+          "line": 53,
+          "status": "draft",
+          "aliases": [
+            "InboxSource",
+            "person"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#source"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/inbox/naming.md#para-lean",
+          "label": "PARA Lean",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/inbox/naming.md",
+          "slug": "para-lean",
+          "level": 2,
+          "line": 66,
+          "status": "draft",
+          "aliases": [
+            "ParaCategory",
+            "Para",
+            "drawer"
+          ],
+          "related": [
+            ".domain/inbox/domain.md#para-lean"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/inbox/naming.md#triage",
           "label": "Triage",
           "type": "chapter",
@@ -1843,7 +1971,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "triage",
           "level": 2,
-          "line": 39,
+          "line": 81,
           "status": "draft",
           "aliases": [
             "Triage"
@@ -1862,7 +1990,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "routing-target",
           "level": 2,
-          "line": 52,
+          "line": 94,
           "status": "draft",
           "aliases": [
             "RoutingTarget"
@@ -1881,7 +2009,7 @@
           "path": ".domain/inbox/naming.md",
           "slug": "inbox-status",
           "level": 2,
-          "line": 64,
+          "line": 106,
           "status": "draft",
           "aliases": [
             "InboxStatus"
@@ -5055,7 +5183,9 @@
           "status": "active",
           "related": [
             ".domain/context-map.md",
-            ".domain/dev-pc-management/domain.md#machine-registry"
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -5078,11 +5208,13 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-log",
           "level": 2,
-          "line": 40,
+          "line": 46,
           "status": "active",
           "related": [
             ".domain/dev-pc-management/domain.md#machine-registry",
-            ".domain/sessions/dependencies.md"
+            ".domain/sessions/dependencies.md",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -5095,7 +5227,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent-session",
           "level": 3,
-          "line": 72,
+          "line": 130,
           "status": "active"
         }
       },
@@ -5108,7 +5240,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 3,
-          "line": 91,
+          "line": 149,
           "status": "active"
         }
       },
@@ -5121,7 +5253,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 3,
-          "line": 102,
+          "line": 160,
           "status": "active"
         }
       },
@@ -5134,7 +5266,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "activity-window",
           "level": 3,
-          "line": 116,
+          "line": 174,
           "status": "active"
         }
       },
@@ -5147,7 +5279,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-stream",
           "level": 3,
-          "line": 128,
+          "line": 186,
           "status": "active"
         }
       },
@@ -5160,7 +5292,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-entry",
           "level": 3,
-          "line": 143,
+          "line": 201,
           "status": "active"
         }
       },
@@ -5173,7 +5305,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-enrichment-summary",
           "level": 3,
-          "line": 158,
+          "line": 216,
           "status": "active"
         }
       },
@@ -5186,7 +5318,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 3,
-          "line": 173,
+          "line": 231,
           "status": "active"
         }
       },
@@ -5199,7 +5331,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 3,
-          "line": 188,
+          "line": 246,
           "status": "active"
         }
       },
@@ -5212,7 +5344,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 3,
-          "line": 201,
+          "line": 259,
           "status": "active"
         }
       },
@@ -5225,7 +5357,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "reporting-capability",
           "level": 3,
-          "line": 219,
+          "line": 277,
           "status": "active"
         }
       },
@@ -5238,11 +5370,30 @@
           "path": ".domain/sessions/domain.md",
           "slug": "liveness-assessment",
           "level": 2,
-          "line": 237,
+          "line": 295,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
             ".domain/sessions/flow.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/domain.md#session-view",
+          "label": "Session View",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/domain.md",
+          "slug": "session-view",
+          "level": 2,
+          "line": 316,
+          "status": "active",
+          "related": [
+            ".domain/sessions/domain.md#session-log",
+            ".domain/sessions/domain.md#session-state",
+            ".domain/sessions/features.md#open-on-the-live-sessions",
+            ".domain/sessions/naming.md#session-view"
           ]
         }
       },
@@ -5255,7 +5406,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 258,
+          "line": 358,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -5272,7 +5423,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-publishing",
           "level": 2,
-          "line": 284,
+          "line": 384,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -5290,7 +5441,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 304,
+          "line": 404,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -5308,7 +5459,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 324,
+          "line": 424,
           "status": "active"
         }
       },
@@ -5321,7 +5472,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 337,
+          "line": 437,
           "status": "active"
         }
       },
@@ -5361,7 +5512,27 @@
           "slug": "live-and-past-sessions-together",
           "level": 3,
           "line": 26,
-          "status": "active"
+          "status": "active",
+          "related": [
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "label": "Open on the live sessions",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "open-on-the-live-sessions",
+          "level": 3,
+          "line": 50,
+          "status": "active",
+          "related": [
+            ".domain/sessions/domain.md#session-view",
+            ".domain/sessions/naming.md#session-view"
+          ]
         }
       },
       {
@@ -5373,7 +5544,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "only-what-the-agent-recorded",
           "level": 3,
-          "line": 39,
+          "line": 83,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#working-location"
@@ -5389,7 +5560,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "re-read-on-request",
           "level": 3,
-          "line": 56,
+          "line": 100,
           "status": "active"
         }
       },
@@ -5402,7 +5573,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 70,
+          "line": 114,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-grouping"
@@ -5418,10 +5589,11 @@
           "path": ".domain/sessions/features.md",
           "slug": "group-by-environment",
           "level": 3,
-          "line": 81,
+          "line": 125,
           "status": "active",
           "related": [
-            ".domain/sessions/naming.md#environment"
+            ".domain/sessions/naming.md#environment",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ]
         }
       },
@@ -5434,7 +5606,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "group-by-agent",
           "level": 3,
-          "line": 96,
+          "line": 144,
           "status": "active"
         }
       },
@@ -5447,8 +5619,11 @@
           "path": ".domain/sessions/features.md",
           "slug": "grouping-never-hides-a-session",
           "level": 3,
-          "line": 106,
-          "status": "active"
+          "line": 154,
+          "status": "active",
+          "related": [
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
         }
       },
       {
@@ -5460,7 +5635,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "honest-partial-answers",
           "level": 2,
-          "line": 117,
+          "line": 173,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-catalog"
@@ -5476,7 +5651,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "name-the-source-that-could-not-be-read",
           "level": 3,
-          "line": 128,
+          "line": 184,
           "status": "active"
         }
       },
@@ -5489,7 +5664,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "say-how-much-was-left-out",
           "level": 3,
-          "line": 141,
+          "line": 197,
           "status": "active",
           "related": [
             ".domain/sessions/naming.md#session-limit"
@@ -5505,7 +5680,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 157,
+          "line": 213,
           "status": "proposed",
           "depends-on": [
             ".domain/sessions/features.md#session-inventory"
@@ -5525,7 +5700,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "optional-collections-mcp-reporting",
           "level": 3,
-          "line": 174,
+          "line": 230,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-activity-publishing",
@@ -5542,7 +5717,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "latest-meaningful-activity",
           "level": 3,
-          "line": 189,
+          "line": 245,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#session-enrichment-summary",
@@ -5559,7 +5734,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "reporting-degrades-honestly",
           "level": 3,
-          "line": 204,
+          "line": 260,
           "status": "proposed",
           "related": [
             ".domain/sessions/domain.md#reporting-capability"
@@ -5575,7 +5750,7 @@
           "path": ".domain/sessions/features.md",
           "slug": "turn-the-area-off",
           "level": 2,
-          "line": 219,
+          "line": 275,
           "status": "active"
         }
       },
@@ -5908,6 +6083,29 @@
       },
       {
         "data": {
+          "id": ".domain/sessions/naming.md#session-view",
+          "label": "Session View",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/naming.md",
+          "slug": "session-view",
+          "level": 2,
+          "line": 247,
+          "status": "active",
+          "aliases": [
+            "AgentSessionView",
+            "view",
+            "live",
+            "all"
+          ],
+          "related": [
+            ".domain/sessions/domain.md#session-view",
+            ".domain/sessions/features.md#open-on-the-live-sessions"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".domain/sessions/naming.md#session-grouping",
           "label": "Session Grouping",
           "type": "chapter",
@@ -5915,7 +6113,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 247,
+          "line": 277,
           "status": "active",
           "aliases": [
             "AgentSessionGrouping"
@@ -5973,7 +6171,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item",
           "level": 3,
-          "line": 167,
+          "line": 171,
           "status": "draft"
         }
       },
@@ -5986,7 +6184,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection-ref",
           "level": 3,
-          "line": 190,
+          "line": 194,
           "status": "draft"
         }
       },
@@ -5999,7 +6197,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence",
           "level": 3,
-          "line": 201,
+          "line": 205,
           "status": "draft"
         }
       },
@@ -6012,7 +6210,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "attachment",
           "level": 3,
-          "line": 218,
+          "line": 222,
           "status": "draft"
         }
       },
@@ -6025,7 +6223,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "usage-event",
           "level": 3,
-          "line": 241,
+          "line": 245,
           "status": "draft"
         }
       },
@@ -6038,7 +6236,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "ai-work-log",
           "level": 3,
-          "line": 251,
+          "line": 255,
           "status": "draft"
         }
       },
@@ -6051,7 +6249,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-type",
           "level": 3,
-          "line": 262,
+          "line": 266,
           "status": "draft",
           "related": [
             ".domain/tasks/naming.md#dependency"
@@ -6067,7 +6265,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "task-status",
           "level": 3,
-          "line": 273,
+          "line": 277,
           "status": "draft"
         }
       },
@@ -6080,7 +6278,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "priority",
           "level": 3,
-          "line": 282,
+          "line": 286,
           "status": "draft"
         }
       },
@@ -6093,7 +6291,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "sub-item-status",
           "level": 3,
-          "line": 291,
+          "line": 295,
           "status": "draft"
         }
       },
@@ -6106,7 +6304,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "recurrence-unit",
           "level": 3,
-          "line": 300,
+          "line": 304,
           "status": "draft"
         }
       },
@@ -6119,7 +6317,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "weekday",
           "level": 3,
-          "line": 309,
+          "line": 313,
           "status": "draft"
         }
       },
@@ -6132,7 +6330,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "readiness",
           "level": 3,
-          "line": 319,
+          "line": 323,
           "status": "draft"
         }
       },
@@ -6145,7 +6343,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "projection",
           "level": 2,
-          "line": 338,
+          "line": 342,
           "status": "draft",
           "related": [
             ".domain/monitoring/domain.md#progress-signal",
@@ -6162,7 +6360,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrence-spawning",
           "level": 2,
-          "line": 352,
+          "line": 356,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6180,7 +6378,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "statuschanged",
           "level": 2,
-          "line": 394,
+          "line": 398,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6197,7 +6395,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskprojected",
           "level": 2,
-          "line": 421,
+          "line": 425,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6215,7 +6413,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "taskcompleted",
           "level": 2,
-          "line": 449,
+          "line": 453,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6233,7 +6431,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "occurrencespawned",
           "level": 2,
-          "line": 475,
+          "line": 479,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6251,7 +6449,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "aiworklogged",
           "level": 2,
-          "line": 504,
+          "line": 508,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6268,7 +6466,7 @@
           "path": ".domain/tasks/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 539,
+          "line": 543,
           "status": "draft"
         }
       },
@@ -6673,7 +6871,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "repository-resolution-on-import",
           "level": 3,
-          "line": 473,
+          "line": 476,
           "status": "proposed",
           "related": [
             ".domain/repository-management/features.md#repository-registration",
@@ -6690,7 +6888,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "re-importing-an-updated-plan",
           "level": 3,
-          "line": 503,
+          "line": 506,
           "status": "proposed",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -6707,7 +6905,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "ai-assistance-over-the-visible-backlog",
           "level": 2,
-          "line": 534,
+          "line": 537,
           "status": "draft",
           "feature-flag": [
             "ai-assistant"
@@ -6727,7 +6925,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "archive-and-lifecycle",
           "level": 2,
-          "line": 551,
+          "line": 554,
           "status": "draft",
           "related": [
             ".domain/tasks/flow.md"
@@ -6743,7 +6941,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "refresh-from-shared-storage",
           "level": 2,
-          "line": 568,
+          "line": 571,
           "status": "deprecated",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -6761,7 +6959,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "multi-device-sync",
           "level": 2,
-          "line": 589,
+          "line": 592,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#task-creation"
@@ -6783,7 +6981,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 613,
+          "line": 616,
           "status": "draft",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
@@ -6803,7 +7001,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 628,
+          "line": 633,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -6824,7 +7022,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 659,
+          "line": 664,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -7824,7 +8022,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 234,
+          "line": 314,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -7868,7 +8066,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "cloud-deployment-azure",
           "level": 2,
-          "line": 148,
+          "line": 150,
           "status": "active",
           "related": [
             ".arc42/05-building-block-view.md#cloud-service",
@@ -7886,7 +8084,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 222,
+          "line": 302,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -7921,7 +8119,7 @@
           "path": ".design/color-scheme.md",
           "slug": "band-identity-tokens",
           "level": 2,
-          "line": 271,
+          "line": 310,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only",
@@ -7956,12 +8154,60 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 99,
+          "line": 179,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
             ".arc42/02-constraints.md#technical-constraints",
             ".domain/second-brain/features.md#repository-knowledge-areas"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "label": "Session Record Sync",
+          "type": "chapter",
+          "folder": "arc42",
+          "path": ".arc42/08-crosscutting-concepts.md",
+          "slug": "session-record-sync",
+          "level": 2,
+          "line": 151,
+          "status": "active",
+          "related": [
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/sessions/domain.md#session-log"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "label": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
+          "type": "file",
+          "folder": "arc42",
+          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "status": "active",
+          "related": [
+            ".arc42/02-constraints.md#technical-constraints",
+            ".arc42/07-deployment-view.md#cloud-deployment-azure",
+            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
+            ".arc42/09-architecture-decisions.md",
+            ".arc42/11-risks-and-technical-debt.md",
+            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
+            ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+            ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
+            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
+            ".domain/tasks/domain.md#task",
+            ".domain/tasks/naming.md#device"
           ],
           "outOfScope": true
         }
@@ -7975,36 +8221,15 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 47,
-          "status": "proposed",
+          "line": 79,
+          "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-            ".domain/tasks/domain.md#task"
-          ],
-          "outOfScope": true
-        }
-      },
-      {
-        "data": {
-          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-          "label": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
-          "type": "file",
-          "folder": "arc42",
-          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-          "status": "proposed",
-          "related": [
-            ".arc42/02-constraints.md#technical-constraints",
-            ".arc42/07-deployment-view.md#cloud-deployment-azure",
-            ".arc42/08-crosscutting-concepts.md#storage-and-sync",
-            ".arc42/09-architecture-decisions.md",
-            ".arc42/11-risks-and-technical-debt.md",
-            ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
-            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
-            ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
-            ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
+            ".domain/capture/domain.md#capture",
+            ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task"
           ],
           "outOfScope": true
@@ -8727,6 +8952,30 @@
       },
       {
         "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#source",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/domain.md#inbox-item",
+          "target": ".domain/inbox/domain.md#para-lean",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/inbox/domain.md#inbox-item->.domain/inbox/domain.md#inbox-status",
           "source": ".domain/inbox/domain.md#inbox-item",
           "target": ".domain/inbox/domain.md#inbox-status",
@@ -8778,6 +9027,14 @@
           "id": "contains:.domain/inbox/features.md->.domain/inbox/features.md#incoming-queue",
           "source": ".domain/inbox/features.md",
           "target": ".domain/inbox/features.md#incoming-queue",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/features.md#incoming-queue->.domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "source": ".domain/inbox/features.md#incoming-queue",
+          "target": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
           "type": "contains"
         }
       },
@@ -8874,6 +9131,30 @@
           "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#capture-source",
           "source": ".domain/inbox/naming.md",
           "target": ".domain/inbox/naming.md#capture-source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#content-kind",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#content-kind",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#source",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#source",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/inbox/naming.md->.domain/inbox/naming.md#para-lean",
+          "source": ".domain/inbox/naming.md",
+          "target": ".domain/inbox/naming.md#para-lean",
           "type": "contains"
         }
       },
@@ -10383,6 +10664,14 @@
       },
       {
         "data": {
+          "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/domain.md",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/sessions/domain.md->.domain/sessions/domain.md#session-grouping",
           "source": ".domain/sessions/domain.md",
           "target": ".domain/sessions/domain.md#session-grouping",
@@ -10434,6 +10723,14 @@
           "id": "contains:.domain/sessions/features.md#session-inventory->.domain/sessions/features.md#live-and-past-sessions-together",
           "source": ".domain/sessions/features.md#session-inventory",
           "target": ".domain/sessions/features.md#live-and-past-sessions-together",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/features.md#session-inventory->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#session-inventory",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "contains"
         }
       },
@@ -10658,6 +10955,14 @@
           "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#reporting-capability",
           "source": ".domain/sessions/naming.md",
           "target": ".domain/sessions/naming.md#reporting-capability",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/sessions/naming.md->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/naming.md",
+          "target": ".domain/sessions/naming.md#session-view",
           "type": "contains"
         }
       },
@@ -11935,6 +12240,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/inbox/domain.md#source->.domain/capture/domain.md#source-metadata",
+          "source": ".domain/inbox/domain.md#source",
+          "target": ".domain/capture/domain.md#source-metadata",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/domain.md#para-lean->.domain/second-brain/domain.md#para-category",
+          "source": ".domain/inbox/domain.md#para-lean",
+          "target": ".domain/second-brain/domain.md#para-category",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/inbox/domain.md#triage->.domain/tasks/domain.md#task",
           "source": ".domain/inbox/domain.md#triage",
           "target": ".domain/tasks/domain.md#task",
@@ -11978,6 +12299,30 @@
           "id": "related:.domain/inbox/features.md#incoming-queue->.domain/capture/features.md#normalized-delivery",
           "source": ".domain/inbox/features.md#incoming-queue",
           "target": ".domain/capture/features.md#normalized-delivery",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/inbox/domain.md#para-lean",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/features.md#read-the-queue-as-para-drawers->.domain/second-brain/domain.md#para-category",
+          "source": ".domain/inbox/features.md#read-the-queue-as-para-drawers",
+          "target": ".domain/second-brain/domain.md#para-category",
           "type": "related"
         }
       },
@@ -12050,6 +12395,30 @@
           "id": "related:.domain/inbox/naming.md#capture-source->.domain/inbox/domain.md#capture-source",
           "source": ".domain/inbox/naming.md#capture-source",
           "target": ".domain/inbox/domain.md#capture-source",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#content-kind->.domain/inbox/domain.md#content-kind",
+          "source": ".domain/inbox/naming.md#content-kind",
+          "target": ".domain/inbox/domain.md#content-kind",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#source->.domain/inbox/domain.md#source",
+          "source": ".domain/inbox/naming.md#source",
+          "target": ".domain/inbox/domain.md#source",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/inbox/naming.md#para-lean->.domain/inbox/domain.md#para-lean",
+          "source": ".domain/inbox/naming.md#para-lean",
+          "target": ".domain/inbox/domain.md#para-lean",
           "type": "related"
         }
       },
@@ -13535,6 +13904,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/dependencies.md->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".domain/sessions/dependencies.md",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/dependencies.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/dependencies.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/domain.md#session-log->.domain/dev-pc-management/domain.md#machine-registry",
           "source": ".domain/sessions/domain.md#session-log",
           "target": ".domain/dev-pc-management/domain.md#machine-registry",
@@ -13551,6 +13936,22 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/domain.md#session-log->.arc42/08-crosscutting-concepts.md#session-record-sync",
+          "source": ".domain/sessions/domain.md#session-log",
+          "target": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-log->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/domain.md#session-log",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/domain.md#liveness-assessment->.domain/sessions/domain.md#session-state",
           "source": ".domain/sessions/domain.md#liveness-assessment",
           "target": ".domain/sessions/domain.md#session-state",
@@ -13562,6 +13963,38 @@
           "id": "related:.domain/sessions/domain.md#liveness-assessment->.domain/sessions/flow.md",
           "source": ".domain/sessions/domain.md#liveness-assessment",
           "target": ".domain/sessions/flow.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/domain.md#session-log",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/domain.md#session-log",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/domain.md#session-state",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/domain.md#session-state",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/domain.md#session-view->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/domain.md#session-view",
+          "target": ".domain/sessions/naming.md#session-view",
           "type": "related"
         }
       },
@@ -13639,6 +14072,30 @@
       },
       {
         "data": {
+          "id": "related:.domain/sessions/features.md#live-and-past-sessions-together->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#live-and-past-sessions-together",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#open-on-the-live-sessions->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#open-on-the-live-sessions->.domain/sessions/naming.md#session-view",
+          "source": ".domain/sessions/features.md#open-on-the-live-sessions",
+          "target": ".domain/sessions/naming.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/sessions/features.md#only-what-the-agent-recorded->.domain/sessions/domain.md#working-location",
           "source": ".domain/sessions/features.md#only-what-the-agent-recorded",
           "target": ".domain/sessions/domain.md#working-location",
@@ -13658,6 +14115,22 @@
           "id": "related:.domain/sessions/features.md#group-by-environment->.domain/sessions/naming.md#environment",
           "source": ".domain/sessions/features.md#group-by-environment",
           "target": ".domain/sessions/naming.md#environment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#group-by-environment->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "source": ".domain/sessions/features.md#group-by-environment",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/features.md#grouping-never-hides-a-session->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/features.md#grouping-never-hides-a-session",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "related"
         }
       },
@@ -13898,6 +14371,22 @@
           "id": "related:.domain/sessions/naming.md#reporting-capability->.domain/sessions/domain.md#reporting-capability",
           "source": ".domain/sessions/naming.md#reporting-capability",
           "target": ".domain/sessions/domain.md#reporting-capability",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#session-view->.domain/sessions/domain.md#session-view",
+          "source": ".domain/sessions/naming.md#session-view",
+          "target": ".domain/sessions/domain.md#session-view",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#session-view->.domain/sessions/features.md#open-on-the-live-sessions",
+          "source": ".domain/sessions/naming.md#session-view",
+          "target": ".domain/sessions/features.md#open-on-the-live-sessions",
           "type": "related"
         }
       },

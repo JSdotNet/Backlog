@@ -1,0 +1,65 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    Composition only: ToastHost is the live region and Toast is the message. This
+    is the one place in the product that turns a published message into a rendered
+    one, so a screen never mounts a ToastHost of its own — which is what keeps the
+    "one polite live region for the page" in
+    .design/accessibility.md#screen-reader--announcements true rather than aspirational.
+
+    The channel is resolved rather than injected, for DiagramView's reason
+    (Diagrams/DiagramView.razor): this component is mounted by a layout, and a
+    layout that cannot construct takes the whole window with it. A host that
+    registers no channel gets an empty live region, which is exactly what it asked
+    for. The screens that publish take a hard @inject instead — see TasksPane —
+    because a publisher that silently lost the user's only feedback is worse than
+    one that fails to construct.
+*@
+
+<ToastHost CssClass="@CssClass" TestId="@TestId">
+    @foreach (var message in _channel?.Visible ?? [])
+    {
+        @* Keyed on the message's own id, which is what makes Toast's dismiss timer
+           behave: a new message has to be a new component instance rather than the
+           previous one re-parameterised, or OnParametersSet would restart the timer
+           of whichever toast happened to be at that position. *@
+        <Toast @key="message.Id"
+               Title="@message.Title"
+               Message="@message.Message"
+               Severity="@message.Severity"
+               DurationMilliseconds="@message.DurationMilliseconds"
+               TestId="@message.TestId"
+               OnDismissed="() => Dismiss(message.Id)" />
+    }
+</ToastHost>
+
+@code {
+    private IToastChannel? _channel;
+
+    /// <summary>Appended to the host's own class, for a shell that needs to put the
+    /// tray somewhere other than the viewport's corner.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _channel = Services.GetService<IToastChannel>();
+        if (_channel is not null) _channel.Changed += OnChanged;
+    }
+
+    // Changed is raised from whatever thread published — a GitHub sync's
+    // continuation as often as a click — so the hop onto the renderer is
+    // mandatory rather than defensive.
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void Dismiss(Guid id) => _channel?.Dismiss(id);
+
+    public void Dispose()
+    {
+        if (_channel is not null) _channel.Changed -= OnChanged;
+    }
+}

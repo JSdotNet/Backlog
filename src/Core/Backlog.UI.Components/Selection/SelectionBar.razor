@@ -36,7 +36,7 @@
     irregular one to hand over.
 *@
 
-<div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
+<div @attributes="AdditionalAttributes" class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
     <Checkbox Checked="@AllSelected"
               Indeterminate="@Indeterminate"
               CheckedChanged="SelectAllChanged"
@@ -143,6 +143,33 @@
 
     [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>
+    /// Splatted onto the bar itself, for the attribute or the handler a host needs
+    /// on the whole of it rather than on one control in it.
+    /// <para>
+    /// Splatted <em>first</em>, so the component wins every attribute it names.
+    /// The class and the role are the two that matter and the two a host is most
+    /// likely to reach for: a <c>class</c> here would erase <c>selection-bar</c>
+    /// and every layout rule keyed on it, and a <c>role="toolbar"</c> would
+    /// replace the <c>group</c> that <see cref="ActionsLabel"/> and
+    /// <see cref="AriaLabel"/> are both written against. A host that wants to add
+    /// to the class has <see cref="CssClass"/>, and one that wants to replace it
+    /// has <see cref="BaseClass"/> — two hooks that say what they do, where a
+    /// splat that happened to land last would have said nothing and worked once.
+    /// </para>
+    /// <para>
+    /// The case it exists for is a key. A bar is the surface a reader is standing
+    /// on while a selection is live, so "Escape means put this down" is a rule
+    /// about the bar and not about any single button on it — and a wrapper element
+    /// carrying the listener is not available to a host here: the bar is a sticky
+    /// child of its list's scroll container, and sticky can only move within its
+    /// own parent's box, so a div wrapped around it would be a box exactly the
+    /// bar's height and the bar would stop sticking.
+    /// </para>
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     /// <summary>Everything is selected only when there is something to select.
     /// Zero of zero is an empty list rather than a full one, and a box that read

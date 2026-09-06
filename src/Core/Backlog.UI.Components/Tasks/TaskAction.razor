@@ -13,6 +13,8 @@
     <button type="button"
             class="task-action__main"
             aria-pressed="@(Togglable ? (Set ? "true" : "false") : null)"
+            aria-expanded="@(Expanded is { } expanded ? (expanded ? "true" : "false") : null)"
+            aria-controls="@Controls"
             aria-label="@(Compact ? Label : null)"
             data-testid="@Suffix("set")"
             disabled="@Disabled"
@@ -75,9 +77,46 @@
     public bool Set { get; set; }
 
     /// <summary>Whether being set is a state the row itself is in, rather than
-    /// something it opens a picker for. My Day is a toggle; a due date is not.</summary>
+    /// something it opens a picker for. My Day is a toggle; a due date is not.
+    /// <para>
+    /// A toggle and not a disclosure, and the distinction is the whole of why
+    /// <see cref="Expanded"/> exists beside this. <c>aria-pressed</c> says "this
+    /// thing is on"; a row that reveals other controls is not on, it is open, and
+    /// telling a screen reader the wrong one of those is worse than telling it
+    /// neither.
+    /// </para></summary>
     [Parameter]
     public bool Togglable { get; set; }
+
+    /// <summary>
+    /// Whether this row currently has something open below or beside it.
+    /// <para>
+    /// The disclosure counterpart of <see cref="Togglable"/>: it emits
+    /// <c>aria-expanded</c>, which is what a control that reveals other controls
+    /// owes a reader who cannot see them appear. Nullable because absent is a
+    /// third answer and the common one — most rows reveal nothing, and an
+    /// <c>aria-expanded="false"</c> on a row that never opens anything promises a
+    /// disclosure that is not there.
+    /// </para>
+    /// <para>
+    /// Independent of <see cref="Set"/> on purpose, although a host will often
+    /// drive both from the same flag: <see cref="Set"/> is what the row draws --
+    /// the forward colour that lets a pane be read down its left edge — and this
+    /// is what it announces. A host that wants only one of the two says only one.
+    /// </para>
+    /// <para>
+    /// Pair it with <see cref="Controls"/>. An <c>aria-expanded</c> with nothing
+    /// naming what expanded leaves the reader to find it.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool? Expanded { get; set; }
+
+    /// <summary>The <c>id</c> of the thing <see cref="Expanded"/> is about, for
+    /// <c>aria-controls</c>. The host's, because only the host knows which element
+    /// its picker ended up in.</summary>
+    [Parameter]
+    public string? Controls { get; set; }
 
     /// <summary>The row that matters more than the rows around it.
     /// <para>

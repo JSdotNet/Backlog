@@ -128,8 +128,8 @@ h1, h2, h3 {
 
 /*
   The footer band. Two controls that are about the application rather than about
-  whatever page is above them: which build this is, and how to report that it is
-  wrong.
+  whatever page is above them — which build this is, and how to report that it is
+  wrong — with the save state between them.
 
   The horizontal padding repeats `.shell`'s deliberately rather than inheriting it.
   The footer is a sibling of the page now, so it sits outside the page's padding box
@@ -146,6 +146,15 @@ h1, h2, h3 {
   records for every utility button in this app. Being in a footer neither creates
   that gap nor excuses widening it.)
 
+  Which leaves the block padding as the only thing on this band that was not already
+  standing on a floor, and it is where the height came out of. `--spacing-xs` rather
+  than zero, and that is a floor too: `.design/accessibility.md#focus-visibility`
+  draws focus as an outline at `--border-width-2` offset 2px, so a focused control
+  puts 4px of ink outside its border box. With no block padding the bottom of that
+  ring lands on or past this band's own edge and `.app-shell`'s `overflow: hidden`
+  clips it. 4px is exactly the ring's reach, so it is the shortest this band can be
+  without taking the focus indicator with it.
+
   Nothing in this block may ever grow a `transform`, `filter`, `backdrop-filter`,
   `contain`, `perspective` or `will-change`. Any one of them makes this element the
   containing block for `position: fixed` descendants, and the update window and the
@@ -157,16 +166,58 @@ h1, h2, h3 {
     align-items: center;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: var(--spacing-xs) var(--spacing-lg);
     border-top: var(--border-width) solid var(--color-border);
 }
 
-/* The version leads at the left edge and pushes everything after it to the right,
-   which is the same auto-margin idiom `.app-header__status` uses one level up. The
-   margin sits on the version rather than on the Report issue button because the
-   button is feature-gated and may not be rendered at all. */
-.app-footer .app-version {
+/* The auto margin that pushes everything after it to the right — the same idiom
+   `.app-header__status` uses one level up. It was on the version, because the
+   Report issue button is feature-gated and may not be rendered at all; it is on
+   this slot now, which is unconditional for the same reason and is also in the
+   middle. That matters: the indicator inside comes and goes several times a save,
+   and with the margin on the version each appearance would walk Report issue left
+   and each settle would walk it back. Here the movement is spent on slack. */
+.app-footer__status {
+    display: inline-flex;
+    align-items: center;
     margin-right: auto;
+}
+
+/* A line of no height sitting between the page and the band, whose only job is to
+   be something the toast tray can be positioned against. Its bottom edge is the
+   footer's top edge, so a tray anchored to it rises off the band without anything
+   here naming the band's height — which is the point, because that height is
+   content-driven and was just changed.
+
+   It is a sibling of the footer rather than a child of it, and that is not a
+   preference. The update window and the feedback dialog are `position: fixed`
+   Modals rendered from inside `.app-footer`, and a positioned ancestor of a fixed
+   element becomes its containing block — see the warning on `.app-footer` above.
+   `position: relative` is safe here because nothing fixed is inside this element,
+   and it is left at `z-index: auto` so it creates no stacking context and the
+   tray's own z-index still competes at the root. */
+.app-toast-anchor {
+    position: relative;
+    flex: 0 0 auto;
+    height: 0;
+    min-height: 0;
+}
+
+/* The library's host is fixed to the viewport's bottom-right corner, which on this
+   shell would put it on top of the footer band. Anchored to the line above the band
+   instead, it rises off the footer's top border — and it keeps doing so when that
+   band changes height, because nothing here names one.
+
+   `--spacing-lg` on the inline end is not arbitrary: it repeats `.shell`'s and
+   `.app-footer`'s own horizontal padding, so a toast's right edge lines up with the
+   page content above it and the Report issue button below it. `--spacing-sm` on the
+   block end is the gap `.design/interaction-guidelines.md#feedback-and-toasts` gives
+   toasts to stack with, spent here between the stack and the band. */
+.toast-host.app-toast-tray {
+    position: absolute;
+    inset-block-start: auto;
+    inset-block-end: var(--spacing-sm);
+    inset-inline-end: var(--spacing-lg);
 }
 
 .app-header {
@@ -363,6 +414,16 @@ h1, h2, h3 {
    between. */
 .filter-group--tags {
     flex: 1 1 auto;
+}
+
+/* The one group in the bar that is not a filter. It keeps its room for the same
+   reason the scopes do, and more strongly: it is the only way into the selection
+   gutter and the only way back out of the mode, so a chip squeezed out of view
+   would strand a reader inside it. Pinned before the status group's auto margin,
+   so it sits with the scopes on the left rather than drifting to the right
+   edge. */
+.filter-group--select {
+    flex: 0 0 auto;
 }
 
 .filter-group--status {
@@ -563,14 +624,45 @@ h1, h2, h3 {
     z-index: 1;
 }
 
-/* An act and the control that undoes it, kept together: "a date and its ✕" is
-   one decision, and a bar that wrapped between the two would leave a clear
-   button under a field it no longer looks attached to. */
+/* A control and the button that undoes or commits it, kept together: "a date and
+   the button that clears it" is one decision, and a band that wrapped between the
+   two would leave the button under a field it no longer looks attached to. */
 .backlog-bulk__pair {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* The element a group's trigger opens into: the aria-controls target, and where
+   Escape stops climbing out of a control. A wrapping row so an open group's
+   controls sit on the band's line with their trigger and wrap together when the
+   width runs out, rather than each finding its own place in the band. */
+.backlog-bulk__controls {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* How much of the bar one control may take, and nothing about how it looks.
+
+   A tag picker's value is a row of chips rather than a word, so it grows as tags
+   are added and there is no width to reserve for it in advance. Left alone it
+   would take whatever it wanted and push the group onto a second line — which is
+   what the 75px the band measured with Tags open actually was. The cap is the
+   host's business for the reason `.entry-row__pickers` gives: what is being
+   corrected is not how a tag picker looks, it is how much of *this* strip one is
+   allowed to have.
+
+   It wears the library's own `.tag-select__control` now — border, background,
+   radius — where it used to borrow the detail panel's, which strips all three
+   until the pointer is on it. A picker that only looks like a field on hover
+   cannot be found by touch or by keyboard. */
+.backlog-bulk__tags {
+    min-width: 0;
+    max-width: 22rem;
 }
 
 .backlog-list {
@@ -1027,20 +1119,33 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* Where a picker sits, and nothing about what it looks like. Indented under the
+   row that opened it and top-aligned inside it, which is a layout fact this panel
+   owns: a picker in a column belongs under its row.
+
+   The monospace that used to be here has gone, and it was the whole of the bulk
+   bar's "unstyled control" bug. `--font-family-mono` is `Fira Code, Courier New,
+   monospace`, and Fira Code is not installed on a stock Windows box — so every
+   select carrying this class rendered in Courier New, which reads as a control the
+   product's stylesheet never reached. It is right on the date input beside it, for
+   the reason `.badge--glob` gives: a date token is a machine string. It was never
+   right on a select whose options are "Weekly", "medium" and "critical". */
 .entry-doc__schedule-input,
 .entry-doc__schedule-select {
     align-self: flex-start;
     margin-left: var(--spacing-lg);
-    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
 
+/* Monospace here and not on the select beside it, for the reason `.badge--glob`
+   gives: a date token is a machine string, and "Weekly" is not. */
 .entry-doc__schedule-input {
     padding: var(--spacing-2xs) var(--spacing-xs);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-sm);
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
 }
 
 .entry-doc__schedule-depends {
@@ -1220,21 +1325,22 @@ h1, h2, h3 {
   rarer rather than impossible: the reader can still drag the panel out to 48rem.
 
   Status collapses first and areas never do. An area exists because somebody typed
-  it and its count is where the work is; status is one of a fixed six, and the
+  it and its count is where the work is; status is one of a fixed few, and the
   chosen one is the only one that has to stay legible. Collapsing gives back most
   of those 369px, which is the only move here that actually buys the areas their
   room — tightening the gaps first would have bought about 20px of it.
 */
 
-/* 38rem: the full status strip (369px) plus the gap between the groups plus the
-   ~200px an "All" chip and a pile or two need comes to roughly 585px, so the strip
-   stops fitting a shade above that. Below this the group shows the chosen status
-   and nothing else, which is the one chip a reader is looking for. */
-@container backlog-list (max-width: 38rem) {
-    .filter-group--status .chip:not(.chip--active):not(:first-child) {
-        display: none;
-    }
+/* 38rem: the width the tag pile and the row's trailing cluster stop fitting at.
+   The pile has no ceiling at all — an entry wears any number of tags and every
+   distinct one gets a chip — and the cluster is a pencil, a repository picker, a
+   status pill and a copy button, which together come to most of a 38rem column.
 
+   This number used to be attributed to the status strip as well, back when that
+   strip was six chips and 369px wide. It is four chips and about 230px now, so the
+   status rule moved down to the 30rem step below, where it is actually true. The
+   remaining rules here never depended on the strip's width. */
+@container backlog-list (max-width: 38rem) {
     /* The tag group goes entirely, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
@@ -1299,6 +1405,21 @@ h1, h2, h3 {
     }
 }
 
+/* 30rem: the four-chip strip (~230px) plus the gap between the groups plus the
+   ~200px the scope pile needs comes to about 440px, so it stops fitting a shade
+   below 480px. Below this the group shows the chosen status and nothing else,
+   which is the one chip a reader is looking for.
+
+   It used to collapse at 38rem, when the strip was six chips and 369px wide.
+   Losing Done and Archived shrank it, so the step that hides it moved down with
+   it rather than going on hiding three chips at a width where four fit — a bar
+   that collapses before it has to is a bar lying about what it can show. */
+@container backlog-list (max-width: 30rem) {
+    .filter-group--status .chip:not(.chip--active):not(:first-child) {
+        display: none;
+    }
+}
+
 /* 26rem: down here the column is close to the 20rem the separator can drag it to,
    and one chip per group is all that fits. The count goes with the padding — a
    name and a number in a chip this narrow is neither. */
@@ -1358,9 +1479,16 @@ h1, h2, h3 {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
 
+    /* The rail follows the option's width, which the rule above has already
+       narrowed, so what is left to tighten is its floor. Height is neither
+       tightened nor restated here: the cell fixes one height for both its rows at
+       every width, and a floor in this step could only argue with it. What the
+       rail keeps here is what it has at any width — the option's whole span, which
+       even beside the shortest word is about twice the 1.75rem the old side box
+       was left with, and four times it beside Knowledge. */
     .header-group__pin {
-        min-width: 1.75rem;
-        padding: var(--spacing-xs) 0;
+        min-width: 2.75rem;
+        padding: 0;
     }
 }
 
@@ -1631,7 +1759,7 @@ h1, h2, h3 {
 }
 
 .setting__status--error { color: var(--color-error-text); }
-.setting__status--ok { color: var(--color-success); }
+.setting__status--ok { color: var(--color-success-text); }
 
 .setting__actions {
     margin-top: var(--spacing-md);
@@ -2047,6 +2175,17 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/*
+  The sections strip holds cells two rows deep — a pin rail over an option —
+  beside the band option, which has no rail. Stretch, so all of them take the
+  strip's height: centred, the band option would float in the middle of the
+  group and the hairline beside it would stop short of both edges. The surface
+  switcher holds bare options only and keeps the centring above.
+*/
+.header-group--sections {
+    align-items: stretch;
+}
+
 .header-group__option {
     display: inline-flex;
     align-items: center;
@@ -2059,6 +2198,12 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font: inherit;
     font-size: var(--font-size-sm);
+    /* Tight, because a pane's option gives its height floor up to the cell and
+       then has to fit what the rail leaves: at this size the inherited 1.5 line
+       box is taller than that room and the label would clip. Nothing changes on
+       the surface switcher, where the 2.25rem floor above still decides the
+       height and the line box never reaches it. */
+    line-height: var(--line-height-tight);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
 }
@@ -2113,11 +2258,41 @@ h1, h2, h3 {
   keeps it belong together, and a rule between them would say they were two
   choices. The surface switcher still holds bare options side by side, which is
   why the option-to-option rule above stays.
+
+  The cell stacks the pair rather than seating them side by side. Beside the
+  option the pin was a box as tall as the cell and a fifth as wide, so its
+  pinned fill read as a vertical strip running down the option's side — which is
+  the whole of feedback #283. Stacked, the pin is a rail across the option's top
+  edge and the fill runs with the strip instead of against it.
+
+  Stacking cost height at first, because each row kept a floor of its own: the
+  sections strip stood a rail taller than the surface switcher beside it, which
+  is two header groups drawn at two heights for a difference a reader has no
+  reason to see. So the cell states the height now — one bare option, 2.25rem —
+  and the two rows divide it rather than add up to it. The rail takes its 1rem
+  off the top and the option below fills the rest. The pin keeps the edge it
+  belongs to and the header goes back to one row height.
 */
 
 .header-group__pane {
     display: inline-flex;
+    flex-direction: column;
     align-items: stretch;
+    /* What the rail's floor and the option's forfeit below add up to, and the one
+       number either of them is measured against: a cell with a pin is exactly a
+       bare option tall, so every member of both groups measures the same. */
+    min-height: 2.25rem;
+}
+
+/* The option inside a cell gives up its own floor and its vertical padding: it
+   is no longer measuring itself, it is filling what the rail left of the cell.
+   Only the vertical padding, so the compact step's narrower side padding still
+   reaches it — this selector outranks that one. */
+.header-group__pane > .header-group__option {
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    flex: 1 1 auto;
 }
 
 .header-group__option + .header-group__pane,
@@ -2127,23 +2302,49 @@ h1, h2, h3 {
 }
 
 /*
-  Quieter than the option it follows: pinning is the rarer act, and a pin drawn
-  at the option's weight would read as a second thing to choose between.
+  Quieter than the option it leads: pinning is the rarer act, and a pin drawn at
+  the option's weight would read as a second thing to choose between.
+
+  Wide and shallow, where the box beside the option was narrow and tall. The
+  floor is stated on the width for that reason, and the height floor is only what
+  the rail needs to hold its glyph. On paper 3rem x 1rem is the smaller box of the
+  two, and in practice the rail is not a box: it is a band as wide as the option
+  it leads — four rem of it for Tasks and eight for Knowledge and its flag, where
+  the side box was never wider than its own 2rem floor. What the rail gives up in
+  depth, which is the cell's to reclaim, it takes back in reach.
 */
 .header-group__pin {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2rem;
-    min-height: 2.25rem;
-    padding: var(--spacing-xs);
+    width: 100%;
+    min-width: 3rem;
+    min-height: 1rem;
+    padding: 0 var(--spacing-xs);
     border: 0;
-    /* Reserved, as on the option, so pinning does not shift the row. */
-    border-bottom: var(--border-width-2) solid transparent;
+    /* Reserved, as on the option, so pinning does not shift the row — on the top
+       edge, because the option's selected underline already owns the bottom one.
+       Opposite edges is what keeps the four combinations of selected and pinned
+       four different pictures rather than two rules on one edge. */
+    border-top: var(--border-width-2) solid transparent;
     background: transparent;
-    font-size: var(--font-size-sm);
+    /* Stated, not inherited, and the emoji is why it was missing: a <button> arrives
+       from the user agent with an ink of its own, and an emoji painted over it
+       regardless. A stroke drawn in currentColor does not — left unstated it took the
+       agent's near-black into a dark header and the glyph all but disappeared. The
+       option beside it has always said this; the rail only ever got away with not
+       saying it. */
+    color: var(--color-text-secondary);
+    /* No font-size any more. It sized an emoji, and the glyph that replaced it is
+       sized by its own width and height — which is what the iconography rules ask
+       for and the one thing they forbid doing with type. */
     line-height: 1;
-    opacity: 0.45;
+    /* Quiet, but a stroke rather than a full-colour glyph now carries it, and 0.45 was
+       set when it did not: two pixels of line at that alpha sit under the 3:1 the
+       iconography rules hold an icon to. This clears it while leaving the rail well
+       short of the option's weight, which is the whole point of dimming it at all.
+       The disabled step below stays where it is: an inert control is exempt. */
+    opacity: 0.6;
     cursor: pointer;
     transition: background var(--transition-fast), opacity var(--transition-fast);
 }
@@ -2159,16 +2360,99 @@ h1, h2, h3 {
     outline-offset: -2px;
 }
 
-/* Two channels again — fill and underline — because colour alone is ruled out. */
+/* Two channels again — fill and rule — because colour alone is ruled out. */
 .header-group__pin--pinned {
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    border-bottom-color: var(--color-primary);
+    border-top-color: var(--color-primary);
     opacity: 1;
 }
 
 .header-group__pin:disabled {
     cursor: not-allowed;
     opacity: 0.2;
+}
+
+/*
+  The glyph the rail holds, dressed here because nowhere else can: the pin
+  replaces the library's base class, so none of the `.btn svg` rules reach it and
+  this sheet owns everything the drawing needs. Addressed by the class Home.razor
+  hands the glyph through its CssClass, rather than by the component's own
+  self-named one or by the element: `.chevron-up-icon` and an `svg` selector alike
+  would take hold of whatever a later caller put in this rail, and this rule is
+  about the rail's own drawing rather than about chevrons. Block, so it brings no
+  line box of its own into a rail that is 1rem tall.
+
+  Direction is the third channel under the fill and the top rule, and one drawing
+  carries both states rather than two components: the chevron points up while the
+  pane is loose, at the edge the rail runs along, so the control asks to be pushed,
+  and it turns half a turn down once pinned, so it asks to be pushed back. Which
+  state a drawing stands for stays the host's rule — ChevronUpIcon ships no
+  `Pinned` parameter for exactly that reason, since two hosts with two conventions
+  could not both have it — and an angle set here is that rule stated by the host,
+  in the one place that already knows what pinned looks like.
+
+  This is a channel and not decoration. `.design/accessibility.md#iconography-accessibility`
+  forbids an icon's colour being the sole carrier of meaning, and
+  `.design/interaction-guidelines.md#workspace-panes` names this very control:
+  "a pinned pane's control MUST be visually distinct from an unpinned one through
+  more than colour alone". Up versus down is a non-colour channel, alongside the
+  `--pinned` fill and the primary top rule. Three channels rather than the two
+  required, because the rail is small and the fill is deliberately quiet —
+  direction is the one a reader can see from across the strip, and the one left to
+  a reader who takes no meaning from the fill's colour at all. Shape used to carry
+  it as a second drawing; it carries it as an angle now, and either way it is load
+  bearing. Do not drop the rotation as ornament.
+
+  The transform is composed out of two custom properties, and it has to be. Write
+  the pinned turn as its own `transform` and the hover lift as another, and a
+  hovered pinned rail loses its rotation: `.header-group__pin:hover:not(:disabled)
+  .header-group__pin-glyph` outranks `.header-group__pin--pinned
+  .header-group__pin-glyph`, so the hover declaration wins the cascade and drops
+  the 180deg on the floor. Each rule below therefore sets only the variable it
+  owns and this one composes them, so lift and turn survive in any combination.
+  Do not "simplify" it back into two competing `transform` declarations.
+
+  Transitioned, where the tilt this replaced deliberately was not. That reasoning
+  was about a tilt: it was the state itself rather than a move between states, and
+  a state that animates into place is briefly wrong. What happens here is a move —
+  the glyph travelling the pixel the gesture asks for, and turning over to face the
+  other way — so it eases the way every other move in this sheet does, on the same
+  token. Transitioning the composed `transform` covers both, because both are in it.
+
+  The turn cannot clip. The rail's 1rem floor less the 2px it reserves along its
+  top edge leaves a 14px content box around a 12px glyph, so there is 1px of slack
+  above and 1px below. A 180deg rotation about the glyph's own centre — the default
+  `transform-origin`, and the glyph is a square — maps that 12px box onto itself,
+  so the bounding box after the turn is the box before it and the slack is
+  unchanged. Only the lift spends any of it, and it spends exactly the pixel there
+  is.
+*/
+.header-group__pin-glyph {
+    display: block;
+    --pin-lift: 0;
+    --pin-turn: 0deg;
+    transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));
+    transition: transform var(--transition-fast);
+}
+
+/* Push up to pin, said before the press: the glyph rises a pixel toward the edge
+   the chevron is pointing at, so the control shows the gesture rather than only
+   naming it in the label. One pixel is exactly the slack there is, by the
+   arithmetic above — the lift lands the drawing flush against the top of the
+   content box and never through it, and anything more would clip. The lift is all
+   this rule sets, so hovering a pinned rail leaves its turn alone. */
+.header-group__pin:hover:not(:disabled) .header-group__pin-glyph {
+    --pin-lift: -1px;
+}
+
+/* And once the press lands the glyph stays up and turns over: it holds the pixel
+   the hover took it to, so the travel reads as one movement that ended in a kept
+   pane rather than a hover effect that let go of it, and it now points down at the
+   push that releases the pane. Both variables, because a pinned rail keeps the
+   lift whether or not the pointer is still on it. */
+.header-group__pin--pinned .header-group__pin-glyph {
+    --pin-lift: -1px;
+    --pin-turn: 180deg;
 }
 
 /* --- Header accent and utilities ------------------------------------------ */
@@ -2277,7 +2561,7 @@ h1, h2, h3 {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2288,7 +2572,6 @@ h1, h2, h3 {
 }
 
 .ai-panel__body,
-.ai-panel__error,
 .ai-panel__answer p {
     color: var(--color-text-secondary);
 }
@@ -2314,12 +2597,6 @@ h1, h2, h3 {
     display: flex;
     justify-content: flex-end;
     margin-top: var(--spacing-sm);
-}
-
-.ai-panel__error {
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-error);
 }
 
 .ai-panel__answer {
@@ -2361,7 +2638,7 @@ h1, h2, h3 {
 .inbox-pane__eyebrow {
     color: var(--color-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2399,6 +2676,156 @@ h1, h2, h3 {
 
 .inbox-pane__item-title {
     font-weight: 600;
+}
+
+/* The triage action keeps to one line and its own width; the body beside it
+   is what wraps. A two-line "Open in / backlog" at pane width reads as two
+   controls. */
+.inbox-pane__item > .btn {
+    flex: none;
+    white-space: nowrap;
+}
+
+.inbox-pane__item-body {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The meta line: kind, filing, and provenance, as one wrapping row of small
+   text. The kind mark and its word are one unit that never breaks apart, which
+   is what the nested inline-flex is for. */
+.inbox-pane__item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.inbox-pane__meta-separator {
+    color: var(--color-text-disabled);
+}
+
+/* The source badge is the library's dashed source family; the person beside it
+   is the library's person chip. Both are quiet on purpose: provenance is read,
+   not acted on, so neither is filled. */
+.inbox-pane__source {
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__item-tags {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__repository {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* --- PARA drawers and the lens ------------------------------------------- */
+
+.inbox-pane__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.inbox-pane__toolbar-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__drawers {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* A drawer: the library's fold wearing this pane's names. The trigger reads as
+   a drawer label — the name in the primary ink, the count as a quiet pill at
+   the far end — which is what lets a queue of forty read as five drawers. The
+   region is the library's, so `hidden` is the library's rule and the fold
+   actually folds. */
+.inbox-pane__drawer {
+    min-width: 0;
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid rgba(108, 117, 125, 0.24);
+}
+
+.inbox-pane__drawer-fold .fold__trigger {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+}
+
+.inbox-pane__drawer-fold > .fold__region {
+    padding-left: var(--spacing-md);
+}
+
+/* A section inside a drawer: one project, one area, one tag, one repository.
+   Quieter than the drawer above it — the drawer is the heading and this is a
+   row of the drawer that happens to fold. */
+.inbox-pane__groups {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__group {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__group-fold .fold__trigger {
+    width: 100%;
+    justify-content: flex-start;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.inbox-pane__group-fold > .fold__region {
+    padding-left: var(--spacing-sm);
+}
+
+.inbox-pane__drawer-fold .fold__label,
+.inbox-pane__group-fold .fold__label {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pane__group-count {
+    flex: none;
+    min-width: 1.6em;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
 }
 
 /* --- Installed tools side pane ------------------------------------------- */
@@ -2459,7 +2886,7 @@ h1, h2, h3 {
 
 .tools-panel__eyebrow {
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -2471,7 +2898,7 @@ h1, h2, h3 {
 .tools-panel__subtitle,
 .tools-panel__count,
 .tools-panel__message,
-.tools-table__meta {
+.tools-inventory__meta {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
@@ -2534,7 +2961,7 @@ h1, h2, h3 {
 
   70rem is chosen against the table's own restack threshold rather than for its
   own sake: the rail takes at most 26rem and the grid gap 1rem, which leaves the
-  table 43rem — above the 41rem where its four tracks stop fitting. Any lower gate
+  table 43rem — above the 39rem where its four columns stop fitting. Any lower gate
   would buy a second column by restacking every row in the first.
 
   Sticky, because the pane is the scrollport and the rail is at the top of it.
@@ -2577,9 +3004,9 @@ h1, h2, h3 {
 }
 
 /* The inventory that has not arrived yet, in the shape of the one that will.
-   It wears the real .tools-kind and .tools-table classes, so everything below
-   about grid tracks, the frame, and the narrow restack applies to it unchanged
-   and there is no second layout to keep in step. */
+   It is the same kind section and the same table with the same four columns, so
+   everything below about the frame, the column floors and the narrow restack
+   applies to it unchanged and there is no second layout to keep in step. */
 .tools-panel__skeleton {
     display: grid;
     gap: var(--spacing-md);
@@ -2587,7 +3014,7 @@ h1, h2, h3 {
 }
 
 /* The name and its meta line, spaced as the real cell spaces them. */
-.tools-panel__skeleton .tools-table__tool {
+.tools-panel__skeleton .tools-inventory__tool {
     display: grid;
     gap: var(--spacing-xs);
 }
@@ -2632,75 +3059,96 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-/* container-type is what lets the row below answer to the pane rather than to the
-   window. The pane is a surface the shell opens beside a workspace, so its width is
-   never the window's — the same mismatch the filter bar's container query exists
-   for, where a viewport threshold fires at the wrong moment or not at all.
+/* The inventory: the shared library's DataTable wearing this pane's names.
 
-   overflow-x: auto rather than hidden, because the clipping it replaces was silent.
-   The row's four tracks need 504px and the pane can have 338px of it, and hidden
-   overflow deleted the Available column and every action in the row without leaving
-   a scrollbar to say so. The restack below is what stops that happening at all;
-   auto is what keeps whatever the restack does not foresee — an unbreakable version
-   string, a label wider than its track — reachable rather than gone. The block axis
-   stays clipped, so the rows still stop at the frame's rounded corners. */
-.tools-table {
-    display: grid;
+   container-type is what lets the table below answer to the pane rather than to
+   the window. The pane is a surface the shell opens beside a workspace, so its
+   width is never the window's — the same mismatch the filter bar's container
+   query exists for, where a viewport threshold fires at the wrong moment or not
+   at all. The container is this element rather than the table inside it because a
+   container query styles a container's descendants and never the container
+   itself, and it is the table that has to restack.
+
+   The library draws the frame out of the plain surface tokens, which is right for
+   a pane in the app's own grey and wrong inside this one: this is a takeover with
+   an amber border of its own, and a neutral table in the middle of it reads as a
+   different screen. So the rules that follow re-dress the library's frame rather
+   than replace it — the scroll box, the heading row and the row lines are still
+   the component's. */
+.tools-inventory {
     min-width: 0;
-    border: var(--border-width) solid rgba(242, 193, 78, 0.22);
-    border-radius: var(--border-radius-sm);
-    overflow-x: auto;
-    overflow-y: hidden;
     container-type: inline-size;
-    container-name: tools-table;
+    container-name: tools-inventory;
 }
 
-/* The actions track's minimum is the sum of what the cell below actually places
-   in it — a status, a toggle and a Remove side by side — rather than the 8rem it
-   was while those three could wrap onto a second line. A track narrower than its
-   own cell is how the Available column and every action in the row came to be
-   clipped in the first place. */
-.tools-table__row {
-    display: grid;
-    grid-template-columns: minmax(10rem, 1.3fr) minmax(5.5rem, 0.65fr) minmax(5.5rem, 0.65fr) minmax(17.5rem, 0.8fr);
-    gap: var(--spacing-sm);
-    align-items: center;
-    padding: var(--spacing-sm);
-    border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.14);
+.tools-inventory .data-table__scroll {
+    border-color: rgba(242, 193, 78, 0.22);
+    border-radius: var(--border-radius-sm);
+}
+
+.tools-inventory .data-table__table thead th {
+    background: rgba(242, 193, 78, 0.10);
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+/* The cells this pane writes hold four lines of text between them — a name, a
+   host badge, a meta line and the catalog's own note — where the library's are a
+   name, a date or a chip and do not wrap at all. Here they wrap, so a long note
+   makes the row taller rather than making the table wider than the pane.
+
+   Centred rather than top-aligned, because the tall cell in the row is the name
+   and the two version columns are one line each: aligned to the top they sat
+   above the name they belong to. */
+.tools-inventory .data-table__table td {
+    border-bottom-color: rgba(242, 193, 78, 0.14);
+    vertical-align: middle;
+    white-space: normal;
+}
+
+.tools-inventory .data-table__row {
     background: rgba(0, 0, 0, 0.18);
 }
 
-.tools-table__row:last-child {
-    border-bottom: 0;
+/*
+  The floors the four columns are drawn at, and the arithmetic the restack step at
+  the bottom of this block is derived from. They sit on the heading cells because
+  the heading is the one cell in a column this pane does not write — and a column
+  is as wide as the widest minimum in it either way.
+
+  17.5rem of actions is the sum of what the cell below actually places in it — a
+  status, a toggle and a Remove side by side — rather than the 8rem it was while
+  those three could wrap onto a second line. A column narrower than its own cell
+  is how the Available column and every action in the row came to be clipped in
+  the first place.
+*/
+.tools-inventory__col-tool {
+    min-width: 10rem;
 }
 
-.tools-table__row--head {
-    border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.28);
-    background: rgba(242, 193, 78, 0.10);
-    color: var(--color-primary);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+.tools-inventory__col-version {
+    min-width: 5.5rem;
 }
-.tools-table__row--disabled {
+
+.tools-inventory__col-actions {
+    min-width: 17.5rem;
+}
+
+/* A row this machine has said it does not want. Quieter, not hidden: it is still
+   part of the inventory, and switching it back on is a thing done from the row. */
+.tools-inventory__row--disabled {
     opacity: 0.66;
 }
 
-.tools-table__tool,
-.tools-table__version {
-    min-width: 0;
-}
-
-.tools-table__tool strong,
-.tools-table__meta {
+.tools-inventory__tool strong,
+.tools-inventory__meta {
     display: block;
 }
 
 /* Which hosts a row is for. Deliberately quiet — it is a qualifier on the name
    above it, not a status of its own — but always drawn, because a row that says
    nothing about hosts reads as one that is only about Copilot. */
-.tools-table__hosts {
+.tools-inventory__hosts {
     display: inline-block;
     margin-block: 0.15rem;
     padding: 0.05rem 0.4rem;
@@ -2716,7 +3164,7 @@ h1, h2, h3 {
    there to carry it. Drawn as the heading it stands in for, so a stacked row reads
    as the same four things in a column rather than as a new vocabulary. Hidden by
    default: at any width where the heading row is up, this is the same word twice. */
-.tools-table__cell-label {
+.tools-inventory__cell-label {
     display: none;
     margin-inline-end: var(--spacing-xs);
     color: var(--color-primary);
@@ -2726,14 +3174,27 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-.tools-table__version {
+.tools-inventory__version {
     color: var(--color-text-secondary);
     overflow-wrap: anywhere;
 }
 
-.tools-table__version--new {
+.tools-inventory__version--new {
     color: var(--color-primary);
     font-weight: 700;
+}
+
+/* The cell the actions sit in, left a table cell on purpose. A `td` carrying
+   `display: grid` is not a table-cell box any more: it loses the `vertical-align`
+   above, and the bottom rule the library draws on every cell is drawn around the
+   grid instead of at the row's edge. Inside the restack it would lose the argument
+   outright — `.tools-inventory .data-table__row > td` outranks a bare
+   `.tools-inventory__actions`, so every rule the narrow block writes for the group
+   would be inert at exactly the widths it exists for. The grid is the element
+   inside this cell. The library records the same reasoning on
+   `.data-table__group-heading`. */
+.tools-inventory__actions-cell {
+    min-width: 0;
 }
 
 /*
@@ -2745,7 +3206,7 @@ h1, h2, h3 {
   dropped both onto a second line. Neither reads as a column of controls.
 
   The two fixed tracks at the end are what align them, and fixed is the point:
-  every row is its own grid, so nothing synchronises a content-sized track across
+  every cell is its own grid, so nothing synchronises a content-sized track across
   rows — three rows whose toggles happen to measure the same are aligned by
   coincidence, and a marketplace row, which has no toggle at all, would collapse
   that track to nothing and move the status slot's edge 6rem right. Reserved
@@ -2756,7 +3217,7 @@ h1, h2, h3 {
   what is left and keeps `minmax(0, …)` so a long status wraps inside its own slot
   instead of widening the cell.
 */
-.tools-table__actions {
+.tools-inventory__actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 6rem 4rem;
     gap: var(--spacing-xs);
@@ -2769,21 +3230,21 @@ h1, h2, h3 {
    no toggle and a read-only host has no Remove, and the survivors would slide
    left into the empty track — misaligning precisely the rows that differ from
    the ones around them. */
-.tools-table__action {
+.tools-inventory__action {
     grid-column: 1;
     min-width: 0;
 }
 
-.tools-table__toggle {
+.tools-inventory__toggle {
     grid-column: 2;
 }
 
-.tools-table__remove {
+.tools-inventory__remove {
     grid-column: 3;
     justify-self: end;
 }
 
-.tools-table__action-note {
+.tools-inventory__action-note {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: 1.4;
@@ -2794,7 +3255,7 @@ h1, h2, h3 {
    status. Several of these are the only reason a row reads the way it does — a
    version that legitimately reads backwards, a probe that is a heuristic — and
    run together with the status they read as part of the finding. */
-.tools-table__note {
+.tools-inventory__note {
     display: block;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -2808,53 +3269,73 @@ h1, h2, h3 {
    label that wraps there makes the row twice as tall as the fifty around it.
    Everything else about it is deliberately the library's, because it is the same
    control it is anywhere else — it is not a button and must not read as one. */
-.tools-table__ack {
+.tools-inventory__ack {
     white-space: nowrap;
 }
 
 /*
   Below the width its own columns need, the table stops being a table.
 
-  41rem is the row's own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5 +
-  17.5 is 38.5rem of track minimums, three --spacing-sm gaps and two of row padding
-  bring it to 41rem, and under that the four tracks cannot all be drawn. Above it
-  they fit; there is no band left where the row is wider than its box.
+  39rem is the columns' own arithmetic rounded up to the next rem: 10 + 5.5 + 5.5
+  + 17.5 is 38.5rem of floors, and that is the whole sum. The library does pad every
+  cell with a --spacing-sm either side, but this sheet sets `box-sizing: border-box`
+  on everything, so each floor already contains that padding — counting it a second
+  time put the step 4rem past the width the columns actually need, and restacked a
+  table that still fitted. Under 38.5rem the four columns cannot all be drawn. Above
+  it they fit; there is no band left where the row is wider than its box.
 
-  It moved up from 32rem when the actions cell stopped wrapping: three controls
-  guaranteed to stay on one line need 17.5rem of track — 6rem of toggle, 4rem of
-  Remove, two gaps and 7rem left for the status — where three that could fall onto
-  a second line needed 8. The floor matters more than it looks: the actions track
-  sits at it for every table width up to about 70rem, which is most of them, so the
-  status slot's room is this number minus the two reserved tracks and nothing else.
-  A slot too small does not scroll or clip — it silently overlaps the toggle.
+  The threshold is derived from the column list rather than chosen, so it has to
+  move with it — and the two-column gate on the pane is set against this number so
+  the rail can never squeeze the table below it.
 
-  The threshold is derived from the track list rather than chosen, so it has to move
-  with it — and the two-column gate on the pane is set against this number so the
-  rail can never squeeze the table below it.
-
-  A stack rather than a scroll box, because this pane is a list of tools and not a
-  grid of figures — the reader is looking down it for one entry and then acting on
-  it, and an action they have to scroll sideways to find is barely better than one
-  that was clipped. The library's DataTable makes the other choice for the tables
-  that really are grids, and keeps its scroll box for exactly that reason.
+  A stack rather than the library's scroll box, because this pane is a list of
+  tools and not a grid of figures — the reader is looking down it for one entry and
+  then acting on it, and an action they have to scroll sideways to find is barely
+  better than one that was clipped. The library makes the other choice for the
+  tables that really are grids, and its scroll box stays underneath this as the
+  safety net for whatever the stack does not foresee: an unbreakable version
+  string, a label wider than the slot it is in.
 
   The heading row goes, because four column names above a single column name
-  nothing, and each version cell puts its own label up instead. Precisely one of the
-  two is live at any width.
+  nothing, and each version cell puts its own label up instead. Precisely one of
+  the two is live at any width.
 */
-@container tools-table (max-width: 41rem) {
-    .tools-table__row--head {
+@container tools-inventory (max-width: 39rem) {
+    .tools-inventory .data-table__table,
+    .tools-inventory .data-table__section,
+    .tools-inventory .data-table__row,
+    .tools-inventory .data-table__row > td {
+        display: block;
+    }
+
+    .tools-inventory thead {
         display: none;
     }
 
-    .tools-table__row {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-xs);
-        align-items: start;
+    /* The row takes the padding and the rule its cells were carrying, because a
+       stacked row is what has an edge and the cells are lines inside it. */
+    .tools-inventory .data-table__row {
         padding: var(--spacing-md) var(--spacing-sm);
+        border-bottom: var(--border-width) solid rgba(242, 193, 78, 0.14);
     }
 
-    .tools-table__cell-label {
+    /* The frame already draws the last edge, so the last row's own rule would sit
+       just inside it as a doubled line — the same reason the library gives for
+       taking it off the last row's cells. */
+    .tools-inventory .data-table__section:last-child .data-table__row:last-child {
+        border-bottom: 0;
+    }
+
+    /* A stacked cell is a line of the row, so it keeps a little block padding
+       and gives up the rest: a table row has no gap to space its cells with, and
+       four lines with none of their own read as one paragraph. */
+    .tools-inventory .data-table__row > td {
+        min-width: 0;
+        padding: var(--spacing-xs) 0;
+        border-bottom: 0;
+    }
+
+    .tools-inventory__cell-label {
         display: inline;
     }
 
@@ -2866,17 +3347,10 @@ h1, h2, h3 {
        the rows above and below it in a table; in a stack there is no row above to
        line up with, and a cell as wide as the pane puts ten rem of nothing between
        a status and the buttons that act on it. */
-    .tools-table__actions {
+    .tools-inventory__actions {
         grid-template-columns: max-content 6rem 4rem;
         justify-content: start;
         margin-block-start: var(--spacing-xs);
-    }
-
-    /* The note and the tick belong to the row, not to a column, so they simply
-       follow it down when the tracks collapse. Called out because the restack
-       above predates both of them. */
-    .tools-table__note {
-        grid-column: 1;
     }
 }
 
@@ -3033,7 +3507,7 @@ h1, h2, h3 {
 .roadmap-band__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3389,7 +3863,7 @@ h1, h2, h3 {
 .dashboard-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3437,7 +3911,7 @@ h1, h2, h3 {
 .dashboard-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -3577,7 +4051,7 @@ h1, h2, h3 {
 .sessions-panel__eyebrow {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -3602,8 +4076,9 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* The grouping strip, above the table rather than inside it: it scopes the whole
-   list, and a control inside the table's frame would read as the table's own. */
+/* The filter strips — Show and Group by — above the table rather than inside it:
+   they scope the whole list, and a control inside the table's frame would read as
+   the table's own. */
 .sessions-panel__filters {
     display: flex;
     flex: none;
@@ -3631,7 +4106,7 @@ h1, h2, h3 {
 .sessions-filter__label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -3799,34 +4274,11 @@ h1, h2, h3 {
     padding-bottom: var(--spacing-sm);
 }
 
-/* What the last import produced, under the split rather than over it. It is a
-   footer for the list above and not a banner: the reader opened the dialog to go
-   and check "3 created, 1 updated" against the entries, so the line reports and
-   gets out of the way.
-
-   Alert renders a <p>, and a <p> in a flex column with default margins was a tall
-   full-width band under the list saying six words. What makes it a footer is the
-   rule above it and the type inside it — the same border and the same secondary
-   ink the bar at the top of this pane uses, so the two ends of the surface match.
-   Inline padding aligned with the workspace's own so the sentence starts where the
-   list does.
-
-   A result, not an alarm — it reports what the import produced and stays until the
-   next one replaces it, so it reads at the weight of `.setting__status` rather than
-   borrowing the error surface. It wraps anywhere because a repository alias in the
-   message can be one long unbroken word, and a footer one line tall is only a
-   footer while that word cannot push it wider than the pane. */
-.import-plan-result {
-    margin: 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-    background: var(--color-background-alt);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    text-align: left;
-    overflow-wrap: anywhere;
-}
-
+/* The import and bulk-edit results used to be a compact footer rule here, drawn
+   under the split. They are toasts now — raised on the shared channel and rendered
+   by the tray MainLayout mounts — so the sentence no longer takes a strip of the
+   pane and no longer stays until something replaces it. Nothing else ever wore
+   `.import-plan-result`, so the rule went with them. */
 
 .knowledge-pane {
     overflow: visible;

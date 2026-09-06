@@ -3,9 +3,8 @@
 <PageTitle>Diagrams in markdown — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Diagrams in markdown"
-           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds."
+           Summary="A subpage of Markdown, about one block: the fenced code block whose language names a diagram. MarkdownView hands those to DiagramView instead of rendering a code block, so a diagram is something you write in a body rather than something you attach to one. Everything else about fences — that nothing inside them is parsed, that a `- [ ]` in one is a sample — still holds. Mermaid is fetched from a CDN the first time a diagram renders, so on a machine with no egress every diagram here falls back to its source: the last story's case, not a broken page."
            Guidelines="@Rules">
-    <Alert Message="@OfflineNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="A fence that names a diagram becomes one"
            Description="The whole of the integration is one line in MarkdownView: an MdCode whose language DiagramView recognises is handed to DiagramView, and everything else becomes a `pre.md-code`. The parser is not involved and does not need to be — it already captured the language off the opening fence, and a diagram is a code block that happens to be drawable.
@@ -102,11 +101,6 @@ A body is content that may have come from a repository file nobody here wrote, s
         new("content-editing.md#supported-constructs", "Which fences are diagrams and which stay code."),
         new("color-scheme.md#chart-roles", "The hues a drawn diagram is allowed to use.")
     ];
-
-    private const string OfflineNotice =
-        "Mermaid is fetched from a CDN the first time a diagram renders. On a machine with no egress "
-        + "every diagram on this page falls back to its source, which is what the last story is about — "
-        + "not a broken page.";
 
     private sealed record LanguageCase(string Fence, string Verdict, string Source);
 

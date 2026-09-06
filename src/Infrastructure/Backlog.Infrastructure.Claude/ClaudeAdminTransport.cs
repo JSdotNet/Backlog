@@ -41,14 +41,11 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
                 + "does not offer it to individual accounts.");
         }
 
-        if (!settings.LooksLikeAdminKey)
-        {
-            throw new ClaudeNotConfiguredException(
-                "That looks like a regular Claude API key. Usage reports need an Admin API key "
-                + "(it starts with 'sk-ant-admin'), which an organization owner creates in the "
-                + "Claude Console.");
-        }
-
+        // Whatever the key looks like, it goes. Anthropic documents three credentials for
+        // these reports — an admin key, an org:admin OAuth token, or a personal or service
+        // account key that isn't scoped to a workspace — and only the last of those is
+        // distinguishable from a workspace key by asking Anthropic. Its 401 and 403 are
+        // translated below and say more than a prefix test could.
         using var request = new HttpRequestMessage(method, EndpointUri(settings.ApiEndpoint, path));
         request.Headers.TryAddWithoutValidation("x-api-key", settings.AdminApiKey);
         request.Headers.TryAddWithoutValidation("anthropic-version", settings.ApiVersion);

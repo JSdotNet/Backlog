@@ -48,9 +48,15 @@ public sealed record ClaudeSettings
     public bool IsConfigured => !string.IsNullOrWhiteSpace(AdminApiKey);
 
     /// <summary>
-    /// True when the key at least looks like an Admin API key. Configuring a
-    /// regular <c>sk-ant-api…</c> key is a common mistake that fails with an
-    /// opaque 401, so it is worth catching before the request leaves.
+    /// True when the key looks like an Admin API key (<c>sk-ant-admin…</c>).
+    /// <para>
+    /// A hint, not a gate. Anthropic accepts three credentials on the usage reports —
+    /// an admin key, an <c>org:admin</c> OAuth token, or a personal or service account
+    /// key that isn't scoped to a workspace — and a workspace-scoped key, which is
+    /// refused, reads exactly like the personal one that isn't. So a false here means
+    /// "worth checking", not "won't work", and Settings says so rather than refusing to
+    /// send it.
+    /// </para>
     /// </summary>
     [JsonIgnore]
     public bool LooksLikeAdminKey =>

@@ -11,7 +11,7 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// <summary>
 /// Brings in a plan and turns it into backlog entries in one step.
 /// <para>
-/// Per ADR 0004 a plan is not a file format of its own — it is ordinary entry
+/// Per ADR 0007 a plan is not a file format of its own — it is ordinary entry
 /// text with more than one top-level heading. This handler does exactly what a
 /// hand-typed multi-entry paste does (<see cref="EntryTextParser.SplitSegments"/>,
 /// <see cref="EntryTextParser.Parse"/>) and adds only what a single paste cannot
@@ -27,7 +27,7 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// <param name="DefaultRepo">The Import dialog's optional "Target repository"
 /// field. Applied as an entry's <c>repo:</c> value only when that entry's own
 /// text names none — the per-entry token stays the power-user override this
-/// never touches. See ADR 0004's `repo:` resolution.</param>
+/// never touches. See ADR 0007's `repo:` resolution.</param>
 /// <param name="RepoMatches">What the reader said in the Import dialog about the
 /// repository names the plan actually mentions: the name as the plan wrote it,
 /// mapped to the alias of the known repository they meant. Only the names they
@@ -51,7 +51,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         "import.empty_plan",
         "Nothing in that text parsed to an entry with a title.");
 
-    /// <summary>Two entries in the document claim the same <c>id:</c>. ADR 0004
+    /// <summary>Two entries in the document claim the same <c>id:</c>. ADR 0007
     /// reads an <c>id:</c> as the one name a prompt goes by inside its plan, and
     /// every use of it here depends on that: an <c>after:</c> naming a doubled id
     /// has two answers, and on a re-import both segments match the one stored
@@ -95,7 +95,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
 
         // Pass 1: resolve each parsed entry's identity against what is already
         // stored, before anything about the batch is written. None of the
-        // entries has a real id yet — see ADR 0004 — so this is the only place
+        // entries has a real id yet — see ADR 0007 — so this is the only place
         // that link can be made.
         var outcomes = new List<Outcome>(parsedEntries.Count);
         var nextOrder = existing.Count;
@@ -113,7 +113,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             if (match is null)
             {
                 // Whichever version of the plan first introduced the prompt.
-                outcomes.Add(Outcome.ForCreate(parsed, TaskEntryFields.CreateFrom(parsed, nextOrder++)));
+                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++)));
             }
             else if (match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
@@ -180,6 +180,27 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         return new ImportPlanResultDto(created, updated, skipped, resultEntries);
     }
 
+    /// <summary>Constructs a new entry from a parsed segment the way every
+    /// text-save does, then applies the one default that is Import's own: an
+    /// entry whose metadata line says nothing about its readiness arrives at
+    /// <see cref="EntryStatus.Ready"/>.
+    /// <para>
+    /// A hand-typed entry is born at Draft because it is being shaped as it is
+    /// typed. A plan is the opposite case — a sequence of work already agreed
+    /// and written down to be picked up — so leaving every entry at Draft only
+    /// hands somebody a promotion per entry to click through before "What's
+    /// next" shows any of it. An explicit <c>!draft</c> still means what it says;
+    /// this fills a gap, it never overrides. Kept here rather than in
+    /// <see cref="TaskEntryFields.CreateFrom"/> because that helper is shared
+    /// with the hand-typed path, whose default stays Draft.
+    /// </para></summary>
+    private static TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order)
+    {
+        var entry = TaskEntryFields.CreateFrom(parsed, order);
+        if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready);
+        return entry;
+    }
+
     /// <summary>The first <c>id:</c> two entries in the document both claim, or
     /// null when every one of them is its own. Read before pass 1 rather than
     /// discovered by the dictionary that pass 2 needs, so a plan Import cannot act
@@ -203,7 +224,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     }
 
     /// <summary>The one <c>#tag</c> every parsed entry has in common, or null
-    /// when there is none. Per ADR 0004 this becomes <c>import_plan_id</c> —
+    /// when there is none. Per ADR 0007 this becomes <c>import_plan_id</c> —
     /// there is no separate plan-id field or wrapper document. An entry pasted
     /// without a shared tag still imports; it just cannot be matched by a later
     /// re-import.</summary>

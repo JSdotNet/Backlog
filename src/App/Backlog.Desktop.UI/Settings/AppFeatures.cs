@@ -132,7 +132,7 @@ public static class AppFeatures
         new(
             UsageMetrics,
             "AI usage metrics",
-            "Read Claude and GitHub Copilot usage from their organization APIs as evidence for productivity metrics. Both are organization-scoped: Claude needs an Admin API key and GitHub needs organization-owner access.",
+            "Read Claude and GitHub Copilot usage from their organization APIs as evidence for productivity metrics. Both are organization-scoped: Claude needs an API key an organization admin can use, and GitHub needs organization-owner access.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting)

@@ -1,5 +1,19 @@
 # Derived index artifacts are written by generators that always emit LF.
 # Without this, git's autocrlf would rewrite the working copy to CRLF on
-# Windows and the generator's next run would show a spurious diff, breaking
-# the staleness check in .github/workflows/knowledge-meta.yml.
+# Windows and the generator's next run would show a spurious diff.
+#
+# Two generators write a pinned index, and both belong on this list:
+#   build/Update-KnowledgeIndex.ps1        -> **/_meta/*.json
+#   tools/diagrams/archify-artifacts.mjs   -> **/_archify/index.json
+#
+# The _meta half was written for the staleness check in
+# .github/workflows/knowledge-meta.yml, which is a consumer of one of them
+# rather than the reason the rule exists. The _archify half was missing, so
+# fourteen index files reported as modified after every re-render while
+# git diff showed nothing.
+#
+# Only the generated index is pinned. The Archify specifications beside it
+# are authored by hand, and pinning those would change what a Windows editor
+# writes instead of fixing a generator's phantom diff.
 **/_meta/*.json text eol=lf
+**/_archify/index.json text eol=lf

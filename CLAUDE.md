@@ -169,4 +169,4 @@ orchestration dashboard.
 - `.github/instructions/mcp-usage.instructions.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
-  plan (ADR 0004) from an agreed specification; user-invoked only.
+  plan (ADR 0007) from an agreed specification; user-invoked only.

@@ -2,39 +2,42 @@
     Heading level is a parameter because the right level depends on where the
     section sits, not on how the header looks. Skipping a level is the usual way
     a document outline stops making sense.
+
+    Every class is a parameter with the library's own name as its default, the
+    way `EmptyState` already does it, because the pane headers that adopted this
+    component already have this whole shape in their own stylesheet. They hand
+    over all six names and keep the DOM they had; a blank one leaves that element
+    with no class attribute at all rather than an empty one, which is what the
+    two dialogs need — their heading is styled by element.
+
+    The wrapper element is a parameter for the same reason. One host drew this
+    shape in a `div`, and a swap that quietly changed the element would be a
+    change to the page rather than to the library.
+
+    `TitleId` exists because the id belongs on the heading, not on the wrapper:
+    every one of these sections is named by an `aria-labelledby` pointing at it,
+    and pointing that at the wrapper would read the actions out with the name.
+    `AdditionalAttributes` still lands on the wrapper, which is where the rest of
+    a host's attributes belong.
 *@
 
-<header class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
-    <div class="section-header__text">
-        @switch (Level)
-        {
-            case 3:
-                <h3 class="section-header__title">@Title</h3>
-                break;
-            case 4:
-                <h4 class="section-header__title">@Title</h4>
-                break;
-            case 5:
-                <h5 class="section-header__title">@Title</h5>
-                break;
-            default:
-                <h2 class="section-header__title">@Title</h2>
-                break;
-        }
-        @if (!string.IsNullOrWhiteSpace(Description))
-        {
-            <p class="section-header__description">@Description</p>
-        }
-    </div>
-    @if (Actions is not null)
-    {
-        <div class="section-header__actions">@Actions</div>
-    }
-</header>
+@switch (Element)
+{
+    case "div":
+        <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">@Body</div>
+        break;
+    default:
+        <header class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">@Body</header>
+        break;
+}
 
 @code {
     [Parameter]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>The category the section belongs to, read above the title.</summary>
+    [Parameter]
+    public string? Eyebrow { get; set; }
 
     [Parameter]
     public string? Description { get; set; }
@@ -43,19 +46,101 @@
     [Parameter]
     public int Level { get; set; } = 2;
 
+    /// <summary>The id the section's <c>aria-labelledby</c> points at.</summary>
+    [Parameter]
+    public string? TitleId { get; set; }
+
     [Parameter]
     public RenderFragment? Actions { get; set; }
+
+    /// <summary><c>header</c> or <c>div</c>; anything else renders a header.</summary>
+    [Parameter]
+    public string Element { get; set; } = "header";
 
     [Parameter]
     public string? CssClass { get; set; }
 
     [Parameter]
+    public string? BaseClass { get; set; } = "section-header";
+
+    [Parameter]
+    public string? TextCssClass { get; set; } = "section-header__text";
+
+    [Parameter]
+    public string? EyebrowCssClass { get; set; } = "section-header__eyebrow";
+
+    [Parameter]
+    public string? TitleCssClass { get; set; } = "section-header__title";
+
+    [Parameter]
+    public string? DescriptionCssClass { get; set; } = "section-header__description";
+
+    /// <summary>A blank one drops the actions wrapper, leaving the controls as
+    /// direct children of the header.</summary>
+    [Parameter]
+    public string? ActionsCssClass { get; set; } = "section-header__actions";
+
+    [Parameter]
     public string? TestId { get; set; }
+
+    /// <summary>The test id the description is found by, for a subtitle a pane
+    /// asserts on.</summary>
+    [Parameter]
+    public string? DescriptionTestId { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass)
-        ? "section-header"
-        : $"section-header {CssClass}";
+    private string? ClassValue
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(BaseClass)) return Blank(CssClass);
+
+            return string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+        }
+    }
+
+    // A blank hook has to reach the attribute as null: an empty string renders
+    // `class=""`, which is markup none of the adopting hosts had.
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private RenderFragment Body => @<text>
+        <div class="@Blank(TextCssClass)">
+            @if (!string.IsNullOrWhiteSpace(Eyebrow))
+            {
+                <p class="@Blank(EyebrowCssClass)">@Eyebrow</p>
+            }
+            @switch (Level)
+            {
+                case 3:
+                    <h3 class="@Blank(TitleCssClass)" id="@Blank(TitleId)">@Title</h3>
+                    break;
+                case 4:
+                    <h4 class="@Blank(TitleCssClass)" id="@Blank(TitleId)">@Title</h4>
+                    break;
+                case 5:
+                    <h5 class="@Blank(TitleCssClass)" id="@Blank(TitleId)">@Title</h5>
+                    break;
+                default:
+                    <h2 class="@Blank(TitleCssClass)" id="@Blank(TitleId)">@Title</h2>
+                    break;
+            }
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="@Blank(DescriptionCssClass)" data-testid="@Blank(DescriptionTestId)">@Description</p>
+            }
+        </div>
+        @if (Actions is not null)
+        {
+            @if (string.IsNullOrWhiteSpace(ActionsCssClass))
+            {
+                @Actions
+            }
+            else
+            {
+                <div class="@ActionsCssClass">@Actions</div>
+            }
+        }
+    </text>;
 }

@@ -464,6 +464,54 @@ public class DevToolTests
         Assert.Contains(expected, error, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>An MCP server is not always a NuGet package. The Aspire CLI server
+    /// is registered by the command that starts it, and the repository's own
+    /// catalog ships it that way — so a validator that demanded a
+    /// <c>packageId</c> refused a catalog the product itself produced.</summary>
+    [Fact]
+    public void A_command_registered_mcp_server_is_accepted()
+    {
+        Assert.True(DevToolConfiguration.TryReadCatalog(
+            """
+            { "mcpServers": [ { "name": "aspire", "command": "aspire", "args": [ "agent", "mcp" ], "enabled": true } ] }
+            """,
+            out var root,
+            out _));
+
+        Assert.Single(root["mcpServers"]!.AsArray());
+    }
+
+    /// <summary>Neither identity is still no identity: an entry nothing can address
+    /// is one no override can reach and no button can act on. The reason names the
+    /// entry, because a catalog with fifty of them is the case where a message that
+    /// only names the array is useless.</summary>
+    [Fact]
+    public void An_mcp_server_with_neither_a_package_id_nor_a_command_is_refused_with_a_reason()
+    {
+        Assert.False(DevToolConfiguration.TryReadCatalog(
+            """{ "mcpServers": [ { "name": "guidelines", "enabled": true } ] }""",
+            out _,
+            out var error));
+
+        Assert.Contains("guidelines", error, StringComparison.Ordinal);
+        Assert.Contains("packageId", error, StringComparison.Ordinal);
+        Assert.Contains("command", error, StringComparison.Ordinal);
+    }
+
+    /// <summary>An entry with no name at all still has to be findable, and its
+    /// position in the array is the only handle left.</summary>
+    [Fact]
+    public void An_unnamed_entry_is_refused_by_its_position()
+    {
+        Assert.False(DevToolConfiguration.TryReadCatalog(
+            """{ "plugins": [ { "name": "architecture" }, { "source": "a" } ] }""",
+            out _,
+            out var error));
+
+        Assert.Contains("2", error, StringComparison.Ordinal);
+        Assert.Contains("plugins", error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_catalog_with_only_one_of_the_four_arrays_is_accepted()
     {
@@ -1259,6 +1307,7 @@ public class ApplicationCatalogTests
                   "group": "Team developer tools",
                   "note": "Also on PATH as code.cmd.",
                   "detectOnly": true,
+                  "installerType": "exe",
                   "probe": { "command": "code", "args": ["--version"], "shell": true, "encoding": "utf-16le" },
                   "enabled": true
                 }
@@ -1273,6 +1322,7 @@ public class ApplicationCatalogTests
         Assert.Equal(DevToolProvider.Winget, application.Provider);
         Assert.Equal("Team developer tools", application.Group);
         Assert.Equal("Also on PATH as code.cmd.", application.Note);
+        Assert.Equal("exe", application.InstallerType);
         Assert.True(application.DetectOnly);
         Assert.True(application.Enabled);
         Assert.Equal("app:Microsoft.VisualStudioCode", application.Key);
@@ -1548,10 +1598,38 @@ public class ApplicationCatalogTests
         Assert.False(entry.ContainsKey("group"));
         Assert.False(entry.ContainsKey("detectOnly"));
         Assert.False(entry.ContainsKey("hosts"));
+        Assert.False(entry.ContainsKey("installerType"));
 
         var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
         Assert.Equal(DevToolProvider.Winget, application.Provider);
         Assert.True(application.ProviderRecognised);
+        Assert.Null(application.InstallerType);
+    }
+
+    /// <summary>A package whose manifest publishes more than one installer needs
+    /// the entry to name the one it means, so the draft's pin has to survive into
+    /// the file — a catalog that dropped it would install through whichever
+    /// installer winget preferred on the day.</summary>
+    [Fact]
+    public async Task Adding_a_winget_application_that_pins_an_installer_writes_the_pin()
+    {
+        var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
+
+        await DevToolConfiguration.AddToCatalogAsync(
+            paths,
+            new DevToolDraft(DevToolKind.Application, "Anthropic.Claude", DisplayName: "Claude Desktop")
+            {
+                Provider = DevToolProvider.Winget,
+                InstallerType = "exe"
+            });
+
+        var config = await DevToolConfiguration.ReadAsync(paths);
+        var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
+
+        Assert.Equal("exe", entry["installerType"]!.GetValue<string>());
+
+        var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
+        Assert.Equal("exe", application.InstallerType);
     }
 
     [Fact]

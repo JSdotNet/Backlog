@@ -4,7 +4,7 @@
 <PageTitle>Foundations — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Foundations"
-           Summary="The tokens in components.css. Every component on every other page is assembled out of these, so a change here is a change everywhere."
+           Summary="The tokens in components.css, and the icon grid drawn on top of them. Every component on every other page is assembled out of these, so a change here is a change everywhere."
            Guidelines="@Rules">
     @if (_tokens is null)
     {
@@ -16,7 +16,7 @@
     else
     {
         <Story Name="Colour"
-               Description="Grouped by role. Each semantic is a pair — the ink that carries the meaning, and the surface it sits on — so success, information, warning and error read as one family rather than as eight unrelated values. Thresholds come from .design/color-scheme.md, not from plain WCAG: AAA (7:1) for primary body text, 4.5:1 for supporting text, 3:1 for focus rings and control edges. --color-text-disabled is exempt there, because signalling unavailability is the point of it.">
+               Description="Grouped by role. Each semantic is a pair — the ink that carries the meaning, and the surface it sits on — so success, information, warning and error read as one family rather than as eight unrelated values. Which pair each token is scored against, and the ratio it has to clear, is in the linked chapter.">
             @foreach (var group in _tokens.ColorGroups)
             {
                 <div class="sb-token-group">
@@ -42,12 +42,6 @@
                         there is no <code>@@font-face</code> rule and no webfont link in any host. Text falls
                         through to the next family in the stack, so the product renders in the system UI font
                         everywhere and the type tokens describe an intention rather than a fact.
-                    </p>
-                    <p>
-                        Closing the gap is a product decision rather than a styling one. The shipping heads are
-                        offline-capable MAUI apps, so a CDN is not an option: either the woff2 files ship from
-                        the library's own <code>wwwroot</code>, or the tokens are changed to name the system
-                        stack the product is really using.
                     </p>
                 </div>
             }
@@ -121,6 +115,27 @@
                 }
             </div>
         </Story>
+
+        @* The one story on this page that is not a measurement. It sits here
+           because an icon is a foundation in the same way the type scale is —
+           one grid, one stroke weight, borrowed by every page under it — and
+           because the chapter that governs it is the chapter this page already
+           reports the type and spacing scales out of. *@
+        <Story Name="Iconography"
+               Description="The glyph at three of the sizes on the scale: 12 for an indicator beside a label, 16 inline with text, 20 inside a button. The drawing does not change with the size and the ink is not its own — the size is an explicit width and height rather than a type scale, and the colour is inherited from whatever the glyph is sitting in, which is why the rows below are one colour and the page decides which.
+
+                            What a host does with a glyph is the host's, not the library's. The desktop header's section rail reads the chevron's direction as a pane's pinned state — up while the pane is loose, turned half a turn down once pinned — and it both lifts the glyph a pixel toward the top edge and turns it in its own stylesheet, so neither the lift nor the turn is drawn here. Drawing them would mean this page restyling a component to show a state the library does not ship."
+               Code="@IconCode">
+            <div class="sb-stack">
+                @foreach (var size in IconSizes)
+                {
+                    <div class="sb-metric">
+                        <span class="sb-label sb-metric__name">@size.Token — @(size.Value)px</span>
+                        <ChevronUpIcon Size="@size.Value" TestId="@($"chevron-up-icon-{size.Value}")" />
+                    </div>
+                }
+            </div>
+        </Story>
     }
 
 </StoryPage>
@@ -133,8 +148,25 @@
         new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio each kind of text has to clear."),
         new("typography-and-layout.md#type-scale", "The sizes, weights and line heights on the scale."),
         new("typography-and-layout.md#spacing-scale", "The spacing steps, and what each is for."),
-        new("interaction-guidelines.md#motion-and-reduced-motion", "How long anything is allowed to take, and what stops moving.")
+        new("interaction-guidelines.md#motion-and-reduced-motion", "How long anything is allowed to take, and what stops moving."),
+        new("typography-and-layout.md#iconography", "The icon library, the sizes on its scale, and the two things an icon may never take its colour or its size from.")
     ];
+
+    /// <summary>The sizes the iconography scale names, and the token each is named
+    /// by. Three of the seven: the ones a glyph in the product is actually drawn
+    /// at, rather than the whole scale rendered as a ruler.</summary>
+    private static readonly (string Token, string Value)[] IconSizes =
+    [
+        ("icon-xs", "12"),
+        ("icon-sm", "16"),
+        ("icon-md", "20")
+    ];
+
+    private const string IconCode = """
+        <ChevronUpIcon Size="12" />
+        <ChevronUpIcon Size="16" />
+        <ChevronUpIcon Size="20" />
+        """;
 
     private TokenReport? _tokens;
 

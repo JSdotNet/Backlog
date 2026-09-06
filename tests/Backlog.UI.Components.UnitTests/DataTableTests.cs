@@ -171,6 +171,53 @@ public sealed class DataTableTests
         Assert.Empty(table.FindAll(".data-table"));
     }
 
+    /// <summary>
+    /// The <c>tr</c> is this component's, so a host that needs something on it — a
+    /// modifier that quietens one row, the key a driver scopes a shared per-row
+    /// test id by — asks for it here rather than drawing a row of its own.
+    /// <para>The class arrives beside the row's own rather than instead of it,
+    /// which is the one place a class hook in this library adds rather than
+    /// replaces: the frame is still the frame, and what a host has to say about one
+    /// row of it is a modifier.</para>
+    /// </summary>
+    [Fact]
+    public void A_row_can_wear_the_hosts_modifier_and_carry_its_own_attributes()
+    {
+        using var context = new BunitContext();
+
+        var table = Render(context, parameters => parameters
+            .Add(c => c.Items, Sample)
+            .Add(c => c.RowCssClass, (Func<Row, string?>)(row => row.Id == "1" ? "runs__row--stale" : null))
+            .Add(c => c.RowAttributes, (Func<Row, IReadOnlyDictionary<string, object>?>)(row =>
+                new Dictionary<string, object> { ["data-run-key"] = row.Id })));
+
+        var rows = table.FindAll(".data-table__row");
+
+        Assert.Equal(["data-table__row", "runs__row--stale"], rows[0].ClassList);
+
+        // And nothing trailing on the row the host said nothing about: a hook that
+        // answers null is a hook that was not used, not an empty class name.
+        Assert.Equal("data-table__row", rows[1].GetAttribute("class"));
+
+        Assert.Equal(["1", "2"], rows.Select(row => row.GetAttribute("data-run-key")));
+    }
+
+    /// <summary>A host that renames the block renames the row with it, so the
+    /// modifier it asks for lands beside the name it chose rather than beside the
+    /// one this component would have used.</summary>
+    [Fact]
+    public void A_renamed_block_still_takes_the_hosts_row_modifier()
+    {
+        using var context = new BunitContext();
+
+        var table = Render(context, parameters => parameters
+            .Add(c => c.Items, Sample)
+            .Add(c => c.BaseClass, "runs")
+            .Add(c => c.RowCssClass, (Func<Row, string?>)(_ => "runs__row--stale")));
+
+        Assert.Equal("runs__row runs__row--stale", table.Find("tbody tr").GetAttribute("class"));
+    }
+
     private static readonly DataTableSection<Row>[] Sections =
     [
         new("DEV-LAPTOP", [new("3", "laptop one")]),

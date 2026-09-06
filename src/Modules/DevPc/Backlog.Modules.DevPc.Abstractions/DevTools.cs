@@ -204,19 +204,34 @@ public static class DevToolCommands
     /// <para><c>--silent</c> is spelled out because its short form is <c>-h</c>:
     /// the <c>-s</c> a reader expects is <c>--source</c>, and the two are one
     /// keystroke apart in a line where the wrong one installs from the Microsoft
-    /// Store.</para></summary>
-    public static DevToolCommandSpec WingetInstall(string id) =>
-        new("winget", [
+    /// Store.</para>
+    ///
+    /// <para><paramref name="installerType"/> is only emitted when the catalog
+    /// pinned one, so every entry that pinned nothing runs the line it has always
+    /// run. Passed through unread — see
+    /// <see cref="DevToolApplication.InstallerType"/> for why the vocabulary is
+    /// winget's rather than this app's.</para></summary>
+    public static DevToolCommandSpec WingetInstall(string id, string? installerType = null)
+    {
+        // Two argv elements or none. A blank pin is treated as no pin rather than
+        // spelled out with an empty value behind it, which winget rejects.
+        string[] installer = string.IsNullOrWhiteSpace(installerType)
+            ? []
+            : ["--installer-type", installerType.Trim()];
+
+        return new("winget", [
             "install",
             "--id", id,
             "--exact",
             "--source", WingetSource,
+            .. installer,
             "--silent",
             "--accept-source-agreements",
             "--accept-package-agreements",
             "--disable-interactivity",
             "--nowarn"
         ]);
+    }
 
     /// <summary>
     /// The local source index, pulled before either listing reads it.
@@ -411,6 +426,27 @@ public sealed record DevToolApplication(
     /// <summary>What puts it there, or nothing — which is what makes the row a
     /// checklist item.</summary>
     public DevToolCommandSpec? Install { get; init; }
+
+    /// <summary>
+    /// Which of a package's installers the install is to take, for a package
+    /// whose manifest publishes more than one. Nothing means the entry did not
+    /// say, which leaves the choice where it has always been: with winget.
+    ///
+    /// <para>A string passed straight through, deliberately not an enum and
+    /// deliberately not the <see cref="DeclaredProvider"/> /
+    /// <see cref="ProviderRecognised"/> treatment beside it. This app dispatches
+    /// on the provider — that is why a provider it does not recognise has to fall
+    /// back to something that runs nothing. Nothing dispatches on an installer
+    /// type: it is handed to winget, which owns the vocabulary (<c>exe</c>,
+    /// <c>msi</c>, <c>msix</c>, <c>inno</c>, <c>nullsoft</c>, <c>wix</c>,
+    /// <c>burn</c>, <c>portable</c>, <c>zip</c>, <c>appx</c>, <c>msstore</c>, and
+    /// whatever it adds next), extends it on its own schedule, and rejects a
+    /// value it does not know itself. An enum would make this build a gate on
+    /// winget's vocabulary, and a recognised/fell-back pair would be worse than
+    /// useless here — coercing a mistyped pin installs the package through a
+    /// different installer than the catalog asked for, silently.</para>
+    /// </summary>
+    public string? InstallerType { get; init; }
 
     /// <summary>Whether the person said they had done it, for a
     /// <see cref="DevToolProvider.Manual"/> row. Per machine, so it lives in the
@@ -847,6 +883,14 @@ public sealed record DevToolDraft(
     /// prose rather than with a version.</summary>
     public string? DetectExpect { get; init; }
 
+    /// <summary>Which of the package's installers a
+    /// <see cref="DevToolProvider.Winget"/> row is to be installed from, when its
+    /// manifest publishes more than one. Left blank means the new entry says
+    /// nothing about it, which is what every entry written before this said.</summary>
+    /// <remarks>Free text handed to winget, for the reason set out on
+    /// <see cref="DevToolApplication.InstallerType"/>.</remarks>
+    public string? InstallerType { get; init; }
+
     /// <summary>What to run to put it there. Left blank on purpose for a checklist
     /// row: an entry with no install is one to look at rather than press.</summary>
     public string? InstallCommand { get; init; }
@@ -1169,6 +1213,7 @@ public static class DevToolConfiguration
             Probe = ReadCommandSpec(entry["probe"]),
             Detect = ReadCommandSpec(entry["detect"]),
             Install = ReadCommandSpec(entry["install"]),
+            InstallerType = GetOptionalString(entry, "installerType"),
             Acknowledged = GetBool(entry, "acknowledged"),
             DeclaredProvider = declaredProvider,
             ProviderRecognised = ProviderName(provider).Equals(declaredProvider, StringComparison.OrdinalIgnoreCase)
@@ -1339,6 +1384,11 @@ public static class DevToolConfiguration
                 // the hosts filter answers is not one this entry has.
                 entry["provider"] = ProviderName(draft.Provider);
                 WriteIfPresent(entry, "name", draft.DisplayName);
+
+                // Only when the draft pinned one. Winget choosing for itself is
+                // the documented default, so an entry that writes the pin it did
+                // not ask for is a line the next reader has to go and disprove.
+                WriteIfPresent(entry, "installerType", draft.InstallerType);
 
                 if (CommandSpecFor(draft.DetectCommand, draft.DetectArgs, draft.DetectExpect) is { } detect)
                 {
@@ -1513,9 +1563,9 @@ public static class DevToolConfiguration
     /// than a truncated catalog.</para>
     ///
     /// <para>The bar is deliberately low: an object, at least one of the two
-    /// arrays, and an id on every entry. Anything stricter would reject a
-    /// catalog carrying a property this version has not met yet, and the file is
-    /// hand-edited often enough that that is a real shape rather than a
+    /// arrays, and something to address every entry by. Anything stricter would
+    /// reject a catalog carrying a property this version has not met yet, and the
+    /// file is hand-edited often enough that that is a real shape rather than a
     /// hypothetical one.</para>
     /// </summary>
     public static bool TryReadCatalog(string json, out JsonObject root, out string error)
@@ -1566,10 +1616,16 @@ public static class DevToolConfiguration
         // grouping marker in the catalog is a "group" property on a real entry
         // rather than an object of its own: an entry with no id has nothing for an
         // override to address and nothing for a button to act on.
-        if (!EveryEntryCarriesAnId(plugins, "plugins", "name", out error)
-            || !EveryEntryCarriesAnId(servers, "mcpServers", "packageId", out error)
-            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, "name", out error)
-            || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, ApplicationIdName, out error))
+        //
+        // An MCP server satisfies that bar two ways, because the catalog has always
+        // held both kinds: one installed as a .NET tool and addressed by its package
+        // id, and one registered by the command that starts it — which is how the
+        // Aspire CLI server is wired, and how this repository's own catalog ships it.
+        // Demanding a packageId of both made the product refuse a file it produced.
+        if (!EveryEntryCarriesAnId(plugins, "plugins", out error, "name")
+            || !EveryEntryCarriesAnId(servers, "mcpServers", out error, "packageId", "command")
+            || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, out error, "name")
+            || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, out error, ApplicationIdName))
         {
             return false;
         }
@@ -1967,7 +2023,19 @@ public static class DevToolConfiguration
         ["mcpServers"] = new JsonArray()
     };
 
-    private static bool EveryEntryCarriesAnId(JsonArray? array, string arrayName, string idName, out string error)
+    /// <summary>
+    /// Whether every entry in <paramref name="array"/> can be addressed, by any
+    /// one of <paramref name="idNames"/>.
+    ///
+    /// <para>Several properties rather than one because identity is not always the
+    /// same property: an MCP server is addressed by its package id when it is a
+    /// .NET tool and by its command when it is not, and either is enough.</para>
+    ///
+    /// <para>The reason names the offending entry. A catalog runs to dozens of
+    /// entries, and "one of them is missing something" leaves the person who
+    /// pasted it to find which by eye.</para>
+    /// </summary>
+    private static bool EveryEntryCarriesAnId(JsonArray? array, string arrayName, out string error, params string[] idNames)
     {
         error = string.Empty;
 
@@ -1976,19 +2044,34 @@ public static class DevToolConfiguration
             return true;
         }
 
-        foreach (var node in array)
+        for (var index = 0; index < array.Count; index++)
         {
-            if (node is JsonObject entry && !string.IsNullOrWhiteSpace(GetString(entry, idName)))
+            var node = array[index];
+            if (node is JsonObject entry && idNames.Any(idName => !string.IsNullOrWhiteSpace(GetString(entry, idName))))
             {
                 continue;
             }
 
-            error = $"Every entry in \"{arrayName}\" needs a \"{idName}\".";
+            var required = string.Join(" or ", idNames.Select(idName => $"{ArticleFor(idName)} \"{idName}\""));
+            error = $"{DescribeEntry(node, index)} in \"{arrayName}\" needs {required}.";
             return false;
         }
 
         return true;
     }
+
+    /// <summary>How to point at the entry that was refused: by its name when it
+    /// has one, and otherwise by the only handle left, its place in the array —
+    /// counted from one, because that is how a person reads a list.</summary>
+    private static string DescribeEntry(JsonNode? node, int index)
+    {
+        var name = node is JsonObject entry ? GetString(entry, "name") : string.Empty;
+
+        return string.IsNullOrWhiteSpace(name) ? $"Entry {index + 1}" : $"The \"{name}\" entry";
+    }
+
+    private static string ArticleFor(string word) =>
+        word.Length > 0 && "aeiou".Contains(char.ToLowerInvariant(word[0])) ? "an" : "a";
 
     private static async Task<JsonObject> ReadCatalogAsync(string path, CancellationToken ct)
     {

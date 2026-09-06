@@ -3,9 +3,10 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The palette as <c>.design/color-scheme.md</c> states it — the single source
-/// of token <em>values</em> that file claims to be, read back so tests can hold
-/// things to it.
+/// The palette from both sides of the contract: what <c>.design/color-scheme.md</c>
+/// states — the single source of token <em>values</em> that file claims to be — and
+/// what <c>components.css</c> actually declares, read back so tests can hold each to
+/// the other.
 ///
 /// <para>This started inside <see cref="DesignTokenTests"/>, which checks the
 /// component library's stylesheet against the document. <see
@@ -74,6 +75,41 @@ internal static class DesignPalette
 
         return value!;
     }
+
+    /// <summary>The stylesheet the palette is actually declared in — the one file
+    /// allowed to hold a token's value.</summary>
+    public static string LibraryStylesheet { get; } =
+        RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css");
+
+    /// <summary>Colour literals declared on <c>:root</c>, keyed by token name
+    /// without the <c>--</c>. A token defined as <c>var(--other)</c> is skipped:
+    /// it has no value of its own to disagree about.</summary>
+    public static Dictionary<string, string> DeclaredColors(string path) =>
+        Regex.Matches(File.ReadAllText(path), @"--((?:color|code)-[a-z0-9-]+)\s*:\s*([^;]+);")
+            .Where(match => IsColorLiteral(match.Groups[2].Value))
+            .ToDictionary(
+                match => match.Groups[1].Value,
+                match => Normalized(match.Groups[2].Value));
+
+    /// <summary>The themes that sit beside the palette without being part of it:
+    /// the syntax tokens, which say what a run of code is, and the band identity
+    /// tokens, which say which repository a row belongs to. <c>color-scheme.md</c>
+    /// files both as themes rather than palette colours, and neither names a
+    /// meaning the product's UI has.</summary>
+    private static bool IsTheme(string token) =>
+        token.StartsWith("code-", StringComparison.Ordinal)
+        || token.StartsWith("color-band-", StringComparison.Ordinal);
+
+    /// <summary>The palette proper, <c>--</c> included: every colour the library
+    /// declares, minus the two themes above. The derived role tokens fall out on
+    /// their own — each is a <c>var()</c> or a <c>color-mix()</c> rather than a
+    /// literal, so it holds no colour of its own for
+    /// <see cref="DeclaredColors"/> to read.</summary>
+    public static IReadOnlyCollection<string> PaletteTokens() =>
+        DeclaredColors(LibraryStylesheet).Keys
+            .Where(token => !IsTheme(token))
+            .Select(token => "--" + token)
+            .ToHashSet(StringComparer.Ordinal);
 
     public static bool IsColorLiteral(string value) =>
         value.TrimStart().StartsWith('#') || value.TrimStart().StartsWith("rgb", StringComparison.OrdinalIgnoreCase);

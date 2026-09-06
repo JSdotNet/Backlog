@@ -187,6 +187,131 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Equal(1, catalog.Discovered);
     }
 
+    /// <summary>
+    /// A transcript is filed under the folder the session ran in, so a session whose
+    /// working folder changed — resumed in a worktree it did not start in — leaves a
+    /// transcript under each folder it touched. One id, two files, one session.
+    /// <para>
+    /// The same defect as the two live files above, and the same consequence: the pane
+    /// keys its rows by session id, two siblings with one key corrupt Blazor's keyed
+    /// diff, and the circuit goes down. Found on a real profile, where one of 377
+    /// transcripts was filed under two worktrees.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task One_session_filed_under_two_folders_is_one_row_not_two()
+    {
+        const string id = "8c2e93b2-1210-4626-8ee3-c5d8c41ce94c";
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-where-it-started",
+            id,
+            folder: @"D:\Repos\Backlog\.claude\worktrees\where-it-started",
+            branch: "claude/where-it-started",
+            lastWrite: Noon.AddHours(-9));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-where-it-carried-on",
+            id,
+            folder: @"D:\Repos\Backlog\.claude\worktrees\where-it-carried-on",
+            branch: "claude/where-it-carried-on",
+            lastWrite: Noon.AddHours(-2));
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        // The more recently written transcript wins. It is the more current record of
+        // the one session, and the folder it names is where that session ended up.
+        Assert.Equal(@"D:\Repos\Backlog\.claude\worktrees\where-it-carried-on", session.WorkingFolder);
+        Assert.Equal("claude/where-it-carried-on", session.Branch);
+        Assert.Equal("where-it-carried-on", session.Title);
+        Assert.Equal(Noon.AddHours(-2), session.LastActivityAt);
+
+        // One session discovered, not two. The second file was never a second session,
+        // and a subtitle counting it would overstate what this machine has.
+        Assert.Equal(1, catalog.Discovered);
+        Assert.False(catalog.Capped);
+    }
+
+    /// <summary>
+    /// The live file and both of that session's transcripts at once. The two dedupes
+    /// have to compose: dropping the transcript that matches a live session does not
+    /// on its own stop the session's other transcript becoming a second row.
+    /// </summary>
+    [Fact]
+    public async Task A_live_session_with_two_transcripts_is_still_one_row()
+    {
+        GivenClaudeLiveSession(
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\second",
+            name: "the live one",
+            startedAt: Noon.AddHours(-9),
+            lastWrite: Noon.AddMinutes(-1));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-first",
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\first",
+            "main",
+            Noon.AddHours(-6));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-second",
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\second",
+            "main",
+            Noon.AddMinutes(-1));
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        // The live file is still the better record of the three.
+        Assert.Equal("the live one", session.Title);
+        Assert.Equal(AgentSessionState.Running, session.State);
+        Assert.Equal(1, catalog.Discovered);
+    }
+
+    /// <summary>
+    /// The cap counts sessions, not files. A duplicate transcript must not consume a
+    /// place in the capped list, or a machine with duplicates would show fewer sessions
+    /// than the cap allows while claiming to have hit it.
+    /// </summary>
+    [Fact]
+    public async Task A_duplicate_transcript_does_not_take_up_a_place_under_the_cap()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent; index++)
+        {
+            GivenClaudeTranscript(
+                "D--Repos-Backlog",
+                $"session-{index:000}",
+                @"D:\Repos\Backlog",
+                "main",
+                Noon.AddMinutes(-index));
+        }
+
+        // The oldest of them, filed a second time under another worktree.
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-elsewhere",
+            $"session-{AgentSessionLimits.PerAgent - 1:000}",
+            @"D:\Repos\Backlog\.claude\worktrees\elsewhere",
+            "main",
+            Noon.AddMinutes(-1));
+
+        var catalog = await ReadAsync();
+
+        Assert.Equal(AgentSessionLimits.PerAgent, catalog.Sessions.Count);
+        Assert.Equal(AgentSessionLimits.PerAgent, catalog.Discovered);
+        Assert.False(catalog.Capped);
+
+        // Deduped before the cap, not after: the collapsed session is the newer file's
+        // record of it, and it is still one of the hundred.
+        var collapsed = Assert.Single(
+            catalog.Sessions,
+            session => session.Id == $"session-{AgentSessionLimits.PerAgent - 1:000}");
+
+        Assert.Equal(@"D:\Repos\Backlog\.claude\worktrees\elsewhere", collapsed.WorkingFolder);
+    }
+
     [Fact]
     public async Task A_copilot_descriptor_becomes_a_session_with_its_repository_and_branch()
     {

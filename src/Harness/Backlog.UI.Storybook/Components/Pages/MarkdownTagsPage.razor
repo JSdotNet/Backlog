@@ -6,8 +6,6 @@
            Summary="A subpage of Markdown, about one inline: a `#tag` written in the middle of a sentence. The parser recognises it, the read view draws it as a chip, and the body keeps the literal `#tag` text — a tag is something an author types, not a field they fill in. This page is what makes one, what it renders as, that it does nothing when you press it, and where the tag you can press lives instead. Not to be confused with `roadmap` and `feature-flag`: those are keys inside a `meta` fence, drawn as badges of the feature family, and they belong to the Knowledge base chapter rather than to this one."
            Guidelines="@Rules">
 
-    <Alert Message="@DriftNotice" Role="note" CssClass="sb-callout" />
-
     <Story Name="What makes a tag"
            Description="One alternative of the inline pattern: a `#`, then a letter, then any run of word characters and hyphens. Two things about it do most of the work.
 
@@ -33,7 +31,7 @@ Nothing inside a code span or a fence is inline-parsed at all, so a `#tag` quote
     </Story>
 
     <Story Name="What it renders as, and where it can appear"
-           Description="A `span.tag-chip` carrying the literal `#tag` — the hash included, because what the body stores is what the author typed and the chip is only how it is drawn. `.design/content-editing.md` puts it exactly that way: recognised inline, rendered as a subtle chip, stored as literal text.
+           Description="A `span.tag-chip` carrying the literal `#tag` — the hash included, because what the body stores is what the author typed and the chip is only how it is drawn.
 
 It is an inline like any other, so it turns up wherever inlines are parsed — a paragraph, a bullet, a task, a quote, a table cell. It is never a block and never breaks one."
            Code="@RenderCode"
@@ -46,9 +44,19 @@ It is an inline like any other, so it turns up wherever inlines are parsed — a
 
 So the two have already drifted, and this page is where a reader should find that out rather than working it out from a stylesheet. `.tag-chip` styles the outer box and `.tag-chip__label` styles a child only one of the two draws, which means a rule aimed at the label reaches the component and misses every tag in every body.
 
-It is left that way deliberately. Adopting `TagChip` in `MarkdownRender` would change the markup of every tag in every body this product renders — every entry, every knowledge chapter, every comment — for a component whose two extra features a body has no use for. That is not a change to make on the way past, so what this page does is say plainly which is which."
+It is left that way deliberately. Adopting `TagChip` in `MarkdownRender` would change the markup of every tag in every body this product renders — every entry, every knowledge chapter, every comment — for a component whose two extra features a body has no use for. So this story draws the four live, side by side, and says which is which; the three component forms are documented on Badges, and are here only to be inspected against the inline."
            Code="@DifferenceCode">
         <div class="sb-stack">
+            <div class="sb-row" data-testid="markdown-tags-side-by-side">
+                <MarkdownView Blocks="@OneTagBlocks" />
+                <TagChip Text="#sync" TestId="markdown-tags-component-inline" />
+            </div>
+            <p class="sb-state">
+                The left one came out of the parser. The right one is the component, handed
+                the hash by the caller because it does not add one. Same class, same tone,
+                different markup underneath — inspect them.
+            </p>
+
             <dl class="sb-grid" data-testid="markdown-tags-difference">
                 @foreach (var shape in Shapes)
                 {
@@ -56,25 +64,12 @@ It is left that way deliberately. Adopting `TagChip` in `MarkdownRender` would c
                         <dt class="sb-label">@shape.Name</dt>
                         <dd class="sb-stack">
                             <div class="sb-row">@shape.Draw</div>
-                            <CodeView Source="@shape.Markup" Language="html" AllowCopy="false" CssClass="sb-raw__code" />
                             <p class="sb-state">@shape.Note</p>
                         </dd>
                     </div>
                 }
             </dl>
-
-            <div class="sb-stack">
-                <p class="sb-label">Side by side, at the same size</p>
-                <div class="sb-row" data-testid="markdown-tags-side-by-side">
-                    <MarkdownView Blocks="@OneTagBlocks" />
-                    <TagChip Text="#sync" TestId="markdown-tags-component-inline" />
-                </div>
-                <p class="sb-state">
-                    The left one came out of the parser. The right one is the component, handed
-                    the hash by the caller because it does not add one. Same class, same tone,
-                    different markup underneath — inspect them.
-                </p>
-            </div>
+            <p class="sb-state" data-testid="markdown-tags-pressed">@PressedSummary</p>
         </div>
     </Story>
 
@@ -85,21 +80,7 @@ Filtering by a tag, adding one and dropping one are all somebody's controls, and
 
 Linked rather than repeated: each of those pages is the one place its component's behaviour is documented, and a second telling here is a second thing to keep true."
            Code="@InertCode">
-        <div class="sb-stack">
-            <div class="sb-stack">
-                <p class="sb-label">In a body — nothing to press</p>
-                <MarkdownStory Source="@InertSample" TestId="markdown-tags-inert" />
-            </div>
-            <div class="sb-stack">
-                <p class="sb-label">The interactive forms, for comparison — Badges is where they are documented</p>
-                <div class="sb-row" data-testid="markdown-tags-interactive">
-                    <TagChip Text="sync" />
-                    <TagChip Text="markdown" OnClick="@ClickTag" TestId="markdown-tags-clickable" />
-                    <TagChip Text="docs" Removable="true" OnRemove="@Press" TestId="markdown-tags-removable" />
-                </div>
-                <p class="sb-state" data-testid="markdown-tags-pressed">@PressedSummary</p>
-            </div>
-        </div>
+        <MarkdownStory Source="@InertSample" TestId="markdown-tags-inert" />
     </Story>
 
 </StoryPage>
@@ -112,23 +93,19 @@ Linked rather than repeated: each of those pages is the one place its component'
         new("color-scheme.md#badge-and-chip-tones", "The tone a chip is allowed to wear.")
     ];
 
-    private const string DriftNotice =
-        "The chip in a body and the TagChip component share the class .tag-chip and nothing else. "
-        + "MarkdownRender builds its span by hand and never renders TagChip, so the component's inner "
-        + ".tag-chip__label — and the click and remove controls that hang off it — exist in no body. "
-        + "That is the state today, shown here rather than fixed: adopting the component in the "
-        + "renderer would change the markup of every tag this product draws.";
-
     /// <summary>One line of markdown, what the parser makes of it, and why.</summary>
     private sealed record Ruling(string Name, string Slug, string Source, string Verdict, string Note);
 
-    /// <summary>One tag-shaped thing, drawn, with the markup it produces.</summary>
-    private sealed record Shape(string Name, string Slug, RenderFragment Draw, string Markup, string Note);
+    /// <summary>One tag-shaped thing, drawn live, and what to look for in it.
+    /// Live rather than a typed transcript of its markup: nothing keeps a
+    /// transcript in step with the component, and the point is to inspect the
+    /// real element.</summary>
+    private sealed record Shape(string Name, string Slug, RenderFragment Draw, string Note);
 
     private string? _pressed;
 
     private string PressedSummary => _pressed is null
-        ? "Nothing pressed yet — and nothing in the body above will ever land here."
+        ? "Nothing pressed yet — only the two component forms with a handler can ever land here."
         : $"Last pressed: {_pressed}. What that means is the host's; this page only says which one it was.";
 
     private void Press(string tag) => _pressed = tag;
@@ -147,42 +124,25 @@ Linked rather than repeated: each of those pages is the one place its component'
 
     private RenderFragment DrawPlain => @<TagChip Text="#sync" />;
 
-    private RenderFragment DrawClickable => @<TagChip Text="#sync" OnClick="@ClickTag" />;
+    private RenderFragment DrawClickable => @<TagChip Text="#sync" OnClick="@ClickTag" TestId="markdown-tags-clickable" />;
 
-    private RenderFragment DrawRemovable => @<TagChip Text="#sync" Removable="true" OnRemove="@Press" />;
+    private RenderFragment DrawRemovable => @<TagChip Text="#sync" Removable="true" OnRemove="@Press" TestId="markdown-tags-removable" />;
 
     private IReadOnlyList<Shape> Shapes =>
     [
         new("The markdown inline", "markdown", DrawInline,
-            """<span class="tag-chip">#sync</span>""",
             "One element, the literal text inside it, hash included. Built by MarkdownRender's MdTag arm — a "
-            + "single Wrap call — and not by rendering TagChip."),
+            + "single Wrap call — and not by rendering TagChip. Inspect it: no inner label element."),
 
         new("TagChip, plain", "component", DrawPlain,
-            """
-            <span class="tag-chip">
-              <span class="tag-chip__label">#sync</span>
-            </span>
-            """,
             "An inner label element the markdown path has no equivalent of. The hash is the caller's: TagChip "
             + "prints Text and adds nothing to it."),
 
         new("TagChip, clickable", "clickable", DrawClickable,
-            """
-            <span class="tag-chip">
-              <button type="button" class="tag-chip__label">#sync</button>
-            </span>
-            """,
             "The label becomes a button when a host wires OnClick. A tag in a body has no host to wire and no "
             + "parameter to wire it with."),
 
         new("TagChip, removable", "removable", DrawRemovable,
-            """
-            <span class="tag-chip">
-              <span class="tag-chip__label">#sync</span>
-              <button type="button" class="tag-chip__remove" aria-label="Remove #sync">×</button>
-            </span>
-            """,
             "And a second control beside the label. Removing a tag means writing the body back, which is a "
             + "surface's job and not a renderer's.")
     ];
@@ -270,27 +230,17 @@ Linked rather than repeated: each of those pages is the one place its component'
         """;
 
     private const string DifferenceCode = """
-        @* What the renderer does. Note what is not here: no TagChip, no label
-           element, no click, no remove. *@
+        @* The inline: what the renderer does with an MdTag. Note what is not
+           here — no TagChip, no label element, no click, no remove. *@
         case MdTag tag:
             Wrap(builder, ref seq, "span", "tag-chip", $"#{tag.Tag}");
             break;
 
-        @* What the component does, for the same tag. *@
-        <span class="tag-chip">
-            @if (OnClick.HasDelegate)
-            {
-                <button type="button" class="tag-chip__label" @onclick="OnClick">@Text</button>
-            }
-            else
-            {
-                <span class="tag-chip__label">@Text</span>
-            }
-            @if (Removable)
-            {
-                <IconButton CssClass="tag-chip__remove" AriaLabel="@($"Remove {Text}")" ... />
-            }
-        </span>
+        @* The component, for the same tag, in its three forms. The hash is the
+           caller's: TagChip prints Text and adds nothing to it. *@
+        <TagChip Text="#sync" />
+        <TagChip Text="#sync" OnClick="Filter" />
+        <TagChip Text="#sync" Removable="true" OnRemove="Drop" />
         """;
 
     private const string InertCode = """

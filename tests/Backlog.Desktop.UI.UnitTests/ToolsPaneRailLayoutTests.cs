@@ -90,7 +90,7 @@ public sealed class ToolsPaneRailLayoutTests
         var css = Css();
 
         Assert.Equal(1, Occurrences(css, Gate));
-        Assert.Equal(1, Occurrences(css, "@container tools-table (max-width: "));
+        Assert.Equal(1, Occurrences(css, "@container tools-inventory (max-width: "));
     }
 
     /// <summary>Fifty rows of inventory scroll the transcript off the screen
@@ -125,7 +125,7 @@ public sealed class ToolsPaneRailLayoutTests
         // Escaped, because the constant carries the query's own opening bracket.
         var gate = Number(css, Regex.Escape(Gate) + @"(\d+(?:\.\d+)?)rem");
         var rail = Number(GateBlock(css), @"fit-content\((\d+(?:\.\d+)?)rem\)");
-        var restack = Number(css, @"@container tools-table \(max-width: (\d+(?:\.\d+)?)rem\)");
+        var restack = Number(css, @"@container tools-inventory \(max-width: (\d+(?:\.\d+)?)rem\)");
 
         // The gap between the two columns. The rail's own padding-inline-start
         // comes out of its track rather than out of the table's share, so it is
