@@ -166,7 +166,16 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
+        // Awaited rather than fired and forgotten, here and at every other click in
+        // this class. bUnit's synchronous `Click()` hands the event to the renderer's
+        // dispatcher and returns without waiting for the handler or the render it
+        // causes, and this panel reaches its chapter through three awaited reads — so
+        // under the parallel load of the whole suite the dispatch queues behind those
+        // continuations and the assertions below read the pre-click render. The tab is
+        // the sharper case: `TabPanel` renders its `ChildContent` only while active, so
+        // this click is what first instantiates `C4Explorer`, and nothing asserted here
+        // exists until its render batch has run.
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
         Assert.Equal(2, component.FindAll("[data-testid='c4-view-option']").Count);
@@ -188,8 +197,11 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
-        component.FindAll("[data-testid='c4-view-option']")[1].Click();
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+        // `C4Explorer.Open` is the one handler here that genuinely awaits — it awaits
+        // `ViewKeyChanged.InvokeAsync`, and the footer asserted on below is drawn for
+        // the `_view` set inside it.
+        await component.FindAll("[data-testid='c4-view-option']")[1].ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-view-references']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
@@ -203,7 +215,7 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
     }
@@ -238,7 +250,10 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(ChapterPath, asked);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-chapter-c4-view'] [title='.arc42/_c4/backlog.dsl#containers-backlog']").Click();
+        // `SelectView` is synchronous, so it is the dispatch and the render it causes
+        // that are at stake — and they are what keeps `Assert.Empty(asked)` below behind
+        // the two positive assertions rather than passing on a handler that never ran.
+        await component.Find("[data-testid='arc42-chapter-c4-view'] [title='.arc42/_c4/backlog.dsl#containers-backlog']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
         Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
@@ -299,7 +314,9 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
+        // Un-awaited this was never a soft assert failure: `FindComponent<C4Explorer>`
+        // below throws outright when the explorer has not rendered yet.
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
         var explorer = component.FindComponent<C4Explorer>();
         var opened = explorer.Find("[data-testid='c4-breadcrumb-step'][aria-current='page']").TextContent;
@@ -326,11 +343,17 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
-        component.FindAll("[data-testid='c4-view-option']")[1].Click();
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+        // Awaited for the same reason as in `A_view_names_the_chapters_that_reference_it`:
+        // `C4Explorer.Open` awaits, and both this test's remaining reads need the view open.
+        await component.FindAll("[data-testid='c4-view-option']")[1].ClickAsync(new());
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
 
-        component.Find("[data-testid='arc42-c4-view-references'] [title='.arc42/05-building-block-view.md#container-view']").Click();
+        // The click #354 observed failing. `NavigateKnowledgeReferenceAsync` sets `_tab`
+        // to the chapters and returns `OnNavigateToChapter.InvokeAsync`, and the two
+        // assertions below are exactly that tab flip — un-awaited they read the render
+        // that came before it.
+        await component.Find("[data-testid='arc42-c4-view-references'] [title='.arc42/05-building-block-view.md#container-view']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
@@ -363,7 +386,7 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='c4-problems']"));
         Assert.Contains("!docs", component.Markup, StringComparison.Ordinal);
@@ -377,8 +400,19 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        component.Find("[data-testid='arc42-c4-tab']").Click();
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
+        // Anchored on the explorer being on screen, because the assertion below is a
+        // negative and an explorer that never rendered satisfies it for the wrong
+        // reason — which is exactly what an un-awaited click leaves behind.
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+
+        // The explorer's own div renders either way, so it only proves the click
+        // dispatched. The breadcrumb sits in the `_view is not null` branch that also
+        // holds the problems alert, so it is what proves a view actually rendered —
+        // without it a workspace that parsed to no views would satisfy the negative
+        // below for the second wrong reason.
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
         Assert.Empty(component.FindAll("[data-testid='c4-problems']"));
     }
 

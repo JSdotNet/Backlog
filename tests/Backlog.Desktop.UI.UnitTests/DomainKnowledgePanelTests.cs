@@ -500,7 +500,10 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         // The affordance on a block opens a fresh remark straight into its own
         // textarea. Block 2 is the prose under the heading: block 1 is the `meta`
         // fence, which has no row of its own because the heading above it drew it.
-        component.Find("[data-testid='markdown-comment-2']").Click();
+        // Awaited: this test was seen failing once under full-suite load, and the wait
+        // below is all that stood between it and a dispatch that had not run — the
+        // await makes it deterministic instead of dependent on that timeout.
+        await component.Find("[data-testid='markdown-comment-2']").ClickAsync(new());
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
 
