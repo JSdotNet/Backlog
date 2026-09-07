@@ -436,10 +436,11 @@ public sealed class TasksBulkEditTests
         Assert.True(host.State.SelectionMode);
     }
 
-    /// <summary>The chip is not one of a set. Both filter strips beside it are
-    /// radiogroups and this is not a filter — it changes what the rows offer
-    /// rather than which rows are there — so it must not be announced as a third
-    /// option in either of them.</summary>
+    /// <summary>The chip is not one of a set, and it is not a filter either — it
+    /// changes what the rows offer rather than which rows are there. So it must not
+    /// join either strip beside it: not the statuses' radiogroup, where it would be
+    /// announced as a third status, and not the tags' pressable group, where it
+    /// would be announced as a tag.</summary>
     [Fact]
     public async Task The_chip_is_not_offered_as_a_filter()
     {

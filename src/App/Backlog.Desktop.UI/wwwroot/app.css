@@ -1341,7 +1341,7 @@ h1, h2, h3 {
    status rule moved down to the 30rem step below, where it is actually true. The
    remaining rules here never depended on the strip's width. */
 @container backlog-list (max-width: 38rem) {
-    /* The tag group goes entirely, and it is the only group that may.
+    /* The tag group goes while nothing is picked, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
        second place to pick an area, a status or My Day, so hiding one would take
@@ -1349,11 +1349,23 @@ h1, h2, h3 {
        the better control anyway: the tag you want is the one in front of you rather
        than one to find in a strip of every tag in the backlog.
 
-       Which is why the row's tags toggle. Pressing the tag being filtered by clears
-       the filter, because with this group gone that press is the only way back —
-       see OnRowTagSelected. The three groups that stay are what keeps the bar
-       honest about the list being narrowed at all. */
-    .filter-group--tags {
+       That argument holds only while the list is whole. The selection is a set now,
+       so a row's tag adds and removes its own tag and nothing else — it is no longer
+       the single press that puts every row back, and "Untagged" is not on a row at
+       all, so a selection holding it would have had no control left on screen. Hence
+       the second rule: once something is picked the group stays, narrowed to exactly
+       what was picked. That is both the reminder that the list is short for a reason
+       and the way back out of it, and it costs none of the width the first rule is
+       here to save: what comes back is the selection, never the strip of every tag
+       in the backlog. See OnRowTagSelected. */
+    .filter-group--tags:not(.filter-group--tags--picked) {
+        display: none;
+    }
+
+    /* Only the pressed chips, because the unpressed ones are the strip this width
+       has no room for. Each one that is left is a tag the reader chose and can press
+       again to drop. */
+    .filter-group--tags--picked .chip:not(.chip--active) {
         display: none;
     }
 

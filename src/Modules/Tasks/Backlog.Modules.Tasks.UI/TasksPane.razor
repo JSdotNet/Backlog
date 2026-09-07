@@ -86,8 +86,9 @@
                        its own: both narrow whatever the repository scope, the tags
                        and the status have already left in view instead of replacing
                        any of them. That is what makes them ToggleButtons with
-                       aria-pressed beside two radiogroups — the difference is in the
-                       semantics, not just in the shape.
+                       aria-pressed beside one radiogroup — the statuses', now the only
+                       group on the bar that is still one of a set. The difference is
+                       in the semantics, not just in the shape.
 
                        They are not exclusive with each other either. "In today's My
                        Day and filed nowhere" is a real question, and it is the one
@@ -123,34 +124,46 @@
 
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
-                       no third group rather than a dead "All" chip filtering nothing.
-                       Same shape as the statuses beside it — one of a set, so
-                       aria-checked — because picking a tag replaces the tag that was
-                       picked before rather than adding to it. *@
+                       no third group rather than a dead chip filtering nothing.
+
+                       The shape of the scopes on the left rather than of the statuses
+                       on the right, and for the reason the two differ: an entry has
+                       one status and any number of tags, so a tag is a state of its
+                       own that narrows what the rest of the bar left in view. Any
+                       number of them can be pressed and the list is the union — so
+                       aria-pressed, and no "All" chip, because with nothing pressed
+                       the list is already everything. That chip was the duplicate of
+                       the statuses' own All. *@
                     @if (State.TagFilters.Count > 0)
                     {
-                        <div class="filter-group filter-group--tags" role="radiogroup" aria-label="Filter by tag">
+                        @* The modifier is what keeps the group reachable on a narrow
+                           column: the bar drops it there to save the width, but only
+                           while nothing is picked — see the 38rem step in app.css. *@
+                        <div class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null)"
+                             role="group"
+                             aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
                             {
-                                <AppButton BaseClass="chip chip--filter"
-                                           Variant="ButtonVariant.None"
-                                           CssClass="@(State.SelectedTag == tag.Value ? "chip--active" : null)"
-                                           TestId="tag-filter-option"
-                                           role="radio"
-                                           aria-checked="@(State.SelectedTag == tag.Value ? "true" : "false")"
-                                           OnClick="() => State.SetTagFilter(tag.Value)">
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@State.IsTagSelected(tag.Value)"
+                                              TestId="tag-filter-option"
+                                              Title="@(State.IsTagSelected(tag.Value) ? $"Stop filtering by {tag.Label}" : $"Filter by {tag.Label}")"
+                                              PressedChanged="_ => State.ToggleTagFilter(tag.Value)">
                                     @tag.Label<span class="chip__count">@tag.Count</span>
-                                </AppButton>
+                                </ToggleButton>
                             }
                         </div>
                     }
 
                     @* Its own container, and deliberately not one of the groups
-                       either side of it. Both of those are sets of filters — one
-                       radiogroup for tags, one for statuses — and this changes
-                       nothing about which rows are in view: it changes what the
-                       rows offer. Inside a radiogroup it would be announced as a
-                       third status to filter by, which is the one thing it is not.
+                       either side of it. Both of those are sets of filters — a
+                       pressable multi-select of tags, and one radiogroup of
+                       statuses — and this changes nothing about which rows are in
+                       view: it changes what the rows offer. Inside the status
+                       radiogroup it would be announced as a third status to filter
+                       by, which is the one thing it is not; inside the tag group it
+                       would read as a tag.
 
                        A ToggleButton wearing the same chip classes, because it is
                        the same gesture as My Day and No repo: a state that stays
@@ -1428,26 +1441,24 @@
     }
 
     /// <summary>
-    /// A tag on a row is the way into the tag filter, and — pressed again — the way
-    /// back out of it.
+    /// A tag on a row is the way into the tag selection, and — pressed again — the
+    /// way back out of it.
     /// <para>
-    /// The toggle is here rather than in <c>SetTagFilter</c> on purpose. The chips in
-    /// the bar are a radiogroup: one of a set is chosen, and pressing the chosen one
-    /// is not a request to choose nothing. A tag on a row is not one of a set — it is
-    /// the tag on that row — so pressing the one already being filtered by can only
-    /// mean "stop". Two surfaces, two gestures, one setter.
+    /// The same gesture the chip in the bar makes, which is what lets both go
+    /// straight to one setter: a tag is a state of its own, so pressing it adds it
+    /// and pressing it again takes it back out, wherever it was pressed.
     /// </para>
     /// <para>
-    /// And it is the reason this matters at all: the tag group leaves the bar on a
-    /// narrow column, so once the list is filtered the row's own tag is the only
-    /// control still on screen that can unfilter it.
+    /// The row is a stateless surface, though: the chip carries no pressed state and
+    /// its accessible name reads "Filter by #x" whichever way the press goes. What
+    /// the selection currently holds is said in one place, the bar — which is why
+    /// the bar's tag group now survives the narrow column whenever anything is
+    /// picked, rather than leaving this the only tag control on screen. A row wears
+    /// its own tags and never "Untagged", so it could not have been the way back out
+    /// of every selection anyway. See the 38rem step in app.css.
     /// </para>
     /// </summary>
-    private void OnRowTagSelected(string tag) =>
-        State.SetTagFilter(
-            string.Equals(State.SelectedTag, tag, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : tag);
+    private void OnRowTagSelected(string tag) => State.ToggleTagFilter(tag);
 
     private async Task OnEntryReorderedAsync(TaskMove move)
     {
