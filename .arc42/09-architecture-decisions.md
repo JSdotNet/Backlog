@@ -43,14 +43,14 @@ binds the first work that reaches its ground.
 | **[0001 — .NET 10](adr/guidelines/0001-adopt-dotnet-10.md)** | Target framework of `Backlog.Modules.Sync.Api`. |
 | **[0003 — .NET Aspire](adr/guidelines/0003-aspire-for-web-services.md)** | Followed: the service is an Aspire resource (`sync`) and calls `AddServiceDefaults()`. |
 | **[0005 — Modular monolith structure](adr/guidelines/0005-modular-monolith-structure.md)** | Followed: the service is the `Sync` module's own `.Api` project under `src/Modules/Sync/`. |
-| **[0006 — CQRS](adr/guidelines/0006-cqrs-for-api-projects.md)** | Already followed elsewhere: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator. Applies to the sync service when its endpoints grow past the current in-memory store. |
-| **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed in style: `MapGroup` plus `Results` helpers, no controllers. OpenAPI and Scalar are not wired up. |
-| **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults; no service-specific activities or metrics. |
+| **[0006 — CQRS](adr/guidelines/0006-cqrs-for-api-projects.md)** | Followed: `Backlog.SharedKernel.Handlers` declares `ICommandHandler`/`IQueryHandler` once, with no mediator, and every sync route delegates to one of the module's ten feature slices. |
+| **[0007 — Minimal APIs](adr/guidelines/0007-minimal-apis-over-controllers.md)** | Followed: `MapGroup` plus `Results` helpers, no controllers, thin lambdas over handlers, and two endpoint filters. OpenAPI is served in Development only; Scalar is not wired up. |
+| **[0010 — OpenTelemetry](adr/guidelines/0010-opentelemetry-observability.md)** | Wired through ServiceDefaults, and the Sync module owns its own `ActivitySource` and counter on top of it — the only module that does. |
 | **[0012 — External identity (OIDC)](adr/guidelines/0012-authentication-external-identity-providers.md)** | Relevant only for the GitHub OAuth callback and any future external identity flow, not for device-session auth. |
 | **[0013 — Authorization & Zero Trust](adr/guidelines/0013-authorization-zero-trust.md)** | Relevant for device authorization, least-privilege checks, and audit logging. None implemented — the baseline is single-user. |
 | **[0014 — Persistence & repository boundaries](adr/guidelines/0014-persistence-and-repository-boundaries.md)** | Relevant for sync-state persistence and data ownership boundaries. |
-| **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. |
-| **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | The expected error contract for the sync API surface. Not implemented. |
+| **[0015 — Resilience](adr/guidelines/0015-resilience-for-outbound-dependencies.md)** | Relevant for GitHub and push-delivery outbound calls. Cosmos is the service's own outbound dependency and sits outside the standard HTTP pipeline by construction; its timeout and retry caps are set on the client. |
+| **[0017 — Problem Details](adr/guidelines/0017-http-error-contract-and-problem-details.md)** | Implemented: every failure is RFC 7807 with a `code` extension, mapped in one file, and unhandled exceptions go through `UseExceptionHandler()`. The `proposed` marker on the record has not caught up. |
 | **[0018 — Configuration & options](adr/guidelines/0018-configuration-and-options-binding.md)** | Relevant for strongly typed settings and externalized secrets. |
 
 ## Beyond the sync service

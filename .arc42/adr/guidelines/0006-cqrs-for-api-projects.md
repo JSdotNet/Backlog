@@ -36,6 +36,12 @@ A request becomes a command or a query, handled by a dedicated handler.
   caller depends on the handler interface it needs, and DI resolves it.
 - `Backlog.Modules.Tasks` organizes its handlers as feature slices under
   `Features/` — see [0009](0009-feature-slices-module-structure.md).
+- `Backlog.Modules.Sync` does the same, and it is the case the organization
+  actually framed the rule for: ten slices under `Features/`, and every route in
+  `Backlog.Modules.Sync.Api` maps its payload onto one of them. The handler takes
+  no `HttpContext` — the endpoint resolves the owner from the token first and
+  passes it in as a value — so the same slice would serve an in-process caller
+  unchanged.
 
 ## Deviations and gaps
 
@@ -43,4 +49,6 @@ A request becomes a command or a query, handled by a dedicated handler.
   framed CQRS as an ASP.NET API concern; here the desktop and mobile hosts are
   the delivery layer for most modules, and the same rule holds — the host
   dispatches, the module decides.
-- The sync service's endpoints still call a store directly rather than a handler.
+- Validation is at the edge as the rule asks, but written inline in the endpoint
+  rather than in an endpoint filter — see
+  [0007](0007-minimal-apis-over-controllers.md).

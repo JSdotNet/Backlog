@@ -56,6 +56,17 @@ primary-path result.
   `new HttpClient()` when none is injected, with no explicit timeout at all;
   `DevToolService.Marketplace` is a static client that at least sets a 20-second
   timeout. Resolving both from `IHttpClientFactory` closes the hole.
-- No adapter sets a purposeful per-dependency timeout; all of them inherit the
-  standard handler's defaults.
+- **The Cosmos client is outside the pipeline by construction, and says so.**
+  `CosmosClient` owns its own transport and never resolves through
+  `IHttpClientFactory`, so `AddStandardResilienceHandler()` cannot reach it —
+  this is not an adapter that was missed, it is a dependency the mechanism does
+  not cover. Its resilience is the SDK's own options, stated in the one place the
+  client is built (`Backlog.Infrastructure.Cosmos`,
+  `Extensions/CosmosTaskReplicaRegistration.cs`): a 10-second `RequestTimeout`,
+  retries on rate-limited requests capped at three attempts and ten seconds
+  total, and Gateway connection mode. The mandatory-timeout rule is met; what is
+  not is the circuit breaker, which the SDK has no equivalent for, and the retry
+  is the SDK's 429-only policy rather than the standard pipeline's transient set.
+- No HTTP adapter sets a purposeful per-dependency timeout; all of them inherit
+  the standard handler's defaults.
 - Circuit-breaker state changes are not surfaced as metrics.

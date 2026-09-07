@@ -367,9 +367,15 @@ head alone: `Backlog.Modules.Sync.Abstractions` carries the contracts and error
 codes both sides reference, `Backlog.Modules.Sync` holds the domain logic —
 device registration, pairing-code issuance and redemption, and device-token
 issuance — behind ports, and `Backlog.Modules.Sync.Api` wires it to HTTP,
-JWT-bearer authentication, and the owner-scoping filter. The device registry
-and pairing-code store are in-memory adapters behind those ports today; a
-Cosmos-backed adapter is the deferred slice.
+JWT-bearer authentication, and the owner-scoping filter.
+
+Task replication runs the same way, and its adapter is a fourth project:
+`src/Infrastructure/Backlog.Infrastructure.Cosmos` implements the `ITaskReplica`
+port against the Cosmos `tasks` container and is the only place in the solution
+that references the Cosmos SDK, so the API head depends on a port implementation
+rather than on a database driver. The device registry and pairing-code store are
+still in-memory adapters behind their own ports, so a restart forgets every
+registration; a Cosmos-backed adapter for those is the deferred slice.
 
 ```mermaid
 flowchart TB
