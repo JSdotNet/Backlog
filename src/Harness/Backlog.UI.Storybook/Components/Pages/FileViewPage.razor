@@ -3,9 +3,8 @@
 <PageTitle>File view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File view"
-           Summary="`FileView` is the container over the two halves a file pane is made of: `FileHeader`, which says which file this is and stays put, and `FileContent`, which holds the file and scrolls. Its own job is the two things neither half can do — it does the reading, and it arbitrates the modes. Reading is why the mode question is even answerable: the pane parses the file, reads its frontmatter, resolves its language, takes the file's own metadata block out of the body, and aligns two versions of it, each cached against the text it came from. Arbitration is the rest: edit, compare and read are exclusive, the host's body outranks the pane's, and a control is offered only where pressing it would do something. What either half then *draws* is documented on its own page — *File header* and *File content* directly above."
+           Summary="`FileView` is the container over the two halves a file pane is made of: `FileHeader`, which says which file this is and stays put, and `FileContent`, which holds the file and scrolls. Its own job is the two things neither half can do — it does the reading, and it arbitrates the modes. Reading is why the mode question is even answerable: the pane parses the file, reads its frontmatter, resolves its language, takes the file's own metadata block out of the body, and aligns two versions of it, each cached against the text it came from. Arbitration is the rest: edit, compare and read are exclusive, the host's body outranks the pane's, and a control is offered only where pressing it would do something. Every one of those answers has to be the same answer in the header and in the body, and the only way to guarantee that is for one component to give it — neither half decides anything, and neither reads the file. What either half then *draws* is documented on its own page — *File header* and *File content* directly above."
            Guidelines="@Rules">
-    <Alert Message="@ContainerNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="What the file is read as"
            Description="The pane reads, so the pane decides. A name the highlighter knows is shown as source — coloured, numbered, and never run through the markdown parser, because a `#` in a shell script is a comment and reading it as a heading is how a file view loses the file. A name it does not know is shown as markdown, which is also what a file of plain prose wants. Nothing at the call site says which is which.
@@ -20,21 +19,21 @@ Both halves are told the answer rather than asked for one. `FileContent` takes `
                 <FileView Name="MarkdownPreview.cs"
                           Path="src\Core\Backlog.UI.Components\Markdown\MarkdownPreview.cs"
                           SizeInBytes="1204"
-                          Body="@CSharpBody"
+                          Body="@FileFixtures.CSharpBody"
                           MaxHeight="12rem"
                           TestId="file-view-csharp" />
 
                 <FileView Name="appsettings.json"
                           Path="src\harness\Backlog.UI.Storybook\appsettings.json"
                           SizeInBytes="286"
-                          Body="@JsonBody"
+                          Body="@FileFixtures.JsonBody"
                           MaxHeight="12rem"
                           TestId="file-view-json" />
 
                 <FileView Name="README.md"
                           Path="src\harness\README.md"
                           SizeInBytes="412"
-                          Body="@ShortBody"
+                          Body="@FileFixtures.ShortBody"
                           MaxHeight="12rem"
                           TestId="file-view-markdown" />
             </div>
@@ -44,13 +43,13 @@ Both halves are told the answer rather than asked for one. `FileContent` takes `
                 <FileView Name="Dockerfile"
                           Language="bash"
                           SizeInBytes="188"
-                          Body="@DockerfileBody"
+                          Body="@FileFixtures.DockerfileBody"
                           MaxHeight="12rem"
                           TestId="file-view-dockerfile" />
 
                 <FileView Name="lifecycle.mmd"
                           SizeInBytes="240"
-                          Body="@MermaidBody"
+                          Body="@FileFixtures.MermaidBody"
                           MaxHeight="12rem"
                           TestId="file-view-mermaid" />
             </div>
@@ -70,7 +69,7 @@ Tab into the body and the arrow keys scroll it. That the region is a tab stop at
                       Source="GitHub Copilot"
                       Kind="Path-specific instructions"
                       SizeInBytes="5837"
-                      Body="@LongBody"
+                      Body="@FileFixtures.LongBody"
                       Fill="true"
                       TestId="file-view-instructions" />
         </div>
@@ -83,7 +82,7 @@ Which of the two a block is, is a reading, and the reading is the container's: t
 
 No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the chapters are read with, and `RenderKnowledgeMetadataFields` governs the header's second tier exactly as it governs a chapter's — the pair of panes below is that one flag, set both ways over the same file. Scroll either of them: the chapters' records leave with their chapters, and the file's does not."
            Code="@FileMetadataCode"
-           Source="@TwoLevelFile">
+           Source="@FileFixtures.TwoLevelFile">
         <div class="sb-stack" data-testid="file-view-file-metadata">
             <div class="sb-columns">
                 <div class="sb-stack">
@@ -91,7 +90,7 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
                     <FileView Name="shared.md"
                               Kind="Technology stack"
                               Path=".tech/shared.md"
-                              Body="@TwoLevelFile"
+                              Body="@FileFixtures.TwoLevelFile"
                               MaxHeight="22rem"
                               TestId="file-view-two-level"
                               AllowCopy="true"
@@ -104,7 +103,7 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
                     <FileView Name="shared.md"
                               Kind="Technology stack"
                               Path=".tech/shared.md"
-                              Body="@TwoLevelFile"
+                              Body="@FileFixtures.TwoLevelFile"
                               MaxHeight="22rem"
                               TestId="file-view-two-level-reading"
                               RenderKnowledgeMetadata="true"
@@ -129,7 +128,7 @@ A host that renders its own body names `FrontmatterSource` instead, so the strip
                       Source="GitHub Copilot"
                       Kind="Path-specific instructions"
                       Path=".github\instructions\ui-components.instructions.md"
-                      Body="@InstructionFile"
+                      Body="@FileFixtures.InstructionFile"
                       ShowFrontmatter="true"
                       MaxHeight="12rem"
                       TestId="file-view-instruction-file" />
@@ -138,7 +137,7 @@ A host that renders its own body names `FrontmatterSource` instead, so the strip
                       Source="GitHub Copilot"
                       Kind="Prompt file"
                       Path=".github\prompts\explain-flow.prompt.md"
-                      Body="@PromptFile"
+                      Body="@FileFixtures.PromptFile"
                       ShowFrontmatter="true"
                       MaxHeight="12rem"
                       TestId="file-view-prompt" />
@@ -203,7 +202,7 @@ The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetad
             <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
                       Path=".domain/tasks/domain.md"
-                      Body="@ReadingChapter"
+                      Body="@FileFixtures.ReadingChapter"
                       Fill="true"
                       TestId="file-view-reading-example"
                       AllowCopy="true"
@@ -229,7 +228,7 @@ The drawing is `MarkdownCompareView`'s, handed the result `Bare` so it gives up 
             <FileView Name="context-map.md"
                       Kind="Domain context map"
                       Path=".domain/context-map.md"
-                      Body="@ContextMapAfter"
+                      Body="@FileFixtures.ContextMapAfter"
                       Fill="true"
                       TestId="file-view-compare-example"
                       Comparing="true"
@@ -276,14 +275,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
         new("typography-and-layout.md#layout-grid-and-breakpoints", "The measure a file's contents are read at.")
     ];
 
-    private const string ContainerNotice =
-        "Two components, one answer each time. Every reading is this component's — the file's own record, "
-        + "the frontmatter, the blocks, the language, the alignment of two versions, each cached against "
-        + "the text it came from — and so is every mode question: whether a comparison is showing, whose "
-        + "body is on screen, whether pressing Edit would do anything. Those answers have to be the same "
-        + "answer in the header and in the body, and the only way to guarantee one answer is for one "
-        + "component to give it. Neither half decides anything, and neither reads the file.";
-
     // What the header's record reported. The file below is a constant, so nothing
     // is written back into it: which file, which fence and what happens when the
     // file has moved on is the host's, and this host is a page showing you that
@@ -291,44 +282,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
     private string? _fileStatus;
 
     private void HearFileStatus(KnowledgeStatusChange change) => _fileStatus = change.Status;
-
-    /// <summary>The top of this repository's own <c>.tech/shared.md</c>, cut after
-    /// the second chapter. Not invented: the point of the story is which of two
-    /// real blocks lands where, and a made-up file would only prove that a made-up
-    /// file does it.</summary>
-    private const string TwoLevelFile = """
-        # Shared Technologies
-
-        ```meta
-        status: candidate
-        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
-        ```
-
-        Technologies used by more than one channel. Every layer file points at these
-        chapters with `depends-on` instead of redefining them locally.
-
-        ## Markdown
-
-        ```meta
-        status: adopted
-        kind: format
-        related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
-        ```
-
-        The canonical storage format for all user content: inbox items, backlog
-        items, knowledge notes, and prompts.
-
-        ## .NET Runtime
-
-        ```meta
-        status: candidate
-        kind: runtime
-        version: "10.0"
-        alternatives: ["Node.js only", "Rust + Tauri"]
-        ```
-
-        The primary managed runtime for the desktop, mobile, IDE and cloud channels.
-        """;
 
     private const string FileMetadataCode = """
         @* One opt-in, two placements: the pane reads the file once and knows which
@@ -347,12 +300,12 @@ Tab through this one and then the arbitration story above. A supplied body gives
 
     // The one piece of state on this page: the hosted-body story is only worth
     // looking at if it can actually be typed in.
-    private string _chapter = ChapterSource;
+    private string _chapter = FileFixtures.ChapterSource;
 
     // The knowledge story's state. Editing and comparing are the component's
     // modes; the rest is what a host owns — the text, the remarks, and which
     // version is being compared against.
-    private string _domain = DomainChapter;
+    private string _domain = FileFixtures.DomainChapter;
     private bool _editing;
     private bool _comparing;
     private string _baseline = "opened";
@@ -371,8 +324,8 @@ Tab through this one and then the arbitration story above. A supplied body gives
     /// storybook has no repository behind it.</summary>
     private IReadOnlyList<FileCompareBaseline> Baselines =>
     [
-        new("opened", "As opened", DomainChapter),
-        new("committed", "Last commit", CommittedDomainChapter)
+        new("opened", "As opened", FileFixtures.DomainChapter),
+        new("committed", "Last commit", FileFixtures.CommittedDomainChapter)
     ];
 
     /// <summary>What the reading story reports when a reference in its prose is
@@ -383,11 +336,11 @@ Tab through this one and then the arbitration story above. A supplied body gives
     /// <summary>One baseline, holding exactly what the file holds. Which is why
     /// the story has no Compare button: there is nothing on the other side of it.</summary>
     private IReadOnlyList<FileCompareBaseline> UnchangedBaseline =>
-        [new("opened", "As opened", ReadingChapter)];
+        [new("opened", "As opened", FileFixtures.ReadingChapter)];
 
     private IReadOnlyList<FileCompareBaseline> CompareExamples =>
     [
-        new("commit", "Last commit", ContextMapBefore),
+        new("commit", "Last commit", FileFixtures.ContextMapBefore),
         new("empty", "Never committed", null, "This chapter has not been committed yet, so there is no earlier version of it to compare with.")
     ];
 
@@ -431,117 +384,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
     // saying what the file is now.
     private long ChapterSize => System.Text.Encoding.UTF8.GetByteCount(_chapter);
 
-    private const string CSharpBody = """
-        namespace Backlog.UI.Components.Markdown;
-
-        /// <summary>The parser the read view and the file view share.</summary>
-        public static class MarkdownPreview
-        {
-            // A `#` here is a comment, and a `*` is a dereference nobody wrote.
-            // Both are why a source file is never handed to the markdown parser.
-            public static IReadOnlyList<MdBlock> ParseDocument(string? body)
-            {
-                if (string.IsNullOrEmpty(body)) return [];
-
-                var lines = body.Replace("\r\n", "\n").Split('\n');
-
-                return Read(lines, headingsAreHeadings: true);
-            }
-        }
-        """;
-
-    private const string JsonBody = """
-        {
-          "Logging": {
-            "LogLevel": {
-              "Default": "Information",
-              "Microsoft.AspNetCore": "Warning"
-            }
-          },
-          "AllowedHosts": "*"
-        }
-        """;
-
-    private const string DockerfileBody = """
-        FROM mcr.microsoft.com/dotnet/aspnet:10.0
-
-        WORKDIR /app
-        COPY . .
-
-        # No extension to read, so the caller names the language.
-        ENTRYPOINT ["dotnet", "Backlog.Cloud.dll"]
-        """;
-
-    private const string MermaidBody = """
-        %% .mmd is on the list, so this one names itself.
-        stateDiagram-v2
-            [*] --> Captured
-            Captured --> Refining
-            Refining --> Active
-            Active --> Done
-            Done --> [*]
-        """;
-
-    private const string ShortBody = """
-        # Harness projects
-
-        Neither project here is deployed. They exist so a component can be looked
-        at without starting the application.
-
-        - `Backlog.UI.Storybook` — every shared component, on its own
-        - `Backlog.Desktop.WebHarness` — the desktop UI in a browser
-        """;
-
-    // The file from the request that prompted this component, kept long enough
-    // that the story actually scrolls.
-    private const string LongBody = """
-        # Repository orchestration and context policy
-
-        General orchestration routing — which `orch-*` skill or specialist agent
-        handles which task category, and its fallbacks — is delivered globally by
-        the `copilot-app` plugin and is no longer restated in this repository.
-
-        This file covers only what is specific to Backlog: **the gate that forces
-        code changes through an orchestration skill**, and **which checked-in
-        knowledge folders a given workflow may read, and how much of them.**
-
-        ## The gate
-
-        Before the first `edit` or `create` to any file under `src/` or `tests/`,
-        you must invoke the matching `orch-*` skill through the orchestrator
-        agent. Exploration first is expected and does not consume the gate; the
-        trigger is the first write, not the first action.
-
-        Apply the gate literally:
-
-        - **Size is not a criterion.** A one-control UI tweak and a multi-service
-          feature route the same way.
-        - **A missing specification is not an exemption.** Ad-hoc requests still
-          route through `orch-feature` or `orch-bug`.
-        - **Unmet preconditions are not an exemption.** Invoke the skill anyway
-          and say so.
-        - **No match means `orch-fallback`**, not direct implementation.
-
-        ## Context loading
-
-        > Treat the knowledge folders as task-scoped context, not baseline
-        > context.
-
-        1. Architecture workflows may load `.arc42/`, one chapter at a time.
-        2. Domain workflows may load `.domain/`, one bounded context at a time.
-        3. UI workflows should consult `.design/` when the change touches visual
-           design, interaction, content editing or accessibility.
-
-        ```csharp
-        var blocks = MarkdownPreview.Parse(File.ReadAllText(path));
-        ```
-
-        ---
-
-        Startup and QA expectations live alongside this file, and per-category
-        model overrides live beside those.
-        """;
-
     private const string FillCode = """
         @* Fill needs a container with a height to fill — in a flex or grid
            layout that is whatever track the file lands in. *@
@@ -568,19 +410,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
         <FileView Name="notes.cs" Language="markdown" Body="@notes" MaxHeight="12rem" />
         """;
 
-    private const string ChapterSource = """
-        # Building block view
-
-        The desktop channel is one MAUI Blazor Hybrid shell over the shared
-        component library. The shell owns the window; everything a reader looks
-        at is Razor in a WebView.
-
-        ## Knowledge panes
-
-        A pane shows one folder or one file, and the two use the same furniture
-        so that moving between them does not move the header.
-        """;
-
     private const string HostedBodyCode = """
         @* The body is the host's. The frame, the name, the path and the scroll
            region are not — which is the reason to reach for FileView here
@@ -594,153 +423,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
                 <MarkdownEditor Value="@source" ValueChanged="OnChanged" Rows="12" />
             </BodyContent>
         </FileView>
-        """;
-
-    // The chapter from the request that prompted the header actions, trimmed to
-    // the parts that show them off: two chapters with a status of their own, a
-    // diagram written inside one of them, and enough prose to have somewhere to
-    // hang a remark.
-    private const string DomainChapter = """
-        # Domain: Tasks
-
-        ```meta
-        status: draft
-        order: ["features.md", "model.md", "flow.md"]
-        ```
-
-        Tasks maintains a personal backlog of prompts, tasks, ideas and
-        follow-ups across multiple projects and repos. It converts triaged Inbox
-        Items into actionable, prioritised Backlog Entries and projects them to
-        external systems such as GitHub and the Copilot CLI.
-
-        ## Aggregate: Backlog Entry
-
-        ```meta
-        status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
-        ```
-
-        A refined, actionable item in the personal backlog and the consistency
-        boundary for all of its sub-items, projections and usage history. It is the
-        single source of truth: one logical item with one priority and one status
-        even when it targets multiple repositories.
-
-        ```mermaid
-        stateDiagram-v2
-            [*] --> Draft
-            Draft --> Ready
-            Ready --> InProgress: EntryProjected
-            InProgress --> Done: EntryCompleted
-            Done --> [*]
-        ```
-
-        Invariants: status only moves through the defined lifecycle; all mutations
-        to sub-items go through the root; parent progress reflects sub-item
-        completion.
-        """;
-
-    /// <summary>The same chapter with the references a real one carries: written
-    /// in prose as code spans, and once as a markdown link, which is how the
-    /// checked-in folders actually write them.</summary>
-    private const string ReadingChapter = """
-        # Domain: Tasks
-
-        ```meta
-        status: draft
-        order: ["features.md", "model.md", "flow.md"]
-        ```
-
-        Tasks converts triaged Inbox Items into actionable, prioritised
-        Backlog Entries. What an Inbox Item is belongs to `.domain/inbox/domain.md`,
-        and the system this sits inside is described in
-        [the context and scope chapter](.arc42/03-context-and-scope.md).
-
-        The word `order` in the block above is a field name, and `dotnet build` is a
-        command. Neither is a place, so neither becomes a link.
-
-        ## Aggregate: Backlog Entry
-
-        ```meta
-        status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
-        ```
-
-        The consistency boundary for an entry's sub-items, projections and usage
-        history.
-
-        ```mermaid
-        stateDiagram-v2
-            [*] --> Draft
-            Draft --> Ready
-            Ready --> InProgress: EntryProjected
-            InProgress --> Done: EntryCompleted
-            Done --> [*]
-        ```
-        """;
-
-    /// <summary>The same chapter as a commit has it: one status agreed, one
-    /// paragraph shorter, and a lifecycle state nobody had added yet.</summary>
-    private const string CommittedDomainChapter = """
-        # Domain: Tasks
-
-        ```meta
-        status: active
-        order: ["features.md", "model.md", "flow.md"]
-        ```
-
-        Tasks maintains a personal backlog of prompts, tasks, ideas and
-        follow-ups across multiple projects and repos.
-
-        ## Aggregate: Backlog Entry
-
-        ```meta
-        status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
-        ```
-
-        A refined, actionable item in the personal backlog and the consistency
-        boundary for all of its sub-items, projections and usage history.
-
-        ```mermaid
-        stateDiagram-v2
-            [*] --> Draft
-            Draft --> Ready
-            Ready --> InProgress: EntryProjected
-            InProgress --> Done: EntryCompleted
-            Done --> [*]
-        ```
-        """;
-
-    private const string ContextMapBefore = """
-        # Context map
-
-        Two bounded contexts, one of them shared.
-
-        ## Tasks
-
-        Owns the personal backlog and everything projected out of it.
-
-        ## Second Brain
-
-        Owns the checked-in knowledge folders.
-        """;
-
-    private const string ContextMapAfter = """
-        # Context map
-
-        Three bounded contexts, and the language each of them owns.
-
-        ## Tasks
-
-        Owns the personal backlog and everything projected out of it.
-
-        ## Second Brain
-
-        Owns the checked-in knowledge folders and the chapters inside them.
-
-        ## Shell
-
-        Owns the window, the panes in it, and nothing a pane renders.
         """;
 
     private const string ChapterCode = """
@@ -798,43 +480,6 @@ Tab through this one and then the arbitration story above. A supplied body gives
             new("commit", "Last commit", committedText),
             new("empty", "Never committed", null, "This chapter has not been committed yet.")
         ];
-        """;
-
-    /// <summary>An instruction file as this repository writes one: several globs
-    /// in a single quoted scalar, and a description carrying punctuation of its
-    /// own.</summary>
-    private const string InstructionFile = """
-        ---
-        applyTo: "src/App/**,src/Modules/**,src/Core/Backlog.UI.Components/**"
-        description: An application screen renders the shared component library's components rather than growing its own copies; how to make a component fit, and what to do when it cannot.
-        ---
-
-        # UI components
-
-        `src/Core/Backlog.UI.Components` is the product's own component library. It
-        is a deliberate choice over a third-party suite, and the price of that
-        choice is that accessibility semantics, keyboard support and focus handling
-        are the product's own work.
-
-        ## The rule
-
-        A screen renders the library's component. It does not write its own version
-        of one.
-        """;
-
-    /// <summary>The other shape: a list-valued `tools` key, no globs at all, and a
-    /// `mode` the strip has no field of its own for — which is a row of its own
-    /// rather than a line quietly taken out of the file.</summary>
-    private const string PromptFile = """
-        ---
-        description: Walk one request through the modules it touches and say where the boundaries are.
-        mode: agent
-        tools: ['codebase', 'search/codebase', 'read/readFile']
-        ---
-
-        # Explain a flow
-
-        Name the entry point, then follow it until it leaves the process.
         """;
 
     private const string FrontmatterCode = """

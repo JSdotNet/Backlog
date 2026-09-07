@@ -86,9 +86,12 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB"]
 The file-backed persistence layer, implemented in-app rather than bought in.
 
 - **Used for** — `Backlog.Infrastructure.Sqlite` holds the canonical `tasks`
-  table; `RootedSqliteTaskRepository` binds it to the workspace root the user
-  chose, so the desktop head and the web harness open the same database the same
-  way. Settings stay JSON files beside it.
+  table and the `roadmap_plan` table, the latter a single document row per
+  workspace; `RootedSqliteTaskRepository` and `RootedSqliteRoadmapPlanRepository`
+  bind them to the workspace root the user chose, so the desktop head and the web
+  harness open the same database the same way. Each adapter creates only its own
+  table — the two modules share the file, not the schema. Settings and feature
+  flags stay JSON files beside it, per-device on purpose.
 - **Why** — `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`
   replaced the earlier markdown-document store and its two derived indexes with
   one database that cannot disagree with itself. Markdown remains the *content*
@@ -110,6 +113,26 @@ In-process hosted services that poll external sources on the local machine.
   and the capture paths currently run on demand.
 - **Why** — keeping fetching local is what keeps external credentials off the
   cloud (quality goal 2).
+
+## System.Security.Cryptography.ProtectedData
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".tech/desktop.md#windows", ".tech/shared.md#net-runtime"]
+related: [".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".domain/tasks/features.md#pairing-a-device", ".domain/tasks/naming.md#registration-credential"]
+```
+
+The .NET wrapper over Windows DPAPI.
+
+- **Used for** — `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync`,
+  encrypting the device's registration credential at rest under `CurrentUser`
+  scope, at `%LOCALAPPDATA%\Backlog\device-credential.json` on the desktop
+  head (each web harness keeps its own copy under its own path, so the two
+  harnesses register as distinct devices).
+- **Why** — the OS credential store local ADR 0005's Identity section names for
+  Windows: no key of the app's own to generate, rotate, or leak.
 
 ## GitHub CLI
 

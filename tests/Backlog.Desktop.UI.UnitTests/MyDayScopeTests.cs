@@ -16,7 +16,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// It is a scope rather than one of a set: orthogonal to tag and status, so it
 /// narrows what those have already left in view instead of replacing either. That is
-/// why it is a pressed toggle beside two radiogroups.
+/// why it is a pressed toggle beside one radiogroup — the statuses', the only group on
+/// the bar that is one of a set.
 /// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -61,8 +62,9 @@ public sealed class MyDayScopeTests
 
         Assert.Equal("false", chip.GetAttribute("aria-pressed"));
 
-        // A state of its own, so aria-pressed — not the aria-checked the tag and
-        // status chips carry, which pick one of a set.
+        // A state of its own, so aria-pressed — not the aria-checked the status
+        // chips carry, which pick one of a set. The tag chips beside them are
+        // aria-pressed toggles like this one.
         Assert.Null(chip.GetAttribute("aria-checked"));
         Assert.Null(chip.GetAttribute("role"));
     }
@@ -179,7 +181,7 @@ public sealed class MyDayScopeTests
 
         await host.State.SelectAsync(null);
 
-        host.State.SetTagFilter("platform");
+        host.State.ToggleTagFilter("platform");
         host.State.SetStatusFilter("ready");
 
         var pane = host.Render();
@@ -189,7 +191,7 @@ public sealed class MyDayScopeTests
 
         // Both of the other two are still what they were: My Day narrowed the view,
         // it did not take over the bar.
-        Assert.Equal("platform", host.State.SelectedTag);
+        Assert.Equal(["platform"], host.State.SelectedTags);
         Assert.Equal("ready", host.State.SelectedStatusFilterWire);
     }
 

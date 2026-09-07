@@ -36,6 +36,34 @@ public interface IProductivityInsights
 }
 
 /// <summary>
+/// What the sessions part of the dashboard asks for.
+/// <para>
+/// One method, because there is one part. The scope reaches it in full and is honoured
+/// in half: the window and the machine narrow the answer, the repository cannot,
+/// because Claude records no repository against a session and filtering on one would
+/// silently drop every Claude session from a part whose whole point is showing both
+/// assistants. The parameter is still a <see cref="DashboardScope"/> rather than a
+/// narrower pair — the part is one of a surface's parts and takes the surface's scope —
+/// and the constraint is stated on the part instead of being hidden in a signature.
+/// </para>
+/// </summary>
+public interface ISessionInsights
+{
+    Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+        DashboardScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Drops what was read, so the next call goes back to the source.
+    /// <para>
+    /// No scope, unlike <see cref="IProductivityInsights.Invalidate"/> and for the same
+    /// reason <see cref="ICostInsights.Invalidate"/> takes none: one read serves every
+    /// scope here, because the scoping is a derivation over the whole report rather
+    /// than a narrowing of the call. There is nothing per-scope to drop.
+    /// </para></summary>
+    void Invalidate();
+}
+
+/// <summary>
 /// What the cost half of the dashboard asks for.
 /// <para>
 /// No <see cref="DashboardScope"/> anywhere, on purpose. Neither provider reports

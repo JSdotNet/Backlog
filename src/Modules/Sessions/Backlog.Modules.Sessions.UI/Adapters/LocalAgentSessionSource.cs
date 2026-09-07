@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Sessions.UI.Adapters;
 
@@ -15,14 +16,21 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// available, and is told which half is missing.
 /// </para>
 /// <para>
-/// Every session is stamped with this machine's name, because that is the only
+/// Every session is stamped with this machine's identity, because that is the only
 /// environment this source can speak for: neither agent records a hostname in what
 /// it writes, so a session found here ran here. Sessions from another environment
 /// arrive when that environment reports them, and this source is deliberately not
 /// the thing that would have to be widened for that: it answers a port, and a second
-/// implementation of that port can answer for a fleet without this one changing. See
-/// <c>.domain/sessions/dependencies.md</c> for how an Environment lines up
-/// with a registered Machine when the two name the same box.
+/// implementation of that port can answer for a fleet without this one changing. The
+/// stamp is the kernel's device identity, so a session and a registered Machine are the
+/// same environment by identity rather than by their names agreeing; see
+/// <c>.domain/sessions/dependencies.md</c>.
+/// </para>
+/// <para>
+/// The identity is the kernel's <see cref="IDeviceIdentitySource"/> rather than
+/// <c>Environment.MachineName</c>, and that is the substantive change in this class:
+/// a name is not an identity. It is asked for once, at composition, because a machine
+/// is not renamed mid-session and the identity source reads once too.
 /// </para>
 /// </summary>
 internal sealed class LocalAgentSessionSource : IAgentSessionSource
@@ -31,12 +39,13 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
     private readonly CopilotSessionReader _copilot;
 
     /// <summary>What a host composes: the two agents' own folders in the profile of
-    /// whoever is signed in, and the wall clock.</summary>
-    internal LocalAgentSessionSource()
+    /// whoever is signed in, this device's identity, and the wall clock.</summary>
+    internal LocalAgentSessionSource(IDeviceIdentitySource identity)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot"),
-            Environment.MachineName,
+            IdOf(identity),
+            identity.Current.Name,
             TimeProvider.System)
     {
     }
@@ -47,11 +56,23 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
     internal LocalAgentSessionSource(
         string claudeHome,
         string copilotHome,
+        string environmentId,
         string environment,
         TimeProvider clock)
     {
-        _claude = new ClaudeSessionReader(claudeHome, environment, clock);
-        _copilot = new CopilotSessionReader(copilotHome, environment, clock);
+        _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock);
+        _copilot = new CopilotSessionReader(copilotHome, environmentId, environment, clock);
+    }
+
+    /// <summary>The device id as this contract carries identifiers: a string, in the
+    /// Guid's plain lower-case "D" form. Formatted once here so every session written
+    /// by this source spells it the same way — a dashboard filter comparing ids
+    /// ordinally cannot afford two spellings of one machine.</summary>
+    private static string IdOf(IDeviceIdentitySource identity)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+
+        return identity.Current.Id.ToString();
     }
 
     public async Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)

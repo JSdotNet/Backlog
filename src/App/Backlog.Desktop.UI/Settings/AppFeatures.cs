@@ -4,6 +4,7 @@ using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -99,6 +100,12 @@ public static class AppFeatures
             "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant.",
             Status: AppFeatureStatus.Dev),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost.", Status: AppFeatureStatus.Dev),
+        new(
+            SyncFeatures.DevicePairing,
+            "Device pairing",
+            "Pair this device with the cloud sync service and keep a short-lived token for it.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

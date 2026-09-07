@@ -8,19 +8,31 @@ using Backlog.SharedKernel.Results;
 using System.Globalization;
 
 using Backlog.UI.Components.Badges;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// Global, always-visible persistence state for the quick-edit list, per the
-/// save-state indicator vocabulary in
+/// Persistence state for the quick-edit list, per the save-state indicator
+/// vocabulary in
 /// <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c>.
 /// Offline/Conflict states are out of scope here because this desktop slice
 /// talks to a single local file store with no sync layer yet.
 /// </summary>
 public enum AppSaveState
 {
+    /// <summary>Nothing in flight and nothing recently landed, so the band stays
+    /// quiet rather than reporting a save nobody asked about.
+    /// <para>
+    /// It exists because the indicator moved. While it sat in Home's header it was
+    /// only ever on screen beside the list it was talking about, and a latched
+    /// "Saved" cost nothing. It is the app shell's footer now — every route,
+    /// including Settings — and <c>Saved</c> "MUST NOT nag" is the vocabulary
+    /// chapter's own wording for exactly that: a band asserting something about a
+    /// screen the reader is not on.
+    /// </para></summary>
+    Idle,
     Saved,
     Saving,
     Error
@@ -45,13 +57,27 @@ public enum AppSaveState
 /// here as "this row landed on that one".
 /// </para>
 /// </summary>
-public sealed class TasksDesktopState : IDisposable
+public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 {
     private const int DebounceMilliseconds = 750;
 
     /// <summary>How long the tick beside a just-saved row stays up. See
     /// <see cref="FlashSaved"/>.</summary>
     private const int FlashMilliseconds = 900;
+
+    /// <summary>How long "Saved" stays up before the band goes quiet again.
+    /// Longer than the row flash on purpose: that one confirms a row the reader is
+    /// already looking at, this one is a window-wide band they may only glance at a
+    /// second later. See <see cref="ScheduleSaveStateSettle"/>.</summary>
+    private const int SavedDwellMilliseconds = 2000;
+
+    /// <summary>The ids the two integration failures used to carry as inline
+    /// alerts, and still do — the toast takes the same one so a selector written
+    /// against either surface finds the message. See
+    /// <see cref="AnnounceRowFailure"/>.</summary>
+    private const string GitHubFailureTestId = "github-error";
+
+    private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
     private readonly ITaskItems _entryUseCases;
@@ -60,6 +86,13 @@ public sealed class TasksDesktopState : IDisposable
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
     private readonly ITasksRefreshSettings? _refreshSettings;
+
+    /// <summary>Where a failure the reader may not be looking at is announced, or
+    /// null in a host that mounts no tray. Absent rather than silent-by-default,
+    /// the same idiom as <see cref="_refreshSettings"/>: a host that wires no
+    /// channel has said nothing about notifications, and a list that invented one
+    /// would be deciding for it.</summary>
+    private readonly IToastChannel? _toasts;
 
     /// <summary>The last saved state of each persisted row, as the module
     /// describes it. Held so a badge or a GitHub link can be read without
@@ -119,13 +152,18 @@ public sealed class TasksDesktopState : IDisposable
     /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
     private bool _disposed;
 
+    /// <summary>The wait after which a "Saved" band goes quiet, or null when
+    /// nothing is waiting. See <see cref="ScheduleSaveStateSettle"/>.</summary>
+    private CancellationTokenSource? _saveStateSettle;
+
     public TasksDesktopState(
         ITaskStore store,
         ITaskItems entryUseCases,
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null)
+        ITasksRefreshSettings? refreshSettings = null,
+        IToastChannel? toasts = null)
     {
         _store = store;
         _entryUseCases = entryUseCases;
@@ -135,6 +173,7 @@ public sealed class TasksDesktopState : IDisposable
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
         _untilDisposed = _lifetime.Token;
         _refreshSettings = refreshSettings;
+        _toasts = toasts;
         _store.RootChanged += OnRootChanged;
 
         // Absent rather than off: a host that wires no refresh settings has said
@@ -152,14 +191,24 @@ public sealed class TasksDesktopState : IDisposable
     /// callback (a debounce timer) so the component can re-render.</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// The statuses the strip offers, which is not every status the backlog has.
+    /// <para>
+    /// Done and Archived are deliberately absent. Both are questions about work
+    /// that is over, and a backlog is scanned for what is still open — so the two
+    /// chips that were pressed least were also the two the strip could least
+    /// afford, because the group's width is what squeezes the tag pile beside it.
+    /// Neither status is unreachable: "All" still lists them, and
+    /// <see cref="SetStatusFilter"/> still takes their wire values for anything
+    /// that names one directly.
+    /// </para>
+    /// </summary>
     public List<StatusFilterOption> StatusFilters { get; } =
     [
         new("All", string.Empty),
         new("Draft", "draft"),
         new("Ready", "ready"),
-        new("In progress", "in_progress"),
-        new("Done", "done"),
-        new("Archived", "archived")
+        new("In progress", "in_progress")
     ];
 
     public List<EntryRow> Rows { get; private set; } = [];
@@ -212,10 +261,29 @@ public sealed class TasksDesktopState : IDisposable
     /// </summary>
     public bool NoRepositoryOnly { get; private set; }
 
-    /// <summary>The selected tag, bare and lower-cased the way
-    /// <c>EntryTextParser.NormalizeTags</c> stores one, or empty for all.
-    /// <see cref="UntaggedTag"/> selects the entries carrying no tag at all.</summary>
-    public string SelectedTag { get; private set; } = string.Empty;
+    private readonly HashSet<string> _selectedTags = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The tags being filtered by, bare and lower-cased the way
+    /// <c>EntryTextParser.NormalizeTags</c> stores them.
+    /// <see cref="UntaggedTag"/> is a member like any other and asks for the
+    /// entries carrying no tag at all.
+    /// <para>
+    /// A set rather than one value, because an entry wears any number of tags and
+    /// so "the sync work and the desktop work" is one question rather than two —
+    /// the same reason the chips are pressable scopes rather than a radiogroup.
+    /// Empty means every tag, which is what leaves the group with no "All" chip of
+    /// its own: unpressing the last one is already the gesture that chip was.
+    /// </para>
+    /// </summary>
+    public IReadOnlySet<string> SelectedTags => _selectedTags;
+
+    /// <summary>Whether a tag is in the selection — read by the chip in the bar, to
+    /// draw it pressed and to word its tooltip. The tag on a row drives the same
+    /// selection but reads nothing back: it is a stateless way in and out, and the
+    /// bar is the one place the selection is shown.</summary>
+    public bool IsTagSelected(string? tag) =>
+        !string.IsNullOrEmpty(tag) && _selectedTags.Contains(tag);
 
     /// <summary>Sentinel for "entries with no tags" — a real tag can never be this
     /// because the parser strips the leading <c>#</c>, lower-cases, and would never
@@ -238,13 +306,14 @@ public sealed class TasksDesktopState : IDisposable
 
     /// <summary>
     /// The tags actually in use, in alphabetical order, and empty when nothing in
-    /// scope carries one — which is what takes the whole group off the bar rather
-    /// than leaving a lone "All" chip filtering nothing.
+    /// scope carries one — which is what takes the whole group off the bar.
     /// <para>
-    /// Unlike an area, an entry has any number of tags, so a row is counted under
-    /// every tag it wears. The counts are occurrences rather than a partition; only
-    /// "All" is a row count, and it is the same pool the area and My Day chips count
-    /// against — see <see cref="ScopedRows"/>.
+    /// Unlike a status, an entry has any number of tags, so a row is counted under
+    /// every tag it wears. The counts are occurrences rather than a partition, taken
+    /// over the same pool the My Day and No repo chips count against — see
+    /// <see cref="ScopedRows"/>. Nothing in the group counts rows, because the chip
+    /// that used to is gone: with the chips pressable, "all of them" is no chip at
+    /// all.
     /// </para>
     /// </summary>
     public List<TagFilterOption> TagFilters { get; private set; } = [];
@@ -298,7 +367,30 @@ public sealed class TasksDesktopState : IDisposable
             ? $"repo-mark repo-mark--{colour}"
             : null;
 
-    public AppSaveState SaveState { get; private set; } = AppSaveState.Saved;
+    /// <summary>What the save-state band is currently saying. Starts quiet: a
+    /// backlog that has just been opened has nothing to report, and asserting
+    /// "Saved" over a list nobody has touched is a claim about a write that never
+    /// happened.</summary>
+    public AppSaveState SaveState { get; private set; } = AppSaveState.Idle;
+
+    /// <summary>
+    /// The same fact in the indicator's vocabulary, for the app shell's footer.
+    /// <para>
+    /// Explicitly implemented, because the property above and the library's
+    /// <c>SaveState</c> type share a name and only one of them can have it here.
+    /// It also says the thing worth saying about the seam: the shell reads through
+    /// <see cref="ISaveStatusSource"/>, not through this class, and the mapping
+    /// between what the store did and what an indicator draws belongs to the module
+    /// that owns the first of those.
+    /// </para>
+    /// </summary>
+    SaveState ISaveStatusSource.Current => SaveState switch
+    {
+        AppSaveState.Saving => Backlog.UI.Components.Feedback.SaveState.Saving,
+        AppSaveState.Saved => Backlog.UI.Components.Feedback.SaveState.Saved,
+        AppSaveState.Error => Backlog.UI.Components.Feedback.SaveState.Failed,
+        _ => Backlog.UI.Components.Feedback.SaveState.Idle
+    };
 
     /// <summary>The one row currently showing its raw markdown. Everything else
     /// shows the rendered document.</summary>
@@ -586,11 +678,16 @@ public sealed class TasksDesktopState : IDisposable
     /// </summary>
     public PendingCaret PendingCaret { get; set; }
 
+    /// <summary>The band's sentence, or nothing at all when there is no band. The
+    /// Idle arm is spelled out rather than left to the default: a state that has
+    /// just been constructed has nothing to report, and inheriting "Saved" would
+    /// have it claim a write that never happened.</summary>
     public string SaveStateLabel => SaveState switch
     {
         AppSaveState.Saving => "Saving…",
         AppSaveState.Error => "Couldn't save",
-        _ => "Saved"
+        AppSaveState.Saved => "Saved",
+        _ => string.Empty
     };
 
     /// <summary>Placeholder text shown (via the native textarea placeholder,
@@ -684,12 +781,17 @@ public sealed class TasksDesktopState : IDisposable
         ApplyFilter();
     }
 
-    /// <summary>Selects a tag, bare and lower-cased the way the parser stores one.
-    /// <see cref="UntaggedTag"/> asks for the entries with no tags; null or empty
-    /// asks for all of them.</summary>
-    public void SetTagFilter(string? tag)
+    /// <summary>Adds a tag to the selection, or takes it back out when it is
+    /// already there. Bare and lower-cased the way the parser stores one;
+    /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
+    /// both directions, so an empty selection — every tag unpressed — is how the
+    /// reader gets back to all of them.</summary>
+    public void ToggleTagFilter(string? tag)
     {
-        SelectedTag = tag ?? string.Empty;
+        if (string.IsNullOrEmpty(tag)) return;
+
+        if (!_selectedTags.Remove(tag)) _selectedTags.Add(tag);
+
         ApplyFilter();
     }
 
@@ -1643,6 +1745,11 @@ public sealed class TasksDesktopState : IDisposable
             _debounceTimers.Clear();
         }
 
+        // Cancelling the lifetime above already ended the wait, since the settle's
+        // token is linked to it; this only gives back the source it was waiting on.
+        _saveStateSettle?.Dispose();
+        _saveStateSettle = null;
+
         _lifetime.Dispose();
     }
 
@@ -1924,10 +2031,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
         {
             row.GitHubError = ex.Message;
+            AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
         }
         catch (Exception)
         {
             row.GitHubError = "Couldn't push to GitHub.";
+            AnnounceRowFailure(row, row.GitHubError, GitHubFailureTestId);
         }
         finally
         {
@@ -1952,9 +2061,20 @@ public sealed class TasksDesktopState : IDisposable
     // and its test went together rather than leaving an orphan on one side or a test
     // guarding a path no reader can take.
 
-    /// <summary>Re-reads one entry's issue state and the pull requests that
-    /// reference it.</summary>
-    public async Task RefreshGitHubAsync(EntryRow row)
+    /// <summary>
+    /// Re-reads one entry's issue state and the pull requests that reference it.
+    /// <para>
+    /// <paramref name="announce"/> is what stops a sweep from becoming a parade.
+    /// A reader who asked about one row is owed a toast about that row; a reader
+    /// who asked about all of them is owed one sentence about all of them, because
+    /// the thing that fails at that scale — a dead token, a dead network — fails
+    /// identically on every row and would otherwise raise one toast each, queued
+    /// eight seconds apart. See <see cref="SyncGitHubAsync"/>, which counts instead.
+    /// The inline line on the row is unaffected either way: that is the record, and
+    /// every row still gets its own.
+    /// </para>
+    /// </summary>
+    public async Task RefreshGitHubAsync(EntryRow row, bool announce = true)
     {
         if (row.IssueLink is not { } link || row.GitHubBusy) return;
 
@@ -1969,10 +2089,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException)
         {
             row.GitHubError = ex.Message;
+            if (announce) AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
         }
         catch (Exception)
         {
             row.GitHubError = "Couldn't read that issue from GitHub.";
+            if (announce) AnnounceRowFailure(row, row.GitHubError, GitHubFailureTestId);
         }
         finally
         {
@@ -1980,6 +2102,31 @@ public sealed class TasksDesktopState : IDisposable
             Changed?.Invoke();
         }
     }
+
+    /// <summary>
+    /// Says out loud that one row's integration failed, on top of the line the row
+    /// already carries.
+    /// <para>
+    /// Both, not one or the other, and <c>.design/interaction-guidelines.md#error-states</c>
+    /// is why: a widget that failed is a <em>Section</em>-level error and gets an
+    /// inline card within that section, while the push or the read the reader asked
+    /// for is an <em>Action</em>-level error and gets a toast. A GitHub failure is
+    /// both at once. The inline alert is the record that stays with the entry; the
+    /// toast is what reaches a reader who had already scrolled away.
+    /// </para>
+    /// <para>
+    /// It names the row because the toast is detached from it — the band is at the
+    /// bottom of the window and the entry that failed may not even be on screen,
+    /// so "Couldn't push to GitHub." on its own would be a sentence with no subject.
+    /// </para>
+    /// <para>
+    /// Called where the error is assigned rather than where it is drawn. A publish
+    /// from markup would re-raise the toast on every re-render, and this list
+    /// re-renders on every keystroke somewhere else in it.
+    /// </para>
+    /// </summary>
+    private void AnnounceRowFailure(EntryRow row, string message, string testId) =>
+        _toasts?.Publish(ToastMessage.Error($"{row.PreviewTitle}: {message}", testId));
 
     /// <summary>Refreshes every linked row. Explicit rather than automatic on
     /// load: the backlog must open instantly and offline, so nothing about it
@@ -1991,17 +2138,34 @@ public sealed class TasksDesktopState : IDisposable
         GitHubSyncing = true;
         Changed?.Invoke();
 
+        var linked = Rows.Where(r => r.IssueLink is not null).ToList();
+        var failed = 0;
+
         try
         {
-            foreach (var row in Rows.Where(r => r.IssueLink is not null).ToList())
+            foreach (var row in linked)
             {
-                await RefreshGitHubAsync(row);
+                await RefreshGitHubAsync(row, announce: false);
+                if (row.GitHubError is not null) failed++;
             }
         }
         finally
         {
             GitHubSyncing = false;
             Changed?.Invoke();
+        }
+
+        // One sentence for one gesture. The rows carry their own lines, so nothing
+        // is lost by not naming them here — and naming them here is exactly what
+        // would go wrong, because the failure that takes out a sync takes out every
+        // row at once and the reader would be reading the same message twenty times.
+        if (failed > 0)
+        {
+            var subject = failed == 1 ? "task" : "tasks";
+
+            _toasts?.Publish(ToastMessage.Error(
+                $"{failed} of {linked.Count} {subject} couldn't be read from GitHub.",
+                GitHubFailureTestId));
         }
     }
 
@@ -2026,10 +2190,12 @@ public sealed class TasksDesktopState : IDisposable
         catch (CopilotCliException ex)
         {
             row.CopilotError = ex.Message;
+            AnnounceRowFailure(row, ex.Message, CopilotFailureTestId);
         }
         catch (Exception)
         {
             row.CopilotError = "Couldn't start GitHub Copilot CLI.";
+            AnnounceRowFailure(row, row.CopilotError, CopilotFailureTestId);
         }
         finally
         {
@@ -2301,9 +2467,91 @@ public sealed class TasksDesktopState : IDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Moves the save-state band, and tells whoever is drawing it.
+    /// <para>
+    /// The equality guard is not tidiness. <c>Changed</c> re-renders the whole of
+    /// TasksPane, and <c>SetSaveState(Saved)</c> runs at the end of every debounce
+    /// flush — so without it a person typing would redraw the list on every flush
+    /// for a state that had not moved. It is also what
+    /// <c>.design/accessibility.md#screen-reader--announcements</c> requires:
+    /// routine Saving/Saved transitions must be throttled, and re-raising a polite
+    /// live region for a state that did not change is the flood that rule names.
+    /// </para>
+    /// <para>
+    /// What the guard must not swallow is the dwell. A save is still a save when it
+    /// lands on the state the last one left behind, so the settle is rescheduled
+    /// before the guard is consulted — see the note on the call.
+    /// </para>
+    /// </summary>
     private void SetSaveState(AppSaveState state)
     {
+        var moved = SaveState != state;
+
         SaveState = state;
+
+        // The settle is rescheduled either way, and that is the point of doing it
+        // outside the guard. Two saves that both land on Saved without a Saving
+        // between them — StartCopilotCliAsync is one such path — would otherwise
+        // leave the second confirmation inheriting the tail of the first one's
+        // dwell, so a save at 1.9s into the window would be put away 0.1s later.
+        ScheduleSaveStateSettle(state);
+
+        if (moved) Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Puts "Saved" away again after a moment, so the band the shell shows on every
+    /// route is quiet whenever nothing is happening.
+    /// <para>
+    /// Only <see cref="AppSaveState.Saved"/> settles. <c>Saving</c> ends when the
+    /// write does and needs no timer, and <c>Error</c> deliberately has none: a
+    /// failure must stay until the next successful save, because there is nowhere
+    /// else on the shell a reader could afterwards find out that the write did not
+    /// land. <c>.design/interaction-guidelines.md</c> gives an error a retry
+    /// affordance rather than a timeout.
+    /// </para>
+    /// <para>
+    /// Cancellable for <see cref="FlashSaved"/>'s reason, and linked to the same
+    /// lifetime token: the state can be disposed inside the wait, and a settle that
+    /// came back regardless would re-render a window that is gone.
+    /// </para>
+    /// </summary>
+    private void ScheduleSaveStateSettle(AppSaveState state)
+    {
+        _saveStateSettle?.Cancel();
+        _saveStateSettle?.Dispose();
+        _saveStateSettle = null;
+
+        // Nothing new after disposal. The linked source would be born cancelled and
+        // the wait would end immediately, so this is not a correctness fix — it is
+        // that a state which has been handed back should not be scheduling work, and
+        // a test run holding a thousand of them should not be paying for it either.
+        if (_disposed) return;
+
+        if (state is not AppSaveState.Saved) return;
+
+        var settle = CancellationTokenSource.CreateLinkedTokenSource(_untilDisposed);
+        _saveStateSettle = settle;
+
+        _ = SettleSaveStateAsync(settle.Token);
+    }
+
+    private async Task SettleSaveStateAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SavedDwellMilliseconds, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        // Straight to the field rather than back through SetSaveState: that would
+        // schedule a settle for the settle, and Idle has nothing to settle into.
+        SaveState = AppSaveState.Idle;
+        Changed?.Invoke();
     }
 
     private static void RefreshRowFromEntry(EntryRow row, TaskItemDto entry, bool rewriteText)
@@ -2404,15 +2652,19 @@ public sealed class TasksDesktopState : IDisposable
 
         // Tags narrow inside the scope the same way status does, and compose with
         // both. An entry wears any number of them, so this asks whether the row
-        // carries the selected one rather than whether it *is* that one — which is
-        // the whole difference between a tag and an area.
-        if (SelectedTag == UntaggedTag)
+        // carries one of the selected tags rather than whether it *is* one of them —
+        // which is the whole difference between a tag and a status.
+        //
+        // A union across the selection, and it cannot be much else: the rows wearing
+        // both of two tags is a question about one row, while the rows wearing
+        // either is the question the bar is asking — where work is filed. It also
+        // makes every press strictly widening, so a reader adding a chip never
+        // watches the list shrink under them.
+        if (_selectedTags.Count > 0)
         {
-            rows = rows.Where(x => x.PreviewTags.Count == 0);
-        }
-        else if (SelectedTag.Length > 0)
-        {
-            rows = rows.Where(x => x.PreviewTags.Contains(SelectedTag, StringComparer.OrdinalIgnoreCase));
+            rows = rows.Where(x =>
+                (x.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
+                || x.PreviewTags.Any(_selectedTags.Contains));
         }
 
         // A row being written right now always stays put, even if what was just
@@ -2488,7 +2740,7 @@ public sealed class TasksDesktopState : IDisposable
     /// Tags exist for the same reason areas do — somebody typed one — so the group
     /// is rebuilt from what is in the current repository scope, and disappears
     /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
-    /// holding one dead "All" chip would be charging every reader for a feature only
+    /// with nothing pressable in it would be charging every reader for a feature only
     /// the taggers use.
     /// <para>
     /// Read off <c>PreviewTags</c>, which is the union of the metadata line, the
@@ -2514,8 +2766,9 @@ public sealed class TasksDesktopState : IDisposable
     /// The counts do not follow it down, and the difference is the point. Which
     /// entries a tag is <em>offered for</em> is a question about the reader's
     /// attention; how many rows the tag <em>has</em> is a question about the list,
-    /// and the list is unchanged — finished entries are still there under "All", so a
-    /// chip promising fewer rows than pressing it produces would simply be wrong. A
+    /// and the list is unchanged — finished entries are still there with no tag
+    /// pressed, so a chip promising fewer rows than pressing it produces would simply
+    /// be wrong. A
     /// count still answers "how much is over there" over the whole repository scope,
     /// the way the area and My Day counts beside it do.
     /// </para>
@@ -2536,7 +2789,7 @@ public sealed class TasksDesktopState : IDisposable
         if (offered.Count == 0)
         {
             TagFilters = [];
-            SelectedTag = string.Empty;
+            _selectedTags.Clear();
             return;
         }
 
@@ -2547,7 +2800,11 @@ public sealed class TasksDesktopState : IDisposable
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
 
-        var options = new List<TagFilterOption> { new("All", string.Empty, scopedRows.Count) };
+        // No "All" of its own. The bar already carries one, in the status group,
+        // and a second would be the duplicate the reader wrote in about — so the
+        // group starts empty and "all of them" is the state it is in with nothing
+        // pressed.
+        var options = new List<TagFilterOption>();
 
         foreach (var group in used)
         {
@@ -2572,11 +2829,12 @@ public sealed class TasksDesktopState : IDisposable
 
         // A tag leaves the bar when the last entry wearing it drops it — or finishes
         // it, which is the same event as far as the bar is concerned. Either way the
-        // selection cannot stay on a chip that is no longer there.
-        if (SelectedTag.Length > 0 && options.All(o => o.Value != SelectedTag))
-        {
-            SelectedTag = string.Empty;
-        }
+        // selection cannot keep a tag that is no longer on a chip — and only that
+        // one: the rest of what the reader asked for is still on the bar and still
+        // answerable.
+        var remaining = options.Select(o => o.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        _selectedTags.RemoveWhere(tag => !remaining.Contains(tag));
     }
 
     /// <summary>Done and archived are one state — "there is nothing left to do
@@ -2631,7 +2889,8 @@ public sealed record StatusFilterOption(string Label, string Wire);
 /// tag, and for a person the <c>@</c> that is already part of the value;
 /// <paramref name="Value"/> is the lower-cased tag exactly as the parser stores it.
 /// <paramref name="Count"/> is an occurrence count rather than a share of the
-/// rows — see <c>TasksDesktopState.TagFilters</c>.</summary>
+/// rows, and it does not move when another chip is pressed — see
+/// <c>TasksDesktopState.TagFilters</c>.</summary>
 public sealed record TagFilterOption(string Label, string Value, int Count);
 
 /// <summary>One thing the app read out of an entry's meta line. <paramref

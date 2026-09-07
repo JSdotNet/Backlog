@@ -269,18 +269,28 @@ The app model that composes every runnable piece of this repository into one
 local run.
 
 - **Used for** — the AppHost starts the sync service, the three web harnesses,
-  and the Foundry test service, and registers the desktop head, the Android
-  head, and two VS Code extension resources behind `WithExplicitStart()`.
-  `Backlog.Aspire.ServiceDefaults` gives every host the same telemetry,
-  resilience, service discovery, and health checks.
+  and the Foundry test service, and registers everything that needs a device, a
+  CLI, or an account behind `WithExplicitStart()`: the desktop head, both Android
+  registrations (`mobile-android` through the MSBuild `Run` target, and
+  `mobile-maui-android-emulator` — the platform child of the `mobile-maui` parent
+  registration — through `Aspire.Hosting.Maui`), the `mobile-tunnel` dev tunnel
+  that publishes `sync` to an emulator, and two VS Code extension resources. A
+  `foundry-local` model sits beside the Foundry test service, guarded rather than
+  deferred: Foundry Local launches the `foundry` CLI as the app model comes up
+  rather than when the resource is started, so it is registered only on a machine
+  that has the CLI. `Backlog.Aspire.ServiceDefaults` gives every host the same
+  telemetry, resilience, service discovery, and health checks.
 - **Why** — one command starts the whole system with a dashboard, logs, and
   traces, which is what makes agent-driven QA possible at all. It spans every
   channel rather than only the cloud service, which is why it is documented here
   and not in `cloud.md`.
 - **How** — ports are always dynamic (`localhost:0`), and worktree sessions run
   `aspire start --isolated` so parallel sessions get independent ports and
-  user-secrets state. The AppHost stays opted out of the Aspire CLI bundle
-  (`AspireUseCliBundle=false`, with `ASPIRE010` silenced deliberately).
+  user-secrets state. The AppHost is opted in to the Aspire CLI bundle
+  (`AspireUseCliBundle=true`), so `dotnet run` on it acquires the CLI pinned to
+  the `Aspire.AppHost.Sdk` version through dnx and delegates to `aspire run`
+  rather than running a differently versioned CLI or none at all. `ASPIRE010`, the
+  advisory for staying opted out, is no longer suppressed.
 
 ## OpenTelemetry
 

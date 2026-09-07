@@ -13,7 +13,9 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
@@ -23,6 +25,9 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -62,6 +67,20 @@ public static class MauiProgram
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();
+        // Which machine this installation is: minted once into device.json beside the
+        // settings above, and stable across restarts and renames. Two contexts read it —
+        // Sessions stamps every record it finds with it and the Dashboard offers it as a
+        // filter — and neither of them owns the answer, which is why it is a kernel port.
+        // Constructed here, at startup, rather than handed to the container as a factory:
+        // the identity belongs to the installation, not to whichever surface first asks
+        // for it, so device.json exists from the first start whether or not the Dashboard
+        // or Sessions is ever opened — the pairing that ADR 0005 attaches to this id will
+        // need it before any pane does. Constructed rather than resolved for a second
+        // reason: the store offers three public constructors — the per-user location, an
+        // explicit path, and an explicit path and machine name — and letting the container
+        // choose between them would make which file the real installation writes to
+        // depend on a rule nobody reading this line can see.
+        builder.Services.AddSingleton<IDeviceIdentitySource>(new DeviceIdentityStore());
 
         // Composition: the Tasks module brings its own use cases, and the host
         // decides which adapter is behind them. The repository follows the
@@ -72,11 +91,11 @@ public static class MauiProgram
         builder.Services.AddTasksModule();
 
         // The same arrangement for the plan: the Roadmap module brings its use
-        // cases, and the host picks the adapter. One JSON document under the same
-        // storage root, following the same folder, so moving the storage folder
-        // moves the plan with the backlog rather than leaving it behind.
+        // cases, and the host picks the adapter. One document row in the same
+        // database the tasks use, following the same folder, so moving the storage
+        // folder moves the plan with the backlog rather than leaving it behind.
         builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
-            new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+            new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
@@ -98,11 +117,34 @@ public static class MauiProgram
             workspace.RootChanged += store.Reload;
             return store;
         });
-        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+        // Which credential a call leaves with is decided per call, against the
+        // settings as they are at that moment: a repository bound to an account goes
+        // out as that account, and never as whoever `gh` happens to be switched to.
+        // The gh CLI is a source of credentials here as well as a way of sending, so
+        // the account source is registered once and shared — its token cache and its
+        // account list are the things "Check the connection" invalidates.
+        builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+        builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<IGhCliAccountSource>()));
+        builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+            accounts: sp.GetRequiredService<IGhCliAccountSource>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.
         builder.Services.AddSingleton<IAppFeatureSettings>(_ => new AppFeatureSettingsStore(AppFeatures.All));
+        // The device half of cloud sync. DPAPI is the store ADR 0005 asks for on
+        // Windows, and this head is the Windows one; the credential lands beside the
+        // app's other per-user state rather than in the backlog folder, because it
+        // belongs to this machine and not to the workspace.
+        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore());
+        // "https+http://sync" is resolved by Aspire service discovery, which
+        // AddServiceDefaults above wired up, so the desktop always talks to the sync
+        // service of this AppHost run. Ports are dynamic; a literal one would be
+        // wrong by the next launch.
+        builder.Services.AddSyncClient(new Uri("https+http://sync"));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -162,6 +204,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<KnowledgeUpdateService>();
         builder.Services.AddSingleton<TasksDesktopState>();
+        // The band under every route reads the backlog's save state through the
+        // library's own interface rather than reaching for the state class, so the
+        // shell's footer never learns which module is the interesting one. Same
+        // lifetime as the state itself: in MAUI there is one window and one user.
+        builder.Services.AddSingleton<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+        // Where a screen puts a message it needs a reader to see, and where the
+        // tray in MainLayout reads it back. Registered as the concrete type with
+        // the interface forwarded to it so both sides resolve the same queue.
+        builder.Services.AddSingleton<ToastChannel>();
+        builder.Services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
         builder.Services.AddSingleton<KnowledgeFolderOpenService>();
         builder.Services.AddSingleton<Arc42KnowledgeStore>();
@@ -183,8 +235,16 @@ public static class MauiProgram
 
         // The session list reads the two agents' own folders in the profile of
         // whoever is signed in, so unlike the tool service above there is nothing
-        // for a host to differ about and both hosts compose the same adapter.
+        // for a host to differ about and both hosts compose the same adapter. It
+        // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
+
+        // The join between the two: the Dashboard's sessions part reports on what the
+        // Sessions context reads. Only an infrastructure adapter may see both, so the
+        // registration is there rather than in either module — and it comes after both
+        // AddDashboardModule() and AddAgentSessionSource(), whose ports it sits
+        // between.
+        builder.Services.AddDashboardCrossContextAdapters();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

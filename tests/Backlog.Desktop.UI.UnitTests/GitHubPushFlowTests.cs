@@ -125,6 +125,63 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Equal(GitHubItemState.Merged, row.Snapshot.Headline!.State);
     }
 
+    /// <summary>
+    /// A sync that fails says so once, not once per row.
+    /// <para>
+    /// The thing that takes out a sync — an expired token, a dead network — takes
+    /// out every linked row identically, and each row publishing its own toast would
+    /// turn one click into a queue draining three at a time for as long as the
+    /// backlog is linked. The rows still carry their own inline lines, which is
+    /// where a reader finds out <em>which</em> entry; the band gets the count.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_failed_sync_reports_once_for_the_whole_sweep()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var first = await WriteEntryAsync(harness.State, "# First\n`task` `*high` `!draft` `repo:backlog`\n");
+        var second = await WriteEntryAsync(harness.State, "# Second\n`task` `*high` `!draft` `repo:backlog`\n");
+        await harness.State.PushToGitHubAsync(first);
+        await harness.State.PushToGitHubAsync(second);
+
+        // Two pushes that worked say nothing, which is what makes the count below
+        // unambiguous: everything in the tray afterwards came from the sync.
+        Assert.Empty(harness.Toasts.Visible);
+
+        harness.Client.Failure = new GitHubException("GitHub rejected the token — check it hasn't expired.");
+
+        await harness.State.SyncGitHubAsync();
+
+        var toast = Assert.Single(harness.Toasts.Visible);
+        Assert.Equal("github-error", toast.TestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal("2 of 2 tasks couldn't be read from GitHub.", toast.Message);
+
+        // The record stays on the entries, one line each, exactly as before.
+        Assert.NotNull(first.GitHubError);
+        Assert.NotNull(second.GitHubError);
+    }
+
+    /// <summary>One row asked about is one row answered about, by name — the
+    /// per-row toast is the path the sweep deliberately opts out of.</summary>
+    [Fact]
+    public async Task Refreshing_one_entry_names_it()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
+        await harness.State.PushToGitHubAsync(row);
+
+        harness.Client.Failure = new GitHubException("GitHub rejected the token — check it hasn't expired.");
+
+        await harness.State.RefreshGitHubAsync(row);
+
+        var toast = Assert.Single(harness.Toasts.Visible);
+        Assert.Equal("github-error", toast.TestId);
+        Assert.Contains(row.PreviewTitle, toast.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Monitoring_still_works_for_a_repository_since_removed_from_settings()
     {
@@ -258,7 +315,7 @@ public sealed class GitHubPushFlowTests : IDisposable
             600,
             42);
 
-        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         // A data: URL embedded straight in the body is stripped by GitHub's
         // markdown sanitizer and never renders — the fix commits the screenshot
@@ -279,7 +336,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.");
+        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.", TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
@@ -293,7 +350,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         harness.Client.UploadFailure = new GitHubException("GitHub refused the request — the token may lack repo scope.");
         var screenshot = new GitHubFeedbackScreenshot("data:image/jpeg;base64,AAAA", "image/jpeg", 800, 600, 42);
 
-        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot);
+        var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
         Assert.Contains("Screenshot upload failed:", harness.Client.CreatedBody);
@@ -323,15 +380,16 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         var client = new FakeGitHubClient();
         var integration = new GitHubIntegration(settings, client, new FakeProbe());
+        var toasts = new ToastChannel();
 
-        return new Harness(StateFor(store, integration), client, store, integration, new FeedbackReporter(integration));
+        return new Harness(StateFor(store, integration, toasts), client, store, integration, new FeedbackReporter(integration), toasts);
     }
 
     /// <summary>The list state, remembered so <see cref="Dispose"/> can hand back
     /// the timed saves it arms.</summary>
-    private TasksDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration)
+    private TasksDesktopState StateFor(WorkspaceSettingsStore store, GitHubIntegration integration, IToastChannel? toasts = null)
     {
-        var state = TasksTestHost.StateFor(store, integration);
+        var state = TasksTestHost.StateFor(store, integration, toasts: toasts);
         _states.Add(state);
         return state;
     }
@@ -341,7 +399,8 @@ public sealed class GitHubPushFlowTests : IDisposable
         FakeGitHubClient Client,
         WorkspaceSettingsStore Store,
         GitHubIntegration Integration,
-        FeedbackReporter Feedback);
+        FeedbackReporter Feedback,
+        ToastChannel Toasts);
 
     private sealed class FakeGitHubClient : IGitHubClient
     {

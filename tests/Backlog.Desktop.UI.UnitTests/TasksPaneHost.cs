@@ -23,6 +23,7 @@ internal sealed class TasksPaneHost : IDisposable
     private TasksPaneHost(
         BunitContext context,
         TasksDesktopState state,
+        ToastChannel toasts,
         AppFeatureSettingsStore features,
         GitHubIntegration gitHub,
         FakeGitHubClient client,
@@ -31,6 +32,7 @@ internal sealed class TasksPaneHost : IDisposable
     {
         Context = context;
         State = state;
+        Toasts = toasts;
         Features = features;
         GitHub = gitHub;
         Client = client;
@@ -41,6 +43,12 @@ internal sealed class TasksPaneHost : IDisposable
     public BunitContext Context { get; }
 
     public TasksDesktopState State { get; }
+
+    /// <summary>Where the pane's transient results land now that they are toasts
+    /// rather than alerts pinned under the list. The tray that draws them is
+    /// MainLayout's, so a pane-scoped render has nothing to find in its own markup
+    /// — a test asks the channel what was published instead.</summary>
+    public ToastChannel Toasts { get; }
 
     public AppFeatureSettingsStore Features { get; }
 
@@ -83,7 +91,8 @@ internal sealed class TasksPaneHost : IDisposable
         var client = new FakeGitHubClient();
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags);
+        var toasts = new ToastChannel();
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts);
 
         await state.InitializeAsync();
 
@@ -98,7 +107,13 @@ internal sealed class TasksPaneHost : IDisposable
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
 
-        return new TasksPaneHost(context, state, features, gitHub, client, root, storageRoot);
+        // The same instance the state publishes on, so a failure raised deep in a
+        // GitHub call and a result raised by the pane land in one queue — which is
+        // what the app does.
+        context.Services.AddSingleton(toasts);
+        context.Services.AddSingleton<IToastChannel>(toasts);
+
+        return new TasksPaneHost(context, state, toasts, features, gitHub, client, root, storageRoot);
     }
 
     public IRenderedComponent<TasksPane> Render() => Context.Render<TasksPane>();

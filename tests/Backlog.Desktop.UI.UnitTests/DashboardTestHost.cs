@@ -31,16 +31,45 @@ internal static class DashboardTestHost
         params string[] repositoryAliases)
     {
         services.AddSingleton<IRepositoryDirectory>(new FixedRepositoryDirectory(repositoryAliases));
+        services.AddSingleton<IMachineDirectory>(new FixedMachineDirectory(MachineId, MachineName));
         services.AddSingleton<IProductivityInsights, UnavailableProductivityInsights>();
+        services.AddSingleton<ISessionInsights, UnavailableSessionInsights>();
         services.AddSingleton<ICostInsights, UnavailableCostInsights>();
 
         return services;
     }
 
+    /// <summary>The one machine every dashboard test runs on. A Guid in the form the
+    /// device identity store writes, because the filter's value is an id and a test
+    /// that used a friendly string would not notice the day the two stopped
+    /// matching.</summary>
+    internal const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
+
+    internal const string MachineName = "DEV-TOWER";
+
     private sealed class FixedRepositoryDirectory(IReadOnlyList<string> aliases) : IRepositoryDirectory
     {
         public IReadOnlyList<DashboardRepository> Repositories { get; } =
             [.. aliases.Select(alias => new DashboardRepository(alias, $"JSdotNet/{alias}"))];
+    }
+
+    /// <summary>One machine, which is also what the real adapter answers today: no
+    /// session record has arrived from anywhere else yet.</summary>
+    private sealed class FixedMachineDirectory(string id, string name) : IMachineDirectory
+    {
+        public IReadOnlyList<DashboardMachine> Machines { get; } = [new DashboardMachine(id, name)];
+    }
+
+    private sealed class UnavailableSessionInsights : ISessionInsights
+    {
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable(UnavailableReason));
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class UnavailableProductivityInsights : IProductivityInsights

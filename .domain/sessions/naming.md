@@ -65,12 +65,18 @@ show one row where there were two.
 ```meta
 type: term
 status: active
-aliases: [environment, machine_name]
-related: [.domain/sessions/domain.md#session-log, .domain/environment/naming.md#environment]
+aliases: [environment, machine_name, environment_id]
+related: [.domain/sessions/domain.md#session-log, .domain/environment/naming.md#environment, .domain/tasks/naming.md#device]
 ```
 
 Where an agent ran. Today that is a development PC, named as that machine names
 itself.
+
+It also carries a stable identity alongside the name it displays: `EnvironmentId`,
+the product-wide device identity issued by the shared kernel (see
+`.domain/tasks/naming.md#device`), which no bounded context owns. The display name
+can change without changing which environment it is, which is why grouping keys on
+the id rather than on the name.
 
 **This is not the Environment context's Environment.** That one is a launchable
 destination — a local harness, a staging app, a cloud dashboard — and belongs to a
@@ -243,6 +249,36 @@ Whether the optional external reporting path is available for a session: `enable
 
 This is kept separate from `Session State` on purpose. A stalled session can still
 have enabled reporting, and a running session can have degraded reporting.
+
+## Session View
+
+```meta
+type: term
+status: active
+aliases: [AgentSessionView, view, live, all]
+related: [.domain/sessions/domain.md#session-view, .domain/sessions/features.md#open-on-the-live-sessions]
+```
+
+Which of the sessions a reading described the reader wants in front of them: `live`, or
+`all`.
+
+**Live** and **past** are defined against `Session State` and against nothing else. A
+session is live while it reads as `running` or `stalled`, and past once it reads as
+`finished`. So "live" inherits every limit on the evidence behind that state and means
+"nothing here says this has ended" rather than "this is certainly still going" —
+which is the whole of the difference between the two agents, since only one of them
+leaves a liveness marker to read.
+
+A view, not a grouping. `Session Grouping` rearranges and carries every session it is
+given; a view is the one choice in this context that takes rows away. That is why they
+are two terms and two controls rather than a third way of grouping, and it is what the
+surface's count is naming when it quotes two numbers instead of one.
+
+Like the grouping, it is the reader's choice and is held by whatever is displaying the
+list — not part of this context's state, and not part of what a reading returns.
+Unlike a stored preference it outlives nothing: the surface holding it opens at `live`
+every time, and re-reading the sessions leaves the choice exactly where the reader put
+it.
 
 ## Session Grouping
 

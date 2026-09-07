@@ -110,6 +110,14 @@ public sealed class ProductivityInsights(
         // Keyed on what actually changes the fetch — the focus and the window —
         // rather than on the whole scope, so two scopes that would produce the
         // same call share one.
+        //
+        // The machine is deliberately not in this key. GitHub does not report which
+        // machine a pull request or an issue was worked from, so two scopes that
+        // differ only in their machine focus produce the identical call, and putting
+        // it in the key would spend the churn budget — a few hundred calls for a
+        // quarter — a second time for the same answer. The parts say on screen that
+        // the machine filter does not reach them; this is the other half of that
+        // sentence.
         var key = "activity|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
 
         return _cache.GetOrAddAsync(key, async () =>

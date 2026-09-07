@@ -44,7 +44,8 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     private DashboardScope? _fetchedFor;
 
     /// <summary>What the dashboard is looking at. Parts that cannot narrow by
-    /// repository still receive it — see <see cref="FollowsScope"/>.</summary>
+    /// repository or by machine still receive it — see <see cref="FollowsRepository"/>
+    /// and <see cref="FollowsMachine"/>.</summary>
     [Parameter]
     public DashboardScope Scope { get; set; } = DashboardScope.Default;
 
@@ -67,12 +68,38 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// Whether the repository filter changes this part's answer.
     /// <para>
     /// False for every cost part, because neither provider reports spend per
-    /// repository. A part that returns false is fetched once and not re-fetched when
-    /// the filter moves, and says on screen that it is not filtered — the constraint
-    /// is stated in both places rather than left for the reader to notice.
+    /// repository, and false for the sessions part, because Claude records no
+    /// repository against a session and filtering on one would silently drop every
+    /// Claude session from a part whose whole point is showing both assistants. A part
+    /// that returns false ignores that filter and says on screen that it does — the
+    /// constraint is stated in both places rather than left for the reader to notice.
     /// </para>
     /// </summary>
-    protected virtual bool FollowsScope => true;
+    protected virtual bool FollowsRepository => true;
+
+    /// <summary>
+    /// Whether the machine filter changes this part's answer.
+    /// <para>
+    /// False by default, which is the opposite default from
+    /// <see cref="FollowsRepository"/> and is the honest one: every part that existed
+    /// before the machine filter is GitHub-backed or provider-backed, and neither
+    /// GitHub nor a billing report knows which machine a piece of work was done from.
+    /// Only the sessions part can answer the question, so only it opts in.
+    /// </para>
+    /// </summary>
+    protected virtual bool FollowsMachine => false;
+
+    /// <summary>
+    /// Whether the window changes this part's answer.
+    /// <para>
+    /// The third dimension of the scope, and the third flag, because a part declares
+    /// what it can honour one dimension at a time. False for every cost part:
+    /// <c>ICostInsights</c> takes no scope at all — a bill arrives per calendar month
+    /// and the two windows on the strip are not months — so a window change cannot move
+    /// those figures and must not re-ask the providers for them.
+    /// </para>
+    /// </summary>
+    protected virtual bool FollowsWindow => true;
 
     /// <summary>Asks this part's question. One call, one part.</summary>
     protected abstract Task<InsightResult<T>> FetchAsync(CancellationToken cancellationToken);
@@ -96,15 +123,34 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// to the provider.</summary>
     protected abstract void InvalidateSource();
 
+    /// <summary>
+    /// The scope as this part sees it: the dimensions it follows kept, the ones it
+    /// cannot answer for blanked.
+    /// <para>
+    /// Comparing this rather than the whole scope is what makes each filter reach
+    /// exactly the parts that can honour it. A record's value equality does the rest —
+    /// moving the machine filter leaves a productivity part's relevant scope identical,
+    /// so it neither re-fetches nor flashes Loading over figures that cannot have
+    /// changed.
+    /// </para>
+    /// </summary>
+    private DashboardScope Relevant(DashboardScope scope) => scope with
+    {
+        RepositoryAlias = FollowsRepository ? scope.RepositoryAlias : null,
+        MachineId = FollowsMachine ? scope.MachineId : null,
+        Period = FollowsWindow ? scope.Period : DashboardScope.Default.Period
+    };
+
     protected override async Task OnParametersSetAsync()
     {
-        // Re-fetch when the scope this part cares about actually changed. A part
-        // that ignores the scope is fetched exactly once; without this check the
-        // filter moving would re-spend the whole call budget on the cost parts for
-        // an answer that cannot have changed.
-        if (_fetchedFor is not null && (!FollowsScope || _fetchedFor == Scope)) return;
+        // Re-fetch when the part of the scope this part cares about actually changed.
+        // Without this check, moving a filter would re-spend the whole call budget on
+        // parts that cannot narrow by it, for an answer that cannot have changed.
+        var relevant = Relevant(Scope);
 
-        _fetchedFor = Scope;
+        if (_fetchedFor is not null && _fetchedFor == relevant) return;
+
+        _fetchedFor = relevant;
 
         await LoadAsync();
     }

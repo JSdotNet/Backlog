@@ -624,6 +624,11 @@ Rules:
 - `integration-ai-edge` is the tint that says a machine wrote something. It is a
   mix rather than a new hue because the palette carries one saturated hue and
   this file forbids inventing a second semantic set to get another.
+- A provider mark MUST be drawn on an affordance exactly when the work it names
+  leaves this application — a hand-off to a Claude or GitHub Copilot session, or
+  the session that comes back to be tracked — and MUST NOT be drawn on the
+  product's own AI features, whose output is attributed to "AI" and to no vendor:
+  the mark is the reader's only cue that something went somewhere, not a logo.
 
 A new role token MUST be derived from a palette token. A family that needed a
 value of its own would be a second palette, which

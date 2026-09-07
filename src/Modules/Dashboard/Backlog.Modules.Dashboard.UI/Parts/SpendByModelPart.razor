@@ -32,7 +32,11 @@
 </PartFrame>
 
 @code {
-    protected override bool FollowsScope => false;
+    /// <summary>Spend narrows by nothing on the filter strip. See
+    /// <see cref="DashboardPartBase{T}.FollowsRepository"/>.</summary>
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
 
     private IReadOnlyList<MetricRow> Rows =>
         IsReady

@@ -212,7 +212,7 @@ public sealed class InboxTriageOpensTheEntryTests
 
         // On disk rather than only on the row: the flush is the point, and a row
         // still holding the text would prove nothing about the save.
-        var stored = await harness.Entries.ListAsync();
+        var stored = await harness.Entries.ListAsync(TestContext.Current.CancellationToken);
         Assert.Contains(stored, entry => entry.Title == "Deploy SpecManager twice");
     }
 
@@ -236,6 +236,31 @@ public sealed class InboxTriageOpensTheEntryTests
         Assert.DoesNotContain(untouched, state.Rows);
         Assert.NotNull(state.SelectedRow);
         Assert.NotSame(untouched, state.SelectedRow);
+    }
+
+    /// <summary>The lens the reader had on is still on after triage. Triage
+    /// opens the backlog beside the Inbox, which moves the pane to its other
+    /// slot and re-mounts it; the first QA pass watched the lens fall back to
+    /// none at that moment. The shell holds the choice now, so a fresh instance
+    /// is handed it back.</summary>
+    [Fact]
+    public async Task Triaging_from_a_sectioned_drawer_keeps_the_lens()
+    {
+        using var harness = CreateHarness();
+        await SeedAsync(harness, Draft);
+
+        var component = Render(harness);
+        await WaitForInboxAsync(component);
+
+        await component.Find("[data-testid='inbox-pane-group-repo']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-group']")));
+
+        await component.Find("[data-testid='inbox-pane-group'] .inbox-pane__item button").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='inbox-pane-group-repo']").GetAttribute("aria-pressed")));
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-group']"));
     }
 
     // --- Driving it -------------------------------------------------------
@@ -353,6 +378,13 @@ public sealed class InboxTriageOpensTheEntryTests
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+
+        // Home publishes its transient results on this, and injects it hard rather
+        // than resolving it: a screen that silently lost the reader's only feedback
+        // is worse than one that refuses to construct. So a host that renders Home
+        // has to register it, the same as the other four.
+        TasksTestHost.AddToastChannel(context.Services);
+
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

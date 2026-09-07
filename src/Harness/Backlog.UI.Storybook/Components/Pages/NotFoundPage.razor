@@ -15,14 +15,26 @@
            Summary="This storybook has no page at that address.">
 
     <Story Name="Where to go instead"
-           Description="Every component group is listed in the sidebar, and the introduction describes each one in a sentence.">
+           Description="Every component group is listed in the sidebar, and the introduction describes each one in a sentence. The Action slot takes whatever the host offers next; here that is a link, because the way out of a missing page is another page."
+           Code="@EmptyStateCode">
         <EmptyState Title="Nothing here"
                     Description="The address may be from an older version of the storybook, when the pages were grouped differently."
                     TestId="not-found">
             <Action>
-                <a class="btn btn--primary" href="">Back to the introduction</a>
+                <a class="sb-not-found__link" href="">Back to the introduction</a>
             </Action>
         </EmptyState>
     </Story>
 
 </StoryPage>
+
+@code {
+    private const string EmptyStateCode = """
+        <EmptyState Title="Nothing here"
+                    Description="The address may be from an older version of the storybook.">
+            <Action>
+                <a href="">Back to the introduction</a>
+            </Action>
+        </EmptyState>
+        """;
+}

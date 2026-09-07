@@ -456,7 +456,7 @@
           "path": ".design/color-scheme.md",
           "slug": "contrast-rules-wcag-aa-minimum",
           "level": 2,
-          "line": 632,
+          "line": 637,
           "status": "active",
           "related": [
             ".design/accessibility.md#contrast"
@@ -472,7 +472,7 @@
           "path": ".design/color-scheme.md",
           "slug": "elevation-by-color",
           "level": 2,
-          "line": 659,
+          "line": 664,
           "status": "active",
           "related": [
             ".design/design-principles.md#dark-mode-only"
@@ -488,7 +488,7 @@
           "path": ".design/color-scheme.md",
           "slug": "per-stack-token-mapping",
           "level": 2,
-          "line": 686,
+          "line": 691,
           "status": "active",
           "related": [
             ".design/component-libraries.md",
@@ -505,7 +505,7 @@
           "path": ".design/color-scheme.md",
           "slug": "materialization",
           "level": 2,
-          "line": 722,
+          "line": 727,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -682,7 +682,7 @@
           "path": ".design/component-libraries.md",
           "slug": "risks-and-gaps",
           "level": 2,
-          "line": 263,
+          "line": 271,
           "status": "active"
         }
       },
@@ -695,7 +695,7 @@
           "path": ".design/component-libraries.md",
           "slug": "materialization",
           "level": 2,
-          "line": 287,
+          "line": 295,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook"
@@ -1262,7 +1262,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "action-density-and-overflow",
           "level": 2,
-          "line": 361,
+          "line": 362,
           "status": "active",
           "related": [
             ".design/typography-and-layout.md#density",
@@ -1280,7 +1280,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "timelines-and-roadmaps",
           "level": 2,
-          "line": 413,
+          "line": 414,
           "status": "active",
           "related": [
             ".design/color-scheme.md#chart-roles",
@@ -1298,7 +1298,7 @@
           "path": ".design/interaction-guidelines.md",
           "slug": "materialization",
           "level": 2,
-          "line": 443,
+          "line": 444,
           "status": "active",
           "related": [
             ".design/README.md#living-reference-the-ui-storybook",
@@ -1604,7 +1604,11 @@
             ".arc42/02-constraints.md#technical-constraints",
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
             ".arc42/06-runtime-view.md#copilot-app-session-capture",
-            ".domain/capture/domain.md#source-adapter"
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/capture/domain.md#source-adapter",
+            ".domain/sessions/domain.md#session-log"
           ],
           "outOfScope": true
         }
@@ -1671,7 +1675,7 @@
           "path": ".tech/tooling.md",
           "slug": "archify",
           "level": 2,
-          "line": 280,
+          "line": 322,
           "status": "adopted",
           "version": "2.15.0",
           "depends-on": [
@@ -1694,7 +1698,7 @@
           "path": ".tech/tooling.md",
           "slug": "c4hero",
           "level": 2,
-          "line": 307,
+          "line": 349,
           "status": "adopted",
           "version": "0.4.0",
           "depends-on": [

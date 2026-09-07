@@ -266,7 +266,7 @@
           "name": "0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "title": "ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical",
-          "status": "proposed"
+          "status": "active"
         },
         {
           "type": "file",

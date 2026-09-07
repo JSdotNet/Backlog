@@ -3,9 +3,8 @@
 <PageTitle>File header — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="File header"
-           Summary="`FileHeader` is the half of a file pane that stays put: which file this is, what is known about it, and the three things a reader does to it. It reads nothing and decides nothing — the record arrives parsed, the detail line arrives as the three facts it is made of, and the mode flags arrive already answered, because a header offering a control the body will not honour is the failure the split exists to make impossible. Everything is a value or a callback, which is what lets it be drawn on its own: every story below is this component and nothing else. The half that holds the file is on *File content*; the pane that composes both is on *File view*."
+           Summary="`FileHeader` is the half of a file pane that stays put: which file this is, what is known about it, and the three things a reader does to it. It reads nothing and decides nothing — the record arrives parsed, the detail line arrives as the three facts it is made of, and the mode flags arrive already answered, because a header offering a control the body will not honour is the failure the split exists to make impossible: whether a comparison is showing, whose body is on screen and whether Edit would do anything have to be the same answer here and in the body, and only `FileView`, which gives both halves that answer, can guarantee it. Everything is a value or a callback, which is what lets it be drawn on its own: every story below is this component and nothing else. The half that holds the file is on *File content*; the pane that composes both is on *File view*."
            Guidelines="@Rules">
-    <Alert Message="@SplitNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="A name, and nothing else known"
            Description="The name is the only thing required, and everything else draws nothing when it is absent. So the same component covers a file the host knows a great deal about and a file it knows the name of — there is no sparse variant and no row of chrome where the missing facts would have been.
@@ -216,7 +215,7 @@ Named after the file: “Copy” on its own says nothing about which of several 
             <FileHeader Name="readme.md"
                         Path="README.md"
                         AllowCopy="true"
-                        Body="@Sample"
+                        Body="@FileFixtures.SharedTechnologies"
                         TestId="file-header-copy" />
         </div>
     </Story>
@@ -239,7 +238,7 @@ Nothing offered draws no group at all, and no row of chrome where it would have 
                 <FileHeader Name="readme.md"
                             Path="README.md"
                             AllowCopy="true"
-                            Body="@Sample"
+                            Body="@FileFixtures.SharedTechnologies"
                             OffersEdit="true"
                             OnToggleEditing="@(() => Heard("Edit pressed"))"
                             TestId="file-header-edit" />
@@ -250,7 +249,7 @@ Nothing offered draws no group at all, and no row of chrome where it would have 
                 <FileHeader Name="readme.md"
                             Path="README.md"
                             AllowCopy="true"
-                            Body="@Sample"
+                            Body="@FileFixtures.SharedTechnologies"
                             OffersEdit="true"
                             Editing="true"
                             OnToggleEditing="@(() => Heard("Done pressed"))"
@@ -272,7 +271,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
             <FileHeader Name="domain.md"
                         Path=".domain/tasks/domain.md"
                         AllowCopy="true"
-                        Body="@Sample"
+                        Body="@FileFixtures.SharedTechnologies"
                         OffersEdit="true"
                         OffersCompare="true"
                         Comparing="@_comparing"
@@ -324,13 +323,6 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the content it describes.")
     ];
 
-    private const string SplitNotice =
-        "This component decides nothing. Every reading is FileView's — the file's own record, the "
-        + "frontmatter, the blocks, the alignment of two versions — and so is every mode question: "
-        + "whether a comparison is showing, whose body is on screen, whether pressing Edit would do "
-        + "anything. Those answers have to be the same answer in the header and in the body, and the "
-        + "only way to guarantee one answer is for one component to give it.";
-
     private string? _heard;
     private string? _baselineId = "opened";
     private bool _comparing;
@@ -371,16 +363,6 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         new("opened", "As opened", "# Backlog\n\nAs it was when the pane opened."),
         new("commit", "Last commit", "# Backlog\n\nAs the last commit has it.")
     ];
-
-    private const string Sample = """
-        # Shared Technologies
-
-        What the whole product is built on, and why each choice was made.
-
-        - The runtime, pinned
-        - The UI framework
-        - What was weighed against both
-        """;
 
     private const string BareCode = """
         @* The name is the only thing required. Everything else draws nothing when

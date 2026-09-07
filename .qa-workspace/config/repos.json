@@ -1,0 +1,9 @@
+{
+  "repositories": [
+    {
+      "id": "JSdotNet/Backlog",
+      "alias": "backlog",
+      "colour": null
+    }
+  ]
+}

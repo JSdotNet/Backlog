@@ -271,9 +271,11 @@
                         Label="@($"State for {title}")"
                         TestId="knowledge-state-select"
                         OnChanged="value => ChangeKnowledgeStatusAsync(itemPath, status, value)" />
+        @* Inline for the reason the domain panel's pair is: this sits beside the
+           control that failed, and a block would break the row. *@
         @if (_statusErrors.TryGetValue(itemPath, out var error))
         {
-            <span class="domain-knowledge__action-error" role="status">@error</span>
+            <Alert Message="@error" BaseClass="domain-knowledge__action-error" Role="status" Inline />
         }
     </span>;
 

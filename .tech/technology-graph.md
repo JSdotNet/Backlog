@@ -65,6 +65,7 @@ flowchart LR
         Foundry["Azure AI Foundry"]:::adopted
         Cosmos["Azure Cosmos DB"]:::candidate
         KeyVault["Azure Key Vault"]:::candidate
+        AzureMonitor["Azure Monitor"]:::candidate
         FCM["Firebase Cloud Messaging"]:::candidate
         Git["Git"]:::adopted
         PowerShell["PowerShell"]:::adopted
@@ -108,6 +109,7 @@ flowchart LR
             WebView2["WebView2"]:::adopted
             LocalStore["Local Task Store"]:::adopted
             Workers["Background Workers"]:::candidate
+            ProtectedData["System.Security.Cryptography.ProtectedData"]:::adopted
             GhCli["GitHub CLI"]:::adopted
             MSIX["MSIX Packaging"]:::adopted
             AppInstaller["App Installer (.appinstaller)"]:::adopted
@@ -128,6 +130,8 @@ flowchart LR
 
         subgraph Cloud["Cloud - Azure services"]
             MinimalApis["ASP.NET Core Minimal APIs"]:::adopted
+            JwtBearer["Microsoft.AspNetCore.Authentication.JwtBearer"]:::adopted
+            JsonWebTokens["Microsoft.IdentityModel.JsonWebTokens"]:::adopted
             ACA["Azure Container Apps"]:::candidate
         end
     end
@@ -165,6 +169,7 @@ flowchart LR
         CPM["Central Package Management"]:::adopted
         Npm["npm"]:::adopted
         Bicep["Bicep"]:::adopted
+        Azd["Azure Developer CLI"]:::adopted
         AspireCli["Aspire CLI"]:::adopted
         Actions["GitHub Actions"]:::adopted
         CodeQL["CodeQL"]:::adopted
@@ -212,6 +217,8 @@ flowchart LR
     LocalStore --> DataSqlite
     LocalStore --> JSON
     Workers --> DotNet
+    ProtectedData --> Windows
+    ProtectedData --> DotNet
     GhCli --> GitHubPlatform
     MSIX --> WinAppSDK
     AppInstaller --> MSIX
@@ -231,6 +238,8 @@ flowchart LR
 
     MinimalApis --> AspNetCore
     MinimalApis --> CSharp
+    JwtBearer --> AspNetCore
+    JsonWebTokens --> DotNet
     ACA --> MinimalApis
 
     XUnit --> DotNet
@@ -273,6 +282,7 @@ flowchart LR
     CPM --> NuGet
     Npm --> NodeJS
     Bicep --> AzureCli
+    Azd --> Bicep
     AspireCli --> Aspire
     Actions --> GitHubPlatform
     CodeQL --> Actions
@@ -298,7 +308,7 @@ below them. They are the three text formats (`Markdown`, `JSON`, `YAML`), the tw
 base runtimes (`.NET Runtime`, `Node.js`), the two operating systems and the JDK
 (`Windows`, `Android`, `Java JDK`), the external services (`GitHub Platform`,
 `Anthropic Claude Platform`, `Azure AI Foundry`, `Azure Cosmos DB`,
-`Azure Key Vault`, `Firebase Cloud Messaging`), and the four host-level tools
+`Azure Key Vault`, `Azure Monitor`, `Firebase Cloud Messaging`), and the four host-level tools
 (`Git`, `PowerShell`, `Azure CLI`, `Claude Code`).
 
 ## Status ladder

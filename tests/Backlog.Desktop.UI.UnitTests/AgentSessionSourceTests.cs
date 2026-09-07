@@ -20,6 +20,11 @@ public sealed class AgentSessionSourceTests : IDisposable
 
     private const string Machine = "DEV-TOWER";
 
+    /// <summary>The device id every session read here is stamped with. A Guid in the
+    /// form the store writes, because that is what a host actually passes in and an id
+    /// spelled two ways is the failure this stamp exists to prevent.</summary>
+    private const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "backlog-agent-session-tests",
@@ -43,6 +48,9 @@ public sealed class AgentSessionSourceTests : IDisposable
 
         Assert.Equal("5905cf2d-28a0-4e71-86c8-2ecd270f404a", session.Id);
         Assert.Equal(AgentSessionKind.Claude, session.Kind);
+        // Both, and they are two different facts: the id says which environment and
+        // the name says what it is called. A session found here ran here.
+        Assert.Equal(MachineId, session.EnvironmentId);
         Assert.Equal(Machine, session.Environment);
 
         // The name the agent gave itself, because it is the only human-chosen thing
@@ -92,6 +100,11 @@ public sealed class AgentSessionSourceTests : IDisposable
 
         Assert.Equal("25554c05-3745-4632-af58-9eba10b62743", session.Id);
 
+        // A session out of the history is stamped with this device too — the machine
+        // that holds the transcript is the machine it ran on.
+        Assert.Equal(MachineId, session.EnvironmentId);
+        Assert.Equal(Machine, session.Environment);
+
         // The folder is read out of the transcript rather than decoded from the
         // slug. The slug flattens separators, colons and dots all to hyphens, so
         // several paths produce the same one and only one of them is right.
@@ -120,7 +133,7 @@ public sealed class AgentSessionSourceTests : IDisposable
             "not json at all",
             """{"type":"hook","name":"SessionStart"}""",
             """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main"}"""
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         var session = Assert.Single((await ReadAsync()).Sessions);
 
@@ -187,6 +200,131 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Equal(1, catalog.Discovered);
     }
 
+    /// <summary>
+    /// A transcript is filed under the folder the session ran in, so a session whose
+    /// working folder changed — resumed in a worktree it did not start in — leaves a
+    /// transcript under each folder it touched. One id, two files, one session.
+    /// <para>
+    /// The same defect as the two live files above, and the same consequence: the pane
+    /// keys its rows by session id, two siblings with one key corrupt Blazor's keyed
+    /// diff, and the circuit goes down. Found on a real profile, where one of 377
+    /// transcripts was filed under two worktrees.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task One_session_filed_under_two_folders_is_one_row_not_two()
+    {
+        const string id = "8c2e93b2-1210-4626-8ee3-c5d8c41ce94c";
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-where-it-started",
+            id,
+            folder: @"D:\Repos\Backlog\.claude\worktrees\where-it-started",
+            branch: "claude/where-it-started",
+            lastWrite: Noon.AddHours(-9));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-where-it-carried-on",
+            id,
+            folder: @"D:\Repos\Backlog\.claude\worktrees\where-it-carried-on",
+            branch: "claude/where-it-carried-on",
+            lastWrite: Noon.AddHours(-2));
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        // The more recently written transcript wins. It is the more current record of
+        // the one session, and the folder it names is where that session ended up.
+        Assert.Equal(@"D:\Repos\Backlog\.claude\worktrees\where-it-carried-on", session.WorkingFolder);
+        Assert.Equal("claude/where-it-carried-on", session.Branch);
+        Assert.Equal("where-it-carried-on", session.Title);
+        Assert.Equal(Noon.AddHours(-2), session.LastActivityAt);
+
+        // One session discovered, not two. The second file was never a second session,
+        // and a subtitle counting it would overstate what this machine has.
+        Assert.Equal(1, catalog.Discovered);
+        Assert.False(catalog.Capped);
+    }
+
+    /// <summary>
+    /// The live file and both of that session's transcripts at once. The two dedupes
+    /// have to compose: dropping the transcript that matches a live session does not
+    /// on its own stop the session's other transcript becoming a second row.
+    /// </summary>
+    [Fact]
+    public async Task A_live_session_with_two_transcripts_is_still_one_row()
+    {
+        GivenClaudeLiveSession(
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\second",
+            name: "the live one",
+            startedAt: Noon.AddHours(-9),
+            lastWrite: Noon.AddMinutes(-1));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-first",
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\first",
+            "main",
+            Noon.AddHours(-6));
+
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-second",
+            "carried",
+            @"D:\Repos\Backlog\.claude\worktrees\second",
+            "main",
+            Noon.AddMinutes(-1));
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        // The live file is still the better record of the three.
+        Assert.Equal("the live one", session.Title);
+        Assert.Equal(AgentSessionState.Running, session.State);
+        Assert.Equal(1, catalog.Discovered);
+    }
+
+    /// <summary>
+    /// The cap counts sessions, not files. A duplicate transcript must not consume a
+    /// place in the capped list, or a machine with duplicates would show fewer sessions
+    /// than the cap allows while claiming to have hit it.
+    /// </summary>
+    [Fact]
+    public async Task A_duplicate_transcript_does_not_take_up_a_place_under_the_cap()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent; index++)
+        {
+            GivenClaudeTranscript(
+                "D--Repos-Backlog",
+                $"session-{index:000}",
+                @"D:\Repos\Backlog",
+                "main",
+                Noon.AddMinutes(-index));
+        }
+
+        // The oldest of them, filed a second time under another worktree.
+        GivenClaudeTranscript(
+            "D--Repos-Backlog--claude-worktrees-elsewhere",
+            $"session-{AgentSessionLimits.PerAgent - 1:000}",
+            @"D:\Repos\Backlog\.claude\worktrees\elsewhere",
+            "main",
+            Noon.AddMinutes(-1));
+
+        var catalog = await ReadAsync();
+
+        Assert.Equal(AgentSessionLimits.PerAgent, catalog.Sessions.Count);
+        Assert.Equal(AgentSessionLimits.PerAgent, catalog.Discovered);
+        Assert.False(catalog.Capped);
+
+        // Deduped before the cap, not after: the collapsed session is the newer file's
+        // record of it, and it is still one of the hundred.
+        var collapsed = Assert.Single(
+            catalog.Sessions,
+            session => session.Id == $"session-{AgentSessionLimits.PerAgent - 1:000}");
+
+        Assert.Equal(@"D:\Repos\Backlog\.claude\worktrees\elsewhere", collapsed.WorkingFolder);
+    }
+
     [Fact]
     public async Task A_copilot_descriptor_becomes_a_session_with_its_repository_and_branch()
     {
@@ -202,6 +340,11 @@ public sealed class AgentSessionSourceTests : IDisposable
 
         Assert.Equal("0012e2c7-aa39-4e43-9e57-e74a0ab62517", session.Id);
         Assert.Equal(AgentSessionKind.Copilot, session.Kind);
+
+        // The same stamp as Claude's, from the same source: both readers are handed
+        // this device's identity rather than each deciding what an environment is.
+        Assert.Equal(MachineId, session.EnvironmentId);
+        Assert.Equal(Machine, session.Environment);
 
         // Copilot records the repository, so this column is filled from what it
         // wrote rather than left empty as Claude's is.
@@ -283,8 +426,8 @@ public sealed class AgentSessionSourceTests : IDisposable
     {
         var folder = Directory.CreateDirectory(Path.Combine(ClaudeHome, "sessions"));
 
-        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "half-written.json"), "{\"pid\":123,\"sess");
-        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "not-a-session.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "half-written.json"), "{\"pid\":123,\"sess", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "not-a-session.json"), "[]", TestContext.Current.CancellationToken);
         GivenClaudeLiveSession("good", @"D:\Repos\Backlog", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
 
         var catalog = await ReadAsync();
@@ -445,7 +588,7 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     private Task<AgentSessionCatalog> ReadAsync() =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, Machine, new FixedClock(Noon))
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();
 
     private void GivenClaudeLiveSession(

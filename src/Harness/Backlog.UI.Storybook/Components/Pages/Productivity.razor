@@ -94,7 +94,7 @@ Bands take a ramp step and a name, never a red-amber-green light."
     </Story>
 
     <Story Name="MetricTrellis — small multiples"
-           Description="One panel per repository, every panel on the same scale. The first thing to reach for when comparing series across repositories, because a multi-series line chart would need one categorical colour per series and the palette carries a single hue."
+           Description="One panel per repository, every panel on the same scale. The first thing to reach for when comparing series across repositories; there is no multi-series line chart in the library."
            Code="@TrellisCode">
         <div class="sb-stack">
             <MetricTrellis Series="Windowed"
@@ -119,9 +119,7 @@ Bands take a ramp step and a name, never a red-amber-green light."
     </Story>
 
     <Story Name="MetricHeatmap — repositories against periods"
-           Description="The chart that scales when a trellis stops fitting: twenty repositories over twenty-six weeks is five hundred cells here, or twenty unreadably narrow panels there.
-
-It is also the one chart type a single-hue palette suits, because it wants a sequential scale rather than a categorical one."
+           Description="The chart that scales when a trellis stops fitting: twenty repositories over twenty-six weeks is five hundred cells here, or twenty unreadably narrow panels there. Each cell is one of four ramp steps, so a shade is a bucket rather than a reading."
            Code="@HeatmapCode">
         <MetricHeatmap Series="Windowed"
                        Label="@($"Score by repository and week, last {_weeks} weeks")"
@@ -277,7 +275,7 @@ Turn the totals off — as below — and the two charts are indistinguishable."
             "There is more than one series, or the reader needs to take a figure off it."),
         new("A multi-series line chart",
             "Nothing — it is not available here.",
-            "Immediately: it needs one categorical colour per series and the palette carries one saturated hue. Use a trellis, a heatmap, or a spotlight."),
+            "Immediately — it is not in the library. Use a trellis, a heatmap, or a spotlight."),
         new("MetricStackedArea",
             "What share of my time went where, week by week? Always adds to 100%.",
             "You need to know whether the work grew or shrank — a full week and a quiet one are the same height. Read the bucket totals, or a column chart beside it."),

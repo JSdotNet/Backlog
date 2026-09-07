@@ -18,10 +18,14 @@
     an unconfigured Anthropic key delays and explains one part rather than blanking
     six. All this pane owns is the filter, and passing it down.
 
-    The filter drives the productivity parts and visibly does not drive the cost
-    parts, because neither provider reports spend per repository. That is stated on
-    each cost part rather than left for a reader to work out from a figure that
-    refuses to move.
+    Two filters, and neither of them drives everything. The repository filter drives
+    the productivity parts and visibly does not drive the cost parts or the sessions
+    part — neither provider reports spend per repository, and Claude records no
+    repository against a session at all. The machine filter drives only the sessions
+    part, because GitHub cannot say which machine a pull request was worked from and a
+    bill does not either. Every one of those refusals is stated on the section and on
+    the part rather than left for a reader to work out from a figure that will not
+    move.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
@@ -39,7 +43,7 @@
                    Eyebrow="Dashboard"
                    TitleId="dashboard-title"
                    Title="Productivity and cost"
-                   Description="Your own pull requests, issues and rework, and what your assistants cost.">
+                   Description="Your own pull requests, issues and rework, the sessions your assistants ran, and what they cost.">
         <Actions>
             <IconButton AriaLabel="Close dashboard" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
@@ -63,6 +67,23 @@
         </div>
 
         <div class="dashboard-filter">
+            <span class="dashboard-filter__label" id="dashboard-machine-label">Machine</span>
+            @* SelectField rather than RepositorySelector, which is the same control one
+               layer up. That wrapper hard-codes metadata-editor--repo, which is a
+               repository chip; a machine is not one, and taking the generic is what
+               keeps the library from needing a second wrapper for every noun this
+               surface learns to filter by. *@
+            <SelectField CurrentValue="@_scope.MachineId"
+                         Options="@MachineOptions"
+                         Label="Machine to focus on"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="All machines"
+                         CssClass="badge badge--area"
+                         TestId="dashboard-machine-filter"
+                         OnChanged="FocusMachine" />
+        </div>
+
+        <div class="dashboard-filter">
             <span class="dashboard-filter__label">Window</span>
             <ButtonGroup AriaLabel="How far back to look" TestId="dashboard-window-filter">
                 @foreach (var period in Periods)
@@ -83,6 +104,11 @@
     <div class="dashboard-panel__content" id="dashboard-content">
         <div class="dashboard-section" data-testid="dashboard-productivity">
             <h3 class="dashboard-section__title">Productivity</h3>
+            <p class="dashboard-section__note">
+                Your own work, as GitHub records it. GitHub does not report which machine a pull request
+                or issue was worked on from, so the machine filter above does not change anything in
+                this section.
+            </p>
             <HeadlinePart Scope="_scope" />
             <div class="dashboard-section__split">
                 <ScorePart Scope="_scope" />
@@ -91,11 +117,21 @@
             <TrendPart Scope="_scope" />
         </div>
 
+        <div class="dashboard-section" data-testid="dashboard-sessions-section">
+            <h3 class="dashboard-section__title">Sessions</h3>
+            <p class="dashboard-section__note">
+                Sessions Claude and Copilot left on this machine. Claude does not record a repository,
+                so the repository filter above does not change this section.
+            </p>
+            <SessionsPart Scope="_scope" />
+        </div>
+
         <div class="dashboard-section" data-testid="dashboard-cost">
             <h3 class="dashboard-section__title">Cost</h3>
             <p class="dashboard-section__note">
-                Your own assistant usage. Neither Anthropic nor GitHub reports spend per repository,
-                so the repository filter above does not change anything in this section.
+                Your own assistant usage. Neither Anthropic nor GitHub reports spend per repository or
+                per machine, so neither the repository filter nor the machine filter above changes
+                anything in this section.
             </p>
             <SpendThisMonthPart Scope="_scope" />
             <div class="dashboard-section__split">
@@ -124,6 +160,9 @@
 
     [Inject]
     private IRepositoryDirectory Repositories { get; set; } = default!;
+
+    [Inject]
+    private IMachineDirectory Machines { get; set; } = default!;
 
     /// <summary>Raised when somebody dismisses the dashboard. Whether that returns
     /// to the workspace, opens something else or does nothing is the shell's
@@ -157,6 +196,27 @@
     /// </summary>
     private void FocusRepository(string? alias) =>
         _scope = _scope with { RepositoryAlias = string.IsNullOrWhiteSpace(alias) ? null : alias };
+
+    /// <summary>
+    /// The machines the filter offers, read on every render for the same reason the
+    /// repositories are.
+    /// <para>
+    /// The label is the machine's name and the value is its id, which is the whole
+    /// reason a machine has both: two machines can be called the same thing and one
+    /// machine can be renamed, so a filter whose value was the name would merge or
+    /// split what it is filtering. Today the list holds exactly this machine — no
+    /// session record has arrived from anywhere else — and that is the honest list
+    /// rather than a placeholder.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SelectorOption> MachineOptions =>
+        [.. Machines.Machines.Select(machine => new SelectorOption(machine.Id, machine.Name))];
+
+    /// <summary>Focuses one machine, or all of them when the empty option is chosen.
+    /// Replaced rather than mutated, for the reason <see cref="FocusRepository"/>
+    /// gives.</summary>
+    private void FocusMachine(string? id) =>
+        _scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
 
     private void ChooseWindow(DashboardPeriod period) => _scope = _scope with { Period = period };
 

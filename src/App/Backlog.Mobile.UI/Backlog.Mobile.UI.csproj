@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- The Inbox screen asks whether this device is paired before it offers to
+         capture anything, and pairs it when it is not. Both hosts register the
+         credential store behind that port; the screen only asks. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
   </ItemGroup>
 
 </Project>

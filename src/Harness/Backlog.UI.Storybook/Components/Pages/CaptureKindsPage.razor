@@ -1,0 +1,118 @@
+@page "/badges/capture-kinds"
+
+<PageTitle>Capture kinds — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Capture kinds"
+           Summary="A subpage of Badges: the ten marks a captured thing's kind is drawn as, before anybody has decided what to do with it. The kind is a fact about the content — a video is a video whether the monitor found it, the phone shared it or somebody pasted the link — so it is drawn separately from where the thing came from, which the source badge and the person chip beside it say. Every mark is stroked at 1.6 in currentColor, one shape per kind and no colour per kind: `.design/color-scheme.md` forbids a red video and a blue document, so the word is always printed beside the mark and the mark is decoration for anyone who can read it."
+           Guidelines="@Rules">
+
+    <Story Name="The ten kinds"
+           Description="Every kind the marker draws, with the word it is drawn beside. The first is the plain note every source can produce; the next three are what a link turns out to be once somebody looks; the rest arrive as a file, from a machine, or from a session. Each specimen is labelled here because there is no row around it — in a row, the word is printed and the mark is hidden from assistive technology so nobody hears it twice."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="capture-kinds-all">
+            @foreach (var kind in Kinds)
+            {
+                <div class="sb-stack" data-testid="@($"capture-kind-{kind.Value}")">
+                    <div class="sb-row">
+                        <CaptureKindMarker Value="@kind.Value" Size="22px" Labelled="true" />
+                        <code>@kind.Value</code>
+                    </div>
+                    <p>@kind.Says</p>
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="On a meta line"
+           Description="The mark as an inbox row draws it: beside its printed word, then the drawer the item is filed in, then where it came from. The channel is the source badge — dashed, unfilled, because provenance is read and not acted on — and the person who shared it is the person chip the Badges page introduced, with its `@@` sigil doing the carrying. Nothing here is a new component: the row is the marker, `Badge Kind=&quot;source&quot;` and `TagChip` on one line."
+           Code="@RowCode">
+        <div class="sb-stack" data-testid="capture-kinds-rows">
+            @foreach (var row in Rows)
+            {
+                <div class="sb-row" data-testid="@($"capture-kinds-row-{row.Kind}")">
+                    <span class="sb-meta-kind">
+                        <CaptureKindMarker Value="@row.Kind" />
+                        <span>@CaptureKinds.Label(row.Kind)</span>
+                    </span>
+                    <span class="sb-label">@row.Filed</span>
+                    <Badge Kind="source" Slug="@row.Channel" Title="@($"Captured via {row.ChannelLabel}")">@row.ChannelLabel</Badge>
+                    @if (row.Person is not null)
+                    {
+                        <TagChip Text="@row.Person" Label="@($"Shared by {row.Person}")" />
+                    }
+                    <span class="sb-label">@row.Title</span>
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="A kind nobody drew"
+           Description="The vocabulary will grow, and a value set that grows must never make a row look broken. An unrecognised value renders no element at all — not an empty box, not a fallback glyph — and the caller goes on printing the word. `CaptureKinds.IsRecognised` is published beside the component so a caller can ask before it decides what else to show."
+           Code="@UnknownCode">
+        <div class="sb-row" data-testid="capture-kinds-unknown">
+            <span class="sb-meta-kind">
+                <CaptureKindMarker Value="podcast" />
+                <span>Podcast</span>
+            </span>
+            <span class="sb-label">Recognised: @CaptureKinds.IsRecognised("podcast")</span>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("typography-and-layout.md#iconography", "The stroke, the size and the rule that an icon inherits its ink through currentColor."),
+        new("accessibility.md#iconography-accessibility", "When a mark needs a name of its own, and when naming it would say the word twice."),
+        new("color-scheme.md#badge-and-chip-tones", "Why the ten kinds are ten shapes and not ten hues, and what the source badge's dashed edge means."),
+        new("content-editing.md#structured-metadata-sigils", "The `@` sigil that makes the person chip a person.")
+    ];
+
+    /// <summary>One mark, and what its shape is saying.</summary>
+    private sealed record KindMark(string Value, string Says);
+
+    private static readonly KindMark[] Kinds =
+    [
+        new("text", "Three lines of prose. The note, which is the one kind every capture source can produce."),
+        new("article", "A page with a headline and two columns under it: something somebody meant to read."),
+        new("link", "Two chain links. A URL and nothing yet known about what is behind it."),
+        new("youtube", "A rounded frame with the play triangle in it — the one filled shape in the set, because a hollow triangle in a frame reads as a warning sign."),
+        new("image", "A frame, a sun and a horizon: the picture every file browser draws."),
+        new("document", "A sheet with the corner turned. A file, whatever is in it."),
+        new("email", "An envelope. The flap is what makes it one."),
+        new("code", "Angle brackets with a slash between, as every editor marks source."),
+        new("voice", "The microphone the mobile capture field already draws, so a memo reads as the thing that button made."),
+        new("claude-artifact", "A frame with a spark in it: something a session made, rather than something found.")
+    ];
+
+    private sealed record MetaRow(string Kind, string Filed, string Channel, string ChannelLabel, string? Person, string Title);
+
+    private static readonly MetaRow[] Rows =
+    [
+        new("youtube", "Resources", "youtube", "YouTube", null, "Aspire 13 — what changed in the dashboard"),
+        new("article", "Areas", "web_clipper", "Web clipper", "@maria", "Local-first sync patterns"),
+        new("claude-artifact", "Projects", "claude", "Claude", null, "Inbox grouping design canvas"),
+        new("image", "Unfiled", "mobile", "Mobile", "@tom", "Whiteboard photo from the roadmap session"),
+        new("text", "Unfiled", "manual", "Manual", null, "Ask about the trial length")
+    ];
+
+    private const string SpecimenCode = """
+        <CaptureKindMarker Value="youtube" Size="22px" Labelled="true" />
+        <code>youtube</code>
+        """;
+
+    private const string RowCode = """
+        <span class="inbox-pane__kind">
+            <CaptureKindMarker Value="@InboxItemKinds.Slug(item.Kind)" />
+            <span>@InboxItemKinds.Label(item.Kind)</span>
+        </span>
+        <Badge Kind="source" Slug="@source.Channel" Title="@($"Captured via {source.ChannelLabel}")">@source.ChannelLabel</Badge>
+        <TagChip Text="@TagText.Display(source.Person)" Label="@($"Shared by {TagText.Display(source.Person)}")" />
+        """;
+
+    private const string UnknownCode = """
+        @* Renders nothing: the caller keeps printing the word. *@
+        <CaptureKindMarker Value="podcast" />
+        <span>Podcast</span>
+        """;
+}

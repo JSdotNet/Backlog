@@ -5,7 +5,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Modules.Dashboard.UI.Extensions;
 
 /// <summary>
-/// Wires the four adapters that answer the Dashboard module's ports.
+/// Wires the adapters that answer the Dashboard module's ports from this project.
+/// <para>
+/// One port is deliberately not here. <c>IAssistantSessionSource</c> is a
+/// cross-context join, and only an infrastructure adapter may see both this context
+/// and the Sessions one, so a host registers it with
+/// <c>AddDashboardCrossContextAdapters()</c> instead.
+/// </para>
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,9 +22,9 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// <para>
 /// Both hosts must call this after registering <c>IGitHubActivityClient</c>,
 /// <c>IGitHubIdentityClient</c>, <c>IGitHubBillingClient</c>,
-/// <c>IClaudeUsageClient</c>, <c>GitHubSettingsStore</c> and
-/// <c>ClaudeSettingsStore</c>; the adapters only hold those interfaces and do not
-/// construct them.
+/// <c>IClaudeUsageClient</c>, <c>GitHubSettingsStore</c>, <c>ClaudeSettingsStore</c>
+/// and <c>IDeviceIdentitySource</c>; the adapters only hold those interfaces and do
+/// not construct them.
 /// </para>
 /// <para>
 /// Singletons, unlike the scoped derivations above them. An adapter holds no
@@ -34,6 +40,7 @@ public static class DashboardAdapterRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRepositoryDirectory, SettingsRepositoryDirectory>();
+        services.AddSingleton<IMachineDirectory, DeviceMachineDirectory>();
         services.AddSingleton<IActivitySource, GitHubActivitySource>();
         services.AddSingleton<IClaudeSpendSource, ClaudeSpendSource>();
         services.AddSingleton<ICopilotSpendSource, CopilotSpendSource>();

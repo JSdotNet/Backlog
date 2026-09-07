@@ -55,9 +55,14 @@ public sealed class AgentSessionGroupTests
     }
 
     /// <summary>
-    /// The reason the row count beside the pane's title does not move when the
-    /// grouping does. Grouping is not a filter, and this is the assertion that says
-    /// so rather than the comment that claims it.
+    /// The count grouping was given is the count it hands back. Grouping is not a
+    /// filter, and this is the assertion that says so rather than the comment that
+    /// claims it.
+    /// <para>
+    /// What the badge beside the pane's title says is the pane's business, not this
+    /// one's: a view now sits in front of the grouping and does remove rows. See
+    /// <see cref="AgentSessionViewTests"/>.
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData(AgentSessionGrouping.None)]
@@ -89,22 +94,63 @@ public sealed class AgentSessionGroupTests
     }
 
     /// <summary>
-    /// A machine name is a machine name whatever case it was written in. Two
-    /// sections for <c>DEV-TOWER</c> and <c>dev-tower</c> would be the same PC
+    /// One environment is one section however its name happened to be written down.
+    /// The id is what makes them one, so the case of the name never comes into it —
+    /// two sections for <c>DEV-TOWER</c> and <c>dev-tower</c> would be the same PC
     /// claiming to be two.
     /// </summary>
     [Fact]
-    public void Machine_names_group_without_regard_to_case()
+    public void One_environment_groups_as_one_whatever_case_its_name_was_written_in()
     {
         IReadOnlyList<AgentSession> sessions =
         [
-            Session("a", AgentSessionKind.Claude, "DEV-TOWER", Noon),
-            Session("b", AgentSessionKind.Claude, "dev-tower", Noon.AddMinutes(-1))
+            Session("a", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon),
+            Session("b", AgentSessionKind.Claude, "tower", "dev-tower", Noon.AddMinutes(-1))
         ];
 
         var group = Assert.Single(AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment));
 
         Assert.Equal(2, group.Sessions.Count);
+    }
+
+    /// <summary>
+    /// The other half of the same rule, and the one a name-keyed grouping got wrong:
+    /// two machines can be called the same thing, and merging them would report one
+    /// machine's work as another's.
+    /// </summary>
+    [Fact]
+    public void Two_environments_sharing_a_name_are_two_sections()
+    {
+        IReadOnlyList<AgentSession> sessions =
+        [
+            Session("a", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon),
+            Session("b", AgentSessionKind.Claude, "laptop", "DEV-TOWER", Noon.AddMinutes(-1))
+        ];
+
+        var groups = AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment);
+
+        Assert.Equal(2, groups.Count);
+        Assert.All(groups, group => Assert.Equal("DEV-TOWER", group.Name));
+    }
+
+    /// <summary>
+    /// A renamed machine shows the name it has now. The heading comes from the most
+    /// recent session in the section rather than from whichever one the grouping
+    /// happened to reach first, so the sessions recorded before a rename do not keep
+    /// the old name on screen.
+    /// </summary>
+    [Fact]
+    public void A_section_is_named_after_its_most_recent_record()
+    {
+        IReadOnlyList<AgentSession> sessions =
+        [
+            Session("older", AgentSessionKind.Claude, "tower", "OLD-NAME", Noon.AddDays(-2)),
+            Session("newer", AgentSessionKind.Claude, "tower", "NEW-NAME", Noon)
+        ];
+
+        var group = Assert.Single(AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment));
+
+        Assert.Equal("NEW-NAME", group.Name);
     }
 
     [Theory]
@@ -117,20 +163,22 @@ public sealed class AgentSessionGroupTests
 
     private static readonly IReadOnlyList<AgentSession> Sample =
     [
-        Session("claude-live", AgentSessionKind.Claude, "DEV-TOWER", Noon.AddMinutes(-2)),
-        Session("copilot-old", AgentSessionKind.Copilot, "DEV-TOWER", Noon.AddHours(-9)),
-        Session("claude-old", AgentSessionKind.Claude, "DEV-TOWER", Noon.AddHours(-30)),
-        Session("copilot-laptop", AgentSessionKind.Copilot, "DEV-LAPTOP", Noon.AddMinutes(-40))
+        Session("claude-live", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon.AddMinutes(-2)),
+        Session("copilot-old", AgentSessionKind.Copilot, "tower", "DEV-TOWER", Noon.AddHours(-9)),
+        Session("claude-old", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon.AddHours(-30)),
+        Session("copilot-laptop", AgentSessionKind.Copilot, "laptop", "DEV-LAPTOP", Noon.AddMinutes(-40))
     ];
 
     private static AgentSession Session(
         string id,
         AgentSessionKind kind,
+        string environmentId,
         string environment,
         DateTimeOffset lastActivity) =>
         new(
             Id: id,
             Kind: kind,
+            EnvironmentId: environmentId,
             Environment: environment,
             Title: id,
             WorkingFolder: @"D:\Repos\Backlog",

@@ -109,7 +109,10 @@ related: [".arc42/04-solution-strategy.md"]
   replaces one-markdown-file-per-task plus its derived JSON index and order sidecar
   with a single local SQLite database, so no two files can disagree about a task,
   while keeping a task's content as markdown and leaving the published entry text
-  language untouched.
+  language untouched. Amended on 2026-09-05: the record originally gave the roadmap
+  plan as its counter-example, a document that stayed JSON on disk. The plan is a
+  `roadmap_plan` row in the same database now — folded in for local ADR 0005's
+  file-sync hazard, not for anything the original reasoning got wrong.
 - **[ADR 0004 — One generated local database holds the derived knowledge layer; markdown stays canonical](adr/0004-knowledge-index-is-a-generated-local-database.md)**
   *(proposed)*: replaces the committed `_meta/*.json` indexes with a single
   generated, uncommitted SQLite database per knowledge repository, so branches stop
@@ -118,13 +121,25 @@ related: [".arc42/04-solution-strategy.md"]
   Extends local ADR 0003 to a second corpus without making a database canonical for
   knowledge.
 - **[ADR 0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)**
-  *(proposed)*: answers the question local ADR 0003 did not ask — what happens when
-  one person runs the desktop on two machines. A serverless Cosmos DB container and
-  the existing sync service carry a replica of the Task aggregate and the change feed
-  over it, reconciled last-write-wins; each device's SQLite database stays canonical
+  *(accepted)*: answers the question local ADR 0003 did not ask — what happens when
+  one person runs the desktop on two machines. A serverless Cosmos DB account with
+  two containers, `tasks` and `sessions`, and the existing sync service carry a
+  replica and the change feed over it; each device's SQLite database stays canonical
   for that device. Amends local ADR 0003 without superseding it, and replaces
   file-syncing the database — which produced six conflicted copies and silent
-  data loss — with a store built for concurrent writers. Task aggregate only.
+  data loss — with a store built for concurrent writers. Three kinds of state:
+  the Task aggregate reconciled last-write-wins, session records that are
+  single-writer and therefore reconcile not at all, and the phone's captures, which
+  arrive as task documents. Retention is container TTL rather than code — 180 days
+  for task tombstones, 12 months for session records. The per-owner boundary is
+  enforced by the sync service scoping every query to the `ownerId` in the device's
+  JWT, not by the partition key: the managed identity is account-scoped and can see
+  every partition.
+  Also settles the local file name: it stays `backlog.db` on every device, because
+  a per-device name trades a visible failure for two silently divergent backlogs
+  and would disable the external-change polling the second machine currently
+  depends on. Detecting a root inside a sync provider's folder is the named
+  mitigation instead.
 - **[ADR 0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)**
   *(proposed)*: names the mechanism the SQLite adapter has been using unlabelled for
   three schema changes — additive `ALTER TABLE` guarded by `PRAGMA table_info`, plus
@@ -132,7 +147,10 @@ related: [".arc42/04-solution-strategy.md"]
   by bookkeeping — permits exactly three shapes, forbids everything non-additive, and
   makes the first non-additive change the trigger for a versioned mechanism. Written
   to discharge D3 before local ADR 0005's `updated_at` and `deleted_at` reached a
-  table holding live user data.
+  table holding live user data. Since 2026-09-05 it reaches the roadmap plan too,
+  which it explicitly did not when written: *creating* the `roadmap_plan` table falls
+  under ADR 0003's idempotent `IF NOT EXISTS` DDL rather than one of the three
+  column-level shapes, but any column added to it later is this record's business.
 - **[ADR 0007 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0007-import-reuses-the-entry-text-grammar.md)**
   *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
   not a format of its own, so `EntryTextParser` stays the only grammar the product has

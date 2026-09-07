@@ -119,8 +119,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
-| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local task store, one SQLite database behind `ITaskRepository`. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, and the stored roadmap plan |
+| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -138,8 +138,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
-| `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite task store — round-tripping an aggregate, and rank order |
-| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the stored roadmap plan. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
+| `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |
+| `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the knowledge graph and the roadmap item rollup. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
@@ -229,18 +229,42 @@ references one. See [`src/Harness/README.md`](src/Harness/README.md).
 dotnet run --project src/Aspire/Backlog.Aspire.AppHost
 ```
 
-The AppHost starts the sync service and the two web test harnesses. The remaining
-resources need something Aspire cannot provide on its own — a desktop
-window, an Android emulator, or a VS Code extension host — so they are registered
-with **explicit start** and launched on demand from the dashboard:
+The AppHost is opted in to the Aspire CLI bundle, so this acquires the CLI pinned
+to the AppHost SDK version and delegates to `aspire run` — the first run on a
+machine downloads it. The AppHost starts the sync service, the Foundry test
+service, and the three web test harnesses. The remaining resources need something
+Aspire cannot provide on its own — a desktop window, an Android emulator, a CLI,
+or a VS Code extension host — so they are registered with **explicit start** and
+launched on demand from the dashboard:
 
 | Resource | Starts | Needs |
 |---|---|---|
-| `sync`, `desktop-web-harness`, `mobile-web-harness` | automatically | — |
+| `sync`, `azure-foundry-test`, `desktop-web-harness`, `mobile-web-harness`, `ui-storybook` | automatically | — |
 | `desktop` | on demand | Windows desktop session |
-| `mobile-android` | on demand | running Android emulator or attached device |
+| `mobile-android` | on demand | running Android emulator or attached device; its **Set run target** command chooses the target framework and the `adb` serial |
+| `mobile-maui-android-emulator` | on demand | Android emulator, started for you; reaches `sync` through `mobile-tunnel`, so start the tunnel first — the head waits for the tunnel's endpoint before it comes up |
+| `mobile-tunnel` | on demand | `devtunnel` CLI and a signed-in account; publishes `sync`'s HTTP endpoint so the emulator can reach it off its own loopback |
 | `ide-vscode-build` | on demand | `npm install` in `src/App/Backlog.Ide.VsCode` |
 | `ide-vscode-host` | on demand | `code` on PATH |
+
+`mobile-maui` itself is not in the table because it is not something you start. It
+is the parent `Aspire.Hosting.Maui` registration, a container whose build is
+deferred until one of its platform children runs; `mobile-maui-android-emulator`
+is that child, and the one with the start button.
+
+`foundry-local` is not in that table because it is not on every machine.
+`RunAsFoundryLocal()` launches the `foundry` CLI as the app model comes up rather
+than when the resource is started, so explicit start cannot hold it back and a
+machine without the CLI would carry a failed resource through every run. The
+AppHost therefore registers it **only when `foundry` is on PATH** — and where it
+is registered, it starts with the app model rather than on demand. Not seeing it
+in the dashboard means this machine has no Foundry Local, not that something went
+wrong.
+
+`desktop-web-harness` carries a **Reset local data** command that deletes the task
+database and the workspace settings. Every git worktree of this repository shares
+one per-user `Backlog.Debug` workspace, so it resets every session on the machine,
+not only this one.
 
 Each channel with a MAUI head also has a browser harness sharing the same Razor
 components, so the UI can be developed and tested without a device:
@@ -262,6 +286,25 @@ target, model list, quota prerequisite, runner setup, and validate/what-if/deplo
 commands. A target is a GitHub environment plus a matching
 `infra/foundry/<environment>.bicepparam` file, so another subscription can be added
 without changing the workflow.
+
+## Deploying the sync service
+
+The cloud sync tier is described in `infra/sync/` and `azure.yaml`, and is
+provisioned and deployed with the **Azure Developer CLI** through the **Deploy
+Sync** GitHub Actions workflow. That one runs on a GitHub-hosted runner and
+authenticates with an **OIDC federated credential**, so no publish profile or
+service principal secret is stored in the repository.
+
+See [`docs/deployment/sync.md`](docs/deployment/sync.md) for the deployment
+target, the four manual prerequisites, and how to run it locally. Nothing is
+provisioned in Azure yet — the resource group, the federated credential and the
+budget alert are created by hand once, and the doc says how.
+
+**Local development needs no Azure account.** The Aspire AppHost starts the
+Cosmos DB emulator as a container, declaring the same database and the same two
+containers the deployed account has, so the sync path builds and runs offline.
+Docker must be running; the emulator image is large and its first cold start
+takes a couple of minutes, after which the container is reused.
 
 ## Installing the desktop app
 

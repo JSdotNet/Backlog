@@ -3,9 +3,8 @@
 <PageTitle>State in the knowledge base — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="State"
-           Summary="A subpage of Knowledge base: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `KnowledgeStatus` holds the five vocabularies, `KnowledgeStatusTone` is the one scale underneath them, and `KnowledgeFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is knowledge&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
+           Summary="A subpage of Knowledge base: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `KnowledgeStatus` holds the five vocabularies, `KnowledgeStatusTone` is the one scale underneath them, and `KnowledgeFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is knowledge&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. Every behaviour here is gated on that: with no folder or vocabulary given, a status is shown and not judged — no tone, no flag, no control. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
            Guidelines="@Rules">
-    <Alert Message="@FolderNotice" Role="note" CssClass="sb-callout" />
 
     <Story Name="Five vocabularies, one scale, and both forms of a status"
            Description="Five folders, five vocabularies, one tone scale under all of them. Read a row for one folder's whole vocabulary and a column for the words five folders spell the same tone with.
@@ -83,13 +82,19 @@ The folder decides the shape too: read the four cells in two pairs — a select 
     <Story Name="A status nobody recognises is flagged, not quietly styled"
            Description="A value in no vocabulary — `activ`, one keystroke from a real one — is flagged rather than styled like every other unknown word, and its `title` names the values that were expected.
 
-It stays the same badge as every other status here and wears `archived`, the one modifier that spends no colour."
+It stays the same badge as every other status here, flagged by a dashed border rather than given a tone of its own. `MetadataStatusBadge` is that badge on its own; the record view below it is the same badge inside a record."
            Code="@UnrecognisedCode">
         <div class="sb-columns" data-testid="knowledge-state-unrecognised">
             <div class="sb-stack">
                 <p class="sb-label">The block, as written</p>
                 <CodeView Source="@TypoBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-state-unrecognised-source" />
                 <p class="sb-state" data-testid="knowledge-state-unrecognised-check">@TypoSummary</p>
+                <p class="sb-label">The badge on its own, against the .design vocabulary</p>
+                <div class="sb-row">
+                    <MetadataStatusBadge Status="activ"
+                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
+                                         TestId="knowledge-state-unrecognised-badge" />
+                </div>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Rendered as a .design chapter</p>
@@ -172,12 +177,6 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         new("color-scheme.md#badge-and-chip-tones", "The one tone scale every vocabulary maps onto."),
         new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a status pill has to clear.")
     ];
-
-    private const string FolderNotice =
-        "Every behaviour on this page is gated on the folder. With no folder given, the status is still "
-        + "shown and simply not judged — no tone, no flag, no control, and no state modifier on the "
-        + "badge, which leaves the plain one that says nothing. MetadataBadge's own two-parameter form "
-        + "is untouched and still renders exactly the markup it always did.";
 
     /// <summary>One column of the matrix: a tone, and what it means.</summary>
     private sealed record ToneColumn(KnowledgeStatusTone Tone, string Meaning)
@@ -379,13 +378,15 @@ Derive the folder rather than asking for it: `KnowledgeFolders.FromPath` answers
         """;
 
     private const string UnrecognisedCode = """
-        @* What the badge does with a value the folder does not define. It is
-           answered before any tone is consulted, and the answer is `archived` —
-           the badge that spends no colour — plus the flag, which dashes the
-           border and brings the word back to full strength. The title names what
-           was expected. *@
-        <span class="badge badge--status badge--status-archived knowledge-status--unrecognised"
-              title="Unexpected status. Expected one of: draft, active, deprecated.">activ</span>
+        @* A value the vocabulary does not define is flagged by the badge itself:
+           the same badge, a dashed border, and a title naming what was expected.
+           Nothing is passed to ask for it — the vocabulary is what decides. *@
+        <MetadataStatusBadge Status="activ"
+                             Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)" />
+
+        @* The same answer inside a record, where the status is the headline. *@
+        <MetadataView Metadata="@MetadataReader.Parse("status: activ")"
+                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)" />
         """;
 
     private const string WiringCode = """

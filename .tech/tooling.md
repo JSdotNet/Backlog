@@ -167,7 +167,9 @@ The infrastructure-as-code language for the Azure resources this repository
 deploys.
 
 - **Used for** — `infra/foundry/main.bicep` and its `.bicepparam`, which declare
-  the AI Services account and its model deployments.
+  the AI Services account and its model deployments; and `infra/sync/main.bicep`,
+  which declares the cloud sync tier — Cosmos DB, Container Apps, Key Vault, Log
+  Analytics, and Application Insights.
 - **Why** — first-party, typed, and it what-ifs before it deploys.
 
 ## Azure CLI
@@ -186,6 +188,31 @@ The deployment and diagnostics entry point for Azure.
 - **Why** — it is what the self-hosted runner is already signed in to; the
   workflow fails with an explicit message when it is not, rather than deploying
   into the wrong subscription.
+
+## Azure Developer CLI
+
+```meta
+status: adopted
+type: tool
+depends-on: [".tech/tooling.md#bicep"]
+related: [".tech/cloud.md#azure-cosmos-db", ".tech/cloud.md#azure-container-apps", ".tech/tooling.md#github-actions", ".arc42/07-deployment-view.md#provisioning-and-delivery"]
+alternatives: ["Azure CLI"]
+```
+
+The provision-and-deploy driver for the cloud sync tier.
+
+- **Used for** — `azure.yaml` and `.github/workflows/deploy-sync.yml`, which
+  provision `infra/sync/main.bicep` and then build, push, and deploy
+  `Backlog.Modules.Sync.Api` as a container app.
+- **Why** — the Azure CLI deploys a template but does not build and push a
+  container image; `azd` does both from one service definition, so the workflow
+  does not have to hand-roll a build-tag-push-update sequence around it. The
+  foundry deployment stays on the Azure CLI: it deploys no code, so the half of
+  `azd` that earns its keep here would be unused there.
+- **How** — resource-group scoped, so `azd` deploys into a group created by hand
+  rather than creating one. `azd auth login --federated-credential-provider
+  github` means the workflow stores no secret; the runner mints a short-lived
+  OIDC token instead. See `docs/deployment/sync.md`.
 
 ## Aspire CLI
 
@@ -269,13 +296,28 @@ indexes.
 - **Why** — it is what turns the metadata convention into something queryable,
   and it is where a broken `depends-on` or `related` reference is caught.
 - **How** — `.github/workflows/knowledge-meta.yml` fails on an unresolvable
-  reference or an invalid `meta` block, then regenerates and diffs the committed
-  indexes and reports drift as a *warning* only: making every pull request carry a
-  regenerated index is what turned these files into merge conflicts. Refresh is
-  deliberate instead — `build/Update-KnowledgeIndex.ps1` on demand,
+  reference, then regenerates and diffs the committed indexes and reports drift as
+  a *warning* only: making every pull request carry a regenerated index is what
+  turned these files into merge conflicts. Refresh is deliberate instead —
+  `build/Update-KnowledgeIndex.ps1` on demand,
   `.github/workflows/knowledge-meta-nightly.yml` on a schedule. The drift step runs
   the generator rather than trusting `--check`, because `--check` misses
-  line-number drift.
+  line-number drift. `--check` says nothing about the *values* in a `meta` block,
+  though, so a second hard failure covers those:
+  `.github/workflows/knowledge-metadata.yml` runs
+  `tools/knowledge/check-metadata.mjs`, this repository's own caller of the
+  generator's exported `validateDocument`, and a status outside a folder's ladder,
+  an unknown `.domain` `type` or a field no schema defines fails the pull request.
+  It is a separate script and a separate workflow because the generator, both
+  `knowledge-meta*` workflows and `Update-KnowledgeIndex.ps1` are installed copies
+  of the plugin's tooling, re-synced rather than edited here.
+- **Caveat** — the installed generator is four plugin releases behind, and the
+  check is pinned to it. Two consequences, both listed as *pending re-sync* in its
+  report rather than hidden: `.tech` `type` values go unvalidated, because the
+  installed copy still expects the pre-rename `kind` and cannot judge the new
+  field; and `type`, `date`, `tests`, `index` and `number` are exempt everywhere,
+  because chapter authors write the current schema while the validator knows the
+  old one. Re-syncing the generator is what retires both.
 
 ## Archify
 

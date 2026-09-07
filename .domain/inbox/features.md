@@ -20,6 +20,25 @@ Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are ordered by capture timestamp
 (configurable).
 
+### Read the queue as PARA drawers
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/inbox/domain.md#para-lean, .domain/inbox/domain.md#content-kind, .domain/second-brain/domain.md#para-category]
+feature-flag: inbox-pane
+```
+
+PARA is the queue's structure, not one way of grouping it. The queue is always
+read as drawers — Projects, Areas, Resources, Archive, and the Unsorted that
+PARA does not name — each folding with its count, so a queue of forty reads as
+five drawers. A drawer is sectioned by what it is made of: Projects per project,
+Areas per area; the others are one list. Tag and repository are lenses that
+section the rows *inside* every drawer and never replace the drawers, because a
+tag is something an item has and a drawer is where it goes. Every row leads with
+its `Content Kind` and its `Source`, so the reader sees what a thing is and who
+sent it before deciding on it.
+
 ## Triage workflow
 
 ```meta

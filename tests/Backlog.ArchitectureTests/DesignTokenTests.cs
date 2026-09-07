@@ -489,7 +489,15 @@ public class DesignTokenTests
     ///
     /// <para>Only a bare number is judged. <c>var(--font-weight-*)</c> resolves to a
     /// declared token by definition, and a keyword — <c>inherit</c>, <c>bolder</c> —
-    /// is a relationship to whatever is around it rather than a step off the scale.</para></summary>
+    /// is a relationship to whatever is around it rather than a step off the scale.</para>
+    ///
+    /// <para>Reads the library's own stylesheet as well as the applications'. The
+    /// exemption <see cref="OurStylesheets"/> grants it is a colour exemption — the
+    /// library is where a literal is supposed to be — and it carries no licence for
+    /// weight: the file that declares the weight tokens is the last one that should
+    /// step off the scale. It is where <c>800</c> came back, on
+    /// <c>.section-header__eyebrow</c>, after the desktop copies of the same eyebrow
+    /// were moved to 700.</para></summary>
     [Fact]
     public void No_application_stylesheet_uses_a_weight_outside_the_declared_scale()
     {
@@ -498,9 +506,13 @@ public class DesignTokenTests
 
         // Both premises before the rule: an empty scale would make every weight an
         // offender, and an empty enumeration would let this pass while reading
-        // nothing at all.
+        // nothing at all. Asserted before the library stylesheet is appended, so
+        // that one always-present file cannot stand in for an application
+        // enumeration that came back empty.
         Assert.NotEmpty(declared);
         Assert.NotEmpty(stylesheets);
+
+        stylesheets.Add(new FileInfo(DesignPalette.LibraryStylesheet));
 
         foreach (var stylesheet in stylesheets)
         {

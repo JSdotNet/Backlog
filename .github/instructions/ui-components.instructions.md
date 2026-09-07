@@ -85,14 +85,30 @@ become a loophole.
 2. an element wearing a class that a library component renders. The list of
    those classes is derived from the library on every run — the intersection of
    what the components' sources name and what `components.css` styles — so it
-   tracks the library instead of being a copy of it.
+   tracks the library instead of being a copy of it;
+3. a `p`, `div`, or `span` wearing an **app-owned** class whose BEM element or
+   modifier reads as a feedback shape — `__empty`, `__status`, `--error`,
+   `__count`, and the rest of `FeedbackWords`. Rules 1 and 2 both ask whether a
+   name belongs to the library, so `<p class="pane__loading" role="status">`
+   passes them while being every bit as much a second `Alert`. This rule cannot
+   ask who owns the name, so it asks what the name *says*.
 
-What the test **cannot** see is a copy wearing entirely app-owned class names: a
-`<p class="pane__loading" role="status">` duplicating `Alert`, or a
-`<span class="pane__count">` duplicating `Badge`, are invisible to it because
-nothing about those names belongs to the library. Those are a review concern.
-When adding markup to a screen, the question to ask is not "does this class name
-collide with the library" but **"is the library already drawing this shape?"**
+Rule 3 skips two things on purpose. Names the library owns are rule 2's business,
+so a `badge__state` inside a badge is not a finding twice over. And an element
+holding a component is a layout wrapper rather than a copy — `app-footer__status`
+exists to hold a `SaveIndicator` and reserve its width. That second test is a
+heuristic and it errs toward silence: a copy that happens to contain a component
+is missed, which is the price of not flagging every wrapper in the shell.
+
+So the test still does not see everything. A class composed in C# rather than
+written in markup is invisible to it — `AppUpdate.cs` builds
+`app-version__status--error` in a switch expression, and no scan of `.razor`
+files will ever find it. And a copy under a name that describes its subject
+rather than its shape passes rule 3 by saying nothing.
+
+When adding markup to a screen, the question to ask is therefore still not "does
+this class name collide with the library", nor "will the test catch me", but
+**"is the library already drawing this shape?"**
 
 ## Where the library is reviewed
 

@@ -1,0 +1,76 @@
+name: Knowledge metadata blocks
+
+# The metadata half of the knowledge gate, and repo-native on purpose.
+#
+# `knowledge-meta.yml` beside this file is an installed copy of the
+# knowledge-base plugin's workflow — CLAUDE.md says to re-sync those and never
+# edit them here — and its "Check references and metadata blocks" step runs
+# `build.mjs --check`, which resolves references and nothing else. The
+# `validateDocument` export that knows each folder's `status` ladder, its `type`
+# vocabulary and its allowed fields had no caller at all, so a chapter carrying
+# `status: idea` passed every run (issue #241).
+#
+# `tools/knowledge/check-metadata.mjs` is that caller, written beside the
+# repository's own tooling rather than inside the installed copy, and this
+# workflow is where it blocks a pull request. Upstream runs the same validation
+# from the knowledge-graph canvas and the `knowledge-base-validate` skill rather
+# than from `--check`, so this is a third consumer of an exported seam, not a
+# fork of the tool.
+#
+# The split in knowledge-meta.yml is deliberate and is left alone: a broken
+# reference fails, index drift only warns. This job is the other hard failure,
+# and it touches no generated file.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.arc42/**'
+      - '.domain/**'
+      - '.backlog/**'
+      - '.tech/**'
+      - '.design/**'
+      - '.github/tools/knowledge-meta/**'
+      - 'tools/knowledge/**'
+      - '.github/workflows/knowledge-metadata.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.arc42/**'
+      - '.domain/**'
+      - '.backlog/**'
+      - '.tech/**'
+      - '.design/**'
+      - '.github/tools/knowledge-meta/**'
+      - 'tools/knowledge/**'
+      - '.github/workflows/knowledge-metadata.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-metadata-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Validate metadata blocks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The gate. Fails on a status outside the folder's ladder, an unknown
+      # `type`, a field the schema does not list, and every other error the
+      # installed `validateDocument` reports.
+      - name: Check metadata blocks
+        run: node tools/knowledge/check-metadata.mjs
+
+      # The check's own tests, which is what keeps its one suppression honest:
+      # the stale `.tech` `kind`/`type` rename is waved through by exact message
+      # and everything else in that folder still blocks.
+      - name: Test the check
+        run: node --test tools/knowledge/check-metadata.test.mjs

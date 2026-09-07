@@ -121,7 +121,7 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
         Assert.Contains("Typed as the pane closed.", flushed, StringComparison.Ordinal);
 
         // Well past the 750 ms the closing keystroke armed.
-        await Task.Delay(1500);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
 
         Assert.Equal(flushed, File.ReadAllText(path));
         Assert.Equal(flushedAt, File.GetLastWriteTimeUtc(path));
@@ -232,7 +232,7 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
             return flush;
         });
 
-        await saving.WaitAsync(TimeSpan.FromSeconds(5));
+        await saving.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         // The write that just landed was about the first pass, and the buffer has
         // moved on: adopting its text here would take the newer sentence off the
@@ -294,7 +294,7 @@ public sealed class KnowledgeChapterEditorTests : IDisposable
         File.Delete(Path.Combine(root, "notes.md"));
         await context.DisposeComponentsAsync();
 
-        var message = await reported.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var message = await reported.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Contains("notes.md", message, StringComparison.Ordinal);
     }
 

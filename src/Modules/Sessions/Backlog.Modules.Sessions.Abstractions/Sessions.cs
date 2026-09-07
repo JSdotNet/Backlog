@@ -70,13 +70,35 @@ public static class AgentSessionStates
 /// </summary>
 /// <param name="Id">The agent's own identifier for the session.</param>
 /// <param name="Kind">Which assistant.</param>
+/// <param name="EnvironmentId">
+/// The stable identifier of the environment this session ran in — ADR 0005's machine
+/// id, on the session record.
+/// <para>
+/// Beside <see cref="Environment"/> rather than instead of it, because they answer
+/// two different questions: this one says which environment, and that one says what
+/// it is called. A name cannot do both — a machine can be renamed and two machines
+/// can share a name — so anything that groups, filters or reconciles sessions keys
+/// on this and shows that.
+/// </para>
+/// <para>
+/// A string rather than a <c>Guid</c>, for the reason <see cref="Id"/> and
+/// <see cref="Repository"/> are strings: this contract holds identifiers exactly as
+/// the source stated them. The local reader is handed the device identity's Guid
+/// formatted out, and an environment that is not a device — a container, a hosted
+/// runner — can answer with whatever identifier it has without this record deciding
+/// what shape that has to be.
+/// </para>
+/// </param>
 /// <param name="Environment">
 /// Where the session ran. This context's own term, and deliberately not the same
 /// word as Dev PC Management's Machine: an environment is wherever an agent can run
 /// — a development PC today, and there is nothing in this model that stops it being
-/// a container or a hosted runner tomorrow. It corresponds to a registered Machine
-/// when the two happen to name the same box, which is a
-/// <c>Customer/Supplier</c> lookup rather than a shared identity; see
+/// a container or a hosted runner tomorrow. Where the environment is this device, the
+/// identity behind <see cref="EnvironmentId"/> is the kernel's device identity, which
+/// is what makes a session and a registered Machine the same thing rather than two
+/// things that happen to agree. What is looked up from Dev PC Management is the
+/// display name and whatever else a registered machine knows — a
+/// <c>Customer/Supplier</c> relationship over the name, not over the identity; see
 /// <c>.domain/sessions/dependencies.md</c>.
 /// <para>
 /// Every session discovered locally carries the current machine name, because
@@ -98,6 +120,7 @@ public static class AgentSessionStates
 public sealed record AgentSession(
     string Id,
     AgentSessionKind Kind,
+    string EnvironmentId,
     string Environment,
     string Title,
     string WorkingFolder,
@@ -147,10 +170,14 @@ public static class AgentSessionLimits
 /// <see cref="AgentSessionLimits.PerAgent"/> from each agent.</param>
 /// <param name="Unreadable">The sources that could not be read, by name.</param>
 /// <param name="Discovered">
-/// How many session records existed, before the cap. Carried so a capped list can
-/// say so: a surface that showed 200 of 842 without mentioning the 842 would be
-/// presenting a truncated list as the whole history, which is the one thing a
-/// capped list must not do.
+/// How many sessions existed, before the cap. Sessions and not files: an agent can
+/// file one session twice — a live marker beside its own transcript, or a transcript
+/// under two project folders after the session's cwd changed — and both halves of
+/// this number collapse those before counting, so it does not mean one thing for
+/// live sessions and another for past ones. Carried so a capped list can say so: a
+/// surface that showed 200 of 842 without mentioning the 842 would be presenting a
+/// truncated list as the whole history, which is the one thing a capped list must
+/// not do.
 /// </param>
 public sealed record AgentSessionCatalog(
     IReadOnlyList<AgentSession> Sessions,
@@ -172,6 +199,94 @@ public sealed record AgentSessionCatalog(
 public interface IAgentSessionSource
 {
     Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>Which sessions the reader wants in front of them at all.</summary>
+public enum AgentSessionView
+{
+    /// <summary>
+    /// The ones the reading called Running or Stalled.
+    /// <para>
+    /// What that rests on is not the same for both agents, and the difference decides
+    /// which sessions this view can hold. Claude writes a file per running session, so
+    /// its live rows are evidence. Copilot leaves no liveness marker at all, so its
+    /// reader has only a timeout: a session goes Finished once its folder has been
+    /// quiet for longer than <see cref="AgentSessionStates.StaleAfter"/>, and it never
+    /// reads Stalled. A Copilot session that is genuinely running but quiet therefore
+    /// falls out of this view rather than sitting in it under the wrong word.
+    /// </para>
+    /// </summary>
+    Live,
+
+    /// <summary>Everything the source described, evidence or not.</summary>
+    All
+}
+
+/// <summary>
+/// Choosing which sessions to show. A pure function over the sessions it is given,
+/// the same way <see cref="AgentSessionGroups"/> is — and the composition is view
+/// first, then grouping: a surface filters the list and groups what survived, never
+/// the other way round, so a machine with nothing live on it loses its section
+/// rather than keeping an empty one.
+/// <para>
+/// A separate operation rather than a fourth member of
+/// <see cref="AgentSessionGrouping"/>, and that is the part worth arguing. A
+/// <c>Live</c> grouping would sit in the same strip as Environment and Type while
+/// doing something neither of them does — every grouping carries every session, and
+/// that is a documented invariant with a test holding it up. Adding a member that
+/// dropped rows would falsify it, and would leave the reader with one control whose
+/// options sometimes rearrange the list and sometimes shorten it.
+/// </para>
+/// </summary>
+public static class AgentSessionViews
+{
+    /// <summary>
+    /// The sessions this view admits, in the order they were given. Ordering is the
+    /// grouping's job; a filter that also sorted would be a second answer to what
+    /// "most recently active first" means.
+    /// </summary>
+    public static IReadOnlyList<AgentSession> Of(IReadOnlyList<AgentSession> sessions, AgentSessionView view)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        return view switch
+        {
+            AgentSessionView.Live => [.. sessions.Where(IsLive)],
+
+            // The same list back, not a copy of it: All is the absence of a filter,
+            // and rebuilding the list would be work done to change nothing.
+            _ => sessions
+        };
+    }
+
+    /// <summary>
+    /// Whether the reading called this session still going.
+    /// <para>
+    /// Public deliberately, and the only place this product spells the Session Log's
+    /// invariant out in code: Running and Stalled both require liveness evidence,
+    /// and with none a session is Finished — see <c>.domain/sessions/domain.md</c>.
+    /// A second surface asking "is this one still going" asks here rather than
+    /// writing the same two-state test again and drifting from it.
+    /// </para>
+    /// <para>
+    /// The invariant is the domain's; how well a reader can honour it is the
+    /// reader's. This asks the state it was handed and nothing more, so it is only
+    /// as true as the derivation behind it — which for Copilot is a timeout rather
+    /// than evidence. <see cref="AgentSessionView.Live"/> carries that difference in
+    /// full; do not read this method's name as a promise the readers all keep.
+    /// </para>
+    /// </summary>
+    public static bool IsLive(AgentSession session) =>
+        session.State is AgentSessionState.Running or AgentSessionState.Stalled;
+
+    /// <summary>What a view is called on screen. Here rather than in the pane, for
+    /// the reason <see cref="AgentSessionGroups.Label(AgentSessionKind)"/> is: a
+    /// control and a sentence about it cannot disagree if there is one word.</summary>
+    public static string Label(AgentSessionView view) => view switch
+    {
+        AgentSessionView.Live => "Live",
+        _ => "All"
+    };
 }
 
 /// <summary>How the reader wants the list carved up.</summary>
@@ -220,12 +335,23 @@ public static class AgentSessionGroups
 
         return grouping switch
         {
+            // Keyed by the environment's id and named after it, which are two
+            // deliberately different things. The id is what makes a section one
+            // environment: a name cannot, because a machine can be renamed and two
+            // machines can share a name, and both of those turn into a section that is
+            // either split or merged for no reason a reader could see. The heading is
+            // then the name the most recent session in the section carries, so a
+            // renamed machine shows the name it has now rather than the one it had when
+            // its oldest session was recorded. Locally the two keys coincide and
+            // nothing on screen moves; the difference is the point of having an id at
+            // all. Sections still sort by name, as the summary above promises.
             AgentSessionGrouping.Environment =>
             [
                 .. ordered
-                    .GroupBy(session => session.Environment, StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-                    .Select(group => new AgentSessionGroup(group.Key, [.. group]))
+                    .GroupBy(session => session.EnvironmentId, StringComparer.Ordinal)
+                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group]))
+                    .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(group => group.Sessions[0].EnvironmentId, StringComparer.Ordinal)
             ],
             AgentSessionGrouping.Kind =>
             [

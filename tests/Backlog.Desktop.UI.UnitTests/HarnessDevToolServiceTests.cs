@@ -31,7 +31,7 @@ public sealed class HarnessDevToolServiceTests
 
         Assert.True(await IsEnabledAsync(tools, key));
 
-        var disabled = await tools.DisableAsync(key);
+        var disabled = await tools.DisableAsync(key, TestContext.Current.CancellationToken);
 
         Assert.True(disabled.Succeeded);
 
@@ -53,7 +53,7 @@ public sealed class HarnessDevToolServiceTests
 
         Assert.False(await IsEnabledAsync(tools, key));
 
-        var enabled = await tools.EnableAsync(key);
+        var enabled = await tools.EnableAsync(key, TestContext.Current.CancellationToken);
 
         Assert.True(enabled.Succeeded);
 
@@ -76,7 +76,7 @@ public sealed class HarnessDevToolServiceTests
 
         Assert.True((await FindAsync(tools, key)).CanUpdate);
 
-        await tools.DisableAsync(key);
+        await tools.DisableAsync(key, TestContext.Current.CancellationToken);
 
         var row = await FindAsync(tools, key);
         Assert.False(row.ConfiguredEnabled);
@@ -113,7 +113,7 @@ public sealed class HarnessDevToolServiceTests
 
         Assert.True(await IsEnabledAsync(tools, key));
 
-        await tools.DisableAsync(key);
+        await tools.DisableAsync(key, TestContext.Current.CancellationToken);
 
         Assert.False(await IsEnabledAsync(tools, key));
     }
@@ -126,7 +126,7 @@ public sealed class HarnessDevToolServiceTests
     {
         var tools = CreateService(EmptyCatalog);
 
-        await tools.DisableAsync("app:office-signed-in");
+        await tools.DisableAsync("app:office-signed-in", TestContext.Current.CancellationToken);
 
         Assert.True(await IsEnabledAsync(tools, "app:onenote-available"));
         Assert.True(await IsEnabledAsync(tools, "app:Git.Git"));
@@ -142,8 +142,8 @@ public sealed class HarnessDevToolServiceTests
         var tools = CreateService(EmptyCatalog);
         const string key = "app:onenote-available";
 
-        await tools.AcknowledgeAsync(key, acknowledged: true);
-        await tools.DisableAsync(key);
+        await tools.AcknowledgeAsync(key, acknowledged: true, TestContext.Current.CancellationToken);
+        await tools.DisableAsync(key, TestContext.Current.CancellationToken);
 
         var row = await FindAsync(tools, key);
         Assert.False(row.ConfiguredEnabled);

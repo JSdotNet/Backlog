@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "jsdotnet",
   "private": true,
+  "//": "@types/vscode and engines.vscode are one number, and both are held at ^1.90.0 on purpose. Raising the types package raises the engine it declares, and 1.90 -> 1.134 drops every editor older than that from the extension's reach. This extension calls no API added after 1.90, so the newer types buy nothing and cost reach. Raise both together, deliberately, when an API newer than 1.90 is actually needed.",
   "engines": {
     "vscode": "^1.90.0"
   },

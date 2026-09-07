@@ -16,12 +16,17 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.UI.Components.Diagrams;
+using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
@@ -51,6 +56,16 @@ builder.Services.AddSingleton<ITasksRefreshSettings>(
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
+// Which machine this installation is. Scoped to the content root like the harness's
+// other settings files — and here that is more than tidiness: several worktrees serve
+// this harness at once, and one shared identity file would put the first-write race
+// across processes on every parallel start. A harness is a development host, so a
+// per-worktree identity is the right answer rather than a compromise. Constructed at
+// startup rather than on first use, as the desktop host does: the identity belongs to
+// the installation, so device.json exists from the first start whether or not a
+// surface that reads it is ever opened.
+builder.Services.AddSingleton<IDeviceIdentitySource>(
+    CreateLocalDevelopmentDeviceIdentityStore(builder.Environment.ContentRootPath));
 
 // Composition: the Tasks module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
@@ -60,10 +75,10 @@ builder.Services.AddSingleton<ITaskRepository>(sp =>
 builder.Services.AddTasksModule();
 
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
-// the host picks the adapter. One JSON document under the same storage root,
+// the host picks the adapter. One document row in the same database the tasks use,
 // following the same folder.
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
-    new RootedJsonRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+    new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
@@ -83,9 +98,32 @@ builder.Services.AddSingleton(sp =>
     workspace.RootChanged += store.Reload;
     return store;
 });
-builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(sp.GetRequiredService<GitHubSettingsStore>()));
+// The same arrangement the desktop host makes: the credential a call leaves with
+// is decided per call, so a repository bound to an account goes out as that
+// account rather than as whoever `gh` happens to be switched to.
+builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource());
+builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    sp.GetRequiredService<IGhCliAccountSource>()));
+builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
+    accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
+// The device half of cloud sync. Scoped to the content root like the harness's
+// other settings files, so a session here pairs a device of its own rather than
+// rewriting the real per-user credential — and so this harness and the mobile
+// one are two devices under one owner, which is what pairing is for. The
+// override variable is this harness's own for the same reason: one shared name
+// would let a single setting collapse the pair back into one device.
+builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevelopmentStore(
+    builder.Environment.ContentRootPath,
+    "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
+    Path.Combine("obj", "local-development", "device-credential.json")));
+// "https+http://sync" is resolved by Aspire service discovery, so the harness
+// always talks to the sync service of this AppHost run.
+builder.Services.AddSyncClient(new Uri("https+http://sync"));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -156,6 +194,14 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddSingleton<KnowledgeUpdateService>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The save-state band and the toast tray, both mounted by MainLayout under every
+// route. Scoped rather than singleton, and that is forced rather than tidy: this
+// host has one circuit per visitor, a singleton forwarding to a scoped
+// TasksDesktopState is a captive dependency that throws on resolve, and a
+// singleton channel would show one visitor's toasts to every other.
+builder.Services.AddScoped<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
+builder.Services.AddScoped<ToastChannel>();
+builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
 builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always
@@ -168,6 +214,12 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // tool service above there is nothing for a local-development variant to differ
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
+
+// The join between the two: the Dashboard's sessions part reports on what the Sessions
+// context reads. Only an infrastructure adapter may see both, so the registration is
+// there rather than in either module — and it comes after both AddDashboardModule() and
+// AddAgentSessionSource(), whose ports it sits between.
+builder.Services.AddDashboardCrossContextAdapters();
 
 // Which worktree served this harness. It is only ever started from a checkout,
 // so there is nothing to gate on beyond finding one — and when it is missing the
@@ -283,6 +335,17 @@ static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(stri
     }
 
     return new TasksRefreshSettingsStore(settingsPath);
+}
+
+static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_DEVICE_IDENTITY_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "device.json");
+    }
+
+    return new DeviceIdentityStore(settingsPath);
 }
 
 static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)

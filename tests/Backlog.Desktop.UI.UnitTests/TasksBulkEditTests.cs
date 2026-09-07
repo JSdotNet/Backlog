@@ -96,8 +96,13 @@ public sealed class TasksBulkEditTests
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "No group holds that field.")
     };
 
-    private static string Result(IRenderedComponent<TasksPane> pane) =>
-        pane.Find("[data-testid='bulk-result']").TextContent;
+    /// <summary>What the bar said about the last batch. Read off the notification
+    /// channel rather than out of the pane's markup: the sentence is a toast now,
+    /// and the tray that draws one is mounted by MainLayout, which a pane-scoped
+    /// render does not include. The id is the one the inline alert carried, so the
+    /// assertion below it is unchanged.</summary>
+    private static string Result(TasksPaneHost host) =>
+        host.Toasts.Visible.Single(toast => toast.TestId == "bulk-result").Message;
 
     /// <summary>The pane, two entries written into it, and both of them picked.
     /// Every field test starts here, because every one of them is about what a
@@ -431,10 +436,11 @@ public sealed class TasksBulkEditTests
         Assert.True(host.State.SelectionMode);
     }
 
-    /// <summary>The chip is not one of a set. Both filter strips beside it are
-    /// radiogroups and this is not a filter — it changes what the rows offer
-    /// rather than which rows are there — so it must not be announced as a third
-    /// option in either of them.</summary>
+    /// <summary>The chip is not one of a set, and it is not a filter either — it
+    /// changes what the rows offer rather than which rows are there. So it must not
+    /// join either strip beside it: not the statuses' radiogroup, where it would be
+    /// announced as a third status, and not the tags' pressable group, where it
+    /// would be announced as a tag.</summary>
     [Fact]
     public async Task The_chip_is_not_offered_as_a_filter()
     {
@@ -975,7 +981,7 @@ public sealed class TasksBulkEditTests
         var status = await OpenSelectAsync(pane, "status");
         await status.ChangeAsync(new() { Value = nameof(EntryStatus.Archived) });
 
-        Assert.Contains("2 tasks updated", Result(pane), StringComparison.Ordinal);
+        Assert.Contains("2 tasks updated", Result(host), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -991,7 +997,7 @@ public sealed class TasksBulkEditTests
         var priority = await OpenSelectAsync(pane, "priority");
         await priority.ChangeAsync(new() { Value = nameof(Priority.Low) });
 
-        Assert.Contains("1 task updated", Result(pane), StringComparison.Ordinal);
+        Assert.Contains("1 task updated", Result(host), StringComparison.Ordinal);
     }
 
     /// <summary>A row already at the target value is skipped rather than saved
@@ -1007,8 +1013,8 @@ public sealed class TasksBulkEditTests
         var status = await OpenSelectAsync(pane, "status");
         await status.ChangeAsync(new() { Value = nameof(EntryStatus.Ready) });
 
-        Assert.Contains("1 task updated", Result(pane), StringComparison.Ordinal);
-        Assert.Contains("already up to date", Result(pane), StringComparison.Ordinal);
+        Assert.Contains("1 task updated", Result(host), StringComparison.Ordinal);
+        Assert.Contains("already up to date", Result(host), StringComparison.Ordinal);
 
         Assert.Equal(EntryStatus.Ready, one.PreviewStatus);
         Assert.Equal(EntryStatus.Ready, two.PreviewStatus);
@@ -1065,8 +1071,8 @@ public sealed class TasksBulkEditTests
         var priority = await OpenSelectAsync(pane, "priority");
         await priority.ChangeAsync(new() { Value = nameof(Priority.Critical) });
 
-        Assert.Contains("1 task updated", Result(pane), StringComparison.Ordinal);
-        Assert.Contains("could not be saved", Result(pane), StringComparison.Ordinal);
+        Assert.Contains("1 task updated", Result(host), StringComparison.Ordinal);
+        Assert.Contains("could not be saved", Result(host), StringComparison.Ordinal);
     }
 
     // --- Selection follows the list (AC6) ----------------------------------

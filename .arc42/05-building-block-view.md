@@ -232,6 +232,16 @@ graph TB
 Local fetch workers keep external credentials on the machine, work offline (queuing
 fetches), and give the user full control over frequency and retry behavior.
 
+**Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and
+both web harnesses (registered separately so the two harnesses pair as two
+distinct devices). It holds the device's registration credential
+(`IDeviceCredentialStore`, DPAPI on Windows via `DpapiDeviceCredentialStore`),
+exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
+within two minutes of expiry, never retrying a 401), attaches the token to
+outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
+themselves (`DevicePairingClient`). The Android head uses an in-memory
+credential store pending a `SecureStorage` adapter.
+
 ## Mobile App
 
 ```meta
@@ -351,6 +361,15 @@ does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appea
 in the Aspire app model as the `sync` resource. Only the Sync Service component
 below is implemented today — the webhook receiver, notification service, and PC
 registry are not built yet.
+
+Device identity is split across three projects rather than living in the API
+head alone: `Backlog.Modules.Sync.Abstractions` carries the contracts and error
+codes both sides reference, `Backlog.Modules.Sync` holds the domain logic —
+device registration, pairing-code issuance and redemption, and device-token
+issuance — behind ports, and `Backlog.Modules.Sync.Api` wires it to HTTP,
+JWT-bearer authentication, and the owner-scoping filter. The device registry
+and pairing-code store are in-memory adapters behind those ports today; a
+Cosmos-backed adapter is the deferred slice.
 
 ```mermaid
 flowchart TB

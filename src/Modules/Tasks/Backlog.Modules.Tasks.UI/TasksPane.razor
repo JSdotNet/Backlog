@@ -1,5 +1,6 @@
 ﻿@implements IDisposable
 @inject TasksDesktopState State
+@inject IToastChannel Toasts
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject IJSRuntime JS
@@ -85,8 +86,9 @@
                        its own: both narrow whatever the repository scope, the tags
                        and the status have already left in view instead of replacing
                        any of them. That is what makes them ToggleButtons with
-                       aria-pressed beside two radiogroups — the difference is in the
-                       semantics, not just in the shape.
+                       aria-pressed beside one radiogroup — the statuses', now the only
+                       group on the bar that is still one of a set. The difference is
+                       in the semantics, not just in the shape.
 
                        They are not exclusive with each other either. "In today's My
                        Day and filed nowhere" is a real question, and it is the one
@@ -122,34 +124,46 @@
 
                     @* Nothing at all until something in scope carries a tag: the group
                        is built from what people typed, so a backlog with no tags has
-                       no third group rather than a dead "All" chip filtering nothing.
-                       Same shape as the statuses beside it — one of a set, so
-                       aria-checked — because picking a tag replaces the tag that was
-                       picked before rather than adding to it. *@
+                       no third group rather than a dead chip filtering nothing.
+
+                       The shape of the scopes on the left rather than of the statuses
+                       on the right, and for the reason the two differ: an entry has
+                       one status and any number of tags, so a tag is a state of its
+                       own that narrows what the rest of the bar left in view. Any
+                       number of them can be pressed and the list is the union — so
+                       aria-pressed, and no "All" chip, because with nothing pressed
+                       the list is already everything. That chip was the duplicate of
+                       the statuses' own All. *@
                     @if (State.TagFilters.Count > 0)
                     {
-                        <div class="filter-group filter-group--tags" role="radiogroup" aria-label="Filter by tag">
+                        @* The modifier is what keeps the group reachable on a narrow
+                           column: the bar drops it there to save the width, but only
+                           while nothing is picked — see the 38rem step in app.css. *@
+                        <div class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null)"
+                             role="group"
+                             aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
                             {
-                                <AppButton BaseClass="chip chip--filter"
-                                           Variant="ButtonVariant.None"
-                                           CssClass="@(State.SelectedTag == tag.Value ? "chip--active" : null)"
-                                           TestId="tag-filter-option"
-                                           role="radio"
-                                           aria-checked="@(State.SelectedTag == tag.Value ? "true" : "false")"
-                                           OnClick="() => State.SetTagFilter(tag.Value)">
+                                <ToggleButton BaseClass="chip chip--filter"
+                                              PressedCssClass="chip--active"
+                                              Pressed="@State.IsTagSelected(tag.Value)"
+                                              TestId="tag-filter-option"
+                                              Title="@(State.IsTagSelected(tag.Value) ? $"Stop filtering by {tag.Label}" : $"Filter by {tag.Label}")"
+                                              PressedChanged="_ => State.ToggleTagFilter(tag.Value)">
                                     @tag.Label<span class="chip__count">@tag.Count</span>
-                                </AppButton>
+                                </ToggleButton>
                             }
                         </div>
                     }
 
                     @* Its own container, and deliberately not one of the groups
-                       either side of it. Both of those are sets of filters — one
-                       radiogroup for tags, one for statuses — and this changes
-                       nothing about which rows are in view: it changes what the
-                       rows offer. Inside a radiogroup it would be announced as a
-                       third status to filter by, which is the one thing it is not.
+                       either side of it. Both of those are sets of filters — a
+                       pressable multi-select of tags, and one radiogroup of
+                       statuses — and this changes nothing about which rows are in
+                       view: it changes what the rows offer. Inside the status
+                       radiogroup it would be announced as a third status to filter
+                       by, which is the one thing it is not; inside the tag group it
+                       would read as a tag.
 
                        A ToggleButton wearing the same chip classes, because it is
                        the same gesture as My Day and No repo: a state that stays
@@ -288,6 +302,7 @@
                                   OnReorder="OnEntryReorderedAsync"
                                   OnLink="OnEntryLinkedAsync"
                                   OnTagSelected="OnRowTagSelected"
+                                  OnContextMenu="OnEntryContextMenu"
                                   GroupCompleted="true"
                                   RowCopyValue="@EntryCopyText"
                                   RowCssClass="@RepositoryMark"
@@ -332,22 +347,13 @@
         </End>
     </SplitPane>
 
-    @* What the last import produced, once the dialog it ran from has closed —
-       the same "reads as" sentence a single save already gives, for a whole
-       batch. Dismissable, the same as every other transient result this pane
-       reports; not auto-dismissed, because "3 created, 1 updated" is exactly the
-       kind of line somebody opened the dialog to go and check against the list. *@
-    <Alert Message="@_importMessage" BaseClass="import-plan-result" Role="status" TestId="import-plan-result" />
-
-    @* What the last bulk change did, in the same shape and the same place the
-       import result already reports from — one field on twenty rows is a batch
-       like an import is, and a reader who asked for one is owed the same
-       sentence.
-
-       Its own alert rather than a shared one, because the two outlive each other:
-       an import result is something the reader opened a dialog to go and check
-       against the list, and a bulk edit landing meanwhile must not wipe it. *@
-    <Alert Message="@_bulkMessage" BaseClass="import-plan-result" Role="status" TestId="bulk-result" />
+    @* What the last import produced and what the last bulk change did used to be
+       two Alerts pinned to the bottom of this section. They are toasts now, raised
+       on the channel the shell's tray renders: both are results about a gesture
+       rather than facts about the list, and a line that stayed under the entries
+       until something replaced it was a band the reader had to dismiss to get the
+       room back. See OnImportAsync and ApplyBulkAsync — the publish happens where
+       the result arrives, never from markup. *@
 </section>
 
 <ImportPlanDialog @ref="_importDialog"
@@ -356,6 +362,21 @@
                    Busy="@_importBusy"
                    Options="@RepositoryOptions()"
                    OnImport="OnImportAsync" />
+
+@* The menu a right-click on an entry row opens. What it holds is this pane's
+   answer and not the row's: the row reported the gesture and where it landed,
+   and every item is an act the detail pane already offers, reached without
+   opening the entry. Outside the section on purpose — the section closes the
+   open entry when the focus leaves both halves, and the menu's backdrop takes
+   the focus the moment it opens; see the guard in OnPaneFocusOutAsync. *@
+<ContextMenu Open="@_rowMenuOpen"
+             OpenChanged="OnRowMenuOpenChanged"
+             X="@_rowMenuX"
+             Y="@_rowMenuY"
+             Items="@RowMenuItems()"
+             AriaLabel="Entry actions"
+             TestId="entry-menu"
+             OnItemSelected="OnRowMenuItemAsync" />
 
 @code {
     /// <summary>
@@ -449,6 +470,29 @@
         Effort,
         Attachment
     }
+
+    /// <summary>The row a right-click asked for a menu on. Held from the gesture
+    /// until the menu closes, because the items are built from the row's own
+    /// state — what each one says depends on whether the row is in My Day, due,
+    /// done — and the choice arrives after the menu has been drawn.</summary>
+    private EntryRow? _rowMenuRow;
+
+    private bool _rowMenuOpen;
+
+    private double _rowMenuX;
+
+    private double _rowMenuY;
+
+    private const string RowMenuMyDay = "myday";
+    private const string RowMenuImportant = "important";
+    private const string RowMenuDone = "done";
+    private const string RowMenuDueToday = "due-today";
+    private const string RowMenuDueTomorrow = "due-tomorrow";
+    private const string RowMenuDuePick = "due-pick";
+    private const string RowMenuDueClear = "due-clear";
+    private const string RowMenuMoveUp = "move-up";
+    private const string RowMenuMoveDown = "move-down";
+    private const string RowMenuDelete = "delete";
 
     protected override void OnInitialized()
     {
@@ -1164,18 +1208,21 @@
         if (State.SelectionMode) OnClearSelection();
     }
 
-    /// <summary>Leaving the selection puts the bar's own sentence away with it.
-    /// A result about rows nobody is looking at any more is a line the reader has
-    /// to work out the subject of.
+    /// <summary>Leaving the selection puts the draft tags away with it.
     /// <para>
     /// It leaves the mode as well, which is what <c>ClearSelection</c> now means:
     /// the bar's "clear selection" used to empty the set and leave a column of
     /// boxes behind it, so the bar went and every gutter stayed.
+    /// </para>
+    /// <para>
+    /// What it no longer has to put away is the bar's own sentence. That used to be
+    /// pinned under the list until something replaced it, so leaving the selection
+    /// had to clear it or leave a result about rows nobody was looking at any more;
+    /// it is a toast on the shell's channel now and dismisses on its own timer.
     /// </para></summary>
     private void OnClearSelection()
     {
         State.ClearSelection();
-        _bulkMessage = null;
         _bulkTags = [];
         _openBulkGroup = null;
     }
@@ -1301,9 +1348,8 @@
             ? Task.CompletedTask
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
-    /// <summary>Runs one bulk change and says what it did. Nothing selected
-    /// leaves the last sentence alone rather than replacing it with a line about
-    /// no rows.</summary>
+    /// <summary>Runs one bulk change and says what it did. Nothing selected says
+    /// nothing at all rather than raising a toast about no rows.</summary>
     private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
     {
         // The group that opened these controls has had its answer, so it closes —
@@ -1316,7 +1362,15 @@
 
         if (outcome.Total == 0) return;
 
-        _bulkMessage = BulkMessage(outcome);
+        // A batch with refusals in it is a warning rather than a result: the
+        // sentence still leads with what landed, but a reader who asked for one
+        // field on twenty rows and got it on eight needs the longer dwell to read
+        // the rest of it.
+        var message = BulkMessage(outcome);
+
+        Toasts.Publish(outcome.Failures.Count > 0
+            ? ToastMessage.Warning(message, BulkResultTestId)
+            : ToastMessage.Info(message, BulkResultTestId));
     }
 
     /// <summary>
@@ -1387,32 +1441,167 @@
     }
 
     /// <summary>
-    /// A tag on a row is the way into the tag filter, and — pressed again — the way
-    /// back out of it.
+    /// A tag on a row is the way into the tag selection, and — pressed again — the
+    /// way back out of it.
     /// <para>
-    /// The toggle is here rather than in <c>SetTagFilter</c> on purpose. The chips in
-    /// the bar are a radiogroup: one of a set is chosen, and pressing the chosen one
-    /// is not a request to choose nothing. A tag on a row is not one of a set — it is
-    /// the tag on that row — so pressing the one already being filtered by can only
-    /// mean "stop". Two surfaces, two gestures, one setter.
+    /// The same gesture the chip in the bar makes, which is what lets both go
+    /// straight to one setter: a tag is a state of its own, so pressing it adds it
+    /// and pressing it again takes it back out, wherever it was pressed.
     /// </para>
     /// <para>
-    /// And it is the reason this matters at all: the tag group leaves the bar on a
-    /// narrow column, so once the list is filtered the row's own tag is the only
-    /// control still on screen that can unfilter it.
+    /// The row is a stateless surface, though: the chip carries no pressed state and
+    /// its accessible name reads "Filter by #x" whichever way the press goes. What
+    /// the selection currently holds is said in one place, the bar — which is why
+    /// the bar's tag group now survives the narrow column whenever anything is
+    /// picked, rather than leaving this the only tag control on screen. A row wears
+    /// its own tags and never "Untagged", so it could not have been the way back out
+    /// of every selection anyway. See the 38rem step in app.css.
     /// </para>
     /// </summary>
-    private void OnRowTagSelected(string tag) =>
-        State.SetTagFilter(
-            string.Equals(State.SelectedTag, tag, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : tag);
+    private void OnRowTagSelected(string tag) => State.ToggleTagFilter(tag);
 
     private async Task OnEntryReorderedAsync(TaskMove move)
     {
         if (EntryFor(move.Id) is { } row && EntryFor(move.TargetId) is { } target)
         {
             await State.MoveEntryAsync(row, target);
+        }
+    }
+
+    // --- Row menu ----------------------------------------------------------
+
+    /// <summary>A right-click on a row. The list said which row and where the
+    /// pointer was; what goes in the menu is decided when it is drawn, from the
+    /// row's state at that moment — see <see cref="RowMenuItems"/>.</summary>
+    private void OnEntryContextMenu(TaskContextMenu request)
+    {
+        if (EntryFor(request.Id) is not { } row) return;
+
+        _rowMenuRow = row;
+        _rowMenuX = request.X;
+        _rowMenuY = request.Y;
+        _rowMenuOpen = true;
+    }
+
+    private void OnRowMenuOpenChanged(bool open)
+    {
+        _rowMenuOpen = open;
+        if (!open) _rowMenuRow = null;
+    }
+
+    /// <summary>
+    /// What a right-click on an entry offers, in the order Microsoft To Do settled
+    /// on: the three marks a reader puts on a task, then when it is due, then where
+    /// it sits, then the one act that ends the row.
+    /// <para>
+    /// Every item is an act the detail pane already has — the same writes, reached
+    /// without opening the entry. The labels read the row's state so each one names
+    /// the change it would make rather than the field it would touch: a row already
+    /// in My Day is offered the way out, a finished row the way back. "Remove due
+    /// date" is offered disabled rather than hidden when there is nothing to
+    /// remove, on the terms
+    /// <c>.design/interaction-guidelines.md#action-density-and-overflow</c> sets: an
+    /// item that vanishes reads as a thing the product cannot do.
+    /// </para>
+    /// <para>
+    /// Move up and Move down are the explicit commands
+    /// <c>.design/interaction-guidelines.md#keyboard-accessible-reordering</c> asks
+    /// a context menu to carry. They move along the order on screen — the same
+    /// neighbour Alt+Arrow would swap with — so a finished row, folded into
+    /// Completed, has nowhere to go and both are disabled.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MenuItem> RowMenuItems()
+    {
+        if (_rowMenuRow is not { } row) return [];
+
+        // Nothing here asks whether the row may be written. The state refuses a
+        // write it will not make, exactly as it does for the detail pane's own
+        // controls, and a menu that second-guessed it would be a second answer.
+        var done = row.PreviewStatus is EntryStatus.Done;
+        var important = IsImportant(row);
+        var (above, below) = RowMenuNeighbours(row);
+
+        return
+        [
+            new(RowMenuMyDay, IsInMyDay(row) ? "Remove from My Day" : "Add to My Day", "☀"),
+            new(RowMenuImportant, important ? "Remove importance" : "Mark as important", important ? "★" : "☆"),
+            new(RowMenuDone, done ? "Mark as not completed" : "Mark as completed", done ? "○" : "✓"),
+            MenuItem.Divider("schedule"),
+            new(RowMenuDueToday, "Due today", "🗓"),
+            new(RowMenuDueTomorrow, "Due tomorrow", "🗓"),
+            new(RowMenuDuePick, "Pick a date", "🗓"),
+            new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
+            MenuItem.Divider("order"),
+            new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null),
+            MenuItem.Divider("end"),
+            new(RowMenuDelete, "Delete task", "🗑", Destructive: true)
+        ];
+    }
+
+    /// <summary>The rows a move from the menu would swap with: the open rows the
+    /// list is drawing, in the order it draws them, with the finished ones left
+    /// out exactly as the list leaves them out of its own order.</summary>
+    private (EntryRow? Above, EntryRow? Below) RowMenuNeighbours(EntryRow row)
+    {
+        if (row.PreviewStatus is EntryStatus.Done) return (null, null);
+
+        var open = State.FilteredRows.Where(candidate => candidate.PreviewStatus is not EntryStatus.Done).ToList();
+        var index = open.IndexOf(row);
+        if (index < 0) return (null, null);
+
+        return (
+            index > 0 ? open[index - 1] : null,
+            index < open.Count - 1 ? open[index + 1] : null);
+    }
+
+    /// <summary>High or above. "Important" is Microsoft To Do's word for the one
+    /// mark a task carries; this product ranks in four steps, so marking one
+    /// important lifts it to High and removing the mark puts it back at Medium —
+    /// the default, where a task with no opinion about itself sits.</summary>
+    private static bool IsImportant(EntryRow row) => row.PreviewPriority is Priority.High or Priority.Critical;
+
+    private async Task OnRowMenuItemAsync(MenuItem item)
+    {
+        if (_rowMenuRow is not { } row) return;
+
+        switch (item.Id)
+        {
+            case RowMenuMyDay:
+                await OnMyDayToggledAsync(row);
+                break;
+            case RowMenuImportant:
+                await State.ChangePriorityAsync(row, IsImportant(row) ? Priority.Medium : Priority.High);
+                break;
+            case RowMenuDone:
+                await State.ToggleDoneAsync(row);
+                break;
+            case RowMenuDueToday:
+                await State.ChangeDueAsync(row, Today);
+                break;
+            case RowMenuDueTomorrow:
+                await State.ChangeDueAsync(row, Today.AddDays(1));
+                break;
+            case RowMenuDuePick:
+                // The one item that opens the entry rather than writing to it: the
+                // date field lives in the detail pane, and a second one inside a
+                // menu would be a second implementation of the same control.
+                await State.SelectAsync(row);
+                _openPicker = SchedulePicker.Due;
+                break;
+            case RowMenuDueClear:
+                await State.ChangeDueAsync(row, null);
+                break;
+            case RowMenuMoveUp:
+                if (RowMenuNeighbours(row).Above is { } above) await State.MoveEntryAsync(row, above);
+                break;
+            case RowMenuMoveDown:
+                if (RowMenuNeighbours(row).Below is { } below) await State.MoveEntryAsync(row, below);
+                break;
+            case RowMenuDelete:
+                await OnDeleteTaskAsync(row);
+                break;
         }
     }
 
@@ -1486,14 +1675,15 @@
     private ImportPlanDialog? _importDialog;
     private bool _importOpen;
     private bool _importBusy;
-    private string? _importMessage;
 
-    // --- The bulk bar's own two pieces of state ----------------------------
+    /// <summary>The ids the two results carried while they were inline alerts. They
+    /// ride on the toast now, so a selector written against either surface still
+    /// finds the sentence.</summary>
+    private const string ImportResultTestId = "import-plan-result";
 
-    /// <summary>What the last bulk change did. Held here rather than in the state
-    /// object because it is a sentence about a gesture on this surface, not a fact
-    /// about the entries — the same reason the import result is held here.</summary>
-    private string? _bulkMessage;
+    private const string BulkResultTestId = "bulk-result";
+
+    // --- The bulk bar's own state ------------------------------------------
 
     /// <summary>The tags picked but not yet applied. A draft, so it lives with the
     /// control that is collecting it.</summary>
@@ -1501,7 +1691,6 @@
 
     private void OnOpenImport()
     {
-        _importMessage = null;
         _importOpen = true;
         _importDialog?.OpenFresh();
     }
@@ -1529,7 +1718,10 @@
             if (State.SaveState == AppSaveState.Error || message.StartsWith("Imported:", StringComparison.Ordinal))
             {
                 _importOpen = false;
-                _importMessage = message;
+
+                Toasts.Publish(State.SaveState == AppSaveState.Error
+                    ? ToastMessage.Error(message, ImportResultTestId)
+                    : ToastMessage.Info(message, ImportResultTestId));
             }
             else
             {
@@ -2567,6 +2759,12 @@
         }
 
         if (!left) return;
+
+        // The row menu's backdrop takes the focus the moment the menu opens, and
+        // it sits outside both halves. That is the reader asking a row for its
+        // menu, not leaving the entry — and as often as not the entry is the one
+        // the menu is about.
+        if (_rowMenuOpen) return;
 
         // Picking a different row is a switch, not a departure — and by the time
         // the JS round trip above resolves, that click's own selection may already

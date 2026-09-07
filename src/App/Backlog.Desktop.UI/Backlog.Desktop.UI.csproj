@@ -53,6 +53,11 @@
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!-- Sync's published surface, for the same reason as the four above and one
+         more: the Devices panel shows a pairing code, and the alphabet and the
+         two-groups-of-four display it is written in are the service's, shared
+         rather than restated. -->
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
          the GitHub repository/knowledge-folder settings plus the local clone
@@ -67,6 +72,10 @@
          port and this screen takes the adapter, as it already does for GitHub,
          Claude and Azure Foundry. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <!-- The Devices panel registers this device, issues and redeems pairing
+         codes, and shows where the credential is kept — the same arrangement the
+         screen already has with the GitHub, Claude and Azure Foundry adapters. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
   </ItemGroup>
 
 </Project>

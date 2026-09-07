@@ -113,7 +113,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             if (match is null)
             {
                 // Whichever version of the plan first introduced the prompt.
-                outcomes.Add(Outcome.ForCreate(parsed, TaskEntryFields.CreateFrom(parsed, nextOrder++)));
+                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++)));
             }
             else if (match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
@@ -178,6 +178,27 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         }
 
         return new ImportPlanResultDto(created, updated, skipped, resultEntries);
+    }
+
+    /// <summary>Constructs a new entry from a parsed segment the way every
+    /// text-save does, then applies the one default that is Import's own: an
+    /// entry whose metadata line says nothing about its readiness arrives at
+    /// <see cref="EntryStatus.Ready"/>.
+    /// <para>
+    /// A hand-typed entry is born at Draft because it is being shaped as it is
+    /// typed. A plan is the opposite case — a sequence of work already agreed
+    /// and written down to be picked up — so leaving every entry at Draft only
+    /// hands somebody a promotion per entry to click through before "What's
+    /// next" shows any of it. An explicit <c>!draft</c> still means what it says;
+    /// this fills a gap, it never overrides. Kept here rather than in
+    /// <see cref="TaskEntryFields.CreateFrom"/> because that helper is shared
+    /// with the hand-typed path, whose default stays Draft.
+    /// </para></summary>
+    private static TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order)
+    {
+        var entry = TaskEntryFields.CreateFrom(parsed, order);
+        if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready);
+        return entry;
     }
 
     /// <summary>The first <c>id:</c> two entries in the document both claim, or

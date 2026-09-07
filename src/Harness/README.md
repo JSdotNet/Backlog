@@ -40,7 +40,10 @@ Use it to review a component, and to test one without starting the application.
   *are* its hosting glue — a storybook with no stories hosts nothing. What it may
   contain is examples, the chrome that frames them (`Story`, `StoryPage`,
   `MarkdownStory`, `StorybookIndex`, `DesignGuideline`, `GuidelineChapter`,
-  `app.css`, `storybook.js`), and nothing else. Any logic worth testing still
+  `app.css`, `storybook.js`), the fixture data those examples are handed
+  (`*Fixtures.cs`, and `StorybookDiagramArtifacts` with the one committed Archify
+  artifact it serves, so `DiagramView`'s artifact mode has a review surface
+  without an application behind it), and nothing else. Any logic worth testing still
   belongs in the library: a story sets up a component and shows it, and if a page
   starts needing behaviour of its own, that behaviour is a component the library
   is missing.

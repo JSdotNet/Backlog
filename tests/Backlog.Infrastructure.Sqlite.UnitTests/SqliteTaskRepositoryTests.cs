@@ -24,13 +24,13 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     [Fact]
     public async Task A_new_store_holds_nothing()
     {
-        Assert.Empty(await _repository.ListAsync());
+        Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task The_database_is_one_file_under_the_root()
     {
-        await _repository.SaveAsync(new TaskItem("Ship it", "Body.", EntryType.Task));
+        await _repository.SaveAsync(new TaskItem("Ship it", "Body.", EntryType.Task), TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.Combine(_root, "backlog.db"), _repository.DatabasePath);
         Assert.True(File.Exists(_repository.DatabasePath));
@@ -39,7 +39,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     [Fact]
     public async Task No_markdown_file_is_written_for_a_task()
     {
-        await _repository.SaveAsync(new TaskItem("Ship it", "# Heading\n\nBody.\n", EntryType.Task));
+        await _repository.SaveAsync(new TaskItem("Ship it", "# Heading\n\nBody.\n", EntryType.Task), TestContext.Current.CancellationToken);
 
         Assert.Empty(Directory.EnumerateFiles(_root, "*.md", SearchOption.AllDirectories));
     }
@@ -65,8 +65,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.RecordUsage("copied");
         task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue"));
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(task.Id, loaded.Id);
@@ -122,8 +122,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     {
         var task = new TaskItem("Title", content, EntryType.Idea);
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(content, loaded.ContentMd);
@@ -140,8 +140,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.SetView(EntryView.Notes);
         task.SetDependsOn(["a1b2c3", "d4e5f6"]);
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(new DateOnly(2026, 8, 21), loaded.DueOn);
@@ -163,8 +163,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var task = new TaskItem("Stand-up", string.Empty, EntryType.Task);
         task.SetReminder(new DateTime(2026, 8, 21, 9, 15, 0, DateTimeKind.Unspecified));
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(DateTimeKind.Unspecified, loaded.RemindAt!.Value.Kind);
@@ -184,8 +184,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var task = new TaskItem("Stand-up", string.Empty, EntryType.Task);
         task.SetRecurrence(weekdays);
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(weekdays, loaded.Recurrence);
@@ -211,8 +211,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var task = new TaskItem("Water the plants", string.Empty, EntryType.Task);
         task.SetRecurrence(new Recurrence(1, RecurrenceUnit.Week, [DayOfWeek.Tuesday, DayOfWeek.Thursday]));
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(new Recurrence(1, RecurrenceUnit.Week), loaded.Recurrence);
@@ -235,8 +235,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             createdAt: DateTimeOffset.UtcNow,
             recurrenceSourceId: source);
 
-        await _repository.SaveAsync(task);
-        var loaded = await _repository.GetAsync(task.Id);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(source, loaded.RecurrenceSourceId);
@@ -247,13 +247,13 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     public async Task Saving_the_same_task_twice_updates_it_rather_than_duplicating_it()
     {
         var task = new TaskItem("First title", "First body.", EntryType.Task);
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         task.Rename("Second title");
         task.UpdateContent("Second body.");
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
-        var all = await _repository.ListAsync();
+        var all = await _repository.ListAsync(TestContext.Current.CancellationToken);
         var only = Assert.Single(all);
         Assert.Equal("Second title", only.Title);
         Assert.Equal("Second body.", only.ContentMd);
@@ -273,12 +273,12 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         foreach (var task in new[] { ranked, older, rankedFirst, newer })
         {
-            await _repository.SaveAsync(task);
+            await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
         }
 
         Assert.Equal(
             ["Newer", "Older", "Ranked first", "Ranked second"],
-            (await _repository.ListAsync()).Select(task => task.Title));
+            (await _repository.ListAsync(TestContext.Current.CancellationToken)).Select(task => task.Title));
     }
 
     [Fact]
@@ -286,9 +286,9 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     {
         var task = new TaskItem("Has steps", "Body.", EntryType.Task);
         task.AddSubItem("A step");
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
-        var only = Assert.Single(await _repository.ListAsync());
+        var only = Assert.Single(await _repository.ListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Body.", only.ContentMd);
         Assert.Equal("A step", Assert.Single(only.SubItems).Title);
     }
@@ -296,7 +296,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     [Fact]
     public async Task Getting_a_task_that_is_not_there_is_not_an_error()
     {
-        Assert.Null(await _repository.GetAsync(Guid.NewGuid()));
+        Assert.Null(await _repository.GetAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -308,13 +308,13 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     public async Task A_tombstoned_task_is_gone_to_every_read()
     {
         var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         task.MarkDeleted();
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
-        Assert.Null(await _repository.GetAsync(task.Id));
-        Assert.Empty(await _repository.ListAsync());
+        Assert.Null(await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken));
+        Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -329,10 +329,10 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     public async Task A_tombstoned_task_keeps_its_row_and_its_stamp()
     {
         var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         task.MarkDeleted();
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         var (rows, deletedAt) = await ReadTombstoneAsync(task.Id);
 
@@ -353,7 +353,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     public async Task Deleting_an_already_deleted_task_does_not_move_the_tombstone()
     {
         var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         task.MarkDeleted();
         var first = task.DeletedAt;
@@ -373,10 +373,10 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     {
         var task = new TaskItem("Outlives the session", "Body.", EntryType.Task);
         task.AddSubItem("A step");
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         var reopened = new SqliteTaskRepository(_root);
-        var loaded = await reopened.GetAsync(task.Id);
+        var loaded = await reopened.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal("Outlives the session", loaded.Title);
@@ -391,9 +391,9 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var nested = Path.Combine(_root, "not", "there", "yet");
         var repository = new SqliteTaskRepository(nested);
 
-        await repository.SaveAsync(new TaskItem("First ever", string.Empty, EntryType.Idea));
+        await repository.SaveAsync(new TaskItem("First ever", string.Empty, EntryType.Idea), TestContext.Current.CancellationToken);
 
-        Assert.Single(await repository.ListAsync());
+        Assert.Single(await repository.ListAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -418,7 +418,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
             new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = path }.ToString()))
         {
-            await seed.OpenAsync();
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
 
             await using var create = seed.CreateCommand();
             create.CommandText = """
@@ -433,7 +433,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
                     usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]'
                 );
                 """;
-            await create.ExecuteNonQueryAsync();
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
 
             await using var insert = seed.CreateCommand();
             insert.CommandText = """
@@ -445,7 +445,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             insert.Parameters.AddWithValue(
                 "$created_at",
                 createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
-            await insert.ExecuteNonQueryAsync();
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         // Release the seed connection's handle on the file before the repository
@@ -455,7 +455,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         // Opening over that file must not throw, and the old row reads back with no
         // estimate — the additive column defaults to null for a row that predates
         // it.
-        var loaded = await _repository.GetAsync(id);
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal("Written before effort existed", loaded.Title);
@@ -463,8 +463,8 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         // And the upgraded column is writable: a fresh estimate saves and reads.
         loaded.SetEffort(5);
-        await _repository.SaveAsync(loaded);
-        var again = await _repository.GetAsync(id);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.Equal(5, again!.Effort);
     }
@@ -484,12 +484,12 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         // The table has to exist before the raw insert can put a retired value in
         // it, and the repository's own open is what creates it.
-        await _repository.SaveAsync(Rehydrate("Something else entirely", createdAt));
+        await _repository.SaveAsync(Rehydrate("Something else entirely", createdAt), TestContext.Current.CancellationToken);
 
         await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
             new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
         {
-            await seed.OpenAsync();
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
 
             await using var insert = seed.CreateCommand();
             insert.CommandText = """
@@ -501,12 +501,12 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             insert.Parameters.AddWithValue(
                 "$created_at",
                 createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
-            await insert.ExecuteNonQueryAsync();
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-        var loaded = await _repository.GetAsync(id);
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal("Rework the onboarding email", loaded.Title);
@@ -541,9 +541,9 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "1", "issue"));
         task.LoadStamps(createdAt, deletedAt: null);
 
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
-        var loaded = await _repository.GetAsync(task.Id);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal(createdAt, loaded.UpdatedAt);
@@ -558,13 +558,13 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         var createdAt = new DateTimeOffset(2026, 1, 5, 8, 30, 0, TimeSpan.Zero);
         var task = Rehydrate("Edit me", createdAt);
         task.LoadStamps(createdAt, deletedAt: null);
-        await _repository.SaveAsync(task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
-        var loaded = await _repository.GetAsync(task.Id);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
         loaded!.Rename("Edited");
-        await _repository.SaveAsync(loaded);
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
 
-        var reloaded = await _repository.GetAsync(task.Id);
+        var reloaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(reloaded);
         Assert.True(reloaded.UpdatedAt > createdAt);
@@ -595,7 +595,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
             new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
         {
-            await seed.OpenAsync();
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
 
             await using var create = seed.CreateCommand();
             create.CommandText = """
@@ -611,7 +611,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
                     effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL
                 );
                 """;
-            await create.ExecuteNonQueryAsync();
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
 
             await using var insert = seed.CreateCommand();
             insert.CommandText = """
@@ -623,12 +623,12 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
             insert.Parameters.AddWithValue(
                 "$created_at",
                 createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
-            await insert.ExecuteNonQueryAsync();
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-        var loaded = await _repository.GetAsync(id);
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal("Written before the stamps existed", loaded.Title);
@@ -638,7 +638,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         // is the value rather than a missing one, so the old row needs no seeding
         // and must not read as gone.
         Assert.Null(loaded.DeletedAt);
-        Assert.Single(await _repository.ListAsync());
+        Assert.Single(await _repository.ListAsync(TestContext.Current.CancellationToken));
 
         // And the backfill actually wrote the column rather than the read merely
         // coalescing it, so the very first sync sees a real value.
