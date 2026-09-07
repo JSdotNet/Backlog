@@ -5,14 +5,13 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// <para>
 /// Not to be confused with <c>ITaskRepository</c>, which reads and writes the tasks
 /// themselves. This one only answers <em>where</em> they are kept: the root
-/// directory, the database path beneath it, and the folders that sit alongside.
+/// directory and the database path beneath it.
 /// </para>
 /// <para>
-/// What it points at is wider than its name: the root it hands out also holds
-/// <see cref="InboxDirectory"/>, which the Inbox context owns. That is a placement
-/// problem rather than a naming one — a workspace-wide port declared inside one
-/// context's abstractions. Moving it out as a shared <c>IWorkspaceStore</c> is a
-/// relocation rather than a rename, so it belongs to its own change.
+/// The Inbox context's folder sits under the same root and is deliberately not
+/// on this port: what it answers is where the <em>task</em> store lives, so no
+/// context owns another context's folder. The desktop settings screen takes
+/// that folder from the workspace settings adapter instead.
 /// </para>
 /// <para>
 /// The setting itself is deliberately <em>not</em> stored in the workspace folder —
@@ -50,8 +49,6 @@ public interface ITaskStore
     /// page so it can be found in a file manager, and so it is obvious what to
     /// copy for a backup.</summary>
     string DatabasePath { get; }
-
-    string InboxDirectory { get; }
 
     /// <summary>Points the app at a different folder. Returns an error message
     /// when the folder cannot be used, rather than throwing — a bad path typed
