@@ -6,26 +6,28 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 117,
-    "edges": 237,
+    "nodes": 118,
+    "edges": 238,
     "nodesByFolder": {
-      "arc42": 89,
+      "arc42": 90,
       "domain": 18,
       "tech": 7,
       "design": 3
     },
     "nodesByType": {
       "file": 43,
-      "chapter": 74
+      "chapter": 74,
+      "heading": 1
     },
     "nodesByStatus": {
       "active": 78,
       "proposed": 10,
-      "draft": 22,
+      "draft": 21,
+      "none": 2,
       "adopted": 7
     },
     "edgesByType": {
-      "contains": 52,
+      "contains": 53,
       "related": 185
     }
   },
@@ -339,7 +341,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "mobile-app",
           "level": 2,
-          "line": 235,
+          "line": 245,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -356,7 +358,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 279,
+          "line": 289,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -373,7 +375,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 339,
+          "line": 349,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -630,7 +632,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "provisioning-and-delivery",
           "level": 3,
-          "line": 222,
+          "line": 228,
           "status": "active",
           "related": [
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
@@ -703,7 +705,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 151,
+          "line": 153,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -723,7 +725,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 179,
+          "line": 181,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -741,7 +743,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 238,
+          "line": 240,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -759,7 +761,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 265,
+          "line": 267,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -775,7 +777,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 286,
+          "line": 288,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -791,7 +793,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 302,
+          "line": 311,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -807,7 +809,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 314,
+          "line": 323,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1413,6 +1415,18 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "label": "Identity",
+          "type": "heading",
+          "folder": "arc42",
+          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "slug": "identity",
+          "level": 3,
+          "line": 391
+        }
+      },
+      {
+        "data": {
           "id": ".domain/context-map.md",
           "label": "Backlog",
           "type": "file",
@@ -1502,7 +1516,7 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 136,
+          "line": 156,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
@@ -1523,7 +1537,7 @@
           "path": ".tech/desktop.md",
           "slug": "app-installer-appinstaller",
           "level": 2,
-          "line": 160,
+          "line": 180,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#msix-packaging"
@@ -1815,13 +1829,16 @@
           "slug": "device",
           "level": 2,
           "line": 275,
-          "status": "draft",
+          "status": null,
           "aliases": [
             "machine",
             "PC"
           ],
           "related": [
             ".domain/tasks/features.md#multi-device-sync",
+            ".domain/tasks/features.md#pairing-a-device",
+            ".domain/tasks/naming.md#owner",
+            ".domain/tasks/naming.md#registration-credential",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ],
           "outOfScope": true
@@ -3836,6 +3853,14 @@
           "source": ".arc42/adr/guidelines/README.md",
           "target": ".arc42/02-constraints.md#technical-constraints",
           "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "type": "contains"
         }
       }
     ]

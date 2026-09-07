@@ -25,12 +25,52 @@ alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
 
 The HTTP surface of the cloud service.
 
-- **Used for** — `Backlog.Modules.Sync.Api`: the `/api/sync/inbox` capture,
-  list, and acknowledge endpoints today, with webhook intake, push dispatch, and
-  the remote PC registry to follow.
+- **Used for** — `Backlog.Modules.Sync.Api`: the `/api/sync/devices/*`
+  registration, pairing-code, pairing, and token endpoints, and the
+  bearer-protected `/api/sync/inbox` capture, list, and acknowledge endpoints,
+  with webhook intake, push dispatch, and the remote PC registry to follow.
 - **Why** — the organization's governed .NET stack for services; minimal APIs fit
   a handful of endpoints without ceremony. The whole service is one `Program.cs`
   plus a store, which is the point.
+
+## Microsoft.AspNetCore.Authentication.JwtBearer
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".tech/shared.md#aspnet-core"]
+related: [".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/08-crosscutting-concepts.md#task-sync"]
+```
+
+Validates the device token on every sync request.
+
+- **Used for** — `Backlog.Modules.Sync.Api`'s authentication pipeline: issuer,
+  audience, lifetime, signature, and a pinned signing algorithm are all checked
+  per request, with no server-side session, ahead of the owner-scoping
+  authorization filter.
+- **Why** — inherited ADR 0012 requires stateless validation of every field on
+  a device-session JWT; this is the governed package that does it.
+
+## Microsoft.IdentityModel.JsonWebTokens
+
+```meta
+status: adopted
+type: package
+version: "8.19.2"
+depends-on: [".tech/shared.md#net-runtime"]
+related: [".arc42/08-crosscutting-concepts.md#task-sync"]
+```
+
+The token library the sync service issues its own device tokens with.
+
+- **Used for** — `JwtDeviceTokenIssuer` minting the 30-minute HS256 device
+  token (`sub`, `owner_id`, `jti`, `iat`, `nbf`, `exp`) that a device presents
+  on every sync call.
+- **Why** — pinned as a direct reference, at the version
+  `Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.11 already resolves
+  transitively, so the code that signs a token and the code that validates it
+  share one build of the same library rather than two that could drift apart.
 
 ## Azure Container Apps
 

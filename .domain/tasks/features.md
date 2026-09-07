@@ -613,22 +613,45 @@ field, would require the domain to have a rule for reconciling two different
 priorities or two different statuses, and it has none. What the person sees is
 one task with one status, which is the property worth keeping.
 
+**What is built so far is the identity half, not the reconciliation half.**
+[Pairing a device](#pairing-a-device) — registering the first device, pairing a
+second under the same owner, and exchanging a credential for a short-lived
+token on every call — is implemented, and the sync service already refuses any
+inbox call that does not carry a valid token. Pushing and pulling the task
+change feed itself, the later-edit-wins reconciliation this section describes,
+and the Cosmos-backed replica are not; the owner and pairing-code registry the
+identity model needs is still an in-memory stand-in rather than a durable
+store.
+
 ### Pairing a device
 
 ```meta
 type: sub-feature
-status: draft
-related: [.arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .domain/tasks/naming.md#device]
 depends-on: [.domain/tasks/features.md#multi-device-sync]
 ```
 
-Join a second machine to the same backlog by entering a short code shown on the
-first, once. There is no account and no sign-in: personal use requires no login
-(`.arc42/02-constraints.md`), so devices are paired to each other rather than to
-an identity. A paired device holds its own credential and can reach exactly one
-person's tasks and no one else's — a boundary the sync service enforces by
-scoping every query to the owner the credential names, not one the cloud store
-enforces on its own.
+Join a second machine to the same backlog by entering a short pairing code shown
+on the first, once. There is no account and no sign-in: personal use requires no
+login (`.arc42/02-constraints.md`), so devices are paired to each other rather
+than to an identity.
+
+The first device to hold a backlog names an owner and registers itself, receiving
+its own registration credential — shown once, never stored anywhere in the clear.
+A second device asks the first for a pairing code, enters it once, and registers
+under that same owner with a registration credential of its own; the code is
+single-use and expires shortly after it is shown, so a code that leaks or goes
+unused stops being a way in. Neither device ever holds the other's credential.
+Before every sync call a device exchanges its own credential for a short-lived
+token, and it is the token — not the credential — that the call actually carries.
+
+A paired device can therefore reach exactly one owner's tasks and no one else's,
+a boundary the sync service enforces by reading the owner out of the presented
+token and scoping every query to it, not one the cloud store enforces on its own.
+
+**Deferred:** the owner's devices and outstanding pairing codes are held in
+memory rather than durably, so a restart of the sync service unpairs every
+device until the Cosmos-backed store lands.
 
 ## Roadmap planning
 
