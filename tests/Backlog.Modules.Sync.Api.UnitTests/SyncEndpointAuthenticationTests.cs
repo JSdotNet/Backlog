@@ -17,16 +17,29 @@ public class SyncEndpointAuthenticationTests : IDisposable
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
+    /// <summary>
+    /// Every GET behind the paired-device policy. It is a table rather than one
+    /// route because each of these cases is about the bearer handler, not about
+    /// the endpoint underneath it — and a route added to the group without being
+    /// added here would be a route nobody ever proved was closed.
+    /// </summary>
+    public static TheoryData<string> BearerProtectedReads =>
+    [
+        SyncRoutes.Absolute(SyncRoutes.Inbox),
+        SyncRoutes.Absolute(SyncRoutes.Tasks),
+    ];
+
     public void Dispose()
     {
         _service.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    [Fact]
-    public async Task The_inbox_is_closed_to_a_caller_with_no_token()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task A_caller_with_no_token_is_turned_away(string route)
     {
-        var response = await _service.CreateClient().GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await _service.CreateClient().GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -36,24 +49,26 @@ public class SyncEndpointAuthenticationTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(problem?.TraceId));
     }
 
-    [Fact]
-    public async Task A_token_signed_by_somebody_else_is_refused()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task A_token_signed_by_somebody_else_is_refused(string route)
     {
         var client = _service.CreateClient().Bearing(TestTokens.SignedWith(SyncServiceFactory.OtherSigningKey));
 
-        var response = await client.GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await client.GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
-    [Fact]
-    public async Task An_expired_token_is_refused()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task An_expired_token_is_refused(string route)
     {
         var expired = TestTokens.SignedWith(SyncServiceFactory.SigningKey, TimeSpan.FromMinutes(-5));
         var client = _service.CreateClient().Bearing(expired);
 
-        var response = await client.GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await client.GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -63,13 +78,14 @@ public class SyncEndpointAuthenticationTests : IDisposable
     /// validation is what stops a token that is perfectly valid somewhere else
     /// from being valid here, and it is only worth having if it is checked.
     /// </summary>
-    [Fact]
-    public async Task A_token_from_another_issuer_is_refused()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task A_token_from_another_issuer_is_refused(string route)
     {
         var foreign = TestTokens.SignedWith(SyncServiceFactory.SigningKey, issuer: "https://someone-else.example/sts");
         var client = _service.CreateClient().Bearing(foreign);
 
-        var response = await client.GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await client.GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -80,13 +96,14 @@ public class SyncEndpointAuthenticationTests : IDisposable
     /// validation, a token minted for one relying party is a token for all of
     /// them.
     /// </summary>
-    [Fact]
-    public async Task A_token_for_another_audience_is_refused()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task A_token_for_another_audience_is_refused(string route)
     {
         var elsewhere = TestTokens.SignedWith(SyncServiceFactory.SigningKey, audience: "somebody-elses-api");
         var client = _service.CreateClient().Bearing(elsewhere);
 
-        var response = await client.GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await client.GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -99,8 +116,9 @@ public class SyncEndpointAuthenticationTests : IDisposable
     /// whatever the token's own header asked for, which is how algorithm
     /// confusion gets in.
     /// </summary>
-    [Fact]
-    public async Task A_token_signed_with_an_algorithm_the_service_does_not_issue_is_refused()
+    [Theory]
+    [MemberData(nameof(BearerProtectedReads))]
+    public async Task A_token_signed_with_an_algorithm_the_service_does_not_issue_is_refused(string route)
     {
         var hs512 = TestTokens.SignedWith(
             SyncServiceFactory.SigningKey,
@@ -108,7 +126,7 @@ public class SyncEndpointAuthenticationTests : IDisposable
 
         var client = _service.CreateClient().Bearing(hs512);
 
-        var response = await client.GetAsync(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation);
+        var response = await client.GetAsync(route, Cancellation);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -152,7 +170,17 @@ public class SyncEndpointAuthenticationTests : IDisposable
     [Fact]
     public void Anywhere_but_development_a_missing_signing_key_stops_the_start()
     {
-        using var misconfigured = new SyncServiceFactory { ConfiguredSigningKey = null };
+        using var misconfigured = new SyncServiceFactory
+        {
+            // Explicitly not Development: it is the deployed shape this case is
+            // about, and the factory's own default is the local one.
+            Environment = "Production",
+            ConfiguredSigningKey = null,
+
+            // And a Cosmos endpoint, because a deployed host with none refuses
+            // to start for that reason first and this case is about the key.
+            Configuration = ("Sync:Cosmos:AccountEndpoint", "https://localhost:8081/"),
+        };
 
         // Inherited ADR 0018: bind, validate, fail fast. A service that started
         // anyway would sign tokens with nothing and only say so on the first

@@ -10,14 +10,26 @@ public static class SyncClientRegistration
 {
     /// <summary>
     /// Registers the token pipeline and the pairing client against
-    /// <paramref name="baseAddress"/>.
+    /// <paramref name="baseAddress"/> — the surface every head can compose,
+    /// whatever else it does or does not have.
     /// <para>
-    /// It deliberately does not register an <see cref="IDeviceCredentialStore"/>.
-    /// Which store is right is the one thing only the host knows — DPAPI on the
-    /// Windows desktop, its own file under the content root in each browser
-    /// harness so the two are two distinct devices, and in memory on the Android
-    /// head until its secure-storage adapter lands. Registering a default here
-    /// would make the wrong one silently work.
+    /// Task replication is not here. It is
+    /// <see cref="AddTaskSyncClient(IServiceCollection, Uri)"/>, because it needs
+    /// an <see cref="Backlog.Modules.Tasks.ITaskRepository"/> and the mobile
+    /// heads have none: registering it for every caller took both of them down
+    /// inside <c>Build()</c>, on a provider validation neither the build nor the
+    /// unit suite can see.
+    /// </para>
+    /// <para>
+    /// It deliberately does not register an <see cref="IDeviceCredentialStore"/>
+    /// or an <see cref="ITaskSyncStateStore"/>. Which store is right is the one
+    /// thing only the host knows — DPAPI on the Windows desktop, its own file
+    /// under the content root in each browser harness so the two are two distinct
+    /// devices, and in memory on the Android head until its secure-storage
+    /// adapter lands. Registering a default here would make the wrong one
+    /// silently work, and for the sync state that failure is invisible: two
+    /// harnesses sharing one watermark would each skip what the other had
+    /// pushed, with nothing failing to say so.
     /// </para>
     /// <para>
     /// A host with data clients of its own — mobile's <c>CloudSyncClient</c> —
@@ -46,6 +58,55 @@ public static class SyncClientRegistration
         // is exactly what an unpaired device should do.
         services.AddHttpClient<DevicePairingClient>(client => client.BaseAddress = baseAddress)
             .AddHttpMessageHandler<SyncAuthenticationHandler>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds task replication on top of <see cref="AddSyncClient"/>: the replica
+    /// client, the merge and the session.
+    /// <para>
+    /// Call it after <see cref="AddSyncClient"/> and against the same address —
+    /// the typed client here chains onto the token pipeline that call registers,
+    /// and on its own it would leave every replication request anonymous.
+    /// </para>
+    /// <para>
+    /// <strong>Opt-in, and only a host may opt in.</strong> All three take
+    /// <see cref="Backlog.Modules.Tasks.ITaskRepository"/> and the session also
+    /// takes <see cref="ITaskSyncStateStore"/>, and a head that has neither is
+    /// not a head that forgot them: the mobile heads carry the Inbox and no local
+    /// task database at all. Registering these for every caller is what took both
+    /// of them down at <c>Build()</c>.
+    /// </para>
+    /// <para>
+    /// It is a separate call rather than a check inside
+    /// <see cref="AddSyncClient"/> for whether the collection already holds a
+    /// repository. That check would read as safer and be worse: a host that
+    /// composes its repository <em>after</em> its sync client — which is a matter
+    /// of line order, not of intent — would get no task sync, no session, and
+    /// nothing at all to say so. A missing call is visible in the host's own
+    /// composition; a sync client that silently declined to sync is visible
+    /// nowhere.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddTaskSyncClient(this IServiceCollection services, Uri baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        // Both halves of task replication are bearer, so this one always carries
+        // the token. Its own typed client rather than the pairing client's: the
+        // two have different retry and timeout profiles waiting to be set, and
+        // sharing one would mean choosing between them.
+        services.AddHttpClient<TaskSyncClient>(client => client.BaseAddress = baseAddress)
+            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+
+        // Transient rather than singleton, because both take the typed client
+        // above and IHttpClientFactory owns its lifetime — a singleton here would
+        // pin one handler chain for the life of the process. The state they share
+        // is the host's ITaskSyncStateStore, which is where the singleton belongs.
+        services.TryAddTransient<TaskReplicaMerge>();
+        services.TryAddTransient<TaskSyncSession>();
 
         return services;
     }

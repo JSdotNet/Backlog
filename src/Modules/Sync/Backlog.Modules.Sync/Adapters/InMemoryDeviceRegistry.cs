@@ -5,10 +5,10 @@ using Backlog.Modules.Sync.Ports;
 namespace Backlog.Modules.Sync.Adapters;
 
 /// <summary>
-/// In-memory stand-in that the Cosmos-backed registry replaces — the same
-/// status as the sync service's <c>SyncStore</c> today, and no more permanent
-/// than that. Everything is lost on restart, which for the device table means
-/// every paired device has to register again.
+/// In-memory stand-in that a Cosmos-backed registry replaces — the same status
+/// as <see cref="InMemoryTaskReplica"/> beside it, and no more permanent than
+/// that. Everything is lost on restart, which for the device table means every
+/// paired device has to register again.
 /// <para>
 /// It scopes by owner where the port asks it to, so swapping the adapter is a
 /// change of storage and not a change of who can read what: the boundary is in

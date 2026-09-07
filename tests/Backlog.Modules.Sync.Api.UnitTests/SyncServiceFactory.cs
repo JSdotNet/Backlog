@@ -6,6 +6,9 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Options;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -30,14 +33,50 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     /// refuse.</summary>
     internal static string OtherSigningKey { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
-    internal string Environment { get; init; } = "Production";
+    /// <summary>
+    /// Development, because this host has no Cosmos configured and only a
+    /// Development run is allowed to fall back to the in-memory replica — see
+    /// <c>CosmosTaskReplicaRegistration</c>. Nothing these tests assert is
+    /// environment-specific: the authentication pipeline, the authorization
+    /// policies and the problem shape are the same either way. The two cases
+    /// that are about a deployed host say so themselves.
+    /// </summary>
+    internal string Environment { get; init; } = Environments.Development;
 
     internal string? ConfiguredSigningKey { get; init; } = SigningKey;
+
+    /// <summary>A test's own registrations, applied after the service has made
+    /// all of its own. That ordering is the point: <c>ConfigureTestServices</c>
+    /// runs last, so a RemoveAll plus a re-add wins wherever the service
+    /// happened to register the thing being replaced.
+    /// <para>
+    /// Not called <c>Services</c>: <see cref="WebApplicationFactory{TEntryPoint}"/>
+    /// already has a property by that name holding the built provider, and
+    /// shadowing it would make <c>factory.Services</c> mean two different things
+    /// depending on the static type in front of it.
+    /// </para></summary>
+    internal Action<IServiceCollection>? TestServices { get; init; }
+
+    /// <summary>One more setting, for a case that needs the host configured
+    /// rather than its services replaced — the deployed shape, where what is
+    /// missing is the thing under test and everything else has to be
+    /// present.</summary>
+    internal (string Key, string? Value)? Configuration { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(Environment);
         builder.UseSetting($"{SyncTokenOptions.SectionName}:SigningKey", ConfiguredSigningKey);
+
+        if (Configuration is { } setting)
+        {
+            builder.UseSetting(setting.Key, setting.Value);
+        }
+
+        if (TestServices is not null)
+        {
+            builder.ConfigureTestServices(TestServices);
+        }
     }
 }
 
