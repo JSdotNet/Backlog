@@ -1,0 +1,123 @@
+@*
+    The whole instruction folder read twice — once as Claude Code would read it,
+    once as GitHub Copilot would — rather than one file read closely. That is the
+    question this view answers and the file list next to it cannot: a file says
+    what it governs, and says nothing at all about whether the assistant you are
+    talking to will ever see it.
+
+    A table rather than a chart. The reading is ordinal and two columns wide, so
+    a shade scale would spend a legend on four values a word says outright, and
+    the words are what a reader takes away — "not read" is the finding, not a
+    pale cell.
+
+    Rows are discovery's order, which is the file list's order, so the two
+    surfaces can be read against each other.
+*@
+
+<div class="instruction-reach" data-testid="@TestId">
+    <p class="instruction-reach__intro">
+        <strong>Always</strong> is every session. <strong>On match</strong> is only when a path in the
+        stated scope is touched. <strong>Linked</strong> means a file the host does load names this one
+        in prose, so it can be opened but is not loaded. <strong>Not read</strong> means the host has no
+        path to it.
+    </p>
+
+    @if (OneSided.Count > 0)
+    {
+        <p class="instruction-reach__intro">
+            <strong>@OneSided.Count of @Rows.Count</strong>
+            @(OneSided.Count == 1 ? "file reaches" : "files reach") one assistant and effectively not the
+            other. A rule that governs the repository for one and does not exist for the other drifts
+            without anybody noticing, because each host is behaving correctly on its own side of it.
+        </p>
+    }
+
+    <DataTable TItem="InstructionLoadingRow"
+               Columns="@Columns"
+               Items="@Rows"
+               RowKey="@RowKey"
+               RowCssClass="@RowCssClass"
+               AriaLabel="How each assistant loads this repository's instruction files"
+               EmptyMessage="No instruction files were discovered."
+               RowNoun="file"
+               TestId="instructions-reach">
+        <Row Context="row">
+            @* The row header, not another cell. This is the name every badge in
+               the row is a statement about, so a reader arriving at one of them
+               out of context has to be told which file it belongs to. *@
+            <th scope="row" class="instruction-reach__file">@FilePath(row)</th>
+            <td data-testid="instructions-reach-claude">
+                <Badge Kind="reach" Slug="@Slug(row.Claude)" Title="@Explain(row.Claude)">@Label(row.Claude)</Badge>
+                @if (row.Claude.Detail is { Length: > 0 } claudeDetail)
+                {
+                    <span class="instruction-reach__scope">@claudeDetail</span>
+                }
+            </td>
+            <td data-testid="instructions-reach-copilot">
+                <Badge Kind="reach" Slug="@Slug(row.Copilot)" Title="@Explain(row.Copilot)">@Label(row.Copilot)</Badge>
+                @if (row.Copilot.Detail is { Length: > 0 } copilotDetail)
+                {
+                    <span class="instruction-reach__scope">@copilotDetail</span>
+                }
+            </td>
+        </Row>
+    </DataTable>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("File"),
+        new("Claude Code"),
+        new("GitHub Copilot")
+    ];
+
+    /// <summary>Every discovered file with both verdicts, in discovery's
+    /// order.</summary>
+    [Parameter]
+    public IReadOnlyList<InstructionLoadingRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private List<InstructionLoadingRow> OneSided => [.. Rows.Where(row => row.IsOneSided)];
+
+    /// <summary>The path as the rules are written, not as this file system spells
+    /// it — the reader is checking it against an instruction file, and those say
+    /// <c>.github/instructions</c> whatever the machine underneath does.</summary>
+    private static string FilePath(InstructionLoadingRow row) =>
+        row.Document.RelativePath.Replace('\\', '/');
+
+    private static object RowKey(InstructionLoadingRow row) => row.Document.RelativePath;
+
+    private static string? RowCssClass(InstructionLoadingRow row) =>
+        row.IsOneSided ? "instruction-reach__row--one-sided" : null;
+
+    private static string Label(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always => "Always",
+        InstructionReach.OnMatch => "On match",
+        InstructionReach.Linked => "Linked",
+        _ => "Not read"
+    };
+
+    private static string Slug(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always => "always",
+        InstructionReach.OnMatch => "on-match",
+        InstructionReach.Linked => "linked",
+        _ => "not-read"
+    };
+
+    /// <summary>What the badge means, for a pointer. The scope sits beside the
+    /// badge as text, so this says why rather than repeating where.</summary>
+    private static string Explain(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always when reach.Detail == "imported" =>
+            "Pulled in by an import from a file that loads every session.",
+        InstructionReach.Always => "Loaded into every session.",
+        InstructionReach.OnMatch => "Loaded when a path in this scope is worked on.",
+        InstructionReach.Linked => "Named by a file that is loaded, but not loaded itself.",
+        _ => "This host has no path to the file."
+    };
+}

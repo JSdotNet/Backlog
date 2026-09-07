@@ -1,3 +1,5 @@
+using AngleSharp.Dom;
+
 using Bunit;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
@@ -229,6 +231,138 @@ public sealed class InstructionsKnowledgePanelTests
 
         Assert.DoesNotContain("name:", view.TextContent, StringComparison.Ordinal);
         Assert.Empty(view.QuerySelectorAll("hr.md-divider"));
+    }
+
+    /// <summary>
+    /// The second reading of the folder. It is a fact about the set, so it is a
+    /// tab beside the files rather than a row on any one of them — the shape the
+    /// arc42 panel already keeps for its C4 model.
+    /// </summary>
+    [Fact]
+    public async Task The_folder_can_be_read_as_each_assistant_would_read_it()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        // Clicked on the render it was found in. The chapter behind the opening
+        // file loads asynchronously, and a click issued across that render is
+        // dispatched to a handler the tab strip no longer has.
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+        Assert.Equal(3, component.FindAll("[data-testid='instructions-reach-table'] tbody tr").Count);
+    }
+
+    /// <summary>
+    /// The files are what the section opens with. The comparison is a step away
+    /// and not the landing surface: a reader coming here from the knowledge menu
+    /// asked for a file.
+    /// </summary>
+    [Fact]
+    public async Task The_section_opens_on_the_files_with_the_comparison_beside_them()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        Assert.Single(component.FindAll("[data-testid='instructions-files-tab']"));
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-view']"));
+    }
+
+    /// <summary>
+    /// The finding the view exists for: a file GitHub Copilot reads on every
+    /// request that Claude Code has no route to at all, because the file Claude
+    /// does read never names it.
+    /// </summary>
+    [Fact]
+    public async Task A_file_only_one_assistant_reads_is_marked_on_its_own_row()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        var naming = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("naming.instructions.md", StringComparison.Ordinal)));
+
+        Assert.Contains("Not read", naming.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Always", naming.QuerySelector("[data-testid='instructions-reach-copilot']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("instruction-reach__row--one-sided", naming.ClassName ?? string.Empty, StringComparison.Ordinal);
+
+        // The one Claude does read is not flagged, or the mark would mean nothing.
+        var claudeFile = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("CLAUDE.md", StringComparison.Ordinal)));
+
+        Assert.Contains("Always", claudeFile.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A tab that opens onto nothing is worse than no tab, so it is absent rather
+    /// than empty when the clone holds no instruction files at all.
+    /// </summary>
+    [Fact]
+    public async Task The_comparison_is_absent_when_there_is_nothing_to_compare()
+    {
+        await using var harness = CreateComparisonHarness(withDocuments: false);
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-tab']"));
+    }
+
+    /// <summary>A clone with one file each side and one that only Copilot can
+    /// reach, which is the asymmetry the comparison is for.</summary>
+    private static Harness CreateComparisonHarness(bool withDocuments = true)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-reach-tests", Guid.NewGuid().ToString("n"));
+        var clone = Path.Combine(root, "clone");
+        Directory.CreateDirectory(Path.Combine(clone, ".github", "instructions"));
+
+        if (withDocuments)
+        {
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "copilot-instructions.md"),
+                "# Copilot\n\nSee `.github/instructions/naming.instructions.md`.\n");
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "instructions", "naming.instructions.md"),
+                "---\napplyTo: \"**\"\ndescription: Naming.\n---\n\n# Naming\n");
+
+            // Names no instruction file of its own, which is what leaves the
+            // naming rules unreachable from this side.
+            File.WriteAllText(Path.Combine(clone, "CLAUDE.md"), "# Claude\n\nNothing linked from here.\n");
+        }
+
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+
+        var repository = Assert.Single(repositories) with
+        {
+            CloneDirectory = clone,
+            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+        };
+        Assert.Null(gitHubSettings.SetRepositories([repository]));
+
+        var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(store);
+        context.Services.AddSingleton(gitHubSettings);
+        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(gitHubSettings, store));
+        context.Services.AddSingleton(new InstructionSourceDiscovery());
+        context.Services.AddSingleton<KnowledgeChapterWriter>();
+
+        return new Harness(root, context);
     }
 
     private static Harness CreateCloneHarness()

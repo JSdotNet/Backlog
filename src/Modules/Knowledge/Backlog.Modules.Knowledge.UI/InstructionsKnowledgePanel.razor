@@ -50,6 +50,25 @@
                 }
                 else
                 {
+                    @* Two tabs rather than one surface, the shape the arc42 panel
+                       keeps for its C4 model: the files are what this section opens
+                       with, and how the two assistants read them is a second reading
+                       of the same folder rather than a continuation of the first. It
+                       is a question about the set — which is why it is not a row on
+                       any one file — and the file list has no way to ask it.
+
+                       The second tab is absent, not empty, when discovery found
+                       nothing: a tab that opens onto nothing is worse than no tab. *@
+                    <Tabs AriaLabel="Instruction views"
+                          TestId="instructions-tabs"
+                          ActiveId="@_tab"
+                          ActiveIdChanged="SelectTab">
+
+                        <TabPanel Id="@FilesTab"
+                                  Title="Files"
+                                  TestId="instructions-files-panel"
+                                  TabTestId="instructions-files-tab"
+                                  aria-label="Instruction files">
                     <div class="instructions-layout @(string.IsNullOrWhiteSpace(SelectedPath) ? string.Empty : "instructions-layout--document-only")">
                         @if (string.IsNullOrWhiteSpace(SelectedPath))
                         {
@@ -121,6 +140,20 @@
                                       EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
                     </div>
+                        </TabPanel>
+
+                        @if (_reach.Count > 0)
+                        {
+                            <TabPanel Id="@ReachTab"
+                                      Title="Loading"
+                                      Element="section"
+                                      TestId="instructions-reach-panel"
+                                      TabTestId="instructions-reach-tab"
+                                      aria-label="How each assistant loads these files">
+                                <InstructionLoadingView Rows="@_reach" TestId="instructions-reach-view" />
+                            </TabPanel>
+                        }
+                    </Tabs>
                 }
             </section>
         }
@@ -135,6 +168,17 @@
     private InstructionDocument? _chapterDocument;
     private KnowledgeChapterEditor? _editor;
     private bool _editing;
+
+    /// <summary>Which of the two readings of this folder is on screen.</summary>
+    private string _tab = FilesTab;
+
+    /// <summary>The whole set read as each assistant would read it. Held rather
+    /// than computed per render: it is a fact about the folder, so it changes when
+    /// discovery runs and not when a keystroke lands in the editor beside it.</summary>
+    private IReadOnlyList<InstructionLoadingRow> _reach = [];
+
+    private const string FilesTab = "files";
+    private const string ReachTab = "reach";
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
@@ -217,6 +261,11 @@
             _selectedDocumentPath = ActiveRepository?.Documents.FirstOrDefault()?.RelativePath;
         }
 
+        // A file picked in the knowledge menu is a request to read that file, so
+        // the comparison steps aside for it — the move the arc42 panel makes when
+        // a chapter is chosen while the C4 tab is the one up.
+        if (!string.IsNullOrWhiteSpace(SelectedPath)) _tab = FilesTab;
+
         await LoadSelectedChapterAsync();
     }
 
@@ -226,7 +275,18 @@
             ? InstructionSources.Discover([StorageInstructionRepository()])
             : InstructionSources.Discover(Repositories.Current.Repositories);
         _loadedRepositoryAlias = RepositoryAlias;
+        _reach = ActiveRepository is { } repository ? InstructionLoading.Compare(repository.Documents) : [];
     }
+
+    /// <summary>
+    /// The reader picked a tab.
+    /// <para>
+    /// Nothing else is reset with it. The selected document survives a trip to the
+    /// comparison and back, which is the point of the trip: a reader goes to find
+    /// out whether the file they have open is one an assistant ever sees.
+    /// </para>
+    /// </summary>
+    private void SelectTab(string tab) => _tab = tab;
 
     /// <summary>
     /// The selected document as a chapter and the text that chapter has right now,

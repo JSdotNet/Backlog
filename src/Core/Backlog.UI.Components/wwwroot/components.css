@@ -826,6 +826,50 @@ button.badge:hover {
     padding-right: var(--spacing-xs);
 }
 
+/* How much of one assistant's attention a file gets: always, on match, linked,
+   not read.
+
+   One family of four, drawn as a scale rather than as four unrelated colours,
+   because the reading is ordinal — the question is which of two hosts reads a
+   file *more*, and a categorical palette would answer a different one. The one
+   saturated hue fills the top step and outlines the second; the third is the
+   neutral outline every quiet badge in this library wears; the fourth goes
+   dashed and disabled, because "not read" is an absence and should look like
+   one rather than like a fourth value.
+
+   Centred and given a floor width so a column of them lines up: they are read
+   down a table, and four labels of different lengths ragged against each other
+   is harder to scan than the words themselves are to tell apart. */
+.badge--reach {
+    justify-content: center;
+    min-width: 5rem;
+}
+
+.badge--reach-always { background: var(--color-primary); color: var(--color-text-inverse); }
+
+.badge--reach-on-match {
+    background: transparent;
+    border: var(--border-width) solid var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+.badge--reach-linked {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+/* The dash is what makes this one an absence, not the ink. Drawn in the disabled
+   grey it measured 4.48:1 at 12px, which is under AA — and this is the badge
+   carrying the most consequential reading on the table, so it is the last one
+   that can afford to be the hardest to read. The border style says "nothing
+   here" on its own. */
+.badge--reach-not-read {
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border);
+    color: var(--color-text-secondary);
+}
+
 /* A tool a file declares. A name rather than a pattern, so it keeps the quiet
    filled shape every other one-dimensional badge has. */
 .badge--tool {

@@ -5565,6 +5565,81 @@ h1, h2, h3 {
     }
 }
 
+/* --- Instruction reach --------------------------------------------------- */
+/*
+  The second reading of the instructions folder: one row per file, one column
+  per assistant. It scrolls on its own rather than growing the pane, the same
+  as the document beside it — the set is thirty-odd files and the tab strip
+  above has to stay reachable.
+*/
+.instruction-reach {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: 0;
+    overflow: auto;
+}
+
+.instruction-reach__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+/* A path is a machine string the reader is checking one segment of, so it takes
+   the monospace every other path on this surface takes.
+
+   It wraps, against the table's own nowrap. These are the longest strings in the
+   table by a wide margin, and holding them on one line pushed the table past its
+   scroll box on a narrow window — which then scrolled the file name out of view
+   exactly when the reader was looking at the badges it names. Wrapping keeps the
+   table inside the box instead, so the identity column stays put. Normal weight,
+   because it is a row header for structure and not for emphasis.
+
+   Qualified by the table's own cell selector on purpose. The shared table holds
+   every cell on one line — right for the dashboards it was built for, where a
+   cell is a number or a name — and `.data-table__table th` outranks a bare class,
+   so the unqualified rule lost the cascade and nothing wrapped at all. This is a
+   deliberate override of that default for one column, not a second opinion about
+   the table. */
+.data-table__table th.instruction-reach__file {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+    white-space: normal;
+    /* `anywhere` and not `break-word`, which was tried and reverted. Only
+       `anywhere` lets the cell report a small min-content width, and that is what
+       lets the table fit its box: measured at a 900px window, `anywhere` gives
+       814px against an 814px box, and `break-word` holds the column at the
+       longest unbreakable segment — 402px — and puts 144px back outside the
+       scroll box. The cost is that a path occasionally breaks mid-segment
+       (`storybo` / `ok.instructions.md`) instead of at a separator. Losing the
+       fit costs the reader the file name exactly while they read its badges;
+       an ugly break costs them nothing they cannot read straight through. */
+    overflow-wrap: anywhere;
+    min-width: 14rem;
+}
+
+/* The globs a conditional reading is conditional on, under the badge that says
+   it is conditional. Quieter than the badge, because the reader wants the
+   verdict first and the scope only when the verdict surprises them. */
+.instruction-reach__scope {
+    display: block;
+    margin-top: var(--spacing-2xs);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* The rows the view exists to surface, marked down the edge rather than washed
+   in a tint: the two badges in the row already carry the colour, and a tinted
+   row behind them would be a third thing competing to say the same fact. */
+.instruction-reach__row--one-sided > :first-child {
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
 /* --- The roadmap band on a short window ---------------------------------- */
 /*
   Two steps down, both measured off the same arithmetic. The workspace is the
