@@ -167,6 +167,22 @@ public sealed class SqliteTaskRepository : ITaskRepository
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
     }
 
+    /// <summary>The same SELECT as <see cref="GetAsync"/> without the tombstone
+    /// predicate. Written out rather than folded into one parameterised read: the
+    /// two differ by the one clause that decides whether a deleted task exists,
+    /// and a boolean argument at every call site is how that clause gets passed
+    /// the wrong way round.</summary>
+    public async Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {Columns} FROM tasks WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
+    }
+
     public async Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
@@ -177,6 +193,50 @@ public sealed class SqliteTaskRepository : ITaskRepository
         // the same reason GetAsync excludes them.
         command.CommandText =
             $"SELECT {Columns} FROM tasks WHERE deleted_at IS NULL ORDER BY sort_order, created_at DESC;";
+
+        var tasks = new List<TaskItem>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            tasks.Add(Read(reader));
+        }
+
+        return tasks;
+    }
+
+    /// <summary>
+    /// The sync read. No <c>deleted_at IS NULL</c> clause, deliberately: this is
+    /// the one list a tombstone belongs in, because a deletion travels as a
+    /// tombstone or it does not travel at all.
+    /// <para>
+    /// The bound is applied in SQL rather than by filtering what
+    /// <see cref="ListAsync"/> returned. A predicate the store applies is one a
+    /// caller cannot forget, and a caller filtering afterwards would be reading
+    /// every task on the machine to send the two that changed.
+    /// </para>
+    /// <para>
+    /// Stamps are compared as the round-trip strings they are stored as, which is
+    /// an ordinal comparison in SQLite. That works here because every stamp is
+    /// written with <c>"O"</c> and the values are UTC, so lexical order and
+    /// chronological order are the same order; a stamp written any other way
+    /// would break both this predicate and the <c>ORDER BY</c> beneath it. The
+    /// bound is converted to UTC before it is formatted for the same reason — a
+    /// watermark carrying an offset would otherwise be compared as text against
+    /// values that do not.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText =
+            $"SELECT {Columns} FROM tasks WHERE updated_at > $since ORDER BY updated_at;";
+        command.Parameters.AddWithValue(
+            "$since",
+            since.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
 
         var tasks = new List<TaskItem>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

@@ -132,7 +132,10 @@ are behind it — so each harness has to pair itself before exercising them:
 
 **The Development signing key is ephemeral** — generated fresh on process start and logged
 as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` unpairs every
-device; re-pair after any `aspire start` that restarts it.
+device; re-pair after any `aspire start` that restarts it. The Devices tab now says so
+itself rather than going on reporting a healthy pairing: a device the service no longer
+recognises is told, and is offered registering, pairing, and **Forget this device** on the
+spot, so re-pairing no longer means deleting a credential file by hand.
 
 If credentials become necessary later, record only a **pointer** here (for example the name
 of the secret store, vault, or user-secrets entry). Never place actual secrets, tokens, or

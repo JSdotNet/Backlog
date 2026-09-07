@@ -1288,8 +1288,28 @@
                     }
                     else if (StoredDevice is { } stored)
                     {
+                        @* The service has said, in as many words, that it has no
+                           record of this device. Said before the identity rather
+                           than after it, because everything below is describing a
+                           credential that no longer opens anything. *@
+                        @if (DeviceNoLongerRegistered)
+                        {
+                            <Alert Message="The sync service no longer recognises this device. Its credential is still on this machine, but nothing will accept it - register this device again, pair it with one that is already in, or forget the credential."
+                                   TestId="devices-unregistered"
+                                   Role="alert"
+                                   BaseClass="setting__status"
+                                   CssClass="setting__status--error" />
+                        }
+
                         <p class="setting__body" data-testid="devices-paired">
-                            Paired as <strong>@stored.DeviceName</strong>.
+                            @if (DeviceNoLongerRegistered)
+                            {
+                                <text>This device still holds a credential for <strong>@stored.DeviceName</strong>.</text>
+                            }
+                            else
+                            {
+                                <text>Paired as <strong>@stored.DeviceName</strong>.</text>
+                            }
                         </p>
                         <p class="setting__status" data-testid="devices-identity">
                             Owner <code>@stored.OwnerId</code>, device <code>@stored.DeviceId</code>.
@@ -1298,6 +1318,19 @@
                                 <text>@PairedDeviceSummary(status.PairedDeviceCount)</text>
                             }
                         </p>
+
+                        @* The one way back that needs nothing from the service.
+                           A credential can go stale for reasons nobody will ever
+                           be told - a service that moved, or is not coming back -
+                           and deleting the file by hand was the only cure. *@
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.Danger"
+                                       TestId="devices-forget"
+                                       Busy="@_devicesBusy"
+                                       OnClick="@(() => _forgettingDevice = true)">
+                                Forget this device
+                            </AppButton>
+                        </div>
                     }
                     else
                     {
@@ -1311,7 +1344,45 @@
                     </p>
                 </section>
 
-                @if (StoredDevice is null)
+                @* Only for a device that is already one: an unpaired device has no
+                   owner to replicate under, and nothing to sync. Its own feature
+                   from device pairing, because a person can have paired devices
+                   and still not want their tasks leaving the machine. And only
+                   where a host composed a session at all - a head that registered
+                   no sync-state store hides this rather than offering a button
+                   that cannot work.
+
+                   Withheld as well from a device the service has stopped
+                   recognising, for the same reason as the pairing-code card
+                   below it: a credential nothing will accept cannot replicate
+                   anything, and the button would fail every time it was pressed.
+                   The panel offers the way back instead. *@
+                @if (TaskSyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+                {
+                    <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
+                        <h2 class="setting__title">Sync tasks</h2>
+                        <p class="setting__body">
+                            Sends what changed on this machine and brings back what changed on the others. Whole tasks, latest edit wins - so a task edited on both machines keeps one of the two versions rather than a blend of them.
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-sync-now"
+                                       Busy="@_devicesBusy"
+                                       OnClick="SyncTasksAsync">
+                                Sync now
+                            </AppButton>
+                        </div>
+
+                        @* One line, and it is here so there is something to read
+                           rather than because this is a sync UI. Pulled and applied
+                           are separate numbers on purpose: this device's own echo
+                           comes back and changes nothing, so "pulled 40, applied 0"
+                           is a healthy answer. *@
+                        <p class="setting__status" data-testid="devices-sync-result">@TaskSyncSummaryLine</p>
+                    </section>
+                }
+
+                @if (StoredDevice is null || DeviceNoLongerRegistered)
                 {
                     <section class="setting" data-testid="devices-register" aria-label="Register this device">
                         <h2 class="setting__title">Register this device</h2>
@@ -1407,6 +1478,21 @@
                        BaseClass="setting__status"
                        CssClass="@(_devicesFailed ? "setting__status--error" : "setting__status--ok")" />
             }
+
+            @* Escape and the backdrop both arrive on OnCancel, which is the only
+               path that has to put the flag back. OpenChanged is deliberately
+               unbound: it is raised before OnConfirm, so a handler that closed
+               the dialog there would close it a moment before the confirm ran. *@
+            <ConfirmDialog Open="@_forgettingDevice"
+                           Title="Forget this device?"
+                           Message="@ForgetDeviceMessage"
+                           ConfirmText="Forget it"
+                           Destructive="true"
+                           TestId="devices-forget-dialog"
+                           ConfirmTestId="devices-forget-confirm"
+                           CancelTestId="devices-forget-cancel"
+                           OnConfirm="ForgetDevice"
+                           OnCancel="@(() => _forgettingDevice = false)" />
         </TabPanel>
     }
     </Tabs>
@@ -1693,6 +1779,12 @@
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
+        _deviceTokens = Services.GetService<SyncTokenProvider>();
+        _taskSync = ResolveTaskSync();
+
+        // A background sync is what usually hears the refusal first, on a thread
+        // that is not this one - hence the marshal in the handler.
+        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
@@ -2426,13 +2518,28 @@
     private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
 
     private DevicePairingClient? _devicePairing;
+
+    /// <summary>Optional on purpose: the panel works without it, and the unit
+    /// tests that predate the credential-rejected state compose the pairing
+    /// client without a token pipeline at all. When it is there, it is the only
+    /// thing that can tell a refused credential from an unreachable service.</summary>
+    private SyncTokenProvider? _deviceTokens;
     private IDeviceCredentialStore? _deviceCredentials;
+
+    /// <summary>Optional for the reason the pairing client is: a host that has
+    /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
+    /// for itself, because a shared one would collapse two devices into one -
+    /// cannot compose a session, and a settings screen that failed at startup
+    /// over a panel nobody opened would be the worse answer. Absent hides the
+    /// section.</summary>
+    private TaskSyncSession? _taskSync;
 
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a
     /// logging stack to reach a panel it never opens.</summary>
     private ILogger? _deviceLog;
     private DeviceStatusResponse? _deviceStatus;
+    private TaskSyncSummary? _taskSyncSummary;
     private PairingCodeResponse? _issuedCode;
     private string _draftDeviceName = string.Empty;
     private string _draftPairingCode = string.Empty;
@@ -2440,13 +2547,56 @@
     private bool _devicesFailed;
     private bool _devicesBusy;
 
+    /// <summary>Set when the status call came back with the service's own code
+    /// for it. Separate from the token provider's verdict because they are two
+    /// different answers to the same question, and either one is enough.</summary>
+    private bool _deviceStatusRejected;
+    private bool _forgettingDevice;
+
     /// <summary>Redraws the expiry line while a code is on screen. Disposed with
     /// the screen, so a settings page left behind does not go on ticking.</summary>
     private System.Threading.Timer? _pairingCodeCountdown;
 
     private bool DevicePairingEnabled => Features.IsEnabled(SyncFeatures.DevicePairing);
 
+    private bool TaskSyncEnabled => Features.IsEnabled(SyncFeatures.TaskSync);
+
+    /// <summary>What the last exchange did, or an invitation when there has not
+    /// been one. Never a failure - those go to the shared devices alert, which is
+    /// where every other thing that went wrong on this tab already is.</summary>
+    /// <summary>
+    /// What the last sync did. The skipped count is only mentioned when it is
+    /// non-zero, and it is mentioned at all because the alternative is silence:
+    /// a document this build cannot read is dropped so that one bad row cannot
+    /// stop the device syncing for ever, and a drop nobody is told about looks
+    /// exactly like a task that was never sent.
+    /// </summary>
+    private string TaskSyncSummaryLine => _taskSyncSummary is { } summary
+        ? $"Sent {summary.Pushed}, received {summary.Pulled}, applied {summary.Applied}."
+            + (summary.Skipped > 0 ? $" {summary.Skipped} could not be read by this build." : string.Empty)
+        : "This device has not synced yet.";
+
     private DeviceCredential? StoredDevice => _deviceCredentials?.Current;
+
+    /// <summary>
+    /// The service has said it has no record of this device, from either of the
+    /// two places that can say it conclusively: the token endpoint refusing the
+    /// credential, or the status call answering with
+    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/>.
+    /// <para>
+    /// What is deliberately not in here is everything else - a timeout, an
+    /// unreachable service, a bare 401 with no code. None of those is a verdict
+    /// on the credential, and treating them as one would unpair a device every
+    /// time a laptop woke up on a dead network.
+    /// </para>
+    /// </summary>
+    private bool DeviceNoLongerRegistered =>
+        StoredDevice is not null && (_deviceStatusRejected || _deviceTokens?.CredentialRejected == true);
+
+    private string ForgetDeviceMessage =>
+        StoredDevice is { } stored
+            ? $"This machine will forget the credential it holds for {stored.DeviceName}. Nothing on the sync service is deleted, and the entries in this backlog are untouched - but pairing again means registering or redeeming a code."
+            : "This machine will forget the credential it holds.";
 
     private string CredentialStorePath =>
         _deviceCredentials?.StorePath ?? "nowhere - cloud sync is not configured in this build";
@@ -2587,10 +2737,97 @@
         }
     }
 
+    /// <summary>
+    /// The session, where this host composed one.
+    /// <para>
+    /// Not a plain <c>GetService</c>, because a missing registration is not the
+    /// only way a host declines this. A head that called <c>AddTaskSyncClient</c>
+    /// has the session registered, and that call deliberately registers no
+    /// <c>ITaskSyncStateStore</c> - which store is right is the one thing only the
+    /// host knows - so on a head that has not chosen one the session is registered
+    /// and unconstructable, and asking for it throws rather than answering null.
+    /// </para>
+    /// <para>
+    /// A head that has not opted in gets the section hidden. It is not swallowed:
+    /// what it means goes to the log, because "the sync panel is missing" is a
+    /// question somebody will eventually ask, and a settings screen that failed
+    /// to open over a panel nobody asked for is the worse of the two answers.
+    /// </para></summary>
+    private TaskSyncSession? ResolveTaskSync()
+    {
+        try
+        {
+            return Services.GetService<TaskSyncSession>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _deviceLog?.LogInformation(
+                ex, "Task sync is not composed in this host, so the sync section is not offered.");
+            return null;
+        }
+    }
+
+    /// <summary>One exchange with the replica, on demand. There is no schedule
+    /// and no background loop: this slice is a button, and what it proves is that
+    /// a change made on one device reaches the other.</summary>
+    private async Task SyncTasksAsync()
+    {
+        if (_taskSync is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesBusy = true;
+        _devicesMessage = null;
+
+        try
+        {
+            var result = await _taskSync.SyncAsync();
+
+            if (result.IsFailure)
+            {
+                ReportDeviceOutcome(result.Error.Message, failed: true);
+                return;
+            }
+
+            _taskSyncSummary = result.Value;
+            ReportDeviceOutcome("Synced.", failed: false);
+        }
+        catch (Exception ex)
+        {
+            // Same reasoning as the pairing handlers: the session answers its
+            // expected failures with a result, so anything here is unexpected -
+            // and it still has to reach the screen, because an exception
+            // swallowed in an event handler leaves the panel looking like the
+            // button did nothing.
+            _deviceLog?.LogError(ex, "Syncing tasks with the replica failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _devicesBusy = false;
+        }
+    }
+
     /// <summary>Who the service says this device is, which is where the count of
-    /// paired devices comes from. A failure is not reported: the card still has
-    /// the stored identity to show, and an unreachable service saying so twice on
-    /// one screen is noise.</summary>
+    /// paired devices comes from. An ordinary failure is still not reported: the
+    /// card has the stored identity to show, and an unreachable service saying so
+    /// twice on one screen is noise.
+    /// <para>
+    /// One failure is not ordinary. A 401 carrying
+    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/> is the service saying
+    /// it has no record of this device, and that is the whole state the panel
+    /// needs in order to offer a way back. Any other failure leaves the verdict
+    /// where it was rather than clearing it, because it is not an answer to the
+    /// same question.
+    /// </para>
+    /// <para>
+    /// And when the failure carried no answer at all, the panel goes and asks.
+    /// See <see cref="AskWhetherTheCredentialStillWorksAsync"/> for why that is
+    /// a question rather than a retry.
+    /// </para>
+    /// </summary>
     private async Task RefreshDeviceStatusAsync()
     {
         if (_devicePairing is null || StoredDevice is null)
@@ -2603,12 +2840,89 @@
         {
             var result = await _devicePairing.GetStatusAsync();
             _deviceStatus = result.IsSuccess ? result.Value : null;
+
+            if (result.IsSuccess)
+            {
+                _deviceStatusRejected = false;
+                return;
+            }
+
+            if (string.Equals(result.Error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
+            {
+                _deviceStatusRejected = true;
+                return;
+            }
+
+            await AskWhetherTheCredentialStillWorksAsync();
         }
         catch (Exception)
         {
             _deviceStatus = null;
         }
     }
+
+    /// <summary>
+    /// The status call failed without saying why, and this device holds a
+    /// credential. Asking the token endpoint for a token is the one way to find
+    /// out whether that credential still means anything, because it is the only
+    /// endpoint whose 401 is unambiguous - it is anonymous, so the credential in
+    /// the body is the only thing it can be refusing.
+    /// <para>
+    /// This is a question, not a retry: the status call that failed is not sent
+    /// again, and a token that comes back is not used to reissue it. Nothing is
+    /// hammered either - the failed request has already dropped the token it was
+    /// refused for, so this is one call, and a service that is merely down
+    /// answers it with nothing and leaves the device paired.
+    /// </para>
+    /// <para>
+    /// Costs nothing when all is well, because a status call that succeeded
+    /// never gets here.
+    /// </para>
+    /// </summary>
+    private async Task AskWhetherTheCredentialStillWorksAsync()
+    {
+        if (_deviceTokens is null || StoredDevice is null) return;
+
+        // The verdict is the point; the token itself is of no interest here.
+        _ = await _deviceTokens.GetAccessTokenAsync();
+    }
+
+    /// <summary>
+    /// Forgets the credential this machine holds. The service keeps its own
+    /// record - this head simply stops claiming to be that device - so the way
+    /// back is registering or redeeming a code, which the panel now offers
+    /// because <see cref="StoredDevice"/> has gone.
+    /// <para>
+    /// Clearing the store raises its <c>Changed</c> event, which is what drops
+    /// the cached token and any standing rejection verdict with it.
+    /// </para>
+    /// </summary>
+    private void ForgetDevice()
+    {
+        _forgettingDevice = false;
+
+        if (_deviceCredentials is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _deviceCredentials.Clear();
+
+        // Everything on the panel described the credential that has just gone.
+        _deviceStatus = null;
+        _deviceStatusRejected = false;
+        _issuedCode = null;
+        _pairingCodeCountdown?.Dispose();
+        _pairingCodeCountdown = null;
+
+        ReportDeviceOutcome(
+            "This device has been forgotten. Register it again, or pair it with a device that is already in.",
+            failed: false);
+    }
+
+    /// <summary>The verdict moved, and it usually moved on a background thread.</summary>
+    private void OnCredentialRejectedChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void ReportDeviceOutcome(string message, bool failed)
     {
@@ -2626,7 +2940,11 @@
             period: TimeSpan.FromSeconds(15));
     }
 
-    public void Dispose() => _pairingCodeCountdown?.Dispose();
+    public void Dispose()
+    {
+        _pairingCodeCountdown?.Dispose();
+        if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
+    }
 
     /// <summary>Asks again, so a <c>gh auth login</c> in another window is noticed
     /// without restarting the app. The connection probe is what forgets the CLI's

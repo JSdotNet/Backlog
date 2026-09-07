@@ -1,6 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions;
-
-namespace Backlog.Infrastructure.Sqlite;
+namespace Backlog.Modules.Tasks.Abstractions;
 
 /// <summary>
 /// Maps domain enums to and from their ubiquitous-language wire strings
@@ -10,8 +8,22 @@ namespace Backlog.Infrastructure.Sqlite;
 /// SQLite browser should read as the domain reads, and an ordinal would silently
 /// change meaning the day a member is inserted into the middle of an enum.
 /// </para>
+/// <para>
+/// Published from this context rather than kept beside the SQLite adapter that
+/// first wrote it, because a second reader arrived: the sync client maps the same
+/// tokens on and off the wire, and the tokens the local store holds are exactly
+/// the tokens a task travels as. Two copies of a vocabulary drift, and drift here
+/// is not a cosmetic difference — a token one side writes and the other cannot
+/// parse is a task that throws on load, which is somebody's entry lost.
+/// </para>
+/// <para>
+/// It stays a translation table and nothing more. Nothing here validates,
+/// defaults, or decides: an unknown token throws rather than being coerced to a
+/// plausible member, because guessing what <c>in_progres</c> meant is how a
+/// status silently becomes the wrong one.
+/// </para>
 /// </summary>
-internal static class EnumMap
+public static class EnumMap
 {
     public static string ToWire(EntryType value) => value switch
     {

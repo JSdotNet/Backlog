@@ -37,6 +37,11 @@ public static class SyncRoutes
     /// <summary>The captures waiting for this owner. Bearer.</summary>
     public const string Inbox = "/inbox";
 
+    /// <summary>The task replica: POST pushes a batch, GET pulls the owner's
+    /// change feed from a cursor. Bearer, and one route for both halves because
+    /// they are the two directions of one exchange over one collection.</summary>
+    public const string Tasks = "/tasks";
+
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";

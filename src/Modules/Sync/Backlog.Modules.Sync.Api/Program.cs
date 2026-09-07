@@ -1,10 +1,14 @@
 using System.Diagnostics;
+using Backlog.Infrastructure.Cosmos.Extensions;
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Sync.Api;
 using Backlog.Modules.Sync.Api.Endpoints;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Extensions;
+using Backlog.Modules.Sync.Observability;
 using Backlog.Modules.Sync.Services;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,13 +30,30 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 
 builder.Services.AddOpenApi();
 
+// Before AddSyncModule, so the concrete replica wins: the module registers its
+// in-memory stand-in with TryAdd, which no-ops once this has registered the
+// Cosmos-backed one. And this call itself no-ops when there is no Cosmos
+// connection string, which is what lets the endpoint tests and a bare
+// `dotnet run` work with no emulator anywhere.
+builder.AddCosmosTaskReplica();
+
 builder.Services.AddSyncModule();
 
 // The module declares the port and the host implements it, so the signing key
 // and the validation parameters that check it stay together.
 builder.Services.AddSingleton<IDeviceTokenIssuer, JwtDeviceTokenIssuer>();
 
-builder.Services.AddSingleton<SyncStore>();
+// Same reason, and the same key: the pull cursor is signed with a key derived
+// from the token signing key, so minting and verifying stay in the one place
+// that holds it.
+builder.Services.AddSingleton<ISyncCursorCodec, HmacSyncCursorCodec>();
+
+// The module's own activities and counters (inherited ADR 0010). ServiceDefaults
+// only listens to the source named for the application, and these are named for
+// the module so the signal reads the same wherever the handlers run.
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing.AddSource(SyncTelemetry.Name))
+    .WithMetrics(metrics => metrics.AddMeter(SyncTelemetry.Name));
 
 var app = builder.Build();
 
@@ -59,6 +80,7 @@ var sync = app.MapGroup(SyncRoutes.Base);
 
 sync.MapDeviceEndpoints();
 sync.MapInboxEndpoints();
+sync.MapTaskSyncEndpoints();
 
 // The service saying what it is. No owner, no data, nothing to protect.
 app.MapGet("/", () => Results.Ok(new { service = "Backlog Sync", role = "thin sync layer" }))

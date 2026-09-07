@@ -599,7 +599,20 @@ public sealed class ImportPlanTests
         public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(Entries.TryGetValue(id, out var entry) && entry.DeletedAt is null ? entry : null);
 
+        // And the one read that does not, for the merge that has to tell
+        // "deleted here" from "never seen here".
+        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Entries.TryGetValue(id, out var entry) ? entry : null);
+
         public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TaskItem>>([.. Entries.Values.Where(entry => entry.DeletedAt is null)]);
+
+        // And the list that does not either, for the push that has to carry a
+        // deletion off the machine.
+        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
+            DateTimeOffset since,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TaskItem>>(
+                [.. Entries.Values.Where(entry => entry.UpdatedAt > since).OrderBy(entry => entry.UpdatedAt)]);
     }
 }

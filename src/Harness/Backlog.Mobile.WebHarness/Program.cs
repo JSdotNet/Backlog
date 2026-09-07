@@ -24,6 +24,11 @@ builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevel
 
 // "https+http://sync" is resolved by Aspire service discovery, so the browser
 // harness always talks to the sync service of this AppHost run.
+//
+// Pairing and tokens only. Task replication is AddTaskSyncClient, and it is not
+// called here on purpose: it needs an ITaskRepository, and the mobile head has
+// none - it carries the Inbox, not a local task database. Registering it anyway
+// is not a dormant feature, it is a host that cannot start.
 builder.Services.AddSyncClient(new Uri("https+http://sync"));
 
 // The inbox endpoints are bearer-only, so the data client leaves carrying the

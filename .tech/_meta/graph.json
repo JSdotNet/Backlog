@@ -2180,7 +2180,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 153,
+          "line": 161,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -2306,7 +2306,7 @@
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "slug": "identity",
           "level": 3,
-          "line": 391,
+          "line": 443,
           "outOfScope": true
         }
       },
