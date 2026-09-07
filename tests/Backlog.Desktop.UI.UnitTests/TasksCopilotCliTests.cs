@@ -38,7 +38,7 @@ public sealed class TasksCopilotCliTests : IDisposable
         Trigger it from backlog items.
         """;
 
-        await integration.StartFromEntryAsync(entryText, "D:\\Backlog");
+        await integration.StartFromEntryAsync(entryText, "D:\\Backlog", TestContext.Current.CancellationToken);
 
         Assert.Equal("D:\\Backlog", launcher.Request!.WorkingDirectory);
         Assert.Contains("Work on this Backlog item with GitHub Copilot CLI.", launcher.Request.Prompt);
@@ -70,7 +70,7 @@ public sealed class TasksCopilotCliTests : IDisposable
         Assert.Null(row.CopilotError);
         Assert.NotNull(launcher.Request);
 
-        var reloaded = await TasksTestHost.RepositoryFor(harness.Store).GetAsync(row.Id!.Value);
+        var reloaded = await TasksTestHost.RepositoryFor(harness.Store).GetAsync(row.Id!.Value, TestContext.Current.CancellationToken);
         Assert.Equal(TasksCopilotCli.UsageAction, Assert.Single(reloaded!.UsageEvents).Action);
     }
 

@@ -21,17 +21,6 @@
       and fail with an unhelpful entry-point error.
     -->
     <OutputType>Exe</OutputType>
-
-    <!--
-      xUnit1051 is new in the v3 analyzers: it asks every call that accepts a
-      CancellationToken to pass TestContext.Current.CancellationToken so a test
-      stops promptly when the run is cancelled. It fires 324 times across the
-      suite. Silenced here so the v3 move stays a migration rather than a
-      rewrite of every await in the test suite — the same reasoning that kept
-      transitive pinning off in Directory.Packages.props. Adopting it is
-      tracked as its own change.
-    -->
-    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,6 +36,14 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <!--
+      Both xunit and bUnit publish a TestContext, so in a test that renders
+      components the name is ambiguous and TestContext.Current.CancellationToken
+      does not compile. The alias settles it once instead of in every bUnit
+      file: bUnit's is the obsolete spelling of BunitContext, which is the name
+      those tests already use, so nothing here wants the other one.
+    -->
+    <Using Include="Xunit.TestContext" Alias="TestContext" />
     <Using Include="Backlog.Tests" />
   </ItemGroup>
 

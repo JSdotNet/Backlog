@@ -27,7 +27,7 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
     {
         var repository = new RootedSqliteTaskRepository(() => _root);
 
-        await repository.SaveAsync(new TaskItem("In the first folder", string.Empty, EntryType.Task));
+        await repository.SaveAsync(new TaskItem("In the first folder", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
 
         Assert.True(File.Exists(Path.Combine(_first, "backlog.db")));
         Assert.False(File.Exists(Path.Combine(_second, "backlog.db")));
@@ -37,11 +37,11 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
     public async Task Moving_the_root_changes_which_database_is_read()
     {
         var repository = new RootedSqliteTaskRepository(() => _root);
-        await repository.SaveAsync(new TaskItem("In the first folder", string.Empty, EntryType.Task));
+        await repository.SaveAsync(new TaskItem("In the first folder", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
 
         _root = _second;
 
-        Assert.Empty(await repository.ListAsync());
+        Assert.Empty(await repository.ListAsync(TestContext.Current.CancellationToken));
         Assert.Equal(Path.Combine(_second, "backlog.db"), repository.DatabasePath);
     }
 
@@ -50,16 +50,16 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
     {
         var repository = new RootedSqliteTaskRepository(() => _root);
         var task = new TaskItem("Still there", string.Empty, EntryType.Task);
-        await repository.SaveAsync(task);
+        await repository.SaveAsync(task, TestContext.Current.CancellationToken);
 
         _root = _second;
-        await repository.SaveAsync(new TaskItem("Somewhere else", string.Empty, EntryType.Task));
+        await repository.SaveAsync(new TaskItem("Somewhere else", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
 
         _root = _first;
 
-        var only = Assert.Single(await repository.ListAsync());
+        var only = Assert.Single(await repository.ListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Still there", only.Title);
-        Assert.NotNull(await repository.GetAsync(task.Id));
+        Assert.NotNull(await repository.GetAsync(task.Id, TestContext.Current.CancellationToken));
     }
 
     [Fact]

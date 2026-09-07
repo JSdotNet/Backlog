@@ -33,7 +33,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Answers("""{"login":"octocat"}""");
         var transport = gh.Transport();
 
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal(new[] { "api", "user" }, gh.OnlyCall);
         Assert.Equal("octocat", transport.Account);
@@ -47,7 +47,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Answers("{}");
         var transport = gh.Transport();
 
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
         Assert.Null(transport.Account);
     }
 
@@ -57,8 +57,8 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Answers("""{"login":"octocat"}""");
         var transport = gh.Transport();
 
-        Assert.True(await transport.IsAvailableAsync());
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
 
         Assert.Single(gh.Calls);
     }
@@ -71,7 +71,7 @@ public sealed class GhCliTransportTests
         var transport = new GhCliTransport(
             Path.Combine(Path.GetTempPath(), $"gh-not-installed-{Guid.NewGuid():N}.cmd"));
 
-        Assert.False(await transport.IsAvailableAsync());
+        Assert.False(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
         Assert.Null(transport.Account);
     }
 
@@ -80,7 +80,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Fails(1, "gh: To get started with GitHub CLI, please run: gh auth login");
 
-        Assert.False(await gh.Transport().IsAvailableAsync());
+        Assert.False(await gh.Transport().IsAvailableAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Answers("this is not json");
 
-        Assert.False(await gh.Transport().IsAvailableAsync());
+        Assert.False(await gh.Transport().IsAvailableAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>Both fields, because Settings shows the account beside the connection
@@ -100,7 +100,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Answers("""{"login":"octocat"}""");
         var transport = gh.Transport();
 
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
         Assert.Equal("octocat", transport.Account);
 
         transport.Invalidate();
@@ -110,7 +110,7 @@ public sealed class GhCliTransportTests
         // the whole point of invalidating: a `gh auth login` in another window is
         // noticed without restarting the app.
         gh.Fails();
-        Assert.False(await transport.IsAvailableAsync());
+        Assert.False(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
         Assert.Equal(2, gh.Calls.Count);
     }
 
@@ -121,7 +121,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Answers("[]");
 
-        await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo/issues");
+        await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo/issues", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             new[] { "api", "--method", "GET", "repos/octo/demo/issues", "--header", DefaultVersionHeader },
@@ -139,7 +139,7 @@ public sealed class GhCliTransportTests
         await gh.Transport().SendAsync(
             HttpMethod.Get,
             "users/jsdotnet/settings/billing/ai_credit/usage",
-            apiVersion: "  2026-03-10  ");
+            apiVersion: "  2026-03-10  ", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("X-GitHub-Api-Version: 2026-03-10", gh.OnlyCall[5]);
     }
@@ -149,7 +149,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Answers("{}");
 
-        await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", apiVersion: "   ");
+        await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", apiVersion: "   ", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(DefaultVersionHeader, gh.OnlyCall[5]);
     }
@@ -161,7 +161,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Answers("{}");
 
-        await gh.Transport().SendAsync(HttpMethod.Get, "/repos/octo/demo");
+        await gh.Transport().SendAsync(HttpMethod.Get, "/repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("repos/octo/demo", gh.OnlyCall[3]);
     }
@@ -174,7 +174,7 @@ public sealed class GhCliTransportTests
         await gh.Transport().SendAsync(
             HttpMethod.Post,
             "repos/octo/demo/issues",
-            new { IssueTitle = "Ship it" });
+            new { IssueTitle = "Ship it" }, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             new[]
@@ -198,7 +198,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Fails(1, "gh: Not Found (HTTP 404)");
 
         var exception = await Assert.ThrowsAsync<GitHubException>(() =>
-            gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo"));
+            gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("gh: Not Found (HTTP 404)", exception.Message);
     }
@@ -212,7 +212,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Fails();
 
         var exception = await Assert.ThrowsAsync<GitHubException>(() =>
-            gh.Transport().SendAsync(HttpMethod.Delete, "/repos/octo/demo/issues/7"));
+            gh.Transport().SendAsync(HttpMethod.Delete, "/repos/octo/demo/issues/7", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("The GitHub CLI failed on DELETE /repos/octo/demo/issues/7.", exception.Message);
     }
@@ -223,7 +223,7 @@ public sealed class GhCliTransportTests
         using var gh = new GhStub().Answers("Welcome to GitHub CLI!");
 
         var exception = await Assert.ThrowsAsync<GitHubException>(() =>
-            gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo"));
+            gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("The GitHub CLI returned something that wasn't JSON.", exception.Message);
         Assert.IsAssignableFrom<JsonException>(exception.InnerException);
@@ -236,7 +236,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub();
 
-        var result = await gh.Transport().SendAsync(HttpMethod.Delete, "repos/octo/demo/issues/7");
+        var result = await gh.Transport().SendAsync(HttpMethod.Delete, "repos/octo/demo/issues/7", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(JsonValueKind.Null, result.ValueKind);
     }
@@ -246,7 +246,7 @@ public sealed class GhCliTransportTests
     {
         using var gh = new GhStub().Answers("""{"number":7,"title":"Ship it"}""");
 
-        var result = await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo/issues/7");
+        var result = await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo/issues/7", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(7, result.GetProperty("number").GetInt32());
         Assert.Equal("Ship it", result.GetProperty("title").GetString());

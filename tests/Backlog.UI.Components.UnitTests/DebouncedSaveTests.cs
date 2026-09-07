@@ -39,7 +39,7 @@ public sealed class DebouncedSaveTests
         var clock = System.Diagnostics.Stopwatch.StartNew();
 
         save.Touch();
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
         save.Touch();
 
         await WaitForAsync(save, SaveState.Saved);
@@ -61,7 +61,7 @@ public sealed class DebouncedSaveTests
         Assert.Equal(1, saves);
 
         // The debounced save that was in flight must not land on top of it.
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.Equal(1, saves);
     }
 
@@ -99,7 +99,7 @@ public sealed class DebouncedSaveTests
 
         save.Touch();
         save.Dispose();
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, saves);
         Assert.Throws<ObjectDisposedException>(save.Touch);

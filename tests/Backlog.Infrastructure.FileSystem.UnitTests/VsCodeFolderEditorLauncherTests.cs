@@ -182,7 +182,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
         var launcher = new VsCodeFolderEditorLauncher(() => null, NeverStarted);
 
         var error = await Assert.ThrowsAsync<FolderEditorLaunchException>(
-            () => launcher.OpenFolderAsync(TempDir()));
+            () => launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken));
 
         Assert.Contains("BACKLOG_VSCODE_CLI", error.Message, StringComparison.Ordinal);
     }
@@ -195,7 +195,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
             (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: true, ExitCode: 9009)));
 
         var error = await Assert.ThrowsAsync<FolderEditorLaunchException>(
-            () => launcher.OpenFolderAsync(TempDir()));
+            () => launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken));
 
         Assert.Contains("9009", error.Message, StringComparison.Ordinal);
     }
@@ -207,7 +207,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
             () => ToolsExecutable,
             (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: true, ExitCode: 0)));
 
-        await launcher.OpenFolderAsync(TempDir());
+        await launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
             () => ToolsExecutable,
             (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: false, ExitCode: 0)));
 
-        await launcher.OpenFolderAsync(TempDir());
+        await launcher.OpenFolderAsync(TempDir(), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
                 return Task.FromResult(new VsCodeLaunchOutcome(Exited: false, ExitCode: 0));
             });
 
-        await launcher.OpenFolderAsync(folder);
+        await launcher.OpenFolderAsync(folder, TestContext.Current.CancellationToken);
 
         Assert.NotNull(started);
         Assert.Equal(ToolsExecutable, started!.FileName);
@@ -246,7 +246,7 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
         var missing = Path.Combine(TempDir(), "not-there");
         var launcher = new VsCodeFolderEditorLauncher(() => ToolsExecutable, NeverStarted);
 
-        await Assert.ThrowsAsync<FolderEditorLaunchException>(() => launcher.OpenFolderAsync(missing));
+        await Assert.ThrowsAsync<FolderEditorLaunchException>(() => launcher.OpenFolderAsync(missing, TestContext.Current.CancellationToken));
     }
 
     [Fact]

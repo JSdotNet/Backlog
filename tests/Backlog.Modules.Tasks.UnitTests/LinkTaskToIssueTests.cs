@@ -28,10 +28,10 @@ public class LinkTaskToIssueTests
         var store = new InMemoryTaskRepository();
         var entry = new TaskItem("Ship it", string.Empty, EntryType.Task);
         entry.SetRepoIds(["JSdotNet/Backlog", "JSdotNet/Docs"]);
-        await store.SaveAsync(entry);
+        await store.SaveAsync(entry, TestContext.Current.CancellationToken);
 
         var result = await new LinkTaskToIssueCommandHandler(store)
-            .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"));
+            .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], result.Value.RepoIds!);
@@ -46,10 +46,10 @@ public class LinkTaskToIssueTests
         var store = new InMemoryTaskRepository();
         var entry = new TaskItem("Ship it", string.Empty, EntryType.Task);
         entry.SetRepoIds(["JSdotNet/Backlog"]);
-        await store.SaveAsync(entry);
+        await store.SaveAsync(entry, TestContext.Current.CancellationToken);
 
         var result = await new LinkTaskToIssueCommandHandler(store)
-            .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"));
+            .Handle(new LinkTaskToIssueCommand(entry.Id, "JSdotNet/Docs", "42", "issue"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], result.Value.RepoIds!);
@@ -63,10 +63,10 @@ public class LinkTaskToIssueTests
         var store = new InMemoryTaskRepository();
         var entry = new TaskItem("Ship it", string.Empty, EntryType.Task);
         entry.SetRepoIds(["JSdotNet/Backlog"]);
-        await store.SaveAsync(entry);
+        await store.SaveAsync(entry, TestContext.Current.CancellationToken);
 
         var result = await new LinkTaskToIssueCommandHandler(store)
-            .Handle(new LinkTaskToIssueCommand(entry.Id, "jsdotnet/backlog", "42", "issue"));
+            .Handle(new LinkTaskToIssueCommand(entry.Id, "jsdotnet/backlog", "42", "issue"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(["JSdotNet/Backlog"], result.Value.RepoIds!);

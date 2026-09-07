@@ -44,7 +44,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
 
         Write(repository, "docs/nested/domain.md", "# Title\r\nedited in the working tree");
 
-        var result = await _service.ReadAtHeadAsync(file);
+        var result = await _service.ReadAtHeadAsync(file, TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.Committed, result.State);
         Assert.Equal(committed, result.Content);
@@ -57,7 +57,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
         Write(repository, "committed.md", "anything");
         Commit(repository, "first commit");
 
-        var result = await _service.ReadAtHeadAsync(Write(repository, "brand-new.md", "never committed"));
+        var result = await _service.ReadAtHeadAsync(Write(repository, "brand-new.md", "never committed"), TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.NotTracked, result.State);
         Assert.Null(result.Content);
@@ -72,7 +72,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
 
         Write(repository, "empty.md", "somebody typed something");
 
-        var result = await _service.ReadAtHeadAsync(file);
+        var result = await _service.ReadAtHeadAsync(file, TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.Committed, result.State);
         Assert.Equal(string.Empty, result.Content);
@@ -81,7 +81,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
     [Fact]
     public async Task A_repository_with_no_commits_has_nothing_to_compare_against()
     {
-        var result = await _service.ReadAtHeadAsync(Write(NewRepository(), "first.md", "not committed yet"));
+        var result = await _service.ReadAtHeadAsync(Write(NewRepository(), "first.md", "not committed yet"), TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.NotTracked, result.State);
     }
@@ -91,9 +91,9 @@ public sealed class GitFileHistoryServiceTests : IDisposable
     {
         var directory = NewDirectory();
         var file = Path.Combine(directory, "loose.md");
-        await File.WriteAllTextAsync(file, "not under version control");
+        await File.WriteAllTextAsync(file, "not under version control", TestContext.Current.CancellationToken);
 
-        var result = await _service.ReadAtHeadAsync(file);
+        var result = await _service.ReadAtHeadAsync(file, TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.NotARepository, result.State);
         Assert.False(string.IsNullOrWhiteSpace(result.Message));
@@ -102,7 +102,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
     [Fact]
     public async Task A_path_whose_folder_does_not_exist_is_not_a_repository_either()
     {
-        var result = await _service.ReadAtHeadAsync(Path.Combine(NewDirectory(), "gone", "missing.md"));
+        var result = await _service.ReadAtHeadAsync(Path.Combine(NewDirectory(), "gone", "missing.md"), TestContext.Current.CancellationToken);
 
         Assert.Equal(GitFileAtRevisionState.NotARepository, result.State);
     }
@@ -110,7 +110,7 @@ public sealed class GitFileHistoryServiceTests : IDisposable
     [Fact]
     public async Task A_blank_path_is_the_caller_getting_it_wrong_rather_than_a_state()
     {
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.ReadAtHeadAsync("   "));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.ReadAtHeadAsync("   ", TestContext.Current.CancellationToken));
     }
 
     private string NewDirectory()

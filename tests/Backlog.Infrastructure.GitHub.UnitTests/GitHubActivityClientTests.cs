@@ -27,7 +27,7 @@ public class GitHubActivityClientTests
             .Returns("/reviews", "[]");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(1, pull.Number);
@@ -46,7 +46,7 @@ public class GitHubActivityClientTests
             .Returns("/reviews", "[]");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(2, pull.Number);
@@ -72,7 +72,7 @@ public class GitHubActivityClientTests
             .Returns("/timeline", "[]");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(2, pull.ReviewRounds);
@@ -93,7 +93,7 @@ public class GitHubActivityClientTests
             .Returns("/reviews", "[]");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Null(pull.FirstReviewedAt);
@@ -130,7 +130,7 @@ public class GitHubActivityClientTests
             .Returns("/commits/ccc", """{ "files": [ { "filename": "new.cs" } ] }""");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(2, pull.CommitsAfterFirstReview);
@@ -169,7 +169,7 @@ public class GitHubActivityClientTests
             .Returns("/timeline", "[]");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         Assert.Equal(1, Assert.Single(activity.PullRequests).CommitsAfterFirstReview);
     }
@@ -197,7 +197,7 @@ public class GitHubActivityClientTests
             .Returns("/commits/", """{ "files": [ { "filename": "a.cs" } ] }""");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.False(pull.ChurnComplete);
@@ -222,7 +222,7 @@ public class GitHubActivityClientTests
             .Refuses("/timeline");
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(1, pull.CommitsAfterFirstReview);
@@ -247,7 +247,7 @@ public class GitHubActivityClientTests
                 """);
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         var issue = Assert.Single(activity.Issues);
         Assert.Equal(10, issue.Number);
@@ -269,7 +269,7 @@ public class GitHubActivityClientTests
                 """);
 
         var activity = await new GitHubActivityClient(transport)
-            .GetActivityAsync(Repository, From, To, "jsdotnet");
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         Assert.Empty(activity.Issues);
     }
@@ -279,7 +279,7 @@ public class GitHubActivityClientTests
     {
         var transport = new RoutingTransport().Returns("/pulls?", "[]").Returns("/issues?", "[]");
 
-        _ = await new GitHubActivityClient(transport).GetActivityAsync(Repository, From, To, "jsdotnet");
+        _ = await new GitHubActivityClient(transport).GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(transport.ApiVersions);
         Assert.All(transport.ApiVersions, version => Assert.Null(version));
@@ -289,7 +289,7 @@ public class GitHubActivityClientTests
     public async Task An_unreachable_transport_explains_itself_rather_than_throwing()
     {
         var availability = await new GitHubActivityClient(new RoutingTransport { Available = false })
-            .GetAvailabilityAsync();
+            .GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.False(availability.IsAvailable);
         Assert.Contains("gh auth login", availability.Reason, StringComparison.Ordinal);

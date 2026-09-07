@@ -98,7 +98,7 @@ public sealed class GraphAtlasTests
     }
 
     [Fact]
-    public void A_pick_on_the_canvas_becomes_the_selection()
+    public async Task A_pick_on_the_canvas_becomes_the_selection()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -109,7 +109,7 @@ public sealed class GraphAtlasTests
             .Add(a => a.Nodes, Nodes())
             .Add(a => a.SelectedIdChanged, EventCallback.Factory.Create<string?>(this, value => selected = value)));
 
-        atlas.Instance.NodePicked("b").GetAwaiter().GetResult();
+        await atlas.Instance.NodePicked("b");
 
         Assert.Equal("b", selected);
     }
@@ -118,7 +118,7 @@ public sealed class GraphAtlasTests
     /// Without this, telling it echoes straight back as a pick and the two sides
     /// bounce a selection between them.</summary>
     [Fact]
-    public void A_pick_on_what_is_already_selected_is_not_reported_again()
+    public async Task A_pick_on_what_is_already_selected_is_not_reported_again()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -130,7 +130,7 @@ public sealed class GraphAtlasTests
             .Add(a => a.SelectedId, "b")
             .Add(a => a.SelectedIdChanged, EventCallback.Factory.Create<string?>(this, _ => raised++)));
 
-        atlas.Instance.NodePicked("b").GetAwaiter().GetResult();
+        await atlas.Instance.NodePicked("b");
 
         Assert.Equal(0, raised);
     }

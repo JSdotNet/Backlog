@@ -47,7 +47,7 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
         host.Dispose();
         var afterDisposal = changes;
 
-        await Task.Delay(1500);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
 
         Assert.Null(row.Id);
         Assert.Equal(afterDisposal, changes);
@@ -72,7 +72,7 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
 
         state.Dispose();
 
-        await Task.Delay(1500);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, changes);
     }
@@ -95,10 +95,10 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
 
         // Right up against the 750 ms, so the disposal and the callback are
         // racing rather than comfortably ordered.
-        await Task.Delay(700);
+        await Task.Delay(700, TestContext.Current.CancellationToken);
         state.Dispose();
 
-        await Task.Delay(1500);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
 
         Assert.Null(row.Id);
     }
@@ -143,7 +143,7 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
             await state.EndEditAsync(row);
         }
 
-        await Task.Delay(1200);
+        await Task.Delay(1200, TestContext.Current.CancellationToken);
 
         foreach (var row in rows)
         {
@@ -176,7 +176,7 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
         context.Dispose();
         var afterDisposal = changes;
 
-        await Task.Delay(1500);
+        await Task.Delay(1500, TestContext.Current.CancellationToken);
 
         Assert.Null(row.Id);
         Assert.Equal(afterDisposal, changes);
