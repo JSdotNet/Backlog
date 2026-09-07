@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- The wire contracts these tests build documents from. Referenced directly
+         rather than leaned on transitively through the adapter: a TaskChange is a
+         first-class input here, and a reference that says so cannot be removed by
+         a change to the adapter's own. -->
+    <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Cosmos\Backlog.Infrastructure.Cosmos.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The registration extension branches on the host environment, so the
+         cases that pin it need a real host builder to hand it. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+</Project>

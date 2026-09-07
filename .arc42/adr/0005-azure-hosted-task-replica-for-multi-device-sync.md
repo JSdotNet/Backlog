@@ -8,9 +8,10 @@ issue: null
 
 ## Status
 
-Accepted. The cloud side is still unbuilt — this records the direction, the scope
-it covers, and the questions it deliberately leaves open — but the two things that
-had to be true before it could be accepted are true.
+Accepted, and the task half of the cloud side is built — the note below says how
+far, and what it deliberately does not cover. The rest is still unbuilt, and what
+follows records the direction, the scope it covers, and the questions it leaves
+open. The two things that had to be true before it could be accepted are true.
 
 **The prerequisite it named is discharged.** `updated_at` and `deleted_at` are
 columns on the `tasks` table now, added by the guarded additive `ALTER TABLE` local
@@ -24,6 +25,55 @@ screen no longer advises pointing the workspace root at a synced folder; it says
 the backlog is one SQLite database and to keep it on a local disk. The old copy is
 still quoted under **Context** because it is why the loss happened, not because it
 is still on screen.
+
+> **Implemented, 2026-09-07 — the task half, and not the whole of this record.**
+> `Backlog.Modules.Sync.Api` reads and writes the Cosmos `tasks` container
+> through a new adapter project, `Backlog.Infrastructure.Cosmos`, which holds the
+> SDK dependency and implements a port the Sync module declares. The two
+> operations the **Compute** table names for tasks exist and no more:
+> `POST /api/sync/tasks` pushes the documents a device changed since its
+> watermark, `GET /api/sync/tasks?since={token}` pulls the change feed from a
+> cursor. The three `/api/sync/inbox` routes keep their exact request and
+> response shapes and are served from the same container, so a capture is a task
+> document as **Scope** says it should be and the in-memory stand-in is deleted;
+> an ack clears the capture's source rather than writing a tombstone, because
+> under whole-document last-write-wins a tombstone would delete that task on
+> every device. On the device side, `TaskSyncSession` drives the exchange,
+> `TaskReplicaMerge` is the single place the replica overwrites local canonical
+> data, and a file-backed store holds the push watermark and the pull cursor —
+> not in `backlog.db`, which local ADR 0006 warns against growing, and not in
+> workspace settings, which live under the root whose syncing is the whole
+> hazard.
+>
+> **The `since` token is not a Cosmos continuation**, and that is a security
+> decision rather than an encapsulation one. Every `ChangeFeedStartFrom` factory
+> in the v3 SDK takes a `FeedRange` except `ContinuationToken`, where the range
+> is embedded in the token — so a continuation minted for one owner and replayed
+> by another reads the first owner's partition, which per **Identity** below is
+> exactly what the account-scoped managed identity will not stop. Devices are
+> given an HMAC-signed cursor carrying the owner instead, verified against the
+> caller before the replica is touched, and the port accepts only a cursor type
+> that carries a verified owner, so an unchecked one cannot reach the adapter.
+>
+> **Built is not in service.** Nothing has been provisioned in Azure; the
+> resource group, the OIDC federated credential and the budget alert **Deployment**
+> assumes are deliberate manual prerequisites and are still outstanding
+> (`.arc42/07-deployment-view.md#provisioning-and-delivery`). The desktop half is
+> a `Dev`-status feature flag that is off by default. The
+> Cosmos path is proven against the emulator by QA rather than by the unit suite,
+> which runs on an in-memory replica.
+>
+> **Not built, and not to be read into the above.** Session records do not sync:
+> `POST` and `GET /sync/sessions` do not exist, and nothing reads the `sessions`
+> container the AppHost and the Bicep both declare. Neither does the sparse rank
+> key or the `NormalizeOrderAsync` trigger fix under **Manual rank**,
+> attachments, or the local tombstone reaper the open questions leave open.
+> Device registrations and pairing codes are still the in-memory adapters the
+> **Identity** note describes, so the registry does not survive a restart. The
+> 180-day tombstone TTL is stamped per document, and **it cannot be verified
+> locally at all** — the Cosmos emulator does not honour TTL, so that number is
+> deployed-only behaviour rather than something a test or a QA run here has
+> shown.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0005 (modular monolith structure) under `.arc42/adr/guidelines/`.
@@ -52,10 +102,10 @@ leave the two channels that most need it exactly where they are.
   append-only, and cut back to the sanitization boundary stated under **Session
   records** below.
 - **The phone's captures.** The one path the sync service already carries.
-  `Backlog.Modules.Sync.Api.SyncStore` is an in-memory TTL dictionary standing in
+  `Backlog.Modules.Sync.Api.SyncStore` was an in-memory TTL dictionary standing in
   for a durable store; a capture is a task in the making, so it becomes a task
   document in the `tasks` container rather than a third shape with a store of its
-  own, and the in-memory stand-in retires with it.
+  own, and the in-memory stand-in retired with it on 2026-09-07.
 
 **Four things stay out, and stay out deliberately:**
 
@@ -110,9 +160,10 @@ serve through the cloud tier rather than through the file system.
 to the conflict policy — *"Optional cloud sync for multi-device. Conflict
 resolution: new items always create; edits are last-write-wins"* — and
 `.arc42/07-deployment-view.md#cloud-deployment-azure` already names Cosmos DB as
-the cloud data store. None of it was ever built for tasks. The only sync code
-that exists, `Backlog.Modules.Sync.Api.SyncStore`, is an in-memory TTL dictionary
-carrying mobile inbox captures.
+the cloud data store. None of it had ever been built for tasks. The only
+sync code that existed when this was written,
+`Backlog.Modules.Sync.Api.SyncStore`, was an in-memory TTL dictionary carrying
+mobile inbox captures. What has since replaced it is under **Status**.
 
 **Three standing constraints bound the answer**, and a naive reading of "host the
 task database on Azure" breaks all three. `.arc42/02-constraints.md` requires
@@ -131,7 +182,8 @@ written, the `tasks` table carried `created_at` and no modification timestamp, a
 last-write-wins is not expressible without one — no sync design of any shape could
 proceed until the aggregate could say when it last changed. It can now: `updated_at`
 and `deleted_at` were added additively and the existing rows were seeded, exactly as
-local ADR 0006 requires. That is the only part of this record that is built.
+local ADR 0006 requires. When this record was accepted that was the only part of it
+that was built; the note under **Status** says what has been built since.
 
 ## Decision
 
@@ -652,9 +704,10 @@ Neutral:
 - Retention stops being something anybody writes. Both numbers — 180 days for task
   tombstones, 12 months for session records — are container TTL settings, so the
   open question this record used to carry about tombstone retention is closed.
-- `Backlog.Modules.Sync.Api.SyncStore` retires. It was always described in its own
-  doc comment as an in-memory stand-in for a TTL-backed store; the `tasks` container
-  is that store, and the capture path is the first thing to reach it.
+- `Backlog.Modules.Sync.Api.SyncStore` has retired — deleted 2026-09-07. It was
+  always described in its own doc comment as an in-memory stand-in for a TTL-backed
+  store; the `tasks` container is that store, and the capture path was the first
+  thing to reach it.
 - `0` stops meaning "never ranked". The current read leans on it — unranked rows
   share the default, sort ahead of ranked ones and fall back to recency
   (`SqliteTaskRepository.cs:179`) — so the sparse key needs its own answer for a

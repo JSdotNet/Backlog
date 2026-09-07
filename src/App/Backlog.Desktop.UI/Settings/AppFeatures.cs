@@ -106,6 +106,12 @@ public static class AppFeatures
             "Pair this device with the cloud sync service and keep a short-lived token for it.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
+        new(
+            SyncFeatures.TaskSync,
+            "Task sync",
+            "Push this machine's task changes to the cloud replica and pull back what the other devices changed.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

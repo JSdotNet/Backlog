@@ -46,14 +46,31 @@ Exporter endpoints come from environment variables, never from code.
   is.
 - Locally the Aspire dashboard is the trace and log surface; the Aspire MCP
   server reads the same signals during QA.
+- **The Sync module owns its own signal**, in the organization's shape:
+  `src/Modules/Sync/Backlog.Modules.Sync/Observability/SyncTelemetry.cs` declares
+  one `ActivitySource` and one `Meter`, both named `Backlog.Modules.Sync` — for
+  the module rather than for the host, so the signal reads the same whichever
+  process the handlers end up in — and `Backlog.Modules.Sync.Api` opts in with
+  `AddSource` / `AddMeter`. Custom attributes carry the `backlog.sync.` prefix
+  the rule asks for. The owner and device ids go on spans only and never on a
+  metric: a tag whose cardinality is one per person is a bill rather than a
+  dimension.
+- **Database calls arrive through the client integration**, for the one store
+  that has one. `Backlog.Infrastructure.Cosmos` registers its client with
+  `AddAzureCosmosClient`, and the Aspire integration wires that client's
+  OpenTelemetry up with it rather than the adapter instrumenting anything by
+  hand. The local SQLite store is reached through `Microsoft.Data.Sqlite`
+  directly and has no equivalent.
 
 ## Deviations and gaps
 
-- **No module owns telemetry yet.** The organization's shape — an
-  `Observability/` folder per module with its own `ActivitySource` and counters —
-  does not exist here. Instrumentation is what the libraries provide plus
-  nothing.
-- No custom activities around handlers, and no business metrics.
+- **Only one module owns telemetry.** Sync has its `Observability/` folder; no
+  other module does, and instrumentation everywhere else is what the libraries
+  provide plus nothing.
+- Custom activities and metrics exist for the two task-sync operations only —
+  `sync.push_tasks`, `sync.pull_tasks`, and the `backlog.sync.cursor_rejected`
+  counter tagged by the reason a cursor was refused. No handler outside the Sync
+  module starts an activity, and no business KPI is counted anywhere.
 - `IActivitySource` in `Backlog.Modules.Dashboard.Abstractions` is **not**
   OpenTelemetry: it is a domain port over sources of developer activity, such as
   GitHub. The name collision is unfortunate; do not wire one to the other.

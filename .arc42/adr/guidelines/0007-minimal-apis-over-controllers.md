@@ -33,13 +33,30 @@ New HTTP APIs are Minimal APIs. Controllers are not used.
   Minimal API: `app.MapGroup("/api/sync")` with `MapGet` / `MapPost` and
   `Results.Ok` / `Created` / `NoContent` / `NotFound`.
 - There is no controller anywhere in the solution, and no MVC dependency.
+- **The lambdas delegate.** Every route in `Endpoints/` maps its payload onto a
+  command or query and hands it to an `ICommandHandler` / `IQueryHandler`
+  resolved from DI — `PushTasks`, `PullTasks`, `ListInbox`, `CaptureInboxItem`,
+  `AcknowledgeInboxItem`, and the five device slices. Turning a `Result` into a
+  response is the other half, and it happens in one place,
+  `Endpoints/SyncResults.cs`.
+- **Cross-cutting concerns are endpoint filters**, registered with
+  `AddEndpointFilter<T>()` on the group rather than per route.
+  `Security/OwnerScopeFilter` resolves whose data a request is about before the
+  endpoint runs; `Endpoints/ReplicaFaultFilter` turns the two faults the task
+  replica raises as exceptions into the same problem body every other failure
+  gets.
 
 ## Deviations and gaps
 
-- OpenAPI and Scalar are not wired up. The sync surface is three endpoints
-  consumed by first-party clients; the moment a second consumer appears, or the
-  surface grows, `AddOpenApi()` / `MapOpenApi()` / `MapScalarApiReference()`
-  should be added.
-- No endpoint filters and no edge validation yet — the endpoints take primitives
-  and a `CaptureRequest` record and trust them.
-- Endpoints call `SyncStore` directly instead of delegating to a handler.
+- **Scalar is not wired up.** `AddOpenApi()` and `MapOpenApi()` are — the
+  document is served in Development only, because a deployed sync service has no
+  reason to publish a map of its surface anonymously — and
+  `MapScalarApiReference()` is what is still missing. The surface is ten routes
+  under `/api/sync` now rather than the three this bullet was written against,
+  so "first-party clients need no UI" is a thinner argument than it was.
+- **Edge validation is written inline rather than as a filter.** The rule asks
+  for the shallow checks in an endpoint filter; `InboxEndpoints` refuses an empty
+  or oversized capture and `TaskSyncEndpoints` refuses an oversized push batch,
+  both in the endpoint method itself. Each returns the `400` the rule asks for
+  and neither reaches a handler, so what deviates is the placement rather than
+  the check.

@@ -30,10 +30,11 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// headings become nested sub-items with the same metadata as <c>##</c> chapters.
 /// </para>
 /// <para>
-/// Deliberately independent from <c>Backlog.Infrastructure.FileSystem.EnumMap</c> (internal to
-/// that assembly): the tokens here are the human-typed vocabulary shown in the
-/// UI (e.g. <c>idea</c>, <c>in-progress</c>), normalized the same way
-/// (case/space/hyphen/underscore-insensitive) so any spelling is recognized.
+/// Deliberately independent from <see cref="EnumMap"/>, which sits beside it: the
+/// tokens here are the human-typed vocabulary shown in the UI (e.g. <c>idea</c>,
+/// <c>in-progress</c>), normalized the same way
+/// (case/space/hyphen/underscore-insensitive) so any spelling is recognized,
+/// while that one is the canonical form a store or the wire holds.
 /// </para>
 /// </summary>
 public static class EntryTextParser

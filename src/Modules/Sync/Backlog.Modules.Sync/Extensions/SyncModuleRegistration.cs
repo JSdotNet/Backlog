@@ -1,8 +1,13 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
+using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
+using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Features.DescribeOwner;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
+using Backlog.Modules.Sync.Features.ListInbox;
+using Backlog.Modules.Sync.Features.PullTasks;
+using Backlog.Modules.Sync.Features.PushTasks;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Ports;
@@ -37,6 +42,12 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<IssueDeviceTokenCommand, Result<DeviceTokenResponse>>, IssueDeviceTokenCommandHandler>();
         services.AddScoped<IQueryHandler<DescribeOwnerQuery, Result<DeviceStatusResponse>>, DescribeOwnerQueryHandler>();
 
+        services.AddScoped<ICommandHandler<PushTasksCommand, Result<PushTasksResponse>>, PushTasksCommandHandler>();
+        services.AddScoped<IQueryHandler<PullTasksQuery, Result<PullTasksResponse>>, PullTasksQueryHandler>();
+        services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
+        services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<InboxItem>>, CaptureInboxItemCommandHandler>();
+        services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
+
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
         services.TryAddSingleton<IRegistrationCredentialGenerator, RandomRegistrationCredentialGenerator>();
@@ -49,6 +60,7 @@ public static class SyncModuleRegistration
         // meant to be one line rather than a fork of this method.
         services.TryAddSingleton<IDeviceRegistry, InMemoryDeviceRegistry>();
         services.TryAddSingleton<IPairingCodeStore, InMemoryPairingCodeStore>();
+        services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
 
         return services;
     }
