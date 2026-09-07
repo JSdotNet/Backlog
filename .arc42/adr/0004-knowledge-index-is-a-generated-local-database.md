@@ -277,6 +277,14 @@ database beside the folders travels with them; one in the workspace root would b
 a second place that can disagree about a repository the workspace does not
 control.
 
+This rule is about the **derived** layer, and local ADR 0008 states its limit
+rather than breaking it. A branch snapshot does sit in the workspace root, and
+has to: it exists precisely where the repository was never cloned, so there are
+no folders for it to sit beside. It also cannot disagree with them, because it is
+a verbatim copy of a named commit rather than a derivation of local content that
+could drift from it. See
+`0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
+
 ### Archify moves its index and nothing else
 
 Each folder's `_archify/index.json` becomes rows: chapter, ordinal, fence hash,

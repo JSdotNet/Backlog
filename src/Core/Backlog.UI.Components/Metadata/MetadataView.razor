@@ -206,7 +206,21 @@
     /// rather than the looser <c>Recognises</c>, and why is recorded there: a
     /// browser matches a select's value against its options literally.</para>
     /// </summary>
-    private bool StatusIsSelectable => Vocabulary.Selectable(_status);
+    /// <summary>
+    /// Whether the reader may change the status, as opposed to only read it.
+    /// <para>
+    /// A surface that cannot accept the change sets this false and gets the
+    /// badge — the status is still stated, because it is part of what the
+    /// chapter says, and only the means of altering it goes away. A knowledge
+    /// folder read from a repository branch is the case this exists for: the
+    /// file is a copy of a commit, so a select would offer an edit that the next
+    /// fetch would discard.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool CanEditStatus { get; set; } = true;
+
+    private bool StatusIsSelectable => CanEditStatus && Vocabulary.Selectable(_status);
 
     /// <summary>The options the vocabulary offers, in the order it lists them —
     /// its words, led by an explicit "no status" entry on a surface that allows

@@ -88,6 +88,7 @@
             <MetadataFileView Metadata="@Metadata"
                               Vocabulary="@Vocabulary"
                               ShowFields="false"
+                              CanEditStatus="@CanEditStatus"
                               OnStatusChanged="@OnStatusChanged"
                               OnNavigate="@OnNavigate"
                               HrefFor="@HrefFor"
@@ -383,6 +384,12 @@
     /// and reports it as the change it is.</summary>
     [Parameter]
     public EventCallback<string?> OnStatusChanged { get; set; }
+
+    /// <summary>Whether the file's status may be changed here. False draws the
+    /// static badge in place of the select — the status is still stated, only
+    /// the means of altering it goes away.</summary>
+    [Parameter]
+    public bool CanEditStatus { get; set; } = true;
 
     /// <summary>Raised with the reference a reader activated in the record.</summary>
     [Parameter]

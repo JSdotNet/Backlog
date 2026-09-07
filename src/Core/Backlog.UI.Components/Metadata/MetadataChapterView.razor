@@ -42,6 +42,7 @@
 <MetadataView Metadata="@Metadata"
               Vocabulary="@Vocabulary"
               ShowFields="@ShowFields"
+              CanEditStatus="@CanEditStatus"
               OnStatusChanged="@OnStatusChanged"
               OnNavigate="@OnNavigate"
               HrefFor="@HrefFor"
@@ -88,6 +89,12 @@
     /// back as rows.</summary>
     [Parameter]
     public bool ShowFields { get; set; } = true;
+
+    /// <summary>Whether the status may be changed here. Forwarded verbatim to
+    /// <see cref="MetadataView.CanEditStatus"/>, which draws the static badge
+    /// instead of the select when it is false.</summary>
+    [Parameter]
+    public bool CanEditStatus { get; set; } = true;
 
     /// <summary>The group's name for a screen reader. Defaulted to the record's own
     /// default rather than to something this component prefers: a chapter in a

@@ -4478,6 +4478,47 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The source the sections are read from, leading the strip. It wears the update
+   toggle's shape rather than a field's: on this row it is a quiet pill beside
+   the tabs, not a form control, and a bordered input here would out-shout the
+   tabs it qualifies. Sized to its content and never allowed to squeeze the tabs,
+   with a ceiling so a long branch name truncates instead of taking the row. */
+.knowledge-stack__source {
+    flex: 0 0 auto;
+    align-self: center;
+    max-width: 12rem;
+    min-width: 0;
+}
+
+.knowledge-stack__source-select {
+    max-width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.knowledge-stack__source-select:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+}
+
+.knowledge-stack__source-select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.knowledge-stack__source-error {
+    flex: 0 0 auto;
+    align-self: center;
+    font-size: var(--font-size-xs);
+}
+
 .knowledge-stack__repositories,
 .knowledge-stack__nav {
     flex: 0 0 auto;

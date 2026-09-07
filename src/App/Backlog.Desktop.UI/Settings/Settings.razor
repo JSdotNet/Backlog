@@ -37,6 +37,10 @@
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
+@* Said in writing, which is the rule this project's _Imports.razor states for
+   reaching into a context. The knowledge-source control is Second Brain's, and
+   this screen offers the same one its pane does rather than a second copy. *@
+@using Backlog.Desktop.UI.Knowledge
 @* Sync's published surface, for the feature key the Devices tab is gated on
    and the pairing-code format the panel displays a code in. *@
 @using Backlog.Modules.Sync.Abstractions
@@ -59,6 +63,7 @@
 @inject ILocalGitRepositoryService LocalGit
 @inject ClaudeSettingsStore Claude
 @inject IKnowledgeFolderSource KnowledgeFolders
+@inject KnowledgeSourceSelection KnowledgeSource
 @* The two sync collaborators are read off this rather than injected; see the
    Devices section of the code block for why. *@
 @inject IServiceProvider Services
@@ -498,6 +503,35 @@
                         yourself.
                     </p>
 
+                </div>
+
+                @* Not inside the storage folder, and deliberately: a snapshot is a
+                   disposable copy of a commit that can always be fetched again,
+                   so it has no business in a folder people back up or sync. It is
+                   a setting rather than a constant because a machine with a small
+                   system drive and a large one for work is an ordinary machine. *@
+                <div class="knowledge-folders" data-testid="knowledge-cache-settings">
+                    <h3 class="knowledge-folders__title">Branch snapshot folder</h3>
+                    <p class="setting__note">
+                        Where knowledge fetched from a repository branch is cached. Clear it to return to the
+                        default. Changing this leaves the old folder alone; the new one refills on the next fetch.
+                    </p>
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Snapshot folder"
+                               Id="knowledge-cache-directory"
+                               data-testid="knowledge-cache-directory-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="@Store.DefaultKnowledgeCacheDirectory"
+                               Value="@_draftKnowledgeCacheDirectory"
+                               ValueChanged="value => _draftKnowledgeCacheDirectory = value"
+                               @onchange="ApplyKnowledgeCacheDirectory" />
+                    <p class="setting__status" data-testid="knowledge-cache-status" role="status">
+                        <span>Snapshots: <code>@Store.KnowledgeCacheDirectory</code></span>
+                    </p>
+                    <Alert Message="@_knowledgeCacheError" TestId="knowledge-cache-error" />
                 </div>
 
                 <div class="knowledge-folders" data-testid="storage-knowledge-folder-settings">
@@ -1127,6 +1161,42 @@
                                     </AppButton>
                                 </div>
 
+                                @* Where this repository's knowledge is read from.
+                                   One control for what is stored as two settings:
+                                   the branch travels with the workspace, the
+                                   decision to read the clone instead is this
+                                   machine's, and nobody choosing between them
+                                   thinks of that as two questions. *@
+                                <div class="repo-card__section" data-testid="repo-knowledge-source">
+                                    <h4 class="knowledge-folders__title">Knowledge source</h4>
+                                    @* Keyed for the reason the pane's copy is:
+                                       loading the branch list has to rebuild the
+                                       control, or the browser keeps the value of
+                                       the entry that triggered the load and shows
+                                       a branch nobody selected. *@
+                                    <SelectField @key="@($"{activeRepo.Alias}:{KnowledgeSource.HasBranches(activeRepo.Alias)}")"
+                                                 LabelCssClass="setting__label"
+                                                 SelectCssClass="setting__input"
+                                                 Label="Read knowledge from"
+                                                 Id="@($"knowledge-source-{activeRepo.Alias}")"
+                                                 TestId="repo-knowledge-source-select"
+                                                 CurrentValue="@KnowledgeSource.CurrentValue(activeRepo.Alias)"
+                                                 Options="@KnowledgeSource.Options(activeRepo.Alias)"
+                                                 OnChanged="value => ApplyKnowledgeSourceAsync(activeRepo, value)" />
+                                    <p class="setting__status" data-testid="repo-knowledge-source-status" role="status">
+                                        @KnowledgeSource.Summary(activeRepo.Alias)
+                                    </p>
+                                    <div class="setting__actions">
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   data-testid="repo-knowledge-branches-button"
+                                                   Disabled="@_loadingBranches"
+                                                   OnClick="() => LoadBranchesAsync(activeRepo)">
+                                            @(_loadingBranches ? "Loading branches..." : "Load branches")
+                                        </AppButton>
+                                    </div>
+                                    <Alert Message="@_branchError" TestId="repo-knowledge-branches-error" />
+                                </div>
+
                                 @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
                                 {
                                     <div class="repo-card__section" data-testid="repo-github-access">
@@ -1696,6 +1766,10 @@
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+
+        // Blank while it is the default, so the placeholder is what explains
+        // where snapshots go rather than a path nobody typed.
+        _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
         SyncRefreshDraft();
         SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
@@ -1940,6 +2014,52 @@
         _draftCloneDirectories.TryGetValue(alias, out var value);
         _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
         SyncRepositoryDrafts();
+    }
+
+    /// <summary>
+    /// The knowledge-source control is <see cref="KnowledgeSourceSelection"/>'s,
+    /// not this screen's. The pane offers the same choice, and two copies of the
+    /// options would drift the first time a case was added to one of them.
+    /// </summary>
+    private async Task ApplyKnowledgeSourceAsync(GitHubRepositoryRef repository, string? value)
+    {
+        if (KnowledgeSourceSelection.IsLoadRequest(value))
+        {
+            await LoadBranchesAsync(repository);
+            return;
+        }
+
+        _repoError = KnowledgeSource.Select(repository.Alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    private async Task LoadBranchesAsync(GitHubRepositoryRef repository)
+    {
+        _branchError = null;
+        _loadingBranches = true;
+
+        try
+        {
+            _branchError = await KnowledgeSource.LoadBranchesAsync(repository.Alias, CancellationToken.None);
+        }
+        finally
+        {
+            _loadingBranches = false;
+        }
+    }
+
+    private bool _loadingBranches;
+    private string? _branchError;
+
+    private string _draftKnowledgeCacheDirectory = string.Empty;
+    private string? _knowledgeCacheError;
+
+    /// <summary>Commits the snapshot folder. Blank returns it to the default,
+    /// which is what clearing the field means everywhere else on this screen.</summary>
+    private void ApplyKnowledgeCacheDirectory()
+    {
+        _knowledgeCacheError = Store.SetKnowledgeCacheDirectory(_draftKnowledgeCacheDirectory);
+        _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
     }
 
     private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>

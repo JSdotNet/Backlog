@@ -3,6 +3,7 @@
 @inject KnowledgeFolderOpenService KnowledgeFolderOpen
 @inject KnowledgeScope Scope
 @inject KnowledgeUpdateService KnowledgeUpdate
+@inject KnowledgeSourceSelection KnowledgeSource
 
 @*
     The Second Brain pane. Everything it needs arrives as a repository alias:
@@ -32,6 +33,38 @@
           ActiveId="@EffectiveSection"
           ActiveIdChanged="SelectSection"
           StripCssClass="knowledge-stack__strip">
+
+    @* Which source the sections are read from, before the sections themselves,
+       because it qualifies all five of them at once — the same reason the update
+       control outlives the section it was pressed on. Left out entirely for the
+       storage scope, which is nobody's repository and has no branch to be on. *@
+    <ListLeading>
+        @if (KnowledgeSource.CanChoose(ActiveRepositoryAlias))
+        {
+            @* The default shape, not Form: a label wrapping the select with the
+               name read aloud rather than drawn, which is exactly what a control
+               sitting on a strip beside tabs wants. *@
+            @* Keyed on what the list contains, so loading the branches rebuilds
+               the control rather than re-rendering it in place. Without this the
+               browser is left holding the value of the entry that was picked to
+               trigger the load — an option that no longer exists once the list is
+               in — and the select shows a branch nobody selected while the
+               configured source is something else entirely. *@
+            <SelectField @key="@($"{ActiveRepositoryAlias}:{KnowledgeSource.HasBranches(ActiveRepositoryAlias)}")"
+                         BaseClass="knowledge-stack__source"
+                         SelectCssClass="knowledge-stack__source-select"
+                         Label="@($"Knowledge source for {ActiveRepositoryAlias}")"
+                         TestId="knowledge-source-select"
+                         CurrentValue="@KnowledgeSource.CurrentValue(ActiveRepositoryAlias)"
+                         Options="@KnowledgeSource.Options(ActiveRepositoryAlias)"
+                         OnChanged="ChangeKnowledgeSourceAsync" />
+            <Alert Message="@_sourceError"
+                   TestId="knowledge-source-error"
+                   CssClass="knowledge-stack__source-error"
+                   Role="status"
+                   Inline />
+        }
+    </ListLeading>
 
     @* One quiet button, on the same line as the section tabs rather than on a row
        of its own below them — that row cost height and gave nothing back. The map
@@ -106,6 +139,7 @@
             {
                 <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
                                        RootFolder="ActiveMenuRoot"
+                                       ShowOpenButton="@CanOpenActiveFolder"
                                        Nodes="ActiveMenuNodes"
                                        IsLoading="_menuLoading"
                                        OpenErrorMessage="@_folderOpenError"
@@ -254,6 +288,49 @@
 
     private KnowledgeMenuNode? ActiveMenuRoot =>
         _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, EffectiveSection, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether the menu offers to open this scope's folder in an editor.
+    /// <para>
+    /// A branch snapshot says no. The folder behind it is an app-managed cache
+    /// the next fetch replaces wholesale, so opening it in an editor would be an
+    /// invitation to type into something that quietly disappears. The storage
+    /// scope has no repository and is always a real folder, which is why a null
+    /// repository reads as yes.
+    /// </para>
+    /// </summary>
+    private string? _sourceError;
+
+    /// <summary>
+    /// The reader picked a source — or asked for the branch list, which is the
+    /// one entry that is a request rather than a source.
+    /// <para>
+    /// Nothing reloads the panels here. Writing the choice raises the settings
+    /// store's change event, which the folder source republishes, and every open
+    /// panel already reloads on that — the same path a folder being re-pointed
+    /// in Settings has always taken.
+    /// </para>
+    /// </summary>
+    private async Task ChangeKnowledgeSourceAsync(string? value)
+    {
+        _sourceError = null;
+
+        if (KnowledgeSourceSelection.IsLoadRequest(value))
+        {
+            _sourceError = await KnowledgeSource.LoadBranchesAsync(ActiveRepositoryAlias, CancellationToken.None);
+            return;
+        }
+
+        _sourceError = KnowledgeSource.Select(ActiveRepositoryAlias, value);
+
+        // The version state was about the source that was just left, so it is
+        // dropped rather than shown against the new one — "up to date" earned by
+        // a clone must not sit beside a branch nobody has fetched.
+        _updateState = KnowledgeUpdateState.NotChecked;
+    }
+
+    private bool CanOpenActiveFolder =>
+        KnowledgeUpdate.Repository(ActiveRepositoryAlias)?.KnowledgeSource is not KnowledgeSourceKind.Branch;
 
     private bool SectionUsesMenu => !string.Equals(EffectiveSection, "tech", StringComparison.Ordinal);
 

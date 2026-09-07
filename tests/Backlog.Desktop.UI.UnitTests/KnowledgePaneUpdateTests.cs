@@ -260,6 +260,8 @@ public sealed class KnowledgePaneUpdateTests
         context.Services.AddSingleton<KnowledgeMenu>();
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<KnowledgeSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         // The pane renders a panel, and a panel renders the shared editing

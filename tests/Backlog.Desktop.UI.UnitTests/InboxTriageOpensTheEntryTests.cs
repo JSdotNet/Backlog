@@ -373,6 +373,8 @@ public sealed class InboxTriageOpensTheEntryTests
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<KnowledgeSourceSelection>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.

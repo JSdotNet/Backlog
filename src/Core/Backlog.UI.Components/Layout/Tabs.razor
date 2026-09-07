@@ -59,6 +59,20 @@
     [Parameter]
     public RenderFragment? ListTrailing { get; set; }
 
+    /// <summary>Rendered on the same line as the tab strip, before it.
+    ///
+    /// <para>The mirror of <see cref="ListTrailing"/>, and it exists for the same
+    /// reason: a control that scopes the tabs rather than sitting inside them
+    /// cannot go in the list, because that element is the <c>tablist</c> and a
+    /// tablist's children are tabs.</para>
+    ///
+    /// <para>Leading rather than trailing is a statement about reading order —
+    /// what goes here qualifies every tab after it, so it is read first. The
+    /// knowledge pane puts the source a section is read from here, because which
+    /// branch you are looking at is true of all five sections at once.</para></summary>
+    [Parameter]
+    public RenderFragment? ListLeading { get; set; }
+
     /// <summary>Replaces <c>tabs__strip</c> on the row holding the list and
     /// <see cref="ListTrailing"/>. Only rendered when there is trailing content.</summary>
     [Parameter]
@@ -125,10 +139,16 @@
 
     private string StripClassValue => string.IsNullOrWhiteSpace(StripCssClass) ? "tabs__strip" : StripCssClass;
 
-    /// <summary>The list, or the list and whatever the host put beside it.</summary>
-    private RenderFragment RenderStrip() => ListTrailing is null
+    /// <summary>The list, or the list and whatever the host put beside it.
+    /// <para>
+    /// A host that supplies neither slot gets exactly the DOM it got before
+    /// either existed — the bare list, with no wrapper. That is what the null
+    /// check is protecting, and why it asks about both.
+    /// </para></summary>
+    private RenderFragment RenderStrip() => ListTrailing is null && ListLeading is null
         ? RenderTabList()
         : @<div class="@StripClassValue">
+              @ListLeading
               @RenderTabList()
               @ListTrailing
           </div>;

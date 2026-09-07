@@ -155,6 +155,7 @@
                           RenderKnowledgeMetadataFields="false"
                           KnowledgeFolder="KnowledgeFolder.Arc42"
                           KnowledgeDocumentPath="@DocumentPath(_selected)"
+                          CanEditKnowledgeStatus="@CanEdit"
                           OnKnowledgeStatusChanged="ChangeChapterStatusAsync"
                           OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
                           Comments="@ChapterComments()"
@@ -162,8 +163,8 @@
                           OnResolveComment="ResolveChapterComment"
                           OnEditComment="EditChapterComment"
                           OnDeleteComment="DeleteChapterComment"
-                          CanEdit="@(_chapter.Chapter is not null)"
-                          Editing="@(_editing && _chapter.Chapter is not null)"
+                          CanEdit="@(_chapter.Chapter is { CanEdit: true })"
+                          Editing="@(_editing && _chapter.Chapter is { CanEdit: true })"
                           EditingChanged="OnEditingChangedAsync"
                           EditBodyContent="@ChapterEditor()"
                           BodyContent="@(_chapter.Chapter is null ? ParsedChapter(_selected) : null)" />
@@ -251,6 +252,11 @@
     private readonly Dictionary<string, List<MarkdownComment>> _chapterComments = new(StringComparer.OrdinalIgnoreCase);
 
     private Arc42KnowledgeCatalog? _catalog;
+
+    /// <summary>Whether this panel may write anything back. False for a folder
+    /// read from a repository branch, which hides the status control rather than
+    /// offering an edit the next fetch would discard.</summary>
+    private bool CanEdit => _catalog?.CanEdit ?? true;
 
     /// <summary>The C4 model beside these chapters. Empty and harmless when the
     /// feature is off, which is what keeps every branch below a no-op rather than a

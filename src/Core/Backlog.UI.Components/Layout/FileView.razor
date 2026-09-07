@@ -107,6 +107,7 @@
                 Metadata="@_fileRecord?.Metadata"
                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
                 ShowMetadataFields="@RenderKnowledgeMetadataFields"
+                CanEditStatus="@CanEditKnowledgeStatus"
                 OnStatusChanged="ReportFileStatusAsync"
                 OnNavigate="@OnKnowledgeNavigate"
                 HrefFor="@KnowledgeHrefFor"
@@ -145,6 +146,7 @@
                                                 AllowChapterCopy="@AllowChapterCopy"
                                                 RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                                                 RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                                                CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
                                                 KnowledgeFolder="@KnowledgeFolder"
                                                 KnowledgeDocumentPath="@KnowledgeDocumentPath"
                                                 OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
@@ -347,6 +349,19 @@
     /// worth on a surface that is already showing the file.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>
+    /// Whether a status shown here — the file's own, and every chapter's — may be
+    /// changed. False draws the static badge in place of each select.
+    /// <para>
+    /// One parameter for both tiers on purpose: they are the same file, and a
+    /// surface where the chapter status is editable but the file status is not
+    /// would be describing a distinction that does not exist. The knowledge
+    /// panels pass false when the folder was read from a repository branch.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool CanEditKnowledgeStatus { get; set; } = true;
 
     /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the
