@@ -77,6 +77,77 @@ window.backlogDiagrams.renderKnowledgeAtlas = async (element, id, graph, dotnet)
 };
 
 
+// An attached image is evidence for a bug report, not a photograph: it is
+// committed to the repository and embedded in the issue, so it is held to a
+// budget rather than sent at whatever size it arrived. Named because two
+// readers meet it now — the screen capture below and the clipboard after it —
+// and a second copy of the loop is how the two would stop agreeing.
+const backlogScreenshotMaxSide = 900;
+const backlogScreenshotMaxDataUrlLength = 56000;
+
+// `toDataURL` takes a quality only for these two, and quality is what the
+// budget is met with; anything else — the PNG the clipboard usually holds, a
+// GIF, a BMP — has no quality to give up and would be downscaled to a thumbnail
+// to fit instead. So it is re-encoded as the JPEG a capture already produces.
+function backlogScreenshotMediaType(mediaType) {
+    return mediaType === 'image/jpeg' || mediaType === 'image/webp' ? mediaType : 'image/jpeg';
+}
+
+// What the clipboard may hand over, in the order it is preferred. A whitelist
+// rather than an `image/*` test because `createImageBitmap` cannot decode
+// image/svg+xml: matching it would turn a copied SVG into a raw decode error
+// instead of the friendly "no image" answer below. Preference order also
+// settles the clipboard item that offers both an SVG and a PNG.
+const backlogDecodableImageTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp'];
+
+// Anything `drawImage` accepts and its own size: a playing video for the
+// capture, a decoded bitmap for the clipboard. Quality first, then dimensions,
+// because a smaller picture of the whole screen says less than a softer one.
+function backlogEncodeScreenshot(source, sourceWidth, sourceHeight, requestedMediaType) {
+    const scale = Math.min(1, backlogScreenshotMaxSide / Math.max(sourceWidth, sourceHeight));
+    let width = Math.max(1, Math.round(sourceWidth * scale));
+    let height = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    const mediaType = backlogScreenshotMediaType(requestedMediaType);
+    let quality = 0.72;
+    let dataUrl;
+
+    do {
+        canvas.width = width;
+        canvas.height = height;
+
+        // JPEG has no alpha channel, and a fresh canvas is transparent, so a
+        // pasted PNG's transparent regions would encode as black. The capture
+        // path never had an alpha channel to lose; the clipboard does.
+        if (mediaType === 'image/jpeg') {
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, width, height);
+        }
+
+        context.drawImage(source, 0, 0, width, height);
+        dataUrl = canvas.toDataURL(mediaType, quality);
+
+        if (dataUrl.length <= backlogScreenshotMaxDataUrlLength) break;
+        if (quality > 0.35) {
+            quality -= 0.1;
+        } else {
+            width = Math.max(320, Math.round(width * 0.8));
+            height = Math.max(240, Math.round(height * 0.8));
+        }
+    } while (dataUrl.length > backlogScreenshotMaxDataUrlLength && (width > 320 || height > 240));
+
+    const base64Length = dataUrl.slice(dataUrl.indexOf(',') + 1).length;
+
+    return {
+        dataUrl,
+        mediaType,
+        width,
+        height,
+        sizeBytes: Math.ceil(base64Length * 3 / 4)
+    };
+}
+
 window.backlogCaptureScreenshot = async () => {
     if (!navigator.mediaDevices?.getDisplayMedia) {
         throw new Error('Screenshot capture is not available in this WebView.');
@@ -99,44 +170,45 @@ window.backlogCaptureScreenshot = async () => {
             video.onloadedmetadata = resolve;
         });
 
-        const maxSide = 900;
-        const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
-        let width = Math.max(1, Math.round(video.videoWidth * scale));
-        let height = Math.max(1, Math.round(video.videoHeight * scale));
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        const mediaType = 'image/jpeg';
-        let quality = 0.72;
-        let dataUrl;
-
-        do {
-            canvas.width = width;
-            canvas.height = height;
-            context.drawImage(video, 0, 0, width, height);
-            dataUrl = canvas.toDataURL(mediaType, quality);
-
-            if (dataUrl.length <= 56000) break;
-            if (quality > 0.35) {
-                quality -= 0.1;
-            } else {
-                width = Math.max(320, Math.round(width * 0.8));
-                height = Math.max(240, Math.round(height * 0.8));
-            }
-        } while (dataUrl.length > 56000 && (width > 320 || height > 240));
-
-        const base64Length = dataUrl.slice(dataUrl.indexOf(',') + 1).length;
-
-        return {
-            dataUrl,
-            mediaType,
-            width,
-            height,
-            sizeBytes: Math.ceil(base64Length * 3 / 4)
-        };
+        return backlogEncodeScreenshot(video, video.videoWidth, video.videoHeight, 'image/jpeg');
     } finally {
         for (const track of stream.getTracks()) {
             track.stop();
         }
         video.srcObject = null;
     }
+};
+
+// The other way an image reaches a bug report: whatever was already copied.
+// Same return shape as the capture above, and the same budget, so the dialog's
+// preview, its retake and remove controls and the upload path do not know or
+// care which of the two produced what they are holding.
+//
+// Nothing here is caught. A WebView that refuses the clipboard — no permission,
+// no secure context — is an answer the reporter has to see, and swallowing it
+// would leave the dialog saying an image was pasted while attaching nothing.
+// The one thing that is not a failure is a clipboard with no image in it, and
+// that is reported by returning null rather than by throwing: it is what a
+// clipboard holding text does, which is most clipboards.
+window.backlogReadClipboardImage = async () => {
+    if (!navigator.clipboard?.read) {
+        throw new Error('Reading the clipboard is not available in this WebView.');
+    }
+
+    const items = await navigator.clipboard.read();
+
+    for (const item of items) {
+        const mediaType = backlogDecodableImageTypes.find((type) => item.types.includes(type));
+        if (!mediaType) continue;
+
+        const bitmap = await createImageBitmap(await item.getType(mediaType));
+
+        try {
+            return backlogEncodeScreenshot(bitmap, bitmap.width, bitmap.height, mediaType);
+        } finally {
+            bitmap.close();
+        }
+    }
+
+    return null;
 };

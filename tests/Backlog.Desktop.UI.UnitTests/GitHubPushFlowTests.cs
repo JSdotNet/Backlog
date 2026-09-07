@@ -378,7 +378,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var harness = Build("JSdotNet/Backlog");
         var screenshot = new GitHubFeedbackScreenshot($"data:{mediaType};base64,AAAA", mediaType, 640, 480, 24);
 
-        await harness.Feedback.ReportAsync("Broken view", null, screenshot);
+        await harness.Feedback.ReportAsync("Broken view", null, screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotNull(harness.Client.UploadedPath);
         Assert.EndsWith(extension, harness.Client.UploadedPath);

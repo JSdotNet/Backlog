@@ -5365,6 +5365,17 @@ body.is-resizing-pane {
     background: var(--color-error);
 }
 
+/* The way back to the issue the report became, inside the line that says it
+   exists. The ink is the line's own: the status surface is already painted a
+   semantic tone, and a link colour of its own on top of that is a pair the
+   palette never reserved — so the underline is all this adds. The gap before it
+   is a non-breaking space in the markup, not a margin here: the line is read
+   out and copied as text, and a margin is neither. */
+.feedback-status__link {
+    color: inherit;
+    text-decoration: underline;
+}
+
 /* --- Buttons: sizes, danger and groups ----------------------------------- */
 /*
   The variants above came from the app; these are the ones AppButton adds.

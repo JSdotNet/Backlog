@@ -57,7 +57,7 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
             {
                 var uploaded = await gitHub.UploadFileAsync(
                     repository,
-                    ScreenshotPath(),
+                    ScreenshotPath(screenshot.MediaType),
                     ScreenshotBranch,
                     DecodeDataUrl(screenshot.DataUrl),
                     $"Add feedback screenshot for \"{title.Trim()}\"",
@@ -107,11 +107,34 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
         """;
     }
 
-    private static string ScreenshotPath() =>
-        $"feedback-screenshots/{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.jpg";
+    private static string ScreenshotPath(string mediaType) =>
+        $"feedback-screenshots/{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{ExtensionFor(mediaType)}";
+
+    /// <summary>The extension for the media type the reader reports. It used to
+    /// be a literal <c>.jpg</c>, which was true for as long as a screen capture
+    /// was the only origin — a file committed under the wrong extension is one
+    /// GitHub serves under the wrong type, and the embed in the issue body then
+    /// does not render.
+    /// <para>
+    /// In practice today that type is <c>image/jpeg</c> or <c>image/webp</c>:
+    /// <c>backlogScreenshotMediaType</c> in <c>app.js</c> re-encodes anything
+    /// else, because <c>toDataURL</c> takes a quality only for those two and
+    /// quality is how the size budget is met. The other arms are what keeps this
+    /// honest if that ever changes, and the committed test pins all four.
+    /// </para></summary>
+    private static string ExtensionFor(string mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "image/png" => ".png",
+        "image/webp" => ".webp",
+        "image/gif" => ".gif",
+        // JPEG included: it is what the capture path produces, and it is the
+        // fallback the reader re-encodes an unknown type into.
+        _ => ".jpg"
+    };
 
     /// <summary>The bytes behind a <c>data:image/...;base64,...</c> URL — the
-    /// shape <c>backlogCaptureScreenshot</c> in <c>app.js</c> always returns.</summary>
+    /// shape <c>backlogCaptureScreenshot</c> and <c>backlogReadClipboardImage</c>
+    /// in <c>app.js</c> both always return.</summary>
     private static byte[] DecodeDataUrl(string dataUrl)
     {
         var comma = dataUrl.IndexOf(',');
