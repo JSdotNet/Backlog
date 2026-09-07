@@ -104,6 +104,7 @@
                             <MetadataView Metadata="@file.Meta"
                                                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
                                                ShowFields="false"
+                                               CanEditStatus="@CanEdit"
                                                AriaLabel="@($"{file.Title} metadata")"
                                                CssClass="design-document__record"
                                                Heading="@DocumentHeading(file)"
@@ -188,8 +189,14 @@
                            Editing is a mode of the header rather than a surface
                            mounted on arrival, so the reader who came to read gets
                            the file and the reader who came to write asks for the
-                           buffer. CanEdit is unconditional for the same reason
-                           BodyContent is absent.
+                           buffer. CanEdit used to be unconditional here for the
+                           same reason BodyContent is absent — this branch only
+                           runs for a chapter that resolved. It is conditional now
+                           because resolving is no longer the whole question: a
+                           folder read from a repository branch resolves a real
+                           chapter that must not be written to, since the file
+                           behind it is a copy of a commit and the next fetch
+                           would take the edit with it.
 
                            Asked to fill rather than given a height: the chapter is
                            as long as it is, and a body that sized to its content
@@ -207,10 +214,11 @@
                                   RenderKnowledgeMetadataFields="false"
                                   KnowledgeFolder="KnowledgeFolder.Design"
                                   KnowledgeDocumentPath="@DocumentPath(file)"
+                                  CanEditKnowledgeStatus="@CanEdit"
                                   OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(file, change)"
                                   OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
-                                  CanEdit="true"
-                                  Editing="@_editing"
+                                  CanEdit="@(chapter is { CanEdit: true })"
+                                  Editing="@(_editing && chapter is { CanEdit: true })"
                                   EditingChanged="OnEditingChangedAsync"
                                   EditBodyContent="@ChapterEditor(chapter, file)" />
                     }
@@ -244,6 +252,7 @@
                                     <MetadataView Metadata="@section.Meta"
                                                        Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
                                                        ShowFields="false"
+                                                       CanEditStatus="@CanEdit"
                                                        AriaLabel="@($"{section.Heading} metadata")"
                                                        CssClass="design-section__record"
                                                        Heading="@SectionHeading(section)"
@@ -266,6 +275,11 @@
 
 @code {
     private DesignKnowledgeModel? _model;
+
+    /// <summary>Whether this view may write anything back. False for a folder
+    /// read from a repository branch, which draws every status as a badge and
+    /// renders chapters read-only.</summary>
+    private bool CanEdit => _model?.CanEdit ?? true;
     private string? _loadedRepositoryAlias;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
     private KnowledgeChapterEditor? _editor;

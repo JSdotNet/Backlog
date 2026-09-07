@@ -33,6 +33,7 @@ between inherited ADRs 0005 and 0009.
 - **[0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](0005-azure-hosted-task-replica-for-multi-device-sync.md)** *(accepted)*
 - **[0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)** *(proposed)*
 - **[0007 — Import reuses the entry text grammar; a plan is multi-task entry text](0007-import-reuses-the-entry-text-grammar.md)** *(proposed)*
+- **[0008 — Knowledge reads from a cached branch snapshot when there is no clone; only a clone is editable](0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md)** *(proposed)*
 
 ## Inherited decisions
 

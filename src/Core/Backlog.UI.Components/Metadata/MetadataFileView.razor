@@ -45,6 +45,7 @@
     <MetadataView Metadata="@record"
                   Vocabulary="@Vocabulary"
                   ShowFields="@ShowFields"
+                  CanEditStatus="@CanEditStatus"
                   OnStatusChanged="@OnStatusChanged"
                   OnNavigate="@OnNavigate"
                   HrefFor="@HrefFor"
@@ -103,6 +104,12 @@ else
     /// with room for one line turns it off and keeps the status.</summary>
     [Parameter]
     public bool ShowFields { get; set; } = true;
+
+    /// <summary>Whether the file's status may be changed here. Forwarded verbatim
+    /// to <see cref="MetadataView.CanEditStatus"/>, which draws the static badge
+    /// instead of the select when it is false.</summary>
+    [Parameter]
+    public bool CanEditStatus { get; set; } = true;
 
     /// <summary>The group's name for a screen reader. A file's record is worth
     /// naming for the file — several panes may be open at once — so a host passes

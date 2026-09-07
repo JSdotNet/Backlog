@@ -23,28 +23,38 @@ namespace Backlog.Desktop.UI.Knowledge;
 public sealed class KnowledgeUpdateService(
     GitHubSettingsStore repositories,
     ILocalGitRepositoryService git,
-    IKnowledgeFolderSource folders)
+    IKnowledgeFolderSource folders,
+    IKnowledgeSnapshotCache? snapshots = null)
 {
     /// <summary>
     /// Whether this scope has a latest version at all.
     /// <para>
-    /// Knowledge kept in the storage folder is nobody's clone — there is no
-    /// remote to be behind and nothing to pull — and a repository with no clone
-    /// directory has no folder on disk to check. Both are answered here rather
-    /// than by a check that would only fail, so the pane can leave the control
-    /// out instead of showing one that never works.
+    /// Knowledge kept in the storage folder is nobody's clone and nobody's
+    /// branch — there is no remote to be behind and nothing to fetch — so it is
+    /// answered here rather than by a check that would only fail, and the pane
+    /// leaves the control out instead of showing one that never works.
+    /// </para>
+    /// <para>
+    /// A repository with no clone used to be answered the same way. It is not
+    /// any more: reading a branch is exactly the case where "is this still the
+    /// latest?" is worth asking, because nothing about a snapshot tells you the
+    /// branch has moved.
     /// </para>
     /// </summary>
     public bool CanCheck(string? repositoryAlias) => Repository(repositoryAlias) is not null;
 
-    /// <summary>The repository whose clone carries this scope's knowledge, or null
-    /// when the scope has no clone behind it.</summary>
+    /// <summary>The repository whose clone or branch carries this scope's
+    /// knowledge, or null when the scope has neither behind it.</summary>
     public GitHubRepositoryRef? Repository(string? repositoryAlias)
     {
         if (string.IsNullOrWhiteSpace(repositoryAlias)) return null;
 
         var repository = repositories.Current.Find(repositoryAlias);
-        return repository is null || string.IsNullOrWhiteSpace(repository.CloneDirectory) ? null : repository;
+        if (repository is null) return null;
+
+        return repository.KnowledgeSource is KnowledgeSourceKind.Branch
+            ? snapshots is null ? null : repository
+            : repository;
     }
 
     /// <summary>
@@ -56,18 +66,42 @@ public sealed class KnowledgeUpdateService(
         var repository = Repository(repositoryAlias);
         if (repository is null) return KnowledgeUpdateState.NotApplicable;
 
+        if (repository.KnowledgeSource is KnowledgeSourceKind.Branch)
+        {
+            var snapshot = await snapshots!
+                .CheckAsync(repository, repository.KnowledgeBranch, cancellationToken)
+                .ConfigureAwait(false);
+
+            return FromSnapshot(snapshot);
+        }
+
         var check = await git.CheckForUpdatesAsync(repository, repository.CloneDirectory, cancellationToken).ConfigureAwait(false);
         return KnowledgeUpdateState.From(check);
     }
 
     /// <summary>
-    /// Pull the latest version into the clone, then tell the folder source its
-    /// content was replaced so every open panel re-reads it.
+    /// Bring the knowledge up to the latest version — pulling the clone, or
+    /// re-fetching the branch snapshot — then tell the folder source its content
+    /// was replaced so every open panel re-reads it.
     /// </summary>
     public async Task<KnowledgeUpdateState> PullAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {
         var repository = Repository(repositoryAlias);
         if (repository is null) return KnowledgeUpdateState.NotApplicable;
+
+        if (repository.KnowledgeSource is KnowledgeSourceKind.Branch)
+        {
+            var fetched = await snapshots!
+                .FetchAsync(repository, repository.KnowledgeBranch, cancellationToken)
+                .ConfigureAwait(false);
+
+            // Announced only when something actually landed, for the reason the
+            // clone path announces after the pull: a panel reloading on the news
+            // must find the new text, and a failed fetch has no new text to find.
+            if (fetched.Updated) folders.NotifyContentChanged();
+
+            return FromSnapshot(fetched);
+        }
 
         var result = await git.PullAsync(repository, repository.CloneDirectory, cancellationToken).ConfigureAwait(false);
         if (!result.Success) return KnowledgeUpdateState.Blocked(result.Message);
@@ -81,6 +115,23 @@ public sealed class KnowledgeUpdateService(
             ? new KnowledgeUpdateState(KnowledgeUpdateAvailability.UpToDate, 0, result.Message)
             : KnowledgeUpdateState.From(result.State) with { Message = result.Message };
     }
+
+    /// <summary>
+    /// A snapshot result as the pane's four states.
+    /// <para>
+    /// <c>BehindBy</c> is always zero: a commit id says the branch has moved but
+    /// not by how much, and counting would be a second call for a number the
+    /// badge can simply leave out. <see cref="KnowledgeUpdatePresentation.BehindLabel"/>
+    /// already renders nothing for zero.
+    /// </para>
+    /// </summary>
+    private static KnowledgeUpdateState FromSnapshot(KnowledgeSnapshotResult result) => result switch
+    {
+        { Updated: true } => new KnowledgeUpdateState(KnowledgeUpdateAvailability.UpToDate, 0, result.Message),
+        { Behind: true } => new KnowledgeUpdateState(KnowledgeUpdateAvailability.UpdateAvailable, 0, result.Message),
+        { Message: not null } and { Snapshot: null } => KnowledgeUpdateState.Blocked(result.Message),
+        _ => new KnowledgeUpdateState(KnowledgeUpdateAvailability.UpToDate, 0, result.Message)
+    };
 }
 
 /// <summary>

@@ -67,6 +67,72 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     public List<KnowledgeFolderSetting> KnowledgeFolders { get; init; } = KnowledgeFolderSetting.Defaults();
 
     /// <summary>
+    /// The branch this repository's knowledge is read from. Null means "whatever
+    /// the repository calls its default branch", which is what a repository
+    /// nobody has chosen a branch for reads as.
+    /// <para>
+    /// Shared rather than machine-local, and so it travels in the registry beside
+    /// <see cref="Alias"/> and <see cref="Colour"/>. "This repository's knowledge
+    /// is read from <c>main</c>" is true on every install of a workspace; it says
+    /// nothing about anybody's disk.
+    /// </para>
+    /// <para>
+    /// Not part of the <c>alias = owner/repo</c> grammar, for the same reason the
+    /// hue and the account are not: it is picked from the branches the repository
+    /// actually has rather than typed, so the parser, its error messages and its
+    /// duplicate detection are all left alone.
+    /// </para>
+    /// </summary>
+    public string? KnowledgeBranch { get; init; }
+
+    /// <summary>
+    /// Whether to read this repository's knowledge out of
+    /// <see cref="CloneDirectory"/> rather than out of a snapshot of
+    /// <see cref="KnowledgeBranch"/>.
+    /// <para>
+    /// Machine-local, unlike the branch, and deliberately so: it is only ever
+    /// answerable on a machine that has the clone. A workspace shared with a
+    /// colleague who has never cloned anything must not arrive telling their app
+    /// to read a folder they do not have.
+    /// </para>
+    /// <para>
+    /// Null is "nobody has chosen", not "no" — see <see cref="KnowledgeSource"/>
+    /// for what it resolves to and why the distinction is load-bearing on
+    /// upgrade.
+    /// </para>
+    /// <para>
+    /// Kept separate from the branch rather than folded into one "source" string
+    /// so that switching to the local folder and back remembers which branch was
+    /// chosen. A single field would have to encode the local folder as a value no
+    /// branch may be named, and branches may be named anything.
+    /// </para>
+    /// </summary>
+    public bool? UseLocalKnowledgeFolder { get; init; }
+
+    /// <summary>
+    /// Where this repository's knowledge actually comes from, once the
+    /// configuration meets this machine.
+    /// <para>
+    /// Two rules, in order. A repository with no clone here reads from the
+    /// branch whatever it was configured to do, which is the whole point of
+    /// branch loading: knowledge that still opens on a machine that never cloned
+    /// anything. Otherwise an unanswered <see cref="UseLocalKnowledgeFolder"/>
+    /// reads as the clone.
+    /// </para>
+    /// <para>
+    /// That second rule is what makes this change safe to ship. Every repository
+    /// configured before branch loading existed has a clone and no stored
+    /// answer, and every one of them has to keep reading — and editing — the
+    /// folder it always read. Defaulting the unanswered case to the branch would
+    /// have turned all of them read-only on upgrade, silently.
+    /// </para>
+    /// </summary>
+    public KnowledgeSourceKind KnowledgeSource =>
+        !string.IsNullOrWhiteSpace(CloneDirectory) && (UseLocalKnowledgeFolder ?? true)
+            ? KnowledgeSourceKind.LocalFolder
+            : KnowledgeSourceKind.Branch;
+
+    /// <summary>
     /// Reads one configured line. Accepted forms:
     /// <code>
     /// alias = owner/repo

@@ -201,6 +201,8 @@ public sealed class KnowledgePaneChapterNavigationTests : IDisposable
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<KnowledgeSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
 

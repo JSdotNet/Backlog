@@ -213,6 +213,7 @@ public sealed class SettingsKnowledgeFolderStatusTests
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
+        context.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
 
         return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
     }

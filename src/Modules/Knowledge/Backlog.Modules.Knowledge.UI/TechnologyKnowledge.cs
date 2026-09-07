@@ -41,10 +41,9 @@ public sealed class TechnologyKnowledgeService(IKnowledgeFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".tech", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Technology knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Technology knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Technology knowledge");
 
-        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".tech/", status);
+        KnowledgeMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".tech/", status);
         return Task.CompletedTask;
     }
 }
