@@ -37,11 +37,19 @@
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
+@* Sync's published surface, for the feature key the Devices tab is gated on
+   and the pairing-code format the panel displays a code in. *@
+@using Backlog.Modules.Sync.Abstractions
+@using Backlog.Modules.Sync.Abstractions.DataTransferObjects
+@using Backlog.Infrastructure.Sync
 @* The one namespace this page needs that the app's _Imports does not already
    carry, written here because this folder cannot have an _Imports of its own -
    see the note at the top of the file. SelectField is what the account binding
    below is drawn with. *@
 @using Backlog.UI.Components.Selects
+@* For the optional logger the Devices panel writes an unexpected failure to,
+   rather than putting the exception's own words on screen. *@
+@using Microsoft.Extensions.Logging
 @inject WorkspaceSettingsStore Store
 @inject ITasksRefreshSettings Refresh
 @inject GitHubIntegration GitHub
@@ -51,6 +59,10 @@
 @inject ILocalGitRepositoryService LocalGit
 @inject ClaudeSettingsStore Claude
 @inject IKnowledgeFolderSource KnowledgeFolders
+@* The two sync collaborators are read off this rather than injected; see the
+   Devices section of the code block for why. *@
+@inject IServiceProvider Services
+@implements IDisposable
 
 @*
     The one screen in this app with a form control, and it earns it: a folder
@@ -1259,6 +1271,144 @@
                 </Tabs>
             }
         </TabPanel>
+
+    @if (IsSettingsPageAvailable(SettingsPage.Devices))
+    {
+        <TabPanel Id="devices" Title="Devices" Element="section" BaseClass="setting" aria-label="Device settings">
+            @* A device is in one of two states and each has exactly one thing to do
+               next, so the cards come in pairs: unpaired offers register and redeem,
+               paired offers the code that lets the next device in. *@
+            <div class="setting-columns">
+                <section class="setting" data-testid="devices-status" aria-label="This device">
+                    <h2 class="setting__title">This device</h2>
+
+                    @if (_devicesBusy)
+                    {
+                        <Spinner Label="Talking to the sync service" TestId="devices-busy" />
+                    }
+                    else if (StoredDevice is { } stored)
+                    {
+                        <p class="setting__body" data-testid="devices-paired">
+                            Paired as <strong>@stored.DeviceName</strong>.
+                        </p>
+                        <p class="setting__status" data-testid="devices-identity">
+                            Owner <code>@stored.OwnerId</code>, device <code>@stored.DeviceId</code>.
+                            @if (_deviceStatus is { } status)
+                            {
+                                <text>@PairedDeviceSummary(status.PairedDeviceCount)</text>
+                            }
+                        </p>
+                    }
+                    else
+                    {
+                        <EmptyState TestId="devices-empty"
+                                    Title="This device is not paired."
+                                    Description="Register it to start an owner of your own, or pair it with a device that is already in." />
+                    }
+
+                    <p class="setting__note">
+                        The registration credential is kept in <code>@CredentialStorePath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                    </p>
+                </section>
+
+                @if (StoredDevice is null)
+                {
+                    <section class="setting" data-testid="devices-register" aria-label="Register this device">
+                        <h2 class="setting__title">Register this device</h2>
+                        <p class="setting__body">
+                            Claims an owner of its own. Do this on the first device only - every device after it pairs instead, or it ends up with an owner nobody else can see.
+                        </p>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Device name"
+                                   Id="devices-name"
+                                   TestId="devices-name"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Value="@_draftDeviceName"
+                                   ValueChanged="value => _draftDeviceName = value" />
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       TestId="devices-register-button"
+                                       Busy="@_devicesBusy"
+                                       OnClick="RegisterDeviceAsync">
+                                Register
+                            </AppButton>
+                        </div>
+                    </section>
+
+                    <section class="setting" data-testid="devices-pair" aria-label="Pair with another device">
+                        <h2 class="setting__title">Pair with another device</h2>
+                        <p class="setting__body">
+                            Type the code the other device is showing. It is single-use and expires in minutes, so it is permission to make a credential rather than a credential.
+                        </p>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Pairing code"
+                                   Id="devices-code-input"
+                                   TestId="devices-code"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="XXXX-XXXX"
+                                   Value="@_draftPairingCode"
+                                   ValueChanged="value => _draftPairingCode = value" />
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       TestId="devices-pair-button"
+                                       Busy="@_devicesBusy"
+                                       OnClick="PairDeviceAsync">
+                                Pair
+                            </AppButton>
+                        </div>
+                    </section>
+                }
+                else
+                {
+                    <section class="setting" data-testid="devices-generate-code" aria-label="Let another device in">
+                        <h2 class="setting__title">Let another device in</h2>
+                        <p class="setting__body">
+                            Generate a code and read it out on the other device. Nothing travels between the two - carrying the code is what pairs them.
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-generate"
+                                       Busy="@_devicesBusy"
+                                       OnClick="IssuePairingCodeAsync">
+                                Generate a code
+                            </AppButton>
+                        </div>
+
+                        @if (_issuedCode is { } issued)
+                        {
+                            <p class="setting__status" data-testid="devices-code-display">
+                                <code>@PairingCodeFormat.Display(issued.Code)</code>
+                                <CopyButton Text="@issued.Code" Label="Copy the pairing code" TestId="devices-code-copy" />
+                            </p>
+                            @* Refreshed by a timer rather than only on the next click:
+                               the whole value of the line is that it counts down while
+                               somebody is still typing the code out. *@
+                            <p class="setting__note" data-testid="devices-code-expiry">@PairingCodeExpiry(issued)</p>
+                        }
+                    </section>
+                }
+            </div>
+
+            @if (_devicesMessage is not null)
+            {
+                <Alert Message="@_devicesMessage"
+                       TestId="devices-message"
+                       Role="@(_devicesFailed ? "alert" : "status")"
+                       BaseClass="setting__status"
+                       CssClass="@(_devicesFailed ? "setting__status--error" : "setting__status--ok")" />
+            }
+        </TabPanel>
+    }
     </Tabs>
 </div>
 @code {
@@ -1314,6 +1464,7 @@
         Storage,
         Accounts,
         Repositories,
+        Devices,
     }
 
     // The strip speaks in ids; the page still thinks in the enum.
@@ -1360,6 +1511,7 @@
         // usage reports. With neither on there is nothing for the panel to say, so
         // it is not offered rather than offered empty.
         SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
+        SettingsPage.Devices => DevicePairingEnabled,
         _ => false
     };
 
@@ -1538,6 +1690,10 @@
 
     protected override Task OnInitializedAsync()
     {
+        _devicePairing = Services.GetService<DevicePairingClient>();
+        _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
+        _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
+        _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
         SyncRefreshDraft();
@@ -1559,6 +1715,15 @@
         {
             await CheckConnectionAsync();
             await LoadCliAccountsAsync();
+        }
+
+        // Same reasoning: asking the sync service who this device is goes over
+        // the network, so the panel draws from what is stored and fills the
+        // device count in when the answer arrives.
+        if (DevicePairingEnabled && StoredDevice is not null)
+        {
+            await RefreshDeviceStatusAsync();
+            StateHasChanged();
         }
     }
 
@@ -2242,6 +2407,226 @@
 
         StateHasChanged();
     }
+
+
+    // --- Devices ---------------------------------------------------------
+    //
+    // The two sync collaborators are resolved rather than injected, and that is
+    // the decision rather than a shortcut. Every host registers them, but seven
+    // test files render this screen to ask about storage, repositories, accounts
+    // and AI, and a required inject would make every one of them compose a sync
+    // client to reach a panel they never open. AppFooter reads its optional
+    // collaborators the same way, for the same reason.
+
+    /// <summary>What a person is told when something nobody planned for went
+    /// wrong. An exception message is written for whoever reads the log, and
+    /// putting one on screen either says nothing usable or says too much — a
+    /// path, a header, the shape of the service. The detail goes to
+    /// <see cref="_deviceLog"/>; the sentence goes here.</summary>
+    private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
+
+    private DevicePairingClient? _devicePairing;
+    private IDeviceCredentialStore? _deviceCredentials;
+
+    /// <summary>Optional, like the two above and for the same reason: a test
+    /// rendering this screen to ask about storage should not have to compose a
+    /// logging stack to reach a panel it never opens.</summary>
+    private ILogger? _deviceLog;
+    private DeviceStatusResponse? _deviceStatus;
+    private PairingCodeResponse? _issuedCode;
+    private string _draftDeviceName = string.Empty;
+    private string _draftPairingCode = string.Empty;
+    private string? _devicesMessage;
+    private bool _devicesFailed;
+    private bool _devicesBusy;
+
+    /// <summary>Redraws the expiry line while a code is on screen. Disposed with
+    /// the screen, so a settings page left behind does not go on ticking.</summary>
+    private System.Threading.Timer? _pairingCodeCountdown;
+
+    private bool DevicePairingEnabled => Features.IsEnabled(SyncFeatures.DevicePairing);
+
+    private DeviceCredential? StoredDevice => _deviceCredentials?.Current;
+
+    private string CredentialStorePath =>
+        _deviceCredentials?.StorePath ?? "nowhere - cloud sync is not configured in this build";
+
+    private static string PairedDeviceSummary(int count) => count switch
+    {
+        <= 1 => "No other device is paired yet.",
+        2 => "One other device is paired.",
+        _ => $"{count - 1} other devices are paired."
+    };
+
+    /// <summary>
+    /// Whole minutes, rounded up. The number is read while somebody types eight
+    /// characters on another device, so "expires in 4 minutes" is the useful
+    /// shape and a ticking second count is not.
+    /// </summary>
+    private static string PairingCodeExpiry(PairingCodeResponse code)
+    {
+        var remaining = code.ExpiresAt - DateTimeOffset.UtcNow;
+
+        if (remaining <= TimeSpan.Zero) return "This code has expired. Generate another one.";
+
+        var minutes = (int)Math.Ceiling(remaining.TotalMinutes);
+        return minutes == 1 ? "Expires in 1 minute." : $"Expires in {minutes} minutes.";
+    }
+
+    private async Task RegisterDeviceAsync()
+    {
+        if (_devicePairing is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesBusy = true;
+        _devicesMessage = null;
+
+        try
+        {
+            var result = await _devicePairing.RegisterAsync(_draftDeviceName);
+
+            if (result.IsFailure)
+            {
+                ReportDeviceOutcome(result.Error.Message, failed: true);
+                return;
+            }
+
+            ReportDeviceOutcome($"Registered as {result.Value.DeviceName}.", failed: false);
+            await RefreshDeviceStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            // The client answers its expected failures with a result, so anything
+            // arriving here is unexpected - and it still has to reach the screen,
+            // because an exception swallowed in an event handler leaves the panel
+            // looking like nothing happened at all. What reaches the screen is a
+            // sentence; what the exception itself said goes to the log.
+            _deviceLog?.LogError(ex, "Registering this device with the sync service failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _devicesBusy = false;
+        }
+    }
+
+    private async Task PairDeviceAsync()
+    {
+        if (_devicePairing is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesBusy = true;
+        _devicesMessage = null;
+
+        try
+        {
+            var result = await _devicePairing.PairAsync(_draftPairingCode, _draftDeviceName);
+
+            if (result.IsFailure)
+            {
+                ReportDeviceOutcome(result.Error.Message, failed: true);
+                return;
+            }
+
+            _draftPairingCode = string.Empty;
+            ReportDeviceOutcome($"Paired as {result.Value.DeviceName}.", failed: false);
+            await RefreshDeviceStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            _deviceLog?.LogError(ex, "Pairing this device with the sync service failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _devicesBusy = false;
+        }
+    }
+
+    private async Task IssuePairingCodeAsync()
+    {
+        if (_devicePairing is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesBusy = true;
+        _devicesMessage = null;
+
+        try
+        {
+            var result = await _devicePairing.IssuePairingCodeAsync();
+
+            if (result.IsFailure)
+            {
+                _issuedCode = null;
+                ReportDeviceOutcome(result.Error.Message, failed: true);
+                return;
+            }
+
+            _issuedCode = result.Value;
+            StartPairingCodeCountdown();
+            ReportDeviceOutcome("Read this code out on the other device.", failed: false);
+        }
+        catch (Exception ex)
+        {
+            _issuedCode = null;
+            _deviceLog?.LogError(ex, "Asking the sync service for a pairing code failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _devicesBusy = false;
+        }
+    }
+
+    /// <summary>Who the service says this device is, which is where the count of
+    /// paired devices comes from. A failure is not reported: the card still has
+    /// the stored identity to show, and an unreachable service saying so twice on
+    /// one screen is noise.</summary>
+    private async Task RefreshDeviceStatusAsync()
+    {
+        if (_devicePairing is null || StoredDevice is null)
+        {
+            _deviceStatus = null;
+            return;
+        }
+
+        try
+        {
+            var result = await _devicePairing.GetStatusAsync();
+            _deviceStatus = result.IsSuccess ? result.Value : null;
+        }
+        catch (Exception)
+        {
+            _deviceStatus = null;
+        }
+    }
+
+    private void ReportDeviceOutcome(string message, bool failed)
+    {
+        _devicesMessage = message;
+        _devicesFailed = failed;
+    }
+
+    private void StartPairingCodeCountdown()
+    {
+        _pairingCodeCountdown?.Dispose();
+        _pairingCodeCountdown = new System.Threading.Timer(
+            _ => _ = InvokeAsync(StateHasChanged),
+            state: null,
+            dueTime: TimeSpan.FromSeconds(15),
+            period: TimeSpan.FromSeconds(15));
+    }
+
+    public void Dispose() => _pairingCodeCountdown?.Dispose();
 
     /// <summary>Asks again, so a <c>gh auth login</c> in another window is noticed
     /// without restarting the app. The connection probe is what forgets the CLI's

@@ -42,7 +42,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         var handler = new RecordingHandler();
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), Token(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo");
+        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
 
         // The availability probe, then the call itself — and nothing over HTTP.
         Assert.Equal(2, gh.Calls.Count);
@@ -57,7 +57,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         var handler = new RecordingHandler();
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), Token(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo");
+        await transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, handler.RequestCount);
         Assert.Equal("Bearer ghp_example", handler.Request!.Headers.Authorization!.ToString());
@@ -72,7 +72,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken());
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "repos/octo/demo"));
+            transport.SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.",
@@ -85,9 +85,9 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         using var cli = new GhStub().Answers("""{"login":"octocat"}""");
         using var noCli = new GhStub().Fails();
 
-        Assert.True(await new ResolvingGitHubTransport(Store(), cli.Transport(), NoToken()).IsAvailableAsync());
-        Assert.True(await new ResolvingGitHubTransport(Store(), noCli.Transport(), Token(new RecordingHandler())).IsAvailableAsync());
-        Assert.False(await new ResolvingGitHubTransport(Store(), noCli.Transport(), NoToken()).IsAvailableAsync());
+        Assert.True(await new ResolvingGitHubTransport(Store(), cli.Transport(), NoToken()).IsAvailableAsync(TestContext.Current.CancellationToken));
+        Assert.True(await new ResolvingGitHubTransport(Store(), noCli.Transport(), Token(new RecordingHandler())).IsAvailableAsync(TestContext.Current.CancellationToken));
+        Assert.False(await new ResolvingGitHubTransport(Store(), noCli.Transport(), NoToken()).IsAvailableAsync(TestContext.Current.CancellationToken));
     }
 
     // --- The sentence Settings shows ------------------------------------------
@@ -97,7 +97,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     {
         using var gh = new GhStub().Answers("""{"login":"octocat"}""");
 
-        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync();
+        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync(TestContext.Current.CancellationToken);
 
         Assert.True(connection.IsConnected);
         Assert.Equal("Connected through the GitHub CLI as octocat.", connection.Summary);
@@ -109,7 +109,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     {
         using var gh = new GhStub().Answers("{}");
 
-        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync();
+        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync(TestContext.Current.CancellationToken);
 
         Assert.True(connection.IsConnected);
         Assert.Equal("Connected through the GitHub CLI.", connection.Summary);
@@ -124,7 +124,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         using var gh = new GhStub().Fails();
 
         var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), Token(new RecordingHandler()))
-            .DescribeAsync();
+            .DescribeAsync(TestContext.Current.CancellationToken);
 
         Assert.True(connection.IsConnected);
         Assert.Equal("Connected with a repository personal access token.", connection.Summary);
@@ -136,7 +136,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
     {
         using var gh = new GhStub().Fails();
 
-        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync();
+        var connection = await new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken()).DescribeAsync(TestContext.Current.CancellationToken);
 
         Assert.False(connection.IsConnected);
         Assert.Equal(NotConnected, connection.Summary);
@@ -152,14 +152,14 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         using var gh = new GhStub().Answers("""{"login":"octocat"}""");
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken());
 
-        Assert.Equal("Connected through the GitHub CLI as octocat.", (await transport.DescribeAsync()).Summary);
+        Assert.Equal("Connected through the GitHub CLI as octocat.", (await transport.DescribeAsync(TestContext.Current.CancellationToken)).Summary);
 
         // Signed out underneath it. Without invalidating, the remembered answer stands.
         gh.Fails();
-        Assert.Equal("Connected through the GitHub CLI as octocat.", (await transport.DescribeAsync()).Summary);
+        Assert.Equal("Connected through the GitHub CLI as octocat.", (await transport.DescribeAsync(TestContext.Current.CancellationToken)).Summary);
 
         transport.Invalidate();
-        Assert.Equal(NotConnected, (await transport.DescribeAsync()).Summary);
+        Assert.Equal(NotConnected, (await transport.DescribeAsync(TestContext.Current.CancellationToken)).Summary);
     }
 
     [Fact]
@@ -197,11 +197,11 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         using var gh = new GhStub().Fails();
         var transport = new ResolvingGitHubTransport(store, gh.Transport());
 
-        Assert.False(await transport.IsAvailableAsync());
+        Assert.False(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
 
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_added_after_construction"));
 
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -229,7 +229,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         Assert.Equal(
             "No way to reach GitHub. Sign in with `gh auth login`, or add a personal access token in repository settings.",
             (await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-                transport.SendAsync(HttpMethod.Get, path))).Message);
+                transport.SendAsync(HttpMethod.Get, path, cancellationToken: TestContext.Current.CancellationToken))).Message);
 
         // The same repository, bound in the workspace being moved to.
         var moved = Path.Combine(_root, "workspace-two");
@@ -253,7 +253,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
             "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "
             + "and this machine has no credential for 'j-schepers_innobv'.",
             (await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-                transport.SendAsync(HttpMethod.Get, path))).Message);
+                transport.SendAsync(HttpMethod.Get, path, cancellationToken: TestContext.Current.CancellationToken))).Message);
     }
 
     // --- A bound repository never leaves as the process-wide identity ----------
@@ -272,7 +272,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         var handler = new RecordingHandler();
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), BoundToken(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues");
+        await transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, handler.RequestCount);
         Assert.Equal("Bearer ghp_bound", handler.Request!.Headers.Authorization!.ToString());
@@ -292,7 +292,7 @@ public sealed class ResolvingGitHubTransportTests : IDisposable
         var accounts = new StubGhCliAccountSource();
         var transport = new ResolvingGitHubTransport(Store(), gh.Transport(), NoToken(), accounts: accounts);
 
-        Assert.True(await transport.IsAvailableAsync());
+        Assert.True(await transport.IsAvailableAsync(TestContext.Current.CancellationToken));
 
         transport.Invalidate();
 

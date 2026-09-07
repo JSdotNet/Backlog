@@ -15,7 +15,7 @@ public sealed class TokenTransportTests
             () => "https://ghe.example.internal/api/v3/",
             new HttpClient(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats");
+        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             "https://ghe.example.internal/api/v3/orgs/acme/copilot/billing/seats",
@@ -29,7 +29,7 @@ public sealed class TokenTransportTests
         var transport = new TokenTransport(StubCredentialResolver.WithToken(), () => "not-a-url", new HttpClient(handler));
 
         await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats"));
+            transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(0, handler.RequestCount);
     }
@@ -49,7 +49,7 @@ public sealed class TokenTransportTests
         await transport.SendAsync(
             HttpMethod.Get,
             "users/jsdotnet/settings/billing/ai_credit/usage",
-            apiVersion: "2026-03-10");
+            apiVersion: "2026-03-10", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             "2026-03-10",
@@ -62,7 +62,7 @@ public sealed class TokenTransportTests
         var handler = new RecordingHandler();
         var transport = new TokenTransport(StubCredentialResolver.WithToken(), http: new HttpClient(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats");
+        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             IGitHubTransport.DefaultApiVersion,
@@ -80,7 +80,7 @@ public sealed class TokenTransportTests
         var handler = new RecordingHandler();
         var transport = new TokenTransport(StubCredentialResolver.WithToken(), http: new HttpClient(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats", apiVersion: "2026-03-10");
+        await transport.SendAsync(HttpMethod.Get, "orgs/acme/copilot/billing/seats", apiVersion: "2026-03-10", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(handler.Request!.Headers.GetValues("X-GitHub-Api-Version"));
     }
@@ -189,12 +189,12 @@ public sealed class TokenTransportTests
         // has to.
         Assert.Null(settings.TokenForPath(null));
         Assert.True(settings.HasAnyCredential);
-        Assert.True(await Transport(settings).IsAvailableAsync());
+        Assert.True(await Transport(settings).IsAvailableAsync(TestContext.Current.CancellationToken));
 
         var none = Configured(Repository("backlog", "octo", "demo"));
 
         Assert.False(none.HasAnyCredential);
-        Assert.False(await Transport(none).IsAvailableAsync());
+        Assert.False(await Transport(none).IsAvailableAsync(TestContext.Current.CancellationToken));
 
         // An account's pasted token counts too, which is the case that did not exist
         // when the fallback was written.
@@ -204,7 +204,7 @@ public sealed class TokenTransportTests
         };
 
         Assert.True(account.HasAnyCredential);
-        Assert.True(await Transport(account).IsAvailableAsync());
+        Assert.True(await Transport(account).IsAvailableAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public sealed class TokenTransportTests
             Repository("backlog", "octo", "demo", "ghp_demo"));
 
         var handler = new RecordingHandler();
-        await Transport(settings, handler).SendAsync(HttpMethod.Get, "repos/octo/demo/issues");
+        await Transport(settings, handler).SendAsync(HttpMethod.Get, "repos/octo/demo/issues", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("Bearer ghp_demo", handler.Request!.Headers.Authorization!.ToString());
     }
@@ -238,7 +238,7 @@ public sealed class TokenTransportTests
         var transport = Transport(new GitHubSettings(), handler);
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "repos/octo/demo/issues"));
+            transport.SendAsync(HttpMethod.Get, "repos/octo/demo/issues", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("No GitHub token is configured.", exception.Message);
         Assert.Equal(0, handler.RequestCount);
@@ -276,7 +276,7 @@ public sealed class TokenTransportTests
         var transport = Transport(settings, handler);
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues"));
+            transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "
@@ -288,7 +288,7 @@ public sealed class TokenTransportTests
 
         // And the repository bound to an account this machine does hold works: the
         // account's token, not the one left lying on the repository.
-        await transport.SendAsync(HttpMethod.Get, "repos/JSdotNet/Backlog/issues");
+        await transport.SendAsync(HttpMethod.Get, "repos/JSdotNet/Backlog/issues", cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal("Bearer ghp_jsdotnet", handler.Request!.Headers.Authorization!.ToString());
     }
 
@@ -302,7 +302,7 @@ public sealed class TokenTransportTests
         };
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            Transport(settings).SendAsync(HttpMethod.Get, "repos/JSdotNet/Backlog"));
+            Transport(settings).SendAsync(HttpMethod.Get, "repos/JSdotNet/Backlog", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "JSdotNet/Backlog is worked as 'JSdotNet', "
@@ -326,7 +326,7 @@ public sealed class TokenTransportTests
         };
 
         var handler = new RecordingHandler();
-        await Transport(settings, handler).SendAsync(HttpMethod.Get, "repos/acme/tools/issues");
+        await Transport(settings, handler).SendAsync(HttpMethod.Get, "repos/acme/tools/issues", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             "https://ghe.example.internal/api/v3/repos/acme/tools/issues",
@@ -353,7 +353,7 @@ public sealed class TokenTransportTests
             () => GitHubSettings.DefaultApiEndpoint,
             new HttpClient(handler));
 
-        await transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues");
+        await transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("Bearer gho_innobv", handler.Request!.Headers.Authorization!.ToString());
         Assert.Equal(["j-schepers_innobv"], accounts.Asked);
@@ -377,7 +377,7 @@ public sealed class TokenTransportTests
             new HttpClient(handler));
 
         var exception = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues"));
+            transport.SendAsync(HttpMethod.Get, "repos/innovadis-dev/spec-manager/issues", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "innovadis-dev/spec-manager is worked as 'j-schepers_innobv', "

@@ -40,7 +40,7 @@ public sealed class GhCliAccountSourceTests
             }
             """);
 
-        var accounts = await gh.Source().ListAsync();
+        var accounts = await gh.Source().ListAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(new[] { "api", "auth", "status", "--json", "hosts" }[1..], gh.OnlyCall);
 
@@ -68,7 +68,7 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers(
             """{ "hosts": { "ghe.example.internal": [ { "login": "enterprise", "state": "active" } ] } }""");
 
-        var account = Assert.Single(await gh.Source().ListAsync());
+        var account = Assert.Single(await gh.Source().ListAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal("ghe.example.internal", account.Host);
         Assert.Null(account.Scopes);
@@ -80,8 +80,8 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers("""{ "hosts": { "github.com": [ { "login": "octocat" } ] } }""");
         var source = gh.Source();
 
-        Assert.Single(await source.ListAsync());
-        Assert.Single(await source.ListAsync());
+        Assert.Single(await source.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Single(await source.ListAsync(TestContext.Current.CancellationToken));
 
         Assert.Single(gh.Calls);
     }
@@ -97,7 +97,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Answers(answer);
 
-        Assert.Empty(await gh.Source().ListAsync());
+        Assert.Empty(await gh.Source().ListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -106,8 +106,8 @@ public sealed class GhCliAccountSourceTests
         var source = new GhCliAccountSource(
             Path.Combine(Path.GetTempPath(), $"gh-not-installed-{Guid.NewGuid():N}.cmd"));
 
-        Assert.Empty(await source.ListAsync());
-        Assert.Null(await source.GetTokenAsync("octocat"));
+        Assert.Empty(await source.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Null(await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Fails(1, "gh: you are not logged in");
 
-        Assert.Empty(await gh.Source().ListAsync());
+        Assert.Empty(await gh.Source().ListAsync(TestContext.Current.CancellationToken));
     }
 
     // --- Getting one account's token ------------------------------------------
@@ -125,7 +125,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Answers("gho_innobv\n");
 
-        Assert.Equal("gho_innobv", await gh.Source().GetTokenAsync("j-schepers_innobv"));
+        Assert.Equal("gho_innobv", await gh.Source().GetTokenAsync("j-schepers_innobv", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Equal(new[] { "auth", "token", "--user", "j-schepers_innobv" }, gh.OnlyCall);
     }
 
@@ -134,7 +134,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Answers("gho_enterprise");
 
-        Assert.Equal("gho_enterprise", await gh.Source().GetTokenAsync("enterprise", "ghe.example.internal"));
+        Assert.Equal("gho_enterprise", await gh.Source().GetTokenAsync("enterprise", "ghe.example.internal", TestContext.Current.CancellationToken));
 
         Assert.Equal(
             new[] { "auth", "token", "--user", "enterprise", "--hostname", "ghe.example.internal" },
@@ -146,7 +146,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Fails(1, "no oauth token found for j-schepers_innobv");
 
-        Assert.Null(await gh.Source().GetTokenAsync("j-schepers_innobv"));
+        Assert.Null(await gh.Source().GetTokenAsync("j-schepers_innobv", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public sealed class GhCliAccountSourceTests
     {
         using var gh = new GhStub().Answers("gho_something");
 
-        Assert.Null(await gh.Source().GetTokenAsync("   "));
+        Assert.Null(await gh.Source().GetTokenAsync("   ", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Empty(gh.Calls);
     }
 
@@ -167,18 +167,18 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers("gho_first");
         var source = gh.Source(time);
 
-        Assert.Equal("gho_first", await source.GetTokenAsync("octocat"));
-        Assert.Equal("gho_first", await source.GetTokenAsync("octocat"));
+        Assert.Equal("gho_first", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal("gho_first", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Single(gh.Calls);
 
         gh.Answers("gho_second");
 
         time.Advance(GhCliAccountSource.TokenLifetime - TimeSpan.FromSeconds(1));
-        Assert.Equal("gho_first", await source.GetTokenAsync("octocat"));
+        Assert.Equal("gho_first", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Single(gh.Calls);
 
         time.Advance(TimeSpan.FromSeconds(2));
-        Assert.Equal("gho_second", await source.GetTokenAsync("octocat"));
+        Assert.Equal("gho_second", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Equal(2, gh.Calls.Count);
     }
 
@@ -191,8 +191,8 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Fails();
         var source = gh.Source(new FakeTimeProvider());
 
-        Assert.Null(await source.GetTokenAsync("octocat"));
-        Assert.Null(await source.GetTokenAsync("octocat"));
+        Assert.Null(await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Null(await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Single(gh.Calls);
     }
@@ -203,13 +203,13 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers("gho_one");
         var source = gh.Source(new FakeTimeProvider());
 
-        Assert.Equal("gho_one", await source.GetTokenAsync("one"));
+        Assert.Equal("gho_one", await source.GetTokenAsync("one", cancellationToken: TestContext.Current.CancellationToken));
 
         gh.Answers("gho_two");
-        Assert.Equal("gho_two", await source.GetTokenAsync("two"));
+        Assert.Equal("gho_two", await source.GetTokenAsync("two", cancellationToken: TestContext.Current.CancellationToken));
 
         // And the first is still the first, rather than the second's answer.
-        Assert.Equal("gho_one", await source.GetTokenAsync("one"));
+        Assert.Equal("gho_one", await source.GetTokenAsync("one", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>Settings' "Check the connection" button is the only way a
@@ -221,12 +221,12 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers("gho_first");
         var source = gh.Source(new FakeTimeProvider());
 
-        Assert.Equal("gho_first", await source.GetTokenAsync("octocat"));
+        Assert.Equal("gho_first", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
 
         source.Invalidate();
 
         gh.Answers("gho_second");
-        Assert.Equal("gho_second", await source.GetTokenAsync("octocat"));
+        Assert.Equal("gho_second", await source.GetTokenAsync("octocat", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Equal(2, gh.Calls.Count);
     }
 
@@ -236,12 +236,12 @@ public sealed class GhCliAccountSourceTests
         using var gh = new GhStub().Answers("""{ "hosts": { "github.com": [ { "login": "octocat" } ] } }""");
         var source = gh.Source();
 
-        Assert.Single(await source.ListAsync());
+        Assert.Single(await source.ListAsync(TestContext.Current.CancellationToken));
 
         source.Invalidate();
 
         gh.Answers("""{ "hosts": { "github.com": [] } }""");
-        Assert.Empty(await source.ListAsync());
+        Assert.Empty(await source.ListAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>A clock the test moves by hand, so the token lifetime is asserted

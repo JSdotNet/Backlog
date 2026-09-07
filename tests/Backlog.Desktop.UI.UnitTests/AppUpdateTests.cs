@@ -112,7 +112,7 @@ public class UnsupportedAppUpdateServiceTests
     {
         var service = new UnsupportedAppUpdateService("Handled by your package manager.");
 
-        var result = await service.CheckForUpdateAsync();
+        var result = await service.CheckForUpdateAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(AppUpdateAvailability.Unsupported, result.Availability);
         Assert.Equal("Handled by your package manager.", result.Message);
@@ -124,7 +124,7 @@ public class UnsupportedAppUpdateServiceTests
     {
         var service = new UnsupportedAppUpdateService("Handled by your package manager.");
 
-        var result = await service.StartUpdateAsync();
+        var result = await service.StartUpdateAsync(TestContext.Current.CancellationToken);
 
         Assert.False(result.Started);
         Assert.Equal("Handled by your package manager.", result.Message);
@@ -135,7 +135,7 @@ public class UnsupportedAppUpdateServiceTests
     {
         var service = new UnsupportedAppUpdateService();
 
-        var result = await service.CheckForUpdateAsync();
+        var result = await service.CheckForUpdateAsync(TestContext.Current.CancellationToken);
 
         Assert.Contains("managed", result.Message, StringComparison.OrdinalIgnoreCase);
     }

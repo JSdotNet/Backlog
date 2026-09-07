@@ -114,6 +114,26 @@ In-process hosted services that poll external sources on the local machine.
 - **Why** — keeping fetching local is what keeps external credentials off the
   cloud (quality goal 2).
 
+## System.Security.Cryptography.ProtectedData
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".tech/desktop.md#windows", ".tech/shared.md#net-runtime"]
+related: [".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity", ".domain/tasks/features.md#pairing-a-device", ".domain/tasks/naming.md#registration-credential"]
+```
+
+The .NET wrapper over Windows DPAPI.
+
+- **Used for** — `DpapiDeviceCredentialStore` in `Backlog.Infrastructure.Sync`,
+  encrypting the device's registration credential at rest under `CurrentUser`
+  scope, at `%LOCALAPPDATA%\Backlog\device-credential.json` on the desktop
+  head (each web harness keeps its own copy under its own path, so the two
+  harnesses register as distinct devices).
+- **Why** — the OS credential store local ADR 0005's Identity section names for
+  Windows: no key of the app's own to generate, rotate, or leak.
+
 ## GitHub CLI
 
 ```meta

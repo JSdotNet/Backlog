@@ -24,6 +24,8 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,6 +120,16 @@ public static class MauiProgram
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.
         builder.Services.AddSingleton<IAppFeatureSettings>(_ => new AppFeatureSettingsStore(AppFeatures.All));
+        // The device half of cloud sync. DPAPI is the store ADR 0005 asks for on
+        // Windows, and this head is the Windows one; the credential lands beside the
+        // app's other per-user state rather than in the backlog folder, because it
+        // belongs to this machine and not to the workspace.
+        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore());
+        // "https+http://sync" is resolved by Aspire service discovery, which
+        // AddServiceDefaults above wired up, so the desktop always talks to the sync
+        // service of this AppHost run. Ports are dynamic; a literal one would be
+        // wrong by the next launch.
+        builder.Services.AddSyncClient(new Uri("https+http://sync"));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();

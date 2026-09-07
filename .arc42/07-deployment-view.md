@@ -208,6 +208,12 @@ Deployment considerations:
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the
   service stores-and-forwards.
 - **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
+  The device-token signing key (`Modules:Sync:Tokens:SigningKey`) belongs here
+  too: it is a required setting outside Development, the service refuses to
+  start without one, and `infra/sync/main.bicep` provisions the vault empty —
+  the key itself is not seeded by the template and has to be put there (or
+  supplied another way) before a production start succeeds. See
+  `docs/deployment/sync.md#identity-and-why-there-are-no-keys`.
 - **No blob storage** — attachments live on the desktop's local file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.

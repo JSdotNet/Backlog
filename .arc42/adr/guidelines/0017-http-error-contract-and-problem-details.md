@@ -48,10 +48,15 @@ field. Domain invariants stay enforced in the domain model regardless.
 
 ## Deviations and gaps
 
-- **Not implemented.** The sync endpoints return bare `Results.NotFound()` with
-  no body, and there is no exception-handling middleware, no Problem Details
-  wiring, and no `Result`-to-HTTP mapping helper.
-- This is the natural companion change to giving the sync service real handlers
-  (see [0004](0004-result-objects-for-expected-failures.md) and
-  [0007](0007-minimal-apis-over-controllers.md)); doing one without the other
-  leaves the API's failure contract undefined.
+- **Implemented for the device and inbox endpoints.** `Backlog.Modules.Sync.Api`
+  maps its `Result` outcomes to RFC 7807 Problem Details through
+  `Endpoints/SyncResults.cs`, with `type` set to
+  `https://backlog.jsdotnet.dev/problems/{code}` and a `code` extension per
+  failure (`pairing.code_not_found`, `pairing.code_expired`,
+  `pairing.code_used`, `pairing.code_malformed`, `device.credential_invalid`,
+  `device.name_required`, `inbox.item_not_found`) rather than a bare status
+  code.
+- **What is still missing is the centralized piece**: there is no
+  exception-handling middleware turning an unexpected exception into a `500`
+  Problem Details response. The mapping that exists is per-endpoint, applied by
+  the handlers that call it, not a boundary-wide guarantee yet.

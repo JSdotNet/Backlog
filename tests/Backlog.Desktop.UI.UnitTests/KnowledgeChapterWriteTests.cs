@@ -32,7 +32,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\r\n\r\n```meta\r\nstatus: draft\r\n```\r\n\r\nOriginal prose.\r\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"));
+        await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(Path.Combine(root, "notes.md"));
         Assert.Contains("Edited prose.", written, StringComparison.Ordinal);
@@ -44,7 +44,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\r\n\r\n```meta\r\nstatus: draft\r\n```\r\n\r\nEdited prose.\r\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"));
+        await _writer.WriteAsync(chapter, "# Notes\r\n\r\n```meta\r\nstatus: draft\r\n```\r\n\r\nEdited prose.\r\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(Path.Combine(root, "notes.md"));
         Assert.Contains("Edited prose.", written, StringComparison.Ordinal);
@@ -62,7 +62,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "notes.md");
         var buffer = File.ReadAllText(filePath);
 
-        await _writer.WriteAsync(chapter, buffer.Replace("End.", "Edited end.", StringComparison.Ordinal), null);
+        await _writer.WriteAsync(chapter, buffer.Replace("End.", "Edited end.", StringComparison.Ordinal), null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("Edited end.", written, StringComparison.Ordinal);
@@ -76,7 +76,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "notes.md");
         var buffer = File.ReadAllText(filePath);
 
-        await _writer.WriteAsync(chapter, buffer.Replace("End.", "Edited end.", StringComparison.Ordinal), null);
+        await _writer.WriteAsync(chapter, buffer.Replace("End.", "Edited end.", StringComparison.Ordinal), null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("Edited end.", written, StringComparison.Ordinal);
@@ -92,7 +92,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var (root, chapter) = Chapter("notes.md", "# Notes\r\nProse.\nEnd.");
         var filePath = Path.Combine(root, "notes.md");
 
-        await _writer.WriteAsync(chapter, File.ReadAllText(filePath).Replace("End.", "Edited end.", StringComparison.Ordinal), null);
+        await _writer.WriteAsync(chapter, File.ReadAllText(filePath).Replace("End.", "Edited end.", StringComparison.Ordinal), null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("Edited end.", written, StringComparison.Ordinal);
@@ -104,7 +104,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.", baseline: null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.", baseline: null, TestContext.Current.CancellationToken);
 
         Assert.EndsWith("Edited prose.\n", File.ReadAllText(Path.Combine(root, "notes.md")), StringComparison.Ordinal);
     }
@@ -114,7 +114,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null, TestContext.Current.CancellationToken);
 
         Assert.EndsWith("Edited prose.", File.ReadAllText(Path.Combine(root, "notes.md")), StringComparison.Ordinal);
     }
@@ -126,7 +126,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "notes.md");
         var before = File.ReadAllBytes(filePath);
 
-        await _writer.WriteAsync(chapter, File.ReadAllText(filePath), null);
+        await _writer.WriteAsync(chapter, File.ReadAllText(filePath), null, TestContext.Current.CancellationToken);
 
         Assert.Equal(before, File.ReadAllBytes(filePath));
     }
@@ -139,7 +139,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         // convention is to have no final newline at all.
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nProse.");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n\n\n", null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n\n\n", null, TestContext.Current.CancellationToken);
 
         Assert.Equal("# Notes\n\nEdited prose.\n\n\n", File.ReadAllText(Path.Combine(root, "notes.md")));
     }
@@ -149,7 +149,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null, TestContext.Current.CancellationToken);
 
         var bytes = File.ReadAllBytes(Path.Combine(root, "notes.md"));
         Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
@@ -160,7 +160,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.\n", byteOrderMark: true);
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", null, TestContext.Current.CancellationToken);
 
         var bytes = File.ReadAllBytes(Path.Combine(root, "notes.md"));
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes[..3]);
@@ -177,7 +177,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         // Reading strips the mark, so the buffer the editor holds has no idea the
         // file had one. Only the writer can know, and only from the bytes.
         var buffer = File.ReadAllText(filePath);
-        await _writer.WriteAsync(chapter, buffer, Baseline(buffer));
+        await _writer.WriteAsync(chapter, buffer, Baseline(buffer), TestContext.Current.CancellationToken);
 
         Assert.Equal(before, File.ReadAllBytes(filePath));
     }
@@ -194,7 +194,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         // typed has to be a no-op at the byte level — not merely at the "looks
         // the same" level.
         var buffer = File.ReadAllText(filePath);
-        await _writer.WriteAsync(chapter, buffer, Baseline(buffer));
+        await _writer.WriteAsync(chapter, buffer, Baseline(buffer), TestContext.Current.CancellationToken);
 
         Assert.Equal(before, File.ReadAllBytes(filePath));
     }
@@ -205,7 +205,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         const string fence = "```meta\nstatus: accepted\nowner: docs\nrelated: [\".arc42/08-crosscutting-concepts.md\"]\n```";
         var (root, chapter) = Chapter("notes.md", $"# Notes\n\n{fence}\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, $"# Notes\n\n{fence}\n\nEdited prose.\n", Baseline($"# Notes\n\n{fence}\n"));
+        await _writer.WriteAsync(chapter, $"# Notes\n\n{fence}\n\nEdited prose.\n", Baseline($"# Notes\n\n{fence}\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(Path.Combine(root, "notes.md"));
         Assert.Contains(fence, written, StringComparison.Ordinal);
@@ -220,7 +220,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         File.WriteAllText(Path.Combine(root, "outside.md"), "# Outside\n");
         var escaping = new KnowledgeChapterRef("arc42", Path.Combine(root, "area"), "../outside.md");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _writer.WriteAsync(escaping, "# Rewritten\n", null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _writer.WriteAsync(escaping, "# Rewritten\n", null, TestContext.Current.CancellationToken));
 
         Assert.Equal("# Outside\n", File.ReadAllText(Path.Combine(root, "outside.md")));
     }
@@ -234,7 +234,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         File.WriteAllText(outside, "# Outside\n");
         var escaping = new KnowledgeChapterRef("arc42", Path.Combine(root, "area"), outside);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _writer.WriteAsync(escaping, "# Rewritten\n", null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _writer.WriteAsync(escaping, "# Rewritten\n", null, TestContext.Current.CancellationToken));
 
         Assert.Equal("# Outside\n", File.ReadAllText(outside));
     }
@@ -245,7 +245,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var root = TempDir();
         var missing = new KnowledgeChapterRef("arc42", root, "gone.md");
 
-        await Assert.ThrowsAsync<FileNotFoundException>(() => _writer.WriteAsync(missing, "# Gone\n", null));
+        await Assert.ThrowsAsync<FileNotFoundException>(() => _writer.WriteAsync(missing, "# Gone\n", null, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         // buffer still carries the status it was loaded with.
         File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
 
-        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"));
+        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("status: active", written, StringComparison.Ordinal);
@@ -277,7 +277,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         // Editing status: in the markdown is a deliberate edit, and the merge is
         // symmetric precisely so a blunt "disk always wins" cannot silently
         // discard it.
-        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: accepted\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"));
+        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: accepted\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("status: accepted", written, StringComparison.Ordinal);
@@ -298,7 +298,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
 
         File.WriteAllText(filePath, Layered.Replace("status: draft", "status: active", StringComparison.Ordinal));
 
-        var result = await _writer.WriteAsync(chapter, Layered.Replace("Node prose.", "Edited node prose.", StringComparison.Ordinal), baseline);
+        var result = await _writer.WriteAsync(chapter, Layered.Replace("Node prose.", "Edited node prose.", StringComparison.Ordinal), baseline, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: active\n```", written, StringComparison.Ordinal);
@@ -318,7 +318,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
 
         File.WriteAllText(filePath, Layered.Replace("status: draft", "status: active", StringComparison.Ordinal));
 
-        var result = await _writer.WriteAsync(chapter, Layered.Replace("status: draft", "status: accepted", StringComparison.Ordinal), baseline);
+        var result = await _writer.WriteAsync(chapter, Layered.Replace("status: draft", "status: accepted", StringComparison.Ordinal), baseline, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: accepted\n```", written, StringComparison.Ordinal);
@@ -340,7 +340,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         File.WriteAllText(filePath, Layered.Replace("status: draft", "status: active", StringComparison.Ordinal));
 
         var renamed = Layered.Replace("## Blazor Hybrid", "## Blazor Hybrid Shell", StringComparison.Ordinal);
-        var result = await _writer.WriteAsync(chapter, renamed, baseline);
+        var result = await _writer.WriteAsync(chapter, renamed, baseline, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("## Blazor Hybrid Shell\n\n```meta\nstatus: draft\n```", written, StringComparison.Ordinal);
@@ -356,7 +356,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "notes.md");
         File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
 
-        var result = await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null);
+        var result = await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("```meta", written, StringComparison.Ordinal);
@@ -376,7 +376,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
 
         File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.DoesNotContain("```meta", written, StringComparison.Ordinal);
@@ -387,7 +387,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.\n");
 
-        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null);
+        await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null, TestContext.Current.CancellationToken);
 
         var files = Directory.EnumerateFiles(root).Select(path => Path.GetFileName(path)!).Order().ToArray();
         Assert.Equal(["notes.md"], files);
@@ -398,7 +398,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
     {
         var (root, chapter) = Chapter("notes.md", "# Notes\r\n\r\n```meta\r\nstatus: draft\r\n```\r\n\r\nOriginal prose.\r\n");
 
-        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"));
+        var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         Assert.Equal(File.ReadAllText(Path.Combine(root, "notes.md")), result.Text);
     }
@@ -424,7 +424,7 @@ public sealed class KnowledgeChapterWriteTests : IDisposable
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nSchépers — ünïcode ✓\n");
 
         var buffer = File.ReadAllText(Path.Combine(root, "notes.md"));
-        await _writer.WriteAsync(chapter, buffer + "More ✓\n", baseline: null);
+        await _writer.WriteAsync(chapter, buffer + "More ✓\n", baseline: null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(Path.Combine(root, "notes.md"), Encoding.UTF8);
         Assert.Contains("Schépers — ünïcode ✓", written, StringComparison.Ordinal);

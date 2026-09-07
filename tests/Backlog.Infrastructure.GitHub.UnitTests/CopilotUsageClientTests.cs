@@ -80,7 +80,7 @@ public class CopilotUsageClientTests
     {
         var client = new CopilotUsageClient(new StubTransport());
 
-        var error = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => client.GetSeatsAsync(" "));
+        var error = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => client.GetSeatsAsync(" ", TestContext.Current.CancellationToken));
 
         Assert.Contains("individual subscriber", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -91,7 +91,7 @@ public class CopilotUsageClientTests
         var client = new CopilotUsageClient(new StubTransport());
 
         await Assert.ThrowsAsync<GitHubException>(() =>
-            client.GetMetricsReportAsync("acme", CopilotMetricsScope.OrganizationDaily));
+            client.GetMetricsReportAsync("acme", CopilotMetricsScope.OrganizationDaily, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class CopilotUsageClientTests
         var transport = new StubTransport("""{ "download_links": [] }""");
         var client = new CopilotUsageClient(transport);
 
-        await client.GetMetricsReportAsync("acme", CopilotMetricsScope.Users28Day);
+        await client.GetMetricsReportAsync("acme", CopilotMetricsScope.Users28Day, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("orgs/acme/copilot/metrics/reports/users-28-day/latest", Assert.Single(transport.Paths));
     }
@@ -111,7 +111,7 @@ public class CopilotUsageClientTests
         var transport = new StubTransport("""{ "download_links": [] }""");
         var client = new CopilotUsageClient(transport);
 
-        await client.GetMetricsReportAsync("acme", CopilotMetricsScope.UsersDaily, new DateOnly(2026, 8, 9));
+        await client.GetMetricsReportAsync("acme", CopilotMetricsScope.UsersDaily, new DateOnly(2026, 8, 9), TestContext.Current.CancellationToken);
 
         Assert.Equal("orgs/acme/copilot/metrics/reports/users-1-day?day=2026-08-09", Assert.Single(transport.Paths));
     }
@@ -122,7 +122,7 @@ public class CopilotUsageClientTests
         var transport = new StubTransport("""{ "seats": [ { "assignee": { "login": "octocat" } } ] }""");
         var client = new CopilotUsageClient(transport);
 
-        var seats = await client.GetSeatsAsync("acme");
+        var seats = await client.GetSeatsAsync("acme", TestContext.Current.CancellationToken);
 
         Assert.Single(seats);
         Assert.Single(transport.Paths);
@@ -132,7 +132,7 @@ public class CopilotUsageClientTests
     [Fact]
     public async Task Availability_says_plainly_that_usage_is_organization_scoped()
     {
-        var availability = await new CopilotUsageClient(new StubTransport()).GetAvailabilityAsync();
+        var availability = await new CopilotUsageClient(new StubTransport()).GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.True(availability.IsAvailable);
         Assert.Contains("no personal", availability.Reason, StringComparison.OrdinalIgnoreCase);

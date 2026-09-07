@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FakeTimeProvider: the token renewal window is two minutes inside a
+         thirty-minute lifetime, and a test that proves the cache renews has to
+         move the clock rather than wait for it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+</Project>

@@ -113,10 +113,26 @@ actual URLs from the Aspire dashboard or the AppHost startup output, then use th
 | `mobile-web-harness` | Same components at phone width — mobile Playwright target |
 | `ui-storybook` | Every shared component on its own, with no app behind it |
 | `sync` | Thin sync service the harnesses reference |
+| `sync`'s `openapi/v1.json` | Generated OpenAPI document for the sync service's endpoints, served in Development only |
 
 ## Test Credentials
 
-None required. Backlog is local-first and the harnesses expose no authenticated surface.
+No external secret is required. Backlog is local-first, but the sync service now validates
+a bearer token on every call — `/api/sync/devices/me` and every `/api/sync/inbox` endpoint
+are behind it — so each harness has to pair itself before exercising them:
+
+- On `desktop-web-harness`: Settings → Features → turn on `device-pairing` → Settings →
+  Devices → **Register this device**, or **Pair with a code** copied from the other
+  harness's pairing code.
+- On `mobile-web-harness`: the Inbox pane shows a pairing-code entry while unpaired.
+- Each harness keeps its own device-credential file
+  (`BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH` / `BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH`, both
+  under the harness's own `obj/local-development/`), so the two harnesses register as two
+  distinct devices under one owner rather than sharing a pairing.
+
+**The Development signing key is ephemeral** — generated fresh on process start and logged
+as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` unpairs every
+device; re-pair after any `aspire start` that restarts it.
 
 If credentials become necessary later, record only a **pointer** here (for example the name
 of the secret store, vault, or user-secrets entry). Never place actual secrets, tokens, or

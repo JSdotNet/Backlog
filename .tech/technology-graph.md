@@ -109,6 +109,7 @@ flowchart LR
             WebView2["WebView2"]:::adopted
             LocalStore["Local Task Store"]:::adopted
             Workers["Background Workers"]:::candidate
+            ProtectedData["System.Security.Cryptography.ProtectedData"]:::adopted
             GhCli["GitHub CLI"]:::adopted
             MSIX["MSIX Packaging"]:::adopted
             AppInstaller["App Installer (.appinstaller)"]:::adopted
@@ -129,6 +130,8 @@ flowchart LR
 
         subgraph Cloud["Cloud - Azure services"]
             MinimalApis["ASP.NET Core Minimal APIs"]:::adopted
+            JwtBearer["Microsoft.AspNetCore.Authentication.JwtBearer"]:::adopted
+            JsonWebTokens["Microsoft.IdentityModel.JsonWebTokens"]:::adopted
             ACA["Azure Container Apps"]:::candidate
         end
     end
@@ -214,6 +217,8 @@ flowchart LR
     LocalStore --> DataSqlite
     LocalStore --> JSON
     Workers --> DotNet
+    ProtectedData --> Windows
+    ProtectedData --> DotNet
     GhCli --> GitHubPlatform
     MSIX --> WinAppSDK
     AppInstaller --> MSIX
@@ -233,6 +238,8 @@ flowchart LR
 
     MinimalApis --> AspNetCore
     MinimalApis --> CSharp
+    JwtBearer --> AspNetCore
+    JsonWebTokens --> DotNet
     ACA --> MinimalApis
 
     XUnit --> DotNet

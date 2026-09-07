@@ -120,7 +120,7 @@ public sealed class AgentSessionSourceTests : IDisposable
             "not json at all",
             """{"type":"hook","name":"SessionStart"}""",
             """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main"}"""
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         var session = Assert.Single((await ReadAsync()).Sessions);
 
@@ -408,8 +408,8 @@ public sealed class AgentSessionSourceTests : IDisposable
     {
         var folder = Directory.CreateDirectory(Path.Combine(ClaudeHome, "sessions"));
 
-        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "half-written.json"), "{\"pid\":123,\"sess");
-        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "not-a-session.json"), "[]");
+        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "half-written.json"), "{\"pid\":123,\"sess", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(folder.FullName, "not-a-session.json"), "[]", TestContext.Current.CancellationToken);
         GivenClaudeLiveSession("good", @"D:\Repos\Backlog", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
 
         var catalog = await ReadAsync();

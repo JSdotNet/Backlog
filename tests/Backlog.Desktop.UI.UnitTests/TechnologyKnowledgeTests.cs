@@ -168,9 +168,9 @@ public sealed class TechnologyKnowledgeReaderTests
             """);
         var service = new TechnologyKnowledgeService(new KnowledgeFolderSource(workspace.CreateStore()));
 
-        await service.UpdateStatusAsync("backlog", ".tech/shared.md", "adopted");
-        await service.UpdateStatusAsync("backlog", ".tech/shared.md#net", "active");
-        var view = await service.ReadAsync("backlog");
+        await service.UpdateStatusAsync("backlog", ".tech/shared.md", "adopted", TestContext.Current.CancellationToken);
+        await service.UpdateStatusAsync("backlog", ".tech/shared.md#net", "active", TestContext.Current.CancellationToken);
+        var view = await service.ReadAsync("backlog", TestContext.Current.CancellationToken);
 
         var layer = Assert.Single(view.Layers);
         Assert.Equal("adopted", layer.Metadata.Status);

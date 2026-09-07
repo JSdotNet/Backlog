@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Sync module — the device half of the Sync bounded context
+    (.arc42/adr/0005 §Identity). Clean architecture, inside out:
+      DomainModels/  the device, the pairing code, and the owner scope every
+                     other slice is measured against
+      Ports/         what the module needs storage to do
+      Adapters/      in-memory stand-ins so the module runs before Cosmos does
+      Services/      the crypto and the token port the slices share
+      Features/      one vertical slice per use case (command/query + handler)
+      Extensions/    AddSyncModule() composition root for hosts
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution. The HTTP host goes the other way: it calls the
+    handlers and holds the DTOs, never the Device.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddSyncModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Sync.UnitTests" />
+  </ItemGroup>
+
+</Project>

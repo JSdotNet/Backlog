@@ -172,6 +172,20 @@ heard of, so keeping a device inside its own partition is a check in the service
 in front of a credential that can see everything. Nothing in this template changes
 that, and nothing in it can.
 
+**A different key belongs to a different secret, and it is not provisioned here.**
+The identity model above is about how the service reaches Cosmos; it says nothing
+about how the service signs the device tokens it issues. That key —
+`Modules:Sync:Tokens:SigningKey`, at least 32 bytes, base64 — is a required
+setting outside Development: `Backlog.Modules.Sync.Api` validates it on start and
+refuses to come up without one. Development mints and warns about an ephemeral
+key so no configuration is needed locally, but that path is Development-only by
+construction. The Key Vault this template provisions is empty — it holds `Key
+Vault Secrets User` for the service's managed identity and nothing else, since
+neither the signing key nor the webhook secrets it also names have code to
+consume them yet — so the signing key has to be put into it (or supplied another
+way, e.g. a container app secret) and wired to `Modules:Sync:Tokens:SigningKey`
+before the first production start will succeed.
+
 ## Observability carries no domain data
 
 Log Analytics and Application Insights carry application observability only —

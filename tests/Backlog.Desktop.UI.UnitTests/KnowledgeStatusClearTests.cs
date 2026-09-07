@@ -249,7 +249,7 @@ public class KnowledgeStatusClearTests
                 """);
             var knowledge = new Arc42KnowledgeStore(new KnowledgeFolderSource(ConfiguredSettings(root)));
 
-            await knowledge.ClearStatusAsync("backlog", ".arc42/04-solution-strategy.md");
+            await knowledge.ClearStatusAsync("backlog", ".arc42/04-solution-strategy.md", TestContext.Current.CancellationToken);
 
             var text = File.ReadAllText(Path.Combine(root, ".arc42", "04-solution-strategy.md"));
             Assert.DoesNotContain("status:", text, StringComparison.Ordinal);
@@ -291,7 +291,7 @@ public class KnowledgeStatusClearTests
                 """);
             var knowledge = new DomainKnowledgeStore(new KnowledgeFolderSource(ConfiguredSettings(root)));
 
-            await knowledge.ClearStatusAsync("backlog", ".domain/tasks/features.md#inbox-capture");
+            await knowledge.ClearStatusAsync("backlog", ".domain/tasks/features.md#inbox-capture", TestContext.Current.CancellationToken);
 
             var text = File.ReadAllText(Path.Combine(root, ".domain", "tasks", "features.md"));
             Assert.Contains("status: draft", text, StringComparison.Ordinal);

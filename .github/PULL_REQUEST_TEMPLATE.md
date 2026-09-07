@@ -12,7 +12,9 @@
 
 ## Related
 
-<!-- Link issues, ADRs, or related sessions here. -->
+<!-- Use a closing keyword so the issue closes on merge: `Closes #123`, `Fixes #123`.
+     Link related-but-not-closed issues, ADRs, or sessions plainly: `Refs #123`.
+     If this PR fixes something with no issue, say so - that is a valid answer. -->
 
 ## Checklist
 
@@ -20,3 +22,4 @@
 - [ ] Documentation or instruction files were updated when governance or behavior changed
 - [ ] Running Aspire instances for this checkout were stopped before PR creation (`build\stop-aspire-before-pr.ps1`)
 - [ ] Follow-up work is captured when the implementation is intentionally partial
+- [ ] Issues this PR closes are linked with a closing keyword, or there are none

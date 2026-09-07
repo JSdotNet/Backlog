@@ -20,7 +20,7 @@ public sealed class GitHubClientUploadFileTests
         var client = new GitHubClient(transport);
 
         var uploaded = await client.UploadFileAsync(
-            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot");
+            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot", TestContext.Current.CancellationToken);
 
         Assert.Equal("feedback-screenshots/shot.jpg", uploaded.Path);
         Assert.Equal(
@@ -47,7 +47,7 @@ public sealed class GitHubClientUploadFileTests
         var client = new GitHubClient(transport);
 
         var uploaded = await client.UploadFileAsync(
-            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot");
+            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             "https://raw.githubusercontent.com/JSdotNet/Backlog/feedback-screenshots/feedback-screenshots/shot.jpg",
@@ -64,6 +64,6 @@ public sealed class GitHubClientUploadFileTests
         var client = new GitHubClient(transport);
 
         await Assert.ThrowsAsync<GitHubException>(() => client.UploadFileAsync(
-            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot"));
+            Repository, "feedback-screenshots/shot.jpg", "feedback-screenshots", [1, 2, 3], "Add feedback screenshot", TestContext.Current.CancellationToken));
     }
 }

@@ -404,7 +404,7 @@ public sealed class ImportPlanTests
         var store = new InMemoryTaskRepository();
 
         var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
-            .Handle(new ImportPlanCommand("\n\n   \n"));
+            .Handle(new ImportPlanCommand("\n\n   \n"), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ImportPlanCommandHandler.EmptyPlan, result.Error);
@@ -428,7 +428,7 @@ public sealed class ImportPlanTests
             "# First prompt\n`prompt` `#myplan` `id:same` `repo:brand-new`\n\n"
             + "# Second prompt\n`prompt` `#myplan` `id:same` `repo:brand-new`\n";
 
-        var result = await new ImportPlanCommandHandler(store, directory).Handle(new ImportPlanCommand(plan));
+        var result = await new ImportPlanCommandHandler(store, directory).Handle(new ImportPlanCommand(plan), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);
@@ -461,7 +461,7 @@ public sealed class ImportPlanTests
             + "# Renamed twice\n`prompt` `#myplan` `id:same`\n";
 
         var result = await new ImportPlanCommandHandler(store, new FakeRepositoryDirectory())
-            .Handle(new ImportPlanCommand(plan));
+            .Handle(new ImportPlanCommand(plan), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ImportPlanCommandHandler.DuplicateItemId("same"), result.Error);

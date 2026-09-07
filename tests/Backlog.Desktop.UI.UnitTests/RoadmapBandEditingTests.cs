@@ -87,7 +87,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             tag: "sync",
             knowledge: [".domain/tasks/domain.md#aggregate-backlog-entry"])));
 
-        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
         Assert.Equal("Typed into the dialog", item.Title);
         Assert.Equal(new DateOnly(2026, 4, 6), item.Start);
@@ -113,7 +113,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         await band.InvokeAsync(() => Editor(band).OnSave.InvokeAsync(Submission(title: "Extract the sync service")));
 
-        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         Assert.Equal("extract-the-sync-service", item.Tag);
     }
 
@@ -125,7 +125,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             new DateOnly(2026, 1, 5),
             new DateOnly(2026, 1, 9),
             tag: "original",
-            knowledgeRefs: ["a.md"]);
+            knowledgeRefs: ["a.md"], cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -141,7 +141,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             tag: "retagged",
             knowledge: ["a.md", "b.md#section"])));
 
-        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
         Assert.Equal(added.Value.Id, item.Id);
         Assert.Equal("retagged", item.Tag);
@@ -151,7 +151,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task OpeningABarEditsThatItem()
     {
-        var added = await Planning.AddItemAsync("Already planned", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Already planned", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -166,7 +166,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task EditingFromTheEditorStoresIt_AndKeepsTheSameItem()
     {
-        var added = await Planning.AddItemAsync("Before", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Before", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -177,7 +177,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             title: "After",
             priority: PlanningPriority.Critical)));
 
-        var item = Assert.Single((await Planning.GetPlanAsync()).Items);
+        var item = Assert.Single((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
 
         Assert.Equal(added.Value.Id, item.Id);
         Assert.Equal("After", item.Title);
@@ -200,13 +200,13 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor\"]"));
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor-error\"]"));
-        Assert.Empty((await Planning.GetPlanAsync()).Items);
+        Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
     }
 
     [Fact]
     public async Task DeletingFromTheEditorRemovesIt()
     {
-        var added = await Planning.AddItemAsync("Doomed", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Doomed", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -214,7 +214,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
 
         await band.InvokeAsync(() => Editor(band).OnDelete.InvokeAsync(added.Value.Id));
 
-        Assert.Empty((await Planning.GetPlanAsync()).Items);
+        Assert.Empty((await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
         Assert.NotNull(band.Find("[data-testid=\"roadmap-band-empty-state\"]"));
     }
@@ -222,8 +222,8 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task ADependencyAddedInTheEditorIsStored()
     {
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16));
+        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -232,7 +232,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: true)));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal([design.Value.Id], plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
     }
@@ -240,9 +240,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task ADependencyTakenAwayInTheEditorIsRemoved()
     {
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16));
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id)).IsSuccess);
+        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
@@ -251,7 +251,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         await band.InvokeAsync(() => Editor(band).OnDependencyChanged.InvokeAsync(
             new RoadmapDependencyChange(build.Value.Id, design.Value.Id, Added: false)));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(plan.Items.Single(item => item.Id == build.Value.Id).DependsOn);
     }
@@ -259,9 +259,9 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task ADependencyThatWouldCloseACycleIsRefusedAndExplained()
     {
-        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16));
-        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id)).IsSuccess);
+        var design = await Planning.AddItemAsync("Design", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        var build = await Planning.AddItemAsync("Build", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True((await Planning.AddDependencyAsync(build.Value.Id, design.Value.Id, TestContext.Current.CancellationToken)).IsSuccess);
 
         using var context = Context();
         var band = Drawn(context);
@@ -273,15 +273,15 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
         // Reported in the dialog, and the stored plan is untouched.
         Assert.NotNull(band.Find("[data-testid=\"roadmap-editor-error\"]"));
 
-        var plan = await Planning.GetPlanAsync();
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
         Assert.Empty(plan.Items.Single(item => item.Id == design.Value.Id).DependsOn);
     }
 
     [Fact]
     public async Task AnItemIsNeverOfferedAsItsOwnDependency()
     {
-        var first = await Planning.AddItemAsync("First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        await Planning.AddItemAsync("Second", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16));
+        var first = await Planning.AddItemAsync("First", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync("Second", new DateOnly(2026, 1, 12), new DateOnly(2026, 1, 16), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -296,8 +296,8 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task AMilestoneCanBeWaitedFor_SoItIsOfferedToo()
     {
-        var work = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        await Planning.AddMilestoneAsync("Code freeze", new DateOnly(2026, 2, 2), MilestoneKind.Freeze);
+        var work = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddMilestoneAsync("Code freeze", new DateOnly(2026, 2, 2), MilestoneKind.Freeze, cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -309,8 +309,8 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     [Fact]
     public async Task OpeningAMilestoneSelectsItWithoutOpeningAnItemEditor()
     {
-        await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
-        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 2, 2));
+        await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
+        var release = await Planning.AddMilestoneAsync("1.0", new DateOnly(2026, 2, 2), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
@@ -326,7 +326,7 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
     public async Task TheEditorOffersTheConfiguredRepositories()
     {
         Configure("JSdotNet/Backlog", "fincent = JSdotNet/Fincent");
-        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9));
+        var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);
 
         using var context = Context();
         var band = Drawn(context);
