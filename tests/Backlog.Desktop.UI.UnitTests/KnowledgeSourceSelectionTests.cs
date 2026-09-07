@@ -112,15 +112,15 @@ public sealed class KnowledgeSourceSelectionTests : IDisposable
     }
 
     [Fact]
-    public void A_configured_branch_is_not_listed_twice_once_it_is_loaded()
+    public async Task A_configured_branch_is_not_listed_twice_once_it_is_loaded()
     {
         var settings = Settings();
         Assert.Null(settings.SetKnowledgeSource("backlog", "main", useLocalFolder: false));
 
         var selection = Selection(settings, new StubBranchCatalog { Branches = { "main" } });
-        selection.LoadBranchesAsync("backlog").GetAwaiter().GetResult();
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
 
-        Assert.Single(selection.Options("backlog").Where(o => o.Value == "main"));
+        Assert.Single(selection.Options("backlog"), option => option.Value == "main");
     }
 
     // --- What it currently reads ---------------------------------------------
