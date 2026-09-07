@@ -13,6 +13,13 @@ concurrency:
   group: pull-request-${{ github.ref }}
   cancel-in-progress: true
 
+# The solution splits along one line: the two MAUI app heads need a platform
+# workload, and nothing else in the repository does. Measured on a four-core
+# machine, a full rebuild is ~63s for the Android head and ~10s for the Windows
+# one against ~6s for the other fifty-one projects, and `dotnet workload restore`
+# cost 154s of the run before this split. No test project references either head
+# -- they are the outermost layer -- so the heads no longer sit in front of the
+# suite. They build in their own job, beside it.
 jobs:
   dotnet:
     name: Build and test .NET
@@ -26,39 +33,55 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Restore .NET workloads
-        run: dotnet workload restore Backlog.sln
+      # Backlog.WithoutAppHeads.slnf is the solution minus the two heads, and it
+      # is a hand-held list: a test project added to the solution but not to the
+      # filter would never run here, and the job would still be green. That
+      # failure mode -- a run that tested nothing and said so in no way -- has
+      # bitten this pipeline before, so every project is accounted for before
+      # anything is built.
+      - name: Check the solution filter accounts for every project
+        shell: pwsh
+        run: |
+          $heads = @(
+            'src\App\Backlog.Desktop\Backlog.Desktop.csproj',
+            'src\App\Backlog.Mobile\Backlog.Mobile.csproj'
+          )
+          $solution = (Select-String -Path Backlog.sln -Pattern '"([^"]+\.csproj)"' -AllMatches).Matches |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+          $filter = (Get-Content Backlog.WithoutAppHeads.slnf -Raw | ConvertFrom-Json).solution.projects
 
+          $unfiltered = @($solution | Where-Object { $_ -notin $filter } | Sort-Object)
+          $stale = @($filter | Where-Object { $_ -notin $solution } | Sort-Object)
+
+          if (Compare-Object $unfiltered @($heads | Sort-Object)) {
+            Write-Host 'In the solution but not in Backlog.WithoutAppHeads.slnf:'
+            $unfiltered | ForEach-Object { Write-Host "  $_" }
+            throw 'The filter must list every solution project except the app heads. Add the project to Backlog.WithoutAppHeads.slnf, or -- if it is a new app head -- to the app-heads job and to the list above.'
+          }
+
+          if ($stale) {
+            Write-Host 'Listed in Backlog.WithoutAppHeads.slnf but no longer in Backlog.sln:'
+            $stale | ForEach-Object { Write-Host "  $_" }
+            throw 'Remove the stale entries from Backlog.WithoutAppHeads.slnf.'
+          }
+
+          Write-Host "$($filter.Count) projects filtered, $($heads.Count) app heads built by the app-heads job."
+
+      # No RuntimeIdentifierOverride / WindowsPackageType / Appx properties here:
+      # those exist for the heads, which this job does not build.
       - name: Restore dependencies
-        run: >
-          dotnet restore Backlog.sln
-          -p:RuntimeIdentifierOverride=win-x64
-          -p:WindowsPackageType=None
-          -p:AppxPackageSigningEnabled=false
-          -p:GenerateAppxPackageOnBuild=false
-
-      - name: Restore desktop runtime dependencies
-        run: >
-          dotnet restore src\App\Backlog.Desktop\Backlog.Desktop.csproj
-          -r win-x64
-          -p:WindowsPackageType=None
-          -p:AppxPackageSigningEnabled=false
-          -p:GenerateAppxPackageOnBuild=false
+        run: dotnet restore Backlog.WithoutAppHeads.slnf
 
       - name: Build
         run: >
-          dotnet build Backlog.sln
+          dotnet build Backlog.WithoutAppHeads.slnf
           --no-restore
           --configuration Release
-          -p:RuntimeIdentifierOverride=win-x64
-          -p:WindowsPackageType=None
-          -p:AppxPackageSigningEnabled=false
-          -p:GenerateAppxPackageOnBuild=false
 
       # xunit v3 runs on Microsoft.Testing.Platform, which global.json opts
-      # `dotnet test` into. The solution is named with --solution, and the four
-      # options below are what .github/_ci.runsettings and the VSTest loggers used
-      # to say before MTP replaced both:
+      # `dotnet test` into. The solution filter is named with --solution, and the
+      # four options below are what .github/_ci.runsettings and the VSTest loggers
+      # used to say before MTP replaced both:
       #
       #   MaxCpuCount 1                -> --max-parallel-test-modules 1
       #   ParallelizeTestCollections   -> --parallel none
@@ -75,17 +98,13 @@ jobs:
       - name: Run tests
         run: >
           dotnet test
-          --solution Backlog.sln
+          --solution Backlog.WithoutAppHeads.slnf
           --no-build
           --configuration Release
           --max-parallel-test-modules 1
           --results-directory TestResults
           --report-trx
           --parallel none
-          -p:RuntimeIdentifierOverride=win-x64
-          -p:WindowsPackageType=None
-          -p:AppxPackageSigningEnabled=false
-          -p:GenerateAppxPackageOnBuild=false
 
       - name: Upload test results
         if: always()
@@ -94,6 +113,69 @@ jobs:
           name: dotnet-test-results
           path: TestResults
           if-no-files-found: ignore
+
+  app-heads:
+    name: Build the app heads
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # Scoped to the heads rather than to the solution: they are the only
+      # projects with a platform target framework, and so the only reason any
+      # job here pays for a workload install.
+      - name: Restore .NET workloads
+        shell: pwsh
+        run: |
+          dotnet workload restore src\App\Backlog.Desktop\Backlog.Desktop.csproj
+          dotnet workload restore src\App\Backlog.Mobile\Backlog.Mobile.csproj
+
+      - name: Restore dependencies
+        shell: pwsh
+        run: |
+          dotnet restore src\App\Backlog.Desktop\Backlog.Desktop.csproj `
+            -p:RuntimeIdentifierOverride=win-x64 `
+            -p:WindowsPackageType=None `
+            -p:AppxPackageSigningEnabled=false `
+            -p:GenerateAppxPackageOnBuild=false
+          dotnet restore src\App\Backlog.Mobile\Backlog.Mobile.csproj `
+            -p:RuntimeIdentifierOverride=win-x64 `
+            -p:WindowsPackageType=None `
+            -p:AppxPackageSigningEnabled=false `
+            -p:GenerateAppxPackageOnBuild=false
+
+      - name: Restore desktop runtime dependencies
+        run: >
+          dotnet restore src\App\Backlog.Desktop\Backlog.Desktop.csproj
+          -r win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Build the Windows head
+        run: >
+          dotnet build src\App\Backlog.Desktop\Backlog.Desktop.csproj
+          --no-restore
+          --configuration Release
+          -p:RuntimeIdentifierOverride=win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
+
+      - name: Build the Android head
+        run: >
+          dotnet build src\App\Backlog.Mobile\Backlog.Mobile.csproj
+          --no-restore
+          --configuration Release
+          -p:RuntimeIdentifierOverride=win-x64
+          -p:WindowsPackageType=None
+          -p:AppxPackageSigningEnabled=false
+          -p:GenerateAppxPackageOnBuild=false
 
   vscode-extension:
     name: Compile VS Code extension
