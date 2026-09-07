@@ -970,7 +970,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
 
         var value = result.Value;
-        return $"Imported: {value.Created} created, {value.Updated} updated, {value.Skipped} skipped.";
+        return $"Imported: {value.Created} created, {value.Replaced} replaced, {value.Updated} updated, "
+            + $"{value.Skipped} skipped, {value.Removed} removed.";
     }
 
     // --- Editing ---------------------------------------------------------

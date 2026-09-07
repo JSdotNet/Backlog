@@ -511,28 +511,35 @@ status: proposed
 related: [.domain/tasks/domain.md#task, .domain/tasks/domain.md#task-status]
 ```
 
-Bring in a later version of a plan already imported once, and have it adjust
-the tasks still in flight rather than duplicate them. Each entry in a plan
-keeps the same id across versions, so a later import recognizes "this is the
-same entry, updated" instead of "this is a new entry" — the plan's id
-together with the entry's id inside it is what a task remembers about
-where it came from, and what a later import matches against.
+Bring in a later version of a plan already imported once, and have it replace
+that plan rather than add to it. Bringing a version in first clears what the
+previous one left behind: every task that plan produced which nobody has started
+yet — still `draft` or `ready` — is deleted, and the version being brought in is
+written in its place. The plan's id is what a task remembers about where it came
+from, so a task carrying the same tag that came from somewhere else was never
+part of the plan and is not touched.
 
-A task a previous import produced, and that is not yet `done` or
-`archived`, is updated in place from the new version: its instructions, its
-type, its dependencies, its target repository, and its setup/knowledge/manual
-sub-items are replaced with what the new version says. Status is the one field
-a later version moves only when it asks to: restate it and the task moves
-there, leave it out and the task keeps whatever progress it has made since it
-was imported — a plan that says nothing about where an entry stands is not
-asking for work already under way to be sent back to `draft`. An entry the plan
-no longer mentions is left as it is — import removes nothing on its own. A
+What survives a re-import is the work somebody has actually taken up. A task
+already `in progress` is kept and brought up to date from the new version: its
+instructions, its type, its dependencies, its target repository, and its
+setup/knowledge/manual sub-items are replaced with what the new version says.
+Status is the one field a later version moves only when it asks to: restate it
+and the task moves there, leave it out and the task keeps whatever progress it
+has made since it was imported — a plan that says nothing about where an entry
+stands is not asking for work already under way to be sent back to `draft`. A
 task already `done` or `archived` is never touched by a later import: the whole
 entry is skipped, a restated status included, the same way finishing a
 recurring task leaves that occurrence as the settled record of
-what was done rather than something a later change reopens. An entry id the
-first import never produced a task for is simply created new, whichever
-version of the plan introduced it.
+what was done rather than something a later change reopens.
+
+Because clearing is by plan rather than by what the new version happens to
+mention, a not-yet-started task the plan has stopped describing goes with the
+version that described it — that is how a plan drops work nobody began. Each
+entry keeping the same id across versions is what lets a task already under way
+or already finished be recognized as the same entry rather than stood beside;
+an entry id the plan never carried is simply created, whichever version
+introduced it. A task replaced this way is a new task, so a dependency written
+against the one it replaced from outside the plan no longer resolves.
 
 ## AI assistance over the visible backlog
 
