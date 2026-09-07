@@ -23,8 +23,8 @@
       "adopted": 88,
       "candidate": 14,
       "hold": 1,
-      "none": 4,
-      "active": 20,
+      "none": 2,
+      "active": 22,
       "proposed": 2,
       "draft": 2
     },
@@ -2320,7 +2320,7 @@
           "slug": "pairing-a-device",
           "level": 3,
           "line": 626,
-          "status": null,
+          "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
           ],
@@ -2341,8 +2341,8 @@
           "path": ".domain/tasks/naming.md",
           "slug": "registration-credential",
           "level": 2,
-          "line": 326,
-          "status": null,
+          "line": 329,
+          "status": "active",
           "aliases": [
             "device credential",
             "credential"

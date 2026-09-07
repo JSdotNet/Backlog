@@ -21,9 +21,9 @@
     "nodesByStatus": {
       "draft": 422,
       "proposed": 37,
-      "active": 61,
+      "active": 67,
       "deprecated": 4,
-      "none": 8
+      "none": 2
     },
     "edgesByType": {
       "contains": 443,
@@ -6982,7 +6982,7 @@
           "slug": "pairing-a-device",
           "level": 3,
           "line": 626,
-          "status": null,
+          "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
           ],
@@ -7002,7 +7002,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 656,
+          "line": 657,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -7023,7 +7023,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 687,
+          "line": 688,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -7446,7 +7446,7 @@
           "slug": "device",
           "level": 2,
           "line": 275,
-          "status": null,
+          "status": "active",
           "aliases": [
             "machine",
             "PC"
@@ -7469,8 +7469,8 @@
           "path": ".domain/tasks/naming.md",
           "slug": "owner",
           "level": 2,
-          "line": 295,
-          "status": null,
+          "line": 296,
+          "status": "active",
           "aliases": [
             "ownerId",
             "owner id"
@@ -7491,8 +7491,8 @@
           "path": ".domain/tasks/naming.md",
           "slug": "pairing-code",
           "level": 2,
-          "line": 311,
-          "status": null,
+          "line": 313,
+          "status": "active",
           "aliases": [
             "pairing code",
             "XXXX-XXXX code"
@@ -7512,8 +7512,8 @@
           "path": ".domain/tasks/naming.md",
           "slug": "registration-credential",
           "level": 2,
-          "line": 326,
-          "status": null,
+          "line": 329,
+          "status": "active",
           "aliases": [
             "device credential",
             "credential"
@@ -7534,8 +7534,8 @@
           "path": ".domain/tasks/naming.md",
           "slug": "device-token",
           "level": 2,
-          "line": 340,
-          "status": null,
+          "line": 344,
+          "status": "active",
           "aliases": [
             "access token",
             "device session token",
@@ -7557,7 +7557,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "tombstone",
           "level": 2,
-          "line": 354,
+          "line": 359,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",

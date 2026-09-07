@@ -627,6 +627,7 @@ store.
 
 ```meta
 type: sub-feature
+status: active
 related: [.arc42/adr/guidelines/0012-authentication-external-identity-providers.md, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .domain/tasks/naming.md#device]
 depends-on: [.domain/tasks/features.md#multi-device-sync]
 ```

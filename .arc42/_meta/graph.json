@@ -20,10 +20,10 @@
       "heading": 1
     },
     "nodesByStatus": {
-      "active": 78,
+      "active": 79,
       "proposed": 10,
       "draft": 21,
-      "none": 2,
+      "none": 1,
       "adopted": 7
     },
     "edgesByType": {
@@ -1829,7 +1829,7 @@
           "slug": "device",
           "level": 2,
           "line": 275,
-          "status": null,
+          "status": "active",
           "aliases": [
             "machine",
             "PC"

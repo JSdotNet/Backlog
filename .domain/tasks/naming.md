@@ -276,6 +276,7 @@ A plan may name a task by id and read its progress; it never writes to it.
 
 ```meta
 type: term
+status: active
 aliases: [machine, PC]
 related: [.domain/tasks/features.md#multi-device-sync, .domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#owner, .domain/tasks/naming.md#registration-credential, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
@@ -296,6 +297,7 @@ than an authority. **Paired** describes two devices that share one
 
 ```meta
 type: term
+status: active
 aliases: [ownerId, owner id]
 related: [.domain/tasks/naming.md#device, .domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
 ```
@@ -312,6 +314,7 @@ call may touch.
 
 ```meta
 type: term
+status: active
 aliases: [pairing code, XXXX-XXXX code]
 related: [.domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#device]
 ```
@@ -327,6 +330,7 @@ own, and a code cannot be redeemed twice.
 
 ```meta
 type: term
+status: active
 aliases: [device credential, credential]
 related: [.domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#device-token, .domain/tasks/naming.md#device]
 ```
@@ -341,6 +345,7 @@ sync call rather than presenting the credential itself on the wire.
 
 ```meta
 type: term
+status: active
 aliases: [access token, device session token, sync token]
 related: [.domain/tasks/naming.md#registration-credential, .domain/tasks/naming.md#owner, .arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
 ```
