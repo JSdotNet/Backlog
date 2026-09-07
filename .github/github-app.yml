@@ -20,26 +20,21 @@ mcp_servers:
     args: ["agent", "mcp"]
     tools: ["*"]
 
-# Mirrors .github/workflows/pull-request.yml. The MAUI heads in src/App require the
-# win-x64 / WindowsPackageType flags below; without them restore and build fail.
+# Mirrors the `dotnet` job in .github/workflows/pull-request.yml: it builds and
+# tests Backlog.WithoutAppHeads.slnf, the solution minus the two MAUI app heads.
+# No test project references a head, so a pre-flight that wanted a compiled tree
+# and a green suite was paying for a workload install and an Android build to get
+# neither. The heads are still built on every pull request, by the app-heads job.
+# The win-x64 / WindowsPackageType flags went with them: they exist for the heads.
 pre_flight:
   - name: Restore dependencies
-    run: >
-      dotnet restore Backlog.sln
-      -p:RuntimeIdentifierOverride=win-x64
-      -p:WindowsPackageType=None
-      -p:AppxPackageSigningEnabled=false
-      -p:GenerateAppxPackageOnBuild=false
+    run: dotnet restore Backlog.WithoutAppHeads.slnf
 
   - name: Build (compile)
     run: >
-      dotnet build Backlog.sln
+      dotnet build Backlog.WithoutAppHeads.slnf
       --no-restore
       --configuration Release
-      -p:RuntimeIdentifierOverride=win-x64
-      -p:WindowsPackageType=None
-      -p:AppxPackageSigningEnabled=false
-      -p:GenerateAppxPackageOnBuild=false
 
   # Microsoft.Testing.Platform, opted into by global.json when the suite moved to
   # xunit v3. The options mirror pull-request.yml -- see the comment there for what
@@ -49,14 +44,10 @@ pre_flight:
   - name: Run tests
     run: >
       dotnet test
-      --solution Backlog.sln
+      --solution Backlog.WithoutAppHeads.slnf
       --no-build
       --configuration Release
       --max-parallel-test-modules 1
       --results-directory TestResults
       --report-trx
       --parallel none
-      -p:RuntimeIdentifierOverride=win-x64
-      -p:WindowsPackageType=None
-      -p:AppxPackageSigningEnabled=false
-      -p:GenerateAppxPackageOnBuild=false
