@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Modules.Tasks;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -67,17 +68,31 @@ public class SyncClientRegistrationTests
         Assert.Null(provider.GetService<TaskSyncSession>());
         Assert.Null(provider.GetService<TaskReplicaMerge>());
         Assert.Null(provider.GetService<TaskSyncClient>());
+
+        // The background loop comes with replication and not with pairing. A
+        // head with no local task database has nothing for it to exchange, and a
+        // timer that woke up every five minutes to find that out would be a
+        // timer on a phone's battery.
+        Assert.Null(provider.GetService<TaskSyncWorker>());
     }
 
     /// <summary>
-    /// The desktop shape: a repository and a sync-state store of the host's
-    /// choosing, and the opt-in call on top of the pairing surface.
+    /// The desktop shape: a repository, a sync-state store and a feature store of
+    /// the host's choosing, and the opt-in call on top of the pairing surface.
+    /// <para>
+    /// The feature store is on the list because the loop reads it. Opting into
+    /// replication now means opting into something that asks whether the person
+    /// wants it, so a head with no <c>IAppFeatureSettings</c> fails validation
+    /// here rather than at its own startup — which is what this whole file is
+    /// for.
+    /// </para>
     /// </summary>
     [Fact]
-    public void A_host_that_opts_in_composes_the_session()
+    public void A_host_that_opts_in_composes_the_session_and_the_loop()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
         services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
         services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
         services.AddSyncClient(SyncAddress);
@@ -87,19 +102,30 @@ public class SyncClientRegistrationTests
 
         Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
         Assert.NotNull(provider.GetRequiredService<DevicePairingClient>());
+
+        using var worker = provider.GetRequiredService<TaskSyncWorker>();
+        Assert.NotNull(worker);
     }
 
     /// <summary>
-    /// Opting in without choosing a sync-state store leaves the session
-    /// registered and unconstructable — the case Settings' <c>ResolveTaskSync</c>
-    /// guard exists for. It is pinned here so that guard keeps describing
-    /// something real: the container throws rather than answering null.
+    /// Opting in without choosing a sync-state store leaves both the session and
+    /// the loop registered and unconstructable — the case Settings'
+    /// <c>ResolveTaskSync</c> guard exists for. It is pinned here so that guard
+    /// keeps describing something real: the container throws rather than
+    /// answering null.
+    /// <para>
+    /// The worker is asserted as well as the session because the worker is what
+    /// the screen now asks for, and it only shares the session's fate by taking
+    /// the same store. If it ever stopped taking one, the screen would start
+    /// getting an answer on a head that cannot replicate.
+    /// </para>
     /// </summary>
     [Fact]
     public void Opting_in_without_a_sync_state_store_leaves_the_session_unconstructable()
     {
         var services = new ServiceCollection();
         services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
         services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
         services.AddSyncClient(SyncAddress);
         services.AddTaskSyncClient(SyncAddress);
@@ -109,5 +135,6 @@ public class SyncClientRegistrationTests
         using var provider = services.BuildServiceProvider();
 
         Assert.Throws<InvalidOperationException>(() => provider.GetService<TaskSyncSession>());
+        Assert.Throws<InvalidOperationException>(() => provider.GetService<TaskSyncWorker>());
     }
 }

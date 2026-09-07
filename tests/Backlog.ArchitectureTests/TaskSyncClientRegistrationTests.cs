@@ -58,6 +58,49 @@ public class TaskSyncClientRegistrationTests
             + "the call if this head has none to give it:\n" + string.Join('\n', offenders));
     }
 
+    /// <summary>
+    /// <c>AddTaskSyncClient</c> also registers <c>TaskSyncWorker</c>, which is the
+    /// background loop that makes replication happen without anybody opening
+    /// Settings. It is a singleton with a timer inside it rather than an
+    /// <c>IHostedService</c> — there is no hosted service anywhere in this
+    /// repository, because the MAUI head has no generic host to start one — so
+    /// nothing starts it except the first resolve.
+    ///
+    /// <para>
+    /// That makes the failure completely silent: a head that registers the worker
+    /// and never asks for it builds, starts, opens every screen and syncs only
+    /// while somebody stands on the Devices panel pressing the button. No test
+    /// that composes a service collection can see it, because the registration is
+    /// there and correct; what is missing is the ask.
+    /// </para>
+    ///
+    /// <para>
+    /// Same shape and same limits as the rule above: a text scan, deliberately
+    /// narrow, checking that the file which opts in also names the resolve
+    /// somewhere. It cannot tell whether the line runs.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_composition_root_that_adds_task_sync_also_resolves_the_worker()
+    {
+        var files = CompositionRoots().ToList();
+
+        Assert.NotEmpty(files);
+
+        var offenders = files
+            .Where(file => file.Text.Contains("AddTaskSyncClient(", StringComparison.Ordinal))
+            .Where(file => !file.Text.Contains("GetRequiredService<TaskSyncWorker>()", StringComparison.Ordinal))
+            .Select(file => file.RelativePath)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "These composition roots add task replication and never resolve TaskSyncWorker, so the "
+            + "background loop is registered and never constructed - the head syncs only while somebody "
+            + "has the Devices settings panel open. Ask for it once after Build():\n"
+            + string.Join('\n', offenders));
+    }
+
     /// <summary>Every <c>MauiProgram.cs</c> or <c>Program.cs</c> under the app heads
     /// and the harnesses — the files that assemble a service collection for a
     /// runnable host, as opposed to a library or a module.</summary>

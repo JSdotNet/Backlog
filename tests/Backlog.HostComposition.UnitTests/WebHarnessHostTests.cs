@@ -60,6 +60,28 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// And the background loop is constructable in it, which is a second thing
+    /// from the session being constructable: the worker takes the sync-state
+    /// store directly, so a harness that composed a session but no store would
+    /// pass the assertion above and fail here.
+    /// <para>
+    /// That the harness's own <c>Program</c> asks for it after <c>Build()</c> is
+    /// checked by <c>TaskSyncClientRegistrationTests</c> rather than here. A
+    /// resolve in this test would satisfy itself: it would construct the very
+    /// singleton whose absence it is meant to detect.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_can_compose_the_background_sync_loop()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<Backlog.Infrastructure.Sync.TaskSyncWorker>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.
@@ -73,5 +95,10 @@ public class WebHarnessHostTests
 
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<Backlog.Infrastructure.Sync.DevicePairingClient>());
         Assert.Null(scope.ServiceProvider.GetService<Backlog.Infrastructure.Sync.TaskSyncSession>());
+
+        // And no loop either, which is the same statement: the worker comes with
+        // the session, and a phone with no local task database has nothing for
+        // either of them to replicate.
+        Assert.Null(scope.ServiceProvider.GetService<Backlog.Infrastructure.Sync.TaskSyncWorker>());
     }
 }

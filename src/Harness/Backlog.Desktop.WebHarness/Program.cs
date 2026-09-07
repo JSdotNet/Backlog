@@ -242,6 +242,16 @@ if (DevelopmentWorkspace.Current is { } workspace)
 
 var app = builder.Build();
 
+// The background sync loop, asked for once and then left alone. A singleton
+// nobody resolves is a singleton that never runs, and this one is nothing but a
+// constructor that starts a timer - so without this line the harness would only
+// replicate while somebody had the Devices settings panel open. Resolved the
+// same way in src/App/Backlog.Desktop/MauiProgram.cs, and for the same reason
+// there is no IHostedService here to do it instead: that head has no generic
+// host to start one, and a loop only one of the two heads runs is a loop nobody
+// can test against the harness.
+_ = app.Services.GetRequiredService<TaskSyncWorker>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");

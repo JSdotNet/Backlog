@@ -64,7 +64,7 @@ public static class SyncClientRegistration
 
     /// <summary>
     /// Adds task replication on top of <see cref="AddSyncClient"/>: the replica
-    /// client, the merge and the session.
+    /// client, the merge, the session and the background loop that runs it.
     /// <para>
     /// Call it after <see cref="AddSyncClient"/> and against the same address —
     /// the typed client here chains onto the token pipeline that call registers,
@@ -88,6 +88,28 @@ public static class SyncClientRegistration
     /// composition; a sync client that silently declined to sync is visible
     /// nowhere.
     /// </para>
+    /// <para>
+    /// <strong>The loop is part of replication, and a head has to start it.</strong>
+    /// <see cref="TaskSyncWorker"/> is registered here because a device that only
+    /// replicates when somebody opens Settings and presses a button is not
+    /// replicating. It is a singleton with a timer inside it rather than an
+    /// <c>IHostedService</c> — see that type for why the MAUI head leaves no
+    /// place for one — which means nothing starts it except the first resolve.
+    /// A head that calls this must therefore ask for it once after
+    /// <c>Build()</c>: a singleton nobody resolves is a singleton that never
+    /// runs, and there is nothing about that failure to notice.
+    /// </para>
+    /// <para>
+    /// The loop also adds one thing to what a caller owes this method: an
+    /// <see cref="Backlog.SharedKernel.IAppFeatureSettings"/>, on top of the
+    /// <see cref="ITaskSyncStateStore"/> and <see cref="IDeviceCredentialStore"/>
+    /// the session and the token pipeline already need. It gates on the
+    /// <c>task-sync</c> feature and on this device being paired, because a person
+    /// can have paired devices and still not want their tasks leaving the
+    /// machine, and an unpaired device has no owner to replicate under. A head
+    /// that leaves the feature store out fails provider validation rather than
+    /// silently syncing whatever the person switched off.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddTaskSyncClient(this IServiceCollection services, Uri baseAddress)
     {
@@ -107,6 +129,12 @@ public static class SyncClientRegistration
         // is the host's ITaskSyncStateStore, which is where the singleton belongs.
         services.TryAddTransient<TaskReplicaMerge>();
         services.TryAddTransient<TaskSyncSession>();
+
+        // And a singleton, because the schedule is the thing it holds: a second
+        // worker would be a second timer, and two timers are the overlapping
+        // cycles its own guard exists to prevent. It takes the provider rather
+        // than the session for the reason the two lines above are transient.
+        services.TryAddSingleton<TaskSyncWorker>();
 
         return services;
     }

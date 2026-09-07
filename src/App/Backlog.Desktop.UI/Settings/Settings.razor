@@ -1348,7 +1348,7 @@
                    owner to replicate under, and nothing to sync. Its own feature
                    from device pairing, because a person can have paired devices
                    and still not want their tasks leaving the machine. And only
-                   where a host composed a session at all - a head that registered
+                   where a host composed the loop at all - a head that registered
                    no sync-state store hides this rather than offering a button
                    that cannot work.
 
@@ -1362,13 +1362,13 @@
                     <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
                         <h2 class="setting__title">Sync tasks</h2>
                         <p class="setting__body">
-                            Sends what changed on this machine and brings back what changed on the others. Whole tasks, latest edit wins - so a task edited on both machines keeps one of the two versions rather than a blend of them.
+                            Runs on its own every few minutes. Sends what changed on this machine and brings back what changed on the others - whole tasks, latest edit wins, so a task edited on both machines keeps one of the two versions rather than a blend of them.
                         </p>
 
                         <div class="setting__actions">
                             <AppButton TestId="devices-sync-now"
-                                       Busy="@_devicesBusy"
-                                       OnClick="SyncTasksAsync">
+                                       Busy="@_taskSync.IsSyncing"
+                                       OnClick="SyncTasks">
                                 Sync now
                             </AppButton>
                         </div>
@@ -1379,6 +1379,33 @@
                            comes back and changes nothing, so "pulled 40, applied 0"
                            is a healthy answer. *@
                         <p class="setting__status" data-testid="devices-sync-result">@TaskSyncSummaryLine</p>
+
+                        @* Kept in its own block, below the line that says what the
+                           loop has been doing, because these two are for when that
+                           line stops being believable. Neither loses anything a
+                           device still holds - the machine is the copy that
+                           matters, and both of these are ways of saying so to a
+                           replica that has drifted or been rebuilt. *@
+                        <p class="setting__note">
+                            Start over, if the two ever disagree:
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-sync-republish"
+                                       Disabled="@_taskSync.IsSyncing"
+                                       OnClick="() => _syncResetPending = SyncReset.Republish">
+                                Republish everything
+                            </AppButton>
+                            <AppButton TestId="devices-sync-rehydrate"
+                                       Disabled="@_taskSync.IsSyncing"
+                                       OnClick="() => _syncResetPending = SyncReset.Rehydrate">
+                                Rehydrate from scratch
+                            </AppButton>
+                        </div>
+
+                        <p class="setting__note" data-testid="devices-sync-state-path">
+                            How far this device has got is kept in <code>@_taskSync.StorePath</code>.
+                        </p>
                     </section>
                 }
 
@@ -1497,6 +1524,23 @@
     }
     </Tabs>
 </div>
+
+@* Consequential rather than destructive: neither of these loses anything, and
+   both cost a long exchange and a lot of it over somebody's connection. Asked
+   the way every other question with a cost on this screen is - the shared
+   dialog, cancel as the default, and copy that says what will happen rather
+   than what it is called. No OpenChanged binding, for the reason ToolsPane
+   gives: the dialog raises it before OnConfirm, so a handler clearing the
+   subject there would clear it a moment before the confirm needed it. *@
+<ConfirmDialog Open="@(_syncResetPending is not null)"
+               Title="@SyncResetTitle"
+               Message="@SyncResetMessage"
+               ConfirmText="@SyncResetConfirm"
+               TestId="devices-sync-reset-dialog"
+               ConfirmTestId="devices-sync-reset-confirm"
+               CancelTestId="devices-sync-reset-cancel"
+               OnConfirm="ConfirmSyncReset"
+               OnCancel="() => _syncResetPending = null" />
 @code {
     private string _draftPath = string.Empty;
     private string? _error;
@@ -1782,9 +1826,17 @@
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _taskSync = ResolveTaskSync();
 
+        // The loop outlives this screen, so what it did while nobody was here is
+        // already on it - and what it does while somebody is here has to reach
+        // the page, because otherwise the line below the button never moves.
+        if (_taskSync is not null) _taskSync.Changed += OnTaskSyncChanged;
+
         // A background sync is what usually hears the refusal first, on a thread
-        // that is not this one - hence the marshal in the handler.
+        // that is not this one - hence the marshal in the handler. That
+        // background sync is now the loop above, which is what made the refusal
+        // reachable without anybody pressing anything.
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
+
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
@@ -2529,18 +2581,41 @@
     /// <summary>Optional for the reason the pairing client is: a host that has
     /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
     /// for itself, because a shared one would collapse two devices into one -
-    /// cannot compose a session, and a settings screen that failed at startup
+    /// cannot compose the loop, and a settings screen that failed at startup
     /// over a panel nobody opened would be the worse answer. Absent hides the
-    /// section.</summary>
-    private TaskSyncSession? _taskSync;
+    /// section.
+    /// <para>
+    /// The worker rather than the session, because the exchange is no longer this
+    /// screen's to run: the loop runs it on a schedule whether or not anybody is
+    /// on this tab, and what is left here is a way to ask for one now and a place
+    /// to read what the last one did.
+    /// </para></summary>
+    private TaskSyncWorker? _taskSync;
 
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a
     /// logging stack to reach a panel it never opens.</summary>
     private ILogger? _deviceLog;
     private DeviceStatusResponse? _deviceStatus;
-    private TaskSyncSummary? _taskSyncSummary;
     private PairingCodeResponse? _issuedCode;
+
+    /// <summary>Which of the two starting-over questions is on screen, or null
+    /// when neither is. One field rather than two flags: the dialog is one, and
+    /// two of them could otherwise both be open.</summary>
+    private SyncReset? _syncResetPending;
+
+    /// <summary>The two ways of telling a replica that has drifted to forget
+    /// where it thought this device had got to.</summary>
+    private enum SyncReset
+    {
+        /// <summary>Forget how far this device has pushed, and send everything
+        /// again.</summary>
+        Republish,
+
+        /// <summary>Forget the feed position, and read the owner's changes from
+        /// the beginning.</summary>
+        Rehydrate
+    }
     private string _draftDeviceName = string.Empty;
     private string _draftPairingCode = string.Empty;
     private string? _devicesMessage;
@@ -2561,20 +2636,54 @@
 
     private bool TaskSyncEnabled => Features.IsEnabled(SyncFeatures.TaskSync);
 
-    /// <summary>What the last exchange did, or an invitation when there has not
-    /// been one. Never a failure - those go to the shared devices alert, which is
-    /// where every other thing that went wrong on this tab already is.</summary>
     /// <summary>
-    /// What the last sync did. The skipped count is only mentioned when it is
-    /// non-zero, and it is mentioned at all because the alternative is silence:
-    /// a document this build cannot read is dropped so that one bad row cannot
-    /// stop the device syncing for ever, and a drop nobody is told about looks
-    /// exactly like a task that was never sent.
+    /// What the last exchange did, or an invitation when there has not been one.
+    /// Never a failure - those go to the shared devices alert, which is where
+    /// every other thing that went wrong on this tab already is.
+    /// <para>
+    /// The skipped count is only mentioned when it is non-zero, and it is
+    /// mentioned at all because the alternative is silence: a document this build
+    /// cannot read is dropped so that one bad row cannot stop the device syncing
+    /// for ever, and a drop nobody is told about looks exactly like a task that
+    /// was never sent.
+    /// </para>
+    /// <para>
+    /// Read off the worker rather than off a field of this screen's own, because
+    /// most exchanges now happen while nobody is looking at this tab: a summary
+    /// kept here would start at "has not synced yet" every time the page was
+    /// opened, however long the loop had been running.
+    /// </para>
     /// </summary>
-    private string TaskSyncSummaryLine => _taskSyncSummary is { } summary
+    private string TaskSyncSummaryLine => _taskSync?.LastSummary is { } summary
         ? $"Sent {summary.Pushed}, received {summary.Pulled}, applied {summary.Applied}."
             + (summary.Skipped > 0 ? $" {summary.Skipped} could not be read by this build." : string.Empty)
         : "This device has not synced yet.";
+
+    private string SyncResetTitle => _syncResetPending switch
+    {
+        SyncReset.Republish => "Republish everything?",
+        SyncReset.Rehydrate => "Rehydrate from scratch?",
+        _ => string.Empty
+    };
+
+    /// <summary>Plainly what will happen, and how long it will take to say it.
+    /// Neither of these loses anything, so neither is worded as a warning - what
+    /// they cost is one long exchange, and that is what the sentence is for.</summary>
+    private string SyncResetMessage => _syncResetPending switch
+    {
+        SyncReset.Republish =>
+            "Every task on this machine, deleted ones included, will be sent to the cloud again. Nothing is lost: the other devices keep whichever version was edited last. It may take a while on a slow connection.",
+        SyncReset.Rehydrate =>
+            "This device will read every change the other devices have ever made, from the beginning, and apply the ones it does not already have. Nothing on this machine is deleted. It may take a while on a slow connection.",
+        _ => string.Empty
+    };
+
+    private string SyncResetConfirm => _syncResetPending switch
+    {
+        SyncReset.Republish => "Republish",
+        SyncReset.Rehydrate => "Rehydrate",
+        _ => "Confirm"
+    };
 
     private DeviceCredential? StoredDevice => _deviceCredentials?.Current;
 
@@ -2738,13 +2847,13 @@
     }
 
     /// <summary>
-    /// The session, where this host composed one.
+    /// The background sync loop, where this host composed one.
     /// <para>
     /// Not a plain <c>GetService</c>, because a missing registration is not the
     /// only way a host declines this. A head that called <c>AddTaskSyncClient</c>
-    /// has the session registered, and that call deliberately registers no
+    /// has the worker registered, and that call deliberately registers no
     /// <c>ITaskSyncStateStore</c> - which store is right is the one thing only the
-    /// host knows - so on a head that has not chosen one the session is registered
+    /// host knows - so on a head that has not chosen one the worker is registered
     /// and unconstructable, and asking for it throws rather than answering null.
     /// </para>
     /// <para>
@@ -2752,12 +2861,17 @@
     /// what it means goes to the log, because "the sync panel is missing" is a
     /// question somebody will eventually ask, and a settings screen that failed
     /// to open over a panel nobody asked for is the worse of the two answers.
+    /// </para>
+    /// <para>
+    /// Resolving it here does not start it. Both desktop heads ask for it once
+    /// after <c>Build()</c>, because a loop that only existed while somebody had
+    /// this tab open would be a loop that runs when it is least needed.
     /// </para></summary>
-    private TaskSyncSession? ResolveTaskSync()
+    private TaskSyncWorker? ResolveTaskSync()
     {
         try
         {
-            return Services.GetService<TaskSyncSession>();
+            return Services.GetService<TaskSyncWorker>();
         }
         catch (InvalidOperationException ex)
         {
@@ -2767,10 +2881,19 @@
         }
     }
 
-    /// <summary>One exchange with the replica, on demand. There is no schedule
-    /// and no background loop: this slice is a button, and what it proves is that
-    /// a change made on one device reaches the other.</summary>
-    private async Task SyncTasksAsync()
+    /// <summary>
+    /// Asks the loop for an exchange now, and returns.
+    /// <para>
+    /// There is a schedule and a background loop, so this is no longer where a
+    /// sync happens - it is a way of not waiting for the next tick. Deliberately
+    /// not awaited and deliberately not <c>async</c>: an exchange is a network
+    /// call over an unknown connection, and awaiting one inside a click handler
+    /// is what made this button hold the render loop for as long as the replica
+    /// took to answer. What the exchange did comes back through the worker's
+    /// <c>Changed</c>, the same way a tick's does.
+    /// </para>
+    /// </summary>
+    private void SyncTasks()
     {
         if (_taskSync is null)
         {
@@ -2778,37 +2901,62 @@
             return;
         }
 
-        _devicesBusy = true;
         _devicesMessage = null;
+        _taskSync.RequestSync();
+    }
 
-        try
-        {
-            var result = await _taskSync.SyncAsync();
+    /// <summary>Carries out whichever starting-over question was answered yes.
+    /// Both are one call on the worker: the reset is written to the state file
+    /// and a cycle is asked for, so a request that lands during an exchange still
+    /// takes effect on the next one.</summary>
+    private void ConfirmSyncReset()
+    {
+        var pending = _syncResetPending;
+        _syncResetPending = null;
 
-            if (result.IsFailure)
-            {
-                ReportDeviceOutcome(result.Error.Message, failed: true);
-                return;
-            }
+        if (_taskSync is null || pending is null) return;
 
-            _taskSyncSummary = result.Value;
-            ReportDeviceOutcome("Synced.", failed: false);
-        }
-        catch (Exception ex)
+        switch (pending)
         {
-            // Same reasoning as the pairing handlers: the session answers its
-            // expected failures with a result, so anything here is unexpected -
-            // and it still has to reach the screen, because an exception
-            // swallowed in an event handler leaves the panel looking like the
-            // button did nothing.
-            _deviceLog?.LogError(ex, "Syncing tasks with the replica failed unexpectedly.");
-            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
-        }
-        finally
-        {
-            _devicesBusy = false;
+            case SyncReset.Republish:
+                _taskSync.RepublishEverything();
+                ReportDeviceOutcome("Republishing every task on this machine.", failed: false);
+                break;
+
+            case SyncReset.Rehydrate:
+                _taskSync.RehydrateFromScratch();
+                ReportDeviceOutcome("Reading every change from the beginning.", failed: false);
+                break;
+
+            default:
+                break;
         }
     }
+
+    /// <summary>
+    /// Redraws when the loop starts or finishes an exchange, and says so when one
+    /// failed.
+    /// <para>
+    /// It arrives on a thread pool thread rather than the renderer's, so it is
+    /// marshalled - and the failure goes to the shared devices alert, which is
+    /// where every other thing that went wrong on this tab already is.
+    /// </para>
+    /// <para>
+    /// The failure is only read at the end of a cycle. The worker raises at both
+    /// ends so the button can go busy, and reporting on the opening raise would
+    /// put the previous cycle's failure back on screen the instant somebody
+    /// pressed the button to try again.
+    /// </para>
+    /// </summary>
+    private void OnTaskSyncChanged() => _ = InvokeAsync(() =>
+    {
+        if (_taskSync is { IsSyncing: false, LastError: { } failure })
+        {
+            ReportDeviceOutcome(failure, failed: true);
+        }
+
+        StateHasChanged();
+    });
 
     /// <summary>Who the service says this device is, which is where the count of
     /// paired devices comes from. An ordinary failure is still not reported: the
@@ -2940,9 +3088,21 @@
             period: TimeSpan.FromSeconds(15));
     }
 
+    /// <summary>
+    /// Lets go of everything that outlives a render.
+    /// <para>
+    /// Neither the worker nor the token provider is disposed here - both are
+    /// singletons, and the worker goes on syncing after this page closes, which
+    /// is the whole point of it. What is let go of is the subscriptions: a screen
+    /// still on a singleton's event would be kept alive by it and would call
+    /// <c>StateHasChanged</c> on a renderer that is gone.
+    /// </para>
+    /// </summary>
     public void Dispose()
     {
         _pairingCodeCountdown?.Dispose();
+
+        if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
     }
 

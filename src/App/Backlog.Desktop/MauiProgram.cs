@@ -275,7 +275,18 @@ public static class MauiProgram
         }
 #endif
 
-        return builder.Build();
+        var app = builder.Build();
+
+        // The background sync loop, asked for once and then left alone. A
+        // singleton nobody resolves is a singleton that never runs, and this one
+        // is nothing but a constructor that starts a timer - so without this line
+        // task replication would happen only while somebody had the Devices
+        // settings panel open and was pressing the button. It is deliberately not
+        // an IHostedService: this head has no generic host to start one. See
+        // TaskSyncWorker for the whole of that reasoning.
+        _ = app.Services.GetRequiredService<TaskSyncWorker>();
+
+        return app;
     }
 
     private static void ConfigureWebView2RemoteDebugging()
