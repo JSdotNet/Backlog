@@ -135,6 +135,141 @@ public sealed class TasksDetailPaneTests
         Assert.Null(host.State.SelectedRow);
     }
 
+    // --- The pane and the refresh beside it --------------------------------
+
+    /// <summary>
+    /// The reported failure: press Markdown on the open entry, and a moment later
+    /// the pane beside the list has closed itself.
+    /// <para>
+    /// The press is a save — the reading is remembered as a <c>view:</c> token on
+    /// the entry — and a save moves the store's timestamp exactly as another
+    /// machine's write would. The check for another machine's edits therefore read
+    /// this list's own save back as somebody else's, started over, and built a new
+    /// <c>EntryRow</c> for every entry; the selection was held by object, so the
+    /// entry the reader was reading was no longer any row in the list.
+    /// </para>
+    /// <para>
+    /// The ticks are driven directly rather than waited out, for the reason
+    /// <see cref="TasksExternalChangePollingTests"/> gives. Two of them, because the
+    /// report is about the pane a few seconds after the press rather than about the
+    /// instant of it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Pressing_the_markdown_tab_leaves_the_entry_open_across_the_checks_that_follow()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
+
+        await host.State.CheckForExternalChangesAsync();
+        await host.State.CheckForExternalChangesAsync();
+        pane.Render();
+
+        var open = host.State.SelectedRow;
+        Assert.NotNull(open);
+        Assert.Equal("Ship the sync spike", open!.PreviewTitle);
+        Assert.Equal(EntryView.Notes, open.EffectiveView);
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
+    /// <summary>The other reading, and back again. Every press writes the token, so
+    /// every press is a save — which makes moving between the two readings the
+    /// quickest way to take several of these checks in a row.</summary>
+    [Fact]
+    public async Task Moving_between_the_two_readings_leaves_the_entry_open()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+
+        foreach (var view in new[] { "entry-view-notes", "entry-view-steps", "entry-view-notes" })
+        {
+            await pane.Find($"[data-testid='{view}']").ClickAsync(new());
+
+            await host.State.CheckForExternalChangesAsync();
+            pane.Render();
+
+            Assert.NotNull(host.State.SelectedRow);
+            Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+        }
+
+        Assert.Equal(EntryView.Notes, host.State.SelectedRow!.EffectiveView);
+    }
+
+    /// <summary>
+    /// And typing in the markdown block, which is the same fact arriving on the
+    /// debounce rather than on a press: prose saves 750ms after the last keystroke,
+    /// and that save moved the store's timestamp too.
+    /// <para>
+    /// The debounce is waited out rather than stood in for, because what is under
+    /// test is the save nobody asked for — the one a reader gets by typing and then
+    /// looking away.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Typing_in_the_markdown_block_leaves_the_entry_open_across_the_checks_that_follow()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Just prose\n`task` `!ready`\n\nAll of it is a paragraph.\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+
+        // No steps, so the entry already opens on the block.
+        await pane.Find("[data-testid='entry-body-editor'] textarea")
+            .InputAsync(new() { Value = "Rewritten prose.\n\n## A step typed in\n" });
+
+        // The saved sub-item count is written by the save and by nothing else, so
+        // it is what says the debounce has actually landed rather than that the
+        // text was typed.
+        pane.WaitForAssertion(() => Assert.Equal(1, row.SubItemCount), TimeSpan.FromSeconds(5));
+
+        await host.State.CheckForExternalChangesAsync();
+        await host.State.CheckForExternalChangesAsync();
+        pane.Render();
+
+        var open = host.State.SelectedRow;
+        Assert.NotNull(open);
+        Assert.Equal("Just prose", open!.PreviewTitle);
+        Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
+    /// <summary>
+    /// A reload builds a new <c>EntryRow</c> for every entry, so a selection held by
+    /// object is emptied by every one of them. It is re-found by the id the list
+    /// names the row with — the same id the picked set beside it has always used —
+    /// so the entry stays open, as the instance the list is now drawing rather than
+    /// the one it was drawing before.
+    /// </summary>
+    [Fact]
+    public async Task A_reload_that_replaces_every_row_keeps_the_same_entry_open()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `!ready`\n");
+        await host.OpenAsync(row);
+
+        var openedId = row.Id;
+
+        await host.WriteFromElsewhereAsync("# Written on the other machine\n`task` `!ready`\n");
+        await host.State.CheckForExternalChangesAsync();
+
+        // The other machine's entry really did arrive, so this is a reload and not
+        // a tick that decided to do nothing.
+        Assert.Equal(2, host.State.Rows.Count);
+
+        var open = host.State.SelectedRow;
+        Assert.NotNull(open);
+        Assert.Equal(openedId, open!.Id);
+        Assert.NotSame(row, open);
+        Assert.Contains(host.State.FilteredRows, candidate => ReferenceEquals(candidate, open));
+    }
+
     // --- Where "New entry" sits --------------------------------------------
 
     /// <summary>

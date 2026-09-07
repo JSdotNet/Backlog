@@ -129,6 +129,125 @@ public sealed class TasksExternalChangePollingTests : IDisposable
         Assert.Equal(0, tags.Calls);
     }
 
+    /// <summary>
+    /// A save this list made is not somebody else's edit, and reading it back as
+    /// one is what closed the detail pane a moment after the reader pressed a
+    /// reading — the press writes the <c>view:</c> token, and a write moves the
+    /// store's timestamp exactly as the other machine's write does.
+    /// <para>
+    /// The premise is asserted rather than assumed: the save really does move the
+    /// timestamp, so a check that stands still here is standing still for the right
+    /// reason.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_save_this_list_made_is_not_read_back_as_somebody_elses()
+    {
+        var root = TempRoot();
+        var tags = new CountingRoadmapTags();
+
+        using var state = State(root, roadmapTags: tags);
+        await state.InitializeAsync();
+
+        // Long enough for the clock to leave the tick the initialize above wrote in.
+        // File timestamps move in steps of roughly 15ms, so a save moments after a
+        // write can carry the timestamp it already had — the same wrinkle
+        // TouchDatabase names — and the premise below would then assert nothing. This
+        // is a wait on filesystem granularity rather than on the list doing something,
+        // which is why it is a delay and not a poll.
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+
+        var beforeTheSave = NewestWriteUtc(root);
+        await WriteEntryAsync(state, "# Written here\n`task` `!ready`\n");
+
+        Assert.NotEqual(beforeTheSave, NewestWriteUtc(root));
+
+        var written = Assert.Single(state.Rows);
+        var reloadsAfterWriting = tags.Calls;
+
+        await state.CheckForExternalChangesAsync();
+        await state.CheckForExternalChangesAsync();
+
+        Assert.Equal(reloadsAfterWriting, tags.Calls);
+
+        // The same row object, which is what the detail pane beside the list is
+        // holding on to.
+        Assert.Same(written, Assert.Single(state.Rows));
+    }
+
+    /// <summary>
+    /// The other half of that: a save must not bury an edit that was already
+    /// waiting. The baseline only moves forward when it was still current when the
+    /// write went in, so an entry the other machine wrote just before this list
+    /// saved something of its own still arrives.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_elses_edit_that_arrived_before_a_local_save_is_still_read()
+    {
+        var root = TempRoot();
+
+        using var state = State(root);
+        await state.InitializeAsync();
+
+        using (var elsewhere = State(root))
+        {
+            await elsewhere.InitializeAsync();
+            await WriteEntryAsync(elsewhere, "# Written on the other machine\n`task` `!ready`\n");
+        }
+
+        TouchDatabase(root);
+
+        // And now this list saves something of its own, before any check has run.
+        await WriteEntryAsync(state, "# Written here\n`task` `!ready`\n");
+
+        await state.CheckForExternalChangesAsync();
+
+        Assert.Contains(state.Rows, row => row.RawText.Contains("other machine", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The detail pane's markdown block edits through <c>ChangeBody</c> and never
+    /// opens the raw hatch, so <c>EditingRow</c> is null the whole time somebody is
+    /// writing prose into it. A reload that only asked about the hatch would
+    /// therefore replace the row under that caret and rewind the editor to what the
+    /// store last had, silently dropping every keystroke since the last flush.
+    /// </summary>
+    [Fact]
+    public async Task A_change_that_arrives_while_prose_is_pending_waits_for_the_save()
+    {
+        var root = TempRoot();
+
+        using var state = State(root);
+        await state.InitializeAsync();
+
+        await WriteEntryAsync(state, "# Being written in\n`task` `!ready`\n\nThe prose so far.\n");
+        var open = Assert.Single(state.Rows);
+
+        using (var elsewhere = State(root))
+        {
+            await elsewhere.InitializeAsync();
+            await WriteEntryAsync(elsewhere, "# Written on the other machine\n`task` `!ready`\n");
+        }
+
+        TouchDatabase(root);
+
+        // A keystroke in the pane's markdown block: no hatch, just a debounce.
+        state.ChangeBody(open, "The prose so far, and more of it.");
+        Assert.Null(state.EditingRow);
+
+        await state.CheckForExternalChangesAsync();
+
+        Assert.Same(open, Assert.Single(state.Rows));
+
+        // And nothing was recorded either, so the change is still there to be found
+        // once what was typed has landed.
+        await state.EndEditAsync(open);
+        await state.CheckForExternalChangesAsync();
+
+        Assert.Contains(state.Rows, row => row.RawText.Contains("other machine", StringComparison.Ordinal));
+        Assert.Contains(state.Rows, row => row.RawText.Contains("and more of it", StringComparison.Ordinal));
+    }
+
     /// <summary>A reload replaces every row object, so it must not happen under a
     /// live caret. The change is not dropped either: nothing is recorded, so the
     /// next tick after the editor closes still sees it.</summary>
@@ -324,6 +443,21 @@ public sealed class TasksExternalChangePollingTests : IDisposable
         state.Rows.Add(row);
         state.BeginEdit(row);
         await state.EndEditAsync(row);
+    }
+
+    /// <summary>The newest timestamp across the store's three files, read the way
+    /// the list reads it — so a test can say whether a write actually moved it
+    /// rather than assuming it did.</summary>
+    private static DateTime NewestWriteUtc(string root)
+    {
+        var database = Path.Combine(root, "backlog.db");
+        string[] files = [database, database + "-wal", database + "-shm"];
+
+        return files
+            .Where(File.Exists)
+            .Select(File.GetLastWriteTimeUtc)
+            .DefaultIfEmpty()
+            .Max();
     }
 
     /// <summary>What a synced folder does when the other machine's copy arrives:
