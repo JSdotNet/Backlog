@@ -31,6 +31,7 @@ public class DashboardPaneTests
                      "dashboard-score",
                      "dashboard-rework",
                      "dashboard-trend",
+                     "dashboard-sessions",
                      "dashboard-spend-month",
                      "dashboard-spend-trend",
                      "dashboard-spend-model"
@@ -164,15 +165,389 @@ public class DashboardPaneTests
     /// broken.
     /// </summary>
     [Fact]
-    public void The_cost_section_says_the_repository_filter_does_not_reach_it()
+    public void The_cost_section_says_neither_filter_reaches_it()
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
         var cost = pane.Find("[data-testid='dashboard-cost']");
 
-        Assert.Contains("does not change anything in this section", cost.TextContent, StringComparison.Ordinal);
+        Assert.Contains(
+            "neither the repository filter nor the machine filter above changes anything in this section",
+            Squashed(cost.TextContent),
+            StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The same rule for the other direction: GitHub cannot say which machine a pull
+    /// request was worked from, so the productivity section says the machine filter
+    /// does not reach it rather than letting the reader conclude the control is broken.
+    /// </summary>
+    [Fact]
+    public void The_productivity_section_says_the_machine_filter_does_not_reach_it()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var productivity = pane.Find("[data-testid='dashboard-productivity']");
+
+        Assert.Contains(
+            "the machine filter above does not change anything in this section",
+            Squashed(productivity.TextContent),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the third: the sessions part is the one thing the machine filter does drive,
+    /// and the one thing the repository filter cannot — Claude records no repository
+    /// against a session.
+    /// </summary>
+    [Fact]
+    public void The_sessions_section_says_the_repository_filter_does_not_reach_it()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var sessions = pane.Find("[data-testid='dashboard-sessions-section']");
+
+        Assert.Contains(
+            "Claude does not record a repository, so the repository filter above does not change this section",
+            Squashed(sessions.TextContent),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_machine_filter_offers_this_machine_and_an_all_machines_option()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+        var options = pane.FindAll("[data-testid='dashboard-machine-filter'] option");
+
+        Assert.Equal(2, options.Count);
+        Assert.Equal("All machines", options[0].TextContent);
+        Assert.Equal(DashboardTestHost.MachineName, options[1].TextContent);
+
+        // The value is the id, not the name. A filter keyed on the name would merge two
+        // machines that happen to share one and split one that was renamed.
+        Assert.Equal(DashboardTestHost.MachineId, options[1].GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// The machine filter has to reach the one part that can honour it, or it is a
+    /// control that does nothing.
+    /// </summary>
+    [Fact]
+    public void Focusing_a_machine_reaches_the_sessions_part()
+    {
+        var sessions = new RecordingSessionInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
+    }
+
+    /// <summary>
+    /// GitHub does not report which machine a pull request was worked from, so moving
+    /// the machine filter must not send the productivity parts back to it. Four parts
+    /// re-fetching a quarter's churn for an answer that cannot have changed is a few
+    /// hundred wasted calls and a Loading flash over figures that were already right.
+    /// </summary>
+    [Fact]
+    public void Focusing_a_machine_does_not_re_ask_the_productivity_parts()
+    {
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
+
+        var pane = context.Render<DashboardPane>();
+        var afterFirstRender = productivity.Scopes.Count;
+
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        Assert.Equal(afterFirstRender, productivity.Scopes.Count);
+    }
+
+    [Fact]
+    public void Focusing_a_machine_does_not_re_ask_the_cost_parts()
+    {
+        var costs = new RecordingCostInsights();
+
+        using var context = Context(configure: services => services.AddSingleton<ICostInsights>(costs));
+
+        var pane = context.Render<DashboardPane>();
+        var afterFirstRender = costs.Calls;
+
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        Assert.Equal(afterFirstRender, costs.Calls);
+    }
+
+    /// <summary>
+    /// The other half of the same rule, and the one the three-flag scope comparison
+    /// exists for: the cost parts take no window either, so narrowing it must not
+    /// re-ask them.
+    /// </summary>
+    [Fact]
+    public void Narrowing_the_window_does_not_re_ask_the_cost_parts()
+    {
+        var costs = new RecordingCostInsights();
+
+        using var context = Context(configure: services => services.AddSingleton<ICostInsights>(costs));
+
+        var pane = context.Render<DashboardPane>();
+        var afterFirstRender = costs.Calls;
+
+        pane.Find("[data-testid='dashboard-window-4']").Click();
+
+        Assert.Equal(afterFirstRender, costs.Calls);
+    }
+
+    /// <summary>
+    /// Claude records no repository, so the repository filter must not reach the
+    /// sessions part — a re-fetch would be harmless in itself, but a part that
+    /// re-fetches on a filter it says it ignores is a part whose sentence has stopped
+    /// being true.
+    /// </summary>
+    [Fact]
+    public void Focusing_a_repository_does_not_re_ask_the_sessions_part()
+    {
+        var sessions = new RecordingSessionInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        var afterFirstRender = sessions.Scopes.Count;
+
+        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+
+        Assert.Equal(afterFirstRender, sessions.Scopes.Count);
+    }
+
+    [Fact]
+    public void The_sessions_part_puts_its_three_figures_on_screen()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains("12", pane.Find("[data-testid='dashboard-sessions-count']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("5h", pane.Find("[data-testid='dashboard-sessions-active']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("19 Aug 09:30", pane.Find("[data-testid='dashboard-sessions-last']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A session whose start was never recorded is counted and adds no time, and the
+    /// tile says so. An active time quietly lower than the session count implies is the
+    /// figure a reader would take at face value and be wrong about.
+    /// </summary>
+    [Fact]
+    public void The_active_time_tile_names_the_sessions_it_could_not_measure()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains(
+            "Excludes 3 sessions whose start was not recorded",
+            pane.Find("[data-testid='dashboard-sessions-active']").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>One is a session. A footnote that says "1 sessions" is a footnote the
+    /// reader stops trusting about the arithmetic as well as the grammar.</summary>
+    [Fact]
+    public void One_unmeasurable_session_is_named_in_the_singular()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with { WithoutStart = 1 })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains(
+            "Excludes 1 session whose start was not recorded",
+            pane.Find("[data-testid='dashboard-sessions-active']").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Overlapping sessions are summed rather than merged, so an hour in which three
+    /// agents ran reads as three hours. Nothing on the surface can tell whether that
+    /// happened, which is why the sentence is permanent: it is there on a complete
+    /// reading with nothing else to excuse, not only when some other flag is raised.
+    /// </summary>
+    [Fact]
+    public void The_active_time_tile_always_says_that_concurrent_sessions_are_counted_twice()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with { WithoutStart = 0 })));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = pane.Find("[data-testid='dashboard-sessions-active']").TextContent;
+
+        Assert.Contains(
+            "Concurrent sessions are counted separately, so this can exceed elapsed time.",
+            tile,
+            StringComparison.Ordinal);
+
+        // And nothing to excuse means nothing excused: the conditional half stays away.
+        Assert.DoesNotContain("Excludes", tile, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One machine on the list is one row in the breakdown, which is a restatement of
+    /// the tiles above it rather than a comparison — the Rework part's rule.
+    /// </summary>
+    [Fact]
+    public void A_breakdown_of_one_row_is_not_drawn_at_all()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Breakdown = [new AssistantSessionRow("tower", "DEV-TOWER", 12, TimeSpan.FromHours(5), null)]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-breakdown']"));
+    }
+
+    [Fact]
+    public void A_breakdown_with_something_to_compare_is_drawn_as_a_table()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
+
+        // Machine, because no machine is focused. The column is named after whichever
+        // question the filter has not already answered.
+        Assert.Contains("Machine", breakdown.TextContent, StringComparison.Ordinal);
+        Assert.Contains("DEV-LAPTOP", breakdown.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Two machines can be called the same thing, and the breakdown has to draw both.
+    /// The table keys its rows on the machine's id for exactly this: keyed on the name,
+    /// two siblings share a key, Blazor's keyed diff throws, and the whole surface goes
+    /// with it rather than one row being wrong.
+    /// </summary>
+    [Fact]
+    public void Two_machines_sharing_a_name_are_drawn_as_two_rows()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Breakdown =
+                [
+                    new AssistantSessionRow("first", "DEV-TOWER", 8, TimeSpan.FromHours(4), null),
+                    new AssistantSessionRow("second", "DEV-TOWER", 4, TimeSpan.FromHours(1), null)
+                ]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+
+        // Rendered again on purpose. A duplicate key is not a first-render problem — the
+        // first pass has nothing to diff against — it is what the second pass does with
+        // two siblings claiming to be the same row, and the second pass is what a reader
+        // gets from any interaction at all.
+        pane.Render();
+
+        Assert.Equal(2, pane.FindAll("[data-testid='dashboard-sessions-breakdown'] tbody tr").Count);
+    }
+
+    [Fact]
+    public void Focusing_a_machine_names_the_breakdown_after_the_assistant_instead()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Breakdown =
+                [
+                    new AssistantSessionRow("Claude", "Claude", 8, TimeSpan.FromHours(4), null),
+                    new AssistantSessionRow("Copilot", "Copilot", 4, TimeSpan.FromHours(1), null)
+                ]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        var breakdown = pane.Find("[data-testid='dashboard-sessions-breakdown']");
+
+        Assert.Contains("Assistant", breakdown.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Machine", breakdown.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A capped read and an unreadable folder both make every figure above them less
+    /// than the whole truth, and both have to say so. A capped number presented as a
+    /// total is how a dashboard quietly stops being trusted.
+    /// </summary>
+    [Fact]
+    public void The_sessions_note_admits_a_capped_read_and_an_unreadable_folder()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Capped = true,
+                Unreadable = ["Copilot"]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-sessions-note']").TextContent);
+
+        Assert.Contains("Claude does not record a repository", note, StringComparison.Ordinal);
+
+        // The number comes off the report rather than out of a constant beside the part,
+        // so a cap the Sessions context changes reaches this sentence.
+        Assert.Contains("Only the newest 100 sessions per assistant were read", note, StringComparison.Ordinal);
+        Assert.Contains("so these figures are a floor", note, StringComparison.Ordinal);
+        Assert.Contains("Copilot's folder could not be read.", note, StringComparison.Ordinal);
+    }
+
+    private static AssistantSessionsInsight Insight() =>
+        new(
+            Sessions: 12,
+            ActiveTime: TimeSpan.FromHours(5),
+            LastActivityAt: new DateTimeOffset(2026, 8, 19, 9, 30, 0, TimeSpan.Zero),
+            WithoutStart: 3,
+            Capped: false,
+            CapPerAssistant: 100,
+            Unreadable: [],
+            Breakdown:
+            [
+                new AssistantSessionRow("tower", "DEV-TOWER", 8, TimeSpan.FromHours(4), null),
+                new AssistantSessionRow("laptop", "DEV-LAPTOP", 4, TimeSpan.FromHours(1), null)
+            ]);
+
+    /// <summary>Sessions that can answer, so the part's own rendering — tiles, note and
+    /// breakdown — can be asserted rather than only its unavailable state.</summary>
+    private sealed class ReadySessionInsights(AssistantSessionsInsight insight) : ISessionInsights
+    {
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<AssistantSessionsInsight>.Ready(insight));
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>Markup wraps a note across several source lines, so the text arrives
+    /// with newlines and runs of spaces in it. Comparing a sentence needs those
+    /// collapsed, or the assertion is about the indentation.</summary>
+    private static string Squashed(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     [Fact]
     public void The_window_can_be_narrowed_to_four_weeks()
@@ -238,14 +613,15 @@ public class DashboardPaneTests
         // count is the part that bites: a control added later without a reason lands
         // here rather than on screen unnoticed.
         Assert.Single(pane.FindAll("[data-testid='dashboard-repository-filter'] select"));
+        Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        Assert.Equal(7, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(8, pane.FindAll("[data-testid$='-refresh']").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one repository select, two window buttons, seven refreshes.
-        Assert.Equal(1 + 1 + 2 + 7, controls.Count);
+        // One close, two filter selects, two window buttons, eight refreshes.
+        Assert.Equal(1 + 2 + 2 + 8, controls.Count);
     }
 
     /// <summary>
@@ -409,6 +785,25 @@ public class DashboardPaneTests
         }
 
         public void Invalidate(DashboardScope scope)
+        {
+        }
+    }
+
+    /// <summary>Sessions that remembers every scope it was asked for, so a test can say
+    /// which filters reached it and which did not.</summary>
+    private sealed class RecordingSessionInsights : ISessionInsights
+    {
+        public List<DashboardScope> Scopes { get; } = [];
+
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default)
+        {
+            Scopes.Add(scope);
+            return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
+        }
+
+        public void Invalidate()
         {
         }
     }

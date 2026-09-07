@@ -7,7 +7,7 @@
   ],
   "stats": {
     "nodes": 532,
-    "edges": 910,
+    "edges": 911,
     "nodesByFolder": {
       "domain": 515,
       "arc42": 15,
@@ -27,7 +27,7 @@
     },
     "edgesByType": {
       "contains": 443,
-      "related": 424,
+      "related": 425,
       "depends-on": 43
     }
   },
@@ -5240,7 +5240,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-identity",
           "level": 3,
-          "line": 149,
+          "line": 155,
           "status": "active"
         }
       },
@@ -5253,7 +5253,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "working-location",
           "level": 3,
-          "line": 160,
+          "line": 166,
           "status": "active"
         }
       },
@@ -5266,7 +5266,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "activity-window",
           "level": 3,
-          "line": 174,
+          "line": 180,
           "status": "active"
         }
       },
@@ -5279,7 +5279,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-stream",
           "level": 3,
-          "line": 186,
+          "line": 192,
           "status": "active"
         }
       },
@@ -5292,7 +5292,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-entry",
           "level": 3,
-          "line": 201,
+          "line": 207,
           "status": "active"
         }
       },
@@ -5305,7 +5305,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-enrichment-summary",
           "level": 3,
-          "line": 216,
+          "line": 222,
           "status": "active"
         }
       },
@@ -5318,7 +5318,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-catalog",
           "level": 3,
-          "line": 231,
+          "line": 237,
           "status": "active"
         }
       },
@@ -5331,7 +5331,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "agent",
           "level": 3,
-          "line": 246,
+          "line": 252,
           "status": "active"
         }
       },
@@ -5344,7 +5344,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-state",
           "level": 3,
-          "line": 259,
+          "line": 265,
           "status": "active"
         }
       },
@@ -5357,7 +5357,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "reporting-capability",
           "level": 3,
-          "line": 277,
+          "line": 283,
           "status": "active"
         }
       },
@@ -5370,7 +5370,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "liveness-assessment",
           "level": 2,
-          "line": 295,
+          "line": 301,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-state",
@@ -5387,7 +5387,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-view",
           "level": 2,
-          "line": 316,
+          "line": 322,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -5406,7 +5406,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 358,
+          "line": 364,
           "status": "active",
           "related": [
             ".domain/sessions/domain.md#session-log",
@@ -5423,7 +5423,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-publishing",
           "level": 2,
-          "line": 384,
+          "line": 390,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -5441,7 +5441,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "session-activity-enrichment",
           "level": 2,
-          "line": 404,
+          "line": 410,
           "status": "proposed",
           "related": [
             ".domain/sessions/features.md#session-activity-enrichment",
@@ -5459,7 +5459,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-value-objects",
           "level": 2,
-          "line": 424,
+          "line": 430,
           "status": "active"
         }
       },
@@ -5472,7 +5472,7 @@
           "path": ".domain/sessions/domain.md",
           "slug": "shared-enums",
           "level": 2,
-          "line": 437,
+          "line": 443,
           "status": "active"
         }
       },
@@ -5866,11 +5866,13 @@
           "status": "active",
           "aliases": [
             "environment",
-            "machine_name"
+            "machine_name",
+            "environment_id"
           ],
           "related": [
             ".domain/sessions/domain.md#session-log",
-            ".domain/environment/naming.md#environment"
+            ".domain/environment/naming.md#environment",
+            ".domain/tasks/naming.md#device"
           ]
         }
       },
@@ -5883,7 +5885,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-state",
           "level": 2,
-          "line": 87,
+          "line": 93,
           "status": "active",
           "aliases": [
             "AgentSessionState",
@@ -5903,7 +5905,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "stale-threshold",
           "level": 2,
-          "line": 102,
+          "line": 108,
           "status": "active",
           "aliases": [
             "StaleAfter"
@@ -5922,7 +5924,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "working-location",
           "level": 2,
-          "line": 119,
+          "line": 125,
           "status": "active",
           "aliases": [
             "WorkingLocation",
@@ -5943,7 +5945,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-activity-stream",
           "level": 2,
-          "line": 136,
+          "line": 142,
           "status": "proposed",
           "aliases": [
             "SessionActivityStream",
@@ -5965,7 +5967,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-activity-entry",
           "level": 2,
-          "line": 152,
+          "line": 158,
           "status": "proposed",
           "aliases": [
             "SessionActivityEntry",
@@ -5987,7 +5989,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-enrichment-summary",
           "level": 2,
-          "line": 167,
+          "line": 173,
           "status": "proposed",
           "aliases": [
             "SessionEnrichmentSummary",
@@ -6008,7 +6010,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "collections-mcp",
           "level": 2,
-          "line": 183,
+          "line": 189,
           "status": "proposed",
           "aliases": [
             "collections mcp",
@@ -6029,7 +6031,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-catalog",
           "level": 2,
-          "line": 198,
+          "line": 204,
           "status": "active",
           "aliases": [
             "AgentSessionCatalog"
@@ -6048,7 +6050,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-limit",
           "level": 2,
-          "line": 213,
+          "line": 219,
           "status": "active",
           "aliases": [
             "AgentSessionLimits",
@@ -6068,7 +6070,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "reporting-capability",
           "level": 2,
-          "line": 232,
+          "line": 238,
           "status": "proposed",
           "aliases": [
             "reporting status",
@@ -6090,7 +6092,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-view",
           "level": 2,
-          "line": 247,
+          "line": 253,
           "status": "active",
           "aliases": [
             "AgentSessionView",
@@ -6113,7 +6115,7 @@
           "path": ".domain/sessions/naming.md",
           "slug": "session-grouping",
           "level": 2,
-          "line": 277,
+          "line": 283,
           "status": "active",
           "aliases": [
             "AgentSessionGrouping"
@@ -14420,6 +14422,14 @@
           "id": "related:.domain/sessions/naming.md#environment->.domain/environment/naming.md#environment",
           "source": ".domain/sessions/naming.md#environment",
           "target": ".domain/environment/naming.md#environment",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/sessions/naming.md#environment->.domain/tasks/naming.md#device",
+          "source": ".domain/sessions/naming.md#environment",
+          "target": ".domain/tasks/naming.md#device",
           "type": "related"
         }
       },

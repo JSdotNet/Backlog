@@ -16,6 +16,7 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
@@ -55,6 +56,16 @@ builder.Services.AddSingleton<ITasksRefreshSettings>(
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
+// Which machine this installation is. Scoped to the content root like the harness's
+// other settings files — and here that is more than tidiness: several worktrees serve
+// this harness at once, and one shared identity file would put the first-write race
+// across processes on every parallel start. A harness is a development host, so a
+// per-worktree identity is the right answer rather than a compromise. Constructed at
+// startup rather than on first use, as the desktop host does: the identity belongs to
+// the installation, so device.json exists from the first start whether or not a
+// surface that reads it is ever opened.
+builder.Services.AddSingleton<IDeviceIdentitySource>(
+    CreateLocalDevelopmentDeviceIdentityStore(builder.Environment.ContentRootPath));
 
 // Composition: the Tasks module brings its own use cases, and the host decides
 // which adapter is behind them. The repository follows the storage folder rather
@@ -204,6 +215,12 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
 
+// The join between the two: the Dashboard's sessions part reports on what the Sessions
+// context reads. Only an infrastructure adapter may see both, so the registration is
+// there rather than in either module — and it comes after both AddDashboardModule() and
+// AddAgentSessionSource(), whose ports it sits between.
+builder.Services.AddDashboardCrossContextAdapters();
+
 // Which worktree served this harness. It is only ever started from a checkout,
 // so there is nothing to gate on beyond finding one — and when it is missing the
 // header simply keeps showing the version.
@@ -318,6 +335,17 @@ static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(stri
     }
 
     return new TasksRefreshSettingsStore(settingsPath);
+}
+
+static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_DEVICE_IDENTITY_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "device.json");
+    }
+
+    return new DeviceIdentityStore(settingsPath);
 }
 
 static ShellNavigationStore CreateLocalDevelopmentShellNavigationStore(string contentRootPath)

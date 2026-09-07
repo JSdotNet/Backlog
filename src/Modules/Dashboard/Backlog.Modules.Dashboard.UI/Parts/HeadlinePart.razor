@@ -46,7 +46,7 @@
                     TestId="dashboard-headline-rework" />
 
         <MetricTile Label="First review arrived in"
-                    Value="@(IsReady ? Turnaround(Value!.MedianReviewTurnaround) : null)"
+                    Value="@(IsReady ? DashboardFormat.Duration(Value!.MedianReviewTurnaround) : null)"
                     Footnote="@(IsReady ? "Median, across reviewed pull requests" : null)"
                     Status="Status"
                     StatusMessage="@StatusMessage"
@@ -84,21 +84,4 @@
                           Max="max"
                           Description="@description"
                           TestId="@testId" />;
-
-    /// <summary>
-    /// A duration a person reads rather than a decimal number of hours. Under an
-    /// hour it is minutes, under a day hours, above that days — nobody needs to know
-    /// a review took 19.4 hours.
-    /// </summary>
-    private static string Turnaround(TimeSpan? span)
-    {
-        if (span is not { } value) return "—";
-
-        return value.TotalHours switch
-        {
-            < 1 => $"{Math.Max(1, (int)value.TotalMinutes)}m",
-            < 24 => $"{(int)value.TotalHours}h",
-            _ => $"{value.TotalDays:0.#}d"
-        };
-    }
 }

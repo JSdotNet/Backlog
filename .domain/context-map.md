@@ -79,10 +79,12 @@ flowchart LR
     Environment -->|Customer/Supplier<br/>Launchable environment links| Tasks
     Environment -->|Customer/Supplier<br/>Environment shortcuts| DevPC
 
-    %% Sessions. Dashed edges are named and not built: see the strategic rules
-    %% below and .domain/sessions/dependencies.md.
+    %% Sessions. The Sessions -> Productivity edge is built, through an
+    %% infrastructure adapter rather than a published event; the other two
+    %% below remain named and not built: see the strategic rules below and
+    %% .domain/sessions/dependencies.md.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
-    Sessions -.->|"Customer/Supplier (not built)<br/>Agent session facts"| Productivity
+    Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
@@ -145,12 +147,19 @@ flowchart LR
   machines ran; those chapters were removed rather than left as a second model of
   the same subject, and `Monitoring`'s own `copilot_session` signal kind is
   superseded by this context the moment the two are wired together.
-- `Sessions` publishes no contract yet, which is why all three of its edges are
-  dashed and why it appears in no row of the published-language table above. Its
-  only consumer today is its own surface; the day `Productivity` or `Monitoring`
-  consumes it, the event belongs in `.domain/sessions/domain.md` and in that table
-  in the same change.
+- `Sessions` still publishes no bounded-context domain event, which is why it
+  appears in no row of the published-language table above and why the Dev PC
+  Management and Monitoring edges stay dashed. It is no longer its own only
+  consumer, though: an infrastructure adapter now reads
+  `.domain/sessions/domain.md#session-log` directly for `Productivity`, a
+  Customer/Supplier read rather than a published contract, which is why that one
+  edge draws solid without a table row. The day Monitoring consumes it too, or
+  Sessions begins publishing an event of its own, the event belongs in
+  `.domain/sessions/domain.md` and in that table in the same change.
 - A `Sessions` **Environment** is not an `Environment`-context Environment, and not
   a `Dev PC Management` **Machine**. It is wherever an agent ran. The two words
   collide across three contexts and the concepts do not; each context defines its own
-  in its `naming.md`, and no aggregate holds another context's identity for it.
+  in its `naming.md`, and no aggregate holds another context's identity for it. Its
+  `EnvironmentId` is the product-wide device identity issued by the shared kernel
+  (`.domain/tasks/naming.md#device`), which no bounded context owns, so the rule
+  stands unchanged — that identity is still not Dev PC Management's Machine.

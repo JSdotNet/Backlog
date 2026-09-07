@@ -70,13 +70,35 @@ public static class AgentSessionStates
 /// </summary>
 /// <param name="Id">The agent's own identifier for the session.</param>
 /// <param name="Kind">Which assistant.</param>
+/// <param name="EnvironmentId">
+/// The stable identifier of the environment this session ran in — ADR 0005's machine
+/// id, on the session record.
+/// <para>
+/// Beside <see cref="Environment"/> rather than instead of it, because they answer
+/// two different questions: this one says which environment, and that one says what
+/// it is called. A name cannot do both — a machine can be renamed and two machines
+/// can share a name — so anything that groups, filters or reconciles sessions keys
+/// on this and shows that.
+/// </para>
+/// <para>
+/// A string rather than a <c>Guid</c>, for the reason <see cref="Id"/> and
+/// <see cref="Repository"/> are strings: this contract holds identifiers exactly as
+/// the source stated them. The local reader is handed the device identity's Guid
+/// formatted out, and an environment that is not a device — a container, a hosted
+/// runner — can answer with whatever identifier it has without this record deciding
+/// what shape that has to be.
+/// </para>
+/// </param>
 /// <param name="Environment">
 /// Where the session ran. This context's own term, and deliberately not the same
 /// word as Dev PC Management's Machine: an environment is wherever an agent can run
 /// — a development PC today, and there is nothing in this model that stops it being
-/// a container or a hosted runner tomorrow. It corresponds to a registered Machine
-/// when the two happen to name the same box, which is a
-/// <c>Customer/Supplier</c> lookup rather than a shared identity; see
+/// a container or a hosted runner tomorrow. Where the environment is this device, the
+/// identity behind <see cref="EnvironmentId"/> is the kernel's device identity, which
+/// is what makes a session and a registered Machine the same thing rather than two
+/// things that happen to agree. What is looked up from Dev PC Management is the
+/// display name and whatever else a registered machine knows — a
+/// <c>Customer/Supplier</c> relationship over the name, not over the identity; see
 /// <c>.domain/sessions/dependencies.md</c>.
 /// <para>
 /// Every session discovered locally carries the current machine name, because
@@ -98,6 +120,7 @@ public static class AgentSessionStates
 public sealed record AgentSession(
     string Id,
     AgentSessionKind Kind,
+    string EnvironmentId,
     string Environment,
     string Title,
     string WorkingFolder,
@@ -312,12 +335,23 @@ public static class AgentSessionGroups
 
         return grouping switch
         {
+            // Keyed by the environment's id and named after it, which are two
+            // deliberately different things. The id is what makes a section one
+            // environment: a name cannot, because a machine can be renamed and two
+            // machines can share a name, and both of those turn into a section that is
+            // either split or merged for no reason a reader could see. The heading is
+            // then the name the most recent session in the section carries, so a
+            // renamed machine shows the name it has now rather than the one it had when
+            // its oldest session was recorded. Locally the two keys coincide and
+            // nothing on screen moves; the difference is the point of having an id at
+            // all. Sections still sort by name, as the summary above promises.
             AgentSessionGrouping.Environment =>
             [
                 .. ordered
-                    .GroupBy(session => session.Environment, StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-                    .Select(group => new AgentSessionGroup(group.Key, [.. group]))
+                    .GroupBy(session => session.EnvironmentId, StringComparer.Ordinal)
+                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group]))
+                    .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(group => group.Sessions[0].EnvironmentId, StringComparer.Ordinal)
             ],
             AgentSessionGrouping.Kind =>
             [

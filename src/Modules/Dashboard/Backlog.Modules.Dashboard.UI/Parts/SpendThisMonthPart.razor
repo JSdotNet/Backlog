@@ -56,9 +56,14 @@
 </PartFrame>
 
 @code {
-    /// <summary>Spend does not narrow by repository, so the filter must not make
-    /// this part fetch again. See <see cref="DashboardPartBase{T}.FollowsScope"/>.</summary>
-    protected override bool FollowsScope => false;
+    /// <summary>Spend narrows by nothing on the filter strip — not the repository, not
+    /// the machine, not the window — so none of them may make this part fetch again. The
+    /// machine needs no override: <see cref="DashboardPartBase{T}.FollowsMachine"/> is
+    /// already false for every part that did not ask for it. See
+    /// <see cref="DashboardPartBase{T}.FollowsRepository"/>.</summary>
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
 
     protected override Task<InsightResult<SpendThisMonthInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Costs.GetThisMonthAsync(cancellationToken);

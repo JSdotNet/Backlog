@@ -65,12 +65,18 @@ show one row where there were two.
 ```meta
 type: term
 status: active
-aliases: [environment, machine_name]
-related: [.domain/sessions/domain.md#session-log, .domain/environment/naming.md#environment]
+aliases: [environment, machine_name, environment_id]
+related: [.domain/sessions/domain.md#session-log, .domain/environment/naming.md#environment, .domain/tasks/naming.md#device]
 ```
 
 Where an agent ran. Today that is a development PC, named as that machine names
 itself.
+
+It also carries a stable identity alongside the name it displays: `EnvironmentId`,
+the product-wide device identity issued by the shared kernel (see
+`.domain/tasks/naming.md#device`), which no bounded context owns. The display name
+can change without changing which environment it is, which is why grouping keys on
+the id rather than on the name.
 
 **This is not the Environment context's Environment.** That one is a launchable
 destination — a local harness, a staging app, a cloud dashboard — and belongs to a

@@ -138,10 +138,16 @@ One working session of one agent. Identified by `Session Identity` — the agent
 the identifier that agent gave the session — because a session id is only unique
 within the agent that issued it.
 
-Holds the environment it ran on, a display title, its `Working Location`, its
-`Activity Window`, and its `Session State`. When external activity evidence exists,
-the same entity also carries a `Session Activity Stream`, a `Session Enrichment
-Summary`, and a `Reporting Capability` reading for that stream.
+Holds the environment it ran on — its display name plus its `EnvironmentId`, the
+product-wide device identity issued by the shared kernel
+(`.domain/tasks/naming.md#device`) rather than anything this context owns — a
+display title, its `Working Location`, its `Activity Window`, and its
+`Session State`. `EnvironmentId` is what a machine dimension keys on: the display
+name alone can change without the session having moved to a different machine, so
+a reader grouping or correlating sessions by machine reads the id, not the name.
+When external activity evidence exists, the same entity also carries a `Session
+Activity Stream`, a `Session Enrichment Summary`, and a `Reporting Capability`
+reading for that stream.
 
 Its lifecycle is not this context's to run: it appears when an agent first leaves a
 record, and it stops changing when the agent stops writing.

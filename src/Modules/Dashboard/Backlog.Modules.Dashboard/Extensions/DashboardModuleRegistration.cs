@@ -10,15 +10,16 @@ namespace Backlog.Modules.Dashboard.Extensions;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The four ports are deliberately not registered here. They are the module's
-/// contract with the outside, and which adapter answers each one is the host's
-/// decision — today the GitHub and Anthropic clients, wired by
-/// <c>AddDashboardAdapters()</c> in the UI project, and a fake in a test.
-/// Registering them here would make the module choose its own providers, which is
-/// the coupling the ports exist to prevent.
+/// The ports are deliberately not registered here. They are the module's contract
+/// with the outside, and which adapter answers each one is the host's decision —
+/// today the GitHub and Anthropic clients and the device identity, wired by
+/// <c>AddDashboardAdapters()</c> in the UI project and by
+/// <c>AddDashboardCrossContextAdapters()</c> in infrastructure for the join that has
+/// to see two contexts, and a fake in a test. Registering them here would make the
+/// module choose its own providers, which is the coupling the ports exist to prevent.
 /// </para>
 /// <para>
-/// Both services are scoped rather than singletons, and that is what makes the
+/// All three services are scoped rather than singletons, and that is what makes the
 /// session cache a session cache: a scope is one dashboard being open, so closing
 /// it drops what was fetched and opening it again asks afresh. As singletons they
 /// would hold a quarter's figures for the lifetime of the app with no way to get
@@ -36,6 +37,7 @@ public static class DashboardModuleRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<IProductivityInsights, ProductivityInsights>();
+        services.AddScoped<ISessionInsights, SessionInsights>();
         services.AddScoped<ICostInsights, CostInsights>();
 
         services.TryAddTimeProvider();

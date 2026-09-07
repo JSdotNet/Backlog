@@ -1,8 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Dashboard context's UI: the full-screen surface, its seven parts, and the
-    adapters that answer the module's four ports.
+    The Dashboard context's UI: the full-screen surface, its eight parts, and the
+    adapters that answer the module's ports - all but one of them, that is. The
+    assistant-session facts are a cross-context join, so the adapter answering that
+    port is in Backlog.Infrastructure.FileSystem, which is the only place allowed to
+    see the Sessions context as well as this one.
 
     The adapters live here rather than in src/Infrastructure, and that is the
     lighter of two options rather than a shortcut. A module's port may be answered
