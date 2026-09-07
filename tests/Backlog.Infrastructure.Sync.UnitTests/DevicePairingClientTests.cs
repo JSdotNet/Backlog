@@ -218,7 +218,7 @@ public sealed class DevicePairingClientTests
             {
                 if (request.Content is not null)
                 {
-                    bodies.Add(request.Content.ReadAsStringAsync(CancellationToken.None).GetAwaiter().GetResult());
+                    bodies.Add(request.Content.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult());
                 }
 
                 return respond(request, index);
