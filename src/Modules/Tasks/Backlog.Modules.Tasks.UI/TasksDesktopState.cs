@@ -129,11 +129,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <see cref="CheckForExternalChangesAsync"/>.</summary>
     private Timer? _pollTimer;
 
-    /// <summary>The store's timestamp as this list last saw it — the newest across
-    /// the database and its write-ahead log sidecars, per
+    /// <summary>The store as this list last read or wrote it — the newest timestamp
+    /// across the database and its write-ahead log sidecars, per
     /// <see cref="LastWriteTimeUtc"/> — or null before the first check has looked.
     /// Null means "no idea yet", which is not the same as "changed": a first tick
-    /// records and reloads nothing.</summary>
+    /// records and reloads nothing. Wrote as well as read, because a save this list
+    /// made is not somebody else's edit: see
+    /// <see cref="WritingToStoreAsync{T}(Func{Task{T}})"/>.</summary>
     private DateTime? _lastSeenWriteUtc;
 
     /// <summary>1 while a polled reload is in flight. A slow reload must not have
@@ -951,7 +953,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Result<ImportPlanResultDto> result;
         try
         {
-            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches);
+            result = await WritingToStoreAsync(
+                () => _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches));
         }
         catch
         {
@@ -1082,7 +1085,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             SetSaveState(AppSaveState.Saving);
             try
             {
-                await _entryUseCases.DeleteAsync(id);
+                await WritingToStoreAsync(() => _entryUseCases.DeleteAsync(id));
                 _entries.Remove(id);
                 SetSaveState(AppSaveState.Saved);
             }
@@ -1780,8 +1783,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// machine's copy of the app arriving through a synced folder. It is the
     /// newest timestamp across the database and its write-ahead log sidecars, not
     /// the database file alone: see <see cref="LastWriteTimeUtc"/> for why the
-    /// main file on its own never moves. A reload this list triggers itself
-    /// records the new baseline as it goes, so a local save does not read back as
+    /// main file on its own never moves. A write this list made records the new
+    /// baseline as it goes, and so does every reload, so neither reads back as
     /// somebody else's edit.
     /// </para>
     /// <para>
@@ -1803,7 +1806,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // would take the editor out from under whoever is typing. The timestamp
         // is deliberately not recorded here, so the very next tick after the
         // editor closes still sees the change rather than having dropped it.
-        if (EditingRow is not null) return;
+        //
+        // Two carets, not one. The raw hatch says so through EditingRow; the
+        // detail pane's markdown block says so by having a debounced save
+        // pending, and it never opens a hatch at all — it writes through
+        // ChangeBody, so EditingRow is null the whole time somebody is typing
+        // prose into it. A reload that only asked the first question would swap
+        // that row out from under text that has been typed and not yet written,
+        // and every keystroke since the last flush would be gone from the screen.
+        if (EditingRow is not null || SaveIsPending) return;
 
         if (Interlocked.CompareExchange(ref _pollInFlight, 1, 0) != 0) return;
 
@@ -1836,6 +1847,74 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             Interlocked.Exchange(ref _pollInFlight, 0);
         }
+    }
+
+    /// <summary>
+    /// Runs a write this list is making, and records the timestamp it leaves
+    /// behind as one this list already knows about.
+    /// <para>
+    /// Without this the list read its own saves back as somebody else's: a write
+    /// moves the store's timestamp exactly as the other machine's does, so the
+    /// next check started over — and pressing a reading, which is a save, therefore
+    /// reloaded the list a moment after the press. Every write goes through here
+    /// rather than only the ones that were noticed, because "the store as this list
+    /// last read or wrote it" is one fact, and a write left out of it is the same
+    /// bug again on a different control.
+    /// </para>
+    /// </summary>
+    private async Task<T> WritingToStoreAsync<T>(Func<Task<T>> write)
+    {
+        var seenBeforeTheWrite = LastWriteTimeUtc();
+
+        try
+        {
+            return await write();
+        }
+        finally
+        {
+            RecordLocalWrite(seenBeforeTheWrite);
+        }
+    }
+
+    /// <inheritdoc cref="WritingToStoreAsync{T}(Func{Task{T}})"/>
+    private async Task WritingToStoreAsync(Func<Task> write)
+    {
+        var seenBeforeTheWrite = LastWriteTimeUtc();
+
+        try
+        {
+            await write();
+        }
+        finally
+        {
+            RecordLocalWrite(seenBeforeTheWrite);
+        }
+    }
+
+    /// <summary>
+    /// Brings the baseline forward over a write this list just made.
+    /// <para>
+    /// Only when the baseline was still current when that write went in. A store
+    /// that had already moved is carrying somebody else's edit this list has not
+    /// read yet, and recording now would bury it — the entry the other machine
+    /// wrote would never arrive, because nothing afterwards would ever say the
+    /// store had changed. So the baseline is left exactly where it was, and the
+    /// next check finds what was always there.
+    /// </para>
+    /// <para>
+    /// A write that failed costs nothing here: nothing moved, so the timestamp read
+    /// on the way out is the one read on the way in and the baseline stays put.
+    /// </para>
+    /// </summary>
+    private void RecordLocalWrite(DateTime? seenBeforeTheWrite)
+    {
+        // No baseline yet. The first check records whatever is on disk then,
+        // which already includes this write.
+        if (_lastSeenWriteUtc is null) return;
+
+        if (seenBeforeTheWrite != _lastSeenWriteUtc) return;
+
+        _lastSeenWriteUtc = LastWriteTimeUtc() ?? _lastSeenWriteUtc;
     }
 
     /// <summary>
@@ -2004,11 +2083,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
             // GitHub made the issue; the module is what remembers it, and hands
             // back the entry with the projection already on it.
-            var linked = await _entryUseCases.LinkToIssueAsync(
+            var linked = await WritingToStoreAsync(() => _entryUseCases.LinkToIssueAsync(
                 id,
                 link.RepoFullName,
                 link.IssueNumber.ToString(),
-                EntryProjectionDto.IssueTargetType);
+                EntryProjectionDto.IssueTargetType));
 
             if (linked.TryGetValue(out var updated))
             {
@@ -2184,7 +2263,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         try
         {
             await _copilot.StartFromEntryAsync(row.RawText, _store.RootDirectory);
-            await _entryUseCases.RecordUsageAsync(id, TasksCopilotCli.UsageAction);
+            await WritingToStoreAsync(
+                () => _entryUseCases.RecordUsageAsync(id, TasksCopilotCli.UsageAction));
             SetSaveState(AppSaveState.Saved);
         }
         catch (CopilotCliException ex)
@@ -2239,7 +2319,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         try
         {
-            _ = await _entryUseCases.ReconcileRepositoryIdsAsync();
+            _ = await WritingToStoreAsync(() => _entryUseCases.ReconcileRepositoryIdsAsync());
         }
         catch (Exception)
         {
@@ -2249,6 +2329,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     // --- Internals ------------------------------------------------------
+
+    /// <summary>Whether a keystroke somewhere is still waiting on its debounce.
+    /// Asked by the check for another machine's edits, which must not replace the
+    /// rows while text that has been typed is still on its way to the store — see
+    /// <see cref="CheckForExternalChangesAsync"/>.</summary>
+    private bool SaveIsPending
+    {
+        get
+        {
+            lock (_debounceTimers)
+            {
+                return _debounceTimers.Count > 0;
+            }
+        }
+    }
 
     private void ScheduleDebouncedSave(EntryRow row)
     {
@@ -2358,7 +2453,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Result<SavedTaskDto> saved;
         try
         {
-            saved = await _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0));
+            saved = await WritingToStoreAsync(
+                () => _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0)));
         }
         catch (Exception exception)
         {
@@ -2431,7 +2527,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         try
         {
-            await _entryUseCases.ReorderAsync(ids);
+            await WritingToStoreAsync(() => _entryUseCases.ReorderAsync(ids));
         }
         catch
         {
@@ -2694,9 +2790,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // list no longer contained — a detail pane open beside "Nothing here yet."
         // Filtered out is the same fact as gone as far as this half of the split is
         // concerned, so it is answered in the same place.
+        //
+        // Asked of the row's id rather than of the object, which is the whole of
+        // the reported pane that closes itself a moment after a press. A reload
+        // builds a new EntryRow for every entry, so an entry sitting perfectly in
+        // view was suddenly no row in this list. Pressing a reading writes the
+        // `view:` token, a write moves the store's timestamp, and the next check
+        // for another machine's edits read this list's own save back as somebody
+        // else's and started over — so the reader lost the entry they were reading
+        // by looking at it. Re-found as the instance the list is drawing now; only
+        // gone when nothing in view is named that, which is what deleting an entry
+        // and filtering it out both are.
         if (SelectedRow is { } selected && !FilteredRows.Any(row => ReferenceEquals(row, selected)))
         {
-            SelectedRow = null;
+            SelectedRow = FilteredRows.FirstOrDefault(
+                row => string.Equals(row.TaskId, selected.TaskId, StringComparison.Ordinal));
         }
 
         // And so does the picked set, for the same reason and by the same rule. A
@@ -3292,14 +3400,44 @@ public sealed class EntryRow
         _ => tokenName
     };
 
+    /// <summary>
+    /// Builds the cached reading of <see cref="RawText"/> and publishes it in one
+    /// step.
+    /// <para>
+    /// <c>_renderedFrom</c> is assigned last, deliberately. It is the guard every
+    /// other caller reads, so setting it before the fields it stands for would let a
+    /// second thread straight through the check above and on to a half-built cache —
+    /// a null <c>_parsed</c>, or <c>_blocks</c> still holding the previous text. That
+    /// path is live now that the pane stays open across a reload: the debounced save
+    /// raises <c>Changed</c> off the renderer's thread while the pane is drawing the
+    /// same row.
+    /// </para>
+    /// <para>
+    /// The text is read once into a local for the same reason. Read again per line, a
+    /// keystroke landing midway would record a <c>_renderedFrom</c> the blocks beside
+    /// it were never built from, and the cache would stay wrong for as long as that
+    /// text survived.
+    /// </para>
+    /// </summary>
     private void Render()
     {
-        if (_renderedFrom is not null && string.Equals(_renderedFrom, RawText, StringComparison.Ordinal)) return;
+        var text = RawText;
 
-        _renderedFrom = RawText;
-        _parsed = EntryTextParser.Parse(RawText);
-        _blocks = MarkdownPreview.Parse(_parsed.Body, PreviewArea, EntryMarkdownMetadataReader.Instance);
-        _bodyBlocks = [.. _blocks.TakeWhile(b => b is not MdSubItem)];
-        _subItems = [.. _blocks.OfType<MdSubItem>()];
+        if (_renderedFrom is not null && string.Equals(_renderedFrom, text, StringComparison.Ordinal)) return;
+
+        var parsed = EntryTextParser.Parse(text);
+
+        // PreviewArea's own answer, read off the local parse rather than through the
+        // property — the property calls back into Render, and that re-entrancy is
+        // what the old assignment order was really guarding. Reading it here instead
+        // removes the cycle, which is what lets _renderedFrom move to the end.
+        var area = parsed.Area ?? Area;
+        var blocks = MarkdownPreview.Parse(parsed.Body, area, EntryMarkdownMetadataReader.Instance);
+
+        _parsed = parsed;
+        _blocks = blocks;
+        _bodyBlocks = [.. blocks.TakeWhile(b => b is not MdSubItem)];
+        _subItems = [.. blocks.OfType<MdSubItem>()];
+        _renderedFrom = text;
     }
 }

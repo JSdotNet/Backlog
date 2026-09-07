@@ -2770,7 +2770,13 @@
         // the JS round trip above resolves, that click's own selection may already
         // have landed. Closing on top of it would hide the row the reader just
         // opened rather than the one this check was ever asking about.
-        if (!ReferenceEquals(State.SelectedRow, openedRow)) return;
+        //
+        // A different row rather than a different object: a refresh landing during
+        // the round trip re-finds the same entry as a new EntryRow, and reading
+        // that as a switch would leave the pane open on an entry the reader has
+        // walked away from.
+        if (State.SelectedRow is not { } stillOpen
+            || !string.Equals(stillOpen.TaskId, openedRow.TaskId, StringComparison.Ordinal)) return;
 
         await State.SelectAsync(null);
     }
