@@ -1,3 +1,4 @@
+﻿using System.Net;
 using System.Net.Http.Json;
 
 using Backlog.Modules.Sync.Abstractions;
@@ -33,6 +34,17 @@ namespace Backlog.Infrastructure.Sync;
 /// transient one) — it clears the cache and returns, so the next call starts
 /// from the credential again rather than from a token known to be rejected.
 /// </para>
+/// <para>
+/// There is one thing callers can tell apart, and it is not the token: whether
+/// the service has said this credential is no good. <see cref="CredentialRejected"/>
+/// carries that verdict out of here, because nowhere else can reach it. The
+/// token endpoint is anonymous and the only thing it authenticates is the
+/// credential in the body, so a 401 from it means precisely that - unlike a 401
+/// from a bearer endpoint, which a request sent with no token at all also earns.
+/// Every other failure leaves the verdict alone: a service that is down has said
+/// nothing about the credential, and a screen that unpaired a device over it
+/// would throw away a good pairing every time a laptop woke on a dead network.
+/// </para>
 /// </summary>
 public sealed class SyncTokenProvider : IDisposable
 {
@@ -51,6 +63,7 @@ public sealed class SyncTokenProvider : IDisposable
 
     private string? _token;
     private DateTimeOffset _expiresAt;
+    private bool _credentialRejected;
 
     /// <summary>Bumped every time the cache is dropped. A fetch reads it on the
     /// way out and again on the way back: a token minted under a credential that
@@ -72,8 +85,28 @@ public sealed class SyncTokenProvider : IDisposable
         // Pairing, unpairing and re-registering all replace the credential the
         // cached token was minted from, so the cache is dropped the moment the
         // store says so rather than when the old token happens to expire.
-        _credentials.Changed += Invalidate;
+        _credentials.Changed += OnCredentialChanged;
     }
+
+    /// <summary>
+    /// Whether the token endpoint has told this device its credential is not one
+    /// the service knows - the state a screen offers registering again from,
+    /// rather than going on showing a paired device that cannot talk.
+    /// <para>
+    /// Only the token endpoint's own 401 sets it. It is taken back by a token
+    /// that is subsequently issued, and by the credential being replaced or
+    /// forgotten; it is deliberately <em>not</em> taken back by
+    /// <see cref="Invalidate"/>, which throws a token away and says nothing
+    /// about the pairing behind it.
+    /// </para>
+    /// </summary>
+    public bool CredentialRejected => _credentialRejected;
+
+    /// <summary>Raised when <see cref="CredentialRejected"/> changes, so a screen
+    /// showing that state redraws without having to poll for it. Raised on the
+    /// thread the change happened on, which for a background sync is not the UI
+    /// one - a handler that touches a component has to marshal.</summary>
+    public event Action? CredentialRejectedChanged;
 
     /// <summary>
     /// A token for the next call, or <c>null</c> when this device cannot get
@@ -108,7 +141,9 @@ public sealed class SyncTokenProvider : IDisposable
     }
 
     /// <summary>Forgets the cached token. The next call mints a new one, and any
-    /// fetch already in flight no longer counts.</summary>
+    /// fetch already in flight no longer counts. It leaves
+    /// <see cref="CredentialRejected"/> where it is: the token is what is being
+    /// thrown away, not the pairing.</summary>
     public void Invalidate()
     {
         Interlocked.Increment(ref _generation);
@@ -118,8 +153,25 @@ public sealed class SyncTokenProvider : IDisposable
 
     public void Dispose()
     {
-        _credentials.Changed -= Invalidate;
+        _credentials.Changed -= OnCredentialChanged;
         _gate.Dispose();
+    }
+
+    /// <summary>The credential was replaced or forgotten. The cached token was
+    /// minted from the old one, and whatever the service said about the old one
+    /// is not a verdict on the new one.</summary>
+    private void OnCredentialChanged()
+    {
+        Invalidate();
+        SetCredentialRejected(false);
+    }
+
+    private void SetCredentialRejected(bool rejected)
+    {
+        if (_credentialRejected == rejected) return;
+
+        _credentialRejected = rejected;
+        CredentialRejectedChanged?.Invoke();
     }
 
     private string? Cached() =>
@@ -145,7 +197,18 @@ public sealed class SyncTokenProvider : IDisposable
                 // sending it again cannot fix. Anything else is the service
                 // being unavailable, which the caller reports rather than
                 // hammers.
+                //
+                // The verdict is recorded only while the credential that earned
+                // it is still the one this device holds: a 401 for a credential
+                // that has since been replaced judges a device that no longer
+                // exists. Read before Invalidate, which moves the generation.
+                var rejected = response.StatusCode == HttpStatusCode.Unauthorized
+                    && Volatile.Read(ref _generation) == generation
+                    && _credentials.Current is { } holder
+                    && holder.DeviceId == credential.DeviceId;
+
                 Invalidate();
+                if (rejected) SetCredentialRejected(true);
                 return null;
             }
 
@@ -170,6 +233,12 @@ public sealed class SyncTokenProvider : IDisposable
 
             _token = token.AccessToken;
             _expiresAt = token.ExpiresAt;
+
+            // A service that has just minted a token for this credential is not
+            // one that refuses it, whatever it said last time. This is what
+            // makes the state recoverable without a restart.
+            SetCredentialRejected(false);
+
             return _token;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
