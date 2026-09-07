@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="Modal"
-           Description="Opened from a button and closed by the backdrop, Escape, the close button, or a footer action. Focus moves into the dialog and comes back when it closes."
+           Description="Opened from a button and closed by the backdrop, Escape, the close button, or a footer action. Focus moves into the dialog, Tab cycles inside it rather than walking out into the page behind, and it comes back to the opening control when the dialog closes."
            Code="@ModalCode">
         <div class="sb-row">
             <AppButton Variant="ButtonVariant.Primary" OnClick="OpenModal" TestId="open-modal">
@@ -44,6 +44,7 @@
                CloseOnBackdropClick="false">
             <ChildContent>
                 <p>Use Escape or the close button. A dialog that must not be dismissed by accident sets CloseOnBackdropClick to false.</p>
+                <p>Click the backdrop first, then press Escape: the click leaves the dialog open and puts the focus back inside it, so the keyboard way out still works.</p>
             </ChildContent>
         </Modal>
     </Story>
@@ -130,10 +131,10 @@
         says more about what was just picked on it, and the reader is expected to
         keep working the surface underneath.
 
-        It is still a dialog, though — and it traps focus, which the interaction
-        rules ask of a drawer and Modal above does not do: Tab inside a sheet
-        cycles rather than walking out into the surface behind it. Giving the
-        focus back on close is shared with Modal. Give either one
+        It is still a dialog, though — and it keeps Tab inside itself, cycling
+        rather than walking out into the surface behind it. Modal above does the
+        same, out of the same helpers; what differs is when the two let go, since
+        a sheet stays in the tree while a dialog removes itself. Give either one
         `RestoreFocusToId` and focus returns to the control that opened it even if
         that control was re-rendered while the overlay was up.
     *@

@@ -83,12 +83,19 @@
         Hold the focus inside a region while it is open, and give it back when it
         closes.
 
-        Both halves are one primitive because they are one promise: a reader sent
-        into a drawer has to be able to get out of it the way they came, and a trap
-        that forgets where the focus was is a trap in the unkind sense. The element
-        that had focus when the trap arms is the element it is returned to, unless
-        the caller names one — a host that knows the row a sheet was opened from can
-        say so, and that survives the row being re-rendered underneath.
+        `backlogFocusTrap` says both at once because for a region that stays in the
+        tree they are one promise: a reader sent into a drawer has to be able to get
+        out of it the way they came, and a trap that forgets where the focus was is
+        a trap in the unkind sense. The element that had focus when the trap arms is
+        the element it is returned to, unless the caller names one — a host that
+        knows the row a sheet was opened from can say so, and that survives the row
+        being re-rendered underneath.
+
+        The halves are also callable apart, as `backlogCaptureFocus` /
+        `backlogRestoreFocus` and `backlogContainFocus` /
+        `backlogReleaseFocusContainment`, for a region whose two lifetimes do not
+        line up — a dialog that removes itself on close being the case that forces
+        it.
 
         Tab cycles rather than being merely blocked. `backlogGuardTab` above stops a
         Tab from leaving a field; this one wraps it to the other end of the region,
@@ -111,9 +118,10 @@
         browser's own `activeElement` is read at open time and held here against
         the overlay's id.
 
-        Separate from the trap below because a dialog needs the giving-back
-        without the trapping: `Modal` renders nothing at all while closed, so the
-        region a trap would hold is gone by the time the focus has to go back.
+        Kept apart from the containment below because the two do not always end
+        together: `Modal` renders nothing at all while closed, so the region it
+        contained is gone by the time the focus has to go back, and only a record
+        held here by id can still say where back is.
     */
     window.backlogCaptureFocus = (key) => {
         const previous = document.activeElement;
@@ -182,32 +190,43 @@
         });
     }
 
-    window.backlogFocusTrap = (id, restoreToId) => {
+    /*
+        Tab containment on its own, without the giving-back.
+
+        The two halves of a trap have different lifetimes for an overlay that
+        renders nothing while closed. `Modal` is one: by the time it notices it
+        has closed, its dialog element is already out of the document, so the
+        containment has to be let go by id alone while the giving-back still
+        works off the record above. A sheet, which stays in the tree, wants both
+        at once and gets them from `backlogFocusTrap` below.
+    */
+    window.backlogContainFocus = (id) => {
         const element = document.getElementById(id);
         if (!element) return;
-        if (element.dataset.backlogFocusTrap !== undefined) return;
 
-        element.dataset.backlogFocusTrap = 'armed';
-        element.dataset.backlogFocusReturn = restoreToId ?? '';
-
-        window.backlogCaptureFocus(id);
+        // Re-arm rather than refuse. A release that could not get through — a
+        // dropped circuit, a node already torn out — would otherwise leave an
+        // entry behind that turns every later open into a silent no-op, and a
+        // dialog that claims a containment it does not have is the trap this
+        // exists to prevent. Arming twice over is the same cheap swap.
+        if (backlogFocusTrapListeners.has(id)) window.backlogReleaseFocusContainment(id);
 
         const onKeyDown = (event) => {
             if (event.key !== 'Tab') return;
 
+            // Nothing inside to hold the focus. Pinning Tab to the region itself
+            // would be a keyboard trap with no way out at all, and the dialogs that
+            // empty themselves are the very ones that switch Escape off while they
+            // are busy — so Tab is left to the browser and the reader can walk out.
             const tabbables = backlogTabbablesIn(element);
-            if (tabbables.length === 0) {
-                event.preventDefault();
-                element.focus();
-                return;
-            }
+            if (tabbables.length === 0) return;
 
             const first = tabbables[0];
             const last = tabbables[tabbables.length - 1];
             const active = document.activeElement;
 
             // Focus sitting on the region itself counts as before the first: that is
-            // where it lands when the sheet opens, and Tab from there must go in.
+            // where it lands when the region opens, and Tab from there must go in.
             if (event.shiftKey && (active === first || active === element)) {
                 event.preventDefault();
                 last.focus();
@@ -231,13 +250,38 @@
         // One frame gets the style recalculated; the second is the paint.
         if (!element.contains(document.activeElement)) {
             requestAnimationFrame(() => requestAnimationFrame(() => {
-                if (element.dataset.backlogFocusTrap === undefined) return;
+                if (!backlogFocusTrapListeners.has(id)) return;
                 if (element.contains(document.activeElement)) return;
 
                 const tabbables = backlogTabbablesIn(element);
                 (tabbables[0] ?? element).focus();
             }));
         }
+    };
+
+    /*
+        Releasing by id rather than by element, because the caller that needs this
+        half on its own no longer has an element to hand: the listener was added
+        to a node that has since been torn out, and removing it from that node —
+        or not — makes no difference to a document that no longer holds it. What
+        does matter is that the map entry goes, so nothing is left claiming the
+        id is still contained.
+    */
+    window.backlogReleaseFocusContainment = (id) => {
+        backlogFocusTrapListeners.get(id)?.();
+        backlogFocusTrapListeners.delete(id);
+    };
+
+    window.backlogFocusTrap = (id, restoreToId) => {
+        const element = document.getElementById(id);
+        if (!element) return;
+        if (element.dataset.backlogFocusTrap !== undefined) return;
+
+        element.dataset.backlogFocusTrap = 'armed';
+        element.dataset.backlogFocusReturn = restoreToId ?? '';
+
+        window.backlogCaptureFocus(id);
+        window.backlogContainFocus(id);
     };
 
     window.backlogReleaseFocusTrap = (id) => {
@@ -252,9 +296,7 @@
             delete element.dataset.backlogFocusReturn;
         }
 
-        backlogFocusTrapListeners.get(id)?.();
-        backlogFocusTrapListeners.delete(id);
-
+        window.backlogReleaseFocusContainment(id);
         window.backlogRestoreFocus(id, named, id);
     };
 
