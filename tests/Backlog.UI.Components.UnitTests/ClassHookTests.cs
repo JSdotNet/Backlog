@@ -567,6 +567,46 @@ public sealed class ClassHookTests
         Assert.Equal("knowledge-menu__error knowledge-menu__error--open", element.GetAttribute("class"));
         Assert.Equal("alert", element.GetAttribute("role"));
     }
+
+    /// <summary>
+    /// The inline shape, for the message that belongs beside what produced it. The
+    /// assertion that matters is the second one: a host asking for a span must not
+    /// get a paragraph as well, because the copies this parameter exists to retire
+    /// were spans precisely so they would not break the row they sit in.
+    /// </summary>
+    [Fact]
+    public void An_alert_can_be_drawn_inline_beside_the_thing_it_is_about()
+    {
+        using var context = new BunitContext();
+
+        var alert = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Blocked is not reachable from Done")
+            .Add(a => a.BaseClass, "domain-knowledge__action-error")
+            .Add(a => a.Role, "status")
+            .Add(a => a.Inline, true));
+
+        var element = alert.Find("span");
+
+        Assert.Empty(alert.FindAll("p"));
+        Assert.Equal("domain-knowledge__action-error", element.GetAttribute("class"));
+        Assert.Equal("status", element.GetAttribute("role"));
+    }
+
+    /// <summary>
+    /// The default, stated rather than assumed. Every call site that predates
+    /// <c>Inline</c> renders a paragraph, and this is what says so.
+    /// </summary>
+    [Fact]
+    public void An_alert_is_a_paragraph_unless_the_host_asks_for_otherwise()
+    {
+        using var context = new BunitContext();
+
+        var alert = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Could not open the folder"));
+
+        Assert.Empty(alert.FindAll("span"));
+        Assert.Equal("app-error-message", alert.Find("p").GetAttribute("class"));
+    }
     [Fact]
     public void A_section_header_can_be_dressed_entirely_in_the_hosts_own_names()
     {

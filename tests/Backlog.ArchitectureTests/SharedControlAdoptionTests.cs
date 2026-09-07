@@ -146,6 +146,73 @@ public class SharedControlAdoptionTests
     /// </summary>
     private static readonly string[] UtilityClasses = ["sr-only"];
 
+    /// <summary>
+    /// The words that, in the element half of a screen's own BEM name, say the
+    /// element is drawing a shape the library's feedback components already draw:
+    /// a status or error line (<c>Alert</c>), a dead end (<c>EmptyState</c>), a
+    /// count beside a title (<c>Badge</c>).
+    ///
+    /// <para>Matched as whole words after splitting on <c>-</c>, so
+    /// <c>domain-knowledge__action-error</c> is a finding and
+    /// <c>tools-inventory__meta</c> is not. Read off the modifier as well as the
+    /// element, because the highest-value copies in this repository are written as
+    /// modifiers rather than elements — <c>setting__status--error</c> is the
+    /// inline alert, and a rule reading only element halves finds nothing at
+    /// all.</para>
+    /// </summary>
+    private static readonly string[] FeedbackWords =
+        ["empty", "loading", "message", "notice", "status", "state", "error", "count", "placeholder"];
+
+    /// <summary>
+    /// The screens' own names that read as a feedback shape and are still not one
+    /// the library is missing.
+    ///
+    /// <list type="bullet">
+    /// <item><c>setting__status</c> — the settings screen's status lines, and the
+    /// one in the knowledge instructions panel that borrows the same class. Every
+    /// one of them is an <c>Alert</c>, block or inline, and adopting them is real
+    /// work rather than a rename: there are two dozen, each carries a test id that
+    /// a unit test reads, and two of them are asserted through the outer
+    /// element's <c>InnerHtml</c> rather than by their own class, so the nesting
+    /// is load-bearing. Left whole and deliberately, so the conversion happens
+    /// once with the settings screen in front of somebody.</item>
+    /// <item><c>knowledge-folder__status</c> — the same screen and the same
+    /// answer; it is a status line in the settings knowledge-folder rows, with a
+    /// <c>data-folder-state</c> attribute that no component takes yet.</item>
+    /// <item><c>feature-flag__status</c> — the words "Always available" inside a
+    /// <c>Toggle</c>'s own <c>TextContent</c> slot. Not a status line: it says the
+    /// switch beside it cannot be turned off, and it is markup landing in a
+    /// component's slot rather than an element claiming to be a component. The
+    /// same distinction <see cref="WornAs"/> draws for a BEM child.</item>
+    /// <item><c>chip__count</c> — the count trailing a filter chip's label, inside
+    /// the <c>ToggleButton</c> or <c>AppButton</c> that draws the chip. A
+    /// <c>Badge</c> is a thing beside a title; this is part of a control's own
+    /// label, and a badge nested in a chip would be a second bordered shape inside
+    /// the first. A stylesheet test reads the class out of a media query, which is
+    /// the other reason it does not move.</item>
+    /// </list>
+    ///
+    /// <para>Every entry here is a claim that adopting the component is either
+    /// wrong or separate work — never that the copy is fine. An entry that means
+    /// "not got round to it" should say so, as the first two do.</para>
+    /// </summary>
+    private static readonly string[] AllowedAppFeedbackClasses =
+    [
+        "chip__count",
+        "feature-flag__status",
+        "knowledge-folder__status",
+        "setting__status"
+    ];
+
+    /// <summary>The elements a hand-rolled feedback shape is written as.</summary>
+    private static readonly Regex FeedbackElement =
+        new(@"<(p|div|span)\s([^>]*)>", RegexOptions.Compiled);
+
+    /// <summary>A Blazor component: an element whose name is capitalised. An
+    /// element holding one is laying something out, not drawing it.</summary>
+    private static readonly Regex ComponentTag =
+        new("<[A-Z]", RegexOptions.Compiled);
+
     private static readonly Regex ClassAttribute =
         new("(?<![A-Za-z-])class=\"([^\"]*)\"", RegexOptions.Compiled);
 
@@ -250,6 +317,81 @@ public class SharedControlAdoptionTests
     }
 
     /// <summary>
+    /// The third shape, and the one the two rules above are blind to by
+    /// construction: a copy wearing an entirely screen-owned name. Both rules
+    /// ask whether a name belongs to the library, so
+    /// <c>&lt;p class="sessions-panel__empty"&gt;</c> passes them while being as
+    /// much a second <c>Alert</c> as anything they catch. The instructions have
+    /// named this a review concern since the class rule was written; this is that
+    /// paragraph turned into a test.
+    ///
+    /// <para>It cannot ask whether a name is the library's, so it asks what the
+    /// name <em>says</em>. A screen's own BEM name whose element or modifier reads
+    /// <c>status</c>, <c>empty</c>, <c>error</c> or one of the others in
+    /// <see cref="FeedbackWords"/> is describing a shape the library's feedback
+    /// components already draw.</para>
+    ///
+    /// <para>Two narrowings keep that from being a rule about naming rather than
+    /// about duplication. Names the library owns are skipped, because they are the
+    /// rule above's business and its BEM-child carve-out is deliberate — a
+    /// <c>badge__state</c> inside a badge is not a finding twice over. And an
+    /// element holding a component is skipped, because a wrapper is laying
+    /// something out: <c>app-footer__status</c> exists to hold a
+    /// <c>SaveIndicator</c> and reserve its width, and calling that a hand-rolled
+    /// save indicator would be exactly wrong.</para>
+    ///
+    /// <para>That second narrowing is a heuristic and it errs toward silence: a
+    /// copy that happens to contain a component is missed. The trade was
+    /// deliberate — the alternative flags every layout wrapper in the shell, and
+    /// an exception list whose entries are mostly "this is a div" is the loophole
+    /// the companion test below exists to prevent.</para>
+    /// </summary>
+    [Fact]
+    public void Application_screens_do_not_hand_roll_a_feedback_shape_under_their_own_name()
+    {
+        var screens = ApplicationScreens().ToList();
+
+        Assert.NotEmpty(screens);
+
+        var offenders = new List<string>();
+
+        foreach (var screen in screens)
+        {
+            var text = File.ReadAllText(screen.FullName);
+
+            foreach (var element in FeedbackElement.Matches(text).Cast<Match>())
+            {
+                var attributes = element.Groups[2].Value;
+                var classes = ClassAttribute.Match(attributes);
+                if (!classes.Success) continue;
+
+                // A wrapper holding a component is laying it out, not drawing it.
+                if (ComponentTag.IsMatch(Body(text, element))) continue;
+
+                var borrowed = classes.Groups[1].Value
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(token => !ComponentClasses.Contains(WornAs(token)))
+                    .Where(token => !ComponentClasses.Contains(NameOf(token)))
+                    .Where(token => !IsAllowedAppFeedbackClass(token))
+                    .Where(ReadsAsFeedback)
+                    .Distinct();
+
+                offenders.AddRange(borrowed.Select(
+                    token => $"{Relative(screen)}:{LineOf(text, element.Index)} <{element.Groups[1].Value} class=\"{token}\">"));
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "These screens draw a shape the shared library already has — a status or error line, a dead "
+            + "end, a count — as an element of their own, under a name of their own. A screen-owned class "
+            + "is why no other rule sees it, not why it is allowed. Render Alert, EmptyState or Badge with "
+            + "BaseClass set to the screen's class, and if the component cannot take the shape, add the "
+            + "hook to the library rather than keeping the copy:\n"
+            + string.Join('\n', offenders));
+    }
+
+    /// <summary>
     /// An exception that has stopped being one is worse than no exception list:
     /// it reads as a considered decision while quietly permitting anything.
     /// </summary>
@@ -288,6 +430,24 @@ public class SharedControlAdoptionTests
             + string.Join(", ", stale));
     }
 
+    /// <inheritdoc cref="Every_allowed_raw_control_is_still_a_raw_control_somewhere" />
+    [Fact]
+    public void Every_allowed_app_feedback_class_is_still_worn_somewhere()
+    {
+        var markup = string.Join('\n', ApplicationScreens().Select(file => File.ReadAllText(file.FullName)));
+
+        Assert.NotEmpty(markup);
+
+        var stale = AllowedAppFeedbackClasses
+            .Where(allowed => !markup.Contains(allowed, StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(
+            stale.Count == 0,
+            "These screen-owned feedback exceptions no longer match anything and should be deleted: "
+            + string.Join(", ", stale));
+    }
+
     /// <summary>
     /// The class rule reads the library to find out what the library owns, so a
     /// change that breaks that reading turns the rule green rather than red —
@@ -311,6 +471,45 @@ public class SharedControlAdoptionTests
 
     private static bool IsAllowedComponentClass(string token) =>
         AllowedComponentClasses.Any(allowed => token.StartsWith(allowed, StringComparison.Ordinal));
+
+    /// <summary>Keyed on the block-and-element stem, so one entry covers a class
+    /// and every modifier of it: <c>setting__status</c> allows
+    /// <c>setting__status--error</c> without listing it.</summary>
+    private static bool IsAllowedAppFeedbackClass(string token) =>
+        AllowedAppFeedbackClasses.Any(allowed => token.StartsWith(allowed, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether a screen's own class name says it is drawing one of the library's
+    /// feedback shapes. Only the element and modifier halves are read — the block
+    /// is the screen's subject and says nothing about shape, so
+    /// <c>sessions-panel__empty</c> is a finding while a block that happened to be
+    /// called <c>status-bar</c> is not.
+    /// </summary>
+    private static bool ReadsAsFeedback(string token)
+    {
+        var element = token.IndexOf("__", StringComparison.Ordinal);
+        if (element < 0) return false;
+
+        return token[(element + 2)..]
+            .Replace("--", "-", StringComparison.Ordinal)
+            .Split('-', StringSplitOptions.RemoveEmptyEntries)
+            .Any(word => FeedbackWords.Contains(word, StringComparer.Ordinal));
+    }
+
+    /// <summary>What an element contains, to the point it closes or for long
+    /// enough to tell. Nested elements of the same name defeat the close-tag
+    /// search, which is why there is a ceiling as well.</summary>
+    private static string Body(string text, Match element)
+    {
+        var start = element.Index + element.Length;
+        var close = text.IndexOf($"</{element.Groups[1].Value}>", start, StringComparison.Ordinal);
+        var end = close < 0 ? text.Length : close;
+
+        return text[start..Math.Min(end, Math.Min(start + 1200, text.Length))];
+    }
+
+    private static int LineOf(string text, int index) =>
+        text.Take(index).Count(character => character == '\n') + 1;
 
     /// <summary>
     /// A class token as an application wears it, without its BEM modifier:
