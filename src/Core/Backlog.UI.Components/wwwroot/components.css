@@ -5299,6 +5299,33 @@ body.is-resizing-pane {
     margin-right: auto;
 }
 
+/*
+  A toggle carries no variant of its own, so until this rule an unpressed one was
+  painted by nothing: `.btn` declares neither a background nor a colour, and the
+  rule below only paints the pressed half. It fell through to the user agent —
+  `buttonface` behind `buttontext`, which computed to a white slab with black text
+  in a product whose only theme is dark, on every unselected chip in every
+  one-of-many strip. The same fallthrough `btn--icon` above carries a comment
+  about, closed the same way it was.
+
+  Transparent rather than a surface token of its own: the panel behind the strip
+  already supplies the ground, and the tint and border below are what have to read
+  as the selection. A rest slab would compete with them.
+*/
+.btn--toggle {
+    background: transparent;
+    color: var(--color-text-secondary);
+}
+
+/* Taking the platform's slab away takes its hover highlight with it, and a
+   control that answers the pointer with nothing reads as disabled. The pressed
+   one is excluded rather than styled: it is already the answer to the question
+   the strip asks, and a hover that lifted its tint would say it is not. */
+.btn--toggle:not([aria-pressed="true"]):hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-text-primary);
+}
+
 .btn--toggle[aria-pressed="true"] {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
