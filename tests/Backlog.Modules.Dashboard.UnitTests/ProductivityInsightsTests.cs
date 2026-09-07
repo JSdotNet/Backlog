@@ -89,6 +89,24 @@ public class ProductivityInsightsTests
         Assert.Equal(1, source.Calls);
     }
 
+    /// <summary>
+    /// GitHub cannot say which machine a pull request was worked from, so focusing one
+    /// changes nothing about the call. The cache key leaves the machine out on purpose,
+    /// and this is what holds it there: with the machine in the key, moving that filter
+    /// would re-spend a quarter's churn budget to produce the identical answer.
+    /// </summary>
+    [Fact]
+    public async Task Focusing_a_machine_does_not_send_the_activity_fetch_out_again()
+    {
+        var source = new StubActivitySource();
+        var insights = Insights(source);
+
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default);
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default with { MachineId = "tower" });
+
+        Assert.Equal(1, source.Calls);
+    }
+
     [Fact]
     public async Task Refreshing_goes_back_to_the_provider()
     {

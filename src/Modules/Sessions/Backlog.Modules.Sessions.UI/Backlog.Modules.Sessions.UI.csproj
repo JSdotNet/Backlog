@@ -9,10 +9,11 @@
     which is the rule every module UI project follows, and its own module's
     published surface for the port it injects. It sees no host, no workspace and no
     sibling context — including Dev PC Management, whose Machine this context's
-    Environment corresponds to: the local readers stamp the machine they are running
-    on, so nothing here has to ask another context for it, and the day a fleet
-    reports sessions that arrives as a second implementation of the port rather than
-    a reference from this project.
+    Environment corresponds to. The local readers stamp the device identity they are
+    running under, which is the shared kernel's port and not another context's surface,
+    so nothing here has to reach sideways for it; and the day a fleet reports sessions,
+    that arrives as a second implementation of this module's port rather than as a
+    reference from this project.
 
     The readers live here beside the pane rather than in src/Infrastructure, on the
     Dashboard's precedent: ModuleBoundaryTests explicitly permits a .UI project to
@@ -28,9 +29,10 @@
       without a global:: prefix, so under Backlog.Modules.Sessions.UI a bare
       "Backlog.*" import would bind to Backlog.Modules as soon as a
       Backlog.Modules.Tasks namespace entered this project's reference closure.
-      Nothing here brings one in — the only references are the control library and
-      this module's own abstractions — and _Imports.razor writes every Backlog.*
-      import as global:: anyway, so neither half of that has to stay true by luck.
+      Nothing here brings one in — the only references are the control library, the
+      shared kernel, and this module's own abstractions — and _Imports.razor writes
+      every Backlog.* import as global:: anyway, so neither half of that has to stay
+      true by luck.
     -->
     <RootNamespace>Backlog.Modules.Sessions.UI</RootNamespace>
   </PropertyGroup>
@@ -51,6 +53,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- IDeviceIdentitySource: which machine this installation is. The kernel is
+         what everything may see, and this is the question three contexts ask and
+         none of them owns — the local readers stamp what they find with it rather
+         than with a hostname, because a name is not an identity. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The module's published surface only: the IAgentSessionSource port, the DTOs
          it answers with, the grouping, and the feature key. Which host answers the
          port, and whether it reads one machine or a fleet, stays behind that line. -->

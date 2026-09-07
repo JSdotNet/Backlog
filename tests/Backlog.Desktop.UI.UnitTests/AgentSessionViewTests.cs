@@ -108,6 +108,10 @@ public sealed class AgentSessionViewTests
         new(
             Id: id,
             Kind: AgentSessionKind.Claude,
+            // The name lower-cased stands in for the id here: this file is about which
+            // sessions a view admits, and the only thing it needs of an environment is
+            // that two different names are two different environments.
+            EnvironmentId: environment.ToLowerInvariant(),
             Environment: environment,
             Title: id,
             WorkingFolder: @"D:\Repos\Backlog",

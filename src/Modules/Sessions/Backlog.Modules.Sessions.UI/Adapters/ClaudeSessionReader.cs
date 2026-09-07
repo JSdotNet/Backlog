@@ -38,12 +38,17 @@ internal sealed class ClaudeSessionReader
     private const int HeaderLines = 40;
 
     private readonly string _home;
+    private readonly string _environmentId;
     private readonly string _environment;
     private readonly TimeProvider _clock;
 
-    internal ClaudeSessionReader(string home, string environment, TimeProvider clock)
+    /// <summary>The environment arrives as an id and a name, not as a name alone: a
+    /// session found here ran here, and "here" is a device with an identity that
+    /// outlives whatever the machine is currently called.</summary>
+    internal ClaudeSessionReader(string home, string environmentId, string environment, TimeProvider clock)
     {
         _home = home;
+        _environmentId = environmentId;
         _environment = environment;
         _clock = clock;
     }
@@ -162,6 +167,7 @@ internal sealed class ClaudeSessionReader
             return new AgentSession(
                 Id: id,
                 Kind: AgentSessionKind.Claude,
+                EnvironmentId: _environmentId,
                 Environment: _environment,
                 Title: string.IsNullOrWhiteSpace(name) ? TitleOf(folder, id) : name,
                 WorkingFolder: folder,
@@ -239,6 +245,7 @@ internal sealed class ClaudeSessionReader
             sessions.Add(new AgentSession(
                 Id: id,
                 Kind: AgentSessionKind.Claude,
+                EnvironmentId: _environmentId,
                 Environment: _environment,
                 Title: TitleOf(folderPath, id),
                 WorkingFolder: folderPath,

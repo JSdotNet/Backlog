@@ -33,12 +33,17 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 internal sealed class CopilotSessionReader
 {
     private readonly string _home;
+    private readonly string _environmentId;
     private readonly string _environment;
     private readonly TimeProvider _clock;
 
-    internal CopilotSessionReader(string home, string environment, TimeProvider clock)
+    /// <summary>The environment arrives as an id and a name, not as a name alone: a
+    /// session found here ran here, and "here" is a device with an identity that
+    /// outlives whatever the machine is currently called.</summary>
+    internal CopilotSessionReader(string home, string environmentId, string environment, TimeProvider clock)
     {
         _home = home;
+        _environmentId = environmentId;
         _environment = environment;
         _clock = clock;
     }
@@ -120,6 +125,7 @@ internal sealed class CopilotSessionReader
         return new AgentSession(
             Id: id,
             Kind: AgentSessionKind.Copilot,
+            EnvironmentId: _environmentId,
             Environment: _environment,
             Title: TitleOf(repository, folder, id),
             WorkingFolder: folder,

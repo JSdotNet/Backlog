@@ -580,6 +580,7 @@ public sealed class SessionsPaneTests
         new(
             Id: "5905cf2d",
             Kind: AgentSessionKind.Claude,
+            EnvironmentId: "tower",
             Environment: "DEV-TOWER",
             Title: "keen-bose-667825",
             WorkingFolder: @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825",
@@ -591,6 +592,7 @@ public sealed class SessionsPaneTests
         new(
             Id: "0012e2c7",
             Kind: AgentSessionKind.Copilot,
+            EnvironmentId: "tower",
             Environment: "DEV-TOWER",
             Title: "JSdotNet/Backlog",
             WorkingFolder: @"C:\Users\dev\.copilot\repos\Backlog",
@@ -602,6 +604,7 @@ public sealed class SessionsPaneTests
         new(
             Id: "9f21ab04",
             Kind: AgentSessionKind.Copilot,
+            EnvironmentId: "laptop",
             Environment: "DEV-LAPTOP",
             Title: "JSdotNet/Project-Guidelines-MCP",
             WorkingFolder: @"C:\Users\dev\.copilot\repos\project-guidelines-mcp",
@@ -617,6 +620,7 @@ public sealed class SessionsPaneTests
         new(
             Id: "7c4d1e88",
             Kind: AgentSessionKind.Copilot,
+            EnvironmentId: "tower",
             Environment: "DEV-TOWER",
             Title: "JSdotNet/Archify",
             WorkingFolder: @"C:\Users\dev\.copilot\repos\archify",

@@ -29,6 +29,13 @@
          implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
+         assistant-session facts the Dashboard's sessions part reports on. Two
+         published surfaces and no implementation: the adapter is the only thing in
+         the product allowed to see both, which is precisely why the join is here
+         rather than as a reference between the two module UIs. -->
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Second Brain's

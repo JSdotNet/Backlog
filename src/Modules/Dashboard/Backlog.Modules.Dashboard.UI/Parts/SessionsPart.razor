@@ -1,0 +1,187 @@
+@*
+    What the assistants have been doing on this machine: how many sessions touched the
+    window, how long they ran, and when anything last moved.
+
+    The one part on this surface whose figures come off local disk rather than out of a
+    provider's API, which is what makes it the one part the machine filter can drive.
+    The repository filter, on the other hand, deliberately does not reach it: Claude
+    records no repository against a session, so filtering by one would silently drop
+    every Claude session from a part whose whole point is showing both assistants. That
+    is said in the note rather than left for a reader to deduce from figures that refuse
+    to move.
+
+    Three honesty flags travel with the figures and each has its own sentence. A capped
+    read makes every number a floor. A folder that could not be read means half the
+    picture is missing, and which half is named. A session whose start was never
+    recorded is counted as a session and contributes no time, because a zero-length
+    session would be a fact nobody wrote down.
+
+    The active time carries a fourth caveat that is not a flag at all, and so is stated
+    permanently rather than conditionally: overlapping sessions are summed rather than
+    merged, and an hour in which three agents ran reads as three hours. Nothing on this
+    surface can tell whether that happened, which is exactly why the sentence cannot wait
+    for it.
+
+    The breakdown appears only when there is more than one row, on the Rework part's
+    precedent: a one-row table of the thing already named in the filter is a
+    restatement, not a comparison.
+*@
+@inherits DashboardPartBase<AssistantSessionsInsight>
+@inject ISessionInsights Insights
+
+<PartFrame Title="Assistant sessions"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-sessions">
+    @if (IsReady)
+    {
+        <div class="dashboard-part__stack">
+            <MetricGrid Label="Assistant sessions over the selected window" TestId="dashboard-sessions-tiles">
+                <MetricTile Label="Sessions"
+                            Value="@MetricFormat.Compact(Value!.Sessions)"
+                            Emphasis="true"
+                            TestId="dashboard-sessions-count" />
+                <MetricTile Label="Active time"
+                            Value="@DashboardFormat.Duration(Value!.ActiveTime)"
+                            Footnote="@ActiveTimeFootnote"
+                            TestId="dashboard-sessions-active" />
+                @* The instant rather than "two hours ago". A relative figure would need
+                   a clock in a component that otherwise reads none, and would go stale
+                   on screen while the surface sat open. *@
+                <MetricTile Label="Last activity"
+                            Value="@DashboardFormat.Moment(Value!.LastActivityAt)"
+                            Footnote="@(Value!.LastActivityAt is null ? null : "UTC")"
+                            TestId="dashboard-sessions-last" />
+            </MetricGrid>
+
+            @if (Value!.Breakdown.Count > 1)
+            {
+                <DataTable TItem="AssistantSessionRow"
+                           Columns="@Columns"
+                           Items="@Value!.Breakdown"
+                           RowKey="@(row => row.Key)"
+                           AriaLabel="@BreakdownLabel"
+                           TestId="dashboard-sessions-breakdown">
+                    <Row Context="row">
+                        <td>@row.Name</td>
+                        <td>@MetricFormat.Compact(row.Sessions)</td>
+                        <td>@DashboardFormat.Duration(row.ActiveTime)</td>
+                        <td>@DashboardFormat.Moment(row.LastActivityAt)</td>
+                    </Row>
+                </DataTable>
+            }
+        </div>
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-sessions-status" />
+    }
+</PartFrame>
+
+@code {
+    /// <summary>Claude records no repository against a session, so narrowing this part
+    /// by one would drop every Claude session rather than filter it. The part refuses
+    /// the dimension and says so on screen.</summary>
+    protected override bool FollowsRepository => false;
+
+    /// <summary>The one part on the surface that knows which machine its figures came
+    /// from, so the one part the machine filter drives.</summary>
+    protected override bool FollowsMachine => true;
+
+    /// <summary>
+    /// What the figures cover, and every way in which they are less than the whole
+    /// truth. Assembled rather than written as one sentence because each clause is
+    /// conditional and a note that claimed a floor was a total is the failure worth
+    /// avoiding.
+    /// </summary>
+    private string Note
+    {
+        get
+        {
+            var basis = $"Read from what Claude and Copilot leave on this machine, over {Scope.Weeks} weeks. "
+                + "Claude does not record a repository, so the repository filter does not change this part.";
+
+            if (!IsReady) return basis;
+
+            if (Value!.Capped)
+            {
+                basis += $" Only the newest {Value!.CapPerAssistant} sessions per assistant were read, "
+                    + "so these figures are a floor.";
+            }
+
+            foreach (var source in Value!.Unreadable)
+            {
+                basis += $" {source}'s folder could not be read.";
+            }
+
+            return basis;
+        }
+    }
+
+    private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
+    [
+        new("Machine"),
+        new("Sessions"),
+        new("Active time"),
+        new("Last activity")
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn> AssistantColumns =
+    [
+        new("Assistant"),
+        new("Sessions"),
+        new("Active time"),
+        new("Last activity")
+    ];
+
+    /// <summary>The first column is named after whatever the breakdown is of, which is
+    /// whichever question the filter has not already answered.</summary>
+    private IReadOnlyList<DataTableColumn> Columns => Scope.IsAllMachines ? MachineColumns : AssistantColumns;
+
+    private string BreakdownLabel => Scope.IsAllMachines ? "Sessions by machine" : "Sessions by assistant";
+
+    /// <summary>
+    /// What the active time is not. Two sentences, and only the first of them is always
+    /// there.
+    /// <para>
+    /// The overlap sentence is permanent because the figure is permanently capable of
+    /// exceeding the window it sits under: sessions are summed rather than merged — two
+    /// agents running at once is two sessions' worth of work — so an hour of wall clock
+    /// can read as three. A reader who takes that for elapsed time has been misled by a
+    /// number nobody qualified, and the qualification cannot be conditional because the
+    /// condition is invisible from here: this part never learns whether any two of its
+    /// sessions overlapped.
+    /// </para>
+    /// <para>
+    /// The second is conditional for the opposite reason. "Excludes 0 sessions" on every
+    /// complete reading would train the reader to stop reading footnotes, and then the
+    /// first sentence would go unread too.
+    /// </para>
+    /// </summary>
+    private string ActiveTimeFootnote =>
+        Concurrency + (Unstarted is { } unstarted ? $" {unstarted}" : string.Empty);
+
+    private const string Concurrency =
+        "Concurrent sessions are counted separately, so this can exceed elapsed time.";
+
+    private string? Unstarted => IsReady && Value!.WithoutStart > 0
+        ? $"Excludes {Value!.WithoutStart} {(Value!.WithoutStart == 1 ? "session" : "sessions")} "
+            + "whose start was not recorded."
+        : null;
+
+    protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetSessionsAsync(Scope, cancellationToken);
+
+    /// <summary>
+    /// Empty when nothing touched the window. Not "when the active time is zero": a
+    /// window full of sessions none of which recorded a start is a real answer about
+    /// how much has been going on, and hiding it behind an empty state would throw the
+    /// count away along with the caveat.
+    /// </summary>
+    protected override bool IsEmpty(AssistantSessionsInsight value) => value.Sessions == 0;
+
+    protected override string EmptyMessage => "No assistant session touched this window.";
+
+    protected override void InvalidateSource() => Insights.Invalidate();
+}

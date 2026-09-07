@@ -1,5 +1,6 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Adapters;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Sessions.UI.Extensions;
@@ -27,6 +28,12 @@ namespace Backlog.Modules.Sessions.UI.Extensions;
 /// per-surface. Every call re-reads the folders, which is what makes the pane's
 /// refresh mean anything.
 /// </para>
+/// <para>
+/// A host must register <see cref="IDeviceIdentitySource"/> before calling this. The
+/// adapter stamps every session it reads with this device's id, and the identity is
+/// the kernel's answer rather than this context's, because a machine name is not an
+/// identity and three contexts need the same answer to that.
+/// </para>
 /// </remarks>
 public static class SessionRegistration
 {
@@ -34,7 +41,8 @@ public static class SessionRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IAgentSessionSource>(_ => new LocalAgentSessionSource());
+        services.AddSingleton<IAgentSessionSource>(sp =>
+            new LocalAgentSessionSource(sp.GetRequiredService<IDeviceIdentitySource>()));
 
         return services;
     }

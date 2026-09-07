@@ -20,6 +20,11 @@ public sealed class AgentSessionSourceTests : IDisposable
 
     private const string Machine = "DEV-TOWER";
 
+    /// <summary>The device id every session read here is stamped with. A Guid in the
+    /// form the store writes, because that is what a host actually passes in and an id
+    /// spelled two ways is the failure this stamp exists to prevent.</summary>
+    private const string MachineId = "6b8e6f0c-1a4f-4a2e-9f4b-6a2c0f5d3a71";
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "backlog-agent-session-tests",
@@ -43,6 +48,9 @@ public sealed class AgentSessionSourceTests : IDisposable
 
         Assert.Equal("5905cf2d-28a0-4e71-86c8-2ecd270f404a", session.Id);
         Assert.Equal(AgentSessionKind.Claude, session.Kind);
+        // Both, and they are two different facts: the id says which environment and
+        // the name says what it is called. A session found here ran here.
+        Assert.Equal(MachineId, session.EnvironmentId);
         Assert.Equal(Machine, session.Environment);
 
         // The name the agent gave itself, because it is the only human-chosen thing
@@ -91,6 +99,11 @@ public sealed class AgentSessionSourceTests : IDisposable
         var session = Assert.Single((await ReadAsync()).Sessions);
 
         Assert.Equal("25554c05-3745-4632-af58-9eba10b62743", session.Id);
+
+        // A session out of the history is stamped with this device too — the machine
+        // that holds the transcript is the machine it ran on.
+        Assert.Equal(MachineId, session.EnvironmentId);
+        Assert.Equal(Machine, session.Environment);
 
         // The folder is read out of the transcript rather than decoded from the
         // slug. The slug flattens separators, colons and dots all to hyphens, so
@@ -327,6 +340,11 @@ public sealed class AgentSessionSourceTests : IDisposable
 
         Assert.Equal("0012e2c7-aa39-4e43-9e57-e74a0ab62517", session.Id);
         Assert.Equal(AgentSessionKind.Copilot, session.Kind);
+
+        // The same stamp as Claude's, from the same source: both readers are handed
+        // this device's identity rather than each deciding what an environment is.
+        Assert.Equal(MachineId, session.EnvironmentId);
+        Assert.Equal(Machine, session.Environment);
 
         // Copilot records the repository, so this column is filled from what it
         // wrote rather than left empty as Claude's is.
@@ -570,7 +588,7 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     private Task<AgentSessionCatalog> ReadAsync() =>
-        new LocalAgentSessionSource(ClaudeHome, CopilotHome, Machine, new FixedClock(Noon))
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();
 
     private void GivenClaudeLiveSession(
