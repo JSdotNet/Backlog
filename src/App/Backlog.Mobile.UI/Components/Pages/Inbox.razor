@@ -1,6 +1,9 @@
 @page "/"
 @using Backlog.Mobile.UI.Services
+@using Backlog.Infrastructure.Sync
 @inject CloudSyncClient Sync
+@inject IDeviceCredentialStore Credentials
+@inject DevicePairingClient Pairing
 @inject ISpeechTranscriber Speech
 @inject ISharedContentReceiver SharedContentReceiver
 @implements IDisposable
@@ -9,81 +12,105 @@
 
 <h1>Inbox</h1>
 
-<div class="capture">
-    <TextField @bind-Value="_draft" AriaLabel="Quick capture" Placeholder="Quick capture…"
-               CssClass="capture__field" TestId="capture-field" />
-    @* Speech only ever fills this field. Capture is still the one thing that
-       syncs, so nothing reaches the cloud that the person has not read first. *@
-    <ToggleButton Pressed="_listening"
-                  PressedChanged="OnSpeechToggledAsync"
-                  Disabled="@(_speechSupported != true)"
-                  AriaLabel="@(_listening ? "Stop dictating" : "Dictate a capture")"
-                  Title="@(_listening ? "Stop dictating" : "Dictate a capture")"
-                  CssClass="capture__mic"
-                  TestId="speech-toggle">
-        @* Drawn rather than fetched, for the same reason CopyButton draws its
-           clipboard: a WebView with no egress still has to show the button. *@
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
-             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
-            <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
-            <path d="M8 12.25v2" />
-        </svg>
-    </ToggleButton>
-    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)"
-               OnClick="CaptureAsync" TestId="capture-submit">Capture</AppButton>
-</div>
+@if (Credentials.Current is null)
+{
+    @* Everything below is gated on this rather than left on screen and failing.
+       The inbox endpoints are bearer-only, so an unpaired device typing a capture
+       would get a 401 for its trouble - and "Cloud sync unavailable: 401" is not
+       an answer anybody can act on. One thing to do, and it is the thing that
+       makes the rest work. *@
+    <Alert Message="Pair this device to sync." Role="status" BaseClass="capture__notice" TestId="pairing-notice" />
 
-@if (_shareStatus is not null)
-{
-    @* A share fills the field and says so, and stops there. Capture is still the
-       one thing that syncs, so nothing reaches the cloud that the person has not
-       read first. *@
-    <Alert Message="@_shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
-}
+    <div class="capture">
+        <TextField @bind-Value="_pairingCode" AriaLabel="Pairing code" Placeholder="XXXX-XXXX"
+                   CssClass="capture__field" TestId="pairing-code-field" />
+        <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_pairingCode)"
+                   OnClick="PairAsync" TestId="pairing-submit">Pair</AppButton>
+    </div>
 
-@if (_speechSupported == false)
-{
-    <Alert Message="Speech recognition is not available on this device — type your capture instead."
-           Role="status" BaseClass="capture__notice" TestId="speech-unavailable" />
-}
-
-@if (_speechStatus is not null)
-{
-    @* role="status" rather than "alert": this is the running commentary on a
-       thing the person just started, not an interruption. *@
-    <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="speech-status" />
-}
-
-@if (_speechError is not null)
-{
-    <Alert Message="@_speechError" BaseClass="error" TestId="speech-error" />
-}
-
-@if (_error is not null)
-{
-    <Alert Message="@($"Cloud sync unavailable: {_error}")" BaseClass="error" />
-}
-else if (_items is null)
-{
-    <Spinner Label="Loading the inbox" />
-}
-else if (_items.Count == 0)
-{
-    <EmptyState Title="Inbox is empty." />
+    @if (_pairingError is not null)
+    {
+        <Alert Message="@_pairingError" BaseClass="error" TestId="pairing-error" />
+    }
 }
 else
 {
-    <ul class="inbox">
-        @foreach (var item in _items)
-        {
-            <li>
-                <span class="title">@item.Title</span>
-                <span class="source">@item.Source</span>
-                <AppButton aria-label="@($"Triage {item.Title}")" OnClick="() => AcknowledgeAsync(item.Id)">Triage</AppButton>
-            </li>
-        }
-    </ul>
+    <div class="capture">
+        <TextField @bind-Value="_draft" AriaLabel="Quick capture" Placeholder="Quick capture…"
+                   CssClass="capture__field" TestId="capture-field" />
+        @* Speech only ever fills this field. Capture is still the one thing that
+           syncs, so nothing reaches the cloud that the person has not read first. *@
+        <ToggleButton Pressed="_listening"
+                      PressedChanged="OnSpeechToggledAsync"
+                      Disabled="@(_speechSupported != true)"
+                      AriaLabel="@(_listening ? "Stop dictating" : "Dictate a capture")"
+                      Title="@(_listening ? "Stop dictating" : "Dictate a capture")"
+                      CssClass="capture__mic"
+                      TestId="speech-toggle">
+            @* Drawn rather than fetched, for the same reason CopyButton draws its
+               clipboard: a WebView with no egress still has to show the button. *@
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <rect x="6" y="1.75" width="4" height="7.5" rx="2" />
+                <path d="M3.75 7.25v.75a4.25 4.25 0 0 0 8.5 0v-.75" />
+                <path d="M8 12.25v2" />
+            </svg>
+        </ToggleButton>
+        <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)"
+                   OnClick="CaptureAsync" TestId="capture-submit">Capture</AppButton>
+    </div>
+
+    @if (_shareStatus is not null)
+    {
+        @* A share fills the field and says so, and stops there. Capture is still the
+           one thing that syncs, so nothing reaches the cloud that the person has not
+           read first. *@
+        <Alert Message="@_shareStatus" Role="status" BaseClass="capture__notice" TestId="share-status" />
+    }
+
+    @if (_speechSupported == false)
+    {
+        <Alert Message="Speech recognition is not available on this device — type your capture instead."
+               Role="status" BaseClass="capture__notice" TestId="speech-unavailable" />
+    }
+
+    @if (_speechStatus is not null)
+    {
+        @* role="status" rather than "alert": this is the running commentary on a
+           thing the person just started, not an interruption. *@
+        <Alert Message="@_speechStatus" Role="status" BaseClass="capture__status" TestId="speech-status" />
+    }
+
+    @if (_speechError is not null)
+    {
+        <Alert Message="@_speechError" BaseClass="error" TestId="speech-error" />
+    }
+
+    @if (_error is not null)
+    {
+        <Alert Message="@($"Cloud sync unavailable: {_error}")" BaseClass="error" />
+    }
+    else if (_items is null)
+    {
+        <Spinner Label="Loading the inbox" />
+    }
+    else if (_items.Count == 0)
+    {
+        <EmptyState Title="Inbox is empty." />
+    }
+    else
+    {
+        <ul class="inbox">
+            @foreach (var item in _items)
+            {
+                <li>
+                    <span class="title">@item.Title</span>
+                    <span class="source">@item.Source</span>
+                    <AppButton aria-label="@($"Triage {item.Title}")" OnClick="() => AcknowledgeAsync(item.Id)">Triage</AppButton>
+                </li>
+            }
+        </ul>
+    }
 }
 
 @code {
@@ -92,6 +119,9 @@ else
     private IReadOnlyList<InboxItem>? _items;
     private string _draft = string.Empty;
     private string? _error;
+
+    private string _pairingCode = string.Empty;
+    private string? _pairingError;
 
     /// <summary>Null until the recogniser has been asked. Neither "yes" nor "no"
     /// is true during the first render, and claiming either would flash a
@@ -116,7 +146,10 @@ else
     {
         _shareSubscription = SharedContentReceiver.Subscribe(OnContentShared);
 
-        return RefreshAsync();
+        // An unpaired device has nothing to load and no token to load it with, so
+        // it does not ask: a 401 on first render would put "Cloud sync
+        // unavailable" above the pairing box that is the answer to it.
+        return Credentials.Current is null ? Task.CompletedTask : RefreshAsync();
     }
 
     public void Dispose() => _shareSubscription?.Dispose();
@@ -254,6 +287,48 @@ else
 
         await RefreshAsync();
     }
+
+    /// <summary>
+    /// Redeems the code somebody read out on the device that is already in. The
+    /// client stores the credential it gets back, so all this has to do is load
+    /// the inbox the screen can finally see.
+    /// <para>
+    /// The device is named rather than asked about: a phone has one name that
+    /// matters and it is already on the phone, and a second field between a
+    /// person and the one thing this screen is for would be a field they type
+    /// through rather than read.
+    /// </para>
+    /// </summary>
+    private async Task PairAsync()
+    {
+        _pairingError = null;
+
+        try
+        {
+            var result = await Pairing.PairAsync(_pairingCode, DeviceName);
+
+            if (result.IsFailure)
+            {
+                _pairingError = result.Error.Message;
+                return;
+            }
+
+            _pairingCode = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            // Expected failures come back as a result; anything still arriving as
+            // an exception has to reach the screen, because one swallowed in an
+            // event handler leaves the button looking like it did nothing.
+            _pairingError = ex.Message;
+            return;
+        }
+
+        await RefreshAsync();
+    }
+
+    private static string DeviceName =>
+        string.IsNullOrWhiteSpace(Environment.MachineName) ? "Phone" : Environment.MachineName;
 
     private async Task AcknowledgeAsync(Guid id)
     {

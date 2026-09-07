@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 
+using Backlog.Modules.Sync.Abstractions;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 public sealed class AppFeatureSettingsStoreTests
@@ -86,6 +88,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
+                SyncFeatures.DevicePairing,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,
