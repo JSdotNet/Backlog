@@ -2319,7 +2319,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 626,
+          "line": 633,
           "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"

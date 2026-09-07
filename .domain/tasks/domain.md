@@ -117,9 +117,11 @@ A task created by importing a plan carries `import_plan_id` and
 `import_item_id`, naming the plan and the item inside it that produced the
 task. Both are provenance in the same spirit as `source_inbox_id` and
 `recurrence_source_id` and carry no invariant of their own, but together they
-are also the key a later import of the same plan uses to find the task a
-given item already produced, so re-importing an updated plan can adjust an
-task still in flight instead of duplicating it — see
+are also the key a later import of the same plan uses to recognize the task a
+given item already produced, so re-importing an updated plan can bring a task
+already under way up to date instead of standing a second one beside it.
+`import_plan_id` on its own is what such an import clears the plan's
+not-yet-started tasks by — see
 [Re-importing an updated plan](features.md#re-importing-an-updated-plan).
 `import_plan_id` is also added to the task's `tags`, so filing and filtering
 by plan reuses the same mechanism as filing against a

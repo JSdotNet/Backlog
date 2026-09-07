@@ -55,6 +55,8 @@ back.
 
 `prompt` `*high` `!ready` `@repos` `#vscode-desktop-rollout` `id:add-command` `repo:backlog-desktop` `effort:5`
 
+Add the plan name `vscode-desktop-rollout` to this session's title before you start.
+
 Add an export command to the command palette that serializes the current view to Markdown.
 
 ## Setup: install the command-palette SDK
@@ -65,11 +67,25 @@ Add an export command to the command palette that serializes the current view to
 
 # Wire the export command into the toolbar
 
-`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `after:add-command` `repo:backlog-desktop` `effort:2`
+`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
+
+Add the plan name `vscode-desktop-rollout` to this session's title before you start.
 
 Wire the command from the previous prompt into the toolbar as a button.
 
 ## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
+
+# Review the VS Code desktop rollout plan for anything missed
+
+`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
+
+Add the plan name `vscode-desktop-rollout` to this session's title before you start.
+
+Read the material this plan came from against what actually landed: every entry done, and
+nothing dropped, deferred or left half-finished on the way. Write up anything still
+outstanding as a new entry.
+
+## Manual: sign off that the plan is complete
 ```
 
 ## Sub-item conventions
@@ -80,7 +96,8 @@ Wire the command from the previous prompt into the toolbar as a button.
 - `## Manual: ...` — a step only a human can do.
 - One further `##` sub-item reminding whoever runs the prompt to update the target
   repository's own knowledge folders or devbook once it is done. Every entry carries one;
-  it is never optional.
+  it is never optional. The plan's closing review entry is the single exception — it
+  changes no repository of its own, and carries a `Manual: ...` sign-off instead.
 - `- [ ]` checklist lines are for granular steps inside a sub-item, not a substitute for a
   `##` sub-item.
 
@@ -88,12 +105,16 @@ Wire the command from the previous prompt into the toolbar as a button.
 
 - Every entry generated for one plan shares one `#tag`, a slug derived from the plan's
   subject — this is the plan's whole identity; there is no separate plan-id field.
-- Reusing the exact same tag on a later regeneration of the same plan lets Backlog's
-  import upsert by `(tag, id:)`: an entry not yet `done`/`archived` is updated in place,
-  a `done`/`archived` one is left untouched, and an `id:` not seen before is created new.
+- Reusing the exact same tag on a later regeneration is what makes it a new version of
+  that plan rather than a second plan: Backlog clears every entry of that tag still
+  waiting to be picked up (`draft`/`ready`) and writes the new version in their place, so
+  a plan brought in twice cannot leave duplicates behind.
+- An entry already `in-progress` is not cleared — the later version is applied to it in
+  place, matched by `(tag, id:)`.
 - A stored `done`/`archived` entry stays untouched whatever status a later plan version
   states for it — restating a status leaves finished work finished.
-- An entry with no `id:` is always created new — it can never be matched by a later
-  re-import, because there is nothing to match it against.
+- Give **every** entry an `id:`, not only the ones another entry depends on. It is how an
+  entry already under way or already finished is recognized across versions; one without
+  an id is created new beside the entry it was meant to be.
 - `after:` and `repo:` may each repeat on one entry; order among repeats carries no
   meaning.
