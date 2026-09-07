@@ -7,6 +7,12 @@
     handled on the container rather than on the document, which means it works
     without a document-wide listener and cannot outlive the dialog.
 
+    That places one duty on the dialog: the focus must never leave it while it is
+    up, or the Escape handler cannot be reached and the dialog is dismissable
+    only with a pointer. So Tab is contained inside it — the same containment the
+    sheet uses, out of `components.js` — and a backdrop click that does not close
+    the dialog takes the focus back off the body the browser dropped it on.
+
     Focus is borrowed, not taken: the control that opened the dialog is recorded
     before the focus moves in, and gets it back when the dialog closes. That is
     the accessibility rule for every overlay, and it cannot be done with an
@@ -32,6 +38,7 @@
     private ElementReference _dialog;
     private bool _holdsFocus;
     private bool _captured;
+    private bool _contained;
 
     [Parameter]
     public bool Open { get; set; }
@@ -119,6 +126,18 @@
 
     private string TitleId => _id + "-title";
 
+    /// <summary>The id the dialog element actually carries. A host that splats its
+    /// own <c>id</c> overwrites the generated one, and the containment has to
+    /// follow it there: `components.js` reaches an element only by the name it
+    /// rendered with, so arming on the generated id would find nothing, contain
+    /// nothing, and say so to no one.</summary>
+    private string DialogId =>
+        AdditionalAttributes is not null
+        && AdditionalAttributes.TryGetValue("id", out var supplied)
+        && supplied?.ToString() is { Length: > 0 } named
+            ? named
+            : _id;
+
     private bool HasTitle => !string.IsNullOrWhiteSpace(Title);
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
@@ -136,17 +155,23 @@
     {
         builder.OpenElement(0, Element);
         builder.AddAttribute(1, "class", ClassValue);
-        builder.AddAttribute(2, "role", "dialog");
-        builder.AddAttribute(3, "aria-modal", "true");
-        builder.AddAttribute(4, "aria-labelledby", HasTitle ? TitleId : null);
-        builder.AddAttribute(5, "aria-label", HasTitle ? null : AriaLabel);
-        builder.AddAttribute(6, "data-testid", TestId);
-        builder.AddAttribute(7, "tabindex", "-1");
-        builder.AddAttribute(8, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnKeyDownAsync));
-        builder.AddEventStopPropagationAttribute(9, "onclick", true);
-        builder.AddMultipleAttributes(10, AdditionalAttributes);
-        builder.AddElementReferenceCapture(11, reference => _dialog = reference);
-        builder.AddContent(12, DialogContent);
+        // The containment is addressed by id, which is the only handle
+        // `components.js` has on an element. Written before the splat so a host
+        // that has its own name for its dialog still wins — and `DialogId` reads
+        // that name back, so the containment is armed on the id the dialog
+        // actually renders with rather than on one nothing answers to.
+        builder.AddAttribute(2, "id", DialogId);
+        builder.AddAttribute(3, "role", "dialog");
+        builder.AddAttribute(4, "aria-modal", "true");
+        builder.AddAttribute(5, "aria-labelledby", HasTitle ? TitleId : null);
+        builder.AddAttribute(6, "aria-label", HasTitle ? null : AriaLabel);
+        builder.AddAttribute(7, "data-testid", TestId);
+        builder.AddAttribute(8, "tabindex", "-1");
+        builder.AddAttribute(9, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnKeyDownAsync));
+        builder.AddEventStopPropagationAttribute(10, "onclick", true);
+        builder.AddMultipleAttributes(11, AdditionalAttributes);
+        builder.AddElementReferenceCapture(12, reference => _dialog = reference);
+        builder.AddContent(13, DialogContent);
         builder.CloseElement();
     };
 
@@ -197,6 +222,10 @@
 
         if (!Open)
         {
+            // Containment first, and by id: the dialog element is already out of
+            // the document by now, and only the record `components.js` keeps
+            // against that id can still say where the focus goes back to.
+            await ReleaseContainmentAsync();
             await RestoreFocusAsync();
             return;
         }
@@ -213,12 +242,18 @@
         catch (JSException)
         {
         }
+
+        await ContainFocusAsync();
     }
 
     /// <summary>A host that tears the dialog out while it is open has closed it as
     /// surely as Escape does, and no further render will run to notice — so the
-    /// focus goes back from here too.</summary>
-    public async ValueTask DisposeAsync() => await RestoreFocusAsync();
+    /// containment goes and the focus comes back from here too.</summary>
+    public async ValueTask DisposeAsync()
+    {
+        await ReleaseContainmentAsync();
+        await RestoreFocusAsync();
+    }
 
     private async Task CaptureFocusAsync()
     {
@@ -263,7 +298,78 @@
         }
     }
 
-    private Task BackdropClickedAsync() => CloseOnBackdropClick ? CloseAsync() : Task.CompletedTask;
+    /// <summary>Keeps Tab inside the dialog while it is up. Armed after the focus
+    /// has moved in, so the containment finds it already inside and leaves it
+    /// where this component put it.</summary>
+    private async Task ContainFocusAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("backlogContainFocus", DialogId);
+            _contained = true;
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: no element to contain the focus in yet.
+        }
+    }
+
+    /// <summary>Containment must not outlive the dialog: a listener left armed on
+    /// an id nothing renders any more is the keyboard trap the accessibility
+    /// rules forbid.</summary>
+    private async Task ReleaseContainmentAsync()
+    {
+        if (!_contained) return;
+
+        _contained = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogReleaseFocusContainment", DialogId);
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>A backdrop click that does not close the dialog still moves the
+    /// focus: the browser drops it on the body, where the Escape handler on the
+    /// dialog cannot hear it. Taking it back is what keeps a dialog that refuses
+    /// the backdrop dismissable without a pointer.</summary>
+    private async Task BackdropClickedAsync()
+    {
+        if (CloseOnBackdropClick)
+        {
+            await CloseAsync();
+            return;
+        }
+
+        try
+        {
+            await _dialog.FocusAsync();
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
 
     private Task OnKeyDownAsync(KeyboardEventArgs e) =>
         CloseOnEscape && e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;

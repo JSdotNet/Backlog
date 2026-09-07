@@ -278,4 +278,141 @@ public sealed class ModalTests
         Assert.Single(context.JSInterop.Invocations["backlogCaptureFocus"]);
         Assert.Empty(context.JSInterop.Invocations["backlogRestoreFocus"]);
     }
+
+    [Fact]
+    public void A_backdrop_click_that_leaves_the_dialog_open_puts_the_focus_back_inside_it()
+    {
+        // The browser drops the focus on the body when the backdrop is clicked,
+        // and Escape is listened for on the dialog itself — so a dialog that
+        // refuses the backdrop click would be left open with no keyboard way out
+        // unless the focus is taken back.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var closed = 0;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.CloseOnBackdropClick, false)
+            .Add(m => m.OnClosed, () => closed++)
+            .AddChildContent("<p>Body</p>"));
+
+        Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+
+        modal.Find(".modal-backdrop").Click();
+
+        Assert.Equal(0, closed);
+        Assert.Equal(2, context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count);
+    }
+
+    [Fact]
+    public void A_backdrop_click_that_closes_the_dialog_does_not_chase_the_focus()
+    {
+        // Nothing to put the focus back into: the dialog is going, and the
+        // restore path is what has the say about where the focus lands.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        modal.Find(".modal-backdrop").Click();
+
+        Assert.Single(context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+        Assert.Equal(string.Empty, modal.Markup.Trim());
+    }
+
+    [Fact]
+    public void An_open_dialog_keeps_the_tab_key_inside_itself()
+    {
+        // Tab must cycle within the dialog rather than walk out into the page
+        // behind it — the same containment the sheet has, armed on the dialog
+        // element by its own id.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogContainFocus"]);
+
+        Assert.Equal(modal.Find("[role='dialog']").Id, invocation.Arguments[0]);
+    }
+
+    [Fact]
+    public void Closing_lets_the_containment_go_and_still_gives_the_focus_back()
+    {
+        // Containment dies with the element it was armed on; the focus goes back
+        // afterwards, out of the record components.js keeps by id. A dialog that
+        // released nothing would leave a keydown listener behind.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        modal.Render(parameters => parameters.Add(m => m.Open, false));
+
+        Assert.Single(context.JSInterop.Invocations["backlogReleaseFocusContainment"]);
+        Assert.Single(context.JSInterop.Invocations["backlogRestoreFocus"]);
+    }
+
+    [Fact]
+    public void A_dialog_that_never_opened_contains_nothing()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters.AddChildContent("<p>Body</p>"));
+
+        modal.Render(parameters => parameters.Add(m => m.Open, false));
+
+        Assert.Empty(context.JSInterop.Invocations["backlogContainFocus"]);
+        Assert.Empty(context.JSInterop.Invocations["backlogReleaseFocusContainment"]);
+    }
+
+    [Fact]
+    public async Task A_dialog_torn_out_while_open_lets_the_containment_go_too()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddChildContent("<p>Body</p>"));
+
+        await context.DisposeComponentsAsync();
+
+        Assert.Single(context.JSInterop.Invocations["backlogReleaseFocusContainment"]);
+        Assert.Single(context.JSInterop.Invocations["backlogRestoreFocus"]);
+    }
+
+    [Fact]
+    public void A_host_can_still_name_the_dialog_element_itself()
+    {
+        // The id is written before the splat, so a host that has its own name for
+        // the dialog keeps it — and the containment has to be armed on that name,
+        // not on the generated one. Addressing the generated id would look up an
+        // element that does not exist, contain nothing, and report nothing: a
+        // host-named dialog would silently keep the very defect this fixes.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var modal = context.Render<Modal>(parameters => parameters
+            .Add(m => m.Open, true)
+            .AddUnmatched("id", "host-named-dialog")
+            .AddChildContent("<p>Body</p>"));
+
+        Assert.Equal("host-named-dialog", modal.Find("[role='dialog']").Id);
+
+        var contain = Assert.Single(context.JSInterop.Invocations["backlogContainFocus"]);
+        Assert.Equal("host-named-dialog", contain.Arguments[0]);
+
+        modal.Render(parameters => parameters.Add(m => m.Open, false));
+
+        var release = Assert.Single(context.JSInterop.Invocations["backlogReleaseFocusContainment"]);
+        Assert.Equal("host-named-dialog", release.Arguments[0]);
+    }
 }

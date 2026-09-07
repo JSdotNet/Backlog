@@ -11,10 +11,12 @@
     in the tree and `inert` while closed, which keeps its contents out of the tab
     order and off the accessibility tree just as firmly as not rendering them.
 
-    It traps focus, which Modal does not: Tab inside a sheet cycles rather than
-    walking out into the surface behind it. Giving the focus back on close is
-    shared with Modal — both go through `backlogCaptureFocus` and
-    `backlogRestoreFocus` in components.js — because a reader sent into a sheet by
+    It traps focus: Tab inside a sheet cycles rather than walking out into the
+    surface behind it. Modal keeps Tab inside itself too, and both go through
+    components.js for it — but a sheet that is always in the tree can take the
+    containment and the giving-back as one `backlogFocusTrap`, where a dialog
+    that removes itself has to ask for the two halves separately. Giving the
+    focus back is the half neither can skip: a reader sent into a sheet by
     pressing Enter on a row has to land back on that row when they leave, or the
     list they were working has lost their place.
 
