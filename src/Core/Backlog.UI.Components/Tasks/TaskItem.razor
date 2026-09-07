@@ -218,8 +218,16 @@
            @onkeydown:preventDefault here: it is read now, before anybody has
            pressed anything, so the only constant that could catch a Tab would
            also swallow every letter typed into the field. The browser is stopped
-           from moving the focus on by backlogGuardTab instead. *@
-        <div class="task-item__rename @(DirectRename ? "task-item__rename--direct" : null)">
+           from moving the focus on by backlogGuardTab instead.
+
+           What is pressed in here stops in here, which is what the
+           stopPropagation on the wrapper is for — see OnRenameKeyAsync for the
+           decision and what it costs. On the wrapper rather than on the field
+           because an event directive modifier is an element's and the field is a
+           component, and on a wrapper that holds nothing but the field and its
+           badge, so nothing a host listens to is behind the boundary. *@
+        <div class="task-item__rename @(DirectRename ? "task-item__rename--direct" : null)"
+             @onkeydown:stopPropagation="true">
             @* data-testid goes on the input rather than through TestId, which
                lives on a wrapper Bare does not render — so the name went nowhere
                and the field could only be found by its class. *@
@@ -1170,6 +1178,34 @@
     public EventCallback<int> OnKeyboardMove { get; set; }
 
     /// <summary>
+    /// The reader pressed Escape on this row's line.
+    /// <para>
+    /// The row holds no draft, so there is nothing here for the key to abandon and
+    /// nothing this row could honestly do with it — which is exactly why it is
+    /// handed over rather than answered: what a dismissal means belongs to
+    /// whatever the host has the list in. The Tasks pane leaves its
+    /// bulk-selection mode.
+    /// </para>
+    /// <para>
+    /// From the line and not from the rename in it, which contains its own Escape
+    /// for the reason <see cref="OnRenameKeyAsync"/> gives. The pair is the split
+    /// the bulk bar draws between a group's trigger and the controls it opens:
+    /// innermost keeps the key when it has a draft to lose, and the surface around
+    /// it gets it when nothing inside does.
+    /// </para>
+    /// <para>
+    /// Handed over, not consumed: the key is still on its way up when this fires.
+    /// So a host answers a row's Escape through this callback or through a keydown
+    /// handler of its own above the list, and never through both — with both it
+    /// hears one press twice and takes two decisions from it, which is the same
+    /// defect the rename's boundary exists to prevent, reached by the other door.
+    /// No host in the product has both today; one wrapper element would be enough.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+
+    /// <summary>
     /// The reader tabbed forward off this row and a host wants the focus
     /// somewhere other than the next thing in the document.
     /// <para>
@@ -1543,6 +1579,42 @@
     /// </summary>
     private Task RestoreFocusAsync() => QuickEditField.FocusAsync(Js, _editId, select: false);
 
+    /// <summary>
+    /// The rename's keys, and the boundary they stop at.
+    /// <para>
+    /// Escape here means "abandon this title", and it means nothing else: the
+    /// wrapper around the field stops the key climbing, so a host whose own
+    /// Escape means something — leave the selection mode, close the pane the list
+    /// is in — never hears the one the reader spent on backing out of a rename.
+    /// Without that boundary the key took two decisions out of one keystroke, and
+    /// the second was always the expensive one: the Tasks pane's detail closed on
+    /// top of the abandoned step title, and a pane-level way out of bulk selection
+    /// could not be offered at all without throwing away the reader's picked set
+    /// on every abandoned rename.
+    /// </para>
+    /// <para>
+    /// The containment is the whole keydown rather than Escape alone, because
+    /// Blazor decides propagation when it renders and not per key. So it is
+    /// stated rather than discovered: a host shortcut pressed while the caret is
+    /// in this field is not heard either — Ctrl+Shift+M inside a step's title no
+    /// longer reaches the Tasks pane's markdown hatch. That is the price, and it
+    /// is the cheaper half: a shortcut nobody can reach from one field costs a
+    /// second press somewhere else, where a dismissal that also closed the
+    /// surface cost work the reader had already done.
+    /// </para>
+    /// <para>
+    /// The row's own line is deliberately outside this — it holds no draft, so
+    /// Escape on it is nobody's but the host's, which is what
+    /// <see cref="OnDismiss"/> is for. The same split the bulk bar draws between
+    /// a group's trigger and the controls it opens.
+    /// </para>
+    /// <para>
+    /// One thing did depend on the key climbing out of here: the pointer drag's
+    /// Escape-cancels-it listener in <c>components.js</c>, which is why that one
+    /// is registered in the capture phase. Anything else that wants a key pressed
+    /// in this field has the same option and no other.
+    /// </para>
+    /// </summary>
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
@@ -1677,6 +1749,15 @@
     /// </summary>
     private async Task OnRowKeyDownAsync(KeyboardEventArgs e)
     {
+        // Handed over rather than answered: a row has nothing to put down. Read
+        // before the rest because it settles the press on its own — see
+        // OnDismiss.
+        if (e.Key is "Escape")
+        {
+            await OnDismiss.InvokeAsync();
+            return;
+        }
+
         if (e.Key is "Tab")
         {
             // Backward off the line only when the line is the front of the row.

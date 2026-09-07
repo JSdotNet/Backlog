@@ -1,0 +1,78 @@
+@* A list with a host handler above it, which is the only arrangement that can
+   see where a key stops.
+
+   Every other test in this folder dispatches on the control it is about and
+   asserts what that control did. What the two Escape-consuming fields owe their
+   hosts is the opposite kind of fact — that the key went no further — and a key
+   that went nowhere looks exactly like a key that was heard, unless something
+   above the list is counting. So this harness is a host that counts: the div
+   around the list records every key that reached it, and a test asserts on that
+   record rather than on the absence of an effect.
+
+   It is the shape of a real host and not an invention for a test, and it covers
+   both sides of the arrangement. The live one: in the Tasks pane the div around
+   an opened entry's detail (TasksPane.razor:1813) carries a keydown handler, and
+   the step list sits inside it (:2051) — that is the host whose Escape closed the
+   pane on top of an abandoned step title until this boundary went in. The other
+   side is a handler above a list of the pane's own rows, which the pane does not
+   have: its keydown handlers are on the filter chip group (:182), the selection
+   bar (:236) and the four bulk controls (:938, :963, :1009, :1077), and none of
+   them is above the entry list (:290). It is one wrapper element away, though,
+   and it is what a pane-level way out of the selection mode would have been — the
+   thing that could not be offered while an abandoned rename discarded the picked
+   set with it, and that the list's OnDismiss hook offers instead. *@
+
+<div class="escape-host" data-testid="host" @onkeydown="OnHostKeyDown">
+    <TaskListView Tasks="@Tasks"
+                  QuickEdit="true"
+                  DirectRename="@DirectRename"
+                  OnRename="Rename"
+                  OnAdd="Add"
+                  OnDismiss="() => Dismissals++"
+                  AriaLabel="Tasks"
+                  TestId="list" />
+</div>
+
+@code {
+    /// <summary>The always-open field the step lists use, rather than the pencil's.
+    /// Both are the same field and the same handler — see <c>TaskItem</c> — and the
+    /// boundary is around both, so both are worth dispatching into.</summary>
+    [Parameter]
+    public bool DirectRename { get; set; }
+
+    public IReadOnlyList<TaskRow> Tasks { get; private set; } = [];
+
+    /// <summary>Every key that reached the host, in order. Keys rather than a
+    /// count, so a test can say which one arrived — the point of the boundary is
+    /// that it is one key's business and not the whole keyboard's.</summary>
+    public List<string> HostKeys { get; } = [];
+
+    public List<TaskRename> Renames { get; } = [];
+
+    public List<string> Added { get; } = [];
+
+    /// <summary>How many times the list said the reader had asked to be let out of
+    /// it. A count rather than a flag, because a key heard twice is exactly the
+    /// defect the boundary is here to prevent.</summary>
+    public int Dismissals { get; private set; }
+
+    protected override void OnInitialized() =>
+        Tasks = [new("a", "First"), new("b", "Second")];
+
+    private void OnHostKeyDown(KeyboardEventArgs e) => HostKeys.Add(e.Key);
+
+    private void Rename(TaskRename rename)
+    {
+        Renames.Add(rename);
+        Tasks = [.. Tasks.Select(task =>
+            string.Equals(task.Id, rename.Id, StringComparison.Ordinal)
+                ? task with { Title = rename.Title }
+                : task)];
+    }
+
+    private void Add(string title)
+    {
+        Added.Add(title);
+        Tasks = [.. Tasks, new TaskRow($"new-{Added.Count}", title)];
+    }
+}

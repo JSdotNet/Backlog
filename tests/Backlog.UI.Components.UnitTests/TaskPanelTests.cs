@@ -299,6 +299,76 @@ public sealed class TaskPanelTests
         Assert.Equal(title.Id, context.JSInterop.Invocations["backlogFocus"].Last().Arguments[0]);
     }
 
+    // --- Where the heading's Escape stops ----------------------------------
+    //
+    // The heading is the library's third Escape-consuming field, and the pane
+    // that draws it has an Escape of its own. These two are the split: the key
+    // belongs to the field while the field is open, and to the host the rest of
+    // the time. TaskPanelEscapeHarness is a host that counts keys, because a key
+    // that went nowhere is indistinguishable from a key nobody pressed unless
+    // something above is counting.
+
+    /// <summary>
+    /// Escape in the heading's field abandons that title and stops there.
+    /// <para>
+    /// The field closing itself is not what contains the key: the browser fixes an
+    /// event's path before the first handler runs, so an element removed while the
+    /// key is being handled is still on the path the key climbs. The boundary on
+    /// the heading is what contains it, and without one the host's Escape — in the
+    /// real host, "close this pane" — came out of the same press.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Escape_in_the_headings_field_stops_at_the_heading()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanelEscapeHarness>();
+
+        view.Find("[data-testid='panel-title']").Click();
+        view.Find("[data-testid='panel-rename']").Input("Thrown away");
+        view.Find("[data-testid='panel-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        // The field's own half, so that a boundary which also broke the abandoning
+        // would not pass.
+        Assert.Empty(view.Instance.Renames);
+        Assert.Equal(
+            "Wire the pane into the shell",
+            view.Find("[data-testid='panel-title']").TextContent);
+
+        // And the half this harness exists for.
+        Assert.Empty(view.Instance.HostKeys);
+    }
+
+    /// <summary>
+    /// With the field closed the heading is a button, and its keys are the host's
+    /// again.
+    /// <para>
+    /// Which is why the boundary is gated on the field being open rather than
+    /// standing on the heading permanently: the title is the panel's front control,
+    /// so Escape on it is a reader asking to leave the surface the panel is in, and
+    /// Shift+Tab off it is the panel's way back out to whatever is before it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Escape_on_the_closed_heading_is_the_hosts_to_answer()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanelEscapeHarness>();
+
+        view.Find("[data-testid='panel-title']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(["Escape"], view.Instance.HostKeys);
+
+        view.Find("[data-testid='panel-title']")
+            .KeyDown(new KeyboardEventArgs { Key = "Tab", ShiftKey = true });
+
+        Assert.Equal(1, view.Instance.Backwards);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

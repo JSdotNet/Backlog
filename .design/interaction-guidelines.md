@@ -263,6 +263,7 @@ related: [".design/accessibility.md#focus-visibility"]
 | Selection distinct from focus | Selected list items use `color-border-focus` border + optional `color-primary` accent strip; selection MUST be visually distinct from hover and from focus. |
 | Multi-select | Bulk selection shows a bulk-action bar with a live count ("3 items selected") and a clear-selection control; "Select all" uses the indeterminate state for partial selection. |
 | Reorder focus retention | After a keyboard reorder, focus MUST stay on the moved item's handle. |
+| Leaving a multi-select | Escape MUST leave the mode from the surfaces that are only ever about the selection — the toggle that entered it, the bulk-action bar, and any row's own line while the mode is on, whether or not that row is picked — and MUST NOT leave it from a control that owns Escape for something of its own. Where a bar holds both a group trigger and the controls that group opens, the trigger answers the key and the controls keep theirs. |
 
 ## Empty, Loading, and Error States
 
@@ -321,6 +322,7 @@ line of a list that may be hundreds long.
 | No inert controls | A row with nothing listening MUST render its completion state as an image with an accessible label rather than as a control. A control that takes focus and then does nothing, or records something untrue, is worse than no control. |
 | Renaming | A rename happens where the title is, so the row MUST NOT change height while it is being renamed. Enter commits, Escape abandons, clicking away commits; there is no Save button, per `#auto-save-no-save-buttons`. |
 | Rename reporting | A rename is reported when it settles, not per keystroke. An empty title and an unchanged one are not renames. |
+| Escape belongs to the innermost draft | A field that abandons a draft on Escape MUST stop the key there — a row's rename, a list's add-row composer, and the side panel's heading rename all do — so a surface whose own Escape dismisses something never takes that decision out of the same press. Closing the field is not containment: an event's path is fixed before the first handler runs, so a field that removes itself is still on the path the key climbs. A row's line holds no draft, so Escape on it belongs to the surface around the list; that split is what lets a list offer a way out of a selection mode without an abandoned rename discarding the picked set. A listener that needs a key pressed inside such a field uses the capture phase. |
 | Repeated renaming | Where retitling many rows is the task, the keystroke that finishes one rename MUST start the next (Tab down, Shift+Tab up), and the field MUST arrive with the title selected so the first keystroke replaces it. |
 | Finished rows | A finished row leaves the open list and joins a Completed section of its own, folded by default, behind a count. It MUST NOT be deleted — the record of what was done is the point — and it MUST stay readable rather than being hidden. |
 | Reorder | A finished row MUST NOT be draggable: its place in the order stopped meaning anything when it left the list. |

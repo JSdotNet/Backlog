@@ -1046,9 +1046,22 @@
 
     // Escape abandons a drag in flight, the way it abandons every other thing in
     // this product that can be put down.
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') cancelTaskDrag();
-    });
+    //
+    // In the capture phase, because a drag can be in flight while the caret sits
+    // in one of the list's two text fields and those fields contain the key: a
+    // rename and the composer stop keydown propagating so that a host's Escape is
+    // never the same press as abandoning a title (see TaskItem.OnRenameKeyAsync).
+    // A bubble-phase listener here would therefore stop hearing Escape exactly
+    // when a reader was most likely to press it — mid-drag, mid-edit. Capture runs
+    // before any of that, so this is the phase the gesture's way out belongs in
+    // rather than a workaround for it.
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key === 'Escape') cancelTaskDrag();
+        },
+        true
+    );
 
     // The click that follows the pointerup that ended a drag. It would land on the
     // row the drop was aimed at and select it, which is a second thing happening
