@@ -144,9 +144,20 @@ builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevel
     builder.Environment.ContentRootPath,
     "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
     Path.Combine("obj", "local-development", "device-credential.json")));
+// How far this device has pushed and pulled, scoped the same way and with an
+// override variable of its own for the same reason: a shared name would let the
+// two harnesses share a watermark, and each would then skip what the other had
+// pushed - silently, because nothing about that fails.
+builder.Services.AddSingleton<ITaskSyncStateStore>(_ => TaskSyncStateStoreFactory.CreateLocalDevelopmentStore(
+    builder.Environment.ContentRootPath,
+    "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
+    Path.Combine("obj", "local-development", "task-sync-state.json")));
 // "https+http://sync" is resolved by Aspire service discovery, so the harness
-// always talks to the sync service of this AppHost run.
+// always talks to the sync service of this AppHost run. Task replication is the
+// second call and not part of the first: it needs the ITaskRepository above, and
+// a host without one composes only the pairing surface.
 builder.Services.AddSyncClient(new Uri("https+http://sync"));
+builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();

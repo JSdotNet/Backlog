@@ -40,12 +40,22 @@ human-readable message, and optionally validation detail.
   app, and a type a host maps to UI state or an HTTP status.
 - `Result` refuses to be constructed inconsistently: a success carrying an error,
   or a failure carrying `Error.None`, throws.
+- **The HTTP surface is rule 4 in one file.** Every handler in
+  `Backlog.Modules.Sync` returns `Result` / `Result<T>`, and
+  `Backlog.Modules.Sync.Api/Endpoints/SyncResults.cs` is the single place a
+  `Result` becomes a response — so two endpoints cannot disagree about which
+  status a conflict is. See
+  [0017](0017-http-error-contract-and-problem-details.md).
 
 ## Deviations and gaps
 
 - The shape is richer than the organization's sketch — one `Error` value object
   rather than loose `ErrorCode` / `ErrorMessage` strings, plus an `ErrorType`
   classification. Same contract, better typed.
-- The sync service does not use `Result` yet: its endpoints return
-  `Results.Ok` / `NotFound` straight from an in-memory store. The rule applies
-  the moment it grows real handlers.
+- **Two replica conditions travel as exceptions rather than as failed results**,
+  by rule 5 and deliberately: "the store is still starting" and "that
+  continuation is older than the feed still reaches" are not answers to the
+  question a handler asked, and threading a failure union through the port to
+  carry them would put noise in four signatures for something no handler can act
+  on. `ReplicaFaultFilter` turns each into the same problem body every other
+  failure gets, at the boundary rather than in the endpoints.

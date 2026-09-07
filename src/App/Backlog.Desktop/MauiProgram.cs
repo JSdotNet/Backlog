@@ -163,11 +163,27 @@ public static class MauiProgram
         // app's other per-user state rather than in the backlog folder, because it
         // belongs to this machine and not to the workspace.
         builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore());
+        // And this device's replication progress, beside that credential and for
+        // the same reason: LocalApplicationData, never the workspace root. The
+        // watermark and the cursor describe how far *this machine* has got, and a
+        // workspace root can be pointed at a folder some other product syncs — at
+        // which point the other device would adopt this one's watermark and skip
+        // its own unpushed work, silently. Removing that failure is why ADR 0005
+        // exists. Plaintext because neither value is a secret; AddSyncClient
+        // registers no store of its own, so a head that skips this line has the
+        // session registered and unconstructable.
+        builder.Services.AddSingleton<ITaskSyncStateStore>(_ => new FileTaskSyncStateStore(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog",
+            "task-sync-state.json")));
         // "https+http://sync" is resolved by Aspire service discovery, which
         // AddServiceDefaults above wired up, so the desktop always talks to the sync
         // service of this AppHost run. Ports are dynamic; a literal one would be
-        // wrong by the next launch.
+        // wrong by the next launch. Task replication is the second call and not
+        // part of the first: it needs the ITaskRepository this head registers,
+        // and a head without one composes only the pairing surface.
         builder.Services.AddSyncClient(new Uri("https+http://sync"));
+        builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();

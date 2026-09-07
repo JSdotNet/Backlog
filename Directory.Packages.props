@@ -39,6 +39,14 @@
     -->
     <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.5.3-preview.1.26425.3" />
     <PackageVersion Include="Aspire.Hosting.Maui" Version="13.5.3-preview.1.26425.3" />
+
+    <!--
+      The client-side half of the Cosmos wiring: it reads the connection string
+      the AppHost hands the sync service and registers the CosmosClient that
+      Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
+      above for the same reason they move with each other.
+    -->
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.5.3" />
     <PackageVersion Include="bunit" Version="2.9.0" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
@@ -46,11 +54,37 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+
+    <!--
+      Pinned to the version Aspire.Microsoft.Azure.Cosmos 13.5.3 already resolves
+      transitively. The replica adapter is written against the SDK's own types —
+      CosmosClient, Container, FeedRange, ChangeFeedStartFrom — so the package is
+      a direct reference rather than something only Aspire touches, and naming a
+      different version here would put the adapter and the Aspire wiring that
+      configures its client on two builds of one assembly. Bump the two together
+      or not at all.
+    -->
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
+    <!--
+      A HostApplicationBuilder in a test. Backlog.Infrastructure.Cosmos's
+      registration extension takes an IHostApplicationBuilder and decides what to
+      do by its environment, and the only honest way to assert that is to hand it
+      a real builder rather than a stand-in that implements the interface.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
+
+    <!--
+      ValidateDataAnnotations(), for a project that is a plain library rather than
+      an ASP.NET Core host. The web SDK carries this in its framework reference, so
+      only Backlog.Infrastructure.Cosmos names it: without it, options with
+      [Required] and [Range] on them would bind and never be checked.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.9.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.9.0" />
 

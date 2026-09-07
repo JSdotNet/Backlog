@@ -36,10 +36,11 @@ cosmosDatabase.AddContainer("sessions", "/ownerId");
 
 // Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
 //
-// Referenced, not waited on. The service holds its capture state in memory today
-// (SyncStore, which ADR 0005 retires when the Cosmos-backed store lands), so it has
-// nothing to wait for — and mobile-web-harness waits on `sync`, so a WaitFor here
-// would put the emulator's startup in front of an unrelated harness on every run.
+// Referenced, not waited on, and that is deliberate on both sides. The sync service
+// answers 503 sync.replica_unavailable on its task endpoints until Cosmos is up, so it
+// has something honest to say while the emulator starts; and mobile-web-harness waits
+// on `sync`, so a WaitFor here would put a couple of minutes of container startup in
+// front of an unrelated harness on every run.
 var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
     .WithReference(cosmosDatabase);
 

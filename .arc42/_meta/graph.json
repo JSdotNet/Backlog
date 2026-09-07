@@ -705,7 +705,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 160,
+          "line": 168,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -725,7 +725,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 188,
+          "line": 202,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -743,7 +743,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 247,
+          "line": 261,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -761,7 +761,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 274,
+          "line": 288,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -777,7 +777,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 295,
+          "line": 309,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -793,7 +793,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 318,
+          "line": 332,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -809,7 +809,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 330,
+          "line": 344,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1440,7 +1440,7 @@
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "slug": "identity",
           "level": 3,
-          "line": 391
+          "line": 443
         }
       },
       {

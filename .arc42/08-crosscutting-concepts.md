@@ -91,10 +91,15 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deploymen
 ```
 
 How the general sync position above is realized for the Task aggregate. The
-direction is settled by local ADR 0005, which is accepted. The identity model
-below — pairing, tokens, and the query-scoping check — is implemented in
-`Backlog.Modules.Sync.Api`; the Cosmos replica, the change feed, and the
-task-level reconciliation it carries are not.
+direction is settled by local ADR 0005, which is accepted, and as of 2026-09-07
+this section describes code rather than intent: the identity model below —
+pairing, tokens, and the query-scoping check — plus the Cosmos replica, the change
+feed over it, and the reconciliation it carries. Two qualifications, because
+"built" is not "in service": nothing is provisioned in Azure yet (see
+`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
+is a `Dev`-status feature flag that is off by default. Tombstone expiry is the
+one behaviour here that nothing local can exercise, and it is called out where it
+appears.
 
 Tasks are one of three kinds of state that sync. Session records travel on
 different terms, covered under
@@ -153,7 +158,10 @@ sequenceDiagram
 - **Tombstones expire by container TTL**, at 180 days, rather than by anything
   the service runs. The number is chosen against how long a device may plausibly
   stay offline: a tombstone that expired first would let a returning device push
-  its still-live copy and resurrect a task the person deleted.
+  its still-live copy and resurrect a task the person deleted. The adapter stamps
+  the expiry on every tombstone it writes, but **nothing local can show it
+  working** — the Cosmos emulator does not honour TTL, so this is deployed-only
+  behaviour that no test or QA run here has exercised.
 - **Offline is unchanged.** Losing connectivity costs cross-device freshness and
   nothing else.
 
@@ -167,6 +175,12 @@ related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-cros
 Session records replicate through the same service and the same pairing identity,
 into the `sessions` container, and reconcile on different terms — which is not a
 special case bolted on, but a consequence of who writes them.
+
+**None of this is built.** The container is declared by the AppHost and by
+`infra/sync/main.bicep`, and nothing reads or writes it; the `/sync/sessions`
+operations local ADR 0005 names do not exist. What follows is the position, not a
+description of running code — unlike
+`.arc42/08-crosscutting-concepts.md#task-sync`, which is now both.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a

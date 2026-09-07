@@ -36,4 +36,12 @@
     <ProjectReference Include="..\..\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Program is the compiler-generated entry point of a top-level file, and
+         internal. tests/Backlog.HostComposition.UnitTests starts this harness
+         through WebApplicationFactory<Program> to prove the host still composes,
+         which is a thing only its own entry point can prove. -->
+    <InternalsVisibleTo Include="Backlog.HostComposition.UnitTests" />
+  </ItemGroup>
+
 </Project>

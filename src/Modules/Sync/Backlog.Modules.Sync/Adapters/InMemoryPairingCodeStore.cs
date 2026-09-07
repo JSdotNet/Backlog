@@ -6,7 +6,7 @@ namespace Backlog.Modules.Sync.Adapters;
 
 /// <summary>
 /// In-memory stand-in that the Cosmos-backed store replaces — the same status
-/// as the sync service's <c>SyncStore</c> today. A code lives ten minutes, so
+/// as <see cref="InMemoryTaskReplica"/> beside it. A code lives ten minutes, so
 /// losing the table on restart costs at most one re-issued code.
 /// </summary>
 public sealed class InMemoryPairingCodeStore : IPairingCodeStore

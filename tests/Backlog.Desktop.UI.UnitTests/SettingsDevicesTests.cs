@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 
 using Bunit;
@@ -8,7 +8,10 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.DomainModels;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -175,11 +178,414 @@ public sealed class SettingsDevicesTests
         Assert.Single(context.Component.FindAll("[data-testid='devices-pair']"));
     }
 
+    // --- Task sync ----------------------------------------------------------
+
+    /// <summary>
+    /// Its own feature from device pairing, because a person can have paired
+    /// devices and still not want their tasks leaving the machine.
+    /// </summary>
+    [Fact]
+    public void The_sync_section_is_not_offered_until_the_task_sync_feature_is_on()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: false);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-status']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
+    }
+
+    /// <summary>An unpaired device has no owner to replicate under, so there is
+    /// nothing for the section to do.</summary>
+    [Fact]
+    public void An_unpaired_device_is_not_offered_the_sync_section()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: false, taskSyncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-register']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
+    }
+
+    /// <summary>A head that registered no sync-state store cannot compose a
+    /// session, and hides the section rather than offering a button that cannot
+    /// work.</summary>
+    [Fact]
+    public void A_host_without_a_session_hides_the_section_rather_than_failing()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true, paired: true, taskSyncEnabled: true, registerTaskSync: false);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-status']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
+    }
+
+    /// <summary>
+    /// The harder half of the same rule. AddTaskSyncClient registers the session
+    /// for a head that opts in and deliberately registers no ITaskSyncStateStore,
+    /// so on a head that has not chosen one the session is registered and
+    /// unconstructable - and asking for it throws rather than answering null. The
+    /// screen still has to open.
+    /// </summary>
+    [Fact]
+    public void A_session_that_cannot_be_constructed_hides_the_section_rather_than_failing()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true, paired: true, taskSyncEnabled: true, sessionMissingItsStore: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-status']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
+    }
+
+    [Fact]
+    public void Syncing_reports_what_the_exchange_did()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-sync']")));
+
+        Assert.Contains(
+            "not synced yet",
+            context.Component.Find("[data-testid='devices-sync-result']").TextContent,
+            StringComparison.OrdinalIgnoreCase);
+
+        context.Component.Find("[data-testid='devices-sync-now']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var line = context.Component.Find("[data-testid='devices-sync-result']").TextContent;
+            Assert.Contains("Sent 1", line, StringComparison.Ordinal);
+            Assert.Contains("received 0", line, StringComparison.Ordinal);
+        });
+
+        Assert.Contains("/api/sync/tasks", context.Service.Paths);
+    }
+
+    /// <summary>
+    /// bUnit swallows what an event handler throws, so this asserts on the state
+    /// a failure has to produce - the shared devices alert saying so, and the
+    /// status line still on its untouched text - rather than on an exception.
+    /// </summary>
+    [Fact]
+    public void A_replica_that_is_not_reachable_says_so_and_leaves_the_line_alone()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            taskSyncEnabled: true,
+            respond: (request, _) => request.RequestUri!.AbsolutePath.EndsWith("/tasks", StringComparison.Ordinal)
+                ? Problem(HttpStatusCode.ServiceUnavailable, SyncErrorCodes.ReplicaUnavailable, "The replica is not reachable yet.")
+                : Token());
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-sync']")));
+
+        context.Component.Find("[data-testid='devices-sync-now']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var message = context.Component.Find("[data-testid='devices-message']");
+            Assert.Contains("not reachable", message.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("alert", message.GetAttribute("role"));
+        });
+
+        Assert.Contains(
+            "not synced yet",
+            context.Component.Find("[data-testid='devices-sync-result']").TextContent,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The reproduction, end to end through the pipeline the app actually runs:
+    /// the sync service was restarted, so it no longer knows a device this
+    /// machine still holds a credential for. The token endpoint says so; every
+    /// bearer call after it goes out unauthenticated and earns a bare 401 that
+    /// says nothing. Before this, the panel went on reporting a healthy pairing
+    /// and offered no way back but deleting the credential file by hand.
+    /// </summary>
+    [Fact]
+    public void A_device_the_service_no_longer_knows_is_told_so_and_offered_a_way_back()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (request, _) => IsTokenRequest(request)
+                ? Problem(HttpStatusCode.Unauthorized, SyncErrorCodes.DeviceCredentialInvalid, "That device id and credential do not match a registered device.")
+                : new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var notice = context.Component.Find("[data-testid='devices-unregistered']");
+            Assert.Contains("no longer", notice.TextContent, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("alert", notice.GetAttribute("role"));
+        });
+
+        // Both ways back in, from a device that still has a credential - which
+        // is the gate that used to be StoredDevice is null.
+        Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-pair']"));
+
+        // And nothing that cannot work: a device the service refuses cannot
+        // invite another one.
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-generate-code']"));
+
+        // The credential is still on disk. Saying the service has forgotten this
+        // device is not the same as forgetting it, and only the person decides
+        // the second one.
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>
+    /// The failure mode the recovery must not create. A service that cannot be
+    /// reached has said nothing about this credential, and a panel that offered
+    /// to re-register over it would be telling a person their pairing is gone
+    /// every time a laptop woke up on a dead network.
+    /// </summary>
+    [Fact]
+    public void A_service_that_cannot_be_reached_leaves_the_device_paired()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (_, _) => throw new HttpRequestException("No route to host."));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-register']"));
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>
+    /// The other route to the same verdict, and the one a Cosmos-backed registry
+    /// will make ordinary: the token is fine, but the device behind it is gone,
+    /// so the status call itself answers 401 with a code. Panel reads the code
+    /// rather than the status line, because a bare 401 means something else.
+    /// </summary>
+    [Fact]
+    public void A_status_call_that_says_the_device_is_gone_offers_a_way_back()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            respond: (_, _) => Problem(
+                HttpStatusCode.Unauthorized,
+                SyncErrorCodes.DeviceCredentialInvalid,
+                "That device is no longer registered. Register or pair this device again."));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-unregistered']")));
+
+        Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+    }
+
+    /// <summary>
+    /// A bare 401 is what a request with no token at all earns, which is also
+    /// what a service that was merely unreachable a moment ago produces. It is
+    /// not a verdict on the credential and must not read as one.
+    /// </summary>
+    [Fact]
+    public void A_status_call_that_merely_fails_does_not_unpair_anything()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>
+    /// The escape hatch that does not depend on the service saying anything -
+    /// for a credential that is stale for a reason nobody will ever be told,
+    /// like a service that moved or is never coming back. Destructive, so it is
+    /// asked first.
+    /// </summary>
+    [Fact]
+    public void Forgetting_this_device_asks_first_and_then_unpairs_it()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-forget']")));
+
+        context.Component.Find("[data-testid='devices-forget']").Click();
+
+        // Nothing is gone yet: the question is up and the credential is intact.
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-forget-dialog']")));
+        Assert.NotNull(context.Credentials.Current);
+
+        context.Component.Find("[data-testid='devices-forget-confirm']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Null(context.Credentials.Current);
+            Assert.Single(context.Component.FindAll("[data-testid='devices-empty']"));
+            Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+        });
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-generate-code']"));
+    }
+
+    [Fact]
+    public void Forgetting_this_device_can_be_called_off()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-forget']")));
+
+        context.Component.Find("[data-testid='devices-forget']").Click();
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-forget-dialog']")));
+
+        context.Component.Find("[data-testid='devices-forget-cancel']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Empty(context.Component.FindAll("[data-testid='devices-forget-dialog']")));
+
+        Assert.NotNull(context.Credentials.Current);
+        Assert.Single(context.Component.FindAll("[data-testid='devices-paired']"));
+    }
+
+    /// <summary>
+    /// An unpaired device has no credential to forget, so it is not offered the
+    /// control - the only thing on the panel that could destroy something.
+    /// </summary>
+    [Fact]
+    public void An_unpaired_device_is_not_offered_a_credential_to_forget()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-empty']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-forget']"));
+    }
+
+    /// <summary>
+    /// The reproduction as it actually happens after a restart, which is not
+    /// quite what the test above covers. The panel opens holding a token that
+    /// has not expired, so nothing goes near the token endpoint; the service
+    /// signs with a new key now, so the bearer call comes back 401 with no code
+    /// at all. Nothing in that exchange is a verdict on the credential.
+    /// <para>
+    /// So the panel asks. A status call that failed while this device holds a
+    /// credential is followed by one question to the token endpoint - the only
+    /// place that can answer it - and that is what produces the state.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_stale_token_is_chased_back_to_the_credential_that_minted_it()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (_, index) => index switch
+            {
+                // The token cached from before the restart: minted happily.
+                0 => Token(),
+
+                // The bearer call, refused because the signing key moved. Bare:
+                // no code, nothing to read.
+                1 => new HttpResponseMessage(HttpStatusCode.Unauthorized),
+
+                // The question, and the answer that settles it.
+                _ => Problem(
+                    HttpStatusCode.Unauthorized,
+                    SyncErrorCodes.DeviceCredentialInvalid,
+                    "That device id and credential do not match a registered device."),
+            });
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-unregistered']")));
+
+        Assert.Single(context.Component.FindAll("[data-testid='devices-register']"));
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    /// <summary>
+    /// The same opening move, but the service is simply gone by the time the
+    /// question is asked. It has said nothing about the credential, so the
+    /// device stays paired - this is the guard on the extra call the test above
+    /// introduced.
+    /// </summary>
+    [Fact]
+    public void A_stale_token_chased_to_a_service_that_is_gone_leaves_the_device_paired()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (_, index) => index switch
+            {
+                0 => Token(),
+                1 => new HttpResponseMessage(HttpStatusCode.Unauthorized),
+                _ => throw new HttpRequestException("No route to host."),
+            });
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-paired']")));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.NotNull(context.Credentials.Current);
+    }
+
+    private static bool IsTokenRequest(HttpRequestMessage request) =>
+        request.RequestUri?.AbsolutePath.EndsWith("/devices/token", StringComparison.Ordinal) == true;
+
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
 
     private static void OpenDevicesTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Devices").Click();
+
+    /// <summary>The token answer, so a script that only covers the route under
+    /// test still lets the authentication handler mint one.</summary>
+    private static HttpResponseMessage Token() =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$"""{"accessToken":"a-token","expiresAt":"{{DateTimeOffset.UtcNow.AddMinutes(30):O}}","tokenType":"Bearer"}""",
+                Encoding.UTF8,
+                "application/json")
+        };
 
     private static HttpResponseMessage Problem(HttpStatusCode status, string code, string detail) =>
         new(status)
@@ -195,7 +601,11 @@ public sealed class SettingsDevicesTests
     private static SettingsRenderContext RenderSettings(
         bool devicePairingEnabled,
         bool paired = false,
-        Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
+        bool taskSyncEnabled = false,
+        bool registerTaskSync = true,
+        bool sessionMissingItsStore = false,
+        Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
+        bool withTokenPipeline = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
 
@@ -205,6 +615,7 @@ public sealed class SettingsDevicesTests
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
         _ = features.SetEnabled(SyncFeatures.DevicePairing, devicePairingEnabled);
+        _ = features.SetEnabled(SyncFeatures.TaskSync, taskSyncEnabled);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -216,7 +627,32 @@ public sealed class SettingsDevicesTests
             : new InMemoryDeviceCredentialStore();
 
         var service = new ScriptedSyncService(respond);
-        var http = new HttpClient(service) { BaseAddress = new Uri("https://sync.test") };
+
+        // The real provider and handler in front of the scripted service, the
+        // way the app composes them - opt-in, because every test written before
+        // the credential-rejected state wants the panel's client to talk to the
+        // service unauthenticated and never reach the token endpoint.
+        HttpMessageHandler pipeline = service;
+        SyncTokenProvider? tokens = null;
+        ServiceProvider? tokenServices = null;
+
+        if (withTokenPipeline)
+        {
+            var tokenCollection = new ServiceCollection();
+            tokenCollection
+                .AddHttpClient(SyncTokenProvider.HttpClientName, client => client.BaseAddress = new Uri("https://sync.test"))
+                .ConfigurePrimaryHttpMessageHandler(() => service);
+
+            tokenServices = tokenCollection.BuildServiceProvider();
+            tokens = new SyncTokenProvider(
+                tokenServices.GetRequiredService<IHttpClientFactory>(),
+                credentials,
+                TimeProvider.System);
+
+            pipeline = new SyncAuthenticationHandler(tokens) { InnerHandler = service };
+        }
+
+        var http = new HttpClient(pipeline) { BaseAddress = new Uri("https://sync.test") };
 
         var testContext = new BunitContext();
 
@@ -237,9 +673,32 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
         testContext.Services.AddSingleton(new DevicePairingClient(http, credentials));
+        if (tokens is not null) testContext.Services.AddSingleton(tokens);
+
+        // The real session over the same scripted wire, for the reason the
+        // pairing client is real here: the interesting behaviour is the
+        // exchange's as much as the screen's, and a seam between the two would
+        // have tested neither.
+        if (registerTaskSync)
+        {
+            var tasks = new OneTaskRepository();
+
+            // Registered by its factory rather than as an instance in the
+            // unconstructable case, because that is the shape AddTaskSyncClient
+            // leaves behind on a head with no sync-state store: the session
+            // resolves, its store does not, and the container throws.
+            testContext.Services.AddSingleton(sp => new TaskSyncSession(
+                new TaskSyncClient(http),
+                new TaskReplicaMerge(tasks),
+                tasks,
+                sessionMissingItsStore
+                    ? sp.GetRequiredService<ITaskSyncStateStore>()
+                    : new ForgetfulTaskSyncStateStore(),
+                TimeProvider.System));
+        }
 
         var component = testContext.Render<Settings>();
-        return new SettingsRenderContext(root, testContext, component, credentials, service, http);
+        return new SettingsRenderContext(root, testContext, component, credentials, service, http, tokens, tokenServices);
     }
 
     private sealed record SettingsRenderContext(
@@ -248,12 +707,16 @@ public sealed class SettingsDevicesTests
         IRenderedComponent<Settings> Component,
         InMemoryDeviceCredentialStore Credentials,
         ScriptedSyncService Service,
-        HttpClient Http) : IDisposable
+        HttpClient Http,
+        SyncTokenProvider? Tokens = null,
+        ServiceProvider? TokenServices = null) : IDisposable
     {
         public void Dispose()
         {
             TestContext.Dispose();
             Http.Dispose();
+            Tokens?.Dispose();
+            TokenServices?.Dispose();
 
             try
             {
@@ -311,6 +774,15 @@ public sealed class SettingsDevicesTests
                     $$"""{"accessToken":"a-token","expiresAt":"{{DateTimeOffset.UtcNow.AddMinutes(30):O}}","tokenType":"Bearer"}""");
             }
 
+            // One route, two directions: the method is what tells them apart, the
+            // same way the service's own mapping does.
+            if (path.EndsWith("/tasks", StringComparison.Ordinal))
+            {
+                return request.Method == HttpMethod.Post
+                    ? Json(HttpStatusCode.OK, """{"accepted":1}""")
+                    : Json(HttpStatusCode.OK, """{"tasks":[],"since":"cursor-1","hasMore":false}""");
+            }
+
             return Json(
                 HttpStatusCode.Created,
                 $$"""{"ownerId":"{{Owner}}","deviceId":"{{Device}}","credential":"a-registration-credential"}""");
@@ -318,6 +790,60 @@ public sealed class SettingsDevicesTests
 
         private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
             new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+    }
+
+    /// <summary>One task, stamped now, so a push has exactly one thing to
+    /// send and the reported count is a number a test can name.</summary>
+    private sealed class OneTaskRepository : ITaskRepository
+    {
+        private readonly Dictionary<Guid, TaskItem> _tasks;
+
+        public OneTaskRepository()
+        {
+            var task = new TaskItem("Something to send", string.Empty, EntryType.Task);
+            _tasks = new Dictionary<Guid, TaskItem> { [task.Id] = task };
+        }
+
+        public Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
+        {
+            _tasks[task.Id] = task;
+            return Task.CompletedTask;
+        }
+
+        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_tasks.TryGetValue(id, out var task) && task.DeletedAt is null ? task : null);
+
+        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_tasks.TryGetValue(id, out var task) ? task : null);
+
+        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TaskItem>>([.. _tasks.Values.Where(task => task.DeletedAt is null)]);
+
+        // The sync read, tombstones included — which is what the push actually
+        // selects through.
+        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(
+            DateTimeOffset since,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TaskItem>>(
+                [.. _tasks.Values.Where(task => task.UpdatedAt > since).OrderBy(task => task.UpdatedAt)]);
+    }
+
+    /// <summary>Progress that lives for the render and no longer. Nothing here
+    /// asserts across a restart; what the panel needs is somewhere for the
+    /// session to put a watermark.</summary>
+    private sealed class ForgetfulTaskSyncStateStore : ITaskSyncStateStore
+    {
+        public event Action? Changed;
+
+        public TaskSyncState Current { get; private set; } = new(DateTimeOffset.MinValue, null);
+
+        public string StorePath => "in memory";
+
+        public void Save(TaskSyncState state)
+        {
+            Current = state;
+            Changed?.Invoke();
+        }
     }
 
     private sealed class StubGitHubClient : IGitHubClient

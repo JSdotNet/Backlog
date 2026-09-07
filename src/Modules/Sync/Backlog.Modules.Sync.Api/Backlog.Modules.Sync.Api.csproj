@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
+    <!-- The Cosmos-backed ITaskReplica. A host is what picks an adapter for a
+         port, so the two Cosmos packages stay in that project and this one
+         depends on a port implementation rather than on a database driver. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Cosmos\Backlog.Infrastructure.Cosmos.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
   </ItemGroup>
 

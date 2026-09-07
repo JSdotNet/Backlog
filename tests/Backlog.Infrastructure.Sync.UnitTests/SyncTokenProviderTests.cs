@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -199,6 +199,147 @@ public sealed class SyncTokenProviderTests
         Assert.Equal(2, fixture.Handler.Requests.Count);
     }
 
+    /// <summary>
+    /// The token endpoint is anonymous and the only thing it authenticates is
+    /// the credential in the body, so a 401 from it is not ambiguous the way a
+    /// 401 from a bearer endpoint is: it says this credential is no longer one
+    /// the service knows. Recording that verdict is what lets a screen offer
+    /// registering again instead of showing a paired device that cannot talk.
+    /// </summary>
+    [Fact]
+    public async Task A_rejected_credential_is_remembered_as_rejected()
+    {
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var raised = 0;
+        fixture.Provider.CredentialRejectedChanged += () => raised++;
+
+        Assert.False(fixture.Provider.CredentialRejected);
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+
+        Assert.True(fixture.Provider.CredentialRejected);
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>
+    /// The distinction the whole verdict exists for. A service that is down, or
+    /// behind a network that is down, has said nothing about this credential -
+    /// and a screen that unpaired a device over it would throw away a perfectly
+    /// good pairing every time a laptop woke up on a dead wifi.
+    /// </summary>
+    [Fact]
+    public async Task A_service_that_is_not_there_says_nothing_about_the_credential()
+    {
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, _) => throw new HttpRequestException("No route to host."));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.False(fixture.Provider.CredentialRejected);
+    }
+
+    /// <summary>A 500 is the service failing, not the credential failing.</summary>
+    [Fact]
+    public async Task A_service_that_answers_badly_says_nothing_about_the_credential()
+    {
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, _) => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.False(fixture.Provider.CredentialRejected);
+    }
+
+    /// <summary>
+    /// The verdict is about the credential as it stands, not about the worst
+    /// thing that ever happened to it. A service that comes back up - which is
+    /// exactly what a restarted development service does - takes it back.
+    /// </summary>
+    [Fact]
+    public async Task A_token_issued_afterwards_takes_the_rejection_back()
+    {
+        var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-09-07T09:00:00Z", CultureInfo.InvariantCulture));
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, index) => index == 0
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : Fixture.TokenResponse(index, clock),
+            clock: clock);
+
+        var raised = 0;
+        fixture.Provider.CredentialRejectedChanged += () => raised++;
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.True(fixture.Provider.CredentialRejected);
+
+        Assert.Equal("token-1", await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.False(fixture.Provider.CredentialRejected);
+
+        // Once on the way in and once on the way out; a verdict that has not
+        // moved is not announced.
+        Assert.Equal(2, raised);
+    }
+
+    /// <summary>
+    /// Forgetting the credential is one of the two ways out of a rejection, so
+    /// the verdict has to go with it. Leaving it standing would leave a device
+    /// that is merely unpaired looking like a device the service refused.
+    /// </summary>
+    [Fact]
+    public async Task Forgetting_the_credential_takes_the_rejection_back()
+    {
+        var store = new InMemoryDeviceCredentialStore(Paired);
+        using var fixture = Fixture.Create(store, (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.True(fixture.Provider.CredentialRejected);
+
+        store.Clear();
+
+        Assert.False(fixture.Provider.CredentialRejected);
+    }
+
+    /// <summary>
+    /// Registering again replaces the credential outright, and the new one has
+    /// not been judged yet. The same reasoning as forgetting it, by the same
+    /// route: the store says the credential moved.
+    /// </summary>
+    [Fact]
+    public async Task Registering_again_takes_the_rejection_back()
+    {
+        var store = new InMemoryDeviceCredentialStore(Paired);
+        using var fixture = Fixture.Create(store, (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.True(fixture.Provider.CredentialRejected);
+
+        store.Save(Paired with { DeviceId = Guid.NewGuid(), Credential = "a-second-credential" });
+
+        Assert.False(fixture.Provider.CredentialRejected);
+    }
+
+    /// <summary>
+    /// Invalidating the cache says nothing about whether the credential is any
+    /// good - it is the token that is being thrown away, not the pairing - so
+    /// the verdict outlives it.
+    /// </summary>
+    [Fact]
+    public async Task Invalidating_the_cache_leaves_the_verdict_standing()
+    {
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.True(fixture.Provider.CredentialRejected);
+
+        fixture.Provider.Invalidate();
+
+        Assert.True(fixture.Provider.CredentialRejected);
+    }
+
     [Fact]
     public async Task Invalidating_by_hand_drops_it_too()
     {
@@ -236,9 +377,10 @@ public sealed class SyncTokenProviderTests
         public static Fixture Create(
             IDeviceCredentialStore credentials,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
-            Func<Task>? before = null)
+            Func<Task>? before = null,
+            FakeTimeProvider? clock = null)
         {
-            var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-09-07T09:00:00Z", CultureInfo.InvariantCulture));
+            clock ??= new FakeTimeProvider(DateTimeOffset.Parse("2026-09-07T09:00:00Z", CultureInfo.InvariantCulture));
             var handler = new StubHttpMessageHandler(respond ?? ((_, index) => TokenResponse(index, clock)), before);
 
             var services = new ServiceCollection();

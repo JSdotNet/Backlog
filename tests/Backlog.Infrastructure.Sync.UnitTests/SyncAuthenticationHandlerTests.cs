@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -60,6 +60,60 @@ public sealed class SyncAuthenticationHandlerTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Single(host.Data.Requests);
         Assert.Single(host.Token.Requests);
+    }
+
+    /// <summary>
+    /// The case that made this necessary: a token that has not expired but is no
+    /// longer valid, because the service was restarted and signs with a new key.
+    /// The provider renews before expiry, so nothing here would ever have gone
+    /// back to the credential on its own - it would hand the same dead token to
+    /// every call for the rest of the half hour.
+    /// <para>
+    /// Dropping it is not a retry. This request still ends in the 401 it earned;
+    /// what changes is that the <em>next</em> call starts from the credential
+    /// again, which is what turns a silent loop into an answer.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_401_drops_the_token_that_earned_it()
+    {
+        using var host = Host.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            data: (_, index) => index == 0
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, "[]"));
+
+        using (await host.Client.GetAsync("/api/sync/inbox", TestContext.Current.CancellationToken))
+        {
+        }
+
+        using (await host.Client.GetAsync("/api/sync/inbox", TestContext.Current.CancellationToken))
+        {
+        }
+
+        // The second call did not resend the token the first one was refused
+        // for - it went back to the credential and got a new one.
+        Assert.Equal(2, host.Token.Requests.Count);
+        Assert.Equal("token-0", host.Data.Requests[0].AuthorizationParameter);
+        Assert.Equal("token-1", host.Data.Requests[1].AuthorizationParameter);
+    }
+
+    /// <summary>
+    /// A 401 for a request that carried no token says nothing about a token.
+    /// An unpaired device earns one on every bearer endpoint, and treating that
+    /// as a rejection would have it dropping a cache it does not have.
+    /// </summary>
+    [Fact]
+    public async Task A_401_for_a_request_that_carried_no_token_drops_nothing()
+    {
+        using var host = Host.Create(
+            new InMemoryDeviceCredentialStore(),
+            data: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        using var response = await host.Client.GetAsync("/api/sync/inbox", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(host.Token.Requests);
     }
 
     /// <summary>The pipeline a host composes: a data client with the handler
