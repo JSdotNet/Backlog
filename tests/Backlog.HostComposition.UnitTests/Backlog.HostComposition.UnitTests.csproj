@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Host composition, asserted by building the host.
+
+    The suite next door proves what each registration extension registers. This
+    one proves that the hosts which call them can still start: a provider that
+    cannot satisfy one constructor is a crash inside Build(), and no unit test of
+    a service collection assembled by a test can see it. The two web harnesses
+    are the hosts that can be built in-process — the MAUI heads need their
+    platform SDKs — and they are the same two the AppHost starts, so a failure
+    here is the failure a developer would otherwise meet as a resource that dies
+    on startup.
+
+    Both harnesses are referenced under an alias: each has its own top-level
+    Program in the global namespace, and without one the name is ambiguous.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj" Aliases="DesktopHarness" />
+    <ProjectReference Include="..\..\src\Harness\Backlog.Mobile.WebHarness\Backlog.Mobile.WebHarness.csproj" Aliases="MobileHarness" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WebApplicationFactory: it runs the host's real entry point, which is the
+         only thing that composes the host the way the host composes itself. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+</Project>

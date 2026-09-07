@@ -321,10 +321,29 @@ public class ModuleBoundaryTests
             StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>The projects that own the decision: the module library and its
-    /// published contract. Everything the module rules were written for.</summary>
+    /// <summary>
+    /// The projects that own the decision: the module library and its published
+    /// contract. Everything the module rules were written for.
+    ///
+    /// <para>A module folder holds a third kind of project as well as those two
+    /// and the <c>.UI</c> one. <c>Backlog.Modules.Sync.Api</c> is a host — it
+    /// owns a token signing key, a middleware pipeline, and the mapping from a
+    /// Result to a status code, and it composes the module rather than being
+    /// part of it. Picking an adapter for a port is exactly what a host does, so
+    /// it is excluded here for the same reason a <c>.UI</c> project is: the rule
+    /// below is about a module reaching for an implementation, and a composition
+    /// root reaching for one is the rule working rather than being broken. It
+    /// sits under <c>src/Modules</c> because that is the context it serves, not
+    /// because it is a module.</para>
+    /// </summary>
     private static IEnumerable<FileInfo> DomainProjects() =>
-        Repository.ProjectsUnder("src", "Modules").Where(project => !Repository.IsUserInterface(project));
+        Repository.ProjectsUnder("src", "Modules")
+            .Where(project => !Repository.IsUserInterface(project) && !IsHost(project));
+
+    /// <summary>A composition root: it hosts one context's surface rather than
+    /// owning a decision.</summary>
+    private static bool IsHost(FileInfo project) =>
+        project.Name.EndsWith(".Api.csproj", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The projects that render one context's screens.</summary>
     private static IEnumerable<FileInfo> PresentationProjects() =>

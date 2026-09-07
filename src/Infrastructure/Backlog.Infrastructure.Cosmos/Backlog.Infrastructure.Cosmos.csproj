@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cross-cutting Cosmos DB adapter: the task replica the sync service reads and
+    writes (.arc42/adr/0005). It implements ITaskReplica, a port declared by
+    Backlog.Modules.Sync; the module never sees this project, which is the same
+    direction Backlog.Infrastructure.Sqlite runs in.
+
+    The two Cosmos packages are referenced here and nowhere else in the solution.
+    The Aspire package is the wiring - it reads the connection string the AppHost
+    supplies and registers the client - and the SDK package is what the adapter is
+    written against. Keeping both in one project means the host takes a dependency
+    on a port implementation rather than on a database driver.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Cosmos</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Microsoft.Azure.Cosmos" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Cosmos.UnitTests" />
+  </ItemGroup>
+
+</Project>

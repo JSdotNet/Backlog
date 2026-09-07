@@ -1,7 +1,5 @@
-using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using System.Text.Json;
 
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -83,7 +81,7 @@ public sealed class DevicePairingClient
     /// only a device that is already in may invite another one.</summary>
     public async Task<Result<PairingCodeResponse>> IssuePairingCodeAsync(
         CancellationToken cancellationToken = default) =>
-        await SendAsync<PairingCodeResponse>(
+        await SyncHttp.SendAsync<PairingCodeResponse>(
             () => _http.PostAsync(SyncRoutes.Absolute(SyncRoutes.PairingCodes), content: null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
@@ -130,7 +128,7 @@ public sealed class DevicePairingClient
     /// back from the service rather than from what was stored locally.</summary>
     public async Task<Result<DeviceStatusResponse>> GetStatusAsync(
         CancellationToken cancellationToken = default) =>
-        await SendAsync<DeviceStatusResponse>(
+        await SyncHttp.SendAsync<DeviceStatusResponse>(
             () => _http.GetAsync(SyncRoutes.Absolute(SyncRoutes.DeviceStatus), cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
@@ -139,7 +137,7 @@ public sealed class DevicePairingClient
         Func<DeviceRegistrationResponse, DeviceCredential> toCredential,
         CancellationToken cancellationToken)
     {
-        var response = await SendAsync<DeviceRegistrationResponse>(send, cancellationToken).ConfigureAwait(false);
+        var response = await SyncHttp.SendAsync<DeviceRegistrationResponse>(send, cancellationToken).ConfigureAwait(false);
         if (response.IsFailure) return Result.Failure<DeviceCredential>(response.Error);
 
         var credential = toCredential(response.Value);
@@ -162,91 +160,4 @@ public sealed class DevicePairingClient
 
         return Result.Success(credential);
     }
-
-    private static async Task<Result<T>> SendAsync<T>(
-        Func<Task<HttpResponseMessage>> send,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var response = await send().ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return Result.Failure<T>(await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false));
-            }
-
-            var value = await response.Content
-                .ReadFromJsonAsync<T>(cancellationToken)
-                .ConfigureAwait(false);
-
-            return value is null
-                ? Result.Failure<T>(Error.Unexpected(UnreachableCode, "The sync service answered with nothing."))
-                : Result.Success(value);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or NotSupportedException)
-        {
-            return Result.Failure<T>(Error.Unexpected(UnreachableCode, $"The sync service could not be reached: {ex.Message}"));
-        }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return Result.Failure<T>(Error.Unexpected(UnreachableCode, "The sync service did not answer in time."));
-        }
-    }
-
-    /// <summary>
-    /// The ProblemDetails body, read as the <c>code</c> extension the sync API
-    /// puts on every error plus its human-readable <c>detail</c>. Read as a
-    /// document rather than into a typed record because <c>code</c> is an
-    /// extension member, and a body that is not problem+json at all — a proxy's
-    /// HTML error page, say — still has to produce something a screen can show.
-    /// </summary>
-    private static async Task<Error> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        string? code = null;
-        string? detail = null;
-
-        try
-        {
-            using var document = await JsonDocument
-                .ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-
-            if (document.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                if (document.RootElement.TryGetProperty("code", out var codeElement))
-                {
-                    code = codeElement.GetString();
-                }
-
-                if (document.RootElement.TryGetProperty("detail", out var detailElement))
-                {
-                    detail = detailElement.GetString();
-                }
-                else if (document.RootElement.TryGetProperty("title", out var titleElement))
-                {
-                    detail = titleElement.GetString();
-                }
-            }
-        }
-        catch (Exception ex) when (ex is JsonException or HttpRequestException or IOException)
-        {
-        }
-
-        return new Error(
-            string.IsNullOrWhiteSpace(code) ? $"sync.http_{(int)response.StatusCode}" : code,
-            string.IsNullOrWhiteSpace(detail)
-                ? $"The sync service answered {(int)response.StatusCode} {response.ReasonPhrase}."
-                : detail,
-            Classify(response.StatusCode));
-    }
-
-    private static ErrorType Classify(HttpStatusCode status) => status switch
-    {
-        HttpStatusCode.BadRequest => ErrorType.Validation,
-        HttpStatusCode.NotFound => ErrorType.NotFound,
-        HttpStatusCode.Conflict => ErrorType.Conflict,
-        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => ErrorType.Failure,
-        _ => ErrorType.Unexpected
-    };
 }

@@ -37,4 +37,52 @@ public static class SyncErrorCodes
     /// belonging to somebody else reads the same way, because the lookup starts
     /// from the owner and never sees it.</summary>
     public const string InboxItemNotFound = "inbox.item_not_found";
+
+    /// <summary>A capture whose title or source is missing or longer than the
+    /// service will store. Refused at the edge, so an oversized capture is a 400
+    /// naming the field rather than a store failure nobody can act on.</summary>
+    public const string CaptureInvalid = "inbox.capture_invalid";
+
+    /// <summary>More task changes in one push than the service will take. The
+    /// client batches well below the cap, so reaching it is either a client that
+    /// stopped batching or a caller that is not one of ours.</summary>
+    public const string PushBatchTooLarge = "sync.push_batch_too_large";
+
+    /// <summary>The <c>since</c> cursor is not one this service minted — wrong
+    /// prefix, not base64, or a signature that does not verify. Mapped to 400:
+    /// the caller sent something that is not a cursor, and the fix is to drop it
+    /// and pull from the beginning.</summary>
+    public const string SyncCursorMalformed = "sync.cursor_malformed";
+
+    /// <summary>The cursor verifies, and it names somebody else's owner. Mapped
+    /// to 403 rather than 404 on purpose: this is not a caller who mistyped an
+    /// id, it is a correctly-signed cursor for another person's feed being
+    /// replayed, and the one thing that must not happen is for it to pass
+    /// quietly (.arc42/adr/0005 §Consequences).</summary>
+    public const string SyncCursorNotYours = "sync.cursor_not_yours";
+
+    /// <summary>The cursor was ours and the store will no longer resume from it.
+    /// Raised by the replica adapter rather than by the codec — only the store
+    /// knows how far back its feed still reaches. Mapped to 400: the client has
+    /// to start over from the beginning.</summary>
+    public const string SyncCursorExpired = "sync.cursor_expired";
+
+    /// <summary>One task is larger than the store will take — Cosmos caps a
+    /// document at two megabytes. Mapped to 413, and it is the one replica
+    /// failure a retry cannot help with: the batch carrying that document would
+    /// fail on every run for ever, so it has to be visible as the caller's to
+    /// fix.</summary>
+    public const string TaskTooLarge = "sync.task_too_large";
+
+    /// <summary>The store throttled the request and it outlived the SDK's own
+    /// retries. Mapped to 429: come back, and more slowly. Distinct from
+    /// <see cref="ReplicaUnavailable"/> because the store is up and answering —
+    /// it is this caller's rate that is the problem.</summary>
+    public const string ReplicaBusy = "sync.replica_busy";
+
+    /// <summary>The replica is not reachable yet. Mapped to 503, because the
+    /// caller should come back rather than change anything: locally this is the
+    /// Cosmos emulator still starting, and nothing in the app model waits on
+    /// it.</summary>
+    public const string ReplicaUnavailable = "sync.replica_unavailable";
 }

@@ -39,6 +39,11 @@ public static class MauiProgram
 		// TODO: replace with a SecureStorageDeviceCredentialStore adapter beside
 		// AndroidSpeechTranscriber, registered here the way this one is.
 		builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new InMemoryDeviceCredentialStore());
+
+		// Pairing and tokens only. Task replication is AddTaskSyncClient, and it is
+		// not called here on purpose: it needs an ITaskRepository, and this head has
+		// none - the phone carries the Inbox, not a local task database. Registering
+		// it anyway is not a dormant feature, it is a head that cannot start.
 		builder.Services.AddSyncClient(new Uri(syncBaseAddress));
 
 		// The inbox endpoints are bearer-only, so the data client leaves carrying

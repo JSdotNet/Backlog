@@ -1311,6 +1311,38 @@
                     </p>
                 </section>
 
+                @* Only for a device that is already one: an unpaired device has no
+                   owner to replicate under, and nothing to sync. Its own feature
+                   from device pairing, because a person can have paired devices
+                   and still not want their tasks leaving the machine. And only
+                   where a host composed a session at all - a head that registered
+                   no sync-state store hides this rather than offering a button
+                   that cannot work. *@
+                @if (TaskSyncEnabled && _taskSync is not null && StoredDevice is not null)
+                {
+                    <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
+                        <h2 class="setting__title">Sync tasks</h2>
+                        <p class="setting__body">
+                            Sends what changed on this machine and brings back what changed on the others. Whole tasks, latest edit wins - so a task edited on both machines keeps one of the two versions rather than a blend of them.
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-sync-now"
+                                       Busy="@_devicesBusy"
+                                       OnClick="SyncTasksAsync">
+                                Sync now
+                            </AppButton>
+                        </div>
+
+                        @* One line, and it is here so there is something to read
+                           rather than because this is a sync UI. Pulled and applied
+                           are separate numbers on purpose: this device's own echo
+                           comes back and changes nothing, so "pulled 40, applied 0"
+                           is a healthy answer. *@
+                        <p class="setting__status" data-testid="devices-sync-result">@TaskSyncSummaryLine</p>
+                    </section>
+                }
+
                 @if (StoredDevice is null)
                 {
                     <section class="setting" data-testid="devices-register" aria-label="Register this device">
@@ -1693,6 +1725,7 @@
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
+        _taskSync = ResolveTaskSync();
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
@@ -2428,11 +2461,20 @@
     private DevicePairingClient? _devicePairing;
     private IDeviceCredentialStore? _deviceCredentials;
 
+    /// <summary>Optional for the reason the pairing client is: a host that has
+    /// not registered an <c>ITaskSyncStateStore</c> - which every host must do
+    /// for itself, because a shared one would collapse two devices into one -
+    /// cannot compose a session, and a settings screen that failed at startup
+    /// over a panel nobody opened would be the worse answer. Absent hides the
+    /// section.</summary>
+    private TaskSyncSession? _taskSync;
+
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a
     /// logging stack to reach a panel it never opens.</summary>
     private ILogger? _deviceLog;
     private DeviceStatusResponse? _deviceStatus;
+    private TaskSyncSummary? _taskSyncSummary;
     private PairingCodeResponse? _issuedCode;
     private string _draftDeviceName = string.Empty;
     private string _draftPairingCode = string.Empty;
@@ -2445,6 +2487,23 @@
     private System.Threading.Timer? _pairingCodeCountdown;
 
     private bool DevicePairingEnabled => Features.IsEnabled(SyncFeatures.DevicePairing);
+
+    private bool TaskSyncEnabled => Features.IsEnabled(SyncFeatures.TaskSync);
+
+    /// <summary>What the last exchange did, or an invitation when there has not
+    /// been one. Never a failure - those go to the shared devices alert, which is
+    /// where every other thing that went wrong on this tab already is.</summary>
+    /// <summary>
+    /// What the last sync did. The skipped count is only mentioned when it is
+    /// non-zero, and it is mentioned at all because the alternative is silence:
+    /// a document this build cannot read is dropped so that one bad row cannot
+    /// stop the device syncing for ever, and a drop nobody is told about looks
+    /// exactly like a task that was never sent.
+    /// </summary>
+    private string TaskSyncSummaryLine => _taskSyncSummary is { } summary
+        ? $"Sent {summary.Pushed}, received {summary.Pulled}, applied {summary.Applied}."
+            + (summary.Skipped > 0 ? $" {summary.Skipped} could not be read by this build." : string.Empty)
+        : "This device has not synced yet.";
 
     private DeviceCredential? StoredDevice => _deviceCredentials?.Current;
 
@@ -2579,6 +2638,79 @@
         {
             _issuedCode = null;
             _deviceLog?.LogError(ex, "Asking the sync service for a pairing code failed unexpectedly.");
+            ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
+        }
+        finally
+        {
+            _devicesBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// The session, where this host composed one.
+    /// <para>
+    /// Not a plain <c>GetService</c>, because a missing registration is not the
+    /// only way a host declines this. A head that called <c>AddTaskSyncClient</c>
+    /// has the session registered, and that call deliberately registers no
+    /// <c>ITaskSyncStateStore</c> - which store is right is the one thing only the
+    /// host knows - so on a head that has not chosen one the session is registered
+    /// and unconstructable, and asking for it throws rather than answering null.
+    /// </para>
+    /// <para>
+    /// A head that has not opted in gets the section hidden. It is not swallowed:
+    /// what it means goes to the log, because "the sync panel is missing" is a
+    /// question somebody will eventually ask, and a settings screen that failed
+    /// to open over a panel nobody asked for is the worse of the two answers.
+    /// </para></summary>
+    private TaskSyncSession? ResolveTaskSync()
+    {
+        try
+        {
+            return Services.GetService<TaskSyncSession>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _deviceLog?.LogInformation(
+                ex, "Task sync is not composed in this host, so the sync section is not offered.");
+            return null;
+        }
+    }
+
+    /// <summary>One exchange with the replica, on demand. There is no schedule
+    /// and no background loop: this slice is a button, and what it proves is that
+    /// a change made on one device reaches the other.</summary>
+    private async Task SyncTasksAsync()
+    {
+        if (_taskSync is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesBusy = true;
+        _devicesMessage = null;
+
+        try
+        {
+            var result = await _taskSync.SyncAsync();
+
+            if (result.IsFailure)
+            {
+                ReportDeviceOutcome(result.Error.Message, failed: true);
+                return;
+            }
+
+            _taskSyncSummary = result.Value;
+            ReportDeviceOutcome("Synced.", failed: false);
+        }
+        catch (Exception ex)
+        {
+            // Same reasoning as the pairing handlers: the session answers its
+            // expected failures with a result, so anything here is unexpected -
+            // and it still has to reach the screen, because an exception
+            // swallowed in an event handler leaves the panel looking like the
+            // button did nothing.
+            _deviceLog?.LogError(ex, "Syncing tasks with the replica failed unexpectedly.");
             ReportDeviceOutcome(DeviceUnexpectedFailure, failed: true);
         }
         finally

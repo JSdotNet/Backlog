@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.Sqlite;
+﻿using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
 
@@ -14,6 +14,11 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 {
     private readonly string _root;
     private readonly SqliteTaskRepository _repository;
+
+    /// <summary>A fixed instant for the reads that compare stamps, so what is
+    /// before and after a bound is decided by the test rather than by how long it
+    /// took to run.</summary>
+    private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
     public SqliteTaskRepositoryTests()
     {
@@ -344,6 +349,120 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
                 deletedAt!,
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.RoundtripKind));
+    }
+
+    /// <summary>
+    /// The one read that sees a tombstone. Reconciling with the person's other
+    /// machine is the one caller that has to tell "deleted here" from "never seen
+    /// here": <see cref="SqliteTaskRepository.GetAsync"/> answers null to both,
+    /// and a merge that believed it would take a stale inbound live document and
+    /// resurrect a task somebody deleted.
+    /// </summary>
+    [Fact]
+    public async Task A_tombstoned_task_is_still_there_for_the_read_that_reconciles()
+    {
+        var task = new TaskItem("Delete me", string.Empty, EntryType.Task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+
+        task.MarkDeleted();
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+
+        Assert.Null(await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken));
+
+        var tombstoned = await _repository.GetIncludingDeletedAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(tombstoned);
+        Assert.Equal(task.Id, tombstoned.Id);
+        Assert.Equal(task.DeletedAt, tombstoned.DeletedAt);
+    }
+
+    /// <summary>A live task reads the same through both, so the reconciling read
+    /// is a widening of the ordinary one rather than a second answer to the same
+    /// question.</summary>
+    [Fact]
+    public async Task A_live_task_reads_the_same_through_both_gets()
+    {
+        var task = new TaskItem("Still here", "Body.", EntryType.Task);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+
+        var ordinary = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+        var reconciling = await _repository.GetIncludingDeletedAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(ordinary);
+        Assert.NotNull(reconciling);
+        Assert.Equal(ordinary.Title, reconciling.Title);
+        Assert.Null(reconciling.DeletedAt);
+    }
+
+    [Fact]
+    public async Task Reconciling_a_task_that_was_never_here_is_not_an_error()
+    {
+        Assert.Null(await _repository.GetIncludingDeletedAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// The sync read shows a tombstone that the ordinary list hides. That
+    /// difference is the whole reason it exists: a deletion travels as a
+    /// tombstone or it does not travel at all, and a push selecting through the
+    /// ordinary list would leave the person's other machine holding a task they
+    /// deleted here.
+    /// </summary>
+    [Fact]
+    public async Task The_sync_read_sees_a_tombstone_the_ordinary_list_hides()
+    {
+        await _repository.SaveAsync(Stamped("Still here", Noon), TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(
+            Stamped("Deleted here", Noon.AddHours(1), deletedAt: Noon.AddHours(1)),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["Still here"],
+            (await _repository.ListAsync(TestContext.Current.CancellationToken)).Select(task => task.Title));
+
+        var changed = await _repository.ListChangedSinceAsync(
+            Noon.AddHours(-1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Still here", "Deleted here"], changed.Select(task => task.Title));
+        Assert.Equal(Noon.AddHours(1), Assert.Single(changed, task => task.DeletedAt is not null).DeletedAt);
+    }
+
+    /// <summary>
+    /// The bound is strictly later, not "at or later". A task stamped exactly at
+    /// the watermark is one the last push had accepted; including it would make
+    /// every run re-send its own final item for the life of the device, and the
+    /// watermark would never move past it.
+    /// </summary>
+    [Fact]
+    public async Task The_sync_read_leaves_out_a_task_stamped_exactly_at_the_bound()
+    {
+        await _repository.SaveAsync(Stamped("Already accepted", Noon), TestContext.Current.CancellationToken);
+
+        Assert.Empty(await _repository.ListChangedSinceAsync(Noon, TestContext.Current.CancellationToken));
+        Assert.Single(await _repository.ListChangedSinceAsync(
+            Noon.AddTicks(-1),
+            TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>Oldest first, whatever order the rows were written in. The caller
+    /// advances its watermark to the last item of each batch it gets accepted, so
+    /// any other order would have it claim to have sent work it had not.</summary>
+    [Fact]
+    public async Task The_sync_read_hands_changes_back_oldest_first()
+    {
+        foreach (var task in new[]
+        {
+            Stamped("Third", Noon.AddHours(3)),
+            Stamped("First", Noon.AddHours(1)),
+            Stamped("Second", Noon.AddHours(2))
+        })
+        {
+            await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        }
+
+        var changed = await _repository.ListChangedSinceAsync(Noon, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["First", "Second", "Third"], changed.Select(task => task.Title));
     }
 
     /// <summary>Deleting the same task twice keeps the first instant. The second
@@ -683,6 +802,18 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         var value = await command.ExecuteScalarAsync();
         return value is null or DBNull ? null : (string)value;
+    }
+
+    /// <summary>A task carrying the stamps a test names, loaded the way storage
+    /// loads them. Not <c>MarkDeleted</c>, which stamps the wall clock: where a
+    /// stamp sits relative to a watermark is what the sync read is asserted
+    /// on, and a value nothing chose cannot be placed either side of one.</summary>
+    private static TaskItem Stamped(string title, DateTimeOffset updatedAt, DateTimeOffset? deletedAt = null)
+    {
+        var task = Rehydrate(title, updatedAt);
+        task.LoadStamps(updatedAt, deletedAt);
+
+        return task;
     }
 
     private static TaskItem Rehydrate(string title, DateTimeOffset createdAt) =>

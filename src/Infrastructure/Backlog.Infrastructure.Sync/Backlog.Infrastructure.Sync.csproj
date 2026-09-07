@@ -13,10 +13,27 @@
       SyncAuthenticationHandler puts the token on an outgoing request
       DevicePairingClient       register, issue a pairing code, redeem one, and
                                 read back who this device turned out to be
+      TaskSyncClient            push a batch of task changes, pull the owner's
+                                change feed back
+      ITaskSyncStateStore       how far this device has pushed and pulled, kept
+                                as a plain file because neither value is a secret
+      TaskReplicaMerge          the one place remote data overwrites local
+                                canonical data, and the only caller of
+                                ITaskRepository.SaveAsync in this project
+      TaskSyncSession           one exchange: push what changed here, pull what
+                                changed elsewhere
       Extensions/               AddSyncClient() composition for hosts
-    It sees the module's published surface — the wire records, the routes and the
-    pairing-code format — and nothing else of it. Hosts choose which credential
-    store is behind the port; AddSyncClient deliberately registers none.
+    Of the Sync module it sees only the published surface — the wire records, the
+    routes and the pairing-code format — and nothing else of it. Hosts choose
+    which credential store and which sync-state store are behind those ports;
+    AddSyncClient deliberately registers neither.
+
+    Of the Tasks module it sees the implementation, and that reference is
+    deliberate rather than an oversight. Replication reads and writes the
+    aggregate itself: it builds a TaskItem through the full constructor, restores
+    its stamps with LoadStamps, and saves it through ITaskRepository. An adapter
+    referencing a module implementation is the normal direction — the same one
+    Backlog.Infrastructure.Sqlite takes — and the module never sees this project.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.Sync</RootNamespace>
@@ -25,6 +42,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+    <!-- TaskItem, its full constructor, LoadStamps and ITaskRepository. See the
+         header for why the implementation and not only its Abstractions. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
   </ItemGroup>
 
   <ItemGroup>
