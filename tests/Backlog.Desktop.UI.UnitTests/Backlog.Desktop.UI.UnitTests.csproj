@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <PackageReference Include="bunit" />
+    <!-- FakeTimeProvider: the Devices panel now renders a TaskSyncWorker, and a
+         worker built on the real clock would start a five-second timer inside
+         every render of this screen. A fake one never ticks unless a test moves
+         it, so what these assert is the button rather than the schedule. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>

@@ -27,10 +27,23 @@ public sealed record TaskSyncState(DateTimeOffset PushWatermark, string? PullCur
 /// the same way and neither is the odd one out to configure.
 /// </para>
 /// <para>
-/// There is no <c>Clear</c>. Forgetting the cursor is
-/// <c>Save(state with { PullCursor = null })</c>, which is what a client does
-/// when the service retires its cursor; forgetting the watermark as well would
-/// re-push every task on the machine, and nothing has a reason to ask for that.
+/// There is still no <c>Clear</c>, and it is <see cref="Save"/> that makes one
+/// unnecessary rather than nothing needing what it would do. Forgetting the
+/// cursor is <c>Save(state with { PullCursor = null })</c> — what a client does
+/// when the service retires its cursor, and what
+/// <c>TaskSyncWorker.RehydrateFromScratch</c> does to fill a machine that was
+/// emptied or restored back up from the feed. Forgetting the watermark is
+/// <c>Save(state with { PushWatermark = DateTimeOffset.MinValue })</c>, which
+/// re-pushes every task on the machine — <c>TaskSyncWorker.RepublishEverything</c>,
+/// which exists so a replica can be treated as disposable: deleted, recreated,
+/// and filled again from a device that still holds the data.
+/// </para>
+/// <para>
+/// Re-pushing costs bandwidth and nothing else. The replica upserts whole
+/// documents under last-write-wins, so a document sent a second time lands in
+/// the state it is already in; that is also why the push loop can advance its
+/// watermark per batch and resend one batch's worth after a failure without
+/// anybody having to think about it.
 /// </para>
 /// </summary>
 public interface ITaskSyncStateStore

@@ -14,6 +14,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -210,8 +211,8 @@ public sealed class SettingsDevicesTests
         Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
     }
 
-    /// <summary>A head that registered no sync-state store cannot compose a
-    /// session, and hides the section rather than offering a button that cannot
+    /// <summary>A head that registered no sync-state store cannot compose the
+    /// loop, and hides the section rather than offering a button that cannot
     /// work.</summary>
     [Fact]
     public void A_host_without_a_session_hides_the_section_rather_than_failing()
@@ -227,9 +228,9 @@ public sealed class SettingsDevicesTests
     }
 
     /// <summary>
-    /// The harder half of the same rule. AddTaskSyncClient registers the session
+    /// The harder half of the same rule. AddTaskSyncClient registers the worker
     /// for a head that opts in and deliberately registers no ITaskSyncStateStore,
-    /// so on a head that has not chosen one the session is registered and
+    /// so on a head that has not chosen one the worker is registered and
     /// unconstructable - and asking for it throws rather than answering null. The
     /// screen still has to open.
     /// </summary>
@@ -305,6 +306,86 @@ public sealed class SettingsDevicesTests
             "not synced yet",
             context.Component.Find("[data-testid='devices-sync-result']").TextContent,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --- Starting over --------------------------------------------------------
+
+    /// <summary>
+    /// Both of these cost a long exchange over somebody's connection, so neither
+    /// happens on one press. Cancelling has to leave the progress exactly where
+    /// it was - a reset that happened anyway would be the one thing the question
+    /// exists to prevent.
+    /// </summary>
+    [Fact]
+    public void Starting_over_is_asked_before_it_is_done()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-sync-republish']")));
+
+        var watermark = context.SyncState.Current.PushWatermark;
+
+        context.Component.Find("[data-testid='devices-sync-republish']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "sent to the cloud again",
+                context.Component.Find("[data-testid='devices-sync-reset-dialog']").TextContent,
+                StringComparison.OrdinalIgnoreCase));
+
+        context.Component.Find("[data-testid='devices-sync-reset-cancel']").Click();
+
+        Assert.Equal(watermark, context.SyncState.Current.PushWatermark);
+    }
+
+    /// <summary>Confirming forgets how far this device has pushed, which is what
+    /// makes every task on the machine - tombstones included - eligible again.
+    /// <para>
+    /// Asserted against the states the store was given rather than the one it
+    /// ended on, for the reason
+    /// <see cref="ForgetfulTaskSyncStateStore.Saved"/> gives: the cycle that
+    /// carries the reset out immediately pushes what the reset made eligible,
+    /// and advances the watermark again in doing so.
+    /// </para></summary>
+    [Fact]
+    public void Republishing_resets_the_push_watermark()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-sync-republish']")));
+
+        context.Component.Find("[data-testid='devices-sync-republish']").Click();
+        context.Component.Find("[data-testid='devices-sync-reset-confirm']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(context.SyncState.Saved, state => state.PushWatermark == DateTimeOffset.MinValue));
+    }
+
+    /// <summary>And confirming the other one forgets the feed position, which is
+    /// what makes a machine that was emptied or restored read the owner's changes
+    /// from the beginning again. Asserted the same way and for the same reason -
+    /// the pull the reset asks for takes a fresh cursor the moment it
+    /// finishes.</summary>
+    [Fact]
+    public void Rehydrating_clears_the_pull_cursor()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-sync-rehydrate']")));
+
+        Assert.Equal("cursor-1", context.SyncState.Current.PullCursor);
+
+        context.Component.Find("[data-testid='devices-sync-rehydrate']").Click();
+        context.Component.Find("[data-testid='devices-sync-reset-confirm']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(context.SyncState.Saved, state => state.PullCursor is null));
     }
 
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
@@ -384,30 +465,45 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
         testContext.Services.AddSingleton(new DevicePairingClient(http, credentials));
 
-        // The real session over the same scripted wire, for the reason the
-        // pairing client is real here: the interesting behaviour is the
-        // exchange's as much as the screen's, and a seam between the two would
-        // have tested neither.
+        // Somewhere for the session to keep a watermark, and something for the
+        // two starting-over actions to be asserted against. Seeded with progress
+        // rather than left at nothing, because "the watermark was reset" is only
+        // visible against a watermark that was somewhere - and seeded in the past
+        // rather than the future, because a watermark ahead of the one seeded
+        // task would leave every push with nothing to send.
+        var syncState = new ForgetfulTaskSyncStateStore(new TaskSyncState(DateTimeOffset.UnixEpoch, "cursor-1"));
+
+        // The real session and the real worker over the same scripted wire, for
+        // the reason the pairing client is real here: the interesting behaviour
+        // is the exchange's as much as the screen's, and a seam between the two
+        // would have tested neither.
         if (registerTaskSync)
         {
             var tasks = new OneTaskRepository();
 
-            // Registered by its factory rather than as an instance in the
-            // unconstructable case, because that is the shape AddTaskSyncClient
-            // leaves behind on a head with no sync-state store: the session
-            // resolves, its store does not, and the container throws.
-            testContext.Services.AddSingleton(sp => new TaskSyncSession(
+            testContext.Services.AddSingleton(_ => new TaskSyncSession(
                 new TaskSyncClient(http),
                 new TaskReplicaMerge(tasks),
                 tasks,
+                syncState,
+                TimeProvider.System));
+
+            // Registered by its factory rather than as an instance in the
+            // unconstructable case, because that is the shape AddTaskSyncClient
+            // leaves behind on a head with no sync-state store: the worker
+            // resolves, its store does not, and the container throws.
+            testContext.Services.AddSingleton(sp => new TaskSyncWorker(
+                sp,
+                features,
+                credentials,
                 sessionMissingItsStore
                     ? sp.GetRequiredService<ITaskSyncStateStore>()
-                    : new ForgetfulTaskSyncStateStore(),
-                TimeProvider.System));
+                    : syncState,
+                new FakeTimeProvider()));
         }
 
         var component = testContext.Render<Settings>();
-        return new SettingsRenderContext(root, testContext, component, credentials, service, http);
+        return new SettingsRenderContext(root, testContext, component, credentials, service, http, syncState);
     }
 
     private sealed record SettingsRenderContext(
@@ -416,7 +512,8 @@ public sealed class SettingsDevicesTests
         IRenderedComponent<Settings> Component,
         InMemoryDeviceCredentialStore Credentials,
         ScriptedSyncService Service,
-        HttpClient Http) : IDisposable
+        HttpClient Http,
+        ForgetfulTaskSyncStateStore SyncState) : IDisposable
     {
         public void Dispose()
         {
@@ -535,17 +632,43 @@ public sealed class SettingsDevicesTests
 
     /// <summary>Progress that lives for the render and no longer. Nothing here
     /// asserts across a restart; what the panel needs is somewhere for the
-    /// session to put a watermark.</summary>
-    private sealed class ForgetfulTaskSyncStateStore : ITaskSyncStateStore
+    /// session to put a watermark, and somewhere the two starting-over actions
+    /// can be seen to have cleared one.</summary>
+    internal sealed class ForgetfulTaskSyncStateStore(TaskSyncState? initial = null) : ITaskSyncStateStore
     {
+        private readonly List<TaskSyncState> _saved = [];
+
         public event Action? Changed;
 
-        public TaskSyncState Current { get; private set; } = new(DateTimeOffset.MinValue, null);
+        public TaskSyncState Current { get; private set; } = initial ?? new(DateTimeOffset.MinValue, null);
 
         public string StorePath => "in memory";
 
+        /// <summary>
+        /// Every state this store was ever given, in order.
+        /// <para>
+        /// The two starting-over actions have to be asserted against this rather
+        /// than against <see cref="Current"/>, because a reset is an event and
+        /// not a resting state: the cycle that carries one out goes straight on
+        /// to push and pull, so the watermark it cleared is advanced again and
+        /// the cursor it forgot is replaced - by the very exchange the reset
+        /// asked for. Asserting the resting state would be asserting that the
+        /// reset did not work.
+        /// </para>
+        /// <para>
+        /// Copied under the lock because the cycle that writes these runs on the
+        /// thread pool while the test reads them.
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<TaskSyncState> Saved
+        {
+            get { lock (_saved) return [.. _saved]; }
+        }
+
         public void Save(TaskSyncState state)
         {
+            lock (_saved) _saved.Add(state);
+
             Current = state;
             Changed?.Invoke();
         }
