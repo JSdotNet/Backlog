@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The client half of the sync exchange (ADR 0005 §Identity). The service side
+    lives in src/Modules/Sync; this project is what every head — desktop, mobile
+    and the two browser harnesses — puts in front of it:
+      IDeviceCredentialStore    where the long-lived registration credential is
+                                kept, with the DPAPI adapter ADR 0005 names as
+                                "the OS credential store" and an in-memory one
+                                for the Android head and for tests
+      SyncTokenProvider         trades that credential for a short-lived access
+                                token and caches it until just before it expires
+      SyncAuthenticationHandler puts the token on an outgoing request
+      DevicePairingClient       register, issue a pairing code, redeem one, and
+                                read back who this device turned out to be
+      Extensions/               AddSyncClient() composition for hosts
+    It sees the module's published surface — the wire records, the routes and the
+    pairing-code format — and nothing else of it. Hosts choose which credential
+    store is behind the port; AddSyncClient deliberately registers none.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Sync</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The named "sync-token" client and the typed pairing client, plus the
+         DelegatingHandler pipeline that keeps the two apart. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- DPAPI. The registration credential is a long-lived secret, so it is
+         never written as plaintext next to the app's other settings; on Windows
+         the OS ties the envelope to the signed-in user. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The token provider's cache window and its single-flight, and the
+         credential store's on-disk envelope, are worth asserting directly
+         rather than only through whatever screen happens to call them. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Sync.UnitTests" />
+  </ItemGroup>
+
+</Project>

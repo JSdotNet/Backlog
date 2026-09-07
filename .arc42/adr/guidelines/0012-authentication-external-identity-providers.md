@@ -54,5 +54,14 @@ authorization, not identity.
   authenticates a machine to the sync service, not a person to the product. If a
   user identity is ever introduced, this decision governs it and OIDC is the
   route.
+- **Device-session JWT validation now exists**, in
+  `Backlog.Modules.Sync.Api` (`Security/SyncAuthenticationExtensions.cs`).
+  Issuer, audience, lifetime, and signature are all validated per request with
+  no server-side session, and a mismatched signing algorithm is rejected rather
+  than accepted — the token-validation rule above is no longer aspirational for
+  this one surface. The token is short-lived (30 minutes, within the 15–60
+  minute band this decision names) and obtained by exchanging a longer-lived
+  registration credential held in the device's own OS credential store; there is
+  no refresh token, because the credential exchange plays that role.
 - The refresh-token and distributed-cache rules presuppose a multi-user cloud
   tier that does not exist here.

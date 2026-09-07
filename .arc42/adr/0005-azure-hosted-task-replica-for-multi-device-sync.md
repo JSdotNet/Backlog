@@ -423,6 +423,18 @@ account keys, nothing in configuration to leak — the posture inherited ADR 001
 asks for. What it does not buy is per-partition authorization, and the query-scoping
 check is the part of the service that carries that weight instead.
 
+> **Implemented, 2026-09-07 — for the inbox surface, ahead of the Cosmos store.**
+> First-device registration, pairing-code issuance and redemption, and
+> short-lived (30-minute HS256) device tokens are built in
+> `Backlog.Modules.Sync.Api`, `Backlog.Modules.Sync`, and the client-side
+> `Backlog.Infrastructure.Sync`. The service validates every field this section
+> asks for — issuer, audience, lifetime, signature, and a pinned algorithm — and
+> the query-scoping check described above exists as `OwnerScopeFilter`, in front
+> of a fallback-deny authorization policy. Device registrations and pairing
+> codes live behind ports in an in-memory adapter rather than Cosmos, so the
+> registry does not yet survive a restart; that persistence gap is the deferred
+> half of this section, not the identity model itself.
+
 ### The transport that was considered and deferred
 
 **A per-device single-writer append-only log**, held in a shared folder or a git

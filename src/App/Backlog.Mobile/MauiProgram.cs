@@ -1,5 +1,7 @@
 using Backlog.Mobile.Services;
 using Backlog.Mobile.UI.Services;
+using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -30,8 +32,22 @@ public static class MauiProgram
 			?? Environment.GetEnvironmentVariable("BACKLOG_SYNC_URL")
 			?? EmulatorHostFallback;
 
+		// The device half of cloud sync. In memory, and honestly so: DPAPI is
+		// Windows and Android's own answer is Xamarin.Essentials SecureStorage,
+		// which is a slice of its own — until it lands a phone pairs once per run
+		// rather than writing the registration credential to a plain file.
+		// TODO: replace with a SecureStorageDeviceCredentialStore adapter beside
+		// AndroidSpeechTranscriber, registered here the way this one is.
+		builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new InMemoryDeviceCredentialStore());
+		builder.Services.AddSyncClient(new Uri(syncBaseAddress));
+
+		// The inbox endpoints are bearer-only, so the data client leaves carrying
+		// the same short-lived token the pairing client mints. The handler is
+		// chained here rather than inside AddSyncClient because which of a host's
+		// clients are sync clients is the host's to know.
 		builder.Services.AddHttpClient<CloudSyncClient>(client =>
-			client.BaseAddress = new Uri(syncBaseAddress));
+			client.BaseAddress = new Uri(syncBaseAddress))
+			.AddHttpMessageHandler<SyncAuthenticationHandler>();
 
 		// The Android recogniser, not the Web Speech one: the System WebView
 		// generally has no webkitSpeechRecognition, so the browser implementation

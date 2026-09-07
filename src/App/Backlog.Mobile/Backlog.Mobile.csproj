@@ -49,6 +49,9 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
         <ProjectReference Include="..\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
+        <!-- The device half of cloud sync. This head registers the in-memory
+             credential store; DPAPI is Windows and Android has its own. -->
+        <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
     </ItemGroup>
 
 </Project>

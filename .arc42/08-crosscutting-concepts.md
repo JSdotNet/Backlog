@@ -84,8 +84,10 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deploymen
 ```
 
 How the general sync position above is realized for the Task aggregate. The
-direction is settled by local ADR 0005, which is accepted; none of the cloud side
-is built yet.
+direction is settled by local ADR 0005, which is accepted. The identity model
+below — pairing, tokens, and the query-scoping check — is implemented in
+`Backlog.Modules.Sync.Api`; the Cosmos replica, the change feed, and the
+task-level reconciliation it carries are not.
 
 Tasks are one of three kinds of state that sync. Session records travel on
 different terms, covered under
@@ -293,6 +295,13 @@ related: [".arc42/09-architecture-decisions.md"]
 - **No account required** for personal use in standalone mode.
 - **OAuth 2.0** for GitHub integration (issue sync, webhook registration).
 - **Cloud connection uses device-based auth** — JWT device sessions, no user login.
+  Implemented in `Backlog.Modules.Sync.Api`: every sync request is bearer-only,
+  the JWT's issuer, audience, lifetime, signature, and algorithm are all
+  validated, a fallback-deny policy covers any endpoint not explicitly opened,
+  and an owner-scoping filter reads the owner out of the token and refuses to
+  serve a query outside it — see
+  `.arc42/08-crosscutting-concepts.md#task-sync` for the pairing flow that
+  issues the token.
 - The current architecture assumes a single personal user and does not include team-oriented authorization roles.
 
 For the cloud service specifically, the inherited identity, authorization, and

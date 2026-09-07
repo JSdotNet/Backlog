@@ -57,10 +57,14 @@ action, resource type and id, outcome, and correlation id.
 
 ## Deviations and gaps
 
-- **No authorization policies exist yet**, because there is nothing multi-tenant
-  to protect: the architecture baseline is explicitly single-user
-  (`.arc42/02-constraints.md`). The rules land the moment the cloud tier serves
-  more than one person's devices.
+- **A fallback-deny policy and a resource-based, owner-scoped check now exist
+  for the sync service.** `Backlog.Modules.Sync.Api` requires bearer
+  authentication by default, and its `OwnerScopeFilter` reads the owner out of
+  the presented token and refuses to serve a query outside it — the
+  resource-based authorization this decision asks for, applied to the one
+  surface (`sync`) that has anything to protect. It is single-owner
+  authorization, not the multi-tenant, role-based policy set this decision
+  otherwise describes, and it does not reach any other module.
 - **No audit log.** Sensitive-operation auditing is not implemented anywhere,
   local or cloud.
 - Module-to-module calls do not carry a `ClaimsPrincipal`, since no in-process

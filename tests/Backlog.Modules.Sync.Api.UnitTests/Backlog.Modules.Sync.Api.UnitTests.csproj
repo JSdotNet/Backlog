@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync.Api\Backlog.Modules.Sync.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WebApplicationFactory: what a 401 looks like is decided by middleware
+         and by the bearer handler, so these run against the real pipeline
+         rather than against a handler in isolation. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+</Project>

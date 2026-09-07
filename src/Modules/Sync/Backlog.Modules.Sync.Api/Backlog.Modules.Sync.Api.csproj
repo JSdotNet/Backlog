@@ -1,11 +1,31 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <!--
+    The sync service: the one HTTP surface in the product. It is a host, not a
+    module — it owns the token signing key, the validation parameters, and the
+    mapping from a Result to a status code, and it delegates every decision to
+    a handler in Backlog.Modules.Sync.
+  -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Sync.Api</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Validating the device tokens this service issued, and issuing them.
+         Both halves live here on purpose: a signing key that one project mints
+         with and another validates against is a key in two places. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Sync.Api.UnitTests" />
   </ItemGroup>
 
 </Project>
