@@ -38,7 +38,7 @@ public class GitHubBillingClientTests
     {
         var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
 
-        _ = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        _ = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("2026-03-10", transport.ApiVersions);
     }
@@ -48,7 +48,7 @@ public class GitHubBillingClientTests
     {
         var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
 
-        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         var item = Assert.Single(usage.Items);
 
@@ -70,7 +70,7 @@ public class GitHubBillingClientTests
             { "usageItems": [ { "model": "gpt-5", "netAmount": "4.25", "netQuantity": "106" } ] }
             """);
 
-        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(4.25m, usage.NetAmount);
         Assert.Equal(106m, usage.NetQuantity);
@@ -81,7 +81,7 @@ public class GitHubBillingClientTests
     {
         var transport = new RoutingTransport().Returns("users/jsdotnet/settings/billing/ai_credit/usage", OneModel);
 
-        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(GitHubBillingScope.PersonalAccount, usage.Scope);
         Assert.Equal(0, transport.CallsTo("organizations/"));
@@ -99,7 +99,7 @@ public class GitHubBillingClientTests
             .Returns("users/jsdotnet/settings/billing/ai_credit/usage", """{ "usageItems": [] }""")
             .Returns("organizations/", OneModel);
 
-        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Empty(usage.Items);
         Assert.Equal(GitHubBillingScope.PersonalAccount, usage.Scope);
@@ -118,7 +118,7 @@ public class GitHubBillingClientTests
             .Refuses("users/jsdotnet/settings/billing")
             .Returns("organizations/JSdotNet/settings/billing/ai_credit/usage", OneModel);
 
-        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8);
+        var usage = await Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(GitHubBillingScope.Organization, usage.Scope);
         Assert.Equal(4.0m, usage.NetAmount);
@@ -139,7 +139,7 @@ public class GitHubBillingClientTests
             .Refuses("organizations/");
 
         var failure = await Assert.ThrowsAsync<GitHubException>(
-            () => Client(transport).GetAiCreditUsageAsync(2026, 8));
+            () => Client(transport).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("enterprise", failure.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("admin", failure.Message, StringComparison.OrdinalIgnoreCase);
@@ -151,7 +151,7 @@ public class GitHubBillingClientTests
         var transport = new RoutingTransport().Refuses("users/");
 
         var failure = await Assert.ThrowsAsync<GitHubException>(
-            () => Client(transport, repositories: null).GetAiCreditUsageAsync(2026, 8));
+            () => Client(transport, repositories: null).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("no organization is configured", failure.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -161,12 +161,12 @@ public class GitHubBillingClientTests
     {
         var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
 
-        _ = await Client(transport).GetAiCreditUsageAsync(2026, 8, day: 12);
+        _ = await Client(transport).GetAiCreditUsageAsync(2026, 8, day: 12, TestContext.Current.CancellationToken);
 
         Assert.Contains(transport.Paths, path => path.Contains("day=12", StringComparison.Ordinal));
 
         var monthOnly = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
-        _ = await Client(monthOnly).GetAiCreditUsageAsync(2026, 8);
+        _ = await Client(monthOnly).GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(monthOnly.Paths, path => path.Contains("day=", StringComparison.Ordinal));
     }
@@ -177,18 +177,18 @@ public class GitHubBillingClientTests
         var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
         var client = new GitHubBillingClient(transport, new StubIdentity(null), Settings("JSdotNet/Backlog"));
 
-        var availability = await client.GetAvailabilityAsync();
+        var availability = await client.GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.False(availability.IsAvailable);
         Assert.Contains("who you are signed in as", availability.Reason, StringComparison.Ordinal);
 
-        _ = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => client.GetAiCreditUsageAsync(2026, 8));
+        _ = await Assert.ThrowsAsync<GitHubNotConfiguredException>(() => client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task An_unreachable_transport_explains_itself_rather_than_throwing()
     {
-        var availability = await Client(new RoutingTransport { Available = false }).GetAvailabilityAsync();
+        var availability = await Client(new RoutingTransport { Available = false }).GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.False(availability.IsAvailable);
         Assert.Contains("gh auth login", availability.Reason, StringComparison.Ordinal);

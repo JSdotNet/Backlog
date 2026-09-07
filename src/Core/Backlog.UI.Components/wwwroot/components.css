@@ -345,7 +345,7 @@
     border-radius: var(--border-radius-md);
     border: var(--border-width) solid transparent;
     cursor: pointer;
-    transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    transition: background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .btn:focus-visible {
@@ -5299,7 +5299,54 @@ body.is-resizing-pane {
     margin-right: auto;
 }
 
-.btn--toggle[aria-pressed="true"] {
+/*
+  A toggle in a one-of-many strip declares both ends of its own fill.
+
+  Neither end was stated. Unpressed, nothing here said what the background was,
+  so the user agent drew `buttonface` — a light grey slab in a product with no
+  light theme — and the label took `buttontext` with it. Pressed, the fill hung
+  off the ARIA attribute, which is the state assistive technology reads and not
+  the class the component emits for the eye: `btn--pressed` was drawn by nothing,
+  and a host that replaced `PressedCssClass` had this painted over it anyway.
+
+  Between them they left the fill crossing from a system colour keyword to a
+  `color-mix()` result, which is an interpolation no browser settles: the amber
+  stayed on whichever option was pressed first while the class and `aria-pressed`
+  both moved to the one that was actually selected. `.btn` animates
+  `background-color` rather than the shorthand for the same reason — a fill is the
+  only part of a background this library ever changes.
+
+  Keyed on the class rather than the attribute for the reason `.checkbox--mixed`
+  is: the attribute says what the state is, the class is what the library asks to
+  be drawn, and only the second is a host’s to replace.
+*/
+.btn--toggle {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border-color: var(--color-border);
+}
+
+/*
+  Taking the platform's fill away took the group's outline with it, so both are
+  restated here. `buttonface` was never the colour this product chose, but while
+  it was there a `.btn-group` still read as one control and a pointer still got
+  an answer. Transparent on its own leaves a strip whose only visible member is
+  the selected one — which is the same thing the defect did, arrived at from the
+  other side. The boundary above and the hover below are what the two hosts that
+  hand-rolled this control already declare: the shell's `.header-group__option`
+  and the storybook's `.sb-chip`.
+
+  Excluded from the pressed member rather than out-specified by it. A hover
+  written the way `.btn--ghost`'s is would outrank `.btn--toggle.btn--pressed`
+  and grey out the selected option under the pointer — the selection blinking
+  off wherever the user is about to click.
+*/
+.btn--toggle:not(.btn--pressed):hover:not(:disabled) {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+.btn--toggle.btn--pressed {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 16%, transparent);
     color: var(--color-text-primary);

@@ -1,6 +1,19 @@
+@*
+    Two branches rather than one, because a tag name is not something Razor will
+    interpolate. The duplication is four attributes wide and it lives here, which
+    is the whole point: the alternative is the span living in an application
+    screen, where it is a second implementation nobody reviews.
+*@
 @if (!string.IsNullOrWhiteSpace(Message))
 {
-    <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</p>
+    @if (Inline)
+    {
+        <span class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</span>
+    }
+    else
+    {
+        <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</p>
+    }
 }
 
 @code {
@@ -13,6 +26,29 @@
 
     [Parameter]
     public string Role { get; set; } = "alert";
+
+    /// <summary>
+    /// Draws the alert as a <c>span</c> instead of the default <c>p</c>, for the
+    /// message that belongs beside the thing it is about rather than under it.
+    /// <para>
+    /// Default false, and deliberately: an alert is a line in the flow unless a
+    /// host says otherwise, and every call site that predates this parameter is
+    /// one of those. What it is for is the case
+    /// <c>.design/content-editing.md#editing-feedback-and-state</c> describes — a
+    /// refused value surfaced "inline, next to the text that produced it" — and the
+    /// action bars that
+    /// report a failed action next to the button that failed. A block element
+    /// there breaks the row it lands in, which is why those places had hand-rolled
+    /// a span rather than adopt this component.
+    /// </para>
+    /// <para>
+    /// The role is unchanged by this: where the message sits and how it is
+    /// announced are separate questions, and <see cref="Role"/> still answers the
+    /// second one on its own.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Inline { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }

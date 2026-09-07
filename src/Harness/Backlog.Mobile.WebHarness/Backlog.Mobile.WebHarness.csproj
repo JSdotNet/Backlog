@@ -14,6 +14,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
+    <!-- The device half of cloud sync. This harness keeps its credential under
+         its own content root, so it and the desktop harness are two devices. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
   </ItemGroup>
 
 </Project>

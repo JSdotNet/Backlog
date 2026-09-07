@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FakeTimeProvider: the pairing-code window is ten minutes, and a test
+         that proves expiry has to move the clock rather than wait for it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+</Project>

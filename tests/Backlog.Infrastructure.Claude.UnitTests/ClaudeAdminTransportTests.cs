@@ -17,7 +17,7 @@ public sealed class ClaudeAdminTransportTests
         var handler = new RecordingHandler();
         var transport = new ClaudeAdminTransport(new HttpClient(handler), store);
 
-        await transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages");
+        await transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             "https://claude.example.internal/admin/v1/organizations/usage_report/messages",
@@ -41,7 +41,7 @@ public sealed class ClaudeAdminTransportTests
         var handler = new RecordingHandler();
         var transport = new ClaudeAdminTransport(new HttpClient(handler), store);
 
-        await transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages");
+        await transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages", TestContext.Current.CancellationToken);
 
         Assert.Equal(1, handler.RequestCount);
         Assert.Equal("sk-ant-api03-personal-key", handler.Request!.Headers.GetValues("x-api-key").Single());
@@ -59,7 +59,7 @@ public sealed class ClaudeAdminTransportTests
         var transport = new ClaudeAdminTransport(new HttpClient(handler), store);
 
         await Assert.ThrowsAsync<ClaudeNotConfiguredException>(() =>
-            transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages"));
+            transport.SendAsync(HttpMethod.Get, "v1/organizations/usage_report/messages", TestContext.Current.CancellationToken));
 
         Assert.Equal(0, handler.RequestCount);
     }

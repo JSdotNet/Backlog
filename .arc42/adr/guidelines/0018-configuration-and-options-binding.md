@@ -44,8 +44,15 @@ reaches this ground. No typed options class exists and nothing calls
 
 ## Deviations and gaps
 
-- **No typed options classes exist.** Nothing in `src/` binds an options type or
-  calls `ValidateOnStart()`. Nothing needs to yet — there is no configured
-  external dependency beyond what Aspire injects — but the first one that arrives
-  should arrive as an options class, not as a configuration lookup.
-- No configuration section naming is in use, so the ownership rule is untested.
+- **A first typed options class now exists**, and it applies the whole rule
+  rather than part of it. `Options/SyncTokenOptions.cs` binds
+  `Modules:Sync:Tokens` (`SigningKey`, `Issuer`, `Audience`,
+  `LifetimeMinutes`), owned by `Backlog.Modules.Sync.Api` under a stable,
+  explicit section name, and is validated at startup: a missing or too-short
+  signing key fails the start rather than the first sync request. Development
+  is the one carve-out — it mints and warns about an ephemeral key so no
+  configuration is needed locally — and outside Development the secret is
+  never checked in, per the rule above.
+- This is also the first real exercise of the section-naming convention
+  (`Modules:Sync:…`); no conflict has arisen because it is still the only
+  section a module owns outside what Aspire injects.

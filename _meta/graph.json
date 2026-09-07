@@ -10,35 +10,35 @@
     ".design"
   ],
   "stats": {
-    "nodes": 803,
-    "edges": 1702,
+    "nodes": 811,
+    "edges": 1735,
     "nodesByFolder": {
-      "arc42": 89,
-      "domain": 511,
+      "arc42": 90,
+      "domain": 515,
       "backlog": 4,
-      "tech": 101,
+      "tech": 104,
       "design": 98
     },
     "nodesByType": {
       "file": 127,
-      "chapter": 667,
-      "heading": 9
+      "chapter": 674,
+      "heading": 10
     },
     "nodesByStatus": {
-      "active": 212,
+      "active": 218,
       "proposed": 44,
-      "draft": 431,
+      "draft": 429,
       "deprecated": 4,
       "done": 3,
-      "adopted": 85,
+      "adopted": 88,
       "candidate": 14,
       "hold": 1,
-      "none": 9
+      "none": 10
     },
     "edgesByType": {
-      "contains": 676,
-      "related": 877,
-      "depends-on": 147,
+      "contains": 684,
+      "related": 898,
+      "depends-on": 151,
       "implements": 2
     }
   },
@@ -352,7 +352,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "mobile-app",
           "level": 2,
-          "line": 235,
+          "line": 245,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#mobile-capture-and-sync",
@@ -369,7 +369,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "ide-extensions",
           "level": 2,
-          "line": 279,
+          "line": 289,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#ide-context-aware-capture",
@@ -386,7 +386,7 @@
           "path": ".arc42/05-building-block-view.md",
           "slug": "cloud-service",
           "level": 2,
-          "line": 339,
+          "line": 349,
           "status": "active",
           "related": [
             ".arc42/06-runtime-view.md#state-sync-and-webhook-forwarding",
@@ -643,7 +643,7 @@
           "path": ".arc42/07-deployment-view.md",
           "slug": "provisioning-and-delivery",
           "level": 3,
-          "line": 222,
+          "line": 228,
           "status": "active",
           "related": [
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
@@ -716,7 +716,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 151,
+          "line": 153,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -736,7 +736,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 179,
+          "line": 181,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -754,7 +754,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 238,
+          "line": 240,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -772,7 +772,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 265,
+          "line": 267,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -788,7 +788,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 286,
+          "line": 288,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -804,7 +804,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 302,
+          "line": 311,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -820,7 +820,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 314,
+          "line": 323,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -8373,14 +8373,15 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 616,
-          "status": "draft",
+          "line": 626,
+          "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"
           ],
           "related": [
             ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
-            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+            ".domain/tasks/naming.md#device"
           ]
         }
       },
@@ -8393,7 +8394,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-planning",
           "level": 2,
-          "line": 633,
+          "line": 657,
           "status": "deprecated",
           "depends-on": [
             ".domain/tasks/features.md#refinement-and-prioritization"
@@ -8414,7 +8415,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "roadmap-views",
           "level": 3,
-          "line": 664,
+          "line": 688,
           "status": "deprecated",
           "related": [
             ".domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline"
@@ -8837,14 +8838,105 @@
           "slug": "device",
           "level": 2,
           "line": 275,
-          "status": "draft",
+          "status": "active",
           "aliases": [
             "machine",
             "PC"
           ],
           "related": [
             ".domain/tasks/features.md#multi-device-sync",
+            ".domain/tasks/features.md#pairing-a-device",
+            ".domain/tasks/naming.md#owner",
+            ".domain/tasks/naming.md#registration-credential",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#owner",
+          "label": "Owner",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "owner",
+          "level": 2,
+          "line": 296,
+          "status": "active",
+          "aliases": [
+            "ownerId",
+            "owner id"
+          ],
+          "related": [
+            ".domain/tasks/naming.md#device",
+            ".domain/tasks/features.md#multi-device-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#pairing-code",
+          "label": "Pairing code",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "pairing-code",
+          "level": 2,
+          "line": 313,
+          "status": "active",
+          "aliases": [
+            "pairing code",
+            "XXXX-XXXX code"
+          ],
+          "related": [
+            ".domain/tasks/features.md#pairing-a-device",
+            ".domain/tasks/naming.md#device"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#registration-credential",
+          "label": "Registration credential",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "registration-credential",
+          "level": 2,
+          "line": 329,
+          "status": "active",
+          "aliases": [
+            "device credential",
+            "credential"
+          ],
+          "related": [
+            ".domain/tasks/features.md#pairing-a-device",
+            ".domain/tasks/naming.md#device-token",
+            ".domain/tasks/naming.md#device"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/tasks/naming.md#device-token",
+          "label": "Device token",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/tasks/naming.md",
+          "slug": "device-token",
+          "level": 2,
+          "line": 344,
+          "status": "active",
+          "aliases": [
+            "access token",
+            "device session token",
+            "sync token"
+          ],
+          "related": [
+            ".domain/tasks/naming.md#registration-credential",
+            ".domain/tasks/naming.md#owner",
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md"
           ]
         }
       },
@@ -8857,7 +8949,7 @@
           "path": ".domain/tasks/naming.md",
           "slug": "tombstone",
           "level": 2,
-          "line": 293,
+          "line": 359,
           "status": "draft",
           "related": [
             ".domain/tasks/domain.md#task",
@@ -9719,6 +9811,47 @@
       },
       {
         "data": {
+          "id": ".tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "label": "Microsoft.AspNetCore.Authentication.JwtBearer",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "microsoftaspnetcoreauthenticationjwtbearer",
+          "level": 2,
+          "line": 36,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/shared.md#aspnet-core"
+          ],
+          "related": [
+            ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+            ".arc42/08-crosscutting-concepts.md#task-sync"
+          ]
+        }
+      },
+      {
+        "data": {
+          "id": ".tech/cloud.md#microsoftidentitymodeljsonwebtokens",
+          "label": "Microsoft.IdentityModel.JsonWebTokens",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/cloud.md",
+          "slug": "microsoftidentitymodeljsonwebtokens",
+          "level": 2,
+          "line": 55,
+          "status": "adopted",
+          "version": "8.19.2",
+          "depends-on": [
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/08-crosscutting-concepts.md#task-sync"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/cloud.md#azure-container-apps",
           "label": "Azure Container Apps",
           "type": "chapter",
@@ -9726,7 +9859,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-container-apps",
           "level": 2,
-          "line": 35,
+          "line": 75,
           "status": "candidate",
           "alternatives": [
             "Azure App Service"
@@ -9749,7 +9882,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-ai-foundry",
           "level": 2,
-          "line": 59,
+          "line": 99,
           "status": "adopted",
           "alternatives": [
             "Anthropic API directly",
@@ -9771,7 +9904,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-cosmos-db",
           "level": 2,
-          "line": 84,
+          "line": 124,
           "status": "candidate",
           "alternatives": [
             "Azure PostgreSQL",
@@ -9795,7 +9928,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-key-vault",
           "level": 2,
-          "line": 125,
+          "line": 165,
           "status": "candidate",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -9812,7 +9945,7 @@
           "path": ".tech/cloud.md",
           "slug": "azure-monitor",
           "level": 2,
-          "line": 144,
+          "line": 184,
           "status": "candidate",
           "alternatives": [
             "Aspire dashboard only"
@@ -9832,7 +9965,7 @@
           "path": ".tech/cloud.md",
           "slug": "firebase-cloud-messaging",
           "level": 2,
-          "line": 173,
+          "line": 213,
           "status": "candidate",
           "alternatives": [
             "Azure Notification Hubs"
@@ -9979,6 +10112,29 @@
       },
       {
         "data": {
+          "id": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "label": "System.Security.Cryptography.ProtectedData",
+          "type": "chapter",
+          "folder": "tech",
+          "path": ".tech/desktop.md",
+          "slug": "systemsecuritycryptographyprotecteddata",
+          "level": 2,
+          "line": 117,
+          "status": "adopted",
+          "version": "10.0.11",
+          "depends-on": [
+            ".tech/desktop.md#windows",
+            ".tech/shared.md#net-runtime"
+          ],
+          "related": [
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+            ".domain/tasks/features.md#pairing-a-device",
+            ".domain/tasks/naming.md#registration-credential"
+          ]
+        }
+      },
+      {
+        "data": {
           "id": ".tech/desktop.md#github-cli",
           "label": "GitHub CLI",
           "type": "chapter",
@@ -9986,7 +10142,7 @@
           "path": ".tech/desktop.md",
           "slug": "github-cli",
           "level": 2,
-          "line": 117,
+          "line": 137,
           "status": "adopted",
           "alternatives": [
             "Octokit.NET",
@@ -10009,7 +10165,7 @@
           "path": ".tech/desktop.md",
           "slug": "msix-packaging",
           "level": 2,
-          "line": 136,
+          "line": 156,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#windows-app-sdk"
@@ -10029,7 +10185,7 @@
           "path": ".tech/desktop.md",
           "slug": "app-installer-appinstaller",
           "level": 2,
-          "line": 160,
+          "line": 180,
           "status": "adopted",
           "depends-on": [
             ".tech/desktop.md#msix-packaging"
@@ -12779,6 +12935,18 @@
       },
       {
         "data": {
+          "id": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "label": "Identity",
+          "type": "heading",
+          "folder": "arc42",
+          "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "slug": "identity",
+          "level": 3,
+          "line": 391
+        }
+      },
+      {
+        "data": {
           "id": ".tech/technology-graph.md#ai-development-vocabulary",
           "label": "AI development vocabulary",
           "type": "heading",
@@ -12786,7 +12954,7 @@
           "path": ".tech/technology-graph.md",
           "slug": "ai-development-vocabulary",
           "level": 2,
-          "line": 317
+          "line": 324
         }
       },
       {
@@ -16557,6 +16725,38 @@
       },
       {
         "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#owner",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#owner",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#pairing-code",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#pairing-code",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#registration-credential",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#registration-credential",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#device-token",
+          "source": ".domain/tasks/naming.md",
+          "target": ".domain/tasks/naming.md#device-token",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.domain/tasks/naming.md->.domain/tasks/naming.md#tombstone",
           "source": ".domain/tasks/naming.md",
           "target": ".domain/tasks/naming.md#tombstone",
@@ -16925,6 +17125,22 @@
       },
       {
         "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/cloud.md->.tech/cloud.md#microsoftidentitymodeljsonwebtokens",
+          "source": ".tech/cloud.md",
+          "target": ".tech/cloud.md#microsoftidentitymodeljsonwebtokens",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
           "id": "contains:.tech/cloud.md->.tech/cloud.md#azure-container-apps",
           "source": ".tech/cloud.md",
           "target": ".tech/cloud.md#azure-container-apps",
@@ -17016,6 +17232,14 @@
           "id": "contains:.tech/desktop.md->.tech/desktop.md#background-workers",
           "source": ".tech/desktop.md",
           "target": ".tech/desktop.md#background-workers",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.tech/desktop.md->.tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "source": ".tech/desktop.md",
+          "target": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
           "type": "contains"
         }
       },
@@ -22949,6 +23173,14 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/features.md#pairing-a-device->.domain/tasks/naming.md#device",
+          "source": ".domain/tasks/features.md#pairing-a-device",
+          "target": ".domain/tasks/naming.md#device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.domain/tasks/features.md#roadmap-planning->.domain/tasks/features.md#refinement-and-prioritization",
           "source": ".domain/tasks/features.md#roadmap-planning",
           "target": ".domain/tasks/features.md#refinement-and-prioritization",
@@ -23181,9 +23413,129 @@
       },
       {
         "data": {
+          "id": "related:.domain/tasks/naming.md#device->.domain/tasks/features.md#pairing-a-device",
+          "source": ".domain/tasks/naming.md#device",
+          "target": ".domain/tasks/features.md#pairing-a-device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device->.domain/tasks/naming.md#owner",
+          "source": ".domain/tasks/naming.md#device",
+          "target": ".domain/tasks/naming.md#owner",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device->.domain/tasks/naming.md#registration-credential",
+          "source": ".domain/tasks/naming.md#device",
+          "target": ".domain/tasks/naming.md#registration-credential",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.domain/tasks/naming.md#device->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "source": ".domain/tasks/naming.md#device",
           "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#owner->.domain/tasks/naming.md#device",
+          "source": ".domain/tasks/naming.md#owner",
+          "target": ".domain/tasks/naming.md#device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#owner->.domain/tasks/features.md#multi-device-sync",
+          "source": ".domain/tasks/naming.md#owner",
+          "target": ".domain/tasks/features.md#multi-device-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "contains:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "type": "contains"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#owner->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "source": ".domain/tasks/naming.md#owner",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#pairing-code->.domain/tasks/features.md#pairing-a-device",
+          "source": ".domain/tasks/naming.md#pairing-code",
+          "target": ".domain/tasks/features.md#pairing-a-device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#pairing-code->.domain/tasks/naming.md#device",
+          "source": ".domain/tasks/naming.md#pairing-code",
+          "target": ".domain/tasks/naming.md#device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#registration-credential->.domain/tasks/features.md#pairing-a-device",
+          "source": ".domain/tasks/naming.md#registration-credential",
+          "target": ".domain/tasks/features.md#pairing-a-device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#registration-credential->.domain/tasks/naming.md#device-token",
+          "source": ".domain/tasks/naming.md#registration-credential",
+          "target": ".domain/tasks/naming.md#device-token",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#registration-credential->.domain/tasks/naming.md#device",
+          "source": ".domain/tasks/naming.md#registration-credential",
+          "target": ".domain/tasks/naming.md#device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device-token->.domain/tasks/naming.md#registration-credential",
+          "source": ".domain/tasks/naming.md#device-token",
+          "target": ".domain/tasks/naming.md#registration-credential",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device-token->.domain/tasks/naming.md#owner",
+          "source": ".domain/tasks/naming.md#device-token",
+          "target": ".domain/tasks/naming.md#owner",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.domain/tasks/naming.md#device-token->.arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "source": ".domain/tasks/naming.md#device-token",
+          "target": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
           "type": "related"
         }
       },
@@ -23741,6 +24093,46 @@
       },
       {
         "data": {
+          "id": "depends-on:.tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer->.tech/shared.md#aspnet-core",
+          "source": ".tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "target": ".tech/shared.md#aspnet-core",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer->.arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "source": ".tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "target": ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".tech/cloud.md#microsoftaspnetcoreauthenticationjwtbearer",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/cloud.md#microsoftidentitymodeljsonwebtokens->.tech/shared.md#net-runtime",
+          "source": ".tech/cloud.md#microsoftidentitymodeljsonwebtokens",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/cloud.md#microsoftidentitymodeljsonwebtokens->.arc42/08-crosscutting-concepts.md#task-sync",
+          "source": ".tech/cloud.md#microsoftidentitymodeljsonwebtokens",
+          "target": ".arc42/08-crosscutting-concepts.md#task-sync",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "depends-on:.tech/cloud.md#azure-container-apps->.tech/cloud.md#aspnet-core-minimal-apis",
           "source": ".tech/cloud.md#azure-container-apps",
           "target": ".tech/cloud.md#aspnet-core-minimal-apis",
@@ -24032,6 +24424,46 @@
           "id": "related:.tech/desktop.md#background-workers->.arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
           "source": ".tech/desktop.md#background-workers",
           "target": ".arc42/04-solution-strategy.md#thin-cloud-rich-desktop",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#systemsecuritycryptographyprotecteddata->.tech/desktop.md#windows",
+          "source": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "target": ".tech/desktop.md#windows",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "depends-on:.tech/desktop.md#systemsecuritycryptographyprotecteddata->.tech/shared.md#net-runtime",
+          "source": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "target": ".tech/shared.md#net-runtime",
+          "type": "depends-on"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#systemsecuritycryptographyprotecteddata->.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "source": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "target": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#systemsecuritycryptographyprotecteddata->.domain/tasks/features.md#pairing-a-device",
+          "source": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "target": ".domain/tasks/features.md#pairing-a-device",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.tech/desktop.md#systemsecuritycryptographyprotecteddata->.domain/tasks/naming.md#registration-credential",
+          "source": ".tech/desktop.md#systemsecuritycryptographyprotecteddata",
+          "target": ".domain/tasks/naming.md#registration-credential",
           "type": "related"
         }
       },

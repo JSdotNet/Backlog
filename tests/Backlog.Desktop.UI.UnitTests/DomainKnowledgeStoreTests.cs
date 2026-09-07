@@ -9,7 +9,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
     [Fact]
     public async Task Reports_configuration_needed_when_no_repository_is_configured()
     {
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(NewSettingsStore())).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(NewSettingsStore())).LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotNull(view.Error);
         Assert.Empty(view.Contexts);
@@ -26,7 +26,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         settings.SetRepositories(repositories);
         settings.SetCloneDirectory("backlog", repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(view.Error);
         Assert.Equal("JSdotNet/Backlog", view.RepositoryLabel);
@@ -65,7 +65,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         File.WriteAllText(Path.Combine(repo, ".domain", "inbox", "config.md"), "# Inbox config");
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal(
@@ -87,7 +87,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         settings.SetCloneDirectory("backlog", repo);
         settings.SetKnowledgeFolder("backlog", ".domain", enabled: true, path: "knowledge/.domain");
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync();
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(view.Error);
         Assert.EndsWith(Path.Combine("knowledge", ".domain"), view.RootPath);
@@ -102,8 +102,8 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         var settings = ConfiguredSettings(repo);
         var store = new DomainKnowledgeStore(new KnowledgeFolderSource(settings));
 
-        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md", "accepted");
-        var view = await store.LoadAsync("backlog");
+        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md", "accepted", TestContext.Current.CancellationToken);
+        var view = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var features = Assert.Single(Assert.Single(view.Contexts).Documents, d => d.Kind == DomainKnowledgeDocumentKind.Features);
         Assert.Equal("accepted", features.Status);
@@ -118,8 +118,8 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         var settings = ConfiguredSettings(repo);
         var store = new DomainKnowledgeStore(new KnowledgeFolderSource(settings));
 
-        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md#feature-inbox-capture", "adopted");
-        var view = await store.LoadAsync("backlog");
+        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md#feature-inbox-capture", "adopted", TestContext.Current.CancellationToken);
+        var view = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var section = Assert.Single(Assert.Single(view.Contexts).Documents.Single(d => d.Kind == DomainKnowledgeDocumentKind.Features).Sections);
         Assert.Equal("adopted", section.Status);
@@ -151,7 +151,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         File.Delete(Path.Combine(repo, ".domain", "inbox", "model.md"));
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal("Inbox", context.DisplayName);
@@ -166,7 +166,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         WriteDomainIndex(repo);
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         var documents = Assert.IsType<LazyKnowledgeList<DomainKnowledgeDocument>>(context.Documents);
@@ -197,7 +197,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         File.SetLastWriteTimeUtc(domainPath, DateTime.UtcNow.AddMinutes(5));
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal("Inbox", context.DisplayName);
@@ -212,7 +212,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(repo, ".domain", "_meta")));
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal("Inbox", context.DisplayName);
@@ -237,7 +237,7 @@ public sealed class DomainKnowledgeStoreTests : IDisposable
         File.WriteAllText(indexPath, File.ReadAllText(indexPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99", StringComparison.Ordinal));
         var settings = ConfiguredSettings(repo);
 
-        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog");
+        var view = await new DomainKnowledgeStore(new KnowledgeFolderSource(settings)).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var context = Assert.Single(view.Contexts);
         Assert.Equal("Inbox", context.DisplayName);

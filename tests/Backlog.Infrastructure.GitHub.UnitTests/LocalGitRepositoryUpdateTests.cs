@@ -22,7 +22,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
     {
         var (_, clone) = NewOriginAndClone();
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.UpToDate, check.Currency);
         Assert.Equal(0, check.Behind);
@@ -37,7 +37,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         CommitTo(origin, "docs/second.md", "a second chapter");
         CommitTo(origin, "docs/third.md", "a third chapter");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Behind, check.Currency);
         Assert.Equal(2, check.Behind);
@@ -52,7 +52,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         var (origin, clone) = NewOriginAndClone();
         CommitTo(origin, "docs/second.md", "a second chapter");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Contains("1 commit behind", check.Summary);
     }
@@ -63,11 +63,11 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         var (origin, clone) = NewOriginAndClone();
         CommitTo(origin, "docs/second.md", "a second chapter");
 
-        var result = await _service.PullAsync(_repository, clone);
+        var result = await _service.PullAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.True(result.Success, result.Message);
         Assert.True(File.Exists(Path.Combine(clone, "docs", "second.md")));
-        Assert.Equal("a second chapter", await File.ReadAllTextAsync(Path.Combine(clone, "docs", "second.md")));
+        Assert.Equal("a second chapter", await File.ReadAllTextAsync(Path.Combine(clone, "docs", "second.md"), TestContext.Current.CancellationToken));
         Assert.Equal(LocalGitRepositoryCurrency.UpToDate, result.State?.Currency);
     }
 
@@ -76,16 +76,16 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
     {
         var (origin, clone) = NewOriginAndClone();
         CommitTo(origin, "docs/second.md", "a second chapter");
-        await File.WriteAllTextAsync(Path.Combine(clone, "docs", "first.md"), "edited here and not committed");
+        await File.WriteAllTextAsync(Path.Combine(clone, "docs", "first.md"), "edited here and not committed", TestContext.Current.CancellationToken);
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Behind, check.Currency);
         Assert.True(check.HasLocalChanges);
         Assert.False(check.CanPull);
         Assert.Contains("local changes", check.Summary);
 
-        var result = await _service.PullAsync(_repository, clone);
+        var result = await _service.PullAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.False(result.Success);
         Assert.Contains("Commit or discard them", result.Message);
@@ -97,7 +97,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         var (_, clone) = NewOriginAndClone();
         CommitTo(clone, "docs/local-only.md", "written here");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Ahead, check.Currency);
         Assert.Equal(1, check.Ahead);
@@ -112,7 +112,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         CommitTo(origin, "docs/theirs.md", "written there");
         CommitTo(clone, "docs/mine.md", "written here");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Diverged, check.Currency);
         Assert.Equal(1, check.Ahead);
@@ -127,7 +127,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         var (_, clone) = NewOriginAndClone();
         Git(clone, "checkout", "--quiet", "-b", "local-only");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.NoUpstream, check.Currency);
         Assert.False(check.CanPull);
@@ -141,7 +141,7 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
         var (_, clone) = NewOriginAndClone();
         Git(clone, "checkout", "--quiet", "--detach", "HEAD");
 
-        var check = await _service.CheckForUpdatesAsync(_repository, clone);
+        var check = await _service.CheckForUpdatesAsync(_repository, clone, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Detached, check.Currency);
         Assert.False(check.CanPull);
@@ -153,8 +153,8 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
     {
         var directory = NewDirectory();
 
-        var check = await _service.CheckForUpdatesAsync(_repository, directory);
-        var pull = await _service.PullAsync(_repository, directory);
+        var check = await _service.CheckForUpdatesAsync(_repository, directory, TestContext.Current.CancellationToken);
+        var pull = await _service.PullAsync(_repository, directory, TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Unknown, check.Currency);
         Assert.Contains("no git clone", check.Summary);
@@ -165,8 +165,8 @@ public sealed class LocalGitRepositoryUpdateTests : IDisposable
     [Fact]
     public async Task No_configured_clone_directory_is_reported_rather_than_thrown()
     {
-        var check = await _service.CheckForUpdatesAsync(_repository, null);
-        var pull = await _service.PullAsync(_repository, "   ");
+        var check = await _service.CheckForUpdatesAsync(_repository, null, TestContext.Current.CancellationToken);
+        var pull = await _service.PullAsync(_repository, "   ", TestContext.Current.CancellationToken);
 
         Assert.Equal(LocalGitRepositoryCurrency.Unknown, check.Currency);
         Assert.Contains("No local clone directory", check.Summary);

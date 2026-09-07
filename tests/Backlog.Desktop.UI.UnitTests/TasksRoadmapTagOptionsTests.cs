@@ -105,7 +105,7 @@ public sealed class RoadmapPlanTagSourceTests : IDisposable
     [Fact]
     public async Task An_empty_plan_offers_no_tags()
     {
-        Assert.Empty(await _source.TagsInUseAsync());
+        Assert.Empty(await _source.TagsInUseAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -114,11 +114,11 @@ public sealed class RoadmapPlanTagSourceTests : IDisposable
         var planning = TasksTestHost.PlanningFor(_settings);
         var source = new RoadmapPlanTagSource(planning);
 
-        await planning.AddItemAsync("Sync", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), tag: "sync");
-        await planning.AddItemAsync("Desktop", new DateOnly(2026, 1, 6), new DateOnly(2026, 1, 9), tag: "desktop");
-        await planning.AddItemAsync("Sync again", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12), tag: "sync");
+        await planning.AddItemAsync("Sync", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), tag: "sync", cancellationToken: TestContext.Current.CancellationToken);
+        await planning.AddItemAsync("Desktop", new DateOnly(2026, 1, 6), new DateOnly(2026, 1, 9), tag: "desktop", cancellationToken: TestContext.Current.CancellationToken);
+        await planning.AddItemAsync("Sync again", new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 12), tag: "sync", cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal(["sync", "desktop"], await source.TagsInUseAsync());
+        Assert.Equal(["sync", "desktop"], await source.TagsInUseAsync(TestContext.Current.CancellationToken));
     }
 
     public void Dispose()

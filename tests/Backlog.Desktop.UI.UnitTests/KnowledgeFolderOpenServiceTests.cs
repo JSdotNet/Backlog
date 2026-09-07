@@ -15,7 +15,7 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
         var launcher = new RecordingFolderEditorLauncher();
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), launcher);
 
-        await service.OpenAsync("domain", "intake");
+        await service.OpenAsync("domain", "intake", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.GetFullPath(target), launcher.OpenedFolder);
     }
@@ -29,7 +29,7 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
         var launcher = new RecordingFolderEditorLauncher();
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), launcher);
 
-        await service.OpenAsync("domain", ".domain");
+        await service.OpenAsync("domain", ".domain", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.GetFullPath(target), launcher.OpenedFolder);
     }
@@ -43,7 +43,7 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
         var launcher = new RecordingFolderEditorLauncher();
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), launcher);
 
-        await service.OpenAsync("instructions", ".agent/guides");
+        await service.OpenAsync("instructions", ".agent/guides", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.GetFullPath(target), launcher.OpenedFolder);
     }
@@ -55,7 +55,7 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(repo, ".domain"));
         var service = new KnowledgeFolderOpenService(new KnowledgeFolderSource(NewSettingsStore(repo)), new RecordingFolderEditorLauncher());
 
-        await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", "../outside"));
+        await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", "../outside", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed class KnowledgeFolderOpenServiceTests : IDisposable
             new KnowledgeFolderSource(NewSettingsStore(repo)),
             new ThrowingFolderEditorLauncher(failure));
 
-        var error = await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", ".domain"));
+        var error = await Assert.ThrowsAsync<KnowledgeFolderOpenException>(() => service.OpenAsync("domain", ".domain", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(launcherMessage, error.Message);
         Assert.Same(failure, error.InnerException);

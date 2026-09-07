@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 
+using Backlog.Infrastructure.Sync;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Mobile.UI.UnitTests;
@@ -163,6 +165,14 @@ public sealed class InboxSpeechCaptureTests
             _context.Services.AddSingleton<ISharedContentReceiver>(new TestSharedContentReceiver());
             _context.Services.AddSingleton(new CloudSyncClient(
                 new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") }));
+
+            // Already paired, for the same reason the share source is idle:
+            // dictation has nothing to do with pairing, and an unpaired screen
+            // renders the pairing box in place of the mic these tests press.
+            _context.Services.AddSingleton<IDeviceCredentialStore>(InboxPairingTests.PairedStore());
+            _context.Services.AddSingleton(new DevicePairingClient(
+                new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") },
+                new InMemoryDeviceCredentialStore()));
         }
 
         public FakeSpeechTranscriber Speech { get; }

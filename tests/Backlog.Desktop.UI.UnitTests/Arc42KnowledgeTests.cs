@@ -241,7 +241,7 @@ public class Arc42KnowledgeTests
             var store = ConfiguredSettings(root);
             var knowledge = new Arc42KnowledgeStore(new KnowledgeFolderSource(store));
 
-            await knowledge.UpdateStatusAsync("backlog", ".arc42/04-solution-strategy.md", "adopted");
+            await knowledge.UpdateStatusAsync("backlog", ".arc42/04-solution-strategy.md", "adopted", TestContext.Current.CancellationToken);
             var catalog = await knowledge.LoadAsync("backlog");
 
             var document = Assert.Single(catalog.Documents);

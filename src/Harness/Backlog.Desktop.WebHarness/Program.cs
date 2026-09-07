@@ -23,6 +23,8 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.WebHarness;
@@ -109,6 +111,19 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
     accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
+// The device half of cloud sync. Scoped to the content root like the harness's
+// other settings files, so a session here pairs a device of its own rather than
+// rewriting the real per-user credential — and so this harness and the mobile
+// one are two devices under one owner, which is what pairing is for. The
+// override variable is this harness's own for the same reason: one shared name
+// would let a single setting collapse the pair back into one device.
+builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevelopmentStore(
+    builder.Environment.ContentRootPath,
+    "BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH",
+    Path.Combine("obj", "local-development", "device-credential.json")));
+// "https+http://sync" is resolved by Aspire service discovery, so the harness
+// always talks to the sync service of this AppHost run.
+builder.Services.AddSyncClient(new Uri("https+http://sync"));
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();

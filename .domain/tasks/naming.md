@@ -276,9 +276,9 @@ A plan may name a task by id and read its progress; it never writes to it.
 
 ```meta
 type: term
-status: draft
+status: active
 aliases: [machine, PC]
-related: [.domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.domain/tasks/features.md#multi-device-sync, .domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#owner, .domain/tasks/naming.md#registration-credential, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 One machine holding the person's backlog. A device is not a user and not an
@@ -287,8 +287,74 @@ thing that is known and authorized.
 
 Each device holds its own canonical copy of every task. Two devices are peers:
 neither is the master, and the cloud replica between them is a courier rather
-than an authority. **Paired** describes two devices that have been joined to the
-same backlog, which is done once by entering a short code.
+than an authority. **Paired** describes two devices that share one
+[Owner](#owner), joined once by one device issuing a
+[Pairing code](#pairing-code) that the other redeems. Each device keeps its own
+[Registration credential](#registration-credential) and exchanges it for a
+[Device token](#device-token) before every sync call.
+
+## Owner
+
+```meta
+type: term
+status: active
+aliases: [ownerId, owner id]
+related: [.domain/tasks/naming.md#device, .domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
+```
+
+The backlog an `ownerId` names — not a person's account, since the product
+requires none, but the identifier every device paired together shares. The
+first device to register mints it; every device paired to that device
+afterward registers under the same one. It is the partition every stored task
+and session record carries, and the value the sync service reads out of a
+device's presented [Device token](#device-token) to decide which partition a
+call may touch.
+
+## Pairing code
+
+```meta
+type: term
+status: active
+aliases: [pairing code, XXXX-XXXX code]
+related: [.domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#device]
+```
+
+A short, single-use code a first device issues so a second device can join its
+[Owner](#owner). Eight characters from an alphabet that drops visually
+confusable letters and digits, shown to the person as `XXXX-XXXX`. It expires
+ten minutes after it is shown and is burned the instant it is redeemed,
+whichever comes first — so a code that leaks unused stops being a way in on its
+own, and a code cannot be redeemed twice.
+
+## Registration credential
+
+```meta
+type: term
+status: active
+aliases: [device credential, credential]
+related: [.domain/tasks/features.md#pairing-a-device, .domain/tasks/naming.md#device-token, .domain/tasks/naming.md#device]
+```
+
+The long-lived secret a device receives exactly once — at first registration,
+or at pairing — and keeps in its own OS credential store rather than anywhere
+the backlog itself is stored. It is never sent again after the moment it is
+issued: a device exchanges it for a [Device token](#device-token) before every
+sync call rather than presenting the credential itself on the wire.
+
+## Device token
+
+```meta
+type: term
+status: active
+aliases: [access token, device session token, sync token]
+related: [.domain/tasks/naming.md#registration-credential, .domain/tasks/naming.md#owner, .arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
+```
+
+The short-lived credential — thirty minutes — a device actually presents on a
+sync call, obtained by exchanging its [Registration credential](#registration-credential).
+Names the device and the [Owner](#owner) it belongs to, and is what the sync
+service validates and scopes every query to; the registration credential
+itself never crosses the wire a second time.
 
 ## Tombstone
 

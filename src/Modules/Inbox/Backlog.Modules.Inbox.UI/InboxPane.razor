@@ -41,9 +41,18 @@
                    Description="Capture and triage drafts before they settle into the backlog and knowledge lanes." />
 
     <div class="inbox-pane__content">
+        @* The library's alert wearing this pane's own class. An Alert rather than an
+           EmptyState, even though the mobile head draws this same fact as one: the
+           desktop pane's line is a sentence in the pane's own body copy, and an
+           EmptyState brings a title, a body and an action wrapper that this pane has
+           no icon, no action and no second line to fill. Adopting it here would be a
+           visual change dressed as an adoption. What the two heads owe each other is
+           the same words, not the same block. *@
         @if (Items.Count == 0)
         {
-            <p class="inbox-pane__empty">Inbox is empty. New drafts appear here as soon as they are captured.</p>
+            <Alert Message="Inbox is empty. New drafts appear here as soon as they are captured."
+                   BaseClass="inbox-pane__empty"
+                   Role="status" />
         }
         else
         {
@@ -78,7 +87,12 @@
                                      TestId="inbox-pane-drawer-toggle">
                             <LabelContent>
                                 <span class="inbox-pane__drawer-name">@drawer.Name</span>
-                                <span class="inbox-pane__group-count" data-testid="inbox-pane-drawer-count">@drawer.Items.Count</span>
+                                @* The library's badge wearing this pane's count class, the same way
+                                   the tools and sessions panes wear theirs. It was a hand-rolled
+                                   span, and the stylesheet under it is a badge in every respect —
+                                   a full-radius pill with a tint and a minimum width. Kind is
+                                   empty because this count has no state to colour. *@
+                                <Badge BaseClass="inbox-pane__group-count" Kind="" TestId="inbox-pane-drawer-count">@drawer.Items.Count</Badge>
                             </LabelContent>
                             <ChildContent>
                                 @if (drawer.IsSectioned)
@@ -94,7 +108,7 @@
                                                              TestId="inbox-pane-group-toggle">
                                                     <LabelContent>
                                                         <span class="inbox-pane__group-name">@section.Name</span>
-                                                        <span class="inbox-pane__group-count" data-testid="inbox-pane-group-count">@section.Items.Count</span>
+                                                        <Badge BaseClass="inbox-pane__group-count" Kind="" TestId="inbox-pane-group-count">@section.Items.Count</Badge>
                                                     </LabelContent>
                                                     <ChildContent>
                                                         <ul class="inbox-pane__list inbox-pane__list--grouped" aria-label="@section.Name" data-testid="inbox-pane-list">

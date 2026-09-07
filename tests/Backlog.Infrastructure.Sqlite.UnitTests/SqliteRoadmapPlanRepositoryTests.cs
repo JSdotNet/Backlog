@@ -42,7 +42,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     [Fact]
     public async Task AFirstRunLoadsAnEmptyPlan_RatherThanFailing()
     {
-        var plan = await _plans.LoadAsync();
+        var plan = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.True(plan.IsEmpty);
     }
@@ -62,7 +62,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Anything", Window(5, 9));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         // The folder the plan used to live in has no reason to exist now, and one that
         // appeared empty beside the database would invite somebody to look for a plan
@@ -88,7 +88,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Linked", Window(5, 9), taskId: taskId);
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         Assert.Contains("\"backlogEntryId\"", json, StringComparison.Ordinal);
@@ -117,7 +117,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             """;
         await StoreDocumentAsync(json);
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(taskId, loaded.Items.Single(item => item.Id == itemId).TaskId);
     }
@@ -139,8 +139,8 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         plan.AddDependency(build.Id, design.Id);
         plan.AddDependency(release.Id, build.Id);
 
-        await _plans.SaveAsync(plan);
-        var loaded = await _plans.LoadAsync();
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         var loadedDesign = loaded.Items.Single(item => item.Id == design.Id);
         Assert.Equal("Design the sync service", loadedDesign.Title);
@@ -167,7 +167,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Anything", Window(5, 9));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         Assert.Contains("\"start\":\"2026-01-05\"", json, StringComparison.Ordinal);
@@ -182,7 +182,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         plan.AddItem("Critical work", Window(5, 9), PlanningPriority.Critical);
         plan.AddMilestone("Freeze", new DateOnly(2026, 2, 2), MilestoneKind.Freeze);
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         Assert.Contains("\"priority\":\"critical\"", json, StringComparison.Ordinal);
@@ -194,12 +194,12 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     {
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Something", Window(5, 9));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         await StoreDocumentAsync("{ \"items\": [ oops");
         var storedAt = await StoredUpdatedAtAsync();
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.True(loaded.IsEmpty);
 
@@ -235,7 +235,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         });
         await StoreDocumentAsync(json);
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         var item = Assert.Single(loaded.Items);
         Assert.Equal("Typed by hand", item.Title);
@@ -260,7 +260,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         });
         await StoreDocumentAsync(json);
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         var item = Assert.Single(loaded.Items);
         Assert.Equal(good, item.Id);
@@ -280,8 +280,8 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             isPlanWide: true).Value;
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
 
-        await _plans.SaveAsync(plan);
-        var loaded = await _plans.LoadAsync();
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.True(loaded.Milestones.Single(milestone => milestone.Id == freeze.Id).IsPlanWide);
         Assert.False(loaded.Milestones.Single(milestone => milestone.Title == "1.0").IsPlanWide);
@@ -299,8 +299,8 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             knowledgeRefs: KnowledgeReferences.Of(
                 [".domain/tasks/domain.md#aggregate-backlog-entry", ".tech/technology-graph.md"])).Value;
 
-        await _plans.SaveAsync(plan);
-        var loaded = await _plans.LoadAsync();
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         var loadedItem = loaded.Items.Single(candidate => candidate.Id == item.Id);
         Assert.Equal("sync", loadedItem.Tag.Value);
@@ -331,7 +331,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         });
         await StoreDocumentAsync(json);
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         var item = Assert.Single(loaded.Items);
         Assert.Equal("typed-by-hand", item.Tag.Value);
@@ -344,7 +344,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Points at nothing", Window(5, 9), tag: PlanningTag.Of("plain"));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         // An empty array on every item is a key that says nothing, and a document
@@ -360,7 +360,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         // A false on every milestone is a key that says nothing.
@@ -373,7 +373,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Rehydrate([], [], BandColours.Of([new KeyValuePair<string, int>("backlog", 3)]));
         plan.AddMilestone("1.0", new DateOnly(2026, 3, 31));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var json = await StoredDocumentAsync();
 
         Assert.Contains("\"backlog\":3", json, StringComparison.Ordinal);
@@ -398,7 +398,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         });
         await StoreDocumentAsync(json);
 
-        var loaded = await _plans.LoadAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Null(loaded.BandColours.For("backlog"));
         Assert.Equal(2, loaded.BandColours.For("fincent"));
@@ -410,7 +410,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Anything", Window(5, 9));
 
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
         var first = await StoredUpdatedAtAsync();
 
         // Round-trippable, not merely present. Nothing reads the column yet; it is
@@ -424,7 +424,7 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
             $"updated_at was not round-trippable: '{first}'.");
 
         plan.AddItem("And another", Window(12, 16));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         var second = await StoredUpdatedAtAsync();
         Assert.True(
@@ -441,16 +441,16 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     {
         var plan = RoadmapPlan.Empty();
         plan.AddItem("First", Window(5, 9));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         plan.AddItem("Second", Window(12, 16));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         // The save is an UPSERT on a constant id rather than an insert, so a plan
         // edited a hundred times is still one row. A second row would be a second plan
         // nothing would ever read, and the first one silently frozen.
         Assert.Equal(1, await PlanRowCountAsync());
-        Assert.Equal(2, (await _plans.LoadAsync()).Items.Count);
+        Assert.Equal(2, (await _plans.LoadAsync(TestContext.Current.CancellationToken)).Items.Count);
     }
 
     [Fact]
@@ -458,19 +458,19 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     {
         var tasks = new SqliteTaskRepository(_dir);
         var task = new TaskItem("Ship it", "Body.", EntryType.Task);
-        await tasks.SaveAsync(task);
+        await tasks.SaveAsync(task, TestContext.Current.CancellationToken);
 
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Plan it", Window(5, 9));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
         // Two tables with an owner each, in one file. Neither adapter reads, writes or
         // creates the other's table — what they share is a database, not a schema — so
         // the thing worth asserting is that sharing it costs neither of them anything.
-        var loadedTask = await tasks.GetAsync(task.Id);
+        var loadedTask = await tasks.GetAsync(task.Id, TestContext.Current.CancellationToken);
         Assert.NotNull(loadedTask);
         Assert.Equal("Ship it", loadedTask.Title);
-        Assert.Equal("Plan it", Assert.Single((await _plans.LoadAsync()).Items).Title);
+        Assert.Equal("Plan it", Assert.Single((await _plans.LoadAsync(TestContext.Current.CancellationToken)).Items).Title);
 
         Assert.Equal(_plans.DatabasePath, tasks.DatabasePath);
         Assert.Single(
@@ -487,15 +487,15 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         // open is what makes that a non-event; this is the test that says so.
         var tasks = new SqliteTaskRepository(_dir);
         var task = new TaskItem("Was here first", "Body.", EntryType.Task);
-        await tasks.SaveAsync(task);
+        await tasks.SaveAsync(task, TestContext.Current.CancellationToken);
         Assert.False(await TableExistsAsync("roadmap_plan"));
 
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Arrived later", Window(5, 9));
-        await _plans.SaveAsync(plan);
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
 
-        Assert.Equal("Arrived later", Assert.Single((await _plans.LoadAsync()).Items).Title);
-        Assert.Equal("Was here first", Assert.Single(await tasks.ListAsync()).Title);
+        Assert.Equal("Arrived later", Assert.Single((await _plans.LoadAsync(TestContext.Current.CancellationToken)).Items).Title);
+        Assert.Equal("Was here first", Assert.Single(await tasks.ListAsync(TestContext.Current.CancellationToken)).Title);
     }
 
     [Fact]
@@ -507,12 +507,12 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
 
         var first = RoadmapPlan.Empty();
         first.AddItem("In the first folder", Window(5, 9));
-        await rooted.SaveAsync(first);
+        await rooted.SaveAsync(first, TestContext.Current.CancellationToken);
 
         root = second;
         try
         {
-            var loaded = await rooted.LoadAsync();
+            var loaded = await rooted.LoadAsync(TestContext.Current.CancellationToken);
 
             Assert.True(loaded.IsEmpty);
             Assert.Equal(Path.Combine(second, "backlog.db"), rooted.DatabasePath);

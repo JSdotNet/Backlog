@@ -101,7 +101,7 @@ public class DevToolTests
                 { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "enabled": true }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(pcConfigPath, """
             {
               "plugins": [
@@ -112,9 +112,9 @@ public class DevToolTests
                 { "packageId": "JSdotNet.MCP.Guidelines", "enabled": false }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc"));
+        var config = await DevToolConfiguration.ReadAsync(DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc"), TestContext.Current.CancellationToken);
 
         var plugins = config.Root["plugins"]!.AsArray();
         Assert.False(plugins[0]!["enabled"]!.GetValue<bool>());
@@ -137,18 +137,18 @@ public class DevToolTests
                 { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "enabled": true }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
-        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
-        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "mcp:JSdotNet.MCP.Guidelines", false);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false, TestContext.Current.CancellationToken);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "mcp:JSdotNet.MCP.Guidelines", false, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.True(config.PcConfigExists);
         Assert.False(config.Root["plugins"]![0]!["enabled"]!.GetValue<bool>());
         Assert.False(config.Root["mcpServers"]![0]!["enabled"]!.GetValue<bool>());
 
-        var pcConfig = await File.ReadAllTextAsync(paths.PcConfigPath);
+        var pcConfig = await File.ReadAllTextAsync(paths.PcConfigPath, TestContext.Current.CancellationToken);
         Assert.Contains("\"name\": \"architecture\"", pcConfig);
         Assert.Contains("\"packageId\": \"JSdotNet.MCP.Guidelines\"", pcConfig);
         Assert.DoesNotContain("source", pcConfig, StringComparison.OrdinalIgnoreCase);
@@ -159,7 +159,7 @@ public class DevToolTests
     {
         var root = CreateTempToolConfigRoot();
         var catalogPath = Path.Combine(root, ".tools", "copilot-tools.json");
-        await File.WriteAllTextAsync(catalogPath, """{ "plugins": [], "mcpServers": [] }""");
+        await File.WriteAllTextAsync(catalogPath, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
 
@@ -201,8 +201,8 @@ public class DevToolTests
         var legacyCatalog = Path.Combine(root, ".tools", "copilot-tools.json");
         var legacyPcConfig = Path.Combine(root, ".tools", "dev-pc", "copilot-tools.json");
         Directory.CreateDirectory(Path.GetDirectoryName(legacyPcConfig)!);
-        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""");
-        await File.WriteAllTextAsync(legacyPcConfig, """{ "plugins": [] }""");
+        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(legacyPcConfig, """{ "plugins": [] }""", TestContext.Current.CancellationToken);
 
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
@@ -218,8 +218,8 @@ public class DevToolTests
     public async Task The_new_name_wins_when_both_are_on_disk()
     {
         var root = CreateTempToolConfigRoot();
-        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "copilot-tools.json"), """{ "plugins": [] }""");
-        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "ai-tools.json"), """{ "plugins": [] }""");
+        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "copilot-tools.json"), """{ "plugins": [] }""", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(root, ".tools", "ai-tools.json"), """{ "plugins": [] }""", TestContext.Current.CancellationToken);
 
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
@@ -235,7 +235,7 @@ public class DevToolTests
     {
         var root = CreateTempToolConfigRoot();
         var legacyCatalog = Path.Combine(root, ".tools", "copilot-tools.json");
-        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""");
+        await File.WriteAllTextAsync(legacyCatalog, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
         var nestedStartPath = Path.Combine(root, "src", "App", "Backlog.Desktop", "bin", "Debug");
         Directory.CreateDirectory(nestedStartPath);
 
@@ -252,7 +252,7 @@ public class DevToolTests
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
-        await DevToolConfiguration.CreateCatalogAsync(paths);
+        await DevToolConfiguration.CreateCatalogAsync(paths, TestContext.Current.CancellationToken);
 
         Assert.Equal("ai-tools.json", Path.GetFileName(paths.CatalogPath));
         Assert.True(File.Exists(Path.Combine(root, ".tools", "ai-tools.json")));
@@ -268,11 +268,11 @@ public class DevToolTests
 
         Assert.False(DevToolConfiguration.CatalogExists(paths));
 
-        await DevToolConfiguration.CreateCatalogAsync(paths);
+        await DevToolConfiguration.CreateCatalogAsync(paths, TestContext.Current.CancellationToken);
 
         Assert.True(DevToolConfiguration.CatalogExists(paths));
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.Empty(config.Root["plugins"]!.AsArray());
         Assert.Empty(config.Root["mcpServers"]!.AsArray());
     }
@@ -284,12 +284,12 @@ public class DevToolTests
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
         await File.WriteAllTextAsync(paths.CatalogPath, """
             { "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ], "mcpServers": [] }
-            """);
-        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+            """, TestContext.Current.CancellationToken);
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.CreateCatalogAsync(paths));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.CreateCatalogAsync(paths, TestContext.Current.CancellationToken));
 
-        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -299,12 +299,12 @@ public class DevToolTests
 
         await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.Plugin, "architecture", "JSdotNet/Copilot:plugins/architecture", PluginKind: "repository-skills"));
+            new DevToolDraft(DevToolKind.Plugin, "architecture", "JSdotNet/Copilot:plugins/architecture", PluginKind: "repository-skills"), TestContext.Current.CancellationToken);
         await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "guidelines"));
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines", DisplayName: "guidelines"), TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
         Assert.Equal("architecture", plugin["name"]!.GetValue<string>());
         Assert.Equal("JSdotNet/Copilot:plugins/architecture", plugin["source"]!.GetValue<string>());
@@ -332,10 +332,10 @@ public class DevToolTests
         // Case-insensitively, matching every lookup in the catalog: two entries
         // differing only in case would be one tool with two rows.
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "Architecture", "b")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "Architecture", "b"), TestContext.Current.CancellationToken));
 
         Assert.Contains("already", refused.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Single((await DevToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+        Assert.Single((await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken)).Root["plugins"]!.AsArray());
     }
 
     [Fact]
@@ -344,10 +344,10 @@ public class DevToolTests
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "   ")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "   "), TestContext.Current.CancellationToken));
 
         Assert.Contains("source", refused.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty((await DevToolConfiguration.ReadAsync(paths)).Root["plugins"]!.AsArray());
+        Assert.Empty((await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken)).Root["plugins"]!.AsArray());
     }
 
     [Fact]
@@ -357,7 +357,7 @@ public class DevToolTests
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"), TestContext.Current.CancellationToken));
 
         Assert.Contains("Create it first", refused.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(paths.CatalogPath));
@@ -375,19 +375,19 @@ public class DevToolTests
               "mcpServers": []
             }
             """);
-        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false);
+        await DevToolConfiguration.WriteEnabledOverrideAsync(paths, "plugin:architecture", false, TestContext.Current.CancellationToken);
 
-        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture");
-        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture", TestContext.Current.CancellationToken);
+        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture", TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var remaining = Assert.Single(config.Root["plugins"]!.AsArray())!;
         Assert.Equal("qa", remaining["name"]!.GetValue<string>());
 
         // The point of pruning the override: add it back and it comes back
         // enabled rather than carrying a disable nobody remembers making.
-        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
-        var reread = await DevToolConfiguration.ReadAsync(paths);
+        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"), TestContext.Current.CancellationToken);
+        var reread = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var readded = reread.Root["plugins"]!.AsArray()
             .Single(node => node!["name"]!.GetValue<string>() == "architecture")!;
         Assert.True(readded["enabled"]!.GetValue<bool>());
@@ -398,7 +398,7 @@ public class DevToolTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
 
-        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture");
+        await DevToolConfiguration.RemoveEnabledOverrideAsync(paths, "plugin:architecture", TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(paths.PcConfigPath));
     }
@@ -407,12 +407,12 @@ public class DevToolTests
     public async Task Removing_a_tool_that_is_not_there_fails_without_touching_the_catalog()
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [], "mcpServers": [] }""");
-        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture"));
+            DevToolConfiguration.RemoveFromCatalogAsync(paths, "plugin:architecture", TestContext.Current.CancellationToken));
 
-        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -421,19 +421,19 @@ public class DevToolTests
         var paths = await CreateCatalogWithAsync("""
             { "plugins": [ { "name": "architecture", "source": "a", "enabled": true } ], "mcpServers": [] }
             """);
-        var before = await File.ReadAllTextAsync(paths.CatalogPath);
+        var before = await File.ReadAllTextAsync(paths.CatalogPath, TestContext.Current.CancellationToken);
 
         await DevToolConfiguration.ImportCatalogAsync(paths, """
             { "plugins": [ { "name": "qa", "source": "b", "enabled": false } ], "mcpServers": [] }
-            """);
+            """, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
 
         // A replace and not a merge: the entry the imported file does not carry
         // is gone rather than kept.
         Assert.Equal("qa", plugin["name"]!.GetValue<string>());
-        Assert.Equal(before, await File.ReadAllTextAsync(paths.CatalogPath + ".bak"));
+        Assert.Equal(before, await File.ReadAllTextAsync(paths.CatalogPath + ".bak", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -442,12 +442,12 @@ public class DevToolTests
         var paths = await CreateCatalogWithAsync("""
             { "plugins": [ { "name": "architecture", "source": "a", "enabled": true } ], "mcpServers": [] }
             """);
-        var before = await File.ReadAllBytesAsync(paths.CatalogPath);
+        var before = await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.ImportCatalogAsync(paths, "{ not json at all"));
+            DevToolConfiguration.ImportCatalogAsync(paths, "{ not json at all", TestContext.Current.CancellationToken));
 
-        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath));
+        Assert.Equal(before, await File.ReadAllBytesAsync(paths.CatalogPath, TestContext.Current.CancellationToken));
 
         // Nothing was replaced, so nothing was backed up either.
         Assert.False(File.Exists(paths.CatalogPath + ".bak"));
@@ -911,9 +911,9 @@ public class ClaudeCatalogTests
 
         await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "JSdotNet/Copilot"));
+            new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "JSdotNet/Copilot"), TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var marketplace = Assert.Single(DevToolConfiguration.MarketplaceEntries(config.Root));
 
         Assert.Equal("jsdotnet-copilot", marketplace["name"]!.GetValue<string>());
@@ -930,7 +930,7 @@ public class ClaudeCatalogTests
         var paths = await CreateCatalogWithAsync("""{ "plugins": [] }""");
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "  ")));
+            DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Marketplace, "jsdotnet-copilot", "  "), TestContext.Current.CancellationToken));
 
         Assert.Contains("source", refused.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -945,9 +945,9 @@ public class ClaudeCatalogTests
             }
             """);
 
-        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "marketplace:jsdotnet-copilot");
+        await DevToolConfiguration.RemoveFromCatalogAsync(paths, "marketplace:jsdotnet-copilot", TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.Empty(DevToolConfiguration.MarketplaceEntries(config.Root));
     }
 
@@ -959,9 +959,9 @@ public class ClaudeCatalogTests
     {
         var paths = await CreateCatalogWithAsync("""{ "plugins": [] }""");
 
-        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
+        await DevToolConfiguration.AddToCatalogAsync(paths, new DevToolDraft(DevToolKind.Plugin, "architecture", "a"), TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.Null(Assert.Single(config.Root["plugins"]!.AsArray())!["hosts"]);
     }
 
@@ -977,9 +977,9 @@ public class ClaudeCatalogTests
                 Hosts = DevToolHosts.Claude,
                 ClaudeName = "guidelines",
                 ClaudeMarketplace = "anthropic-skills"
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var plugin = Assert.Single(config.Root["plugins"]!.AsArray())!;
 
         Assert.Equal(["claude"], plugin["hosts"]!.AsArray().Select(node => node!.GetValue<string>()));
@@ -1000,9 +1000,9 @@ public class ClaudeCatalogTests
                 ClaudeServerName = "jsdotnet-coding-guidelines",
                 ClaudeCommand = "jsdotnet-guidelines-mcpserver",
                 ClaudeArgs = ["--stdio"]
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var claude = Assert.Single(config.Root["mcpServers"]!.AsArray())!["claude"]!;
 
         Assert.Equal("jsdotnet-coding-guidelines", claude["name"]!.GetValue<string>());
@@ -1020,9 +1020,9 @@ public class ClaudeCatalogTests
 
         await DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines") { ClaudeServerName = "guidelines" });
+            new DevToolDraft(DevToolKind.McpServer, "JSdotNet.MCP.Guidelines") { ClaudeServerName = "guidelines" }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.Null(Assert.Single(config.Root["mcpServers"]!.AsArray())!["claude"]);
     }
 
@@ -1081,7 +1081,7 @@ public class UnsupportedDevToolServiceTests
     {
         var service = new UnsupportedDevToolService();
 
-        var catalog = await service.ListAsync();
+        var catalog = await service.ListAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(catalog.Tools);
         Assert.Contains("desktop app", catalog.Message, StringComparison.OrdinalIgnoreCase);
@@ -1095,7 +1095,7 @@ public class UnsupportedDevToolServiceTests
     [Fact]
     public async Task Creating_a_catalog_is_refused()
     {
-        var result = await new UnsupportedDevToolService().CreateCatalogAsync();
+        var result = await new UnsupportedDevToolService().CreateCatalogAsync(TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1105,7 +1105,7 @@ public class UnsupportedDevToolServiceTests
     public async Task Adding_a_tool_is_refused()
     {
         var result = await new UnsupportedDevToolService()
-            .AddAsync(new DevToolDraft(DevToolKind.Plugin, "architecture", "a"));
+            .AddAsync(new DevToolDraft(DevToolKind.Plugin, "architecture", "a"), TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1114,7 +1114,7 @@ public class UnsupportedDevToolServiceTests
     [Fact]
     public async Task Removing_a_tool_is_refused()
     {
-        var result = await new UnsupportedDevToolService().RemoveAsync("plugin:architecture");
+        var result = await new UnsupportedDevToolService().RemoveAsync("plugin:architecture", TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1123,7 +1123,7 @@ public class UnsupportedDevToolServiceTests
     [Fact]
     public async Task Importing_a_catalog_is_refused()
     {
-        var result = await new UnsupportedDevToolService().ImportAsync("""{ "plugins": [] }""");
+        var result = await new UnsupportedDevToolService().ImportAsync("""{ "plugins": [] }""", TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Contains("desktop app", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -1139,9 +1139,9 @@ public class UnsupportedDevToolServiceTests
 
         var result = action switch
         {
-            DevToolAction.Update => await service.UpdateAsync("plugin:test"),
-            DevToolAction.Enable => await service.EnableAsync("plugin:test"),
-            DevToolAction.Disable => await service.DisableAsync("plugin:test"),
+            DevToolAction.Update => await service.UpdateAsync("plugin:test", TestContext.Current.CancellationToken),
+            DevToolAction.Enable => await service.EnableAsync("plugin:test", TestContext.Current.CancellationToken),
+            DevToolAction.Disable => await service.DisableAsync("plugin:test", TestContext.Current.CancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 
@@ -1283,7 +1283,7 @@ public class ApplicationCatalogTests
             }
             """);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
 
         Assert.Single(config.Root["plugins"]!.AsArray());
         Assert.Single(config.Root["mcpServers"]!.AsArray());
@@ -1496,7 +1496,7 @@ public class ApplicationCatalogTests
                 { "id": "Git.Git", "name": "Git", "provider": "winget", "enabled": true }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
         Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
         await File.WriteAllTextAsync(paths.PcConfigPath, """
             {
@@ -1505,9 +1505,9 @@ public class ApplicationCatalogTests
                 { "id": "Never.Heard.Of.It", "enabled": true }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var applications = DevToolConfiguration.ReadApplications(config.Root);
 
         Assert.False(applications[0].Enabled);
@@ -1530,26 +1530,26 @@ public class ApplicationCatalogTests
                 { "id": "office-signed-in", "name": "Signed in to Microsoft 365", "provider": "manual", "enabled": true }
               ]
             }
-            """);
+            """, TestContext.Current.CancellationToken);
 
-        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", true);
+        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", true, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
 
         Assert.True(application.Acknowledged);
         Assert.True(application.Enabled);
 
-        var pcConfig = await File.ReadAllTextAsync(paths.PcConfigPath);
+        var pcConfig = await File.ReadAllTextAsync(paths.PcConfigPath, TestContext.Current.CancellationToken);
         Assert.Contains("\"id\": \"office-signed-in\"", pcConfig);
         Assert.Contains("\"acknowledged\": true", pcConfig);
 
         // Acknowledging says nothing about whether the machine wants the row.
         Assert.DoesNotContain("\"enabled\"", pcConfig, StringComparison.Ordinal);
 
-        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", false);
+        await DevToolConfiguration.WriteAcknowledgementAsync(paths, "app:office-signed-in", false, TestContext.Current.CancellationToken);
 
-        var reread = await DevToolConfiguration.ReadAsync(paths);
+        var reread = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         Assert.False(DevToolConfiguration.ReadApplications(reread.Root)[0].Acknowledged);
     }
 
@@ -1581,9 +1581,9 @@ public class ApplicationCatalogTests
             new DevToolDraft(DevToolKind.Application, "Microsoft.VisualStudioCode", DisplayName: "Visual Studio Code")
             {
                 Provider = DevToolProvider.Winget
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
 
         Assert.Equal("Microsoft.VisualStudioCode", entry["id"]!.GetValue<string>());
@@ -1621,9 +1621,9 @@ public class ApplicationCatalogTests
             {
                 Provider = DevToolProvider.Winget,
                 InstallerType = "exe"
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
 
         Assert.Equal("exe", entry["installerType"]!.GetValue<string>());
@@ -1647,9 +1647,9 @@ public class ApplicationCatalogTests
                 DetectExpect = "true",
                 InstallCommand = "git",
                 InstallArgs = ["config", "--global", "pull.rebase", "true"]
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var application = Assert.Single(DevToolConfiguration.ReadApplications(config.Root));
 
         Assert.Equal(DevToolProvider.Command, application.Provider);
@@ -1675,9 +1675,9 @@ public class ApplicationCatalogTests
                 DetectCommand = "fsutil",
                 DetectArgs = ["devdrv", "query", "D:"],
                 DetectExpect = "trusted Dev Drive"
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var config = await DevToolConfiguration.ReadAsync(paths);
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
         var entry = Assert.Single(config.Root["applications"]!.AsArray())!.AsObject();
 
         Assert.False(entry.ContainsKey("install"));
@@ -1691,7 +1691,7 @@ public class ApplicationCatalogTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.Application, "  ")));
+            new DevToolDraft(DevToolKind.Application, "  "), TestContext.Current.CancellationToken));
 
         Assert.Contains("application", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -1706,7 +1706,7 @@ public class ApplicationCatalogTests
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.Application, "dev-drive") { Provider = DevToolProvider.Command }));
+            new DevToolDraft(DevToolKind.Application, "dev-drive") { Provider = DevToolProvider.Command }, TestContext.Current.CancellationToken));
 
         Assert.Contains("detect", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -1720,7 +1720,7 @@ public class ApplicationCatalogTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => DevToolConfiguration.AddToCatalogAsync(
             paths,
-            new DevToolDraft(DevToolKind.Application, "git.git") { Provider = DevToolProvider.Winget }));
+            new DevToolDraft(DevToolKind.Application, "git.git") { Provider = DevToolProvider.Winget }, TestContext.Current.CancellationToken));
     }
 
     private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
@@ -1772,7 +1772,7 @@ public class ClaudeDesktopHostTests
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
         var paths = DevToolConfigurationPaths.FromRepositoryRoot(root, "dev-pc");
-        await File.WriteAllTextAsync(paths.CatalogPath, """{ "plugins": [], "mcpServers": [] }""");
+        await File.WriteAllTextAsync(paths.CatalogPath, """{ "plugins": [], "mcpServers": [] }""", TestContext.Current.CancellationToken);
 
         await DevToolConfiguration.AddToCatalogAsync(
             paths,
@@ -1780,9 +1780,9 @@ public class ClaudeDesktopHostTests
             {
                 Hosts = DevToolHosts.Claude | DevToolHosts.ClaudeDesktop,
                 ClaudeCommand = "guidelines"
-            });
+            }, TestContext.Current.CancellationToken);
 
-        var hosts = (await DevToolConfiguration.ReadAsync(paths)).Root["mcpServers"]![0]!["hosts"]!.AsArray()
+        var hosts = (await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken)).Root["mcpServers"]![0]!["hosts"]!.AsArray()
             .Select(node => node!.GetValue<string>())
             .ToArray();
 

@@ -23,6 +23,21 @@
         </div>
     </Story>
 
+    <Story Name="Alert beside the thing it is about"
+           Description="Inline draws the alert as a span instead of a paragraph, for the message that belongs next to what produced it rather than under it — a refused value beside its own text, or a failed action beside the button that failed. A block element in a row of controls breaks the row, which is what makes this a parameter rather than a note telling hosts to write their own span. Where the message sits and how it is announced stay separate: Role still answers the second question on its own."
+           Code="@AlertInlineCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.Secondary">Set state</AppButton>
+                <Alert Message="Blocked is not reachable from Done." Role="status" TestId="alert-inline" Inline />
+            </div>
+            <p>
+                Due <code>2026-13-01</code>
+                <Alert Message="That is not a month." Role="status" TestId="alert-inline-in-text" Inline />
+            </p>
+        </div>
+    </Story>
+
     <Story Name="EmptyState"
            Description="With an action when there is something to do about it, without one when there is not."
            Code="@EmptyCode">
@@ -238,6 +253,10 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
 
     private const string AlertCode = """
         <Alert Message="@_error" />
+        """;
+
+    private const string AlertInlineCode = """
+        <Alert Message="@_refusal" Role="status" Inline />
         """;
 
     private const string EmptyCode = """

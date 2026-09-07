@@ -20,10 +20,10 @@ public class ProductivityInsightsTests
             Availability = InsightAvailability.Unavailable("Sign in with `gh auth login`.")
         });
 
-        var headline = await insights.GetHeadlineAsync(DashboardScope.Default);
-        var score = await insights.GetScoreAsync(DashboardScope.Default);
-        var trend = await insights.GetTrendAsync(DashboardScope.Default);
-        var rework = await insights.GetReworkAsync(DashboardScope.Default);
+        var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var score = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var trend = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var rework = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         foreach (var reason in new[]
                  {
@@ -53,7 +53,7 @@ public class ProductivityInsightsTests
             Throw = new InvalidOperationException("GitHub answered 502.")
         });
 
-        var headline = await insights.GetHeadlineAsync(DashboardScope.Default);
+        var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.False(headline.HasValue);
         Assert.Equal("GitHub answered 502.", headline.Availability.Reason);
@@ -72,7 +72,7 @@ public class ProductivityInsightsTests
         });
 
         _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => insights.GetHeadlineAsync(DashboardScope.Default));
+            () => insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -81,10 +81,10 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(DashboardScope.Default);
-        _ = await insights.GetScoreAsync(DashboardScope.Default);
-        _ = await insights.GetTrendAsync(DashboardScope.Default);
-        _ = await insights.GetReworkAsync(DashboardScope.Default);
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, source.Calls);
     }
@@ -113,9 +113,9 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(DashboardScope.Default);
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
         insights.Invalidate(DashboardScope.Default);
-        _ = await insights.GetHeadlineAsync(DashboardScope.Default);
+        _ = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, source.Calls);
     }
@@ -126,7 +126,7 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(new DashboardScope("backlog-ide"));
+        _ = await insights.GetHeadlineAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
 
         var asked = Assert.Single(source.Requested);
         Assert.Equal("backlog-ide", asked.Alias);
@@ -142,7 +142,7 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(new DashboardScope("deleted-repo"));
+        _ = await insights.GetHeadlineAsync(new DashboardScope("deleted-repo"), TestContext.Current.CancellationToken);
 
         Assert.Empty(source.Requested);
     }
@@ -165,8 +165,8 @@ public class ProductivityInsightsTests
                 [])
         };
 
-        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default);
-        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default);
+        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(headline.HasValue);
         Assert.Equal(0.5m, headline.Value!.ReworkRate);
@@ -191,7 +191,7 @@ public class ProductivityInsightsTests
                 [])
         };
 
-        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default);
+        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(rework.HasValue);
         Assert.False(rework.Value!.ChurnComplete);
@@ -211,7 +211,7 @@ public class ProductivityInsightsTests
                 [])
         };
 
-        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default);
+        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(headline.HasValue);
         Assert.Equal(TimeSpan.FromHours(3), headline.Value!.MedianReviewTurnaround);
@@ -225,7 +225,7 @@ public class ProductivityInsightsTests
             Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], [])
         };
 
-        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default);
+        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
         var series = Assert.Single(trend.Value!.ByRepository);
@@ -251,7 +251,7 @@ public class ProductivityInsightsTests
                 [])
         };
 
-        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default);
+        var trend = await Insights(source).GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
         Assert.Equal(2, trend.Value!.ByRepository.Count);

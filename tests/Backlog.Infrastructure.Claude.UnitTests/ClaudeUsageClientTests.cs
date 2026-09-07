@@ -144,7 +144,7 @@ public class ClaudeUsageClientTests
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
         var client = new ClaudeUsageClient(new StubTransport(available: false), settings);
 
-        var availability = await client.GetAvailabilityAsync();
+        var availability = await client.GetAvailabilityAsync(TestContext.Current.CancellationToken);
 
         Assert.False(availability.IsAvailable);
         Assert.Contains("individual accounts", availability.Reason, StringComparison.OrdinalIgnoreCase);
@@ -166,7 +166,7 @@ public class ClaudeUsageClientTests
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
-        Assert.True((await client.GetAvailabilityAsync()).IsAvailable);
+        Assert.True((await client.GetAvailabilityAsync(TestContext.Current.CancellationToken)).IsAvailable);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class ClaudeUsageClientTests
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
-        Assert.True((await client.GetAvailabilityAsync()).IsAvailable);
+        Assert.True((await client.GetAvailabilityAsync(TestContext.Current.CancellationToken)).IsAvailable);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public class ClaudeUsageClientTests
         var now = DateTimeOffset.UtcNow;
 
         await Assert.ThrowsAsync<ClaudeException>(() =>
-            client.GetMessageUsageAsync(new ClaudeUsageWindow(now, now.AddDays(-1))));
+            client.GetMessageUsageAsync(new ClaudeUsageWindow(now, now.AddDays(-1)), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class ClaudeUsageClientTests
         await client.GetMessageUsageAsync(
             new ClaudeUsageWindow(
                 new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
-                new DateTimeOffset(2026, 8, 8, 0, 0, 0, TimeSpan.Zero)));
+                new DateTimeOffset(2026, 8, 8, 0, 0, 0, TimeSpan.Zero)), cancellationToken: TestContext.Current.CancellationToken);
 
         var path = Assert.Single(transport.Paths);
 
@@ -228,7 +228,7 @@ public class ClaudeUsageClientTests
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
         var client = new ClaudeUsageClient(transport, settings);
 
-        await client.GetCostAsync(ClaudeUsageWindow.LastDays(7));
+        await client.GetCostAsync(ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
 
         Assert.Contains("bucket_width=1d", Assert.Single(transport.Paths), StringComparison.Ordinal);
     }
@@ -256,7 +256,7 @@ public class ClaudeUsageClientTests
 
         var client = new ClaudeUsageClient(transport, settings);
 
-        var report = await client.GetMessageUsageAsync(ClaudeUsageWindow.LastDays(2));
+        var report = await client.GetMessageUsageAsync(ClaudeUsageWindow.LastDays(2), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, report.Buckets.Count);
         Assert.Equal(30, report.Totals.InputTokens);
