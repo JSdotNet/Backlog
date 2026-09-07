@@ -23,10 +23,26 @@
     }
     else if (_view.Error is not null)
     {
-        <div class="domain-knowledge__empty" role="status">
-            <p>@_view.Error</p>
-            <a class="md-link" href="settings">Configure repository knowledge folders</a>
-        </div>
+        @* The library's empty state, in its error shape: a reason and the way out
+           of it. This was a hand-rolled div, and its class styled nothing at all —
+           there is no `.domain-knowledge__empty` rule anywhere in the product — so
+           what the reader got was an error sentence and a link as loose flow text
+           while every other dead end in the app is drawn as a block. The class goes
+           with the div rather than being carried over: a name that dresses nothing
+           is not a hook worth keeping alive.
+
+           The anchor stays exactly as it was. `md-link` is the library's Markdown
+           link class and the one documented exception to wearing it, because the
+           library ships no link component; putting it in the action slot adopts the
+           block without quietly changing the one thing that was already decided. *@
+        <EmptyState Title="Domain knowledge is unavailable"
+                    Description="@_view.Error"
+                    TestId="domain-knowledge-error"
+                    role="status">
+            <Action>
+                <a class="md-link" href="settings">Configure repository knowledge folders</a>
+            </Action>
+        </EmptyState>
     }
     else
     {
@@ -1008,13 +1024,18 @@
             </IconButton>
         }
 
+        @* Inline, because these report the action beside them rather than the row:
+           a block here would break the bar the buttons sit in, which is why both of
+           these were hand-rolled spans instead of adopting the library's alert.
+           `Inline` is that gap closed on the component, so the shape lives in one
+           place and both of these are the same alert every other failure is. *@
         @if (_statusErrors.TryGetValue(item.Path, out var statusError))
         {
-            <span class="domain-knowledge__action-error" role="status">@statusError</span>
+            <Alert Message="@statusError" BaseClass="domain-knowledge__action-error" Role="status" Inline />
         }
         @if (_copilotErrors.TryGetValue(item.Path, out var error))
         {
-            <span class="domain-knowledge__action-error" role="status">@error</span>
+            <Alert Message="@error" BaseClass="domain-knowledge__action-error" Role="status" Inline />
         }
     </div>;
 

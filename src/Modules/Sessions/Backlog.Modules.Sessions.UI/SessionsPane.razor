@@ -142,10 +142,18 @@
         }
 
         @* Total, not Shown: a refresh of a fully-filtered list has nothing on screen
-           and is not a first read, and this message would flash on every one of them. *@
+           and is not a first read, and this message would flash on every one of them.
+
+           The library's alert wearing this pane's own class, the same way the notice
+           above it does. This was a hand-rolled p carrying that class, which is the
+           copy nothing catches: the name is the pane's, so no rule about the
+           library's names could see it. Adopting it changes no markup and no CSS,
+           and it is how the line finally announces itself — a first read that says
+           nothing to a screen reader is the accessibility cost the library exists
+           to pay once. *@
         @if (_loading && Total == 0)
         {
-            <p class="sessions-panel__empty">Reading the sessions on this PC.</p>
+            <Alert Message="Reading the sessions on this PC." BaseClass="sessions-panel__empty" Role="status" TestId="sessions-loading" />
         }
         else
         {
