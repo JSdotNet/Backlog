@@ -56,9 +56,15 @@
 
     @if (ShowOverflow)
     {
+        @* IconAlone unconditionally: the trigger is three dots and never a word,
+           at any density. It is stated here rather than derived from the class,
+           because this button does not wear `btn--icon` — a class-shaped rule
+           would miss it and hit IconButton, which wears the stem and emits no
+           `.btn__icon` at all. *@
         <AppButton Variant="ButtonVariant.Ghost"
                    Size="@IntegrationStates.SizeFor(Density)"
                    CssClass="integration-bar__overflow"
+                   IconAlone="true"
                    Disabled="@(!ClusterReady.IsAvailable)"
                    TestId="@OverflowTestId"
                    title="@(ClusterReady.IsAvailable ? null : IntegrationStates.ReasonFor(ClusterReady))"

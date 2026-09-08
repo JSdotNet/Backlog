@@ -288,4 +288,77 @@ public sealed class IntegrationActionBarTests
             new[] { "act-first", "act-copy", "act-ask", "act-last" },
             bar.FindAll("button[data-testid^='act-']").Select(element => element.GetAttribute("data-testid")));
     }
+    // --- The gap the trigger's glyph keeps for a label ----------------------
+
+    /// <summary>
+    /// The overflow trigger is a glyph and nothing else at every density — it
+    /// never carried a word to begin with — so the gap <c>.btn__icon</c> holds
+    /// open beside it is padding down one side of the square.
+    /// </summary>
+    [Theory]
+    [InlineData(IntegrationDensity.Toolbar)]
+    [InlineData(IntegrationDensity.Inline)]
+    [InlineData(IntegrationDensity.Compact)]
+    [InlineData(IntegrationDensity.Menu)]
+    public void The_overflow_trigger_is_a_glyph_alone_at_every_density(IntegrationDensity density)
+    {
+        using var context = new BunitContext();
+
+        var bar = Render(context, p => p
+            .Add(b => b.Actions, Standards(6))
+            .Add(b => b.Density, density));
+
+        var trigger = bar.Find("[data-testid='overflow']");
+
+        Assert.Contains("btn__icon--alone", trigger.QuerySelector(".btn__icon")!.ClassList);
+        Assert.Equal(string.Empty, trigger.TextContent.Trim());
+    }
+
+    /// <summary>
+    /// Rule 10's disabled trigger is the one no density budget produces, so it is
+    /// asserted on its own — and it keeps the cluster's reason while it gains the
+    /// marker.
+    /// </summary>
+    [Fact]
+    public void The_disabled_menu_trigger_is_a_glyph_alone_too()
+    {
+        using var context = new BunitContext();
+
+        var bar = Render(context, p => p
+            .Add(b => b.Actions, Standards(1))
+            .Add(b => b.Density, IntegrationDensity.Menu)
+            .Add(b => b.Readiness, IntegrationReadiness.Offline()));
+
+        var trigger = bar.Find("[data-testid='overflow']");
+
+        Assert.True(trigger.HasAttribute("disabled"));
+        Assert.Contains("btn__icon--alone", trigger.QuerySelector(".btn__icon")!.ClassList);
+        Assert.Equal("More actions", trigger.GetAttribute("aria-label"));
+        Assert.Equal(
+            "Offline. This needs a connection; everything else keeps working.",
+            trigger.GetAttribute("title"));
+    }
+
+    /// <summary>
+    /// Closing the gap must not resize the target. Asserted against the
+    /// stylesheet for the reason DeleteButtonTests gives — bUnit brings no layout
+    /// engine, and the 2.75rem floor is the accessible hit area.
+    /// </summary>
+    [Fact]
+    public void A_compact_icon_button_still_reserves_its_44px_target()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File(
+            "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
+
+        var start = css.IndexOf("\n.integration-bar--compact .btn--icon {", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.css has no rule for .integration-bar--compact .btn--icon.");
+
+        var close = css.IndexOf('}', start);
+        Assert.True(close > start, "That rule in components.css is never closed.");
+
+        var rule = css[start..close];
+
+        Assert.Matches(@"min-width:\s*2\.75rem", rule);
+        Assert.Matches(@"min-height:\s*2\.75rem", rule);
+    }
 }
