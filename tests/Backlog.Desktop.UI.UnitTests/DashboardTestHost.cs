@@ -59,11 +59,17 @@ internal static class DashboardTestHost
             [.. aliases.Select(alias => new DashboardRepository(alias, $"JSdotNet/{alias}"))];
     }
 
-    /// <summary>One machine, which is also what the real adapter answers today: no
-    /// session record has arrived from anywhere else yet.</summary>
+    /// <summary>One machine, which is what the real adapter answers on an installation
+    /// no record has replicated to. Answering from a completed task rather than a
+    /// delay: the pane reads this once as it initializes, and a test measuring the
+    /// filter should not have to wait for a fixture.</summary>
     private sealed class FixedMachineDirectory(string id, string name) : IMachineDirectory
     {
-        public IReadOnlyList<DashboardMachine> Machines { get; } = [new DashboardMachine(id, name)];
+        private readonly IReadOnlyList<DashboardMachine> _machines = [new DashboardMachine(id, name)];
+
+        public Task<IReadOnlyList<DashboardMachine>> GetMachinesAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(_machines);
     }
 
     private sealed class UnavailableSessionInsights : ISessionInsights

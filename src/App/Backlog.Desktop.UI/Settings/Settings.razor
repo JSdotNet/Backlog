@@ -461,6 +461,20 @@
                         machines writing it will lose edits.
                     </p>
 
+                    @* The concrete half of the paragraph above. That one can say
+                       what a synced folder does to the database; only this can say
+                       that the folder in the field is one - which is the gap local
+                       ADR 0005 left the copy holding, because a root that followed
+                       the retired advice stays where it is. It names the provider
+                       and stops there: the root is the reader's choice and this
+                       warns rather than prevents. Renders nothing when the store
+                       recognised nothing, which is also what an unknown machine
+                       and an unreadable disk produce. *@
+                    <Alert Message="@SyncedRootWarning"
+                           BaseClass="setting__warning"
+                           Id="storage-path-sync-warning"
+                           TestId="storage-path-sync-warning" />
+
                     @* The error class goes on InputCssClass, not ErrorMessage: this
                        page reports the reason in its own status paragraph below, and
                        ErrorMessage would render a second one as an Alert. *@
@@ -472,7 +486,7 @@
                                data-testid="storage-path-input"
                                spellcheck="false"
                                autocomplete="off"
-                               aria-describedby="storage-path-status"
+                               aria-describedby="@StoragePathDescribedBy"
                                Value="@_draftPath"
                                ValueChanged="value => _draftPath = value"
                                @onchange="ApplyAsync"
@@ -2284,6 +2298,19 @@
     /// the status line beside it rather than by the component.</summary>
     private static string SettingInputClass(string? error) =>
         error is null ? "setting__input" : "setting__input setting__input--error";
+
+    /// <summary>What the store found the root to be inside, said as advice, or
+    /// null when it found nothing - which renders no warning at all.</summary>
+    private string? SyncedRootWarning => Store.SyncedRoot is null
+        ? null
+        : $"This folder is inside {Store.SyncedRoot.ProviderName}, which copies it between machines. It cannot merge the database, so entries and status edits can be lost - move the backlog to a folder on this disk.";
+
+    /// <summary>The status line always, and the sync warning as well while there
+    /// is one. Both are things the reader needs on reaching the field, and naming
+    /// an element that is not rendered would describe the field with nothing.</summary>
+    private string StoragePathDescribedBy => Store.SyncedRoot is null
+        ? "storage-path-status"
+        : "storage-path-status storage-path-sync-warning";
 
     private string StorageKnowledgePathDraft(KnowledgeFolderSetting folder)
     {

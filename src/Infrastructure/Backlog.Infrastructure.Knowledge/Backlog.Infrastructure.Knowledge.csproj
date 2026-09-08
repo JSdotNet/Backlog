@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The read side of the generated knowledge database (local ADR 0004).
+
+    Its own project rather than a folder inside Backlog.Infrastructure.Sqlite,
+    which is the canonical local task store. This is a different file with a
+    different lifecycle and the opposite stance: `_meta/knowledge.db` is a build
+    output written only by tools/knowledge/build-database.mjs, and nothing here
+    ever writes to it - not a table, not a migration, not a row it can see is
+    stale. Sharing a project with a read-write store would mean a header that
+    keeps apologising for which half a reader is looking at.
+
+    It is also what "one artifact, every channel" wants: the mobile head and the
+    IDE extension can reference this later without taking the backlog store, its
+    schema and its migrations with them.
+  -->
+  <ItemGroup>
+    <!-- SQLitePCLRaw.bundle_e_sqlite3 arrives transitively and ships FTS5
+         compiled in; an explicit SQLitePCLRaw reference would pin a second
+         opinion about which native build is loaded. FtsAvailability is the test
+         that says so out loud. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Second Brain's published surface, for the two retrieval ports this
+         project implements: IKnowledgeSearch and IKnowledgeVectorSearch. The
+         direction is the one ModuleBoundaryTests requires - a module declares a
+         port and infrastructure implements it, never the reverse - and it is the
+         same reference Backlog.Infrastructure.GitHub and .FileSystem already
+         take for IKnowledgeFolderSource, which is also what tells this project
+         which repository's database to open. -->
+    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Knowledge.UnitTests" />
+  </ItemGroup>
+
+</Project>

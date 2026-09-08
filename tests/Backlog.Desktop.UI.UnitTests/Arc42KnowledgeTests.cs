@@ -84,6 +84,7 @@ public class Arc42KnowledgeTests
             File.WriteAllText(Path.Combine(root, ".arc42", "02-second.md"), "# Second");
             File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
                 {
+                  "schemaVersion": 1,
                   "entries": [
                     { "type": "file", "path": ".arc42/02-second.md" },
                     { "type": "file", "path": ".arc42/01-first.md" }
@@ -120,6 +121,7 @@ public class Arc42KnowledgeTests
             File.WriteAllText(Path.Combine(folder, "adr", "0001-test.md"), "# ADR 0001");
             File.WriteAllText(Path.Combine(folder, "_meta", "index.json"), """
                 {
+                  "schemaVersion": 1,
                   "entries": [
                     { "type": "file", "path": "docs/arch/adr/0001-test.md" }
                   ]
@@ -195,6 +197,7 @@ public class Arc42KnowledgeTests
                 """);
             File.WriteAllText(Path.Combine(root, ".arc42", "_meta", "index.json"), """
                 {
+                  "schemaVersion": 1,
                   "entries": [
                     { "type": "file", "path": ".arc42/01-introduction-and-goals.md" },
                     { "type": "directory", "path": ".arc42/adr", "children": [

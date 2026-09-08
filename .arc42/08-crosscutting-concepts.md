@@ -169,18 +169,35 @@ sequenceDiagram
 
 ```meta
 status: active
-related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/sessions/domain.md#session-log"]
+related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/sessions/domain.md#session-log", ".domain/sessions/features.md#sessions-from-another-machine"]
 ```
 
 Session records replicate through the same service and the same pairing identity,
 into the `sessions` container, and reconcile on different terms — which is not a
 special case bolted on, but a consequence of who writes them.
 
-**None of this is built.** The container is declared by the AppHost and by
-`infra/sync/main.bicep`, and nothing reads or writes it; the `/sync/sessions`
-operations local ADR 0005 names do not exist. What follows is the position, not a
-description of running code — unlike
-`.arc42/08-crosscutting-concepts.md#task-sync`, which is now both.
+As of 2026-09-08 this section describes code rather than intent. The two
+operations local ADR 0005 names exist — `POST /api/sync/sessions` pushes the
+records a machine has read since its watermark and
+`GET /api/sync/sessions?since={token}` pulls the other environments' from a
+cursor — served by `Backlog.Modules.Sync.Api` over the `sessions` container the
+AppHost and `infra/sync/main.bicep` declare, behind the same paired-device
+identity and the same query-scoping check task sync uses. On the device side an
+exchange runs on its own schedule, and what it pulls is composed into the session
+list a person already reads rather than shown apart from it.
+
+The same two qualifications apply as above, and a third this half carries alone.
+Nothing is provisioned in Azure
+(`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
+is a `Dev`-status feature flag that is off by default — its own flag rather than
+`task-sync`, because wanting one backlog on two machines is not the same as
+wanting a record of what the assistants did to leave either of them. The third is
+that two behaviours here rest on a store nothing local has exercised: the change
+feed the pull reads needs a real Cosmos, emulator or deployed, and the unit suite
+runs against an in-memory replica standing in for one; the twelve-month container
+`defaultTtl` is worse off still, for the reason the 180-day tombstone TTL above
+is — the emulator does not honour TTL, so that number is deployed-only behaviour
+rather than something anything here has shown.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
@@ -188,21 +205,28 @@ description of running code — unlike
   `.arc42/08-crosscutting-concepts.md#task-sync`, and the silent loss it accepts,
   is not reachable here.
 - **Machine-stamped and append-only.** Each record names the machine that wrote
-  it, and the service accepts a record only from the machine it names. A session
-  that moves gets a later record rather than an edit to an earlier one, so the
-  container needs neither a tombstone nor an `updated_at`.
+  it, and that machine is not on the wire: the service stamps it from the caller's
+  validated token, so a caller cannot compose a record attributed to another box.
+  The document is keyed on that machine, the agent kind and the session id
+  together, which puts single-writer in the shape of the store rather than in a
+  check somebody has to keep — a machine can only address records under its own
+  device id. A session that moves gets a later record rather than an edit to an
+  earlier one, so the container needs neither a tombstone nor an `updated_at`.
 - **The sanitization boundary is a whitelist, not a filter.** A record carries
-  session id, machine id, repository alias (not path), branch, started at, last
-  activity at, turn count, and duration count. Never prompts, never tool output,
-  never file contents. A filter that misses a field leaks it; a whitelist that
-  misses one merely omits it, and adding a field is a decision taken in local
-  ADR 0005 rather than settled in the pushing code.
+  session id, agent kind, machine id, machine name, repository alias (not path),
+  branch, started at, last activity at, turn count, and duration count. Never
+  prompts, never tool output, never file contents. A filter that misses a field
+  leaks it; a whitelist that misses one merely omits it, and adding a field is a
+  decision taken in local ADR 0005 rather than settled in the pushing code — as
+  agent kind and machine name were, on 2026-09-08, the first two fields added
+  since the list was written. The name travels as a display label only: a section
+  is still keyed on the machine id, which is the thing a rename does not move.
 - **Retention is a 12-month container TTL**, and nothing else removes a record.
 
 ## Knowledge Index
 
 ```meta
-status: proposed
+status: active
 related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/second-brain/features.md#repository-knowledge-areas"]
 ```
 
@@ -248,15 +272,22 @@ How every channel reads the knowledge a repository carries alongside its code.
 - **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
   MCP server read the same schema rather than each carrying its own markdown parser.
 
-> Partly implemented. The derived layer is currently twelve committed JSON files
-> under `_meta/`, and the reading rules above are already how the panels treat
-> them: `KnowledgeIndexReader` lists a folder without opening a markdown file,
-> re-reads any entry whose file is newer than the index, rejects a `schemaVersion`
-> it does not recognise, and falls back to scanning a folder that has no index.
-> What is not implemented is the container — the database, the retrieval tiers,
-> and dropping the artifacts from version control. See
+> Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
+> `_meta/knowledge.db`, written by `tools/knowledge/build-database.mjs` and
+> git-ignored; each knowledge folder carries a committed `_reading-order.json`
+> holding the authored half; and `Backlog.Infrastructure.Knowledge` reads the
+> database read-only, down every rung of the ladder above.
+>
+> The gaps are the refresh paths that need the app to start the generator — the
+> debounced watcher and the idle background pass — which stay unbuilt because how
+> the app invokes it is still open, and the semantic tier's live call, which does
+> not happen: the embedding table, its port and a brute-force cosine reader exist,
+> and nothing fills them, so retrieval is full-text alone. Neither gap costs
+> correctness, because the floor of the ladder is the Markdown reader the panels
+> already had. See
 > `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` for the
-> reasoning and the questions it leaves open.
+> reasoning, what the implementation departed from, and the questions it still
+> leaves open.
 
 ## Feature Enablement
 

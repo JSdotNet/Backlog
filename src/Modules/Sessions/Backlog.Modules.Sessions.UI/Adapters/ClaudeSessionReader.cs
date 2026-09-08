@@ -60,19 +60,113 @@ internal sealed class ClaudeSessionReader
     {
         var now = _clock.GetUtcNow();
         var live = await ReadLiveAsync(now, cancellationToken).ConfigureAwait(false);
+        var transcripts = Transcripts();
 
         // Keyed by session id so a live session is not also listed as its own
         // finished transcript. The live file is the better record of the two: it
-        // knows the session's name and the folder without being parsed for it.
+        // knows the session's name and the folder without being parsed for it — but
+        // it holds nothing to count turns from, so the transcript it displaces is
+        // read for that one fact before it is dropped from the list.
+        var counted = await WithTurnCountsAsync(live, transcripts, cancellationToken).ConfigureAwait(false);
+
         var seen = live.Select(session => session.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var history = transcripts
+            .Where(transcript => !seen.Contains(transcript.Key))
+            .Select(transcript => transcript.Value)
+            .ToList();
 
         // A live session is never dropped by the cap. It is the row a reader opened
         // this surface for, and there are only ever as many as the machine is running.
         var room = Math.Max(0, AgentSessionLimits.PerAgent - live.Count);
-        var (past, transcripts) = await ReadHistoryAsync(seen, room, cancellationToken).ConfigureAwait(false);
+        var past = await ReadHistoryAsync(history, room, cancellationToken).ConfigureAwait(false);
 
-        return new SessionReading([.. live, .. past], live.Count + transcripts);
+        // Sessions found, not files found. A session filed under two folders was never
+        // two sessions, and counting it twice would have the subtitle overstate what
+        // this machine has been doing.
+        return new SessionReading([.. counted, .. past], live.Count + history.Count);
     }
+
+    /// <summary>
+    /// The live sessions, each carrying the turn count only its transcript knows.
+    /// <para>
+    /// A live file states the session's id, folder, name and start, and nothing about
+    /// how much has been said in it. The transcript beside it does, and the dedupe has
+    /// already worked out which one that is — so the count is taken from it here
+    /// rather than the row being left with a null a transcript on this very disk could
+    /// answer. A session too new to have written a transcript keeps its null, which is
+    /// the honest reading of a file that does not exist yet.
+    /// </para>
+    /// <para>
+    /// The extra reads are bounded by how many sessions the machine is running, not by
+    /// how many it has ever run — six on the profile this was measured against.
+    /// </para>
+    /// </summary>
+    private static async Task<List<AgentSession>> WithTurnCountsAsync(
+        IReadOnlyList<AgentSession> live,
+        IReadOnlyDictionary<string, FileInfo> transcripts,
+        CancellationToken cancellationToken)
+    {
+        var counted = new List<AgentSession>(live.Count);
+
+        foreach (var session in live)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!transcripts.TryGetValue(session.Id, out var transcript))
+            {
+                counted.Add(session);
+
+                continue;
+            }
+
+            var (_, _, turns) = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+
+            counted.Add(session with { TurnCount = turns });
+        }
+
+        return counted;
+    }
+
+    /// <summary>
+    /// One transcript per session, keyed by the session's id. Nothing is opened here:
+    /// this is the directory walk and the dedupe, and which of them are worth reading
+    /// is decided afterwards.
+    /// <para>
+    /// One session, one row — even when two project folders hold a transcript for it.
+    /// A transcript is filed under the folder the session ran in, so a session whose
+    /// cwd changed — resumed in a worktree it did not start in — is written under a
+    /// second slug while keeping its id. That is one session filed twice rather than
+    /// two sessions, so two rows would be wrong on its own terms; it was worse than
+    /// wrong on screen, for the reason the live dedupe gives. Found on a real profile,
+    /// where one of 377 transcripts was filed under two worktrees.
+    /// </para>
+    /// <para>
+    /// The more recently written file wins, because it is the more current record of
+    /// the same session: it names the folder that session ended up in, and it is the
+    /// copy the agent went on appending to. Ties go to the path that sorts first, and
+    /// that tie-break is not decoration: two copies written in the same instant would
+    /// otherwise be separated by whichever the directory walk happened to reach first,
+    /// which nothing guarantees, and the row's folder and branch would change between
+    /// two refreshes of an unchanged profile.
+    /// </para>
+    /// </summary>
+    /// <summary>
+    /// Keyed by session id, because this reader needs to look a session's transcript up
+    /// by the id its live file states rather than walk for it.
+    /// <para>
+    /// The dedupe rule itself is <see cref="ClaudeTranscripts"/>' rather than this
+    /// method's. The activity reader needs the identical rule — which file speaks for a
+    /// session that was filed under two project folders — and one copy of a rule found
+    /// on a real profile is the whole reason it was extracted. All this adds is the
+    /// shape: an id-keyed lookup instead of a list.
+    /// </para>
+    /// </summary>
+    private Dictionary<string, FileInfo> Transcripts() =>
+        ClaudeTranscripts.Newest(_home).ToDictionary(
+            transcript => transcript.SessionId,
+            transcript => transcript.File,
+            StringComparer.OrdinalIgnoreCase);
 
     private async Task<IReadOnlyList<AgentSession>> ReadLiveAsync(
         DateTimeOffset now,
@@ -175,40 +269,46 @@ internal sealed class ClaudeSessionReader
                 Branch: null,
                 StartedAt: Started(root),
                 LastActivityAt: lastActivity,
-                State: AgentSessionStates.Of(lastActivity, now));
+                State: AgentSessionStates.Of(lastActivity, now),
+
+                // Nothing in a live file is countable. The caller fills this in from
+                // the session's transcript where there is one; see WithTurnCountsAsync.
+                TurnCount: null,
+
+                // Read off this machine's own disk, which is the only kind of record
+                // this reader can produce.
+                Origin: AgentSessionOrigin.Local);
         }
     }
 
     /// <summary>
-    /// The most recent <paramref name="room"/> sessions the history holds, and how many
-    /// sessions were in it altogether. Both numbers, because they differ and the surface
-    /// has to be able to say so.
+    /// The most recent <paramref name="room"/> sessions the history holds. It is handed
+    /// the deduped transcripts rather than finding them, because the caller needs the
+    /// same set to answer a live session's turn count from — deduped before the cap and
+    /// not after, so a session filed twice costs one place in the list rather than two.
     /// </summary>
-    private async Task<(List<AgentSession> Sessions, int Discovered)> ReadHistoryAsync(
-        HashSet<string> alreadySeen,
+    private async Task<List<AgentSession>> ReadHistoryAsync(
+        IReadOnlyCollection<FileInfo> transcripts,
         int room,
         CancellationToken cancellationToken)
     {
         var sessions = new List<AgentSession>();
 
-        // Enumerated, deduped and counted before anything is opened, and only the most
-        // recent are opened: a transcript costs a file handle and a few reads to find
-        // its cwd, and a developer's profile holds hundreds. The dedupe rule itself is
-        // ClaudeTranscripts' — the activity reader needs the identical one, and one copy
-        // of a rule that was found on a real profile is worth the extraction.
-        var newest = ClaudeTranscripts.Newest(_home)
-            .Where(transcript => !alreadySeen.Contains(transcript.SessionId))
-            .ToList();
-
-        var transcripts = newest
-            .OrderByDescending(transcript => transcript.File.LastWriteTimeUtc)
+        // Counted before anything is opened, and only the most recent are opened: a
+        // transcript costs a file handle and a pass over the file, and a developer's
+        // profile holds hundreds.
+        var newest = transcripts
+            .OrderByDescending(file => file.LastWriteTimeUtc)
             .Take(room);
 
-        foreach (var (id, transcript) in transcripts)
+        foreach (var transcript in newest)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (folderPath, branch) = await ReadHeaderAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var (folderPath, branch, turns) =
+                await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+
+            var id = Path.GetFileNameWithoutExtension(transcript.Name);
 
             sessions.Add(new AgentSession(
                 Id: id,
@@ -224,53 +324,193 @@ internal sealed class ClaudeSessionReader
 
                 // A transcript with no live file beside it is over. Not Stalled:
                 // stalled means still registered as running, and nothing here is.
-                State: AgentSessionState.Finished));
+                State: AgentSessionState.Finished,
+                TurnCount: turns,
+                Origin: AgentSessionOrigin.Local));
         }
 
-        // Sessions found, not files found. A session filed under two folders was never
-        // two sessions, and counting it twice would have the subtitle overstate what
-        // this machine has been doing.
-        return (sessions, newest.Count);
+        return sessions;
     }
 
     /// <summary>
-    /// The folder and branch a transcript states, from the first lines that state
-    /// them. Empty strings when it never does — a transcript that only holds queued
-    /// prompts is a real thing and not an error.
+    /// What a transcript says about itself: the folder and branch from the first lines
+    /// that state them, and how many turns the person took in it. Empty strings and a
+    /// null count where it states none — a transcript holding only queued prompts is a
+    /// real thing and not an error.
+    /// <para>
+    /// One pass for all three, which is the reason they are one method. The folder is
+    /// in the first handful of lines and a count is in no bounded prefix of the file,
+    /// so answering them separately would open every transcript twice to learn what
+    /// one walk already has in hand.
+    /// </para>
+    /// <para>
+    /// <b>Reading the whole file is a real cost change, and it was measured rather than
+    /// assumed.</b> The header scrape stopped at <see cref="HeaderLines"/>; a count
+    /// cannot. On the profile this was validated against — 137 Claude sessions and 705
+    /// Copilot ones, both readers capped at
+    /// <see cref="AgentSessionLimits.PerAgent"/>, so 100 transcripts and about 64 MB
+    /// of them — a whole pane read went from 44-52 ms warm and 170 ms cold to 215-379
+    /// ms across a dozen runs. Roughly 200 ms added, on pane open and on every
+    /// Refresh, for a column that could not otherwise exist. It stays that size
+    /// because of the pre-filter in <see cref="IsTurn"/> and because the file is
+    /// streamed a line at a time; parsing every line, or reading 64 MB into strings to
+    /// count part of it, is the version of this that is too slow to ship.
+    /// </para>
+    /// <para>
+    /// If that ever stops being affordable, the cheap move is to remember a count
+    /// against a transcript's path, length and write time — a session that has not
+    /// been written to since the last read cannot have taken another turn — rather
+    /// than to make the count less true.
+    /// </para>
     /// </summary>
-    private static async Task<(string Folder, string? Branch)> ReadHeaderAsync(
+    private static async Task<(string Folder, string? Branch, int? Turns)> ReadTranscriptAsync(
         FileInfo transcript,
         CancellationToken cancellationToken)
     {
         var folder = string.Empty;
         string? branch = null;
+        var turns = 0;
+        var line = 0;
 
         try
         {
             using var reader = new StreamReader(transcript.FullName);
 
-            for (var line = 0; line < HeaderLines; line++)
+            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } text)
             {
-                var text = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                // The header is still only looked for in the first lines, and still
+                // only until it is found. Widening the read to the whole file is about
+                // the count; a cwd stated three thousand lines in would be a different
+                // session's, from a resume this record has no way to attribute.
+                if (folder.Length == 0 && line++ < HeaderLines)
+                {
+                    var (lineFolder, lineBranch) = Header(text);
 
-                if (text is null) break;
+                    folder = lineFolder ?? string.Empty;
+                    branch ??= lineBranch;
+                }
 
-                var (lineFolder, lineBranch) = Header(text);
-
-                folder = string.IsNullOrEmpty(folder) ? lineFolder ?? string.Empty : folder;
-                branch ??= lineBranch;
-
-                if (!string.IsNullOrEmpty(folder)) break;
+                if (IsTurn(text)) turns++;
             }
         }
-        catch (IOException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            // The agent is appending to this file as it is read. A locked
-            // transcript costs its folder, not the whole list.
+            // The agent is appending to this file as it is read, or it is not ours to
+            // open. Either way it costs this transcript's own facts and not the list —
+            // letting it out of here would put Claude on the unreadable list over one
+            // file.
+            //
+            // Null rather than the turns counted so far, and that is the point of
+            // returning here rather than falling through. A count interrupted at line
+            // nine of ninety is not a nearly-right number, it is a wrong one with
+            // nothing on the row to say so, and a reader comparing two sessions would
+            // be comparing one real count against one lost race. The folder and branch
+            // are kept because they are complete or absent, never half-read.
+            return (folder, branch, null);
         }
 
-        return (folder, branch);
+        // Zero turns is reported as absent, never as 0. A count of 0 claims a person
+        // opened this session and never spoke in it; what a transcript with nothing
+        // countable in it actually supports is that there is nothing here to count.
+        // See AgentSession.TurnCount, and the Session Log's invariant behind it.
+        return (folder, branch, turns == 0 ? null : turns);
     }
+
+    /// <summary>
+    /// Whether this line is a turn the person took — one prompt they sent, which is
+    /// what <c>AgentSession.TurnCount</c> defines a turn to be.
+    /// <para>
+    /// Three things have to be true, and each of them rules out a cheaper answer that
+    /// is wrong on this machine's real transcripts.
+    /// </para>
+    /// <list type="number">
+    /// <item><description>The line's <em>root</em> <c>type</c> is <c>user</c>. The
+    /// substring occurs nested as well — an assistant quoting a transcript back, an
+    /// attachment carrying a user object — so counting occurrences over-reads, by
+    /// about a hundred lines in the hundred most recent transcripts here.</description></item>
+    /// <item><description>It was not injected. A skill body arrives as a user-role
+    /// message marked <c>isMeta</c>, and a subagent's task prompt as one marked
+    /// <c>isSidechain</c>; neither was typed by anybody, and the second belongs to a
+    /// transcript this reader lists as its own session anyway.</description></item>
+    /// <item><description>It carries something the person said rather than something a
+    /// tool returned — see <see cref="Prompted"/>, which is where the real difference
+    /// is. Counting every root-level user line instead would have reported about 6,100
+    /// turns across the hundred transcripts where a person sent about 180.</description></item>
+    /// </list>
+    /// </summary>
+    private static bool IsTurn(string line)
+    {
+        // A necessary condition that costs a substring scan, taken before the line is
+        // parsed at all: on this machine's transcripts about three lines in four fail
+        // it, and parsing every line of 64 MB to count part of it is the version of
+        // this that is too slow to ship. Claude writes compact JSON, so this is the
+        // exact byte sequence a user line carries. A future format that spaced its
+        // separators would fail this filter on every line and the count would go
+        // absent rather than wrong — which is the direction this product's counts are
+        // meant to fail in, and the reason a substring is allowed to be load-bearing
+        // here at all.
+        if (!line.Contains("\"type\":\"user\"", StringComparison.Ordinal)) return false;
+
+        if (line.Length == 0 || line[0] is not '{') return false;
+
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+
+            var root = document.RootElement;
+
+            if (root.ValueKind is not JsonValueKind.Object) return false;
+            if (Text(root, "type") is not "user") return false;
+            if (Flag(root, "isMeta") || Flag(root, "isSidechain")) return false;
+
+            return Prompted(root);
+        }
+        catch (JsonException)
+        {
+            // A half-written last line, or a line this reader does not understand. It
+            // is not counted, which loses at most one turn off a running session's
+            // count and never invents one.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether a user-role line holds something the person sent.
+    /// <para>
+    /// This is the check that decides the number. Claude files a tool's output as a
+    /// user-role message — the result is addressed to the model in the person's role —
+    /// so on the hundred most recent transcripts on this machine about 6,100 lines are
+    /// user-role and about 180 of them are prompts. A count that did not draw this line
+    /// would be a tool-call count with a turn count's name on it, off by a factor of
+    /// more than thirty.
+    /// </para>
+    /// <para>
+    /// A string content is a typed prompt. An array is judged by what is in it: a text
+    /// or image block is the person's, a <c>tool_result</c> block is not, and a line
+    /// holding only tool results is not a turn. A user-role line with no message at all
+    /// is not counted either — the reader cannot tell what it was, and the whole point
+    /// of the null is that it does not have to pretend.
+    /// </para>
+    /// </summary>
+    private static bool Prompted(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var message)) return false;
+        if (message.ValueKind is not JsonValueKind.Object) return false;
+        if (!message.TryGetProperty("content", out var content)) return false;
+
+        return content.ValueKind switch
+        {
+            JsonValueKind.String => !string.IsNullOrWhiteSpace(content.GetString()),
+            JsonValueKind.Array => content.EnumerateArray().Any(block =>
+                block.ValueKind is JsonValueKind.Object && Text(block, "type") is not "tool_result"),
+            _ => false
+        };
+    }
+
+    /// <summary>Present and true. A flag Claude did not write is not a flag set to
+    /// false, but nothing here needs to tell those apart.</summary>
+    private static bool Flag(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.True;
 
     private static (string? Folder, string? Branch) Header(string line)
     {

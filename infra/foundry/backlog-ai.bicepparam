@@ -3,6 +3,7 @@ using './main.bicep'
 param accountName = 'backlog-foundry'
 param location = 'swedencentral'
 param includeBalancedModel = false
+param includeEmbeddingModel = true
 param includeSpeechModel = true
 param tags = {
   workload: 'Backlog'

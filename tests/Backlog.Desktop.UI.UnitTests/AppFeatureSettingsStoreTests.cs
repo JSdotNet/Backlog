@@ -85,11 +85,14 @@ public sealed class AppFeatureSettingsStoreTests
                 KnowledgeFeatures.RepositoryKnowledge,
                 KnowledgeFeatures.ArchifyDiagrams,
                 KnowledgeFeatures.C4Diagrams,
+                KnowledgeFeatures.Search,
+                KnowledgeFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
                 SyncFeatures.DevicePairing,
                 SyncFeatures.TaskSync,
+                SyncFeatures.SessionSync,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,

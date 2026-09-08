@@ -33,6 +33,7 @@ on:
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
       - 'tools/knowledge/**'
+      - '_reading-order.json'
       - '.github/workflows/knowledge-metadata.yml'
   pull_request:
     branches:
@@ -45,6 +46,7 @@ on:
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
       - 'tools/knowledge/**'
+      - '_reading-order.json'
       - '.github/workflows/knowledge-metadata.yml'
   workflow_dispatch:
 
@@ -74,3 +76,25 @@ jobs:
       # and everything else in that folder still blocks.
       - name: Test the check
         run: node --test tools/knowledge/check-metadata.test.mjs
+
+  database:
+    name: Build the knowledge database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test the writer
+        run: node --test "tools/knowledge/*.test.mjs"
+
+      # This step blocks, and that is the point rather than an oversight.
+      #
+      # The drift step in `knowledge-meta.yml` had to be softened to a warning
+      # because its output is committed: making every pull request carry a
+      # regenerated index is what turned `_meta/*.json` into merge conflicts.
+      # The database is a build output that nothing commits, so there is no
+      # second copy for a branch to disagree with and nothing for a failure here
+      # to be about except the build actually being broken. Local ADR 0004 buys
+      # exactly this back — a derived artifact that CI may enforce again.
+      - name: Build it on the real corpus
+        run: node tools/knowledge/build-database.mjs

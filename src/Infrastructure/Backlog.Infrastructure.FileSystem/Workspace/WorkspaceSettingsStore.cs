@@ -36,6 +36,8 @@ public sealed class WorkspaceSettingsStore
 
     private readonly string _settingsPath;
 
+    private readonly Func<string, SyncedFolderMatch?> _detectSyncedFolder;
+
     /// <summary>The per-user AppData folder name used when nothing overrides it.
     /// A Debug build names it differently from a Release install so a developer
     /// running the app — or the desktop web harness Aspire drives for the same
@@ -70,9 +72,22 @@ public sealed class WorkspaceSettingsStore
     /// a session running beside another — a workspace that does not fight over the
     /// real per-user file.</summary>
     public WorkspaceSettingsStore(string appData, string settingsPath)
+        : this(appData, settingsPath, new SyncedFolderDetector().Detect)
+    {
+    }
+
+    /// <summary>Names the sync-folder probe as well, for the same reason as
+    /// above: whether the machine running a test has OneDrive signed in is not
+    /// something a test may depend on. Production takes
+    /// <see cref="SyncedFolderDetector"/>, which reads this machine.</summary>
+    public WorkspaceSettingsStore(
+        string appData,
+        string settingsPath,
+        Func<string, SyncedFolderMatch?> detectSyncedFolder)
     {
         Directory.CreateDirectory(appData);
 
+        _detectSyncedFolder = detectSyncedFolder;
         _settingsPath = settingsPath;
         DefaultRootDirectory = appData;
 
@@ -102,6 +117,11 @@ public sealed class WorkspaceSettingsStore
             // used; refusing to construct the app over it would leave no way to
             // open Settings and point it somewhere else.
         }
+
+        // Construction is what "at startup" means for a store both app heads
+        // register as a singleton, so the root a returning user already has is
+        // looked at here rather than only when they next change it.
+        RefreshSyncedRoot();
     }
 
     /// <summary>Raised after the store moves, so open views can reload.</summary>
@@ -115,6 +135,21 @@ public sealed class WorkspaceSettingsStore
     /// a different folder takes effect without restarting it — see
     /// <c>RootedFileBacklogRepository</c>.</summary>
     public string RootDirectory { get; private set; }
+
+    /// <summary>
+    /// The file-sync provider's folder <see cref="RootDirectory"/> turned out to
+    /// sit inside, or null when it sits outside every one this app recognises.
+    /// <para>
+    /// Read by the Storage settings screen, which is the only place that can act
+    /// on it: the app warns and the root stays the user's choice. R9 in
+    /// <c>.arc42/11-risks-and-technical-debt.md</c> is the loss this exists for
+    /// and local ADR 0005's <c>### The database filename</c> is where the check
+    /// was preferred to a per-device database name. Detection is heuristic, so
+    /// null means "nothing recognised" rather than "not synced" — see
+    /// <see cref="SyncedFolderDetector"/>.
+    /// </para>
+    /// </summary>
+    public SyncedFolderMatch? SyncedRoot { get; private set; }
 
     /// <summary>Optional GitHub repository metadata for backing up the storage
     /// folder later. The folder remains the source of truth today.</summary>
@@ -275,6 +310,7 @@ public sealed class WorkspaceSettingsStore
         }
 
         RootDirectory = full;
+        RefreshSyncedRoot();
 
         var saveError = SaveSettings("Moved, but the choice couldn't be saved for next time.");
         if (saveError is not null)
@@ -291,6 +327,26 @@ public sealed class WorkspaceSettingsStore
 
     /// <summary>Returns the app to its default per-user folder.</summary>
     public string? ResetToDefault() => TryUseRoot(DefaultRootDirectory);
+
+    /// <summary>Asks the probe about the root the store is now pointing at.
+    /// <para>
+    /// Catches everything, and deliberately: a warning nobody asked for must
+    /// never be the reason the app cannot open Settings, or cannot move the
+    /// backlog off the very folder it would have warned about. The detector fails
+    /// open on its own account; this is the guarantee it holds even when the
+    /// probe is somebody else's.
+    /// </para></summary>
+    private void RefreshSyncedRoot()
+    {
+        try
+        {
+            SyncedRoot = _detectSyncedFolder(RootDirectory);
+        }
+        catch (Exception)
+        {
+            SyncedRoot = null;
+        }
+    }
 
     public string? TrySetRepository(string? repoText)
     {

@@ -34,9 +34,9 @@ internal static class TaskDocumentFactory
     public static TaskDocument From(OwnerScope scope, TaskChange change, CosmosOptions options) =>
         new()
         {
-            Id = TaskDocumentSerialization.Key(change.Id),
-            OwnerId = TaskDocumentSerialization.Key(scope.OwnerId.Value),
-            DeviceId = TaskDocumentSerialization.Key(scope.DeviceId.Value),
+            Id = ReplicaDocumentSerialization.Key(change.Id),
+            OwnerId = ReplicaDocumentSerialization.Key(scope.OwnerId.Value),
+            DeviceId = ReplicaDocumentSerialization.Key(scope.DeviceId.Value),
             UpdatedAt = change.UpdatedAt,
             DeletedAt = change.DeletedAt,
             Ttl = change.DeletedAt is null ? null : options.TaskTombstoneTtlSeconds,

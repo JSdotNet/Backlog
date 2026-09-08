@@ -1,3 +1,5 @@
+using AngleSharp.Dom;
+
 using Bunit;
 using Backlog.Infrastructure.GitHub;
 using Microsoft.Extensions.DependencyInjection;
@@ -229,6 +231,296 @@ public sealed class InstructionsKnowledgePanelTests
 
         Assert.DoesNotContain("name:", view.TextContent, StringComparison.Ordinal);
         Assert.Empty(view.QuerySelectorAll("hr.md-divider"));
+    }
+
+    /// <summary>
+    /// The second reading of the folder. It is a fact about the set, so it is a
+    /// tab beside the files rather than a row on any one of them — the shape the
+    /// arc42 panel already keeps for its C4 model.
+    /// </summary>
+    [Fact]
+    public async Task The_folder_can_be_read_as_each_assistant_would_read_it()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        // Clicked on the render it was found in. The chapter behind the opening
+        // file loads asynchronously, and a click issued across that render is
+        // dispatched to a handler the tab strip no longer has.
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+        Assert.Equal(4, component.FindAll("[data-testid='instructions-reach-table'] tbody tr").Count);
+
+        // What each host carries, which is the question the sizes answer.
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-total-claude']"));
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-total-copilot']"));
+    }
+
+    /// <summary>
+    /// The scoped reading. A conditional rule is context a host might spend, and
+    /// picking the file it governs is how a reader turns that into context it
+    /// does spend.
+    /// </summary>
+    [Fact]
+    public async Task Picking_a_path_turns_on_the_rules_that_govern_it()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        // Nothing picked yet, so the scoped rule is off and nothing is listed.
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-picked']"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        var picked = component.WaitForElement("[data-testid='instructions-reach-picked']");
+        Assert.Contains("src/App/Home.razor", picked.TextContent, StringComparison.Ordinal);
+
+        // The picked row has to look picked. Reported against this: aria-selected
+        // was set and nothing else was, so the only row that looked chosen was
+        // whichever one the pointer happened to be over.
+        var row = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']")
+                .Where(item => item.TextContent.Trim().EndsWith("Home.razor", StringComparison.Ordinal)));
+
+        Assert.Equal("true", row.GetAttribute("aria-selected"));
+        Assert.Contains("knowledge-menu__item--active", row.ClassName ?? string.Empty, StringComparison.Ordinal);
+
+        // The rule scoped to src/App is now one Copilot loads for this change.
+        var scoped = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("ui-components.instructions.md", StringComparison.Ordinal)));
+
+        Assert.Contains(
+            "badge--reach-matched",
+            scoped.QuerySelector("[data-testid='instructions-reach-copilot'] .badge")!.ClassName ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Clearing_the_selection_puts_the_baseline_back()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        component.WaitForElement("[data-testid='instructions-reach-picked']");
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-clear']").Click());
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='instructions-reach-picked']")));
+    }
+
+    /// <summary>
+    /// The band this view must never get wrong. Claude Code's own context view
+    /// calls its remainder "free space"; this one cannot, because the
+    /// conversation, the tool definitions and the system prompt all sit in there
+    /// and this app can see none of them.
+    /// </summary>
+    [Fact]
+    public async Task The_window_bar_never_calls_the_remainder_free()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        // One bar per assistant, each with its own legend.
+        var claude = component.Find("[data-testid='instructions-reach-window-claude']");
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-window-copilot']"));
+
+        // Asserted on the bar rather than on the whole panel: the caveat below it
+        // says the words "not free space" on purpose, and a check over the markup
+        // cannot tell a disclaimer from the claim it disclaims.
+        Assert.Contains("Repository, every session", claude.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Messages, tools and the rest", claude.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("free", claude.TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("available", claude.TextContent, StringComparison.OrdinalIgnoreCase);
+
+        // The caveat is where the point gets made, so it has to be there.
+        Assert.Contains("not free space", component.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The matched band is absent until a path makes it real — the bar
+    /// drops a part worth nothing rather than drawing an empty one.</summary>
+    [Fact]
+    public async Task Picking_a_path_adds_a_matched_band_to_the_window_bar()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        Assert.DoesNotContain("Matched by the selected paths", component.Markup, StringComparison.Ordinal);
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        component.WaitForAssertion(() => Assert.Contains(
+            "Matched by the selected paths",
+            component.Markup,
+            StringComparison.Ordinal));
+    }
+
+    /// <summary>Clicks a row of the picker's tree by its label. Re-found inside
+    /// the dispatch, because every click re-renders the tree under it.</summary>
+    private static async Task ClickTreeRowAsync(IRenderedComponent<InstructionsKnowledgePanel> component, string label)
+    {
+        component.WaitForAssertion(() => Assert.Contains(
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']"),
+            row => row.TextContent.Trim().EndsWith(label, StringComparison.Ordinal)));
+
+        await component.InvokeAsync(() =>
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']")
+                .First(row => row.TextContent.Trim().EndsWith(label, StringComparison.Ordinal))
+                .Click());
+    }
+
+    /// <summary>
+    /// The files are what the section opens with. The comparison is a step away
+    /// and not the landing surface: a reader coming here from the knowledge menu
+    /// asked for a file.
+    /// </summary>
+    [Fact]
+    public async Task The_section_opens_on_the_files_with_the_comparison_beside_them()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        Assert.Single(component.FindAll("[data-testid='instructions-files-tab']"));
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-view']"));
+    }
+
+    /// <summary>
+    /// The finding the view exists for: a file GitHub Copilot reads on every
+    /// request that Claude Code has no route to at all, because the file Claude
+    /// does read never names it.
+    /// </summary>
+    [Fact]
+    public async Task A_file_only_one_assistant_reads_is_marked_on_its_own_row()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        var naming = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("naming.instructions.md", StringComparison.Ordinal)));
+
+        Assert.Contains("Not read", naming.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Always", naming.QuerySelector("[data-testid='instructions-reach-copilot']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("instruction-reach__row--one-sided", naming.ClassName ?? string.Empty, StringComparison.Ordinal);
+
+        // The one Claude does read is not flagged, or the mark would mean nothing.
+        var claudeFile = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("CLAUDE.md", StringComparison.Ordinal)));
+
+        Assert.Contains("Always", claudeFile.QuerySelector("[data-testid='instructions-reach-claude']")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A tab that opens onto nothing is worse than no tab, so it is absent rather
+    /// than empty when the clone holds no instruction files at all.
+    /// </summary>
+    [Fact]
+    public async Task The_comparison_is_absent_when_there_is_nothing_to_compare()
+    {
+        await using var harness = CreateComparisonHarness(withDocuments: false);
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-tab']"));
+    }
+
+    /// <summary>A clone with one file each side and one that only Copilot can
+    /// reach, which is the asymmetry the comparison is for.</summary>
+    private static Harness CreateComparisonHarness(bool withDocuments = true)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-instructions-reach-tests", Guid.NewGuid().ToString("n"));
+        var clone = Path.Combine(root, "clone");
+        Directory.CreateDirectory(Path.Combine(clone, ".github", "instructions"));
+
+        if (withDocuments)
+        {
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "copilot-instructions.md"),
+                "# Copilot\n\nSee `.github/instructions/naming.instructions.md`.\n");
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "instructions", "naming.instructions.md"),
+                "---\napplyTo: \"**\"\ndescription: Naming.\n---\n\n# Naming\n");
+
+            // Scoped rather than repository-wide, so there is something for a
+            // picked path to switch on.
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "instructions", "ui-components.instructions.md"),
+                "---\napplyTo: \"src/App/**\"\ndescription: UI components.\n---\n\n# UI components\n");
+
+            // Names no instruction file of its own, which is what leaves the
+            // naming rules unreachable from this side.
+            File.WriteAllText(Path.Combine(clone, "CLAUDE.md"), "# Claude\n\nNothing linked from here.\n");
+
+            // Not an instruction file — a file to ask the question about.
+            Directory.CreateDirectory(Path.Combine(clone, "src", "App"));
+            File.WriteAllText(Path.Combine(clone, "src", "App", "Home.razor"), "<h1>Home</h1>\n");
+        }
+
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+
+        var repository = Assert.Single(repositories) with
+        {
+            CloneDirectory = clone,
+            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+        };
+        Assert.Null(gitHubSettings.SetRepositories([repository]));
+
+        var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(store);
+        context.Services.AddSingleton(gitHubSettings);
+        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(gitHubSettings, store));
+        context.Services.AddSingleton(new InstructionSourceDiscovery());
+        context.Services.AddSingleton<KnowledgeChapterWriter>();
+
+        return new Harness(root, context);
     }
 
     private static Harness CreateCloneHarness()

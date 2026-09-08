@@ -93,3 +93,22 @@ build/.local/
 # environment, per developer machine. Deployment targets that matter are written
 # down in docs/deployment/sync.md instead.
 .azure/
+
+# The generated knowledge database and its WAL sidecars. Local ADR 0004 makes the
+# derived knowledge layer a build output rather than a committed artifact: it is
+# what stopped two branches editing different chapters from conflicting on a file
+# neither of them authored. Rebuild it with
+# `node tools/knowledge/build-database.mjs`; the authored half — each folder's
+# `_reading-order.json` — stays committed and is what the rebuild reads.
+_meta/knowledge.db
+_meta/knowledge.db-wal
+_meta/knowledge.db-shm
+
+# The JSON the layer used to be, for the same reason. The installed generator
+# still writes `_meta/graph.json` and `_meta/index.json` on every run and is an
+# installed copy nothing here may edit, so they are ignored rather than stopped:
+# a build output that is written is fine, one that is committed is what put
+# sixty-seven merge commits and about 82,000 lines into this history. The reader
+# still understands them, as the rung beneath the database, for a repository that
+# has them and no database yet.
+**/_meta/*.json

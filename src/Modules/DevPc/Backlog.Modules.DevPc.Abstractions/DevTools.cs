@@ -1685,9 +1685,30 @@ public static class DevToolConfiguration
         // setting that reads back as never saved.
         MergeArray(root, pcRoot, ApplicationsArrayName, ApplicationIdName);
 
+        // The marketplaces last, and merged even though nothing writes one any
+        // more: WritePcOverrideAsync refuses a marketplace: key, but this file is
+        // hand-editable and the build that fix landed in did write them, so what
+        // is in it is applied rather than silently dropped. That is the whole
+        // point of the pair — a per-PC file cannot carry an entry the read then
+        // disagrees about.
+        //
+        // The two halves are narrower than "a marketplace has no per-machine
+        // state", and it is worth being exact about which is which. The write
+        // half refuses `enabled` and `acknowledged` because nothing reads either
+        // one on a marketplace. The read half applies whatever the file holds, on
+        // the same terms as the three arrays above it — so `source` is the one
+        // property a hand edit can actually change, and it changes where
+        // DevToolService points `claude plugin marketplace add`. That is
+        // deliberate and it grants no reach the catalog did not already have:
+        // both files live in the same .tools folder, so whoever can edit one can
+        // edit the other.
+        MergeArray(root, pcRoot, MarketplacesPath, "name");
+
         return new DevToolConfigurationDocument(root, true, paths.CatalogPath, paths.PcConfigPath);
     }
 
+    /// <exception cref="InvalidOperationException"><paramref name="key" /> names a
+    /// marketplace, which has no <c>enabled</c> to set on one machine.</exception>
     public static Task WriteEnabledOverrideAsync(DevToolConfigurationPaths paths, string key, bool enabled, CancellationToken ct = default) =>
         WritePcOverrideAsync(paths, key, "enabled", enabled, ct);
 
@@ -1701,6 +1722,8 @@ public static class DevToolConfiguration
     /// wants and has not done yet, and collapsing the two would make ticking the
     /// box the same act as removing the row.</para>
     /// </summary>
+    /// <exception cref="InvalidOperationException"><paramref name="key" /> names a
+    /// marketplace, which has no <c>acknowledged</c> to set on one machine.</exception>
     public static Task WriteAcknowledgementAsync(DevToolConfigurationPaths paths, string key, bool acknowledged, CancellationToken ct = default) =>
         WritePcOverrideAsync(paths, key, "acknowledged", acknowledged, ct);
 
@@ -1708,10 +1731,33 @@ public static class DevToolConfiguration
     /// the array and the entry when they are not there yet. The file is small and
     /// rewritten whole, so both overrides go through here rather than each
     /// re-deriving where an entry lives.</summary>
+    /// <exception cref="InvalidOperationException">The key names a marketplace,
+    /// which carries no per-machine state.</exception>
     private static async Task WritePcOverrideAsync(DevToolConfigurationPaths paths, string key, string propertyName, bool value, CancellationToken ct)
     {
-        var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var (arrayName, idName, idValue) = ParseKey(key);
+
+        // Refused before the file is so much as opened. ParseKey resolves a
+        // marketplace: key to a real array and GetOrCreateArray would make it in
+        // the per-PC file quite happily — which is how this was a write that
+        // reported success and a read that threw the result away.
+        //
+        // It is the two properties this method can set that are refused, not the
+        // array: a marketplace is where the Claude plugins this machine opts into
+        // come from rather than one of them, so it is added to or removed from the
+        // catalog and never switched off or ticked here. Nothing reads `enabled`
+        // or `acknowledged` on a marketplace row — both hosts build one with
+        // ConfiguredEnabled: true and take Installed from the Claude CLI — so a
+        // write of either was inert even before the read discarded it. ReadAsync
+        // still merges the array, which is what keeps the halves agreeing rather
+        // than swapping which one is silent.
+        if (KindOf(key) is DevToolKind.Marketplace)
+        {
+            throw new InvalidOperationException(
+                $"A marketplace is added to or removed from the catalog, so {idValue} has no \"{propertyName}\" to set on one machine.");
+        }
+
+        var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var array = GetOrCreateArray(root, arrayName);
         var tool = FindObject(array, idName, idValue);
 
@@ -1740,10 +1786,25 @@ public static class DevToolConfiguration
             ?? throw new InvalidOperationException("PC tool config is empty.");
     }
 
+    /// <summary>Applies one array of the per-PC file over the same array of the
+    /// catalog, entry by entry, keyed on <paramref name="idName"/>.
+    ///
+    /// <para>Both sides are resolved through <see cref="FindArray"/> rather than
+    /// with the plain indexer this used to read them with: a dotted path is the
+    /// argument every other array reader in this file already takes, and
+    /// <c>root["claude.marketplaces"]</c> is always null — so a call on a nested
+    /// path compiled, ran, and merged nothing.</para>
+    ///
+    /// <para>Every property of a matched per-PC entry is applied, not a chosen few,
+    /// and that is uniform across all four arrays — so what a per-PC file may carry
+    /// is "anything an entry of that array has", and what the app itself writes
+    /// there is only ever <c>enabled</c> or <c>acknowledged</c>. An entry with no
+    /// catalog entry of the same <paramref name="idName" /> behind it is dropped:
+    /// the per-PC file overrides the catalog and never extends it.</para></summary>
     private static void MergeArray(JsonNode root, JsonNode pcRoot, string arrayName, string idName)
     {
-        var catalogArray = root[arrayName]?.AsArray();
-        var pcArray = pcRoot[arrayName]?.AsArray();
+        var catalogArray = FindArray(root, arrayName);
+        var pcArray = FindArray(pcRoot, arrayName);
         if (catalogArray is null || pcArray is null)
         {
             return;
@@ -1807,13 +1868,22 @@ public static class DevToolConfiguration
     /// <inheritdoc cref="GetOrCreateArray" />
     /// <summary>The array at a dotted path, or nothing when any step of it is
     /// missing. The reading half of <see cref="GetOrCreateArray"/>, which never
-    /// writes into a document it was only asked to look at.</summary>
+    /// writes into a document it was only asked to look at.
+    ///
+    /// <para>A step that is there but is not an object counts as missing, rather
+    /// than throwing: <see cref="JsonNode"/>'s string indexer calls
+    /// <c>AsObject()</c> underneath and throws on a value or an array, and both
+    /// files this walks are hand-editable. A <c>"claude": 5</c> in a per-PC file
+    /// has to read as "no such array" — the answer the plain
+    /// <c>root["claude.marketplaces"]</c> lookup gave before there was a walk —
+    /// because <see cref="ReadAsync"/> runs on every load of the pane and one bad
+    /// hand edit is not allowed to take all of it down.</para></summary>
     private static JsonArray? FindArray(JsonNode? root, string arrayName)
     {
         JsonNode? node = root;
         foreach (var segment in arrayName.Split('.'))
         {
-            node = node?[segment];
+            node = node is JsonObject step ? step[segment] : null;
         }
 
         return node as JsonArray;

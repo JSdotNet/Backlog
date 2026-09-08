@@ -86,36 +86,69 @@ Invariants:
 
 **Records replicate; none of the above changes when they do.** Local ADR 0005 puts
 session records in the same cloud replica as tasks, so a record gathered on one
-machine can be read on another. Every invariant survives intact, because the thing
-that replicates is a record, not an authority:
+machine can be read on another. That path is built rather than intended now,
+though it is off unless switched on and has run against nothing provisioned —
+which decides whether another machine's sessions are in front of a reader, and
+decides nothing about what one of them means. Every invariant survives intact,
+because the thing that replicates is a record, not an authority:
 
 - **Still single-writer.** A session ran on one environment and only that
   environment holds the evidence for it, so only that environment writes records
   for it. There is nothing to reconcile: no second version, no last-write-wins,
   and no lost-edit failure mode. A session that moves gets a later record rather
   than an edit to an earlier one, which is the shape this context already has.
+  None of that rests on good behaviour: a record is addressed by the environment
+  that gathered it before it is addressed by anything else, so an environment can
+  only ever write records of its own. The matching rule on the
+  reading side is that a reading knows how it came by each record — read here, or
+  arrived from elsewhere — and offers back only what it gathered itself. An
+  environment that re-published another's records would be attaching somebody
+  else's work to itself, which is the one way a single-writer rule fails without
+  anyone editing anything.
 - **Still one environment per log.** A reading that spans machines is a
   composition of several Session Logs, exactly as grouping by environment already
   is. A replicated record names the environment that gathered it, so nothing
   asserts a fact nobody gathered.
 - **Still derived, never asserted.** `Session State` is worked out on every
-  reading from the evidence that reached the reader. A record whose environment is
-  a machine away is stale rather than wrong, and the derivation says so by reading
-  `stalled` or `finished` from the timestamps it has.
-- **Only a whitelist travels**, fixed by local ADR 0005: the session id, the
-  environment, the repository **alias** rather than the working folder, the
-  branch, the activity window, and the turn and duration counts. Never prompts,
-  never tool output, never file contents — which is the whole reason a record can
-  leave the machine at all. A field not on the list does not travel, so
-  `working_folder` does not: it describes one machine's disk and means nothing on
-  the other.
-- **The list is one field short of this context's identity, and that has to be
-  settled where the list lives.** `Session Identity` is `agent` plus `session_id`,
-  never `session_id` alone, because two agents may issue the same string; a record
-  that travelled without its agent would let the receiving log merge two unrelated
-  sessions — exactly the failure the identity rule exists to prevent. Widening the
-  whitelist is a decision for local ADR 0005 rather than something the pushing code
-  settles, so it is named here as an open point rather than assumed.
+  reading from the evidence that reached the reader, and never travels on the
+  record: a state on the wire would freeze the gathering machine's reading of its
+  own clock and go on saying `running` about a session that ended before the last
+  exchange. A record whose environment is a machine away is stale rather than
+  wrong, and the derivation says so from the timestamps it has. What it can say is
+  narrower than what a local reading can. A record carries no liveness marker —
+  the same record arrives whether the session is still going or ended a month ago
+  — so silence past the `Stale Threshold` reads `finished` and never `stalled`,
+  which is the rule this context already applies to the agent that leaves no
+  marker locally. `stalled` is the claim that something is still there and quiet,
+  and nothing in a record can tell that apart from something that is gone.
+- **Only a whitelist travels**, fixed by local ADR 0005 and standing at ten
+  fields: the `Session Identity` in full — the agent as well as the session id —
+  the environment's id and the name that environment goes by, the repository
+  **alias** rather than the working folder, the branch, the activity window, and
+  the turn and duration counts. Never prompts, never tool output, never file
+  contents — which is the whole reason a record can leave the machine at all. A
+  field not on the list does not travel, so `working_folder` does not: it
+  describes one machine's disk and means nothing on the other. Neither does the
+  title, and that one is worth naming rather than leaving to be noticed: an agent
+  writes a title out of what the person typed, so a title is a fragment of a
+  prompt under a friendlier name, and a replicated session is therefore headed by
+  its session id — the one thing the record carries that names it — rather than by
+  a description of work the reading machine never saw. The turn count keeps this
+  context's own rule about gaps: an agent that records none sends none, rather
+  than sending zero, because zero is a claim about a session where absence is
+  merely the truth about a record. The duration is the one field carried for the
+  transport's sake and read back from nowhere — a reading derives it from the two
+  timestamps it already holds, so a third field cannot come to disagree with the
+  operands it was computed from.
+- **The list carries this context's identity in full, and local ADR 0005 settled
+  it there rather than in the pushing code.** `Session Identity` is `agent` plus
+  `session_id`, never `session_id` alone, because two agents may issue the same
+  string; a record that travelled without its agent would let the receiving log
+  merge two unrelated sessions — exactly the failure the identity rule exists to
+  prevent. The agent travels, and the replica keys a record on the environment,
+  the agent and the session id together, so two unrelated sessions are not merely
+  kept apart by a receiving log that behaves — there is no one key under which
+  they could arrive.
 - **Retention is the store's, not this context's.** A replicated record expires
   after twelve months by container TTL. Nothing here reaps, and nothing here
   deletes a record.
@@ -176,6 +209,13 @@ Where the session was working: `working_folder`, optional `repository` in
 Both optional fields are optional because the agents disagree about what they
 record, not because the value is unimportant: one writes the repository and branch
 outright, the other writes neither. Absent means "the agent did not say".
+
+A replicated session is the one case where the folder is missing for a different
+reason. It was recorded, on the machine that ran the session, and it deliberately
+did not travel — a path describes that machine's disk and would be acted on by
+the machine that read it. Absent there means "cannot be shown here", not "was
+never written down", and either way nothing on this side reconstructs one: the
+log fills no gap an agent left, and it fills none the boundary made either.
 
 ### Activity Window
 

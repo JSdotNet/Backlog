@@ -1,7 +1,17 @@
 @*
-    What the assistants have been doing on this machine: how many sessions touched the
-    window, how long an agent was actually producing, how much of the time it was waiting
-    on a person, and when anything last moved.
+    What the assistants have been doing on the machines that have reported: how many
+    sessions touched the window, how long an agent was actually producing, how much of the
+    time it was waiting on a prompt, and when anything last moved.
+    "Reported" rather than "this machine" since session records began replicating —
+    the breakdown below lists a row per machine, and it is not this one alone.
+
+    The activity figures are this machine's alone, and that asymmetry is worth knowing
+    before reading them against the count beside them. A session another machine reported
+    arrives as a record rather than as a transcript, and the file its working stretches
+    would have to be parsed out of never left that machine. So it counts as a session and
+    contributes no time — the same footing as a local session that left nothing parsable,
+    and the footnote says how many of both there were.
+
 
     The one part on this surface whose figures come off local disk rather than out of a
     provider's API, which is what makes it the one part the machine filter can drive.
@@ -221,10 +231,22 @@
     {
         get
         {
-            var basis = $"Read from what Claude and Copilot leave on this machine, over {Scope.Weeks} weeks. "
+            // "on this machine" was true until session records began replicating, and
+            // the machine breakdown directly under this note has listed several ever
+            // since — a note naming one machine above a table naming three is the kind
+            // of stale sentence a reader trusts and should not.
+            //
+            // The working-time sentence is the other half of that: replication widened
+            // what can be counted and not what can be parsed, so the two figures beside
+            // each other now cover different sets of machines. Saying which is cheaper
+            // than letting a reader read a count of three machines' sessions against one
+            // machine's hours.
+            var basis = $"Read from what Claude and Copilot leave on the machines that have reported, over {Scope.Weeks} weeks. "
                 + "Only Copilot records a repository against a session, so filtering by one would drop "
                 + "Claude's half of the picture rather than narrow the part; the repository filter is "
                 + "refused here instead. "
+                + "Working time is this machine's alone — a session another machine reported arrives as "
+                + "a record, not as a transcript to read it from. "
                 + "The grid below is the last 7 days on this machine's local clock, whichever period is "
                 + "selected, and every other figure here is UTC.";
 

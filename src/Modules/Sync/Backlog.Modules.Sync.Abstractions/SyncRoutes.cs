@@ -42,6 +42,13 @@ public static class SyncRoutes
     /// they are the two directions of one exchange over one collection.</summary>
     public const string Tasks = "/tasks";
 
+    /// <summary>The session replica: POST appends a batch of this machine's
+    /// records, GET pulls the owner's session feed from a cursor. Bearer, and
+    /// one route for both halves because they are the two directions of one
+    /// exchange over one collection — the same shape as <see cref="Tasks"/>,
+    /// over the second container .arc42/adr/0005 §Storage declares.</summary>
+    public const string Sessions = "/sessions";
+
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";

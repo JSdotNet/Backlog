@@ -13,10 +13,13 @@
     is the composition, which is why a stale dashboard cannot happen here — there is
     no saved arrangement to fall out of step with the code.
 
-    It is not a coordinator. It awaits nothing and holds no figures. Every part
-    below starts its own fetch, carries its own status, and refreshes on its own, so
-    an unconfigured Anthropic key delays and explains one part rather than blanking
-    six. All this pane owns is the filter, and passing it down.
+    It is not a coordinator. It holds no figures, and the only thing it awaits is its
+    own filter's options. Every part below starts its own fetch, carries its own
+    status, and refreshes on its own, so an unconfigured Anthropic key delays and
+    explains one part rather than blanking six. All this pane owns is the filter, and
+    passing it down — and since a machine can only be named by reading the records
+    that arrived from it, naming them is a read, and it happens here once when the
+    pane opens rather than inside a property pretending to be free.
 
     Two filters, and neither of them drives everything. The repository filter drives
     the productivity parts and visibly does not drive the cost parts or the sessions
@@ -127,10 +130,10 @@
         <div class="dashboard-section" data-testid="dashboard-sessions-section">
             <h3 class="dashboard-section__title">Sessions</h3>
             <p class="dashboard-section__note">
-                Sessions Claude and Copilot left on this machine, and when an agent was actually
-                producing. Only Copilot records a repository against a session, so filtering by one
-                would hide Claude's half of the picture; the repository filter above does not change
-                this section.
+                Sessions Claude and Copilot left on this machine and on any other that has reported
+                its own, and when an agent was actually producing. Only Copilot records a repository
+                against a session, so filtering by one would hide Claude's half of the picture; the
+                repository filter above does not change this section.
             </p>
             <SessionsPart Scope="_scope" />
         </div>
@@ -166,6 +169,11 @@
     /// configure here.
     /// </summary>
     private DashboardScope _scope = DashboardScope.Default;
+
+    /// <summary>What the machine directory answered. Empty until it has, which renders
+    /// as the "All machines" option on its own — the honest shape of "not asked yet",
+    /// and the option the filter falls back to anyway.</summary>
+    private IReadOnlyList<DashboardMachine> _machines = [];
 
     [Inject]
     private IRepositoryDirectory Repositories { get; set; } = default!;
@@ -207,19 +215,28 @@
         _scope = _scope with { RepositoryAlias = string.IsNullOrWhiteSpace(alias) ? null : alias };
 
     /// <summary>
-    /// The machines the filter offers, read on every render for the same reason the
-    /// repositories are.
+    /// The machines the filter offers, asked for once when the pane opens rather than
+    /// read on every render the way the repositories are. The difference is the
+    /// answer's cost: repositories are a settings store already in memory, and a
+    /// machine can only be named by reading the records that arrived from it.
     /// <para>
     /// The label is the machine's name and the value is its id, which is the whole
     /// reason a machine has both: two machines can be called the same thing and one
     /// machine can be renamed, so a filter whose value was the name would merge or
-    /// split what it is filtering. Today the list holds exactly this machine — no
-    /// session record has arrived from anywhere else — and that is the honest list
-    /// rather than a placeholder.
+    /// split what it is filtering.
     /// </para>
     /// </summary>
     private IReadOnlyList<SelectorOption> MachineOptions =>
-        [.. Machines.Machines.Select(machine => new SelectorOption(machine.Id, machine.Name))];
+        [.. _machines.Select(machine => new SelectorOption(machine.Id, machine.Name))];
+
+    /// <summary>
+    /// The pane's one await. Not a refresh hook: the parts each own their own, and a
+    /// machine whose first record arrives while this is open turns up the next time
+    /// it is opened — the same currency every figure on this surface has, because
+    /// nothing here polls.
+    /// </summary>
+    protected override async Task OnInitializedAsync() =>
+        _machines = await Machines.GetMachinesAsync();
 
     /// <summary>Focuses one machine, or all of them when the empty option is chosen.
     /// Replaced rather than mutated, for the reason <see cref="FocusRepository"/>

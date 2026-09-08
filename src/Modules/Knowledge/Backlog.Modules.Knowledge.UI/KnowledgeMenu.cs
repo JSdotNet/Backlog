@@ -55,7 +55,10 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
             return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, [], false, location.Message);
         }
 
-        var children = EnumerateChildren(location.FullPath, location.FullPath, areaKey, cancellationToken);
+        // Once per area, not once per directory: the folder's authored order and
+        // the generated titles are both read here and handed down the walk.
+        var outline = KnowledgeMenuOutline.Read(location.FullPath);
+        var children = EnumerateChildren(location.FullPath, location.FullPath, areaKey, outline, cancellationToken);
         return new KnowledgeMenuNode(areaKey, folder.DisplayName, folder.Key, KnowledgeMenuNodeKind.Folder, areaKey, children, true);
     }
 
@@ -68,7 +71,37 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         AddInstructionRoot(roots, repositoryRoot, ".github", ".github", areaKey, cancellationToken);
         AddInstructionRoot(roots, repositoryRoot, ".claude", ".claude", areaKey, cancellationToken);
         AddInstructionRoot(roots, repositoryRoot, ".agent", ".agent", areaKey, cancellationToken, fallbackRelativePath: ".agents");
+        AddRootInstructionFiles(roots, repositoryRoot, areaKey);
         return roots;
+    }
+
+    /// <summary>
+    /// The instruction files that live at the root, as leaves beside the folders.
+    ///
+    /// <para>Without these the menu offers three folders and nothing else, so
+    /// <c>CLAUDE.md</c> - which discovery reads and the loading comparison lists -
+    /// has no row to click. The names come from discovery rather than from a
+    /// second list here, because two lists is how a menu starts disagreeing with
+    /// what the panel beside it can open.</para>
+    /// <para>Last, after the folders: they are the structure, and a handful of
+    /// loose files reads as a footnote to it rather than as a peer.</para>
+    /// </summary>
+    private static void AddRootInstructionFiles(List<KnowledgeMenuNode> roots, string repositoryRoot, string areaKey)
+    {
+        foreach (var name in InstructionSourceDiscovery.RootFileNames)
+        {
+            var fullPath = Path.Combine(repositoryRoot, name);
+            if (!File.Exists(fullPath)) continue;
+
+            roots.Add(new KnowledgeMenuNode(
+                Key(repositoryRoot, fullPath),
+                FileLabel(fullPath),
+                RelativePath(repositoryRoot, fullPath),
+                KnowledgeMenuNodeKind.File,
+                areaKey,
+                [],
+                true));
+        }
     }
 
     private static void AddInstructionRoot(
@@ -104,7 +137,9 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         string areaKey,
         CancellationToken cancellationToken)
     {
-        var nodes = EnumerateChildren(repositoryRoot, directory, areaKey, cancellationToken, includeAllFiles: true);
+        // No outline: the instruction area is assembled out of agent folders
+        // rather than being a knowledge folder with a reading order of its own.
+        var nodes = EnumerateChildren(repositoryRoot, directory, areaKey, KnowledgeMenuOutline.None, cancellationToken, includeAllFiles: true);
         return nodes.Select(node => RewriteInstructionPath(node, displayRoot, sourceRoot)).ToList();
     }
 
@@ -127,6 +162,7 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         string root,
         string directory,
         string areaKey,
+        KnowledgeMenuOutline outline,
         CancellationToken cancellationToken,
         bool includeAllFiles = false)
     {
@@ -136,33 +172,37 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         {
             var directories = Directory.EnumerateDirectories(directory)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
-                .Select(path => new KnowledgeMenuNode(
+                .Select(path => (DiskPath: path, Node: new KnowledgeMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
                     DirectoryNodePath(root, path),
                     KnowledgeMenuNodeKind.Folder,
                     areaKey,
-                    EnumerateChildren(root, path, areaKey, cancellationToken, includeAllFiles),
-                    true));
+                    EnumerateChildren(root, path, areaKey, outline, cancellationToken, includeAllFiles),
+                    true)));
 
             var files = Directory.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md", SearchOption.TopDirectoryOnly)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
                 .Where(path => !IsIndexMarkdown(path) || string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
-                .Select(path => new KnowledgeMenuNode(
+                .Select(path => (DiskPath: path, Node: new KnowledgeMenuNode(
                     Key(root, path),
                     FileLabel(path),
                     RelativePath(root, path),
                     KnowledgeMenuNodeKind.File,
                     areaKey,
                     [],
-                    true));
+                    true)));
 
-            return
-            [
-                .. directories.Concat(files)
-                    .OrderBy(node => SortKey(areaKey, root, directory, node), StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(node => node.Label, StringComparer.OrdinalIgnoreCase)
-            ];
+            // The node's own Path is not the name to look either answer up by: a
+            // directory holding an index.md reports that file as its path, so the
+            // name on disk is carried alongside it.
+            var relativeDirectory = RelativeDirectory(root, directory);
+            var entries = directories.Concat(files).ToList();
+
+            return Label(
+                Order(entries, outline.Order(relativeDirectory), areaKey, root, directory),
+                outline,
+                relativeDirectory);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
@@ -190,6 +230,94 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         "instructions" => "instructions",
         _ => folderKey.TrimStart('.').ToLowerInvariant()
     };
+
+    /// <summary>
+    /// One level of the rail in reading order: the entries the folder's
+    /// <c>_reading-order.json</c> names, in the order it names them, then
+    /// everything it does not, in the order the rail has always sorted them.
+    ///
+    /// <para>A directory that declares nothing keeps that sort alone — which is
+    /// <c>.arc42</c>, whose numbered chapters sequence themselves and whose two
+    /// record folders belong at 09.5 and 11.5, and every folder in a checkout
+    /// that carries no such file at all. That is rung five of ADR 0004's ladder:
+    /// no declaration has to read exactly as it did before there was one.</para>
+    /// </summary>
+    private static List<(string DiskPath, KnowledgeMenuNode Node)> Order(
+        List<(string DiskPath, KnowledgeMenuNode Node)> entries,
+        IReadOnlyList<string> declared,
+        string areaKey,
+        string root,
+        string directory)
+    {
+        var alphabetical = entries
+            .OrderBy(entry => SortKey(areaKey, root, directory, entry.Node), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.Node.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (declared.Count == 0) return alphabetical;
+
+        var ordinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < declared.Count; index++) ordinals.TryAdd(declared[index], index);
+
+        // A declared name with nothing on disk behind it never reached the list
+        // above, so it simply draws no row.
+        return
+        [
+            .. alphabetical
+                .Where(entry => ordinals.ContainsKey(Path.GetFileName(entry.DiskPath)))
+                .OrderBy(entry => ordinals[Path.GetFileName(entry.DiskPath)]),
+            .. alphabetical.Where(entry => !ordinals.ContainsKey(Path.GetFileName(entry.DiskPath)))
+        ];
+    }
+
+    /// <summary>
+    /// The rail's row labels, taking a chapter's real title from the generated
+    /// outline only where it still tells one row from another.
+    ///
+    /// <para>The outline knows that <c>dev-pc-management</c> is "Dev PC
+    /// Management" and <c>monitoring</c> is "Monitoring &amp; Dashboard", neither
+    /// of which a title-cased filename can say. It also knows that every document
+    /// inside a bounded context carries the context's own H1, so a rail that took
+    /// every title would replace six distinguishable rows with six called
+    /// "Inbox". A title is therefore adopted only when no sibling's title and no
+    /// sibling's filename label already claims it — whatever a level adopts, its
+    /// rows still tell each other apart.</para>
+    /// </summary>
+    private static IReadOnlyList<KnowledgeMenuNode> Label(
+        List<(string DiskPath, KnowledgeMenuNode Node)> ordered,
+        KnowledgeMenuOutline outline,
+        string relativeDirectory)
+    {
+        var titles = ordered
+            .Select(entry => outline.TryTitle(relativeDirectory, Path.GetFileName(entry.DiskPath), out var title) ? title : null)
+            .ToList();
+
+        var nodes = new List<KnowledgeMenuNode>(ordered.Count);
+
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            var title = titles[index];
+            var position = index;
+            var distinguishes = title is not null
+                && !ordered.Where((_, other) => other != position)
+                    .Any(entry => string.Equals(entry.Node.Label, title, StringComparison.OrdinalIgnoreCase))
+                && !titles.Where((_, other) => other != position)
+                    .Any(other => string.Equals(other, title, StringComparison.OrdinalIgnoreCase));
+
+            nodes.Add(distinguishes ? ordered[index].Node with { Label = title! } : ordered[index].Node);
+        }
+
+        return nodes;
+    }
+
+    /// <summary>Where a directory sits inside the knowledge folder, as the
+    /// authored reading order and the generated outline both key it: empty at the
+    /// folder's own root, <c>/</c>-separated below it.</summary>
+    private static string RelativeDirectory(string root, string directory)
+    {
+        var relative = Path.GetRelativePath(root, directory).Replace(Path.DirectorySeparatorChar, '/');
+        return relative == "." ? string.Empty : relative;
+    }
 
     private static string SortKey(string areaKey, string root, string directory, KnowledgeMenuNode node)
     {

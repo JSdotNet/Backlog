@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "scope": ".arc42",
+  "directories": {
+    ".arc42": {
+      "root": null,
+      "order": []
+    },
+    ".arc42/adr": {
+      "root": "README.md",
+      "order": [
+        "0001-desktop-stack-maui-blazor-hybrid.md",
+        "0002-backlog-module-owns-the-entry-text-language.md",
+        "0003-sqlite-is-the-canonical-local-task-store.md",
+        "0004-knowledge-index-is-a-generated-local-database.md",
+        "guidelines",
+        "0005-azure-hosted-task-replica-for-multi-device-sync.md",
+        "0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
+        "0007-import-reuses-the-entry-text-grammar.md",
+        "0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md"
+      ]
+    },
+    ".arc42/adr/guidelines": {
+      "root": "README.md",
+      "order": [
+        "0001-adopt-dotnet-10.md",
+        "0002-central-package-management.md",
+        "0003-aspire-for-web-services.md",
+        "0004-result-objects-for-expected-failures.md",
+        "0005-modular-monolith-structure.md",
+        "0006-cqrs-for-api-projects.md",
+        "0007-minimal-apis-over-controllers.md",
+        "0009-feature-slices-module-structure.md",
+        "0010-opentelemetry-observability.md",
+        "0011-centralized-frontend-styling-variables.md",
+        "0012-authentication-external-identity-providers.md",
+        "0013-authorization-zero-trust.md",
+        "0014-persistence-and-repository-boundaries.md",
+        "0015-resilience-for-outbound-dependencies.md",
+        "0017-http-error-contract-and-problem-details.md",
+        "0018-configuration-and-options-binding.md"
+      ]
+    },
+    ".arc42/tdr": {
+      "root": null,
+      "order": []
+    }
+  }
+}

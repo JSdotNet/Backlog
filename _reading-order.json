@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "scope": ".",
+  "directories": {
+    ".": {
+      "root": null,
+      "order": [
+        ".arc42",
+        ".domain",
+        ".backlog",
+        ".tech",
+        ".design"
+      ]
+    }
+  }
+}

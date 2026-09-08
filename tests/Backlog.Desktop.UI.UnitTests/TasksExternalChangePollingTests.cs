@@ -15,6 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// decision a tick makes — not that <see cref="Timer"/> fires.
 /// </para>
 /// </summary>
+[Collection(StoreTimestampCollection.Name)]
 public sealed class TasksExternalChangePollingTests : IDisposable
 {
     private readonly List<string> _tempDirs = [];

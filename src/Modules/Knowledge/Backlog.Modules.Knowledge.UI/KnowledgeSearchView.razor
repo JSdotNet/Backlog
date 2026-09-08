@@ -1,0 +1,156 @@
+@inject IKnowledgeSearch KnowledgeSearch
+
+@*
+    Search across the knowledge areas, by the words the chapters use.
+
+    Two things about this surface are decisions rather than styling.
+
+    A result is a chapter *address* — path plus slug — and the excerpt beneath it
+    is only there to show why that chapter is in the list. That is what
+    `.domain/second-brain/features.md#knowledge-retrieval` asks for, and its
+    reason is worth keeping in view: a chapter address is what every other part of
+    this context already links by, so a result that carries one can be opened
+    here, found in the atlas, and cited by an assistant. Loose text could be none
+    of those.
+
+    And "there is no index" is a state with words in it. Local ADR 0004's ladder
+    lets every other consumer degrade quietly to Markdown, because browsing
+    touches the handful of files on screen; search cannot, so this is the one
+    place the ladder reaches the reader. The message names the command that fixes
+    it. An empty result list would say "nothing matched", which is a different
+    claim and a false one. KnowledgeAtlasView does the same thing for the graph
+    and its message is the model this one follows.
+*@
+
+<section class="knowledge-search" data-testid="knowledge-search" aria-label="Search this knowledge base">
+    <header class="knowledge-search__header">
+        <div class="knowledge-search__heading">
+            <p class="knowledge-search__kicker">Search</p>
+            <h3>@Heading</h3>
+        </div>
+        <SearchBox Value="@_query"
+                   ValueChanged="RunAsync"
+                   CssClass="knowledge-search__box"
+                   Placeholder="Words a chapter would use"
+                   AriaLabel="Search knowledge chapters"
+                   TestId="knowledge-search-input" />
+    </header>
+
+    @if (_answer is { IsUnavailable: true, UnavailableMessage: { Length: > 0 } unavailable })
+    {
+        <EmptyState Title="@unavailable" role="status" TestId="knowledge-search-unavailable" />
+    }
+    else if (_answer is null || string.IsNullOrWhiteSpace(_query))
+    {
+        <EmptyState Title="Search every area at once."
+                    Description="Results name the chapter they came from, so you can open it."
+                    TestId="knowledge-search-prompt" />
+    }
+    else if (_answer.Hits.Count == 0)
+    {
+        <EmptyState Title="No chapter uses those words."
+                    Description="Try fewer words, or a word a chapter would spell exactly."
+                    role="status"
+                    TestId="knowledge-search-none" />
+    }
+    else
+    {
+        <ul class="knowledge-search__results" data-testid="knowledge-search-results">
+            @foreach (var hit in _answer.Hits)
+            {
+                <li class="knowledge-search__result">
+                    @* The address is the control. A hit whose folder this app does
+                       not read is still shown - it is a true answer - but it is
+                       shown as text, because a button that goes nowhere is worse
+                       than no button. The same rule the reference links follow. *@
+                    @if (KnowledgeChapterLink.From(hit.Chapter.Reference) is { } target)
+                    {
+                        <AppButton BaseClass="knowledge-search__open"
+                                   Variant="ButtonVariant.None"
+                                   title="@($"Open {hit.Chapter.Reference}")"
+                                   OnClick="() => OnNavigateToChapter.InvokeAsync(target)">
+                            <span class="knowledge-search__result-title">@TitleOf(hit)</span>
+                            <span class="knowledge-search__address">@hit.Chapter.Reference</span>
+                        </AppButton>
+                    }
+                    else
+                    {
+                        <span class="knowledge-search__result-title">@TitleOf(hit)</span>
+                        <span class="knowledge-search__address">@hit.Chapter.Reference</span>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(hit.Excerpt))
+                    {
+                        <p class="knowledge-search__excerpt">@hit.Excerpt</p>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    /// <summary>Enough to fill the panel and stop. A reader who is on result
+    /// thirty has asked the wrong question, and fetching two hundred to prove it
+    /// costs the panel its first draw.</summary>
+    private const int Limit = 30;
+
+    private KnowledgeSearchAnswer? _answer;
+    private string _query = string.Empty;
+    private string? _loadedKey;
+
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>One knowledge folder — <c>.domain</c> — or <see langword="null"/>
+    /// for every area at once, which is what the domain asks for by default.</summary>
+    [Parameter]
+    public string? Scope { get; set; }
+
+    /// <summary>What the scope is called, for the heading.</summary>
+    [Parameter]
+    public string ScopeLabel { get; set; } = "All knowledge";
+
+    [Parameter]
+    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
+
+    private string Heading => string.IsNullOrWhiteSpace(ScopeLabel) ? "All knowledge" : ScopeLabel;
+
+    /// <summary>
+    /// Asks once with nothing typed, and again whenever the repository or the
+    /// scope moves.
+    /// <para>
+    /// The empty query is not a wasted call: it is what surfaces the unavailable
+    /// state before the reader types. Telling somebody there is no index the
+    /// moment they open search is the whole point of that state — finding out
+    /// after typing a question would be the empty list this exists to avoid,
+    /// arriving one keystroke later.
+    /// </para>
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var key = $"{RepositoryAlias}|{Scope}";
+        if (string.Equals(_loadedKey, key, StringComparison.Ordinal)) return;
+
+        _loadedKey = key;
+        _query = string.Empty;
+        Run();
+    }
+
+    private Task RunAsync(string? value)
+    {
+        _query = value ?? string.Empty;
+        Run();
+        return Task.CompletedTask;
+    }
+
+    private void Run() => _answer = KnowledgeSearch.Search(_query, RepositoryAlias, Scope, Limit);
+
+    /// <summary>The chapter's own name, falling back to the file when a chapter is
+    /// the file itself and never to the slug — a slug is an address, and it is
+    /// already shown as one on the line below.</summary>
+    private static string TitleOf(KnowledgeSearchHit hit) =>
+        !string.IsNullOrWhiteSpace(hit.Chapter.Title)
+            ? hit.Chapter.Title!
+            : hit.Chapter.Path[(hit.Chapter.Path.LastIndexOf('/') + 1)..];
+}

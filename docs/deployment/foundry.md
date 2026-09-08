@@ -22,6 +22,7 @@ The workflow's `environment_name` input selects both. If the parameter file is m
 | Foundry account | `backlog-foundry` |
 | Parameter file | `infra/foundry/backlog-ai.bicepparam` |
 | Speech model | `gpt-4o-transcribe`, enabled via `includeSpeechModel = true` |
+| Embedding model | `text-embedding-3-small`, enabled via `includeEmbeddingModel = true` |
 
 The resource group is `westeurope` but the Foundry account is placed in `swedencentral`, so `backlog-ai.bicepparam` sets `location` explicitly instead of inheriting the resource group location.
 
@@ -69,7 +70,7 @@ The template defaults the Azure region to the resource group's location. Overrid
 
 ## Model deployments
 
-Every environment deploys the same required model set. What may differ per environment is the account name, region, account SKU, deployment SKU, capacity, content filter policy, tags, and whether the optional balanced and speech models are included.
+Every environment deploys the same required model set. What may differ per environment is the account name, region, account SKU, deployment SKU, capacity, content filter policy, tags, and whether the optional balanced, embedding and speech models are included.
 
 | Deployment | Model | Role | Prompt tokens | Output tokens | Default |
 | --- | --- | --- | ---: | ---: | --- |
@@ -77,6 +78,7 @@ Every environment deploys the same required model set. What may differ per envir
 | `gpt-5-5` | `gpt-5.5` | Premium fallback | 922000 | 128000 | Yes |
 | `gpt-5-6-luna` | `gpt-5.6-luna` | Fast, cheaper routine model | 922000 | 128000 | Yes |
 | `gpt-5-6-sol` | `gpt-5.6-sol` | Balanced alternative | 922000 | 128000 | Optional |
+| `text-embedding-3-small` | `text-embedding-3-small` | Knowledge retrieval by meaning | n/a | n/a | Optional, on for `backlog-ai` |
 | `gpt-4o-transcribe` | `gpt-4o-transcribe` | Speech-to-text | n/a | n/a | Optional, on for `backlog-ai` |
 
 All of these are available in `swedencentral` and `westeurope` with the `GlobalStandard` SKU.
@@ -109,6 +111,7 @@ These are the parameters a `<environment_name>.bicepparam` file may set. Only `a
 | `deploymentSkuName` | `GlobalStandard` | Default SKU for deployments that do not pin their own; must be available in the target subscription and region. |
 | `deploymentCapacity` | `1` | Default capacity for deployments that do not pin their own, in thousands of tokens per minute; bounded by the target subscription's quota. |
 | `includeBalancedModel` | `false` | Deploys `gpt-5-6-sol` in addition to the required set. |
+| `includeEmbeddingModel` | `false` | Deploys `text-embedding-3-small`, which backs the knowledge database's semantic tier. Set to `true` in `backlog-ai.bicepparam`. Nothing calls it yet: the tier is wired and the database is correct without it. |
 | `includeSpeechModel` | `false` | Deploys `gpt-4o-transcribe`. Set to `true` in `backlog-ai.bicepparam`. |
 | `contentFilterPolicyName` | `Microsoft.DefaultV2` | Responsible AI policy applied to every deployment. |
 | `tags` | workload/environment/managedBy | Applied to the account and, extended with model role and token budget tags, to each deployment. |

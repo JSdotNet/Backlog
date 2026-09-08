@@ -26,8 +26,10 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Knowledge;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
@@ -183,6 +185,14 @@ public static class MauiProgram
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog",
             "task-sync-state.json")));
+        // Session replication's two files, in that same folder and for the same
+        // reasons - per-user, per-installation, never the workspace root. Two
+        // stores rather than one because a session save that corrupted a shared
+        // file would reset the task watermark above and re-push the whole machine;
+        // one call because where they go is the only part the host knows.
+        builder.Services.AddSessionSyncStores(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog"));
         // "https+http://sync" is resolved by Aspire service discovery, which
         // AddServiceDefaults above wired up, so the desktop always talks to the sync
         // service of this AppHost run. Ports are dynamic; a literal one would be
@@ -193,6 +203,12 @@ public static class MauiProgram
         builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The embedding deployment beside the chat one. Registered and never
+        // called in this change: local ADR 0004's semantic tier is wired and
+        // dormant, and the thing that would join it up - writing vectors into
+        // _meta/knowledge.db - belongs to the Node generator, which is the only
+        // writer that file has.
+        builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
@@ -248,6 +264,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<KnowledgeAtlasService>();
+        // Retrieval, both tiers. Adapters over the generated database rather than
+        // over the Markdown: search is the one capability ADR 0004's ladder does
+        // not let degrade to a corpus scan, so where there is no database these
+        // report that in words instead of answering slowly or answering nothing.
+        builder.Services.AddSingleton<IKnowledgeSearch>(sp =>
+            new KnowledgeFullTextSearch(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        builder.Services.AddSingleton<IKnowledgeVectorSearch>(sp =>
+            new KnowledgeSemanticSearch(sp.GetRequiredService<IKnowledgeFolderSource>(), KnowledgeEmbeddingModel.Default));
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
@@ -300,6 +324,16 @@ public static class MauiProgram
         // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
 
+        // Session replication, on top of AddSyncClient above and after the readers
+        // it pushes from: it reads this machine's sessions through the port that
+        // call registers and contributes a second source to the same port for what
+        // the other environments reported. Both lines are lazy factories, so the
+        // order is for whoever reads this file rather than for the container. It is
+        // its own call and its own feature key, because a person can want their
+        // tasks on both machines and still not want a list of what their agents
+        // have been doing leaving either one.
+        builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+
         // What a transcript's parsed runs are kept in, so an activity read parses only
         // the transcripts that have changed. Beside the per-user settings and never
         // under the backlog root - see ActivityCacheDirectory: ADR 0005 syncs the
@@ -314,6 +348,10 @@ public static class MauiProgram
         // asking for hundreds of megabytes to be parsed. It picks up the cache
         // registered above through GetService, so a host that composed none would
         // still be correct and only slower.
+        //
+        // This machine's transcripts and no others, unlike the session list beside it:
+        // a replicated session record says what another environment did, and the file
+        // its runs would have to be parsed out of never left that machine.
         builder.Services.AddAgentActivitySource();
 
         // The join between the two contexts: the Dashboard's sessions part reports on
@@ -346,6 +384,13 @@ public static class MauiProgram
         // an IHostedService: this head has no generic host to start one. See
         // TaskSyncWorker for the whole of that reasoning.
         _ = app.Services.GetRequiredService<TaskSyncWorker>();
+
+        // And session replication's own loop, for the same reason and with the
+        // same failure if it is left out. A sibling rather than a second exchange
+        // inside the worker above: see SessionSyncWorker for why one loop over two
+        // independently switchable features would have to run whenever either was
+        // on, and would give the two one shared error to report.
+        _ = app.Services.GetRequiredService<SessionSyncWorker>();
 
         return app;
     }

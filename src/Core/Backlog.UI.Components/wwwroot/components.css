@@ -826,6 +826,65 @@ button.badge:hover {
     padding-right: var(--spacing-xs);
 }
 
+/* How much of one assistant's attention a file gets: always, on match, linked,
+   not read.
+
+   One family of four, drawn as a scale rather than as four unrelated colours,
+   because the reading is ordinal — the question is which of two hosts reads a
+   file *more*, and a categorical palette would answer a different one. The one
+   saturated hue fills the top step and outlines the second; the third is the
+   neutral outline every quiet badge in this library wears; the fourth goes
+   dashed and disabled, because "not read" is an absence and should look like
+   one rather than like a fourth value.
+
+   Centred and given a floor width so a column of them lines up: they are read
+   down a table, and four labels of different lengths ragged against each other
+   is harder to scan than the words themselves are to tell apart. */
+.badge--reach {
+    justify-content: center;
+    min-width: 5rem;
+}
+
+.badge--reach-always { background: var(--color-primary); color: var(--color-text-inverse); }
+
+.badge--reach-on-match {
+    background: transparent;
+    border: var(--border-width) solid var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+/* A conditional file that the picked paths turned on. Identical to the always
+   badge, deliberately: both mean the file is loaded, which is the question the
+   column answers, and a reader scanning for what a change costs wants those two
+   to group rather than to differ.
+
+   It was drawn with a darker border to mark how it came to be loaded. That
+   border measured 1.34:1 against the fill — under the 3:1 a UI boundary needs
+   and invisible at reading distance — so it claimed a distinction it did not
+   deliver. Provenance is already on the row twice over: the badge reads "On
+   match" rather than "Always", and the globs sit underneath it. */
+.badge--reach-matched {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.badge--reach-linked {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+/* The dash is what makes this one an absence, not the ink. Drawn in the disabled
+   grey it measured 4.48:1 at 12px, which is under AA — and this is the badge
+   carrying the most consequential reading on the table, so it is the last one
+   that can afford to be the hardest to read. The border style says "nothing
+   here" on its own. */
+.badge--reach-not-read {
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border);
+    color: var(--color-text-secondary);
+}
+
 /* A tool a file declares. A name rather than a pattern, so it keeps the quiet
    filled shape every other one-dimensional badge has. */
 .badge--tool {
@@ -2182,6 +2241,23 @@ button.md-check {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 14%, transparent);
     color: var(--color-text-primary);
+}
+
+/* Nor are the active row and the hovered row, and until this rule they were
+   drawn identically — the same fill, the same border colour, the same ink. In a
+   tree that stands still that is survivable, because only one row is ever
+   chosen. In one being clicked through it is not: while the pointer sits
+   anywhere in the list, the row under it is indistinguishable from the row you
+   actually picked, and a multi-select tree becomes a list where the only record
+   of your choices is somewhere else on the page.
+
+   Twice the fill and a solid bar down the edge. The bar is an inset shadow
+   rather than a wider border because a border would move the label a pixel every
+   time a row was chosen. */
+.knowledge-menu__item--active,
+.folder-tree__item--active {
+    background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 /* The active row and the focused row are not the same row, so the fill cannot

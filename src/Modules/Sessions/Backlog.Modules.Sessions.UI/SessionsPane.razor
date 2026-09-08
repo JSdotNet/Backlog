@@ -157,12 +157,16 @@
         }
         else
         {
+            @* The table's accessible name says "has a record of" rather than "on this
+               PC", which is what the subtitle and the feature's own description
+               already say. Some of these rows ran somewhere else, and the name of the
+               table is not the place to claim otherwise. *@
             <DataTable TItem="AgentSession"
                        Columns="Columns"
                        Sections="Sections"
                        RowKey="@(session => (object)$"{session.Kind}/{session.Id}")"
                        RowNoun="session"
-                       AriaLabel="Claude and Copilot sessions on this PC"
+                       AriaLabel="Claude and Copilot sessions this PC has a record of"
                        EmptyMessage="@EmptyMessage"
                        EmptyDescription="@EmptyDescription"
                        TestId="sessions-table">
@@ -170,10 +174,66 @@
                     @* The folder is the second line of the name rather than a column
                        of its own: it is the longest value in the row and the least
                        often the thing being looked for, and as a column it set the
-                       table's width and pushed the dates off screen. *@
+                       table's width and pushed the dates off screen.
+
+                       A replicated row has no folder to put there, and that absence
+                       is not the one the em dash means. Or(...) says the agent
+                       recorded nothing; here the agent recorded a folder and it
+                       deliberately stayed behind — a raw path describes one machine's
+                       disk and means nothing on this one, so ADR 0005 keeps it off
+                       the wire entirely. Spending the em dash on it would file a
+                       boundary this product chose under "nobody wrote it down", and
+                       the two absences could no longer be told apart anywhere on this
+                       screen — including on the one row where both occur at once,
+                       which is a replicated session Claude recorded no repository
+                       for.
+
+                       So the line says what is true instead: which machine recorded
+                       the session, and that its detail stayed there. That is also
+                       this pane's only answer to what a reader tries next. There is
+                       no transcript-opening control anywhere in this product, so
+                       nothing here is disabled and nothing is greyed out — what would
+                       read as broken is a row that looks exactly like a local one and
+                       has nothing behind it, and naming the machine is what stops it
+                       looking that way. The day a local row does grow a way into its
+                       transcript, the sentence explaining why this row has none is
+                       already written and already in the place a reader looks.
+
+                       Prose in the library's own data-table__detail, and not
+                       IntegrationUnavailable. That component states that a cluster of
+                       acts cannot be performed, takes one of four causes — not
+                       connected, not installed, offline, turned off in settings — and
+                       draws its sentence in --color-text-disabled beside a glyph for
+                       whichever one it was given. None of the four is true here:
+                       nothing is unavailable, nothing is off, the record is complete,
+                       and there is no act to disable. Forcing a cause on would make a
+                       complete record read as a broken integration, which is the
+                       exact misreading this line exists to prevent — and a p carrying
+                       a paragraph and a glyph inside a table cell is the wrong weight
+                       for a row besides.
+
+                       Calm on purpose: no role, no colour of its own, no glyph.
+                       Nothing happened and nothing is wrong, so it is a fact in the
+                       row's own secondary ink at the weight the folder line already
+                       has, because it is the same kind of detail. The machine's name
+                       is in the text rather than in a tint, so the row survives
+                       greyscale and reads out loud. *@
                     <td class="sessions-table__session">
-                        <span class="sessions-table__title">@session.Title</span>
-                        @if (!string.IsNullOrWhiteSpace(session.WorkingFolder))
+                        <span class="@TitleClass(session)">@session.Title</span>
+                        @if (session.Origin is AgentSessionOrigin.Replicated)
+                        {
+                            @* Clamped through the library's own class, exactly as the
+                               folder line below is. The width cap alone is not enough
+                               and was the bug: with no overflow rule the sentence ran
+                               out of the cell and collided with the Type column, and
+                               with no title there was no way to read the part that had
+                               been cut. A machine name is as unbounded as a path, so
+                               this line needs the same treatment paths get. *@
+                            <span class="data-table__detail" data-testid="sessions-origin">
+                                <span class="data-table__clamp sessions-table__origin" title="@OriginLine(session)">@OriginLine(session)</span>
+                            </span>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(session.WorkingFolder))
                         {
                             <span class="data-table__detail data-table__mono">
                                 <span class="data-table__clamp" title="@session.WorkingFolder">@session.WorkingFolder</span>
@@ -300,6 +360,44 @@
 
         return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
     }
+
+    /// <summary>
+    /// The session's name, plus the family that says it is an identifier on a row
+    /// that only has one.
+    /// <para>
+    /// Titles do not sync — an agent derives one from what the person typed, and a
+    /// prompt is the first thing ADR 0005 refuses to carry — so a replicated record
+    /// names itself with its own session id. Rendering that in the ink and weight of
+    /// a title somebody wrote is the row passing itself off as local: it reads as a
+    /// name right up to the point somebody tries to make sense of it. The mono family
+    /// is what this pane already gives every identifier in a row — the repository,
+    /// the branch, the folder — so the id joins them rather than inventing a fifth
+    /// treatment for the same kind of value.
+    /// </para>
+    /// </summary>
+    private static string TitleClass(AgentSession session) =>
+        session.Origin is AgentSessionOrigin.Replicated
+            ? "sessions-table__title data-table__mono"
+            : "sessions-table__title";
+
+    /// <summary>
+    /// Where a replicated record came from, and that its detail stayed there. It
+    /// takes the second line unconditionally on such a row: the folder is empty by
+    /// contract, and a path that did somehow arrive would still name a disk this
+    /// machine cannot open, so provenance is the truer thing to spend the one line
+    /// on.
+    /// <para>
+    /// The machine's name and not its id. <c>EnvironmentId</c> is a sync device id —
+    /// a different id space from this device's kernel identity, and nothing a person
+    /// recognises. The fallback drops the name rather than the sentence, because
+    /// "Recorded on ." is worse than a sentence admitting it cannot say which
+    /// machine, and a name can be blank the way any wire field can.
+    /// </para>
+    /// </summary>
+    private static string OriginLine(AgentSession session) =>
+        string.IsNullOrWhiteSpace(session.Environment)
+            ? "Recorded on another machine. Its folder and transcript stay there."
+            : $"Recorded on {session.Environment}. Its folder and transcript stay there.";
 
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 
