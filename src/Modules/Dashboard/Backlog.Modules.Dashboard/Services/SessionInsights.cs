@@ -110,7 +110,18 @@ public sealed class SessionInsights(IAssistantSessionSource sessions, TimeProvid
             report.Capped,
             report.CapPerAssistant,
             report.Unreadable,
-            Breakdown(scoped, scope, from, to));
+            Breakdown(scoped, scope, from, to))
+        {
+            // Bucketed on the last activity, which is the only instant every session
+            // has: the start is optional and there is no end at all. A session that
+            // ran across a week boundary is therefore one mark in the week it last
+            // moved rather than a mark in each, and the part says that beside the
+            // columns.
+            SessionsPerWeek = WeekBuckets.Count(
+                WeekBuckets.Buckets(from, to),
+                scoped,
+                session => session.LastActivityAt)
+        };
     }
 
     /// <summary>

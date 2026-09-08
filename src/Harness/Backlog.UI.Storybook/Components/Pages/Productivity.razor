@@ -129,7 +129,9 @@ Bands take a ramp step and a name, never a red-amber-green light."
     </Story>
 
     <Story Name="MetricSpotlight — one series against the pack"
-           Description="Every repository on one plot, the subject in the brand hue and the rest muted. It answers whether the subject sits above or below the pack, and gives up reading any individual series that is not the subject."
+           Description="Every repository on one plot, the subject in the brand hue and the rest muted. It answers whether the subject sits above or below the pack.
+
+The muted lines are not anonymous: each wears a stroke pattern that its legend swatch repeats, so a row in the legend points at a line. That is a second channel rather than a second colour, so the one-hue rule below is untouched."
            Code="@SpotlightCode">
         <MetricSpotlight Series="Windowed"
                          Selected="@_subject"
@@ -138,6 +140,32 @@ Bands take a ramp step and a name, never a red-amber-green light."
                          SharedMax="MetricScoring.MaxScore"
                          FormatValue="MetricFormat.Score"
                          TestId="spotlight-score" />
+    </Story>
+
+    <Story Name="MetricSpotlight with no subject — the estate"
+           Description="Leave `Selected` unset and nothing is the subject: no brand hue, no heavy stroke, just the shape of the whole estate. This is the reading the patterns were added for — with every line the same grey it was a picture you could look at and not read.
+
+Patterns run to five and then repeat, so the sixth repository draws like the first. Past five lines the answer is a trellis, and it stays the answer whenever someone needs an actual figure off a line between its endpoints: a pattern names a line, it does not label one.
+
+Below, the same data with `DistinguishSeries` off — which is what this chart used to be."
+           Code="@SpotlightEstateCode">
+        <div class="sb-stack">
+            <MetricSpotlight Series="Windowed"
+                             Label="@($"Score across the estate, last {_weeks} weeks")"
+                             NameHeading="Repository"
+                             SharedMax="MetricScoring.MaxScore"
+                             FormatValue="MetricFormat.Score"
+                             TestId="spotlight-estate" />
+
+            <MetricSpotlight Series="Windowed"
+                             DistinguishSeries="false"
+                             Label="The same weeks with distinction off — the legend still names them, and still points at nothing"
+                             NameHeading="Repository"
+                             SharedMax="MetricScoring.MaxScore"
+                             FormatValue="MetricFormat.Score"
+                             Height="8rem"
+                             TestId="spotlight-undistinguished" />
+        </div>
     </Story>
 
     <Story Name="MetricStackedArea — where the time went"
@@ -268,8 +296,8 @@ Turn the totals off — as below — and the two charts are indistinguishable."
             "Which repository dipped, and in which week? Scales to dozens of rows and dozens of columns.",
             "You need the actual figure at a glance — a shade is one of four buckets, not a reading."),
         new("MetricSpotlight",
-            "Is this repository above or below the pack?",
-            "You need to read a series that is not the subject. Only one line can be the subject at a time."),
+            "Is this repository above or below the pack? A pattern and its legend swatch say which line is which.",
+            "You need a figure off a line that is not the subject, somewhere between its endpoints — the legend prints the latest reading and nothing in between. Go to a trellis."),
         new("MetricSparkline in a MetricTile",
             "Which way is this one number going? Context beside a figure already printed.",
             "There is more than one series, or the reader needs to take a figure off it."),
@@ -358,9 +386,29 @@ Turn the totals off — as below — and the two charts are indistinguishable."
     private const string SpotlightCode = """
         <MetricSpotlight Series="byRepository"
                          Selected="backlog-ide"
-                         Label="Score over the last 12 weeks"
+                         Label="Score over the last 12 weeks — backlog-ide against the rest"
                          NameHeading="Repository"
-                         SharedMax="MetricScoring.MaxScore" />
+                         SharedMax="MetricScoring.MaxScore"
+                         FormatValue="MetricFormat.Score" />
+        """;
+
+    private const string SpotlightEstateCode = """
+        @* No Selected: nothing is the subject, and every line is told apart by its
+           own stroke pattern instead. *@
+        <MetricSpotlight Series="byRepository"
+                         Label="Score across the estate, last 12 weeks"
+                         NameHeading="Repository"
+                         SharedMax="MetricScoring.MaxScore"
+                         FormatValue="MetricFormat.Score" />
+
+        @* What it was before: one unbroken stroke on every context line. *@
+        <MetricSpotlight Series="byRepository"
+                         DistinguishSeries="false"
+                         Label="The same weeks with distinction off"
+                         NameHeading="Repository"
+                         SharedMax="MetricScoring.MaxScore"
+                         FormatValue="MetricFormat.Score"
+                         Height="8rem" />
         """;
 
     private const string ControlsCode = """

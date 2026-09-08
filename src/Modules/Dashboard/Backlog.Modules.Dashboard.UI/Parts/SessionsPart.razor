@@ -22,6 +22,14 @@
     surface can tell whether that happened, which is exactly why the sentence cannot wait
     for it.
 
+    The chart counts a session into the ISO week it last moved, because that is the
+    only instant every session has: the start is optional and no end is recorded at
+    all. So a session that ran across a week boundary is one column's worth of work in
+    the later week rather than half in each, and the caption says so — a reader who
+    added the columns up expecting the weeks to divide the work between them would be
+    reading a chart that never claimed to. A capped read makes the columns a floor
+    exactly as it makes the tiles one, and the note says that too.
+
     The breakdown appears only when there is more than one row, on the Rework part's
     precedent: a one-row table of the thing already named in the filter is a
     restatement, not a comparison.
@@ -54,6 +62,21 @@
                             Footnote="@(Value!.LastActivityAt is null ? null : "UTC")"
                             TestId="dashboard-sessions-last" />
             </MetricGrid>
+
+            @* Drawn only when there is an axis to draw it on. The part's empty state
+               is governed by the session count, so a series that arrived empty for any
+               other reason must not put "no usage in this period" under tiles that are
+               reporting some. *@
+            @if (Value!.SessionsPerWeek.Count > 0)
+            {
+                <MetricBars Points="@PerWeek"
+                            Label="@PerWeekLabel"
+                            BucketHeading="Week"
+                            ValueHeading="Sessions"
+                            HighlightLast="true"
+                            FormatValue="MetricFormat.Compact"
+                            TestId="dashboard-sessions-bars" />
+            }
 
             @if (Value!.Breakdown.Count > 1)
             {
@@ -111,7 +134,7 @@
             if (Value!.Capped)
             {
                 basis += $" Only the newest {Value!.CapPerAssistant} sessions per assistant were read, "
-                    + "so these figures are a floor.";
+                    + "so these figures are a floor, the weekly columns included.";
             }
 
             foreach (var source in Value!.Unreadable)
@@ -122,6 +145,26 @@
             return basis;
         }
     }
+
+    /// <summary>
+    /// The weekly series as the chart component wants it. Names only, no arithmetic:
+    /// the bucketing happened where the sessions were, and a second pass here would be
+    /// a second place for it to drift.
+    /// </summary>
+    private IReadOnlyList<MetricPoint> PerWeek =>
+        IsReady
+            ? [.. Value!.SessionsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            : [];
+
+    /// <summary>
+    /// What a column is, said where the columns are. A session has no end recorded and
+    /// may have no start, so the week it last moved is the only week it can be counted
+    /// in — and the consequence, that a session running across a boundary appears once
+    /// rather than in both weeks, is the reader's to know rather than to discover from
+    /// a chart whose columns do not sum to the tile above them.
+    /// </summary>
+    private const string PerWeekLabel =
+        "Sessions per week, counted in the week they last moved — one that ran across two weeks appears once";
 
     private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
     [

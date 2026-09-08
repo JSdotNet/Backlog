@@ -181,7 +181,18 @@ builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(
 // chooses between the user and organization endpoints by the same login, so
 // neither needs a setting for it.
 builder.Services.AddSingleton<IGitHubIdentityClient>(sp => new GitHubIdentityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
-builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+// The detail cache is what keeps a dashboard read from re-fetching every pull
+// request it already read. Its folder is beside the per-user settings and never
+// under the backlog root - see ActivityCacheDirectory.
+builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
+builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
+    sp.GetRequiredService<ResolvingGitHubTransport>(),
+    sp.GetRequiredService<IPullRequestDetailCache>()));
+// Counts only, over the search API, for the stretches of history the detailed
+// client is too expensive to walk.
+builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
+    sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
     sp.GetRequiredService<ResolvingGitHubTransport>(),
     sp.GetRequiredService<IGitHubIdentityClient>(),

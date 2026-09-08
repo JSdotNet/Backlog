@@ -21,7 +21,8 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// </para>
 /// <para>
 /// Both hosts must call this after registering <c>IGitHubActivityClient</c>,
-/// <c>IGitHubIdentityClient</c>, <c>IGitHubBillingClient</c>,
+/// <c>IGitHubActivityBaselineClient</c>, <c>IGitHubIdentityClient</c>,
+/// <c>IGitHubBillingClient</c>,
 /// <c>IClaudeUsageClient</c>, <c>GitHubSettingsStore</c>, <c>ClaudeSettingsStore</c>
 /// and <c>IDeviceIdentitySource</c>; the adapters only hold those interfaces and do
 /// not construct them.
@@ -42,6 +43,7 @@ public static class DashboardAdapterRegistration
         services.AddSingleton<IRepositoryDirectory, SettingsRepositoryDirectory>();
         services.AddSingleton<IMachineDirectory, DeviceMachineDirectory>();
         services.AddSingleton<IActivitySource, GitHubActivitySource>();
+        services.AddSingleton<IActivityBaselineSource, GitHubActivityBaselineSource>();
         services.AddSingleton<IClaudeSpendSource, ClaudeSpendSource>();
         services.AddSingleton<ICopilotSpendSource, CopilotSpendSource>();
 
