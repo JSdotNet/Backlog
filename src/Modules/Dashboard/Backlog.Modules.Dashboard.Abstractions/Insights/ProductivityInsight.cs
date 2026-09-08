@@ -1,4 +1,4 @@
-namespace Backlog.Modules.Dashboard.Abstractions.Insights;
+﻿namespace Backlog.Modules.Dashboard.Abstractions.Insights;
 
 /// <summary>
 /// One input to the productivity score, and how much of the score it is allowed
@@ -43,6 +43,19 @@ public sealed record ProductivityHeadline(
     IReadOnlyList<InsightPoint> IssuesPerWeek,
     IReadOnlyList<InsightPoint> ReworkRatePerWeek)
 {
+    /// <summary>
+    /// Whether the window behind these figures was read whole.
+    /// <para>
+    /// False when a repository's pull request listing stopped before it ran out of
+    /// pull requests, which makes every count, rate and median here a floor rather
+    /// than a total. Carried on each insight rather than left on the report it came
+    /// from, because the part that has to say so on screen is handed this and not
+    /// that. Beside the primary constructor rather than in it, so the fixtures that
+    /// build one positionally keep meaning what they meant.
+    /// </para>
+    /// </summary>
+    public bool Complete { get; init; } = true;
+
     public static ProductivityHeadline Empty { get; } = new(0, 0, 0m, null, [], [], []);
 }
 
@@ -66,6 +79,12 @@ public sealed record ReworkInsight(
     IReadOnlyList<InsightPoint> ChurnedPullRequestsPerWeek,
     IReadOnlyList<InsightRow> ByRepository)
 {
+    /// <summary>Whether the window behind these figures was read whole. A different
+    /// fact from <paramref name="ChurnComplete"/>: that one is about how deeply each
+    /// pull request was inspected, this one about whether every pull request in the
+    /// window arrived at all.</summary>
+    public bool Complete { get; init; } = true;
+
     public static ReworkInsight Empty { get; } = new(0, 0, 0, 0, 0, true, [], []);
 
     /// <summary>Churned pull requests as a fraction of those that were reviewed
@@ -86,12 +105,53 @@ public sealed record ReworkInsight(
 /// </summary>
 public sealed record ProductivityTrend(IReadOnlyList<InsightSeries> ByRepository, string? Highlight)
 {
+    /// <summary>Whether the window behind these series was read whole. Every point is
+    /// a floor when it is false.</summary>
+    public bool Complete { get; init; } = true;
+
     public static ProductivityTrend Empty { get; } = new([], null);
 }
+
+/// <summary>
+/// Where full marks came from: the reader's own busiest block of recent history.
+/// <para>
+/// It exists so the target can be named on screen. A target nobody can see is
+/// exactly as unarguable as the constant it replaced — "441 of 6" was indefensible
+/// because 6 came from nowhere a reader could reach, and "441 of 551" would be no
+/// better if 551 came from nowhere either. So the block that set the bar travels
+/// with the score: how much was merged in it, and when it was.
+/// </para>
+/// </summary>
+/// <param name="From">When the best block opened.</param>
+/// <param name="To">When it closed.</param>
+/// <param name="MergedPullRequests">How many pull requests were merged in it — the
+/// record the reader is being read against.</param>
+/// <param name="FullMarks">What that record works out to as full marks over the
+/// scored window, growth headroom included.</param>
+public sealed record ProductivityTarget(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int MergedPullRequests,
+    decimal FullMarks);
 
 /// <summary>The score, and what it is made of.</summary>
 public sealed record ProductivityScoreInsight(decimal Value, IReadOnlyList<ProductivityScoreInput> Inputs)
 {
+    /// <summary>The block full marks was derived from, or null when there is no
+    /// history to derive one from — because it could not be read, or because there is
+    /// none yet. Null is not a reason to invent a target; it is a reason for the
+    /// volume inputs to be absent and for the part to say why.</summary>
+    public ProductivityTarget? Target { get; init; }
+
+    /// <summary>Whether the history behind <see cref="Target"/> was read whole. False
+    /// makes the record a floor, and therefore the target one too — the reading is
+    /// generous rather than wrong, and the part says so.</summary>
+    public bool TargetComplete { get; init; } = true;
+
+    /// <summary>Whether the scored window itself was read whole. False makes every
+    /// counted input a floor.</summary>
+    public bool Complete { get; init; } = true;
+
     public static ProductivityScoreInsight Empty { get; } = new(0m, []);
 }
 

@@ -9468,10 +9468,14 @@ select.field__input option {
 }
 
 /* Context. Grey rather than a paler gold: a muted brand hue reads as "a slightly
-   less important subject", and these are not subjects at all. */
+   less important subject", and these are not subjects at all. chart-axis rather
+   than chart-grid, because #chart-roles gives the baseline chart-axis "because a
+   baseline carries meaning and a gridline does not" and a line of data carries
+   more — and because chart-grid's 2.16:1 is under the 3:1 a non-text mark owes,
+   which a dashed line can least afford. */
 .metric-spotlight__line {
     fill: none;
-    stroke: var(--chart-grid);
+    stroke: var(--chart-axis);
     stroke-width: var(--border-width);
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -9480,6 +9484,39 @@ select.field__input option {
 .metric-spotlight__line--subject {
     stroke: var(--chart-series);
     stroke-width: var(--border-width-2);
+}
+
+/* The five stroke patterns, which are what lets a legend row name a line without
+   spending a second hue. Unitless because the polylines carry non-scaling-stroke:
+   the dashes are measured in the rendered pixel, not in the 100x40 canvas, so a
+   wide pane and a narrow one draw the same rhythm rather than stretching it.
+
+   Every period is short enough that at least one and a half of it fits the 0.75rem
+   legend swatch, which is the width the pattern has to survive. The set is a dot, a
+   dash, a long dash, a dash-dot and a coarse dot: five differences of rhythm rather
+   than five lengths, because five lengths would be one length read five ways.
+
+   The two dotted rhythms are the pair a reader is likeliest to confuse: the same
+   duty cycle at twice the scale. So the coarse one is last, four context lines never
+   draw both of them, and only a chart already at the wrap has to tell them apart. */
+.metric-spotlight__line--pattern-1 {
+    stroke-dasharray: 1 2;
+}
+
+.metric-spotlight__line--pattern-2 {
+    stroke-dasharray: 3 2;
+}
+
+.metric-spotlight__line--pattern-3 {
+    stroke-dasharray: 6 2;
+}
+
+.metric-spotlight__line--pattern-4 {
+    stroke-dasharray: 4 2 1 2;
+}
+
+.metric-spotlight__line--pattern-5 {
+    stroke-dasharray: 2 4;
 }
 
 .metric-spotlight__axis {
@@ -9516,7 +9553,38 @@ select.field__input option {
     width: 0.75rem;
     height: var(--border-width-2);
     border-radius: var(--border-radius-full);
-    background: var(--chart-grid);
+    background: var(--chart-axis);
+}
+
+/* The swatch repeats its line's rhythm at the same pixel lengths, which is the
+   whole point of it: a row that wears a different pattern from its line would tie
+   the legend to the wrong series, and be worse than the identical swatches this
+   replaced. background rather than background-image, so the base colour underneath
+   does not fill the gaps back in. */
+.metric-spotlight__swatch--pattern-1 {
+    background: repeating-linear-gradient(to right,
+        var(--chart-axis) 0 1px, transparent 1px 3px);
+}
+
+.metric-spotlight__swatch--pattern-2 {
+    background: repeating-linear-gradient(to right,
+        var(--chart-axis) 0 3px, transparent 3px 5px);
+}
+
+.metric-spotlight__swatch--pattern-3 {
+    background: repeating-linear-gradient(to right,
+        var(--chart-axis) 0 6px, transparent 6px 8px);
+}
+
+.metric-spotlight__swatch--pattern-4 {
+    background: repeating-linear-gradient(to right,
+        var(--chart-axis) 0 4px, transparent 4px 6px,
+        var(--chart-axis) 6px 7px, transparent 7px 9px);
+}
+
+.metric-spotlight__swatch--pattern-5 {
+    background: repeating-linear-gradient(to right,
+        var(--chart-axis) 0 2px, transparent 2px 6px);
 }
 
 .metric-spotlight__legend-item--subject .metric-spotlight__swatch {

@@ -63,6 +63,12 @@ internal sealed class GitHubActivitySource(
         var pullRequests = new List<ActivityPullRequest>();
         var issues = new List<ActivityIssue>();
 
+        // Every repository's honesty flags fold into one. A repository that was
+        // skipped for an error is deliberately not counted against it — that is the
+        // "four of five repositories are true" case above, and it is a different
+        // claim from "this repository's window was cut short".
+        var complete = true;
+
         foreach (var repository in repositories)
         {
             var reference = settings.Current.Find(repository.Alias);
@@ -87,6 +93,8 @@ internal sealed class GitHubActivitySource(
                 continue;
             }
 
+            complete &= report.ListingComplete && report.DetailComplete;
+
             pullRequests.AddRange(report.PullRequests.Select(pr => new ActivityPullRequest(
                 repository.Alias,
                 pr.Number,
@@ -98,13 +106,16 @@ internal sealed class GitHubActivitySource(
                 pr.FilesRetouched,
                 pr.ChurnComplete)
             {
-                ReviewTurnaround = pr.ReviewTurnaround
+                ReviewTurnaround = pr.ReviewTurnaround,
+                ChangedLines = pr.ChangedLines,
+                ChangedFiles = pr.ChangedFiles,
+                SizeKnown = pr.SizeKnown
             }));
 
             issues.AddRange(report.Issues.Select(issue =>
                 new ActivityIssue(repository.Alias, issue.Number, issue.ClosedAt)));
         }
 
-        return new ActivityReport(pullRequests, issues);
+        return new ActivityReport(pullRequests, issues) { Complete = complete };
     }
 }

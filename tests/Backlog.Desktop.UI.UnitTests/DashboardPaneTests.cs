@@ -514,6 +514,65 @@ public class DashboardPaneTests
         Assert.Contains("Copilot's folder could not be read.", note, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The one chart on this part, and the sentence that says what a column is. Every
+    /// other part on this surface draws its series; this one used to be the exception.
+    /// </summary>
+    [Fact]
+    public void The_sessions_part_draws_a_column_per_week()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                SessionsPerWeek =
+                [
+                    new InsightPoint("W32", 3),
+                    new InsightPoint("W33", 0),
+                    new InsightPoint("W34", 9)
+                ]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+
+        // A column per bucket, the quiet week among them: a chart that drew only the
+        // weeks with something in them would put W32 next to W34 and read as two
+        // consecutive weeks.
+        Assert.Equal(3, pane.FindAll("[data-testid='dashboard-sessions-bars'] .metric-bars__column").Count);
+
+        var bars = Squashed(pane.Find("[data-testid='dashboard-sessions-bars']").TextContent);
+
+        // The bucketing rule, beside the columns it governs rather than left for a
+        // reader to deduce from a total that does not add up.
+        Assert.Contains("counted in the week they last moved", bars, StringComparison.Ordinal);
+
+        // And the figures themselves, in the table the columns are only a picture of.
+        Assert.Contains("W33", bars, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A capped read makes the columns a floor exactly as it makes the tiles one, and
+    /// the note that already admits the cap has to cover them. A column read as a whole
+    /// week's work is the same untruth as a total read as a total.
+    /// </summary>
+    [Fact]
+    public void A_capped_read_says_the_columns_are_floors()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Capped = true,
+                SessionsPerWeek = [new InsightPoint("W34", 9)]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-sessions-note']").TextContent);
+
+        Assert.Contains(
+            "so these figures are a floor, the weekly columns included",
+            note,
+            StringComparison.Ordinal);
+    }
+
     private static AssistantSessionsInsight Insight() =>
         new(
             Sessions: 12,
@@ -539,6 +598,171 @@ public class DashboardPaneTests
             Task.FromResult(InsightResult<AssistantSessionsInsight>.Ready(insight));
 
         public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>
+    /// The defect this part was rebuilt for was a target nobody could see: full marks
+    /// came from a constant, so the card read "441 of 6" and there was nowhere on
+    /// screen to find out why. A derived target is only better if the reader can
+    /// trace it, so the note names the block it came from.
+    /// </summary>
+    [Fact]
+    public void The_score_note_names_the_target_and_where_it_came_from()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
+
+        Assert.Contains("a quarter above your own best four weeks", note, StringComparison.Ordinal);
+
+        // The figure it works out to, the record behind it, and when that record was
+        // set — all three, because any two of them leave the third unarguable.
+        Assert.Contains("380 merged pull requests", note, StringComparison.Ordinal);
+        Assert.Contains("304", note, StringComparison.Ordinal);
+        Assert.Contains("12 May 2026", note, StringComparison.Ordinal);
+        Assert.Contains("09 Jun 2026", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// No history, no target, and three of the seven inputs simply absent. A reader
+    /// who cannot see that throughput dropped out reads what is left as a score of
+    /// everything.
+    /// </summary>
+    [Fact]
+    public void The_score_note_says_when_volume_is_not_being_scored()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(
+                new ReadyProductivityInsights(Score() with { Target = null })));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
+
+        Assert.Contains(
+            "Merged pull requests, issues closed and assistant sessions are not being scored",
+            note,
+            StringComparison.Ordinal);
+        Assert.Contains("could not be read, or there is not enough of it yet", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The sessions input refuses two of the surface's three dimensions and is worth
+    /// the least of the seven, and all of that is said permanently rather than
+    /// conditionally: the conditions are invisible from the card, so a reader could
+    /// not tell a missing sentence from an absent caveat.
+    /// </summary>
+    [Fact]
+    public void The_score_note_refuses_the_repository_dimension_for_sessions()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
+
+        Assert.Contains("count effort rather than output", note, StringComparison.Ordinal);
+        // Not a weight count. The card renormalises the shares over the inputs that
+        // actually had something to read, so a note naming a fixed denominator
+        // contradicts the percentage printed beside the row whenever one drops out.
+        Assert.Contains("carry the least weight here", note, StringComparison.Ordinal);
+        Assert.Contains("rises when another input", note, StringComparison.Ordinal);
+        Assert.Contains("while one repository is in focus", note, StringComparison.Ordinal);
+        Assert.Contains("machine filter does not move this figure", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A count read from a listing that stopped early is a floor, and every part built
+    /// on that listing has to say so. A capped number presented as a total is how a
+    /// dashboard quietly stops being trusted.
+    /// </summary>
+    [Fact]
+    public void A_truncated_window_says_its_figures_are_a_floor()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(
+                new ReadyProductivityInsights(Score() with { Complete = false })));
+
+        var pane = context.Render<DashboardPane>();
+
+        foreach (var part in new[] { "dashboard-score", "dashboard-headline", "dashboard-rework", "dashboard-trend" })
+        {
+            var note = Squashed(pane.Find($"[data-testid='{part}-note']").TextContent);
+
+            Assert.Contains("could not be read", note, StringComparison.Ordinal);
+            Assert.Contains("floor", note, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// A score with the whole composition behind it: the three volume inputs read
+    /// against the reader's own record, and the four proportions.
+    /// </summary>
+    private static ProductivityScoreInsight Score() =>
+        new(
+            72m,
+            [
+                new ProductivityScoreInput("Pull requests merged", 304m, 380m, 3m),
+                new ProductivityScoreInput("Issues closed", 72m, 90m, 2m),
+                new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
+                new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
+                new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
+                new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m),
+                new ProductivityScoreInput("Assistant sessions", 40m, 75m, 1m)
+            ])
+        {
+            Target = new ProductivityTarget(
+                new DateTimeOffset(2026, 5, 12, 0, 0, 0, TimeSpan.Zero),
+                new DateTimeOffset(2026, 6, 9, 0, 0, 0, TimeSpan.Zero),
+                304,
+                380m)
+        };
+
+    /// <summary>
+    /// Productivity that can answer, so the notes the parts write about their own
+    /// figures can be read rather than only their unavailable state. Every part gets
+    /// the same completeness flag, because it is one report behind all four.
+    /// </summary>
+    private sealed class ReadyProductivityInsights(ProductivityScoreInsight score) : IProductivityInsights
+    {
+        public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
+                new ProductivityHeadline(304, 72, 0.2m, TimeSpan.FromHours(5), [], [], [])
+                {
+                    Complete = score.Complete
+                }));
+
+        public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityScoreInsight>.Ready(score));
+
+        public Task<InsightResult<ProductivityTrend>> GetTrendAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ProductivityTrend>.Ready(
+                new ProductivityTrend(
+                    [new InsightSeries("backlog", [new InsightPoint("W33", 40m), new InsightPoint("W34", 55m)])],
+                    null)
+                {
+                    Complete = score.Complete
+                }));
+
+        public Task<InsightResult<ReworkInsight>> GetReworkAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<ReworkInsight>.Ready(
+                new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
+                {
+                    Complete = score.Complete
+                }));
+
+        public void Invalidate(DashboardScope scope)
         {
         }
     }

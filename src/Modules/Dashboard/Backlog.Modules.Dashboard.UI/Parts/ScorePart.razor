@@ -5,7 +5,19 @@
     so a bare score is either taken on faith or ignored, and it is usually ignored.
     Handing the component the inputs rather than the number turns it into an
     argument somebody can join: a reader who thinks throughput is over-weighted can
-    see it is worth three of the eight and say so.
+    see it is worth three of the eleven and say so.
+
+    The same reasoning is why the note names the target. Showing "441 of 6" was the
+    defect this part was rebuilt for, and the fix is not simply a bigger denominator
+    — it is a denominator the reader can trace. Full marks is a quarter above their
+    own busiest four weeks, so the note says which four weeks those were and what
+    was merged in them. A target nobody can see is exactly as unarguable as the
+    constant it replaced.
+
+    The note also says what is NOT being scored, in the three ways that can happen:
+    when there is no history to set a target from, when the window itself came back
+    truncated, and — permanently, because the condition is invisible from here — the
+    two things the sessions input refuses to be.
 
     Value is deliberately not passed. MetricScore works the figure out from the
     inputs it is given, so the number on screen cannot drift from the composition
@@ -26,7 +38,7 @@
                  Bands="Bands"
                  Status="Status"
                  StatusMessage="@StatusMessage"
-                 Footnote="Weights are a starting position. They are on screen because they are arguable."
+                 Footnote="@Footnote"
                  TestId="dashboard-score-card" />
 </PartFrame>
 
@@ -53,7 +65,92 @@
         ? "Productivity score — every repository"
         : $"Productivity score — {Scope.RepositoryAlias}";
 
-    private string Note => $"Over {Scope.Weeks} weeks. Four inputs, weighted, normalised to 100.";
+    /// <summary>
+    /// What the figures cover, where full marks came from, and every way in which
+    /// the answer is less than the whole truth. Assembled clause by clause rather
+    /// than written as one sentence, because most of the clauses are conditional and
+    /// a note that claimed a floor was a total is the failure worth avoiding.
+    /// </summary>
+    private string Note
+    {
+        get
+        {
+            var note = $"Over {Scope.Weeks} weeks. Up to seven inputs, weighted, normalised to 100.";
+
+            if (IsReady)
+            {
+                note += " " + TargetSentence;
+
+                if (!Value!.Complete)
+                {
+                    note += " Some of this window could not be read, so every count here is a floor"
+                        + " and the score is read from floors.";
+                }
+            }
+
+            // Last, and present whether or not there are figures. It is the one
+            // caveat here that is a fact about the composition rather than about
+            // this reading.
+            return note + " " + SessionsRefusal;
+        }
+    }
+
+    /// <summary>
+    /// Where full marks came from, named with the block that set it — or, when
+    /// nothing set it, the admission that three of the inputs are not being scored
+    /// at all.
+    /// </summary>
+    /// <remarks>
+    /// The absence has to be said out loud rather than left as a shorter list of
+    /// rows. A reader who cannot see that throughput dropped out reads the remaining
+    /// score as a score of everything, which is a quieter version of the same
+    /// dishonesty the fixed target was.
+    /// </remarks>
+    private string TargetSentence
+    {
+        get
+        {
+            if (Value!.Target is not { } target)
+            {
+                return "Merged pull requests, issues closed and assistant sessions are not being scored:"
+                    + " your own history could not be read, or there is not enough of it yet,"
+                    + " and there is no figure worth inventing in its place.";
+            }
+
+            var sentence = $"Full marks is a quarter above your own best four weeks —"
+                + $" {DashboardFormat.Whole(target.FullMarks)} merged pull requests over this window,"
+                + $" from the {target.MergedPullRequests} you merged between"
+                + $" {DashboardFormat.Day(target.From)} and {DashboardFormat.Day(target.To)}.";
+
+            return Value!.TargetComplete
+                ? sentence
+                : sentence + " Part of that history could not be read, so the record — and the target"
+                    + " built on it — is a floor.";
+        }
+    }
+
+    /// <summary>
+    /// What the sessions input is and is not. Permanent rather than conditional, on
+    /// the sessions part's own precedent: the conditions it describes are invisible
+    /// from the card, so a reader could not tell a missing sentence from an absent
+    /// caveat.
+    /// </summary>
+    private string SessionsRefusal =>
+        "Assistant sessions count effort rather than output, so they carry the least weight here."
+        + " The share beside the row is what it is actually worth, which rises when another input"
+        + " has nothing to read and drops out."
+        + " No assistant records which repository a session was for, so they are left out of the score"
+        + " entirely while one repository is in focus, and the machine filter does not move this figure"
+        + " either — it is read across every machine.";
+
+    /// <summary>
+    /// The footnote covers the targets now as well as the weights. It was true of
+    /// the weights alone only while the targets were constants nobody could see; a
+    /// target derived from the reader's own record is exactly the kind of judgement
+    /// this sentence exists to invite an argument about.
+    /// </summary>
+    private const string Footnote =
+        "Weights and targets are a starting position. They are on screen because they are arguable.";
 
     private IReadOnlyList<MetricScoreComponent> Inputs =>
         IsReady
@@ -66,13 +163,13 @@
 
     /// <summary>
     /// Empty when there were no inputs at all — a window in which nothing happened
-    /// that any of the four measures could read. A score of zero over real inputs is
-    /// a score, not an absence, and it renders as one.
+    /// that any of the measures could read. A score of zero over real inputs is a
+    /// score, not an absence, and it renders as one.
     /// </summary>
     protected override bool IsEmpty(ProductivityScoreInsight value) => value.Inputs.Count == 0;
 
     protected override string EmptyMessage =>
-        "Nothing happened in this window that any of the four inputs could read.";
+        "Nothing happened in this window that any of the seven inputs could read.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

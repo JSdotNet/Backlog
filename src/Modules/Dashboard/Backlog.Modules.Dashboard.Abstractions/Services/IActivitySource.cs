@@ -29,6 +29,17 @@ public sealed record ActivityPullRequest(
     /// <summary>How long the first review took to arrive. Null when there was none.</summary>
     public TimeSpan? ReviewTurnaround { get; init; }
 
+    /// <summary>Additions plus deletions. Meaningless unless <see cref="SizeKnown"/>.</summary>
+    public int ChangedLines { get; init; }
+
+    /// <summary>Files the diff touches. Meaningless unless <see cref="SizeKnown"/>.</summary>
+    public int ChangedFiles { get; init; }
+
+    /// <summary>Whether the size above was actually read. False and zero rather than
+    /// absent, for the reason <see cref="ChurnComplete"/> exists: the pull request
+    /// still happened, and its zero must not be averaged in as a very small one.</summary>
+    public bool SizeKnown { get; init; }
+
     /// <summary>True when anything happened after the first review — the
     /// definition of rework this dashboard uses.</summary>
     public bool HasChurn => CommitsAfterFirstReview > 0 || ForcePushesAfterFirstReview > 0;
@@ -43,6 +54,19 @@ public sealed record ActivityReport(
     IReadOnlyList<ActivityIssue> Issues)
 {
     public static ActivityReport Empty { get; } = new([], []);
+
+    /// <summary>
+    /// Whether every repository in the fetch reported its whole window.
+    /// <para>
+    /// False means at least one source stopped early — it ran out of pages it was
+    /// willing to read before it ran out of pull requests — so
+    /// <see cref="PullRequests"/> is a prefix and every count, rate and average
+    /// built on it is a floor. It is on the report rather than per repository
+    /// because a screen that mixes a complete repository with a truncated one is
+    /// showing one number, and that number is the truncated one.
+    /// </para>
+    /// </summary>
+    public bool Complete { get; init; } = true;
 }
 
 /// <summary>

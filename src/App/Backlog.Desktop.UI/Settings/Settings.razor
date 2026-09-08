@@ -1197,6 +1197,37 @@
                                     <Alert Message="@_branchError" TestId="repo-knowledge-branches-error" />
                                 </div>
 
+                                @* The dashboard's pull-request detail is kept on
+                                   this machine because a merged pull request's
+                                   reviews, churn and size cannot change again.
+                                   That is only true while the copy matches the
+                                   repository, so there has to be a way back -
+                                   and it is per repository, because a rewritten
+                                   history is one repository's problem and
+                                   re-reading the others would be a long fetch
+                                   for nothing. Present only when the app is
+                                   actually keeping one, the way the Devices
+                                   panel treats its collaborators. *@
+                                @if (_activityCache is not null)
+                                {
+                                    <div class="repo-card__section" data-testid="repo-activity-cache">
+                                        <h4 class="knowledge-folders__title">Dashboard activity</h4>
+                                        <p class="setting__note">
+                                            Merged pull requests keep their review, churn and size detail on this machine, so opening the dashboard only fetches the ones it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
+                                        </p>
+                                        <p class="setting__status" data-testid="repo-activity-cache-status" role="status">
+                                            @ActivityCacheStatus(activeRepo)
+                                        </p>
+                                        <div class="setting__actions">
+                                            <AppButton Variant="ButtonVariant.None"
+                                                       data-testid="repo-activity-cache-forget"
+                                                       OnClick="() => ForgetActivityCache(activeRepo)">
+                                                Forget this repository's saved pull requests
+                                            </AppButton>
+                                        </div>
+                                    </div>
+                                }
+
                                 @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
                                 {
                                     <div class="repo-card__section" data-testid="repo-github-access">
@@ -1894,6 +1925,7 @@
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
+        _activityCache = Services.GetService<IPullRequestDetailCache>();
         _taskSync = ResolveTaskSync();
 
         // The loop outlives this screen, so what it did while nobody was here is
@@ -2197,6 +2229,45 @@
 
     private string _draftKnowledgeCacheDirectory = string.Empty;
     private string? _knowledgeCacheError;
+
+    // ---- Dashboard activity detail --------------------------------------
+
+    /// <summary>Resolved rather than injected, for the reason the Devices panel's
+    /// collaborators are: it is registered by the two desktop heads and by nothing
+    /// that only wants a settings screen, and a settings screen that failed to open
+    /// because a dashboard cache was absent would be the worse of the two
+    /// answers.</summary>
+    private IPullRequestDetailCache? _activityCache;
+
+    /// <summary>Which repositories have been forgotten since this screen opened.
+    /// Keyed on the alias, so the message follows the repository rather than
+    /// whichever card happens to be open.</summary>
+    private readonly HashSet<string> _forgottenActivity = new(StringComparer.Ordinal);
+
+    /// <summary>What the section says. Both halves state the cost plainly, because
+    /// the cost is the whole of the decision: the next dashboard read is a slow
+    /// one.
+    /// <para>
+    /// The resting half states the rule rather than the state. Nothing here reads
+    /// the cache folder, so "saved detail is reused" would be a claim about disk
+    /// that this screen has not checked — and on a first run, before any dashboard
+    /// read, it would be false. A sentence describing what the app does with detail
+    /// once it has it is true whether or not any has been saved yet, which is the
+    /// only version of it worth putting on screen.
+    /// </para></summary>
+    private string ActivityCacheStatus(GitHubRepositoryRef repository) =>
+        _forgottenActivity.Contains(repository.Alias)
+            ? $"Forgotten. The next dashboard read fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
+            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read fetches every pull request's detail in {repository.FullName} again.";
+
+    /// <summary>Drops one repository's saved pull-request detail. Nothing else is
+    /// touched — the other repositories keep theirs, and this one keeps its
+    /// settings.</summary>
+    private void ForgetActivityCache(GitHubRepositoryRef repository)
+    {
+        _activityCache?.ForgetRepository(repository);
+        _forgottenActivity.Add(repository.Alias);
+    }
 
     /// <summary>Commits the snapshot folder. Blank returns it to the default,
     /// which is what clearing the field means everywhere else on this screen.</summary>

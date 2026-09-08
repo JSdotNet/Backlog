@@ -150,28 +150,44 @@ accepted limitation. Import does not enforce a shared tag at parse time,
 because doing so would turn an omission in how a plan was written into a reason
 to refuse the entries it describes.
 
-### Re-import / versioning: upsert by `(import_plan_id, import_item_id)`
+### Re-import / versioning: clear the plan's not-yet-started entries, then write
 
-Bringing in a later version of an already-imported plan adjusts entries still
-in flight instead of duplicating them, per
-`.domain/tasks/features.md#re-importing-an-updated-plan`. For each parsed
-segment carrying an `id:` token, Import looks for an existing entry whose
-`import_plan_id` (the shared tag) and `import_item_id` (`id:`) both match:
+Bringing in a later version of an already-imported plan replaces that plan
+rather than adding to it, per
+`.domain/tasks/features.md#re-importing-an-updated-plan`. Before anything is
+written, Import clears the previous version: every stored entry whose
+`import_plan_id` is this plan's shared tag and whose status is `draft` or
+`ready` is deleted — tombstoned, which is what deletion is here (ADR 0003), so
+the replacement travels to the other devices (ADR 0005) instead of being
+resurrected by the next pull. Only Import ever writes `import_plan_id`, so a
+hand-typed entry that happens to carry the plan's tag is not in scope.
 
-- **Found, not `done`/`archived`** — update in place: content, dependencies
-  (resolved per the two-pass rule above), target repository, and
-  setup/knowledge/manual sub-items are replaced from the new version.
-- **Found, `done` or `archived`** — leave untouched. A later plan version does
+The version being brought in is then written against what is left standing, each
+parsed segment matched on `import_plan_id` (the shared tag) and `import_item_id`
+(`id:`):
+
+- **Matched, `in-progress`** — update in place: content, dependencies (resolved
+  per the two-pass rule above), target repository, and
+  setup/knowledge/manual sub-items are replaced from the new version. Work
+  somebody has picked up is not deleted out from under them.
+- **Matched, `done` or `archived`** — leave untouched. A later plan version does
   not reopen finished work, the same principle `Occurrence Spawning`
   (`.domain/tasks/domain.md#occurrence-spawning`) already applies to a
   completed recurring entry: a completed thing stays the record of what was
   done.
-- **Not found** — create new, whichever version of the plan first introduced
-  the prompt.
+- **Unmatched** — create new: either a prompt this version introduces, or one
+  written again in place of the copy just cleared.
 
-A segment with no `id:` token is always created new — there is nothing to
-match it against, and Import does not guess at identity where the plan did not
-state one.
+This supersedes the plain upsert this ADR originally specified, which could not
+hold. An entry is only recognizable across versions by its `id:`, a plan is free
+to write none, and an entry with no `id:` matches nothing — so it arrived a
+second time on every import, which is the duplication the rule was there to
+prevent. Clearing first makes a duplicate impossible whatever the plan wrote,
+and states plainly what a re-import means: this is the plan now, and the work
+nobody has started is whatever its latest version says it is. An `id:` on every
+entry is still worth writing, and `plugins/backlog-tools`' plan generator emits
+one — it is what lets an entry already under way or already finished be
+recognized rather than stood beside.
 
 ### Storage: through `ITaskRepository`, no new table, no kept raw text
 
@@ -210,8 +226,9 @@ Positive:
   same table, same fields, same sub-item shape — which is exactly what
   `.domain/tasks/features.md#import` states as the point ("Import builds
   nothing that entry creation does not already offer").
-- Re-import is a plain upsert keyed on two already-modelled fields, with no new
-  index shape beyond what querying entries by tag/id already needs.
+- Re-import is keyed on two already-modelled fields, with no new index shape
+  beyond what querying entries by tag/id already needs, and its correctness does
+  not depend on the plan having written an `id:` on every entry.
 
 Negative:
 
@@ -224,7 +241,15 @@ Negative:
   re-importable-against: there is no way, after the fact, to tell Import "these
   entries were one plan" once they were saved without the tag. The person has to
   get the tag right on the version they paste, or accept that a later version
-  will create duplicates rather than update in place.
+  will stand new entries beside the old ones rather than replacing them.
+- A replaced entry is a new entry: the one it stood in for is tombstoned and the
+  new one carries a new real id. An `after:` written elsewhere in the backlog
+  against the old id therefore dangles — a weak reference the model already
+  tolerates (`.domain/tasks/domain.md#readiness`) — and any hand editing done to
+  a not-yet-started imported entry is lost to the newer version. Both are
+  accepted: an entry nobody has started holds nothing worth keeping over what
+  the plan now says. Re-importing a large plan also writes one tombstone per
+  replaced entry into the sync change feed.
 - Discarding the raw text means an import cannot be undone by re-reading what
   was submitted, nor can a later reader see the exact wording of the plan as
   authored — only what it produced. If that turns out to matter (a legal or

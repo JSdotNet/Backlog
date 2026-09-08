@@ -56,9 +56,37 @@
 </PartFrame>
 
 @code {
-    private string Note => Scope.RepositoryAlias is { } alias
-        ? $"Every repository stays on screen so {alias} can be read against the rest."
-        : "One panel per repository that reported anything, on a shared scale.";
+    /// <summary>
+    /// What a point on this chart is, and what it is not.
+    /// <para>
+    /// Two clauses that a reader would otherwise have to guess at, and would guess
+    /// wrong. The target is shared across every repository rather than derived per
+    /// series — the whole estate's best four weeks, cut to one week — because
+    /// normalising each repository against its own best would make every repository's
+    /// best week read 100 and leave the spotlight comparing nothing. And the chart's
+    /// composition is not the card's: sessions are in the card and cannot be here,
+    /// because no assistant records a repository against a session. So the points do
+    /// not add up to the score above them, and a reader who assumed they did would be
+    /// reading a chart that never claimed it.
+    /// </para>
+    /// </summary>
+    private string Note
+    {
+        get
+        {
+            var basis = Scope.RepositoryAlias is { } alias
+                ? $"Every repository stays on screen so {alias} can be read against the rest."
+                : "One panel per repository that reported anything, on a shared scale.";
+
+            basis += " A point is one repository's week against a target shared by every repository,"
+                + " not against its own best. The card additionally counts assistant sessions, which"
+                + " have no repository — so a point here is not a slice of the card's number.";
+
+            return IsReady && !Value!.Complete
+                ? basis + " Some of this window could not be read, so every point is a floor."
+                : basis;
+        }
+    }
 
     private string SpotlightLabel => Value?.Highlight is { } alias
         ? $"{alias} against the rest"
