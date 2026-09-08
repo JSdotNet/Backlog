@@ -42,6 +42,7 @@
         <AppButton Variant="@Variant"
                    Size="@Size"
                    BaseClass="@BaseClass"
+                   IconAlone="@IconOnly"
                    Disabled="true"
                    TestId="@ButtonTestId"
                    title="@Reason"
@@ -67,6 +68,7 @@
         <AppButton Variant="@Variant"
                    Size="@Size"
                    BaseClass="@BaseClass"
+                   IconAlone="@IconOnly"
                    Busy="@(Action.State is IntegrationActionState.Running)"
                    BusyLabel="@($"{Action.Label}…")"
                    TestId="@(Action.State is IntegrationActionState.Confirming ? ConfirmTestId ?? ButtonTestId : ButtonTestId)"
@@ -202,6 +204,12 @@
 
     private string? Remedy => IntegrationStates.RemedyFor(Ready);
 
+    /// <summary>Whether the word is off the screen — and so also whether the
+    /// glyph is the whole button, which is what <c>AppButton.IconAlone</c> wants
+    /// to know. Nothing else can work it out: the caption fragment is handed over
+    /// at every density and merely renders empty at this one, and the compact
+    /// stem <c>btn btn--icon</c> is a class <see cref="IconButton"/> also wears
+    /// without ever emitting a <c>.btn__icon</c> to close a gap on.</summary>
     private bool IconOnly => IntegrationStates.IsIconOnly(Density);
 
     private ButtonSize Size => IntegrationStates.SizeFor(Density);

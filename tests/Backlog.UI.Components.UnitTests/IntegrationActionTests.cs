@@ -279,4 +279,78 @@ public sealed class IntegrationActionTests
         // had moved on.
         Assert.Empty(action.FindAll("[data-testid='cancel']"));
     }
+    // --- The gap the glyph keeps for a label --------------------------------
+
+    /// <summary>
+    /// Compact drops the label from the screen, so the gap <c>.btn__icon</c>
+    /// holds open beside the glyph is padding down one side of a 2.75rem square
+    /// and the glyph sits off centre in it. The marker closes it.
+    /// </summary>
+    [Fact]
+    public void Compact_marks_the_glyph_as_the_whole_button()
+    {
+        using var context = new BunitContext();
+
+        var action = context.Render<IntegrationAction>(parameters => parameters
+            .Add(a => a.Action, CreateIssue)
+            .Add(a => a.Density, IntegrationDensity.Compact)
+            .Add(a => a.ButtonTestId, "act"));
+
+        var icon = action.Find("[data-testid='act'] .btn__icon");
+
+        Assert.Contains("btn__icon--alone", icon.ClassList);
+    }
+
+    /// <summary>
+    /// The unavailable branch is a second button in this file rather than the
+    /// same one disabled, so it is a second place the marker can go missing.
+    /// </summary>
+    [Fact]
+    public void An_unavailable_compact_act_marks_its_glyph_the_same_way()
+    {
+        using var context = new BunitContext();
+
+        var action = context.Render<IntegrationAction>(parameters => parameters
+            .Add(a => a.Action, CreateIssue with { Readiness = IntegrationReadiness.NotAuthorized("GitHub") })
+            .Add(a => a.Density, IntegrationDensity.Compact)
+            .Add(a => a.ButtonTestId, "act")
+            .Add(a => a.ReasonTestId, "reason"));
+
+        var button = action.Find("[data-testid='act']");
+
+        Assert.Contains("btn__icon--alone", button.QuerySelector(".btn__icon")!.ClassList);
+
+        // And the marker is the only thing that changed: the cause still reaches
+        // both a pointer and a screen reader.
+        Assert.Equal("GitHub is not connected.", button.GetAttribute("title"));
+        Assert.Equal("Create GitHub issue", button.GetAttribute("aria-label"));
+        Assert.Equal(
+            action.Find("[data-testid='reason']").GetAttribute("id"),
+            button.GetAttribute("aria-describedby"));
+    }
+
+    /// <summary>
+    /// The regression the marker exists to avoid. Every density but Compact puts
+    /// the word on screen beside the glyph, and that word needs the gap.
+    /// </summary>
+    [Theory]
+    [InlineData(IntegrationDensity.Toolbar)]
+    [InlineData(IntegrationDensity.Inline)]
+    [InlineData(IntegrationDensity.Menu)]
+    public void A_density_that_shows_the_label_keeps_the_gap_beside_the_glyph(IntegrationDensity density)
+    {
+        using var context = new BunitContext();
+
+        var action = context.Render<IntegrationAction>(parameters => parameters
+            .Add(a => a.Action, CreateIssue)
+            .Add(a => a.Density, density)
+            .Add(a => a.ButtonTestId, "act"));
+
+        var button = action.Find("[data-testid='act']");
+
+        Assert.DoesNotContain("btn__icon--alone", button.QuerySelector(".btn__icon")!.ClassList);
+
+        // The label really is on screen, which is what earns the gap.
+        Assert.NotNull(button.QuerySelector(".integration-action__label"));
+    }
 }
