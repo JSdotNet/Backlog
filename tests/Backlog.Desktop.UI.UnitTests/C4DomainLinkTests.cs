@@ -88,15 +88,17 @@ public sealed class C4DomainLinkTests : IDisposable
 
         var asked = new List<KnowledgeChapterLink>();
         var component = harness.Render(".domain/context-map.md", asked);
-        harness.Settle(component);
 
-        // Awaited rather than fired and forgotten: the panel reaches this chapter
-        // through two awaited reads, so the renderer can still be draining their
-        // continuations when the click arrives and the dispatch queues behind them.
-        // The synchronous `Click()` returns without the handler having run, which
-        // left the assertion below racing the callback — green alone, intermittently
-        // empty under the parallel load of the whole suite.
-        await component.Find("[data-testid='domain-c4-view']").ClickAsync(new());
+        // Waited for on the link itself rather than on the chapter beside it, so a
+        // render that never offers the link fails as a missing link.
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='domain-c4-view']")));
+
+        // Found and clicked inside one turn of the renderer's dispatcher. The panel
+        // keeps rendering after the wait returns — the committed-baseline read is
+        // not awaited and redraws the subtree the link sits in — and a render batch
+        // landing between the find and the dispatch retires the handler id the found
+        // element carries, which the dispatch is then given no handler for.
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-c4-view']").ClickAsync(new()));
 
         var target = Assert.Single(asked);
         Assert.Equal("arc42", target.AreaKey);
