@@ -65,9 +65,10 @@ internal sealed class ClaudeSessionReader
         // Keyed by session id so a live session is not also listed as its own
         // finished transcript. The live file is the better record of the two: it
         // knows the session's name and the folder without being parsed for it — but
-        // it holds nothing to count turns from, so the transcript it displaces is
-        // read for that one fact before it is dropped from the list.
-        var counted = await WithTurnCountsAsync(live, transcripts, cancellationToken).ConfigureAwait(false);
+        // it holds nothing to count turns from and does not say which branch the
+        // session is on, so the transcript it displaces is read for those two facts
+        // before it is dropped from the list.
+        var counted = await WithTranscriptFactsAsync(live, transcripts, cancellationToken).ConfigureAwait(false);
 
         var seen = live.Select(session => session.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -88,26 +89,44 @@ internal sealed class ClaudeSessionReader
     }
 
     /// <summary>
-    /// The live sessions, each carrying the turn count only its transcript knows.
+    /// The live sessions, each carrying the two facts only its transcript knows: the
+    /// turn count, and the branch.
     /// <para>
     /// A live file states the session's id, folder, name and start, and nothing about
-    /// how much has been said in it. The transcript beside it does, and the dedupe has
-    /// already worked out which one that is — so the count is taken from it here
-    /// rather than the row being left with a null a transcript on this very disk could
-    /// answer. A session too new to have written a transcript keeps its null, which is
-    /// the honest reading of a file that does not exist yet.
+    /// how much has been said in it or which branch it is on. The transcript beside it
+    /// states both, and the dedupe has already worked out which one that is — so they
+    /// are taken from it here rather than the row being left with two nulls a
+    /// transcript on this very disk could answer. A session too new to have written a
+    /// transcript keeps them, which is the honest reading of a file that does not
+    /// exist yet.
+    /// </para>
+    /// <para>
+    /// <strong>The branch matters beyond the row it renders.</strong>
+    /// <c>SessionRecordMapping.ToRecord</c> puts it on the wire, so a null here is a
+    /// null in every other machine's session log — and not one that reliably repairs
+    /// itself when the session ends, because the push selects on
+    /// <c>LastActivityAt</c> and the finished reading carries the transcript's
+    /// timestamp where the live readings that already moved the watermark carried the
+    /// live file's.
+    /// </para>
+    /// <para>
+    /// The folder is deliberately <em>not</em> taken, and that is the one element of
+    /// the three left on the floor. The live file's <c>cwd</c> is where the session is
+    /// now; the transcript's header is where it started, and a session resumed in
+    /// another worktree keeps the old one there. Taking it would move a running row
+    /// back to a folder it has left.
     /// </para>
     /// <para>
     /// The extra reads are bounded by how many sessions the machine is running, not by
     /// how many it has ever run — six on the profile this was measured against.
     /// </para>
     /// </summary>
-    private static async Task<List<AgentSession>> WithTurnCountsAsync(
+    private static async Task<List<AgentSession>> WithTranscriptFactsAsync(
         IReadOnlyList<AgentSession> live,
         IReadOnlyDictionary<string, FileInfo> transcripts,
         CancellationToken cancellationToken)
     {
-        var counted = new List<AgentSession>(live.Count);
+        var read = new List<AgentSession>(live.Count);
 
         foreach (var session in live)
         {
@@ -115,17 +134,17 @@ internal sealed class ClaudeSessionReader
 
             if (!transcripts.TryGetValue(session.Id, out var transcript))
             {
-                counted.Add(session);
+                read.Add(session);
 
                 continue;
             }
 
-            var (_, _, turns) = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var (_, branch, turns) = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
 
-            counted.Add(session with { TurnCount = turns });
+            read.Add(session with { Branch = branch, TurnCount = turns });
         }
 
-        return counted;
+        return read;
     }
 
     /// <summary>
@@ -266,13 +285,19 @@ internal sealed class ClaudeSessionReader
                 Title: string.IsNullOrWhiteSpace(name) ? TitleOf(folder, id) : name,
                 WorkingFolder: folder,
                 Repository: null,
+
+                // A live file names no branch, and the folder sitting right here is
+                // not one: a path leaf that looks like a worktree name is a guess, and
+                // a guessed branch arrives on another machine indistinguishable from a
+                // recorded one. The caller fills this in from the session's transcript
+                // where there is one; see WithTranscriptFactsAsync.
                 Branch: null,
                 StartedAt: Started(root),
                 LastActivityAt: lastActivity,
                 State: AgentSessionStates.Of(lastActivity, now),
 
-                // Nothing in a live file is countable. The caller fills this in from
-                // the session's transcript where there is one; see WithTurnCountsAsync.
+                // Nothing in a live file is countable. Filled in from the same
+                // transcript, in the same place.
                 TurnCount: null,
 
                 // Read off this machine's own disk, which is the only kind of record

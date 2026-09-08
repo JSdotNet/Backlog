@@ -718,14 +718,22 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
-    /// A running session's own file says nothing about how much has been said in it,
-    /// so the count comes from the transcript the dedupe has already matched to it.
-    /// The row stays the live one — that file is still the better record of what the
-    /// session is called and where it is — carrying the one fact only the transcript
-    /// holds.
+    /// A running session's own file says nothing about how much has been said in it or
+    /// which branch it is on, so both come from the transcript the dedupe has already
+    /// matched to it. The row stays the live one — that file is still the better record
+    /// of what the session is called and where it is — carrying the two facts only the
+    /// transcript holds.
+    /// <para>
+    /// The branch is asserted here rather than left to the history tests, because a
+    /// running session is the row a reader opened this surface for and it is the one
+    /// whose branch was silently dropped: the transcript was already being opened for
+    /// the count, and the branch it also answered went on the floor. It is not a
+    /// cosmetic loss — <c>SessionRecordMapping.ToRecord</c> puts this field on the wire,
+    /// so a null here is a null in every other machine's session log.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task A_live_session_takes_its_turn_count_from_its_own_transcript()
+    public async Task A_live_session_takes_its_turn_count_and_branch_from_its_own_transcript()
     {
         GivenClaudeLiveSession("shared", @"D:\Repos\Backlog", "live one", Noon.AddHours(-1), Noon.AddMinutes(-3));
 
@@ -743,24 +751,38 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Equal(AgentSessionState.Running, session.State);
         Assert.Equal("live one", session.Title);
         Assert.Equal(2, session.TurnCount);
+        Assert.Equal("main", session.Branch);
+
+        // The folder still comes from the live file. Both files state one, and the live
+        // file's is the current one: a session resumed somewhere else keeps the folder
+        // its transcript's header stated, which is where it started rather than where
+        // it is.
+        Assert.Equal(@"D:\Repos\Backlog", session.WorkingFolder);
 
         // Still one session. Taking a fact off the transcript must not also list it.
         Assert.Equal(1, catalog.Discovered);
     }
 
     /// <summary>
-    /// A session registered as live before it has written a transcript. Null, because
-    /// the live file holds nothing to count and this reader does not answer a question
-    /// it was not told the answer to.
+    /// A session registered as live before it has written a transcript. Null on both
+    /// counts, because the live file holds nothing to count and states no branch, and
+    /// this reader does not answer a question it was not told the answer to.
+    /// <para>
+    /// The branch is the one worth asserting rather than assuming: a folder is right
+    /// there on the live file and a leaf that looks like a worktree name is the obvious
+    /// thing to reach for, but a branch derived from a path is a guess that arrives on
+    /// another machine indistinguishable from a recorded one.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task A_live_session_with_no_transcript_yet_has_no_turn_count()
+    public async Task A_live_session_with_no_transcript_yet_has_no_turn_count_or_branch()
     {
         GivenClaudeLiveSession("fresh", @"D:\Repos\Backlog", "just started", Noon.AddMinutes(-1), Noon);
 
         var session = Assert.Single((await ReadAsync()).Sessions);
 
         Assert.Null(session.TurnCount);
+        Assert.Null(session.Branch);
     }
 
     /// <summary>
