@@ -111,7 +111,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         }
 
         var container = Container();
-        var partition = new PartitionKey(TaskDocumentSerialization.Key(scope.OwnerId.Value));
+        var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
         // One request per document rather than a transactional batch. The batch
@@ -160,7 +160,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
                 "The cursor belongs to another owner. Verify it against the caller before it gets here.");
         }
 
-        var key = TaskDocumentSerialization.Key(owner.Value);
+        var key = ReplicaDocumentSerialization.Key(owner.Value);
 
         // Beginning rather than Now when there is no cursor: a device that has
         // just paired has to receive the tasks the owner already has, and the
@@ -246,7 +246,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         OwnerId owner,
         CancellationToken cancellationToken = default)
     {
-        var key = TaskDocumentSerialization.Key(owner.Value);
+        var key = ReplicaDocumentSerialization.Key(owner.Value);
 
         // Nulls are not written, so "not tombstoned" and "still a capture" are
         // both questions about whether the property is there at all.
@@ -291,12 +291,12 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var key = TaskDocumentSerialization.Key(owner.Value);
+        var key = ReplicaDocumentSerialization.Key(owner.Value);
 
         try
         {
             var response = await Container().ReadItemAsync<TaskDocument>(
-                TaskDocumentSerialization.Key(id),
+                ReplicaDocumentSerialization.Key(id),
                 new PartitionKey(key),
                 cancellationToken: cancellationToken);
 
@@ -322,7 +322,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
     private static IReadOnlyList<TaskDocument> Read(Stream content)
     {
-        var page = JsonSerializer.Deserialize<ChangeFeedPage>(content, TaskDocumentSerialization.Options);
+        var page = JsonSerializer.Deserialize<ChangeFeedPage>(content, ReplicaDocumentSerialization.Options);
 
         return page?.Documents ?? [];
     }

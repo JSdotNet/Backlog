@@ -19,7 +19,18 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// give the check a bypass, and the bypass would be the shorter call.
 /// </para>
 /// </summary>
-public readonly record struct TaskReplicaCursor(OwnerId Owner, string Continuation);
+public readonly record struct TaskReplicaCursor(OwnerId Owner, string Continuation)
+{
+    /// <summary>The only way to get one from something a client sent: through a
+    /// <see cref="SyncCursor"/>, which the codec produces and which cannot be
+    /// built without the signature having verified against the caller. The codec
+    /// answers with the neutral pair rather than with this type because there
+    /// are two feeds and one check to make on both of them.</summary>
+    public TaskReplicaCursor(SyncCursor verified)
+        : this(verified.Owner, verified.Continuation)
+    {
+    }
+}
 
 /// <summary>
 /// One page of an owner's change feed.

@@ -66,7 +66,57 @@ public static class AgentSessionStates
 }
 
 /// <summary>
+/// How this device came by a session record.
+/// <para>
+/// Not a fact about the session. A session does not know whether the machine
+/// reading it is the one that ran it, and nothing an agent writes on disk says so
+/// — which is why this is not on ADR 0005's sync whitelist and never travels: the
+/// pushing code leaves it out, and the source that receives replicated records
+/// stamps <see cref="Replicated"/> on everything it produces. Two devices holding
+/// the same session therefore disagree about this one field, on purpose, and that
+/// disagreement is the entire content of it.
+/// </para>
+/// <para>
+/// A field rather than something a surface derives from
+/// <c>EnvironmentId != thisDevice</c>, and that is the part worth arguing. The
+/// source already knows without comparing anything — it either read this machine's
+/// own profile or was handed a record from elsewhere — and a comparison cannot get
+/// there, because the two are not the same question: a record this device pushed
+/// and later received back names this environment while having arrived over the
+/// wire, and derivation would call it local. Deriving it would also thread the
+/// device identity into every surface that shows a session, and a second surface
+/// deriving it separately is a second definition that only has to drift once to
+/// have two rows disagree about the same session.
+/// </para>
+/// </summary>
+public enum AgentSessionOrigin
+{
+    /// <summary>Read from this machine's own profile, off the agent's own files.
+    /// Re-readable: whatever it says can be checked again by looking.</summary>
+    Local,
+
+    /// <summary>Reported by another environment. As true as what that environment
+    /// sent and as current as the last sync, which is not the standing a file this
+    /// device can open for itself has.</summary>
+    Replicated
+}
+
+/// <summary>
 /// One assistant session, as far as the machine it ran on can describe it.
+/// <para>
+/// <b>Duration is deliberately not a field here.</b> It is exactly
+/// <c>LastActivityAt - StartedAt</c>, both of which are on the record already, and a
+/// stored third value can disagree with its own two operands — a row claiming forty
+/// minutes between two timestamps ten minutes apart is wrong in a way that renders
+/// perfectly and that no reader can catch. It is derived in one place instead
+/// (<c>src/Modules/Dashboard/Backlog.Modules.Dashboard/Services/SessionInsights.cs</c>),
+/// which is also the only place that has to decide what an open-ended session's
+/// duration means. ADR 0005's sync whitelist does name a duration count, and the
+/// wire contract carries one, because the relaying service is deliberately dumb
+/// about the fields it forwards and cannot subtract two of them; that is the wire's
+/// business rather than this model's. The omission here is the decision, not an
+/// oversight to be tidied up later.
+/// </para>
 /// </summary>
 /// <param name="Id">The agent's own identifier for the session.</param>
 /// <param name="Kind">Which assistant.</param>
@@ -117,6 +167,40 @@ public static class AgentSessionStates
 /// <param name="StartedAt">Null where the agent left nothing to date the start from.</param>
 /// <param name="LastActivityAt">Always known — at worst the file's own timestamp.</param>
 /// <param name="State">See <see cref="AgentSessionState"/>.</param>
+/// <param name="TurnCount">
+/// How many turns the person took in this session, where the agent recorded enough
+/// to count them, and null where it did not.
+/// <para>
+/// <b>A turn is one exchange the person initiated: a prompt they sent.</b> The word
+/// is ambiguous enough that two readers left to themselves would count two different
+/// things and the number would mean neither, so it is defined here and every reader
+/// either counts what this sentence says or reports null. Not a message — an
+/// assistant's replies are messages too, and a transcript holds far more of those
+/// than anything else. Not a tool call, of which one prompt can produce dozens: on
+/// this product's own transcripts the two differ by more than thirty times, so
+/// counting the wrong one is not a rounding error but a different number entirely.
+/// </para>
+/// <para>
+/// Nullable, and never <c>0</c> standing in for absent. The Session Log's invariant
+/// is that the log never fills a gap the agent left
+/// (<c>.domain/sessions/domain.md#session-log</c>), and 0 is a count: it says a
+/// person opened a session and never spoke in it, which is a claim about what
+/// happened. Null says the agent left nothing to count from — a Copilot session, a
+/// transcript that could not be read — which is the only thing a reader in that
+/// position actually knows. Anything that aggregates these skips nulls rather than
+/// adding them as zero, for the same reason.
+/// </para>
+/// <para>
+/// On ADR 0005's sync whitelist as <em>Turn count</em>, which is why the model
+/// carries it at all: a record that arrives from another environment has no
+/// transcript behind it that this device could count for itself.
+/// </para>
+/// </param>
+/// <param name="Origin">
+/// How this device came by the record. See <see cref="AgentSessionOrigin"/>; it is
+/// stamped by the source that produced the record and is the one field on here that
+/// does not describe the session.
+/// </param>
 public sealed record AgentSession(
     string Id,
     AgentSessionKind Kind,
@@ -128,7 +212,9 @@ public sealed record AgentSession(
     string? Branch,
     DateTimeOffset? StartedAt,
     DateTimeOffset LastActivityAt,
-    AgentSessionState State);
+    AgentSessionState State,
+    int? TurnCount,
+    AgentSessionOrigin Origin);
 
 /// <summary>
 /// How many sessions a source will describe per agent.

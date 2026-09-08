@@ -67,7 +67,7 @@ internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : 
             Base64Url.EncodeToString(HMACSHA256.HashData(_key, payload)));
     }
 
-    public Result<TaskReplicaCursor> Verify(string cursor, OwnerId caller)
+    public Result<SyncCursor> Verify(string cursor, OwnerId caller)
     {
         if (!TryRead(cursor, out var payload))
         {
@@ -78,7 +78,7 @@ internal sealed class HmacSyncCursorCodec(IOptions<SyncTokenOptions> options) : 
         // the token named: an owner id out of the cursor is data the client
         // handed us, and it decides nothing on its own.
         return payload.Owner == caller.ToString()
-            ? new TaskReplicaCursor(caller, payload.Continuation)
+            ? new SyncCursor(caller, payload.Continuation)
             : NotYours;
     }
 

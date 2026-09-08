@@ -109,6 +109,50 @@ The count is why grouping is worth having: it answers “how many on that machin
         </DataTable>
     </Story>
 
+    <Story Name="A detail line that is not a path"
+           Description="The second line under a cell's value is `data-table__detail`, and what it says is the caller's. Usually it is the folder a run happened in, in the mono family with `data-table__clamp` on it. Here two of the rows came from another machine, and there is no folder to put there: a raw path describes one machine's disk and means nothing on the machine reading it, so it never travels.
+
+The line does not go blank, and it does not become an em dash either. An em dash in this product means the source recorded nothing, and that is a different fact from a value that was recorded and deliberately stayed where it was — a screen that spends the same mark on both stops being able to tell a gap from a boundary. So the line says which machine holds the detail, in plain words, and the row stops looking like one you could open.
+
+Nothing about it is a failure state. There is no role, no tint of its own and no glyph: the record is complete and nothing just happened, so it reads at exactly the weight the folder line reads at. The Integrations family's `IntegrationUnavailable` is the other shape — a whole cluster of acts that cannot be performed, one of four named causes, disabled ink and an icon — and using it here would dress a complete record as a broken integration. The machine is named in the text rather than by a tint, so the row survives greyscale and reads out loud."
+           Code="@DetailCode">
+        <DataTable TItem="Run"
+                   Columns="Columns"
+                   Items="Elsewhere"
+                   RowKey="@(run => (object)run.Id)"
+                   RowNoun="session"
+                   AriaLabel="Sessions, two of them from another machine"
+                   TestId="data-table-detail">
+            <Row Context="run">
+                <td>
+                    @* A row from elsewhere names itself with its own session id,
+                       because a title an agent derived from a prompt does not travel.
+                       It wears the family the table already gives identifiers, so it
+                       does not read as a name somebody wrote. *@
+                    <span class="@(run.From is null ? null : "data-table__mono")">@run.Title</span>
+                    @if (run.From is { Length: > 0 } machine)
+                    {
+                        <span class="data-table__detail">Recorded on @machine. Its folder and transcript stay there.</span>
+                    }
+                    else
+                    {
+                        <span class="data-table__detail data-table__mono">
+                            <span class="data-table__clamp" title="@run.Folder">@run.Folder</span>
+                        </span>
+                    }
+                </td>
+                <td>
+                    <ProviderMark Provider="@run.Provider" />
+                    <span>@run.Kind</span>
+                </td>
+                <td>@run.Environment</td>
+                <td class="data-table__mono">@run.Branch</td>
+                <td>@run.LastActivity</td>
+                <td><IntegrationStateChip Session="@run.State" /></td>
+            </Row>
+        </DataTable>
+    </Story>
+
     <Story Name="Nothing to show"
            Description="A heading row over an empty body reads as a broken feature. So an empty table is not rendered at all: the component collapses to the library's own EmptyState, which says what is missing and — where it is worth saying — why.
 
@@ -148,6 +192,11 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
     /// no module, no cloud — so a story that reached for the real session record
     /// would be the one thing this host is not allowed to do.
     /// </summary>
+    /// <param name="From">The machine that recorded this run, where it was not this
+    /// one. Null for a row read locally, which is every row but the two in
+    /// <see cref="Elsewhere"/> — and null rather than an empty string, so "read here"
+    /// and "reported by a machine that did not name itself" stay two different
+    /// answers.</param>
     private sealed record Run(
         string Id,
         string Title,
@@ -157,7 +206,8 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
         string Environment,
         string Branch,
         string LastActivity,
-        IntegrationSessionState State);
+        IntegrationSessionState State,
+        string? From = null);
 
     private static readonly DataTableColumn[] Columns =
     [
@@ -183,6 +233,22 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
         new("4", "JSdotNet/Project-Guidelines-MCP", @"C:\Users\dev\.copilot\repos\project-guidelines-mcp",
             "Copilot", IntegrationProvider.Copilot, "DEV-LAPTOP", "main", "51 minutes ago",
             IntegrationSessionState.Stalled)
+    ];
+
+    /// <summary>Two rows this machine read for itself and two reported by another,
+    /// which is the mix that makes the detail line's two shapes visible in one table.
+    /// The reported pair carries no folder — there is none to carry — and names
+    /// itself with its session id.</summary>
+    private static readonly Run[] Elsewhere =
+    [
+        Sample[0],
+        new("5", "9f21ab04-6c1d-4c0e", string.Empty,
+            "Claude", IntegrationProvider.Claude, "DEV-LAPTOP", "main", "3 hours ago",
+            IntegrationSessionState.Finished, From: "DEV-LAPTOP"),
+        Sample[1],
+        new("6", "b0c4d5e6-7f80-4a1b", string.Empty,
+            "Copilot", IntegrationProvider.Copilot, "BUILD-NUC", "release/2026-09", "yesterday",
+            IntegrationSessionState.Finished, From: "BUILD-NUC")
     ];
 
     /// <summary>The same four rows, by environment. Grouped here in the page for the
@@ -265,6 +331,25 @@ Two lines rather than one, because “no rows” and “no rows yet, and here is
             private static IReadOnlyDictionary<string, object> Identity(Run run) =>
                 new Dictionary<string, object>(StringComparer.Ordinal) { ["data-session-id"] = run.Id };
         }
+        """;
+
+    private const string DetailCode = """
+        @* One line, two shapes. The folder where this machine read the run itself,
+           and where it did not, the machine that holds the detail — never an em
+           dash, which in this product means the source recorded nothing. *@
+        <td>
+            <span class="@(run.From is null ? null : "data-table__mono")">@run.Title</span>
+            @if (run.From is { Length: > 0 } machine)
+            {
+                <span class="data-table__detail">Recorded on @machine. Its folder and transcript stay there.</span>
+            }
+            else
+            {
+                <span class="data-table__detail data-table__mono">
+                    <span class="data-table__clamp" title="@run.Folder">@run.Folder</span>
+                </span>
+            }
+        </td>
         """;
 
     private const string EmptyCode = """

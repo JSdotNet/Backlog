@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace Backlog.Infrastructure.Cosmos;
 
 /// <summary>
-/// Which database and container the sync service replicates into, and how long a
-/// tombstone survives there (inherited ADR 0018: bind, validate, fail fast).
+/// Which database and containers the sync service replicates into, and how long a
+/// task tombstone survives there (inherited ADR 0018: bind, validate, fail fast).
 /// <para>
 /// No connection string and no key. Locally the AppHost supplies the emulator's
 /// connection string under the resource name, and deployed the service reaches
@@ -35,6 +35,23 @@ public sealed class CosmosOptions
     /// <c>/ownerId</c>.</summary>
     [Required(AllowEmptyStrings = false)]
     public string TasksContainerName { get; set; } = "tasks";
+
+    /// <summary>
+    /// The container holding session records, partitioned on <c>/ownerId</c> as
+    /// well.
+    /// <para>
+    /// It gets no TTL option beside <see cref="TaskTombstoneTtlSeconds"/>, and
+    /// that asymmetry is the point rather than an omission. Task retention has to
+    /// be expressed per document — a live task carries no <c>ttl</c> and a
+    /// tombstone carries one — so the number has to reach the code that writes
+    /// the document. Session retention is the whole record at twelve months, so
+    /// it is <c>defaultTtl</c> on the container in <c>infra/sync/main.bicep</c>
+    /// and nothing in this process ever needs to know it. Configuring it here
+    /// would be configuring something no code reads.
+    /// </para>
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string SessionsContainerName { get; set; } = "sessions";
 
     /// <summary>
     /// How long a tombstone is kept, in seconds — 180 days by default.

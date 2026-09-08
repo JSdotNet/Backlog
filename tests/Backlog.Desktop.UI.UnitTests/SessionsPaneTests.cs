@@ -11,6 +11,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// while the view is the control that does remove them, that a source which could
 /// not be read is named rather than swallowed, and that "no sessions", "nothing
 /// live" and "could not read" do not look alike.
+/// <para>
+/// And, since records started arriving from other environments: that a replicated
+/// row says where it came from rather than passing itself off as one this PC read
+/// for itself, while a local row is left exactly as it was.
+/// </para>
 /// </summary>
 public sealed class SessionsPaneTests
 {
@@ -547,6 +552,199 @@ public sealed class SessionsPaneTests
         });
     }
 
+    // --- Records from another environment ---------------------------------------
+
+    /// <summary>
+    /// A replicated row has no folder to put on its second line, and it does not
+    /// leave the line empty: it says which machine recorded the session and that the
+    /// detail stayed there. That sentence is the whole affordance — ADR 0005 keeps a
+    /// transcript on the machine that produced it, so this row can be counted and
+    /// never opened, and the reader has to be able to see that from the row.
+    /// </summary>
+    [Fact]
+    public void A_replicated_row_says_which_machine_recorded_it()
+    {
+        using var context = Context([Replicated()]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var origin = pane.Find(".data-table__row [data-testid='sessions-origin']");
+
+            // The machine is named in the text, so it survives greyscale and reads
+            // out loud. Nothing about this row's meaning is carried by a tint.
+            Assert.Equal(
+                "Recorded on DEV-LAPTOP. Its folder and transcript stay there.",
+                origin.TextContent.Trim());
+
+            // The same secondary line the folder uses, and not the mono family: this
+            // is a sentence rather than a path.
+            Assert.Equal("data-table__detail", origin.GetAttribute("class"));
+
+            // And clamped the way the folder line is. This is the assertion that was
+            // missing when the line shipped with a width cap and no overflow rule: the
+            // sentence ran out of the cell and collided with the Type column, with no
+            // ellipsis and no way to read what had been cut. A machine name is as
+            // unbounded as a path, so the recovery has to be there.
+            var clamp = origin.QuerySelector(".data-table__clamp");
+            Assert.NotNull(clamp);
+            Assert.Contains("sessions-table__origin", clamp!.GetAttribute("class"));
+
+            // The full sentence stays reachable when the visible text is cut short.
+            Assert.Equal(
+                "Recorded on DEV-LAPTOP. Its folder and transcript stay there.",
+                clamp.GetAttribute("title"));
+        });
+    }
+
+    /// <summary>
+    /// Calm, not an alarm. Nothing is wrong with a replicated record and nothing just
+    /// happened, so the line is prose in the row rather than anything that announces
+    /// itself: no role, and none of the Integrations family's unavailable treatment,
+    /// whose four causes — not connected, not installed, offline, turned off — are
+    /// all false here.
+    /// </summary>
+    [Fact]
+    public void The_line_is_not_an_alert_and_not_an_unavailable_integration()
+    {
+        using var context = Context([Replicated()]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find(".data-table__row");
+
+            Assert.Null(row.QuerySelector("[role='alert']"));
+            Assert.Null(row.QuerySelector(".integration-unavailable"));
+            Assert.Null(row.QuerySelector("[data-testid='sessions-origin']")!.GetAttribute("role"));
+        });
+    }
+
+    /// <summary>
+    /// Titles do not sync, so a replicated record names itself with its own session
+    /// id. It wears the family this pane already gives every identifier in a row —
+    /// the repository, the branch, the folder — rather than the ink of a title
+    /// somebody wrote, which is the row passing itself off as local.
+    /// </summary>
+    [Fact]
+    public void A_replicated_rows_title_reads_as_the_identifier_it_is()
+    {
+        using var context = Context([Replicated(), Sample[0]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var titles = pane.FindAll(".sessions-table__title")
+                .ToDictionary(title => title.TextContent.Trim(), title => title.GetAttribute("class"));
+
+            Assert.Equal("sessions-table__title data-table__mono", titles["e7f2b1a0"]);
+            Assert.Equal("sessions-table__title", titles["keen-bose-667825"]);
+        });
+    }
+
+    /// <summary>
+    /// The regression that matters. A local row's second line is the folder, in the
+    /// markup it has always been in — the em dash is not spent on it, no origin line
+    /// appears on it, and its title keeps its own class alone.
+    /// </summary>
+    [Fact]
+    public void A_local_row_still_shows_its_folder_and_says_nothing_about_where_it_came_from()
+    {
+        using var context = Context([Sample[0]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var cell = pane.Find(".data-table__row .sessions-table__session");
+
+            var detail = cell.QuerySelector(".data-table__detail");
+            Assert.NotNull(detail);
+            Assert.Equal("data-table__detail data-table__mono", detail.GetAttribute("class"));
+
+            var clamp = detail.QuerySelector(".data-table__clamp");
+            Assert.NotNull(clamp);
+            Assert.Equal(Sample[0].WorkingFolder, clamp.GetAttribute("title"));
+            Assert.Equal(Sample[0].WorkingFolder, clamp.TextContent.Trim());
+
+            Assert.Null(cell.QuerySelector("[data-testid='sessions-origin']"));
+            Assert.Equal("sessions-table__title", cell.QuerySelector("span")!.GetAttribute("class"));
+        });
+    }
+
+    /// <summary>
+    /// The two absences stay different. A replicated row's missing folder is the
+    /// boundary — the agent did record one and it deliberately stayed behind — while
+    /// a repository and a branch the agent never recorded are still em dashes on the
+    /// same row. One row, both facts, told apart.
+    /// </summary>
+    [Fact]
+    public void A_replicated_row_with_nothing_recorded_still_reads_as_two_different_absences()
+    {
+        using var context = Context([Replicated(repository: null, branch: null)]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find(".data-table__row");
+
+            Assert.Equal("—", row.QuerySelector(".sessions-table__repository")!.TextContent.Trim());
+            Assert.Equal("—", row.QuerySelector(".sessions-table__branch")!.TextContent.Trim());
+
+            // And the second line is a sentence rather than a third em dash.
+            Assert.Contains(
+                "Recorded on DEV-LAPTOP",
+                row.QuerySelector("[data-testid='sessions-origin']")!.TextContent,
+                StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// Local and replicated rows are one list, and grouping by environment carves it
+    /// into a section per machine. The grouping keys on the environment's id, and a
+    /// replicated record's id is the sync device id of the machine that sent it — a
+    /// different id space from this device's own, which is exactly why the two can
+    /// never collide into one section.
+    /// </summary>
+    [Fact]
+    public void Local_and_replicated_rows_group_into_a_section_per_machine()
+    {
+        using var context = Context([Sample[0], Replicated()]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-group-environment']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["DEV-LAPTOP", "DEV-TOWER"],
+                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+
+            Assert.Equal(
+                ["1 session", "1 session"],
+                pane.FindAll(".data-table__group-count").Select(count => count.TextContent.Trim()));
+
+            // The origin line is still on the replicated row inside its section: the
+            // heading names the machine for the group, and the row still has to
+            // account for itself when the grouping is off again.
+            Assert.Single(pane.FindAll("[data-testid='sessions-origin']"));
+        });
+    }
+
     /// <summary>
     /// Switches to the whole list, and waits for the strip to say so. Several tests
     /// below are about the grouping rather than the view, and they have to get the
@@ -588,7 +786,16 @@ public sealed class SessionsPaneTests
             Branch: "claude/desktop-session-area",
             StartedAt: Noon.AddHours(-2),
             LastActivityAt: Noon.AddMinutes(-3),
-            State: AgentSessionState.Running),
+            State: AgentSessionState.Running,
+
+            // One row of the four carries a turn count and the rest do not, because
+            // that is the mix a real machine produces: Claude's transcripts can be
+            // counted and Copilot's sessions record nothing to count. Nothing on this
+            // pane shows either field yet, so no test here asserts on them — the
+            // sample carries both shapes so that the day one does, it does not have to
+            // invent a fixture that never existed.
+            TurnCount: 12,
+            Origin: AgentSessionOrigin.Local),
         new(
             Id: "0012e2c7",
             Kind: AgentSessionKind.Copilot,
@@ -600,7 +807,9 @@ public sealed class SessionsPaneTests
             Branch: "main",
             StartedAt: Noon.AddDays(-1),
             LastActivityAt: Noon.AddHours(-4),
-            State: AgentSessionState.Finished),
+            State: AgentSessionState.Finished,
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local),
         new(
             Id: "9f21ab04",
             Kind: AgentSessionKind.Copilot,
@@ -612,7 +821,9 @@ public sealed class SessionsPaneTests
             Branch: "main",
             StartedAt: Noon.AddDays(-3),
             LastActivityAt: Noon.AddDays(-3).AddMinutes(20),
-            State: AgentSessionState.Finished),
+            State: AgentSessionState.Finished,
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local),
         // Quiet for three quarters of an hour, still registered. Here so the sample
         // holds one of each thing the view has to decide about — 1 Running, 1
         // Stalled, 2 Finished — and on DEV-TOWER so it moves a group's count
@@ -628,8 +839,39 @@ public sealed class SessionsPaneTests
             Branch: "main",
             StartedAt: Noon.AddHours(-3),
             LastActivityAt: Noon.AddMinutes(-45),
-            State: AgentSessionState.Stalled)
+            State: AgentSessionState.Stalled,
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local)
     ];
+
+    /// <summary>
+    /// One record as it arrives from another environment, in the shape the sync
+    /// slice actually produces it: no working folder — a path from another machine
+    /// describes a disk this one cannot see — a title that is the session id,
+    /// because titles do not sync, a repository alias rather than an
+    /// <c>owner/name</c>, and an environment id from the sync device id space rather
+    /// than this device's kernel identity.
+    /// </summary>
+    private static AgentSession Replicated(
+        string id = "e7f2b1a0",
+        string environment = "DEV-LAPTOP",
+        string? repository = "backlog",
+        string? branch = "main",
+        AgentSessionState state = AgentSessionState.Finished) =>
+        new(
+            Id: id,
+            Kind: AgentSessionKind.Claude,
+            EnvironmentId: "8f3d5c11-0b7a-4e2d-9c61-2a4f7d0e5b83",
+            Environment: environment,
+            Title: id,
+            WorkingFolder: string.Empty,
+            Repository: repository,
+            Branch: branch,
+            StartedAt: Noon.AddDays(-2),
+            LastActivityAt: Noon.AddDays(-2).AddHours(1),
+            State: state,
+            TurnCount: 9,
+            Origin: AgentSessionOrigin.Replicated);
 
     private sealed class StubSessionSource(
         IReadOnlyList<AgentSession> sessions,
