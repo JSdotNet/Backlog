@@ -295,6 +295,235 @@ public class GitHubActivityClientTests
         Assert.Contains("gh auth login", availability.Reason, StringComparison.Ordinal);
     }
 
+    // --- The listing walk -----------------------------------------------------
+
+    /// <summary>
+    /// The highest-value assertion in this class. Before this flag existed the walk
+    /// stopped at the page cap in silence, and everything built on the list — the
+    /// throughput count, the churn rate, the review turnaround — read as a whole
+    /// answer while being a prefix of one. At a busy repository's volume a
+    /// twelve-week window reaches that cap today.
+    /// </summary>
+    [Fact]
+    public async Task A_listing_that_hit_the_page_cap_says_so_instead_of_looking_complete()
+    {
+        // Every page full, every row merged inside the window: nothing tells the
+        // walk to stop except running out of pages it is willing to read.
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", FullPage(merged: "2026-07-01T10:00:00Z", updated: "2026-07-01T10:00:00Z"))
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.False(activity.ListingComplete);
+
+        // And it still reports everything it did read. A truncated answer is worth
+        // showing; only a truncated answer presented as a whole one is not.
+        Assert.NotEmpty(activity.PullRequests);
+    }
+
+    [Fact]
+    public async Task A_listing_that_ran_out_naturally_is_complete()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-01T10:00:00Z", updated: "2026-07-01T10:00:00Z")}]")
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.True(activity.ListingComplete);
+        Assert.Equal(1, transport.CallsTo("/pulls?"));
+    }
+
+    /// <summary>
+    /// A full page that walked past the window is the ordinary way a busy
+    /// repository's fetch ends, and it is a complete answer: sorted by
+    /// <c>updated</c> descending, nothing after the first row older than the window
+    /// can be inside it.
+    /// </summary>
+    [Fact]
+    public async Task A_listing_that_walked_past_the_window_is_complete()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", PageEndingBeforeTheWindow())
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.True(activity.ListingComplete);
+
+        // The page was full, so it was the window that stopped it and not a short page.
+        Assert.Equal(1, transport.CallsTo("/pulls?"));
+    }
+
+    // --- Size -----------------------------------------------------------------
+
+    [Fact]
+    public async Task Merged_pull_requests_carry_their_size_and_files_touched()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+
+            // Registered after the more specific routes, so it answers the pull
+            // request itself rather than one of its sub-resources.
+            .Returns("/pulls/1", """{ "additions": 120, "deletions": 30, "changed_files": 7 }""");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.True(pull.SizeKnown);
+        Assert.Equal(150, pull.ChangedLines);
+        Assert.Equal(7, pull.ChangedFiles);
+        Assert.True(activity.DetailComplete);
+    }
+
+    /// <summary>
+    /// A pull request whose size could not be read was still merged. Dropping it
+    /// would lose a real merge; reporting its zero as a size would pull every size
+    /// figure down towards nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_request_whose_detail_could_not_be_read_says_its_size_is_unknown()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+            .Refuses("/pulls/1");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.Equal(1, pull.Number);
+        Assert.False(pull.SizeKnown);
+        Assert.Equal(0, pull.ChangedLines);
+        Assert.False(activity.DetailComplete);
+    }
+
+    // --- The detail cache -----------------------------------------------------
+
+    [Fact]
+    public async Task A_pull_request_already_in_the_cache_is_not_fetched_again()
+    {
+        var cache = new RememberingCache();
+        cache.Write(Repository, 1, new PullRequestDetail { ChurnComplete = true, SizeKnown = true, ChangedLines = 42 });
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]");
+
+        var activity = await new GitHubActivityClient(transport, cache)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.Equal(42, pull.ChangedLines);
+
+        // The whole point: the listing still happened, and nothing per-pull-request did.
+        Assert.Equal(1, transport.CallsTo("/pulls?"));
+        Assert.Equal(0, transport.CallsTo("/reviews"));
+        Assert.Equal(0, transport.CallsTo("/pulls/1"));
+    }
+
+    /// <summary>
+    /// The single most important property of the cache. A capped figure that came
+    /// back uncapped would make the second read of a window quietly more confident
+    /// than the first — the same defect <c>ChurnComplete</c> exists to prevent,
+    /// reintroduced one layer down.
+    /// </summary>
+    [Fact]
+    public async Task A_cached_floor_comes_back_a_floor()
+    {
+        var cache = new RememberingCache();
+        cache.Write(Repository, 1, new PullRequestDetail
+        {
+            FirstReviewedAt = new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero),
+            FilesRetouched = 20,
+            ChurnComplete = false,
+            SizeKnown = false
+        });
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]");
+
+        var activity = await new GitHubActivityClient(transport, cache)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.False(pull.ChurnComplete);
+        Assert.Equal(20, pull.FilesRetouched);
+
+        // And the size flag with it, which is what keeps DetailComplete honest on a
+        // run that fetched nothing at all.
+        Assert.False(pull.SizeKnown);
+        Assert.False(activity.DetailComplete);
+    }
+
+    [Fact]
+    public async Task A_freshly_read_pull_request_is_remembered_for_next_time()
+    {
+        var cache = new RememberingCache();
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+            .Returns("/pulls/1", """{ "additions": 10, "deletions": 5, "changed_files": 2 }""");
+
+        _ = await new GitHubActivityClient(transport, cache)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var remembered = cache.TryRead(Repository, 1);
+        Assert.NotNull(remembered);
+        Assert.Equal(15, remembered.ChangedLines);
+        Assert.True(remembered.SizeKnown);
+    }
+
+    /// <summary>A hundred rows — a full page, which is what tells the walk there may
+    /// be another one.</summary>
+    private static string FullPage(string? merged, string updated) =>
+        "[" + string.Join(",", Enumerable.Range(1, 100).Select(number => Pull(number, merged, updated))) + "]";
+
+    /// <summary>A full page whose last row was last touched before the window, which
+    /// is the signal the walk stops on.</summary>
+    private static string PageEndingBeforeTheWindow() =>
+        "["
+        + string.Join(",", Enumerable.Range(1, 99).Select(number =>
+            Pull(number, merged: null, updated: "2026-07-01T10:00:00Z")))
+        + "," + Pull(100, merged: null, updated: "2025-01-01T10:00:00Z")
+        + "]";
+
+    /// <summary>
+    /// The cache, in memory. What is pinned here is the client's use of the port —
+    /// that a hit skips the calls and that the honesty flags survive the round trip.
+    /// Whether a real file comes back is the file-system project's test, where the
+    /// disk is the thing under test.
+    /// </summary>
+    private sealed class RememberingCache : IPullRequestDetailCache
+    {
+        private readonly Dictionary<string, PullRequestDetail> _entries = [];
+
+        public PullRequestDetail? TryRead(GitHubRepositoryRef repository, int number) =>
+            _entries.GetValueOrDefault(Key(repository, number));
+
+        public void Write(GitHubRepositoryRef repository, int number, PullRequestDetail detail) =>
+            _entries[Key(repository, number)] = detail;
+
+        public void ForgetRepository(GitHubRepositoryRef repository)
+        {
+            foreach (var key in _entries.Keys
+                         .Where(key => key.StartsWith(repository.FullName + "#", StringComparison.Ordinal))
+                         .ToList())
+            {
+                _entries.Remove(key);
+            }
+        }
+
+        private static string Key(GitHubRepositoryRef repository, int number) => $"{repository.FullName}#{number}";
+    }
+
     private static string Pull(int number, string? merged, string updated, string author = "jsdotnet") =>
         $$"""
         {

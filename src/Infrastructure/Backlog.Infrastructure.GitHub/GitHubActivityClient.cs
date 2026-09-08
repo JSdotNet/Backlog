@@ -37,6 +37,25 @@ public sealed record GitHubReviewedPullRequest(
     /// opened. Null when there was no review.</summary>
     public TimeSpan? ReviewTurnaround =>
         FirstReviewedAt is { } reviewed ? reviewed - CreatedAt : null;
+
+    /// <summary>Additions plus deletions. Meaningless unless
+    /// <see cref="SizeKnown"/>.</summary>
+    public int ChangedLines { get; init; }
+
+    /// <summary>Files the diff touches. Meaningless unless
+    /// <see cref="SizeKnown"/>.</summary>
+    public int ChangedFiles { get; init; }
+
+    /// <summary>
+    /// Whether the size above was actually read.
+    /// <para>
+    /// False and zero, rather than absent, for the reason
+    /// <see cref="ChurnComplete"/> exists: a pull request whose detail could not be
+    /// fetched still happened, so it stays in the listing, and the one thing that
+    /// must not happen is its zero being averaged in as a very small pull request.
+    /// </para>
+    /// </summary>
+    public bool SizeKnown { get; init; }
 }
 
 /// <summary>One closed issue. Pull requests are excluded — GitHub's issues
@@ -51,6 +70,25 @@ public sealed record GitHubRepositoryActivity(
     IReadOnlyList<GitHubClosedIssue> Issues)
 {
     public static GitHubRepositoryActivity Empty(string fullName) => new(fullName, [], []);
+
+    /// <summary>
+    /// Whether the pull-request walk reached the end of what it was looking for.
+    /// <para>
+    /// False means it stopped because it ran out of pages it was willing to read,
+    /// not because it ran out of pull requests — so <see cref="PullRequests"/> is a
+    /// prefix of the answer and every figure derived from it is a floor. This is
+    /// not hypothetical: at a busy repository's volume a twelve-week window
+    /// exhausts the page budget, and before this flag existed it did so silently.
+    /// </para>
+    /// </summary>
+    public bool ListingComplete { get; init; } = true;
+
+    /// <summary>
+    /// Whether every listed pull request's size could be read. False when at least
+    /// one of them has <c>SizeKnown</c> false, so a size average knows it is
+    /// missing rows rather than averaging in zeroes.
+    /// </summary>
+    public bool DetailComplete { get; init; } = true;
 }
 
 /// <summary>Why activity reporting is or is not usable, in words fit for a screen.</summary>
@@ -91,13 +129,21 @@ public interface IGitHubActivityClient
 /// </para>
 /// <para>
 /// The call budget is the reason this class is shaped the way it is. Listing costs
-/// two calls per repository; each pull request then costs three more, and files
+/// two calls per repository; each pull request then costs four more, and files
 /// re-touched costs one per post-review commit on top. So the per-pull-request work
 /// only happens for pull requests that reached the window, and the file inspection
 /// is capped — with the cap reported rather than swallowed.
 /// </para>
+/// <para>
+/// The largest saving is <paramref name="details"/>. A merged pull request's
+/// reviews, commits and diff are frozen, so the per-pull-request work is done once
+/// and remembered; a second read of the same window costs the two listing calls and
+/// nothing else. It is optional because it is an optimization — the client answers
+/// the same thing without it, only slower.
+/// </para>
 /// </remarks>
-public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubActivityClient
+public sealed class GitHubActivityClient(IGitHubTransport transport, IPullRequestDetailCache? details = null)
+    : IGitHubActivityClient
 {
     /// <summary>GitHub caps a list page at 100.</summary>
     private const int PageSize = 100;
@@ -151,10 +197,16 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
 
         await Task.WhenAll(pullRequests, issues).ConfigureAwait(false);
 
+        var listing = await pullRequests.ConfigureAwait(false);
+
         return new GitHubRepositoryActivity(
             repository.FullName,
-            await pullRequests.ConfigureAwait(false),
-            await issues.ConfigureAwait(false));
+            listing.PullRequests,
+            await issues.ConfigureAwait(false))
+        {
+            ListingComplete = listing.Complete,
+            DetailComplete = listing.PullRequests.All(pull => pull.SizeKnown)
+        };
     }
 
     /// <summary>
@@ -169,7 +221,7 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
     /// Sorting by <c>updated</c> descending lets the walk stop as soon as it is past
     /// the window instead of reading the whole history.
     /// </remarks>
-    private async Task<IReadOnlyList<GitHubReviewedPullRequest>> ReadPullRequestsAsync(
+    private async Task<(IReadOnlyList<GitHubReviewedPullRequest> PullRequests, bool Complete)> ReadPullRequestsAsync(
         GitHubRepositoryRef repository,
         DateTimeOffset from,
         DateTimeOffset to,
@@ -177,6 +229,11 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
         CancellationToken cancellationToken)
     {
         var merged = new List<(int Number, string Url, string Title, DateTimeOffset Created, DateTimeOffset Merged)>();
+
+        // Set on every way out of the walk except one: falling off the end of the
+        // page budget. That is the case this exists for, and it is the only one
+        // where the list is a prefix rather than an answer.
+        var complete = false;
 
         for (var page = 1; page <= MaxPages; page++)
         {
@@ -187,10 +244,18 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
                 body: null,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            if (response.ValueKind != JsonValueKind.Array) break;
+            if (response.ValueKind != JsonValueKind.Array)
+            {
+                complete = true;
+                break;
+            }
 
             var rows = response.EnumerateArray().ToList();
-            if (rows.Count == 0) break;
+            if (rows.Count == 0)
+            {
+                complete = true;
+                break;
+            }
 
             var pastWindow = false;
 
@@ -218,7 +283,11 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
                     mergedAt));
             }
 
-            if (pastWindow || rows.Count < PageSize) break;
+            if (pastWindow || rows.Count < PageSize)
+            {
+                complete = true;
+                break;
+            }
         }
 
         var detailed = new List<GitHubReviewedPullRequest>(merged.Count);
@@ -229,13 +298,73 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
         foreach (var batch in merged.Chunk(MaxConcurrentPullRequests))
         {
             var read = await Task
-                .WhenAll(batch.Select(pullRequest => ReadChurnAsync(repository, pullRequest, cancellationToken)))
+                .WhenAll(batch.Select(pullRequest => ReadOrRecallAsync(repository, pullRequest, cancellationToken)))
                 .ConfigureAwait(false);
 
             detailed.AddRange(read);
         }
 
-        return detailed;
+        return (detailed, complete);
+    }
+
+    /// <summary>
+    /// One pull request's detail, from the cache when it is there and from GitHub
+    /// when it is not.
+    /// <para>
+    /// Only what was actually fetched is written back. A cached entry that came
+    /// back is not rewritten, because it would be rewritten identically — the
+    /// whole reason this is cacheable is that a merged pull request's answer does
+    /// not move.
+    /// </para>
+    /// </summary>
+    private async Task<GitHubReviewedPullRequest> ReadOrRecallAsync(
+        GitHubRepositoryRef repository,
+        (int Number, string Url, string Title, DateTimeOffset Created, DateTimeOffset Merged) pullRequest,
+        CancellationToken cancellationToken)
+    {
+        if (details?.TryRead(repository, pullRequest.Number) is { } remembered)
+        {
+            return new GitHubReviewedPullRequest(
+                pullRequest.Number,
+                pullRequest.Url,
+                pullRequest.Title,
+                pullRequest.Created,
+                pullRequest.Merged,
+                remembered.FirstReviewedAt,
+                remembered.ReviewRounds,
+                remembered.ChangesRequested,
+                remembered.CommitsAfterFirstReview,
+                remembered.ForcePushesAfterFirstReview,
+                remembered.FilesRetouched,
+
+                // Carried, never assumed. A floor that came back as a total would
+                // make the second read of a window quietly more confident than the
+                // first, which is the worst thing a cache can do to a figure.
+                remembered.ChurnComplete)
+            {
+                ChangedLines = remembered.ChangedLines,
+                ChangedFiles = remembered.ChangedFiles,
+                SizeKnown = remembered.SizeKnown
+            };
+        }
+
+        var read = await ReadChurnAsync(repository, pullRequest, cancellationToken).ConfigureAwait(false);
+
+        details?.Write(repository, read.Number, new PullRequestDetail
+        {
+            FirstReviewedAt = read.FirstReviewedAt,
+            ReviewRounds = read.ReviewRounds,
+            ChangesRequested = read.ChangesRequested,
+            CommitsAfterFirstReview = read.CommitsAfterFirstReview,
+            ForcePushesAfterFirstReview = read.ForcePushesAfterFirstReview,
+            FilesRetouched = read.FilesRetouched,
+            ChurnComplete = read.ChurnComplete,
+            ChangedLines = read.ChangedLines,
+            ChangedFiles = read.ChangedFiles,
+            SizeKnown = read.SizeKnown
+        });
+
+        return read;
     }
 
     /// <summary>
@@ -249,9 +378,20 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
     {
         var prefix = $"repos/{repository.Owner}/{repository.Name}";
 
-        var reviews = await ReadArrayAsync(
+        // Issued alongside the reviews rather than after them. The size lives on
+        // the pull request itself, which the listing does not carry, so it costs a
+        // call — but it costs no wall clock, because the reviews call is already in
+        // flight and this one waits beside it.
+        var reviewsCall = ReadArrayAsync(
             $"{prefix}/pulls/{pullRequest.Number}/reviews?per_page={PageSize}",
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
+
+        var sizeCall = ReadSizeAsync($"{prefix}/pulls/{pullRequest.Number}", cancellationToken);
+
+        await Task.WhenAll(reviewsCall, sizeCall).ConfigureAwait(false);
+
+        var reviews = await reviewsCall.ConfigureAwait(false);
+        var size = await sizeCall.ConfigureAwait(false);
 
         // A review of state COMMENTED is a comment, not a verdict, and counting it
         // as a round would make every conversation look like rework.
@@ -284,7 +424,12 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
                 CommitsAfterFirstReview: 0,
                 ForcePushesAfterFirstReview: 0,
                 FilesRetouched: 0,
-                ChurnComplete: true);
+                ChurnComplete: true)
+            {
+                ChangedLines = size.Lines,
+                ChangedFiles = size.Files,
+                SizeKnown = size.Known
+            };
         }
 
         var commits = await ReadArrayAsync(
@@ -324,7 +469,44 @@ public sealed class GitHubActivityClient(IGitHubTransport transport) : IGitHubAc
             CommitsAfterFirstReview: after.Count,
             ForcePushesAfterFirstReview: forcePushes,
             FilesRetouched: retouched,
-            ChurnComplete: complete);
+            ChurnComplete: complete)
+        {
+            ChangedLines = size.Lines,
+            ChangedFiles = size.Files,
+            SizeKnown = size.Known
+        };
+    }
+
+    /// <summary>
+    /// How big one pull request's diff is, from the pull request itself.
+    /// <para>
+    /// A refusal is not a failure of the pull request. The pull request was merged
+    /// whatever this endpoint says, so it stays in the listing with its size
+    /// declared unknown rather than declared zero — a zero here would be averaged
+    /// in as a very small pull request and pull every size figure down.
+    /// </para>
+    /// </summary>
+    private async Task<(int Lines, int Files, bool Known)> ReadSizeAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await transport
+                .SendAsync(HttpMethod.Get, path, body: null, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            if (response.ValueKind != JsonValueKind.Object) return (0, 0, false);
+
+            return (
+                Number(response, "additions") + Number(response, "deletions"),
+                Number(response, "changed_files"),
+                true);
+        }
+        catch (GitHubException)
+        {
+            return (0, 0, false);
+        }
     }
 
     /// <summary>

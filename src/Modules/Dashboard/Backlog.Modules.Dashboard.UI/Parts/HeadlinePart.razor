@@ -55,9 +55,26 @@
 </PartFrame>
 
 @code {
-    private string Note => Scope.IsAllRepositories
-        ? $"Your own work, across every configured repository, over {Scope.Weeks} weeks."
-        : $"Your own work in {Scope.RepositoryAlias}, over {Scope.Weeks} weeks.";
+    /// <summary>
+    /// Whose work, from where, over how long — and whether all of it arrived. The
+    /// truncation clause is conditional because a permanent one would train the
+    /// reader past it, and it names the consequence rather than the cause: a floor is
+    /// what a count becomes when a listing stopped early, and "floor" is the word the
+    /// rest of this surface already uses for it.
+    /// </summary>
+    private string Note
+    {
+        get
+        {
+            var basis = Scope.IsAllRepositories
+                ? $"Your own work, across every configured repository, over {Scope.Weeks} weeks."
+                : $"Your own work in {Scope.RepositoryAlias}, over {Scope.Weeks} weeks.";
+
+            return IsReady && !Value!.Complete
+                ? basis + " Some of this window could not be read, so every figure here is a floor."
+                : basis;
+        }
+    }
 
     protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetHeadlineAsync(Scope, cancellationToken);

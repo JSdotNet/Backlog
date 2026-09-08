@@ -257,8 +257,290 @@ public class ProductivityInsightsTests
         Assert.Equal(2, trend.Value!.ByRepository.Count);
     }
 
-    private static ProductivityInsights Insights(IActivitySource source) =>
-        new(source, new StubRepositoryDirectory(), new FixedClock(Now));
+    /// <summary>
+    /// The baseline is a second provider call, and one per part per filter move would
+    /// be as wasteful as the activity fetch it sits beside. One per focus, and the
+    /// second reader of the same focus joins it.
+    /// </summary>
+    [Fact]
+    public async Task The_baseline_is_fetched_once_per_focus_and_cached()
+    {
+        var baseline = new StubBaselineSource();
+        var insights = Insights(new StubActivitySource(), baseline);
+
+        _ = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        _ = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, baseline.Calls);
+
+        // A different focus is a different question — a repository's own record is
+        // not the estate's — so it does go out again.
+        _ = await insights.GetScoreAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, baseline.Calls);
+    }
+
+    /// <summary>
+    /// Both cached answers live in one dictionary and <c>GetOrAddAsync</c> casts what
+    /// it finds to the type the caller asked for, so a baseline stored under an
+    /// activity key would not read as a miss — it would throw at the cast and take
+    /// the part down. The prefix is what keeps them apart, and this is what holds it
+    /// there.
+    /// </summary>
+    [Fact]
+    public async Task The_baseline_cache_key_does_not_collide_with_the_activity_key()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], [])
+        };
+
+        var baseline = new StubBaselineSource();
+        var insights = Insights(source, baseline);
+
+        var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var score = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(headline.HasValue);
+        Assert.True(score.HasValue);
+
+        // One of each, rather than one of them evicting the other and being re-asked.
+        Assert.Equal(1, source.Calls);
+        Assert.Equal(1, baseline.Calls);
+
+        // And the baseline is the one that landed under the baseline key.
+        Assert.NotNull(score.Value!.Target);
+    }
+
+    /// <summary>
+    /// A baseline is only able to take the three volume inputs off the card. Turning
+    /// the whole part unavailable for it would trade four inputs a reader could still
+    /// use for a sentence they cannot.
+    /// </summary>
+    [Fact]
+    public async Task A_baseline_that_refuses_leaves_the_score_readable()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [Merged(1, reviewed: true, churned: false), Merged(2, reviewed: true, churned: true)],
+                [])
+        };
+
+        var baseline = new StubBaselineSource { Throw = new InvalidOperationException("GitHub answered 502.") };
+
+        var score = await Insights(source, baseline)
+            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(score.HasValue);
+        Assert.Null(score.Value!.Target);
+
+        // The volume inputs are gone, rather than scored against a target of nothing.
+        Assert.DoesNotContain(score.Value.Inputs, input => input.Label == "Pull requests merged");
+
+        // And what could still be judged still is.
+        Assert.Contains(score.Value.Inputs, input => input.Label == "First review within a day");
+    }
+
+    /// <summary>
+    /// A listing that stopped early makes every count on the surface a floor, and the
+    /// score is built on counts. The flag has to survive the whole derivation or the
+    /// part cannot say so.
+    /// </summary>
+    [Fact]
+    public async Task A_truncated_listing_travels_all_the_way_to_the_score()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: true, churned: false)], []) { Complete = false }
+        };
+
+        var insights = Insights(source);
+
+        var score = await insights.GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var headline = await insights.GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var rework = await insights.GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+        var trend = await insights.GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.False(score.Value!.Complete);
+        Assert.False(headline.Value!.Complete);
+        Assert.False(rework.Value!.Complete);
+        Assert.False(trend.Value!.Complete);
+    }
+
+    /// <summary>
+    /// <c>ScorePart.FollowsMachine</c> is false, and this is what makes that literally
+    /// true rather than merely undisplayed: the sessions figure behind the score is
+    /// read across every machine whatever the filter above it says.
+    /// </summary>
+    [Fact]
+    public async Task The_score_reads_every_machine_even_under_a_machine_focus()
+    {
+        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
+
+        _ = await Insights(new StubActivitySource(), sessions: sessions)
+            .GetScoreAsync(
+                DashboardScope.Default with { MachineId = "tower" },
+                TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(sessions.Scopes);
+        Assert.All(sessions.Scopes, scope => Assert.Null(scope.MachineId));
+    }
+
+    /// <summary>
+    /// The sessions figure is the reader's own best four weeks of sessions, on the
+    /// same footing as the two GitHub volumes — one a week is a target for somebody
+    /// who runs one a week and an insult to somebody who runs forty.
+    /// </summary>
+    [Fact]
+    public async Task The_sessions_input_is_scored_against_the_readers_own_best_four_weeks()
+    {
+        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
+
+        var score = await Insights(new StubActivitySource(), sessions: sessions)
+            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        var input = Assert.Single(score.Value!.Inputs, one => one.Label == "Assistant sessions");
+
+        // The best four weeks hold twenty, which is five a week; over a quarter, a
+        // quarter above that is seventy-five.
+        Assert.Equal(40m, input.Value);
+        Assert.Equal(75m, input.Max);
+    }
+
+    /// <summary>
+    /// No assistant records which repository a session was for, so a focused reader
+    /// gets no sessions input at all — the source is not even asked, because there is
+    /// no answer it could give that would belong to one repository.
+    /// </summary>
+    [Fact]
+    public async Task Sessions_are_left_out_of_the_score_when_one_repository_is_in_focus()
+    {
+        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
+
+        var score = await Insights(new StubActivitySource(), sessions: sessions)
+            .GetScoreAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+
+        Assert.Empty(sessions.Scopes);
+        Assert.DoesNotContain(score.Value!.Inputs, input => input.Label == "Assistant sessions");
+    }
+
+    /// <summary>
+    /// A source that refuses omits the input rather than failing the score, and
+    /// rather than scoring the reader as having run nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_session_source_that_refuses_leaves_the_input_out_rather_than_scoring_a_zero()
+    {
+        var sessions = new StubSessionInsights { Refusal = "No assistant folder on this machine." };
+
+        var score = await Insights(new StubActivitySource(), sessions: sessions)
+            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(score.HasValue);
+        Assert.DoesNotContain(score.Value!.Inputs, input => input.Label == "Assistant sessions");
+    }
+
+    /// <summary>
+    /// Zooming in moves a highlight rather than dropping the pack, and the trend has
+    /// to read the UNFOCUSED window for that to be possible at all. Its own remark
+    /// and <c>ProductivityTrend</c>'s doc comment both said so while the code
+    /// narrowed to <c>scoped.Repositories</c>; the covering test used the default
+    /// scope and could not see it.
+    /// </summary>
+    [Fact]
+    public async Task Every_repository_stays_in_the_trend_when_one_is_in_focus()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: true, churned: false),
+                    Merged(2, reviewed: true, churned: false) with { RepositoryAlias = "backlog-ide" },
+                    Merged(3, reviewed: true, churned: false) with { RepositoryAlias = "backlog-mobile" }
+                ],
+                [])
+        };
+
+        var trend = await Insights(source)
+            .GetTrendAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+
+        Assert.True(trend.HasValue);
+        Assert.Equal(3, trend.Value!.ByRepository.Count);
+        Assert.Equal("backlog-ide", trend.Value.Highlight);
+    }
+
+    /// <summary>
+    /// One target across the whole trellis, taken from the estate's record. Per-series
+    /// normalisation would make every repository's best week read 100 — the busiest
+    /// and the quietest alike — and destroy the only comparison the spotlight exists
+    /// to draw.
+    /// </summary>
+    [Fact]
+    public async Task Every_repositorys_week_is_judged_against_the_same_target()
+    {
+        var week = Now.AddDays(-1);
+
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    .. Enumerable.Range(1, 8).Select(number =>
+                        Merged(number, reviewed: false, churned: false) with { MergedAt = week }),
+                    .. Enumerable.Range(9, 2).Select(number =>
+                        Merged(number, reviewed: false, churned: false) with
+                        {
+                            RepositoryAlias = "backlog-ide",
+                            MergedAt = week
+                        })
+                ],
+                [])
+        };
+
+        // Forty merges in the best block is ten a week, so one week's full marks is
+        // twelve and a half.
+        var baseline = new StubBaselineSource { MergedPerBlock = 40, ClosedPerBlock = 0 };
+
+        var trend = await Insights(source, baseline)
+            .GetTrendAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        var busy = Assert.Single(trend.Value!.ByRepository, series => series.Name == "backlog");
+        var quiet = Assert.Single(trend.Value.ByRepository, series => series.Name == "backlog-ide");
+
+        Assert.Equal(64m, busy.Points.Max(point => point.Value));
+        Assert.Equal(16m, quiet.Points.Max(point => point.Value));
+
+        // Neither reads full marks, which is what per-series normalisation would have
+        // given both of them.
+        Assert.All(
+            trend.Value.ByRepository,
+            series => Assert.All(series.Points, point => Assert.True(point.Value < 100m)));
+    }
+
+    /// <summary>Twelve weeks of sessions whose busiest four hold twenty.</summary>
+    private static IReadOnlyList<InsightPoint> PerWeek() =>
+    [
+        .. Enumerable.Range(0, 12).Select(index =>
+            new InsightPoint("W" + index, index < 4 ? 1m : index < 8 ? 2m : 5m))
+    ];
+
+    /// <summary>
+    /// The whole derivation over doubles. Every collaborator has a default that
+    /// answers nothing rather than refusing, so a test names only the one it is
+    /// about — a baseline test does not have to describe a session source, and none
+    /// of the tests that predate either of them had to learn about them.
+    /// </summary>
+    private static ProductivityInsights Insights(
+        IActivitySource source,
+        IActivityBaselineSource? baseline = null,
+        ISessionInsights? sessions = null,
+        IRepositoryDirectory? repositories = null) =>
+        new(
+            source,
+            baseline ?? new StubBaselineSource(),
+            repositories ?? new StubRepositoryDirectory(),
+            sessions ?? new StubSessionInsights(),
+            new FixedClock(Now));
 
     private static ActivityPullRequest Merged(int number, bool reviewed, bool churned)
     {
@@ -287,8 +569,82 @@ public class ProductivityInsightsTests
         public IReadOnlyList<DashboardRepository> Repositories { get; } =
         [
             new("backlog", "JSdotNet/Backlog"),
-            new("backlog-ide", "JSdotNet/Backlog.Ide")
+            new("backlog-ide", "JSdotNet/Backlog.Ide"),
+            new("backlog-mobile", "JSdotNet/Backlog.Mobile")
         ];
+    }
+
+    /// <summary>
+    /// The reader's own record. Answers the same counts for every block by default,
+    /// so a test that does not care about the shape of the history still gets a
+    /// target and the volume inputs still appear.
+    /// </summary>
+    private sealed class StubBaselineSource : IActivityBaselineSource
+    {
+        public int MergedPerBlock { get; init; } = 40;
+
+        public int ClosedPerBlock { get; init; } = 20;
+
+        public bool Complete { get; init; } = true;
+
+        public Exception? Throw { get; init; }
+
+        public int Calls { get; private set; }
+
+        public List<DashboardRepository> Requested { get; } = [];
+
+        public List<ActivityWindow> Blocks { get; } = [];
+
+        public Task<ActivityBaseline> GetBaselineAsync(
+            IReadOnlyList<DashboardRepository> repositories,
+            IReadOnlyList<ActivityWindow> blocks,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            Requested.AddRange(repositories);
+            Blocks.AddRange(blocks);
+
+            if (Throw is not null) return Task.FromException<ActivityBaseline>(Throw);
+
+            return Task.FromResult(new ActivityBaseline(
+                [.. blocks.Select(block => new ActivityVolume(
+                    block.From,
+                    block.To,
+                    MergedPerBlock,
+                    ClosedPerBlock))],
+                Complete));
+        }
+    }
+
+    /// <summary>
+    /// Sessions, as the score sees them. Records the scopes it was asked for, which
+    /// is how the machine-blanking claim is asserted rather than described.
+    /// </summary>
+    private sealed class StubSessionInsights : ISessionInsights
+    {
+        public int Sessions { get; init; }
+
+        public IReadOnlyList<InsightPoint> PerWeek { get; init; } = [];
+
+        public string? Refusal { get; init; }
+
+        public List<DashboardScope> Scopes { get; } = [];
+
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default)
+        {
+            Scopes.Add(scope);
+
+            return Task.FromResult(Refusal is not null
+                ? InsightResult<AssistantSessionsInsight>.Unavailable(Refusal)
+                : InsightResult<AssistantSessionsInsight>.Ready(
+                    AssistantSessionsInsight.Empty with { Sessions = Sessions, SessionsPerWeek = PerWeek }));
+        }
+
+        public void Invalidate()
+        {
+        }
     }
 
     private sealed class StubActivitySource : IActivitySource

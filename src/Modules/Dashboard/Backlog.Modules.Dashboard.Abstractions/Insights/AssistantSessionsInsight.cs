@@ -66,5 +66,27 @@ public sealed record AssistantSessionsInsight(
     IReadOnlyList<string> Unreadable,
     IReadOnlyList<AssistantSessionRow> Breakdown)
 {
-    public static AssistantSessionsInsight Empty { get; } = new(0, TimeSpan.Zero, null, 0, false, 0, [], []);
+    /// <summary>
+    /// How many sessions fell in each ISO week of the window, oldest first, one point
+    /// per week whether anything happened in it or not.
+    /// <para>
+    /// A session is counted in the week it <em>last moved</em>. That is the only week
+    /// every session has — the start is optional and no end is recorded at all — so
+    /// any other rule would either invent an instant or drop the sessions missing one.
+    /// The price is that a session running across a week boundary is one mark in the
+    /// later week rather than a mark in each, and the surface says so beside the
+    /// columns rather than leaving a reader to find the sum that does not add up.
+    /// </para>
+    /// <para>
+    /// Beside the primary constructor rather than in it, the escape
+    /// <c>ActivityPullRequest.ReviewTurnaround</c> and
+    /// <c>GitHubReviewedPullRequest.ReviewTurnaround</c> already take: fixtures and
+    /// adapters construct this record positionally, and a ninth parameter would break
+    /// every one of them to add something none of them has an opinion about.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<InsightPoint> SessionsPerWeek { get; init; } = [];
+
+    public static AssistantSessionsInsight Empty { get; } =
+        new(0, TimeSpan.Zero, null, 0, false, 0, [], []) { SessionsPerWeek = [] };
 }
