@@ -171,10 +171,11 @@ public sealed class GitHubSettings
     /// somebody who never opens the Accounts panel.</item>
     /// </list>
     /// <para>
-    /// Handles all five path shapes the clients actually send, not just
-    /// <c>repos/</c>: the organization and user shapes the Copilot and billing
-    /// clients build used to fall past the repository lookup entirely and take the
-    /// arbitrary first token in the list.
+    /// Handles every path shape the clients actually send, not just <c>repos/</c>:
+    /// the organization and user shapes the Copilot and billing clients build used
+    /// to fall past the repository lookup entirely and take the arbitrary first
+    /// token in the list, and the <c>search/</c> shape names its subject in the
+    /// query rather than in the path.
     /// </para>
     /// </summary>
     public GitHubAccountChoice AccountForPath(string? path)
@@ -196,6 +197,14 @@ public sealed class GitHubSettings
             // The user billing endpoints name a login outright, which is a stronger
             // statement than any repository could make about them.
             "users" when parts.Length >= 2 => ChoiceForLogin(parts[1]),
+
+            // A search names its subject in the query rather than in the path, so
+            // it read as "nothing identifiable" and went out as the default. In a
+            // workspace with one account that was invisible; in one with two it is
+            // a count for the wrong identity, or a zero for a private repository
+            // the default account simply cannot see — and a zero is not an error,
+            // so nothing on screen would say so.
+            "search" => ChoiceForSearch(path),
 
             _ => GitHubAccountChoice.Default
         };
@@ -253,6 +262,73 @@ public sealed class GitHubSettings
             .ToList();
 
         return bound.Count == 1 ? Bind(bound[0], owner) : GitHubAccountChoice.Default;
+    }
+
+    /// <summary>
+    /// The identity a search has to go out as, taken from the scope qualifier in
+    /// its <c>q=</c> parameter.
+    /// <para>
+    /// The first scope qualifier wins, and there is normally only one: a query
+    /// naming repositories under two owners is a query no single credential is
+    /// guaranteed to satisfy, which is why the baseline client splits those into
+    /// separate queries rather than relying on a rule here.
+    /// </para>
+    /// <para>
+    /// <c>org:</c> and <c>user:</c> both route through <see cref="ChoiceForOwner"/>
+    /// rather than <see cref="ChoiceForLogin"/>. In search they name whose
+    /// repositories to look in, not whose account the report is about — the
+    /// opposite of what <c>users/{login}</c> in a billing path means.
+    /// </para>
+    /// </summary>
+    private GitHubAccountChoice ChoiceForSearch(string path)
+    {
+        if (QueryValue(path, "q") is not { } query) return GitHubAccountChoice.Default;
+
+        // GitHub separates qualifiers with a space, which travels through a query
+        // string as either a space or a '+'.
+        foreach (var qualifier in query.Split(['+', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Qualifier(qualifier, "repo:") is { } full)
+            {
+                var parts = full.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length == 2) return ChoiceForRepository(parts[0], parts[1]);
+                continue;
+            }
+
+            if (Qualifier(qualifier, "org:") is { } organization) return ChoiceForOwner(organization);
+            if (Qualifier(qualifier, "user:") is { } user) return ChoiceForOwner(user);
+        }
+
+        return GitHubAccountChoice.Default;
+    }
+
+    /// <summary>The value of one qualifier, or null when this is a different
+    /// one.</summary>
+    private static string? Qualifier(string token, string name) =>
+        token.StartsWith(name, StringComparison.OrdinalIgnoreCase) && token.Length > name.Length
+            ? token[name.Length..]
+            : null;
+
+    /// <summary>One named query-string parameter, decoded. Written here rather than
+    /// taken from a URI helper because the paths these clients build are relative
+    /// and would have to be made absolute first.</summary>
+    private static string? QueryValue(string path, string name)
+    {
+        var mark = path.IndexOf('?', StringComparison.Ordinal);
+        if (mark < 0) return null;
+
+        foreach (var pair in path[(mark + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equals = pair.IndexOf('=', StringComparison.Ordinal);
+            if (equals < 0) continue;
+            if (!string.Equals(pair[..equals], name, StringComparison.OrdinalIgnoreCase)) continue;
+
+            // Unescaping leaves '+' alone, which is what keeps the qualifier split
+            // above working whether the caller escaped the query or not.
+            return Uri.UnescapeDataString(pair[(equals + 1)..]);
+        }
+
+        return null;
     }
 
     private GitHubAccountChoice ChoiceForLogin(string login) =>

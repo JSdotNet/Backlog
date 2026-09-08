@@ -85,6 +85,8 @@ public sealed class WorkspaceSettingsStore
         DefaultKnowledgeCacheDirectory = Path.Combine(appData, KnowledgeCacheFolderName);
         KnowledgeCacheDirectory = Clean(settings?.KnowledgeCacheDirectory) ?? DefaultKnowledgeCacheDirectory;
 
+        ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
+
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
         // repository here; doing it deliberately means a first run still lands in
@@ -153,7 +155,30 @@ public sealed class WorkspaceSettingsStore
             Path.TrimEndingDirectorySeparator(DefaultKnowledgeCacheDirectory),
             StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Where the dashboard's merged-pull-request detail is kept.
+    /// <para>
+    /// Beside the per-user settings, and deliberately <em>not</em> under the
+    /// backlog root. <c>FileTaskSyncStateStore</c> spells out why at length: the
+    /// syncing of that root is the hazard ADR 0005 exists to remove, and a folder
+    /// of thousands of tiny per-pull-request files landing in somebody's synced
+    /// drive is exactly the shape of thing that made it a hazard. Nothing in here
+    /// is workspace content either — it is a copy of GitHub's own answers about
+    /// commits that cannot change, and can always be fetched again.
+    /// </para>
+    /// <para>
+    /// Not configurable, unlike <see cref="KnowledgeCacheDirectory"/>. That one is
+    /// a setting because a repository tree per registered repository is large
+    /// enough that somebody with a small system drive needs a say; this is
+    /// kilobytes, and a second path field on the settings screen would cost more
+    /// attention than it saves disk.
+    /// </para>
+    /// </summary>
+    public string ActivityCacheDirectory { get; }
+
     private const string KnowledgeCacheFolderName = "knowledge-cache";
+
+    private const string ActivityCacheFolderName = "activity-cache";
 
     private static string? Clean(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 

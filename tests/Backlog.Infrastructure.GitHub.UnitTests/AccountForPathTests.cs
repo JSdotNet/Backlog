@@ -261,6 +261,76 @@ public sealed class AccountForPathTests
         Assert.True(settings.AccountForPath("users/octocat/settings/billing/usage").IsDefault);
     }
 
+    // --- search/issues?q=... --------------------------------------------------
+    //
+    // A search names its subject in the query rather than in the path, so it used
+    // to fall through to the default. In a workspace with one account that was
+    // invisible; in one with two it is a count for the wrong identity, or a zero
+    // for a private repository the default account cannot see — and a zero is not
+    // an error, so nothing would say so.
+
+    [Fact]
+    public void A_search_path_binds_to_the_account_its_repo_qualifier_names()
+    {
+        var settings = Configured(
+            [Account("j-schepers_innobv", token: "ghp_innobv"), Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("spec", "innovadis-dev", "spec-manager", account: "j-schepers_innobv"),
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        var choice = settings.AccountForPath(
+            "search/issues?q=author:jsdotnet+is:pr+is:merged+repo:innovadis-dev/spec-manager&per_page=1");
+
+        Assert.True(choice.IsBound);
+        Assert.Equal("ghp_innobv", choice.Token);
+        Assert.Equal("innovadis-dev/spec-manager", choice.Subject);
+    }
+
+    /// <summary>The qualifier survives being escaped, which is what a caller that
+    /// builds its query with <c>Uri.EscapeDataString</c> sends.</summary>
+    [Fact]
+    public void A_search_path_binds_the_same_way_when_its_query_is_escaped()
+    {
+        var settings = Configured(
+            [Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        Assert.Equal(
+            "ghp_jsdotnet",
+            settings.AccountForPath("search/issues?q=author%3Ajsdotnet+repo%3AJSdotNet%2FBacklog&per_page=1").Token);
+    }
+
+    /// <summary>In a search, <c>org:</c> and <c>user:</c> name whose repositories to
+    /// look in — so they answer the way an organization path does, not the way a
+    /// billing <c>users/{login}</c> path does.</summary>
+    [Theory]
+    [InlineData("search/issues?q=author:jsdotnet+org:innovadis-dev&per_page=1")]
+    [InlineData("search/issues?q=author:jsdotnet+user:innovadis-dev&per_page=1")]
+    public void A_search_scoped_to_an_owner_takes_the_binding_its_repositories_agree_on(string path)
+    {
+        var settings = Configured(
+            [Account("j-schepers_innobv", token: "ghp_innobv"), Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("spec", "innovadis-dev", "spec-manager", account: "j-schepers_innobv"),
+            Repository("tools", "innovadis-dev", "tools", account: "j-schepers_innobv"),
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        Assert.Equal("ghp_innobv", settings.AccountForPath(path).Token);
+    }
+
+    [Theory]
+    [InlineData("search/issues?q=author:jsdotnet+is:pr+is:merged&per_page=1")]
+    [InlineData("search/issues?per_page=1")]
+    [InlineData("search/issues")]
+    [InlineData("search/issues?q=author:jsdotnet+repo:someone/else&per_page=1")]
+    [InlineData("search/issues?q=author:jsdotnet+repo:malformed&per_page=1")]
+    public void A_search_path_with_no_repository_qualifier_falls_to_the_default(string path)
+    {
+        var settings = Configured(
+            [Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        Assert.True(settings.AccountForPath(path).IsDefault);
+    }
+
     // --- everything else ------------------------------------------------------
 
     /// <summary>Including the pathless probe, which is the shape that used to be
@@ -329,6 +399,48 @@ public sealed class AccountForPathTests
     public void A_cli_backed_account_is_not_a_token_this_machine_holds()
     {
         Assert.False(Configured([Account("JSdotNet")]).HasAnyCredential);
+    }
+
+    // --- regression guard -----------------------------------------------------
+
+    /// <summary>
+    /// Every path shape the clients send, against one fixed configuration, with the
+    /// answer written down. Adding the <c>search/</c> arm meant editing the switch
+    /// that answers all of them, and the failure mode of that edit is not a
+    /// compile error — it is one shape quietly starting to answer differently and
+    /// a call leaving on the wrong identity. The rows below are what that edit had
+    /// to leave alone, and what the next one has to as well.
+    /// </summary>
+    [Theory]
+    [InlineData("repos/innovadis-dev/spec-manager/issues", "ghp_innobv")]
+    [InlineData("repos/JSdotNet/Backlog/pulls?state=closed", "ghp_jsdotnet")]
+    [InlineData("repos/JSdotNet/Backlog/issues/7/timeline", "ghp_jsdotnet")]
+    [InlineData("/repos/JSDOTNET/BACKLOG", "ghp_jsdotnet")]
+    [InlineData("repos/octo/demo/issues", "ghp_demo")]
+    [InlineData("repos/nobody/nothing/issues", null)]
+    [InlineData("orgs/innovadis-dev/copilot/billing/seats", "ghp_innobv")]
+    [InlineData("organizations/innovadis-dev/settings/billing/usage", "ghp_innobv")]
+    [InlineData("orgs/octo/copilot/billing/seats", null)]
+    [InlineData("users/octocat/settings/billing/usage", "ghp_octocat")]
+    [InlineData("users/nobody/settings/billing/usage", null)]
+    [InlineData("user", null)]
+    [InlineData("rate_limit", null)]
+    [InlineData("repos/octo", null)]
+    [InlineData("orgs", null)]
+    public void Every_path_shape_answers_what_it_always_answered(string path, string? token)
+    {
+        var settings = Configured(
+            [
+                Account("j-schepers_innobv", token: "ghp_innobv"),
+                Account("JSdotNet", token: "ghp_jsdotnet"),
+                Account("octocat", token: "ghp_octocat")
+            ],
+            Repository("spec", "innovadis-dev", "spec-manager", account: "j-schepers_innobv"),
+            Repository("tools", "innovadis-dev", "tools", account: "j-schepers_innobv"),
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"),
+            Repository("demo", "octo", "demo", token: "ghp_demo"));
+
+        Assert.Equal(token, settings.AccountForPath(path).Token);
     }
 
     private static GitHubSettings Configured(

@@ -1,6 +1,6 @@
 @*
-    Every repository on one plot, one of them in the brand hue and the rest in a
-    muted grey.
+    Every repository on one plot, one of them in the brand hue and the rest drawn
+    as patterned grey.
 
     This is how a multi-series line chart is done with one saturated hue. The
     ordinary version needs a categorical colour per series and there is one to
@@ -11,10 +11,32 @@
     and a trellis cannot.
 
     Pick one by name and the chart is about that one. Pick none and every line is
-    context, which is a legitimate reading of "how does the estate look" but says
-    nothing about any single repository — the legend is then the only way to tell
-    them apart, and the legend does not name lines, so a caller wanting per-series
-    reading should be showing a MetricTrellis instead.
+    context, which is a legitimate reading of "how does the estate look". That
+    reading used to be one nobody could take: the context lines were a single
+    identical grey, and the legend — which does name every series — carried nothing
+    that pointed at a line. Each context line now wears a stroke pattern, repeated
+    at the same rhythm on its legend swatch, so a legend row identifies a line.
+    That is a second channel, not a second colour: the plot still spends exactly one
+    saturated hue, so the single-hue rule in .design/color-scheme.md#chart-roles is
+    not engaged by any of it.
+
+    There are five patterns and the set repeats past the fifth, the way the band
+    identity hues repeat past the fifth. Five is what stays apart at the width of a
+    legend swatch; a sixth invented rhythm would be a difference no reader could
+    hold. So a sixth series does reuse the first pattern, and past five series the
+    honest answer is still a MetricTrellis — as it is for anyone who needs a figure
+    off a context line somewhere between its endpoints, because a pattern names a
+    line, it does not label one.
+
+    The subject takes no pattern. It is already the one line that is identified, by
+    hue and by weight, and breaking its stroke up as well would blunt the single
+    mark this component exists to make.
+
+    Context is drawn in chart-axis rather than chart-grid. Dashing a line puts less
+    ink on the plot than leaving it solid, and chart-grid sits at 2.16:1 — under the
+    3:1 a non-text mark owes its background. #chart-roles already makes exactly this
+    move for the baseline, "because a baseline carries meaning and a gridline does
+    not"; a line of data carries more.
 
     The legend prints each series' latest figure, and the hidden table carries every
     reading, because a line is not a number and there are too many lines here for
@@ -44,7 +66,7 @@
                    subject has to come after the lines it is meant to sit in front of. *@
                 @foreach (var series in Context)
                 {
-                    <polyline class="@(Part("line"))" points="@Points(series)" vector-effect="non-scaling-stroke" />
+                    <polyline class="@LineClass(series)" points="@Points(series)" vector-effect="non-scaling-stroke" />
                 }
                 @if (Subject is not null)
                 {
@@ -62,7 +84,7 @@
             @foreach (var series in Drawn)
             {
                 <li class="@LegendClass(series)">
-                    <span class="@(Part("swatch"))" aria-hidden="true"></span>
+                    <span class="@SwatchClass(series)" aria-hidden="true"></span>
                     <span class="@(Part("legend-name"))">@series.Name</span>
                     <span class="@(Part("legend-value"))">@Format(series.Latest?.Value ?? 0m)</span>
                 </li>
@@ -107,11 +129,19 @@
     [Parameter]
     public IReadOnlyList<MetricSeries> Series { get; set; } = [];
 
-    /// <summary>Which series is the subject, by name. Null makes every line context —
-    /// see the note at the top of this file about when that is the wrong
-    /// component.</summary>
+    /// <summary>Which series is the subject, by name. Null makes every line context:
+    /// an estate reading rather than a claim about any one repository, and one that
+    /// stays legible because the lines are still told apart by pattern — see the note
+    /// at the top of this file.</summary>
     [Parameter]
     public string? Selected { get; set; }
+
+    /// <summary>Gives each context line a stroke pattern, repeated on that series'
+    /// legend swatch, so a legend row identifies a line rather than merely listing a
+    /// name. Turned off, every context line goes back to one unbroken stroke and the
+    /// legend names the series without pointing at any of them.</summary>
+    [Parameter]
+    public bool DistinguishSeries { get; set; } = true;
 
     [Parameter]
     public string? Label { get; set; }
@@ -191,6 +221,55 @@
             return $"{Text(x)},{Text(y)}";
         }));
     }
+
+    /// <summary>How many stroke patterns exist before the set repeats. Five is what
+    /// stays apart at the width of a legend swatch.</summary>
+    private const int PatternCount = 5;
+
+    /// <summary>Which pattern a series wears, or null for the subject and for a caller
+    /// who turned distinction off. The number is derived from the series' own place
+    /// among the context lines rather than from a loop counter, because the plot walks
+    /// context and then the subject while the legend walks every series in input
+    /// order — two counters would disagree the moment a subject is picked, and a
+    /// swatch would then wear another line's pattern.</summary>
+    private int? Pattern(MetricSeries series)
+    {
+        var subject = Subject;
+
+        if (!DistinguishSeries || ReferenceEquals(series, subject))
+        {
+            return null;
+        }
+
+        var position = 0;
+
+        foreach (var candidate in Drawn)
+        {
+            if (ReferenceEquals(candidate, subject))
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(candidate, series))
+            {
+                return 1 + (position % PatternCount);
+            }
+
+            position++;
+        }
+
+        return null;
+    }
+
+    private string LineClass(MetricSeries series) =>
+        Pattern(series) is { } pattern
+            ? $"{Part("line")} {Part("line")}--pattern-{pattern}"
+            : Part("line");
+
+    private string SwatchClass(MetricSeries series) =>
+        Pattern(series) is { } pattern
+            ? $"{Part("swatch")} {Part("swatch")}--pattern-{pattern}"
+            : Part("swatch");
 
     private string LegendClass(MetricSeries series) =>
         ReferenceEquals(series, Subject)

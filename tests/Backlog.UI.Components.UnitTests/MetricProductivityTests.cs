@@ -711,6 +711,122 @@ public sealed class MetricSpotlightTests
         Assert.Empty(chart.FindAll("svg"));
         Assert.Contains("No repository reported in this window.", chart.Markup, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Every_context_line_carries_a_pattern_so_the_legend_can_name_it()
+    {
+        // The legend never named a line, because every context line looked the same.
+        // A stroke pattern is the name: it costs no colour, so the single-hue rule is
+        // untouched.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, Pack)
+            .Add(s => s.Selected, "subject"));
+
+        var lines = chart.FindAll("polyline");
+
+        // Context first, numbered in context order.
+        Assert.Contains("metric-spotlight__line--pattern-1", lines[0].ClassList);
+        Assert.Contains("metric-spotlight__line--pattern-2", lines[1].ClassList);
+    }
+
+    [Fact]
+    public void The_subject_takes_no_pattern_because_it_is_already_the_one_line_that_is_identified()
+    {
+        // It carries the hue and the weight. Breaking it up as well would weaken the
+        // one line the whole component exists to pick out.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, Pack)
+            .Add(s => s.Selected, "subject"));
+
+        var subject = chart.Find(".metric-spotlight__line--subject");
+
+        Assert.DoesNotContain(subject.ClassList, name => name.Contains("--pattern-", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_legend_swatch_wears_its_own_lines_pattern()
+    {
+        // What ties a row to a line. The legend walks every series in input order and
+        // the plot walks the context series first, so the two loops only agree because
+        // the number comes off the series rather than off a counter.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, Pack)
+            .Add(s => s.Selected, "subject"));
+
+        var items = chart.FindAll(".metric-spotlight__legend-item");
+        var lines = chart.FindAll("polyline");
+
+        // 'other' is the second legend row and the first context line.
+        Assert.Contains("other", items[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains(
+            "metric-spotlight__swatch--pattern-1",
+            items[1].QuerySelector(".metric-spotlight__swatch")!.ClassList);
+        Assert.Contains("metric-spotlight__line--pattern-1", lines[0].ClassList);
+    }
+
+    [Fact]
+    public void Patterns_wrap_after_five_so_a_sixth_series_repeats_the_first()
+    {
+        // Five is what stays apart at a 0.75rem swatch. Past that the set repeats,
+        // exactly as the band identity hues do.
+        using var context = new BunitContext();
+
+        var many = Enumerable.Range(1, 7)
+            .Select(number => new MetricSeries(
+                $"r{number}",
+                [new MetricPoint("w1", number), new MetricPoint("w2", number * 2)]))
+            .ToList();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, many));
+
+        var lines = chart.FindAll("polyline");
+        int[] expected = [1, 2, 3, 4, 5, 1, 2];
+
+        Assert.Equal(7, lines.Count);
+
+        for (var index = 0; index < expected.Length; index++)
+        {
+            Assert.Contains($"metric-spotlight__line--pattern-{expected[index]}", lines[index].ClassList);
+        }
+    }
+
+    [Fact]
+    public void Turning_distinction_off_puts_every_context_line_back_on_one_stroke()
+    {
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, Pack)
+            .Add(s => s.Selected, "subject")
+            .Add(s => s.DistinguishSeries, false));
+
+        Assert.DoesNotContain("--pattern-", chart.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Nothing_selected_still_leaves_every_line_identifiable()
+    {
+        // The estate reading. It used to be the unreadable case - every line the same
+        // grey, and a legend that named none of them.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricSpotlight>(parameters => parameters
+            .Add(s => s.Series, Pack));
+
+        var lines = chart.FindAll("polyline");
+
+        Assert.Empty(chart.FindAll(".metric-spotlight__line--subject"));
+        Assert.Contains("metric-spotlight__line--pattern-1", lines[0].ClassList);
+        Assert.Contains("metric-spotlight__line--pattern-2", lines[1].ClassList);
+        Assert.Contains("metric-spotlight__line--pattern-3", lines[2].ClassList);
+    }
 }
 
 public sealed class MetricSparklineSharedScaleTests
