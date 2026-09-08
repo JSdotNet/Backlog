@@ -1991,6 +1991,20 @@ h1, h2, h3 {
     margin-top: var(--spacing-sm);
 }
 
+/* One day of the working week. The knowledge-folder row's two columns could not
+   carry it: a start and an end are two values, and the third cell would have
+   wrapped under the day name instead of standing beside its own start. The rest
+   of the row - the label column's width, the gaps, the vertical rhythm - is that
+   row's, because these read as the same kind of list and a second set of numbers
+   would only make them drift. */
+.working-day {
+    display: grid;
+    grid-template-columns: minmax(11rem, 0.6fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing-xs) var(--spacing-sm);
+    align-items: center;
+    margin-top: var(--spacing-sm);
+}
+
 .knowledge-folder__toggle code {
     color: var(--color-text-disabled);
 }
@@ -2146,6 +2160,7 @@ h1, h2, h3 {
     .repo-subpages,
     .repo-card__header,
     .knowledge-folder,
+    .working-day,
     .instructions-repository__header,
     .instruction-doc__header {
         display: flex;

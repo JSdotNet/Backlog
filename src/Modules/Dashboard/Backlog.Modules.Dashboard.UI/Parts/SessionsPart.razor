@@ -1,28 +1,90 @@
 @*
     What the assistants have been doing on the machines that have reported: how many
-    sessions touched the window, how long they ran, and when anything last moved.
+    sessions touched the window, how long an agent was actually producing, how much of the
+    time it was waiting on a prompt, and when anything last moved.
     "Reported" rather than "this machine" since session records began replicating —
     the breakdown below lists a row per machine, and it is not this one alone.
 
+    The activity figures are this machine's alone, and that asymmetry is worth knowing
+    before reading them against the count beside them. A session another machine reported
+    arrives as a record rather than as a transcript, and the file its working stretches
+    would have to be parsed out of never left that machine. So it counts as a session and
+    contributes no time — the same footing as a local session that left nothing parsable,
+    and the footnote says how many of both there were.
+
+
     The one part on this surface whose figures come off local disk rather than out of a
     provider's API, which is what makes it the one part the machine filter can drive.
-    The repository filter, on the other hand, deliberately does not reach it: Claude
-    records no repository against a session, so filtering by one would silently drop
-    every Claude session from a part whose whole point is showing both assistants. That
-    is said in the note rather than left for a reader to deduce from figures that refuse
-    to move.
+    The repository filter, on the other hand, deliberately does not reach it: only one of
+    the two assistants records a repository against a session — Copilot does, Claude does
+    not — so filtering by one would silently drop every Claude session from a part whose
+    whole point is showing both. That is said in the note rather than left for a reader to
+    deduce from figures that refuse to move.
 
     Three honesty flags travel with the figures and each has its own sentence. A capped
     read makes every number a floor. A folder that could not be read means half the
-    picture is missing, and which half is named. A session whose start was never
-    recorded is counted as a session and contributes no time, because a zero-length
-    session would be a fact nobody wrote down.
+    picture is missing, and which half is named. A session that left no parsable activity
+    record is counted as a session and contributes no time, because time nobody wrote down
+    is not time this part may invent.
 
     The active time carries a fourth caveat that is not a flag at all, and so is stated
     permanently rather than conditionally: overlapping sessions are summed rather than
     merged, and an hour in which three agents ran reads as three hours. Nothing on this
     surface can tell whether that happened, which is exactly why the sentence cannot wait
-    for it.
+    for it. That sentence is older than the figure it now qualifies, and it survived the
+    change unaltered: it read as a caveat when this tile measured elapsed time, and it
+    reads as the definition now that the tile measures agent-hours.
+
+    The active time is parsed rather than stated. Neither agent writes down when it was
+    working; what they write is a stream of timestamped events, and a stretch of work is
+    the inference that events close together are one stretch. Where the inference stops —
+    five minutes of silence — is a judgement, it is named on screen, and it moves the
+    answer: the same week reads 84 hours at two minutes and 143 at fifteen. The figure
+    this replaced was not a judgement at all. It was the span of a transcript file, ctime
+    to mtime, and over a week in which an agent produced 89 hours of work it read 2,527 —
+    inside a week that is only 168 hours long.
+
+    Waiting is the other half of that stream and is deliberately not its complement. A gap
+    counts as waiting only when a prompt ended it; a gap that ended in anything else was
+    idle or abandoned, and counting that would put a fortnight's silence on somebody's
+    conscience. Only Claude can evidence it at all — Copilot's own user message lands in
+    the same instant as the event before it, so that format has no boundary meaning "the
+    agent stopped and nothing had answered yet". The footnote says whose figure it is
+    rather than presenting a half-measure as a whole one.
+
+    And the prompt that ends a gap is usually not a person. On the machine this was
+    measured on, 1,623 of the 1,728 gap-ending prompts carry promptSource sdk — an
+    orchestrator or a skill sending the next message — against 43 that were typed. This
+    tile was called "waiting on you" for exactly one afternoon, which measured the SDK and
+    named the reader; it is "waiting for a prompt" because that is the thing it can
+    actually see. Where the prompt came from is in the footnote rather than in the name,
+    because the name has to be true of every reading and the proportion is not fixed.
+
+    The grids outline the hours the reader said they work, and that outline is the one
+    thing on this surface driven by a preference rather than by what happened. It moves no
+    duration: an agent-hour at midnight is an agent-hour, and a part that quietly excluded
+    it would be answering a different question from the one its tile is named for. It does
+    move two of the columns beside the grid, and that is the whole reason those columns
+    exist — a reader who has told this app when they work can be told how much of their
+    week did not happen then, which on the profile this was built against is most of it.
+    The two are counted independently and a session that ran across the edge of the day is
+    in both, so they do not add up to the count beside them; the caption says so.
+
+    Two grids, not one, because "how many were working" and "how many were on the go" are
+    different questions with the same axes and the answer to the second is always at least
+    the answer to the first. A session waiting on a prompt is open and is not producing,
+    and the gap between the two grids is the time an agent was the reader's and idle.
+    Neither counts a session that went quiet and never came back: nothing records an end,
+    so a window abandoned on Tuesday would otherwise still be open on Friday, which is the
+    span-shaped overstatement the active time was corrected for.
+
+    The grid is the last seven days and stays that way when the period control moves.
+    Every other figure here answers "over the selected window"; that one answers "this
+    week", because a fortnight of hours folded together stops being a week's shape and the
+    question it exists to answer is what a week looks like. It is also the only thing on
+    this surface drawn on a local clock rather than UTC, and for the same reason: an hour
+    of the day is the question, and UTC would move it. Both refusals are in the grid's own
+    caption, next to the thing that will not move, rather than only in the note.
 
     The chart counts a session into the ISO week it last moved, because that is the
     only instant every session has: the start is optional and no end is recorded at
@@ -52,10 +114,22 @@
                             Value="@MetricFormat.Compact(Value!.Sessions)"
                             Emphasis="true"
                             TestId="dashboard-sessions-count" />
-                <MetricTile Label="Active time"
+                @* "Agent-active" rather than "Active", because the figure under this
+                   label changed by a factor of twenty-eight. A reader holding an old
+                   screenshot beside a new one should conclude the measure changed, which
+                   the name says, rather than that the dashboard broke. *@
+                <MetricTile Label="Agent-active time"
                             Value="@DashboardFormat.Duration(Value!.ActiveTime)"
                             Footnote="@ActiveTimeFootnote"
                             TestId="dashboard-sessions-active" />
+                @* "For a prompt" rather than "on you". Nearly every prompt that ends a
+                   gap here comes from an SDK or a skill rather than from the keyboard —
+                   1,623 of 1,728 on the machine this was measured on — so a tile named
+                   after the person would be measuring one thing and claiming another. *@
+                <MetricTile Label="Waiting for a prompt"
+                            Value="@DashboardFormat.Duration(Value!.Waiting)"
+                            Footnote="@WaitingFootnote"
+                            TestId="dashboard-sessions-waiting" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
                    on screen while the surface sat open. *@
@@ -80,6 +154,37 @@
                             TestId="dashboard-sessions-bars" />
             }
 
+            @* Empty when nothing in the scoped set left a parsable record, and 168 cells
+               otherwise, so the count is the whole question. An empty grid drawn as seven
+               rows of nothing would be a claim that seven days went by with no agent on
+               them, which is a different fact from having nothing to read. *@
+            @if (Value!.ActivityByHour.Count > 0)
+            {
+                <MetricHeatmap Series="@ByHour"
+                               Label="@ByHourLabel"
+                               CellDetail="@CellDetail"
+                               CellMarked="@InsideWorkingHours"
+                               MarkedLabel="working hours"
+                               ShowValues="true"
+                               RowTotals="@DayTotals"
+                               FormatValue="MetricFormat.Compact"
+                               TestId="dashboard-sessions-hours" />
+
+                @* The same seven days and the same outline, counting a different thing:
+                   a session waiting on a prompt is on the go and is not producing, so
+                   this grid reads at or above the one above it everywhere. The pair is
+                   the point — the gap between them is the time an agent was yours and
+                   idle. *@
+                <MetricHeatmap Series="@ByHourOpen"
+                               Label="@ByHourOpenLabel"
+                               CellDetail="@CellDetail"
+                               CellMarked="@InsideWorkingHours"
+                               MarkedLabel="working hours"
+                               ShowValues="true"
+                               FormatValue="MetricFormat.Compact"
+                               TestId="dashboard-sessions-open" />
+            }
+
             @if (Value!.Breakdown.Count > 1)
             {
                 <DataTable TItem="AssistantSessionRow"
@@ -92,6 +197,7 @@
                         <td>@row.Name</td>
                         <td>@MetricFormat.Compact(row.Sessions)</td>
                         <td>@DashboardFormat.Duration(row.ActiveTime)</td>
+                        <td>@DashboardFormat.Duration(row.Waiting)</td>
                         <td>@DashboardFormat.Moment(row.LastActivityAt)</td>
                     </Row>
                 </DataTable>
@@ -105,9 +211,10 @@
 </PartFrame>
 
 @code {
-    /// <summary>Claude records no repository against a session, so narrowing this part
-    /// by one would drop every Claude session rather than filter it. The part refuses
-    /// the dimension and says so on screen.</summary>
+    /// <summary>Only one of the two assistants records a repository against a session —
+    /// Copilot does, Claude does not — so narrowing this part by one would drop every
+    /// Claude session rather than filter it. The part refuses the dimension and says so
+    /// on screen.</summary>
     protected override bool FollowsRepository => false;
 
     /// <summary>The one part on the surface that knows which machine its figures came
@@ -128,8 +235,20 @@
             // the machine breakdown directly under this note has listed several ever
             // since — a note naming one machine above a table naming three is the kind
             // of stale sentence a reader trusts and should not.
+            //
+            // The working-time sentence is the other half of that: replication widened
+            // what can be counted and not what can be parsed, so the two figures beside
+            // each other now cover different sets of machines. Saying which is cheaper
+            // than letting a reader read a count of three machines' sessions against one
+            // machine's hours.
             var basis = $"Read from what Claude and Copilot leave on the machines that have reported, over {Scope.Weeks} weeks. "
-                + "Claude does not record a repository, so the repository filter does not change this part.";
+                + "Only Copilot records a repository against a session, so filtering by one would drop "
+                + "Claude's half of the picture rather than narrow the part; the repository filter is "
+                + "refused here instead. "
+                + "Working time is this machine's alone — a session another machine reported arrives as "
+                + "a record, not as a transcript to read it from. "
+                + "The grid below is the last 7 days on this machine's local clock, whichever period is "
+                + "selected, and every other figure here is UTC.";
 
             if (!IsReady) return basis;
 
@@ -168,11 +287,143 @@
     private const string PerWeekLabel =
         "Sessions per week, counted in the week they last moved — one that ran across two weeks appears once";
 
+    /// <summary>
+    /// The grid as the chart component wants it: one series per day, each carrying all
+    /// twenty-four hours.
+    /// <para>
+    /// Every row carries every hour, including the empty ones. The component matches
+    /// cells by label and drops a series with no points, so a row that omitted its quiet
+    /// hours would render short and read as "not reported" where the honest answer is
+    /// zero — a distinction the component draws deliberately and this part must not blur.
+    /// </para>
+    /// <para>
+    /// Names only, no arithmetic. The bucketing happened where the intervals were, and a
+    /// second pass here would be a second place for the grid and the tile above it to
+    /// disagree.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MetricSeries> ByHour => Series(hour => hour.PeakSessions);
+
+    /// <summary>The same grid counting sessions that were on the go rather than sessions
+    /// that were producing.</summary>
+    private IReadOnlyList<MetricSeries> ByHourOpen => Series(hour => hour.OpenSessions);
+
+    private IReadOnlyList<MetricSeries> Series(Func<ActivityHour, int> of) =>
+        IsReady
+            ? [.. Value!.ActivityByHour
+                .GroupBy(hour => hour.Day)
+                .OrderBy(day => day.Key)
+                .Select(day => new MetricSeries(
+                    DashboardFormat.Day(day.Key),
+                    [.. day.OrderBy(hour => hour.Hour)
+                        .Select(hour => new MetricPoint(DashboardFormat.Hour(hour.Hour), of(hour)))]))]
+            : [];
+
+    /// <summary>
+    /// What the grid is, the two things it refuses, and what the column on the end is
+    /// not, said where the grid is.
+    /// <para>
+    /// The refusals belong in the caption rather than only in the note, because the note
+    /// sits at the top of the part and the thing that will not move is down here. A reader
+    /// who changes the period and watches every figure move except this one should have
+    /// been told by the caption on the one that stayed still.
+    /// </para>
+    /// <para>
+    /// The Sessions clause is there because a column of numbers at the end of a row of
+    /// numbers reads as that row's total, and this one is not: a session that ran from
+    /// nine to five is the peak in eight cells and one session in the column. Saying what
+    /// it counts is cheaper than letting a reader add a row up and find it does not agree.
+    /// </para>
+    /// <para>
+    /// The outlined-hours clause says two things a reader would otherwise have to work out
+    /// from the picture: that the outline is their own setting rather than something the
+    /// data knows, and that an hour only partly inside the day is outlined whole. A
+    /// working day ending at half five leaves the five o'clock hour half worked, and there
+    /// is no half-outlined cell to draw that with.
+    /// </para>
+    /// </summary>
+    private const string ByHourLabel =
+        "Peak agents running at once, by hour of your local clock — the last 7 days, "
+        + "whichever period is selected above. Outlined cells are your working hours from "
+        + "Settings, marked wherever the hour overlaps them. The columns count the "
+        + "distinct sessions that ran each day, so they are not the row added up — and a "
+        + "session that ran across the edge of your day is counted in hours and outside "
+        + "them both, so those two do not add up to the first either.";
+
+    /// <summary>
+    /// What the second grid counts, and why it is never lower than the first.
+    /// <para>
+    /// The pair is the point, so the caption has to name the difference rather than leave
+    /// two nearly identical grids for a reader to diff by eye. What it does not include is
+    /// the third state — a session that went quiet and never came back — because nothing
+    /// records an end, and counting to the last thing that happened would hold an
+    /// abandoned window open for days.
+    /// </para>
+    /// </summary>
+    private const string ByHourOpenLabel =
+        "Sessions on the go at once — producing, or stopped with nothing having prompted "
+        + "them yet. Never lower than the grid above, and the gap between the two is the "
+        + "time an agent was open and idle. A session that went quiet and never resumed is "
+        + "not counted, because nothing records when a session ended.";
+
+    /// <summary>
+    /// What a cell says beyond its shade. The shade is one of four steps and answers "how
+    /// many at once"; these are the two durations that step cannot carry, and they reach a
+    /// screen reader as well as a pointer.
+    /// </summary>
+    private Func<string, string, string?> CellDetail => (day, hour) =>
+        Cell(day, hour) is { } cell
+            ? $"{DashboardFormat.Duration(cell.Active)} agent-active, "
+                + $"{DashboardFormat.Duration(cell.Waiting)} waiting"
+            : null;
+
+    /// <summary>
+    /// Whether a cell falls inside the reader's own working hours, for the outline both
+    /// grids draw round it.
+    /// <para>
+    /// Read off the cell rather than worked out here. It began as a purely presentational
+    /// question and stopped being one the moment the day counts were split on the same
+    /// answer: two places deciding what "in hours" means is two places for the outline and
+    /// the count beside it to disagree. The insight decides once and both read it.
+    /// </para>
+    /// </summary>
+    private Func<string, string, bool> InsideWorkingHours => (day, hour) =>
+        Cell(day, hour)?.InWorkingHours ?? false;
+
+    /// <summary>
+    /// How many sessions ran that day, for the column after the grid.
+    /// <para>
+    /// A different measure from the cells it sits beside, which is why the column is
+    /// headed rather than left to be inferred: a cell says how many ran at once and this
+    /// says how many ran at all. They are not each other's totals in either direction —
+    /// adding the row would count a session once per hour it spanned, and the day's peak
+    /// would miss every session that ran while nothing else did.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MetricTotal> DayTotals =>
+    [
+        new("Sessions", day => Day(day) is { } found ? MetricFormat.Compact(found.Sessions) : null),
+        new("In hours", day => Day(day) is { } found ? MetricFormat.Compact(found.SessionsInWorkingHours) : null),
+        new("Outside", day => Day(day) is { } found ? MetricFormat.Compact(found.SessionsOutsideWorkingHours) : null)
+    ];
+
+    private ActivityDay? Day(string day) =>
+        IsReady
+            ? Value!.ActivityByDay.FirstOrDefault(entry => DashboardFormat.Day(entry.Day) == day)
+            : null;
+
+    private ActivityHour? Cell(string day, string hour) =>
+        IsReady
+            ? Value!.ActivityByHour.FirstOrDefault(
+                cell => DashboardFormat.Day(cell.Day) == day && DashboardFormat.Hour(cell.Hour) == hour)
+            : null;
+
     private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
     [
         new("Machine"),
         new("Sessions"),
-        new("Active time"),
+        new("Agent-active"),
+        new("Waiting"),
         new("Last activity")
     ];
 
@@ -180,7 +431,8 @@
     [
         new("Assistant"),
         new("Sessions"),
-        new("Active time"),
+        new("Agent-active"),
+        new("Waiting"),
         new("Last activity")
     ];
 
@@ -191,42 +443,99 @@
     private string BreakdownLabel => Scope.IsAllMachines ? "Sessions by machine" : "Sessions by assistant";
 
     /// <summary>
-    /// What the active time is not. Two sentences, and only the first of them is always
-    /// there.
+    /// What the agent-active time is not. Four sentences, and only the last of them is
+    /// conditional.
     /// <para>
-    /// The overlap sentence is permanent because the figure is permanently capable of
-    /// exceeding the window it sits under: sessions are summed rather than merged — two
-    /// agents running at once is two sessions' worth of work — so an hour of wall clock
-    /// can read as three. A reader who takes that for elapsed time has been misled by a
-    /// number nobody qualified, and the qualification cannot be conditional because the
-    /// condition is invisible from here: this part never learns whether any two of its
-    /// sessions overlapped.
+    /// The first says what it measures, because the name no longer gives it away on its
+    /// own and the figure it replaced measured something twenty-eight times larger.
+    /// "Active" used to mean a transcript file's whole span — every overnight gap, every
+    /// abandoned window — and 2,527 hours inside a 168-hour week is what that reads as.
+    /// This one counts only the stretches an agent was producing.
     /// </para>
     /// <para>
-    /// The second is conditional for the opposite reason. "Excludes 0 sessions" on every
+    /// The second names the threshold, and names it from the source rather than from a
+    /// constant here. It is a judgement the answer moves under: two, five and fifteen
+    /// minutes give 84, 99 and 143 hours over the same week. A figure that swings by
+    /// seventy percent on a number nobody can see is a figure nobody can argue with, and
+    /// this surface would rather be argued with.
+    /// </para>
+    /// <para>
+    /// The third is the overlap sentence, carried over from when this tile measured
+    /// something else and deliberately not reworded. It was a caveat then and it is the
+    /// definition now — agent-hours is what summing concurrent sessions produces — but it
+    /// stays permanent for the reason it always was: this part never learns whether any
+    /// two of its sessions overlapped, so the qualification cannot wait for a condition it
+    /// cannot see.
+    /// </para>
+    /// <para>
+    /// The fourth is conditional for the opposite reason. "Excludes 0 sessions" on every
     /// complete reading would train the reader to stop reading footnotes, and then the
-    /// first sentence would go unread too.
+    /// first three would go unread too.
     /// </para>
     /// </summary>
     private string ActiveTimeFootnote =>
-        Concurrency + (Unstarted is { } unstarted ? $" {unstarted}" : string.Empty);
+        string.Join(' ', new[] { Producing, Threshold, Concurrency, Unrecorded }.Where(sentence => sentence is not null));
+
+    private const string Producing =
+        "Time an agent was producing, not time a session was open.";
+
+    /// <summary>The source's own number, not a second copy of it. A threshold spelled out
+    /// here would be free to disagree with the one the runs were actually folded at.</summary>
+    private string Threshold =>
+        $"A gap of more than {DashboardFormat.Duration(Value!.IdleAfter)} ends a run rather than counting.";
 
     private const string Concurrency =
         "Concurrent sessions are counted separately, so this can exceed elapsed time.";
 
-    private string? Unstarted => IsReady && Value!.WithoutStart > 0
-        ? $"Excludes {Value!.WithoutStart} {(Value!.WithoutStart == 1 ? "session" : "sessions")} "
-            + "whose start was not recorded."
+    private string? Unrecorded => IsReady && Value!.WithoutActivity > 0
+        ? $"Excludes {Value!.WithoutActivity} {(Value!.WithoutActivity == 1 ? "session" : "sessions")} "
+            + "that left no activity record."
         : null;
+
+    /// <summary>
+    /// What the waiting time is, whose prompt ended it, and what it does not exclude.
+    /// Every sentence is permanent rather than conditional, because every condition is
+    /// true on every machine and invisible from here.
+    /// <para>
+    /// The second sentence is the one this tile was renamed over. A gap ends in a
+    /// <em>prompt</em>, and a prompt is overwhelmingly not a person: 1,623 of the 1,728
+    /// that end a gap on this machine carry <c>promptSource: sdk</c> — an orchestrator or
+    /// a skill sending the next message — against 43 somebody typed. The tile said
+    /// "waiting on you" first, which measured one thing and named another, and that is
+    /// the failure this whole part is built to avoid. Naming the mechanism instead costs
+    /// nothing and claims nothing untrue.
+    /// </para>
+    /// <para>
+    /// Claude marks a prompt in its transcript, so a gap one ended is a gap the agent
+    /// spent stopped. Copilot's own user message lands in the same instant as the event
+    /// before it, so there is nothing in that format that means "the agent stopped and
+    /// nothing had answered yet". Reporting Claude's figure under both names would be the
+    /// same failure as a capped read presented as a total.
+    /// </para>
+    /// <para>
+    /// The last sentence is the price of leaving a wait uncapped. A gap counts however
+    /// long it ran, so a session picked up on Monday puts the whole weekend here. Capping
+    /// it would need a second arguable constant to explain; saying what it includes costs
+    /// a sentence.
+    /// </para>
+    /// </summary>
+    private const string WaitingFootnote =
+        "Time a run had ended and nothing had prompted the agent yet. "
+        + "Most prompts here come from an SDK or a skill rather than from the keyboard, "
+        + "so this is rarely time it spent waiting on you. "
+        + "Copilot records no prompt boundary, so this is Claude's alone. "
+        + "A gap counts in full however long it ran, so a session picked up after a weekend "
+        + "puts the whole weekend here. "
+        + "Concurrent sessions are counted separately, as above.";
 
     protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetSessionsAsync(Scope, cancellationToken);
 
     /// <summary>
-    /// Empty when nothing touched the window. Not "when the active time is zero": a
-    /// window full of sessions none of which recorded a start is a real answer about
-    /// how much has been going on, and hiding it behind an empty state would throw the
-    /// count away along with the caveat.
+    /// Empty when nothing touched the window. Not "when the agent-active time is zero": a
+    /// window full of sessions none of which left a parsable activity record is a real
+    /// answer about how much has been going on, and hiding it behind an empty state would
+    /// throw the count away along with the caveat that explains the zero.
     /// </summary>
     protected override bool IsEmpty(AssistantSessionsInsight value) => value.Sessions == 0;
 

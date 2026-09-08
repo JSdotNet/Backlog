@@ -1,6 +1,4 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.GitHub;
 
@@ -254,7 +252,7 @@ public sealed class KnowledgeSnapshotCache(
     }
 
     private string RepositoryRoot(GitHubRepositoryRef repository) =>
-        Path.Combine(_cacheRoot(), Safe($"{repository.Owner}-{repository.Name}"));
+        Path.Combine(_cacheRoot(), CachePaths.Safe($"{repository.Owner}-{repository.Name}"));
 
     private string StatePath(GitHubRepositoryRef repository, string? branch) =>
         Path.Combine(RepositoryRoot(repository), BranchKey(branch), "snapshot.json");
@@ -283,41 +281,10 @@ public sealed class KnowledgeSnapshotCache(
     }
 
     private static string BranchKey(string? branch) =>
-        string.IsNullOrWhiteSpace(branch) ? DefaultBranchKey : Safe(branch.Trim());
+        string.IsNullOrWhiteSpace(branch) ? DefaultBranchKey : CachePaths.Safe(branch.Trim());
 
     private static string BranchLabel(string? branch) =>
         string.IsNullOrWhiteSpace(branch) ? "its default branch" : branch.Trim();
-
-    /// <summary>
-    /// One path segment standing for a name that may contain anything.
-    /// <para>
-    /// Branch names carry slashes and colons routinely — <c>release/1.2</c>,
-    /// <c>fix/#41</c> — so the readable part is folded to characters every file
-    /// system accepts and a short digest of the original is appended. The digest
-    /// is what keeps <c>fix/a</c> and <c>fix-a</c> in different folders; the
-    /// readable part is what makes the cache folder something a person can look
-    /// at and understand.
-    /// </para>
-    /// </summary>
-    private static string Safe(string name)
-    {
-        var readable = new StringBuilder(name.Length);
-
-        foreach (var character in name)
-        {
-            readable.Append(char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_' ? character : '-');
-        }
-
-        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..8].ToLowerInvariant();
-
-        // Trimmed because a very long branch name plus a repository name plus the
-        // configured cache root can otherwise pass the path limit on Windows
-        // before a single repository file is written under it.
-        var trimmed = readable.ToString().Trim('-');
-        if (trimmed.Length > 40) trimmed = trimmed[..40];
-
-        return trimmed.Length == 0 ? digest : $"{trimmed}-{digest}";
-    }
 
     private static void DeleteDirectory(string path)
     {

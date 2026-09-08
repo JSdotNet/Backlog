@@ -31,7 +31,28 @@ public sealed record AssistantSession(
     string MachineName,
     string Assistant,
     DateTimeOffset? StartedAt,
-    DateTimeOffset LastActivityAt);
+    DateTimeOffset LastActivityAt)
+{
+    /// <summary>
+    /// The session's own identifier, as the assistant that wrote it calls it, so that a
+    /// session row and an activity record are the same session by identity.
+    /// <para>
+    /// Beside the primary constructor rather than in it, the escape
+    /// <c>AssistantSessionsInsight.SessionsPerWeek</c> already documents: fixtures and
+    /// adapters construct this record positionally, and a sixth parameter would break
+    /// every one of them to add something most of them have no opinion about.
+    /// </para>
+    /// <para>
+    /// Carried for exactly one figure and unavoidable for it. The count of sessions
+    /// that left no activity record at all is the difference between two lists, and a
+    /// difference needs a key — without this there is no join and the figure cannot be
+    /// computed rather than merely being harder to compute. Empty where a source has
+    /// nothing to offer, which reads as "no activity record" and is the honest answer
+    /// for a session nothing can be matched to.
+    /// </para>
+    /// </summary>
+    public string Id { get; init; } = string.Empty;
+}
 
 /// <summary>
 /// Everything one read of the assistant sessions produced, including what it could not

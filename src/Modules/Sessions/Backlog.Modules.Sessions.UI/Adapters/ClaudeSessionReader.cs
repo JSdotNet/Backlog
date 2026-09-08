@@ -151,23 +151,22 @@ internal sealed class ClaudeSessionReader
     /// two refreshes of an unchanged profile.
     /// </para>
     /// </summary>
-    private Dictionary<string, FileInfo> Transcripts()
-    {
-        var folder = new DirectoryInfo(Path.Combine(_home, "projects"));
-
-        if (!folder.Exists) return new Dictionary<string, FileInfo>(StringComparer.OrdinalIgnoreCase);
-
-        return folder
-            .EnumerateFiles("*.jsonl", SearchOption.AllDirectories)
-            .GroupBy(file => Path.GetFileNameWithoutExtension(file.Name), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                duplicates => duplicates.Key,
-                duplicates => duplicates
-                    .OrderByDescending(file => file.LastWriteTimeUtc)
-                    .ThenBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
-                    .First(),
-                StringComparer.OrdinalIgnoreCase);
-    }
+    /// <summary>
+    /// Keyed by session id, because this reader needs to look a session's transcript up
+    /// by the id its live file states rather than walk for it.
+    /// <para>
+    /// The dedupe rule itself is <see cref="ClaudeTranscripts"/>' rather than this
+    /// method's. The activity reader needs the identical rule — which file speaks for a
+    /// session that was filed under two project folders — and one copy of a rule found
+    /// on a real profile is the whole reason it was extracted. All this adds is the
+    /// shape: an id-keyed lookup instead of a list.
+    /// </para>
+    /// </summary>
+    private Dictionary<string, FileInfo> Transcripts() =>
+        ClaudeTranscripts.Newest(_home).ToDictionary(
+            transcript => transcript.SessionId,
+            transcript => transcript.File,
+            StringComparer.OrdinalIgnoreCase);
 
     private async Task<IReadOnlyList<AgentSession>> ReadLiveAsync(
         DateTimeOffset now,

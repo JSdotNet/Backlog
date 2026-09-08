@@ -747,6 +747,8 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<IAppFeatureSettings>(features);
         testContext.Services.AddSingleton<ITasksRefreshSettings>(
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        testContext.Services.AddSingleton<IWorkingHoursSettings>(
+            new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         testContext.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         testContext.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         testContext.Services.AddSingleton(github);

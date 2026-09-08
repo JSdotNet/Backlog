@@ -104,6 +104,8 @@ public sealed class SettingsRefreshFromDiskTests
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<ITasksRefreshSettings>(refresh);
+        context.Services.AddSingleton<IWorkingHoursSettings>(
+            new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));

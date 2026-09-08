@@ -126,3 +126,18 @@ public sealed record MetricScoreComponent(string Label, decimal Value, decimal M
 /// <summary>A named region of the score scale — "Strong" from 75 up. Bands are
 /// what turn a bare 68 into something a reader can act on.</summary>
 public sealed record MetricBand(string Name, decimal Floor);
+
+/// <summary>
+/// One column of per-row figures, drawn after a grid's cells.
+/// </summary>
+/// <param name="Heading">What the column is. Required: an unheaded column of figures is
+/// one a reader has to guess the meaning of.</param>
+/// <param name="Of">The figure for a row, by that row's name — the same key the grid
+/// already matches its cells on. Null leaves the cell blank.</param>
+/// <remarks>
+/// The figure is always the caller's arithmetic. A grid cannot know whether its rows are
+/// summable — peaks are not, durations are, counts of distinct things are neither — so a
+/// total worked out here would be right for one caller and quietly wrong for the next.
+/// What the grid owns is the column: its heading, a cell per row, and the alignment.
+/// </remarks>
+public sealed record MetricTotal(string Heading, Func<string, string?> Of);

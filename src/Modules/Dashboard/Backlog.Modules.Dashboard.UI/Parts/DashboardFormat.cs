@@ -31,6 +31,14 @@ public static class DashboardFormat
     {
         if (span is not { } value) return "—";
 
+        // Zero is a reading, and it is the one reading the round-up below must not
+        // reach. That rule is about a session that ran — something happened, and a
+        // figure of "0m" would deny it — but an hour of a grid nobody worked and a
+        // waiting column for an assistant that cannot record one are both genuinely
+        // nothing, and rounding those up to a minute would invent the only activity
+        // they have. An em dash is still reserved for having no figure at all.
+        if (value == TimeSpan.Zero) return "0m";
+
         return value.TotalHours switch
         {
             // Anything at all rounds up to a minute rather than down to nothing: a
@@ -84,4 +92,48 @@ public static class DashboardFormat
     /// </summary>
     public static string Whole(decimal value) =>
         Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A row heading for the activity grid: the weekday and the day of the month, as
+    /// <c>Wed 02</c>.
+    /// <para>
+    /// Both halves, because neither alone is enough here. The weekday is what the
+    /// question is about — "when do I get agents running" is answered in Tuesdays, not in
+    /// dates — while the date is what stops seven rows of a fortnight-old screenshot
+    /// reading as this week. The grid is only ever seven rows, so a month never repeats
+    /// inside it and naming one would be noise.
+    /// </para>
+    /// <para>
+    /// Invariant, for the reason <see cref="Moment"/> and <see cref="Duration"/> are: a
+    /// heading that moved with the machine's language would make a screenshot
+    /// untranslatable back to the data behind it, and every assertion that spells a day
+    /// out would fail on one machine and nowhere else.
+    /// </para>
+    /// </summary>
+    public static string Day(DateOnly day) => day.ToString("ddd dd", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A column heading for the activity grid: the hour, zero-padded, as <c>07</c>.
+    /// <para>
+    /// Padded because the grid matches its cells on this string, so <c>7</c> and
+    /// <c>07</c> would be two different columns; and because twenty-four headings of even
+    /// width are what let the columns stay narrow enough to fit.
+    /// </para>
+    /// </summary>
+    public static string Hour(int hour) => hour.ToString("00", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The hour a column heading names, or null when the string is not one this class
+    /// wrote.
+    /// <para>
+    /// The counterpart to <see cref="Hour"/> and deliberately beside it. A grid that
+    /// matches its cells on a label has to read that label back to say anything about the
+    /// hour behind it, and a second place that knew the format would be a second place to
+    /// change when the format does.
+    /// </para>
+    /// </summary>
+    public static int? HourOf(string? label) =>
+        int.TryParse(label, NumberStyles.None, CultureInfo.InvariantCulture, out var hour) && hour is >= 0 and <= 23
+            ? hour
+            : null;
 }

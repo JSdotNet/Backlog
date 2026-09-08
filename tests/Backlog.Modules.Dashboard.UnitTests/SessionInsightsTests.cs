@@ -2,17 +2,29 @@ using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.Services;
+using Backlog.SharedKernel;
 
 namespace Backlog.Modules.Dashboard.UnitTests;
 
 /// <summary>
-/// The sessions part: one local read, scoped by window and by machine in this module
-/// rather than by the source.
+/// The sessions part: two local reads, scoped by window and by machine in this module
+/// rather than by the sources.
 /// <para>
 /// The arithmetic is what these facts are about. Every figure here understates rather
-/// than invents — a session that ran past the edge of the window is clipped to it, a
-/// session whose start was never recorded contributes no duration at all, and both of
-/// those are said out loud rather than smoothed over.
+/// than invents — a stretch of agent activity that ran past the edge of the window is
+/// clipped to it, a session the activity source could not describe contributes no
+/// duration at all, and both of those are said out loud rather than smoothed over.
+/// </para>
+/// <para>
+/// Time on this part is <em>parsed activity</em> and never a session's span. The four
+/// facts that used to assert the span arithmetic are gone rather than adapted, because
+/// the arithmetic they described no longer exists; their intent lives on in the
+/// clipping and overlap facts below, phrased in runs.
+/// </para>
+/// <para>
+/// One figure here does not follow the period control, and it is asserted on its own:
+/// the grid is the last seven dated days whichever window the reader picked. See
+/// <see cref="Changing_the_period_moves_the_tiles_and_leaves_the_grid_alone"/>.
 /// </para>
 /// </summary>
 public class SessionInsightsTests
@@ -69,17 +81,147 @@ public class SessionInsightsTests
     [Fact]
     public async Task A_session_inside_the_window_is_counted_and_its_time_summed()
     {
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1)))
-        });
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1)))));
 
         var value = await ValueOf(insights, DashboardScope.Default);
 
         Assert.Equal(1, value.Sessions);
         Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
         Assert.Equal(Now.AddHours(-1), value.LastActivityAt);
-        Assert.Equal(0, value.WithoutStart);
+        Assert.Equal(0, value.WithoutActivity);
+    }
+
+    /// <summary>
+    /// The correction this part was rebuilt for. A session left open for eight hours in
+    /// which an agent worked for twenty minutes is twenty minutes of agent-active time,
+    /// and the figure this replaced would have read seven hours — which is how a week of
+    /// transcripts came to report many times the hours there are in a week.
+    /// </summary>
+    [Fact]
+    public async Task Active_time_is_the_activity_the_source_reported_rather_than_the_session_spans()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-8), Now.AddHours(-1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-3).AddMinutes(20)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromMinutes(20), value.ActiveTime);
+        Assert.NotEqual(TimeSpan.FromHours(7), value.ActiveTime);
+    }
+
+    /// <summary>
+    /// A run that began before the window contributes only the part inside it, or two
+    /// readings of the same quarter would disagree depending on what came before.
+    /// </summary>
+    [Fact]
+    public async Task A_run_that_began_before_the_window_is_clipped_to_it()
+    {
+        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
+        var (from, _) = scope.Window(Now);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", from.AddHours(-5), from.AddHours(3), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (from.AddHours(-5), from.AddHours(3)))));
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(1, value.Sessions);
+        Assert.Equal(TimeSpan.FromHours(3), value.ActiveTime);
+    }
+
+    /// <summary>
+    /// And the far edge, the same way: a run still going when the window closed adds the
+    /// part the reader asked to see and nothing beyond it.
+    /// </summary>
+    [Fact]
+    public async Task A_run_that_ran_past_the_end_of_the_window_is_clipped_to_it()
+    {
+        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
+        var (_, to) = scope.Window(Now);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", to.AddHours(-2), to.AddHours(-1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (to.AddHours(-2), to.AddHours(3)))));
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
+    }
+
+    /// <summary>
+    /// The arithmetic the tile's permanent footnote is about. Two agents producing
+    /// through the same hour is two hours of agent work, not one hour of wall clock —
+    /// the figure is deliberately capable of exceeding the window it sits under, which
+    /// is why the screen says so rather than leaving the reader to find out.
+    /// </summary>
+    [Fact]
+    public async Task Runs_that_overlap_are_summed_rather_than_merged()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-2), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-2))),
+                Ran("two", Tower, "Copilot", (Now.AddHours(-3), Now.AddHours(-2)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
+
+        // And the grid says the same thing about the same hour, because it is the same
+        // sweep: two at once, and two agent-hours.
+        var cell = Assert.Single(value.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+        Assert.Equal(2, cell.PeakSessions);
+        Assert.Equal(TimeSpan.FromHours(2), cell.Active);
+    }
+
+    /// <summary>
+    /// A session the activity source could not describe is real and is counted; what it
+    /// cannot do is contribute a duration. Reporting it as zero-length activity would be
+    /// inventing a fact, and leaving it out entirely would understate how many sessions
+    /// there were — so it counts, adds nothing, and is named.
+    /// <para>
+    /// It covers more than a missing transcript. A session whose stretches all fell
+    /// outside the horizon leaves no entry either, and it belongs in the same count for
+    /// the same reason: the tile has nothing from it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_session_that_left_no_activity_counts_but_adds_no_time()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"),
+                    Session(Tower, "Copilot", Now.AddHours(-2), Now.AddHours(-2), "two"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.Sessions);
+        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
+        Assert.Equal(1, value.WithoutActivity);
     }
 
     /// <summary>
@@ -101,65 +243,52 @@ public class SessionInsightsTests
         Assert.Null(value.LastActivityAt);
     }
 
-    /// <summary>
-    /// A session that began before the window and ran into it counts, but only for the
-    /// part of it that is inside: a quarter's figure that included time from the
-    /// quarter before would make two readings of the same window disagree.
-    /// </summary>
-    [Fact]
-    public async Task A_session_that_began_before_the_window_is_clipped_to_it()
-    {
-        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
-        var (from, _) = scope.Window(Now);
-
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(Session(Tower, "Claude", from.AddHours(-5), from.AddHours(3)))
-        });
-
-        var value = await ValueOf(insights, scope);
-
-        Assert.Equal(1, value.Sessions);
-        Assert.Equal(TimeSpan.FromHours(3), value.ActiveTime);
-    }
-
-    /// <summary>
-    /// A session with no recorded start is real and is counted; what it cannot do is
-    /// contribute a duration. Reporting it as a zero-length session would be inventing
-    /// a fact, and leaving it out entirely would understate how many there were — so it
-    /// counts, adds nothing, and is named.
-    /// </summary>
-    [Fact]
-    public async Task A_session_whose_start_was_never_recorded_counts_but_adds_no_time()
-    {
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(
-                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1)),
-                Session(Tower, "Copilot", startedAt: null, Now.AddHours(-2)))
-        });
-
-        var value = await ValueOf(insights, DashboardScope.Default);
-
-        Assert.Equal(2, value.Sessions);
-        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
-        Assert.Equal(1, value.WithoutStart);
-    }
-
     [Fact]
     public async Task Focusing_a_machine_narrows_the_figures_to_that_machine()
     {
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(
-                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1)),
-                Session(Laptop, "Copilot", Now.AddHours(-9), Now.AddHours(-8)))
-        });
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"),
+                    Session(Laptop, "Copilot", Now.AddHours(-9), Now.AddHours(-8), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1))),
+                Ran("two", Laptop, "Copilot", (Now.AddHours(-9), Now.AddHours(-8)))));
 
         var value = await ValueOf(insights, DashboardScope.Default with { MachineId = Laptop });
 
         Assert.Equal(1, value.Sessions);
         Assert.Equal(TimeSpan.FromHours(1), value.ActiveTime);
+    }
+
+    /// <summary>
+    /// The grid follows the machine filter as the tiles do. It refuses the period
+    /// control and nothing else — a grid that quietly ignored the machine filter as well
+    /// would be drawing another machine's hours under this one's heading.
+    /// </summary>
+    [Fact]
+    public async Task Focusing_a_machine_narrows_the_grid_as_well_as_the_tiles()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Laptop, "Copilot", Now.AddHours(-9), Now.AddHours(-8), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-2))),
+                Ran("two", Laptop, "Copilot", (Now.AddHours(-9), Now.AddHours(-8)))));
+
+        var everywhere = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, DashboardScope.Default with { MachineId = Laptop });
+
+        Assert.Equal(2, everywhere.ActivityByHour.Count(hour => hour.Active > TimeSpan.Zero));
+
+        var cell = Assert.Single(focused.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+        Assert.Equal(Now.AddHours(-9).Hour, cell.Hour);
     }
 
     /// <summary>
@@ -249,27 +378,6 @@ public class SessionInsightsTests
     }
 
     /// <summary>
-    /// The arithmetic the tile's permanent footnote is about. Two agents running through
-    /// the same hour is two hours of work with the assistants, not one hour of wall
-    /// clock — the figure is deliberately capable of exceeding the window it sits under,
-    /// which is why the screen says so rather than leaving the reader to find out.
-    /// </summary>
-    [Fact]
-    public async Task Sessions_that_overlap_are_summed_rather_than_merged()
-    {
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(
-                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2)),
-                Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-2)))
-        });
-
-        var value = await ValueOf(insights, DashboardScope.Default);
-
-        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
-    }
-
-    /// <summary>
     /// The window is half-open, and both edges are asserted rather than assumed. A
     /// session whose last activity landed exactly as the window opened is in it; one that
     /// began exactly as it closed is not.
@@ -280,17 +388,20 @@ public class SessionInsightsTests
         var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
         var (from, _) = scope.Window(Now);
 
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(Session(Tower, "Claude", from.AddHours(-1), from))
-        });
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", from.AddHours(-1), from, "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (from.AddHours(-1), from))));
 
         var value = await ValueOf(insights, scope);
 
         Assert.Equal(1, value.Sessions);
 
         // In the window and contributing nothing to it: every minute it ran was before
-        // the window opened.
+        // the window opened, so the run is clipped away entirely rather than the source
+        // having had nothing to say about it.
         Assert.Equal(TimeSpan.Zero, value.ActiveTime);
     }
 
@@ -308,28 +419,6 @@ public class SessionInsightsTests
         var value = await ValueOf(insights, scope);
 
         Assert.Equal(0, value.Sessions);
-    }
-
-    /// <summary>
-    /// Activity after the window closed is clipped to the close, the same way activity
-    /// before it opened is clipped to the open. Otherwise a session still running would
-    /// keep adding time the reader did not ask to see.
-    /// </summary>
-    [Fact]
-    public async Task Activity_past_the_end_of_the_window_is_clipped_to_it()
-    {
-        var scope = new DashboardScope(Period: DashboardPeriod.FourWeeks);
-        var (_, to) = scope.Window(Now);
-
-        var insights = Insights(new StubAssistantSessionSource
-        {
-            Report = Report(Session(Tower, "Claude", to.AddHours(-2), to.AddHours(3)))
-        });
-
-        var value = await ValueOf(insights, scope);
-
-        Assert.Equal(1, value.Sessions);
-        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
     }
 
     /// <summary>
@@ -545,6 +634,503 @@ public class SessionInsightsTests
         Assert.Equal(0, source.Calls);
     }
 
+
+    /// <summary>
+    /// The tile and the grid come off one sweep, so with the activity inside the seven
+    /// days the grid covers, the cells add up to the number above them exactly. Two
+    /// passes over the same intervals would be two definitions of "at once", and this is
+    /// what would go red the day somebody wrote the second one.
+    /// </summary>
+    [Fact]
+    public async Task The_grid_totals_to_the_active_time_tile()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddDays(-2), Now.AddHours(-1), "one"))
+            },
+            Activity(Ran(
+                "one",
+                Tower,
+                "Claude",
+                (Now.AddDays(-2), Now.AddDays(-2).AddMinutes(90)),
+                (Now.AddHours(-3), Now.AddHours(-1)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(
+            value.ActiveTime,
+            value.ActivityByHour.Aggregate(TimeSpan.Zero, (running, hour) => running + hour.Active));
+
+        // Not two zeros agreeing with each other.
+        Assert.Equal(TimeSpan.FromMinutes(210), value.ActiveTime);
+    }
+
+    /// <summary>
+    /// The day column counts sessions, and a session is counted once however many hours
+    /// it spanned. This is the arithmetic the column exists to avoid: adding the row's
+    /// peaks would report one long session once per hour it was running in.
+    /// </summary>
+    [Fact]
+    public async Task A_day_counts_each_session_once_however_long_it_ran()
+    {
+        var ran = (Now.AddHours(-6), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-1), "one"),
+                    Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-1), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", ran),
+                Ran("two", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var today = value.ActivityByDay.Single(day => day.Day == DateOnly.FromDateTime(Now.UtcDateTime));
+
+        Assert.Equal(2, today.Sessions);
+
+        // And the row it sits beside spans five hours, so a column that had summed the
+        // peaks would read ten rather than two.
+        Assert.True(value.ActivityByHour.Count(hour => hour.Day == today.Day && hour.PeakSessions > 0) >= 5);
+    }
+
+    /// <summary>
+    /// A session that ran past midnight belongs to both days. Neither day is wrong and
+    /// neither is the whole of it, which is why this is a count per day rather than a
+    /// total anybody could add up across the grid.
+    /// </summary>
+    [Fact]
+    public async Task A_session_that_ran_past_midnight_is_one_session_on_each_day()
+    {
+        var midnight = new DateTimeOffset(Now.UtcDateTime.Date, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", midnight.AddHours(-1), midnight.AddHours(1), "owl"))
+            },
+            Activity(Ran("owl", Tower, "Claude", (midnight.AddHours(-1), midnight.AddHours(1)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var yesterday = DateOnly.FromDateTime(midnight.UtcDateTime.AddDays(-1));
+        var today = DateOnly.FromDateTime(midnight.UtcDateTime);
+
+        Assert.Equal(1, value.ActivityByDay.Single(day => day.Day == yesterday).Sessions);
+        Assert.Equal(1, value.ActivityByDay.Single(day => day.Day == today).Sessions);
+    }
+
+    /// <summary>A day nobody ran on is a zero in the column, not a gap — the same rule the
+    /// cells beside it are drawn under.</summary>
+    [Fact]
+    public async Task A_day_nobody_ran_on_is_a_zero_rather_than_a_missing_row()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(7, value.ActivityByDay.Count);
+        Assert.Contains(value.ActivityByDay, day => day.Sessions == 0);
+    }
+
+    /// <summary>
+    /// A session waiting on a prompt is on the go and is not producing, so the open count
+    /// is above the peak in the hour it was waiting through. This is the whole reason both
+    /// travel: one grid without the other cannot show the gap.
+    /// </summary>
+    [Fact]
+    public async Task A_session_waiting_on_a_prompt_is_open_and_is_not_producing()
+    {
+        var ran = (Now.AddHours(-4), Now.AddHours(-4).AddMinutes(10));
+        var waited = (Now.AddHours(-4).AddMinutes(10), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-4), Now.AddHours(-2), "one"))
+            },
+            Activity(RanAndWaited("one", Tower, "Claude", [ran], [waited])));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var waitingHour = value.ActivityByHour.Single(hour =>
+            hour.Day == DateOnly.FromDateTime(Now.UtcDateTime) && hour.Hour == Now.AddHours(-3).Hour);
+
+        Assert.Equal(0, waitingHour.PeakSessions);
+        Assert.Equal(1, waitingHour.OpenSessions);
+    }
+
+    /// <summary>
+    /// Silence that never resumed is not an open session. Nothing records an end, so
+    /// counting to the last thing that happened would hold an abandoned window open for
+    /// days — the span-shaped overstatement the active time was corrected for.
+    /// </summary>
+    [Fact]
+    public async Task A_session_that_went_quiet_and_never_resumed_is_not_open_through_the_silence()
+    {
+        var ran = (Now.AddHours(-6), Now.AddHours(-6).AddMinutes(5));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-6), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var later = value.ActivityByHour.Single(hour =>
+            hour.Day == DateOnly.FromDateTime(Now.UtcDateTime) && hour.Hour == Now.AddHours(-2).Hour);
+
+        Assert.Equal(0, later.OpenSessions);
+    }
+
+    /// <summary>
+    /// The day's count splits on the same question the grid outlines on, and the two parts
+    /// are counted independently: a session that ran across the edge of the working day is
+    /// in both, so they do not sum to the whole.
+    /// </summary>
+    [Fact]
+    public async Task A_session_across_the_edge_of_the_working_day_counts_on_both_sides_of_it()
+    {
+        // The Monday inside the grid's seven days, so the default week has it working
+        // 09:00 to 17:30. The run starts inside those hours and ends after them.
+        var monday = new DateTimeOffset(2026, 8, 17, 16, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", monday, monday.AddHours(4), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (monday, monday.AddHours(4)))),
+            zone: TimeZoneInfo.Utc);
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var day = value.ActivityByDay.Single(entry => entry.Day == new DateOnly(2026, 8, 17));
+
+        Assert.Equal(1, day.Sessions);
+        Assert.Equal(1, day.SessionsInWorkingHours);
+        Assert.Equal(1, day.SessionsOutsideWorkingHours);
+
+        // One session, two answers, and they deliberately do not add to the first.
+        Assert.NotEqual(day.Sessions, day.SessionsInWorkingHours + day.SessionsOutsideWorkingHours);
+    }
+
+    /// <summary>A day the reader does not work has every hour outside it, so nothing is
+    /// outlined and nothing counts as in hours.</summary>
+    [Fact]
+    public async Task A_day_the_reader_does_not_work_counts_everything_outside_hours()
+    {
+        // The Sunday inside the grid's seven days, which the default week has off.
+        var sunday = new DateTimeOffset(2026, 8, 16, 11, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", sunday, sunday.AddHours(1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (sunday, sunday.AddHours(1)))),
+            zone: TimeZoneInfo.Utc);
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var day = value.ActivityByDay.Single(entry => entry.Day == new DateOnly(2026, 8, 16));
+
+        Assert.Equal(0, day.SessionsInWorkingHours);
+        Assert.Equal(1, day.SessionsOutsideWorkingHours);
+
+        Assert.All(
+            value.ActivityByHour.Where(hour => hour.Day == new DateOnly(2026, 8, 16)),
+            hour => Assert.False(hour.InWorkingHours));
+    }
+
+    /// <summary>
+    /// The hours a working day covers, on the cell the grid outlines from. Half past five
+    /// leaves the seventeenth hour half worked and there is no half-outlined cell, so it
+    /// is marked whole and eighteen is the first hour outside.
+    /// </summary>
+    [Fact]
+    public async Task An_hour_only_partly_inside_the_working_day_still_counts_as_inside_it()
+    {
+        var monday = new DateTimeOffset(2026, 8, 17, 10, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", monday, monday.AddHours(1), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (monday, monday.AddHours(1)))),
+            zone: TimeZoneInfo.Utc);
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var day = value.ActivityByHour.Where(hour => hour.Day == new DateOnly(2026, 8, 17)).ToList();
+
+        Assert.False(day.Single(hour => hour.Hour == 8).InWorkingHours);
+        Assert.True(day.Single(hour => hour.Hour == 9).InWorkingHours);
+        Assert.True(day.Single(hour => hour.Hour == 17).InWorkingHours);
+        Assert.False(day.Single(hour => hour.Hour == 18).InWorkingHours);
+    }
+
+    /// <summary>The column and the grid appear together or not at all. A count beside an
+    /// axis the part declined to draw would be a figure with nothing to read it
+    /// against.</summary>
+    [Fact]
+    public async Task A_scope_with_no_activity_carries_no_day_counts_either()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+            },
+            Activity());
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Empty(value.ActivityByHour);
+        Assert.Empty(value.ActivityByDay);
+    }
+
+    /// <summary>
+    /// The grid is the one figure on this surface drawn on the reader's own clock, and a
+    /// zone two hours east puts the same run two columns along. Both zones are asserted,
+    /// so the fact cannot pass by the zone being ignored.
+    /// </summary>
+    [Fact]
+    public async Task The_grid_is_drawn_on_local_hours_rather_than_UTC()
+    {
+        var ran = (Now.AddDays(-1).AddHours(-2), Now.AddDays(-1).AddHours(-1));
+
+        var sessions = new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one"))
+        };
+
+        var utc = await ValueOf(Insights(sessions, Activity(Ran("one", Tower, "Claude", ran))), DashboardScope.Default);
+
+        var east = await ValueOf(
+            Insights(sessions, Activity(Ran("one", Tower, "Claude", ran)), PlusTwo),
+            DashboardScope.Default);
+
+        Assert.Equal(ran.Item1.Hour, Worked(utc).Hour);
+        Assert.Equal(ran.Item1.Hour + 2, Worked(east).Hour);
+    }
+
+    /// <summary>
+    /// <b>The asymmetry the part is obliged to state on screen.</b> Every tile widens
+    /// when the reader moves from four weeks to twelve; the grid does not move at all,
+    /// because it is the last seven dated days and nothing else. Nothing but this asserts
+    /// it, and an implementation that quietly let the grid follow the period would pass
+    /// every other fact in this file.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_period_moves_the_tiles_and_leaves_the_grid_alone()
+    {
+        // One run six weeks back — inside twelve weeks, outside four — and one
+        // yesterday, inside the seven days the grid draws.
+        var older = (Now.AddDays(-42), Now.AddDays(-42).AddHours(1));
+        var recent = (Now.AddDays(-1), Now.AddDays(-1).AddHours(1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", older.Item1, older.Item2, "old"),
+                    Session(Tower, "Claude", recent.Item1, recent.Item2, "new"))
+            },
+            Activity(
+                Ran("old", Tower, "Claude", older),
+                Ran("new", Tower, "Claude", recent)));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        // The tiles move.
+        Assert.Equal(TimeSpan.FromHours(1), four.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(2), twelve.ActiveTime);
+
+        // The grid does not — same days, same hours, same readings, cell for cell.
+        Assert.Equal(four.ActivityByHour, twelve.ActivityByHour);
+        Assert.Equal(168, four.ActivityByHour.Count);
+        Assert.Equal(TimeSpan.FromHours(1), Worked(four).Active);
+    }
+
+    /// <summary>
+    /// The property the horizon exists for. Moving the period control derives again over
+    /// the reading already in hand; it does not send the expensive source back to the
+    /// disk, which is the whole reason the horizon is a constant rather than the scope's
+    /// own window.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_period_derives_again_rather_than_reading_again()
+    {
+        var activity = new StubAssistantActivitySource();
+        var insights = Insights(new StubAssistantSessionSource(), activity);
+
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>
+    /// And the horizon it is asked for is the widest window the surface can be moved to,
+    /// not whichever one it happens to be showing. A source asked for four weeks would
+    /// make the twelve-week reading wrong or make it a second read.
+    /// </summary>
+    [Fact]
+    public async Task The_activity_source_is_asked_for_the_widest_window_the_surface_can_show()
+    {
+        var activity = new StubAssistantActivitySource();
+        var insights = Insights(new StubAssistantSessionSource(), activity);
+
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+
+        Assert.Equal(Now.AddDays(-7 * 12), Assert.Single(activity.Horizons));
+    }
+
+    /// <summary>
+    /// The expensive source having a bad minute must not take the part down, and the
+    /// reader gets the source's own words rather than a blank grid with no explanation.
+    /// </summary>
+    [Fact]
+    public async Task An_activity_source_that_throws_becomes_a_reason_rather_than_an_exception()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource(),
+            new StubAssistantActivitySource { Throw = new InvalidOperationException("The transcripts could not be read.") });
+
+        var result = await insights.GetSessionsAsync(DashboardScope.Default);
+
+        Assert.False(result.HasValue);
+        Assert.Equal("The transcripts could not be read.", result.Availability.Reason);
+    }
+
+    /// <summary>
+    /// The threshold that ended a run is the source's judgement, and the sentence on
+    /// screen has to name that number rather than a copy of it kept here — the answer
+    /// moves under it, so a stale copy would explain one figure with another's rule.
+    /// </summary>
+    [Fact]
+    public async Task The_threshold_the_source_folded_at_travels_to_the_surface()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource(),
+            new StubAssistantActivitySource
+            {
+                Report = new AssistantActivityReport([], [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5))
+            });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromMinutes(5), value.IdleAfter);
+    }
+
+    /// <summary>
+    /// Waiting is reported per breakdown row as well as in total, because a zero on one
+    /// row beside a real figure on the next is where a reader actually meets the limit of
+    /// what one of the assistants records.
+    /// </summary>
+    [Fact]
+    public async Task Waiting_is_reported_per_row_as_well_as_in_total()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"),
+                    Session(Laptop, "Claude", Now.AddHours(-9), Now.AddHours(-8), "two"))
+            },
+            Activity(
+                Waited("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1))),
+                Ran("two", Laptop, "Claude", (Now.AddHours(-9), Now.AddHours(-8)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromHours(2), value.Waiting);
+        Assert.Equal(TimeSpan.FromHours(2), Row(value, "DEV-TOWER").Waiting);
+        Assert.Equal(TimeSpan.Zero, Row(value, "DEV-LAPTOP").Waiting);
+    }
+
+    /// <summary>
+    /// One of the two assistants cannot mark the boundary a wait needs, so its rows read
+    /// zero. That is a limit of what it writes down rather than a claim that nobody
+    /// waited, and the breakdown is where the two sit side by side.
+    /// </summary>
+    [Fact]
+    public async Task A_row_whose_assistant_records_no_prompt_boundary_reports_no_waiting()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"),
+                    Session(Tower, "Copilot", Now.AddHours(-9), Now.AddHours(-8), "two"))
+            },
+            Activity(
+                Waited("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1))),
+                Ran("two", Tower, "Copilot", (Now.AddHours(-9), Now.AddHours(-8)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default with { MachineId = Tower });
+
+        Assert.Equal(TimeSpan.FromHours(2), Row(value, "Claude").Waiting);
+        Assert.Equal(TimeSpan.Zero, Row(value, "Copilot").Waiting);
+
+        // The Copilot row still reports the time it did work, so the zero above reads as
+        // "no wait recorded" rather than "no row worth drawing".
+        Assert.Equal(TimeSpan.FromHours(1), Row(value, "Copilot").ActiveTime);
+    }
+
+    /// <summary>
+    /// A part with nothing parsable draws no grid rather than an axis of 168 zeros, the
+    /// rule the weekly columns are already rendered under.
+    /// </summary>
+    [Fact]
+    public async Task A_scope_with_no_activity_at_all_carries_no_grid()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Empty(value.ActivityByHour);
+        Assert.Equal(1, value.Sessions);
+    }
+
+    /// <summary>
+    /// And once there is something to draw, every hour of the seven days is on the axis —
+    /// an hour nobody worked is a zero and not a gap, because a heatmap draws those two
+    /// differently.
+    /// </summary>
+    [Fact]
+    public async Task An_hour_nobody_worked_is_still_a_cell_of_the_grid()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-2)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(168, value.ActivityByHour.Count);
+        Assert.Equal(167, value.ActivityByHour.Count(hour => hour.Active == TimeSpan.Zero));
+        Assert.All(value.ActivityByHour, hour => Assert.InRange(hour.Hour, 0, 23));
+    }
+
     private static async Task<AssistantSessionsInsight> ValueOf(ISessionInsights insights, DashboardScope scope)
     {
         var result = await insights.GetSessionsAsync(scope);
@@ -554,25 +1140,124 @@ public class SessionInsightsTests
         return result.Value!;
     }
 
-    private static SessionInsights Insights(IAssistantSessionSource source) => new(source, new FixedClock(Now));
+    /// <summary>
+    /// The one hour of the grid anything landed in. Written as a search rather than an
+    /// index so a test that put its run in the wrong cell fails on the assertion it meant
+    /// rather than on arithmetic in the test itself.
+    /// </summary>
+    private static ActivityHour Worked(AssistantSessionsInsight value) =>
+        Assert.Single(value.ActivityByHour.Where(hour => hour.Active > TimeSpan.Zero));
+
+    private static AssistantSessionRow Row(AssistantSessionsInsight value, string name) =>
+        Assert.Single(value.Breakdown.Where(row => row.Name == name));
+
+    /// <summary>
+    /// A fixed two-hour zone rather than a real one, for the reason
+    /// <c>LocalHourBucketsTests</c> gives: a real id differs on Linux and brings a
+    /// daylight-saving rule that would make these assertions depend on the date.
+    /// </summary>
+    private static readonly TimeZoneInfo PlusTwo =
+        TimeZoneInfo.CreateCustomTimeZone("test-plus-two", TimeSpan.FromHours(2), "+02", "+02");
+
+    /// <summary>
+    /// One factory so the second source and the zone are one edit rather than twenty-five.
+    /// A quiet activity source by default, because most facts here are about the session
+    /// half and a fixture that had to describe both would bury which half it was testing.
+    /// </summary>
+    private static SessionInsights Insights(
+        IAssistantSessionSource source,
+        IAssistantActivitySource? activity = null,
+        TimeZoneInfo? zone = null,
+        WorkingHours? week = null) =>
+        new(
+            source,
+            activity ?? new StubAssistantActivitySource(),
+            new FixedWorkingHours(week ?? WorkingHours.Default),
+            new FixedClock(Now, zone));
+
+    /// <summary>
+    /// A working week that does not come off disk.
+    /// <para>
+    /// The default unless a fact is about the split, because the alternative — reading the
+    /// store — would make every assertion about an in-hours count depend on what the
+    /// person running the tests had set their own hours to.
+    /// </para>
+    /// </summary>
+    private sealed class FixedWorkingHours(WorkingHours week) : IWorkingHoursSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public WorkingHours Current => week;
+
+        public string SettingsPath => "working-hours.json";
+
+        public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
+
+        public string? ResetToDefault() => null;
+    }
 
     private static AssistantSessionReport Report(params AssistantSession[] sessions) =>
         new(sessions, [], false, 100);
+
+    private static StubAssistantActivitySource Activity(params AssistantActivitySession[] sessions) =>
+        new() { Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5)) };
+
+    /// <summary>One session that produced, and when.</summary>
+    private static AssistantActivitySession Ran(
+        string id,
+        string machineId,
+        string assistant,
+        params (DateTimeOffset From, DateTimeOffset To)[] active) =>
+        new(id, machineId, MachineName(machineId), assistant, [.. active.Select(Interval)], []);
+
+    /// <summary>One session that did both, which is what a real one does: a wait is the
+    /// gap between two runs, so the two lists together are the session's whole record and
+    /// neither alone shows the difference between producing and being on the go.</summary>
+    private static AssistantActivitySession RanAndWaited(
+        string id,
+        string machineId,
+        string assistant,
+        (DateTimeOffset From, DateTimeOffset To)[] active,
+        (DateTimeOffset From, DateTimeOffset To)[] waiting) =>
+        new(
+            id,
+            machineId,
+            MachineName(machineId),
+            assistant,
+            [.. active.Select(Interval)],
+            [.. waiting.Select(Interval)]);
+
+    /// <summary>One session that spent the given stretches waiting on a person.</summary>
+    private static AssistantActivitySession Waited(
+        string id,
+        string machineId,
+        string assistant,
+        params (DateTimeOffset From, DateTimeOffset To)[] waiting) =>
+        new(id, machineId, MachineName(machineId), assistant, [], [.. waiting.Select(Interval)]);
+
+    private static AssistantActivityInterval Interval((DateTimeOffset From, DateTimeOffset To) span) =>
+        new(span.From, span.To);
 
     private static AssistantSession Session(
         string machineId,
         string assistant,
         DateTimeOffset? startedAt,
-        DateTimeOffset lastActivityAt) =>
-        Session(machineId, MachineName(machineId), assistant, startedAt, lastActivityAt);
+        DateTimeOffset lastActivityAt,
+        string id = "") =>
+        Session(machineId, MachineName(machineId), assistant, startedAt, lastActivityAt, id);
 
     private static AssistantSession Session(
         string machineId,
         string machineName,
         string assistant,
         DateTimeOffset? startedAt,
-        DateTimeOffset lastActivityAt) =>
-        new(machineId, machineName, assistant, startedAt, lastActivityAt);
+        DateTimeOffset lastActivityAt,
+        string id = "") =>
+        new(machineId, machineName, assistant, startedAt, lastActivityAt) { Id = id };
 
     private static string MachineName(string machineId) => machineId == Tower ? "DEV-TOWER" : "DEV-LAPTOP";
 
@@ -602,10 +1287,43 @@ public class SessionInsightsTests
         }
     }
 
+    /// <summary>
+    /// The expensive half, stubbed. It records the horizons it was asked for, which is
+    /// how the "one read serves every period" claim is asserted rather than described.
+    /// </summary>
+    private sealed class StubAssistantActivitySource : IAssistantActivitySource
+    {
+        public AssistantActivityReport Report { get; init; } = AssistantActivityReport.Empty;
+
+        public Exception? Throw { get; init; }
+
+        public int Calls { get; private set; }
+
+        public List<DateTimeOffset> Horizons { get; } = [];
+
+        public Task<AssistantActivityReport> GetActivityAsync(
+            DateTimeOffset since,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            Horizons.Add(since);
+
+            return Throw is not null
+                ? Task.FromException<AssistantActivityReport>(Throw)
+                : Task.FromResult(Report);
+        }
+    }
+
     /// <summary>A clock that does not move, so a window is the same window on every
     /// machine and on every run.</summary>
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    private sealed class FixedClock(DateTimeOffset now, TimeZoneInfo? zone = null) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+
+        /// <summary>The grid is the only figure on this surface drawn in local hours, so
+        /// it is the only one whose test has to say which local. Fixed rather than the
+        /// machine's, because a grid asserted against whatever zone CI happens to run in
+        /// is a grid asserted against nothing.</summary>
+        public override TimeZoneInfo LocalTimeZone => zone ?? TimeZoneInfo.Utc;
     }
 }

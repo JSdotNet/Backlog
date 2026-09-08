@@ -274,6 +274,8 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton<IAppFeatureSettings>(features);
         testContext.Services.AddSingleton<ITasksRefreshSettings>(
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        testContext.Services.AddSingleton<IWorkingHoursSettings>(
+            new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);

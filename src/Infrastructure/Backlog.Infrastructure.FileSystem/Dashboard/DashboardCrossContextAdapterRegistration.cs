@@ -18,14 +18,22 @@ public static class DashboardCrossContextAdapterRegistration
 {
     /// <summary>
     /// Registers the dashboard's cross-context adapters. Call after
-    /// <c>AddAgentSessionSource()</c>, which supplies the port this one is written
-    /// over, and after <c>AddDashboardModule()</c>, whose derivation consumes it.
+    /// <c>AddAgentSessionSource()</c> and <c>AddAgentActivitySource()</c>, which supply
+    /// the ports these are written over, and after <c>AddDashboardModule()</c>, whose
+    /// derivation consumes them.
     /// </summary>
+    /// <remarks>
+    /// Two adapters over two ports, mirroring the split on the Sessions side rather than
+    /// flattening it. One stats files and one parses their bodies; a single adapter
+    /// answering both would put the expensive read behind a contract the cheap caller
+    /// also holds, which is exactly what the two ports exist to prevent.
+    /// </remarks>
     public static IServiceCollection AddDashboardCrossContextAdapters(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IAssistantSessionSource, AgentSessionAssistantSessionSource>();
+        services.AddSingleton<IAssistantActivitySource, AgentActivityAssistantActivitySource>();
 
         return services;
     }

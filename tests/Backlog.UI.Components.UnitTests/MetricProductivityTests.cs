@@ -540,6 +540,246 @@ public sealed class MetricHeatmapTests
     }
 
     [Fact]
+    public void A_cell_detail_reaches_both_the_title_and_the_hidden_text()
+    {
+        // A shade is one of four steps, so anything a reader is meant to take off a cell
+        // has to be readable and not only hoverable. A detail that reached the title
+        // alone would be a measure a screen reader could not get at.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.CellDetail, (row, bucket) => $"{row} in {bucket}"));
+
+        var cell = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[1];
+
+        Assert.Equal("50. full in w2", cell.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("full, w2: 50 — full in w2", cell.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_cell_with_no_detail_renders_exactly_what_it_rendered_before()
+    {
+        // The regression guard for every caller that predates the hook: passing no
+        // CellDetail must not change one byte of the markup.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m));
+
+        var cell = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[1];
+
+        Assert.Equal("50", cell.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("full, w2: 50", cell.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_blank_detail_is_treated_as_no_detail()
+    {
+        // A caller building a sentence out of data it may not have should not have to
+        // decide whether an empty one is worth an em dash.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.CellDetail, (_, _) => "   "));
+
+        var cell = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[1];
+
+        Assert.Equal("50", cell.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("full, w2: 50", cell.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_cell_that_was_not_reported_still_says_so_when_it_has_a_detail()
+    {
+        // The detail is a second sentence, not a replacement for the first: a cell with
+        // no reading must still say it has none.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.CellDetail, (_, _) => "nothing ran"));
+
+        var missing = heatmap.FindAll("tbody tr")[1].QuerySelectorAll(".metric-heatmap__cell")[0];
+
+        Assert.Equal("not reported. nothing ran", missing.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
+    public void A_printed_figure_sits_in_its_cell_and_is_hidden_from_a_screen_reader()
+    {
+        // The sr-only span already carries the figure and its detail. A visible copy that
+        // was not hidden would be read twice, the second time without its context.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.ShowValues, true));
+
+        var cell = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[1];
+        var printed = cell.QuerySelector(".metric-heatmap__value")!;
+
+        Assert.Equal("50", printed.TextContent);
+        Assert.Equal("true", printed.GetAttribute("aria-hidden"));
+        Assert.Equal("50", cell.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
+    public void Neither_a_zero_nor_a_missing_cell_prints_a_figure()
+    {
+        // Two different reasons, one answer. A missing cell has no figure — not reported
+        // is not none, which the missing shade already draws. A zero has one, and it is
+        // the track's job: printing it would put a hundred noughts over the dozen figures
+        // somebody turned this on to read. Both still reach a screen reader.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.ShowValues, true));
+
+        var zero = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[2];
+        var missing = heatmap.FindAll("tbody tr")[1].QuerySelectorAll(".metric-heatmap__cell")[0];
+
+        Assert.Null(zero.QuerySelector(".metric-heatmap__value"));
+        Assert.Null(missing.QuerySelector(".metric-heatmap__value"));
+
+        // Suppressed ink, not suppressed information.
+        Assert.Equal("0", zero.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("not reported", missing.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
+    public void Figures_are_not_printed_unless_they_are_asked_for()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid));
+
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__value"));
+    }
+
+    [Fact]
+    public void A_row_total_is_the_callers_arithmetic_in_a_column_of_its_own()
+    {
+        // The component never works one out. A grid cannot know whether its rows are
+        // summable — peaks are not, durations are — so the figure is the caller's and
+        // only the column is this component's.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.RowTotals, new MetricTotal[]
+            {
+                new("Sessions", row => row == "full" ? "9" : "1"),
+                new("Outside", row => row == "full" ? "4" : "0")
+            }));
+
+        var headings = heatmap.FindAll("thead th").Select(h => h.TextContent).ToList();
+
+        // Several columns, in the order given, after the buckets.
+        Assert.Equal(["Sessions", "Outside"], headings[^2..]);
+        Assert.Equal(
+            ["9", "4", "1", "0"],
+            heatmap.FindAll(".metric-heatmap__total").Select(total => total.TextContent));
+    }
+
+    [Fact]
+    public void A_total_column_with_nothing_to_call_it_does_not_draw()
+    {
+        // A heading is what makes a figure answerable, so a column without one is dropped
+        // rather than drawn blank — and the columns beside it still draw.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.RowTotals, new MetricTotal[]
+            {
+                new(" ", _ => "9"),
+                new("Sessions", _ => "1")
+            }));
+
+        Assert.Equal("Sessions", heatmap.FindAll(".metric-heatmap__total-heading").Single().TextContent);
+        Assert.Equal(["1", "1"], heatmap.FindAll(".metric-heatmap__total").Select(total => total.TextContent));
+    }
+
+    [Fact]
+    public void No_total_columns_is_no_column_at_all()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid));
+
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__total"));
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__total-heading"));
+    }
+
+    [Fact]
+    public void A_marked_cell_carries_an_edge_and_says_what_the_edge_means()
+    {
+        // The mark is a second channel and not a second ramp — in or out, drawn as an
+        // edge. It reaches the text as well, because an edge somebody cannot see is a
+        // distinction the grid draws and then withholds.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.CellMarked, (_, bucket) => bucket == "w2")
+            .Add(h => h.MarkedLabel, "working hours"));
+
+        var inside = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[1];
+        var outside = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell")[0];
+
+        Assert.Contains("metric-heatmap__cell--marked", inside.ClassList);
+        Assert.DoesNotContain("metric-heatmap__cell--marked", outside.ClassList);
+
+        Assert.Equal("50. working hours", inside.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("full, w2: 50 (working hours)", inside.GetAttribute("title"));
+        Assert.Equal("100", outside.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
+    public void A_mark_with_nothing_to_call_it_does_not_draw()
+    {
+        // A visual distinction only some readers can perceive is worse than none: the
+        // sighted reader acts on it and nobody else knows it is there.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.CellMarked, (_, _) => true));
+
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__cell--marked"));
+    }
+
+    [Fact]
+    public void A_cell_can_be_both_unreported_and_marked()
+    {
+        // An hour inside the working day that nobody reported is exactly the pair a
+        // reader wants to see, so the two treatments have to compose rather than one
+        // replacing the other.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.CellMarked, (_, bucket) => bucket == "w1")
+            .Add(h => h.MarkedLabel, "working hours"));
+
+        var missingAndMarked = heatmap.FindAll("tbody tr")[1].QuerySelectorAll(".metric-heatmap__cell")[0];
+
+        Assert.Contains("metric-heatmap__cell--missing", missingAndMarked.ClassList);
+        Assert.Contains("metric-heatmap__cell--marked", missingAndMarked.ClassList);
+        Assert.Equal("not reported. working hours", missingAndMarked.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
     public void A_week_nobody_reported_reads_as_not_reported_rather_than_zero()
     {
         using var context = new BunitContext();

@@ -18,16 +18,34 @@ namespace Backlog.Modules.Dashboard.Abstractions.Insights;
 /// </param>
 /// <param name="Name">The machine or the assistant this row is about.</param>
 /// <param name="Sessions">How many sessions the row covers.</param>
-/// <param name="ActiveTime">How long they ran, clipped to the window. Sessions with no
-/// recorded start contribute nothing here while still counting in
-/// <paramref name="Sessions"/>.</param>
+/// <param name="ActiveTime">How long an agent was producing in this row's sessions,
+/// clipped to the window. Not how long the sessions were open: a session that sat idle
+/// overnight contributes the minutes it worked and nothing else. Concurrent sessions in
+/// the row are summed rather than merged, so this can exceed the window.</param>
 /// <param name="LastActivityAt">The most recent moment anything moved in this row.</param>
 public sealed record AssistantSessionRow(
     string Key,
     string Name,
     int Sessions,
     TimeSpan ActiveTime,
-    DateTimeOffset? LastActivityAt);
+    DateTimeOffset? LastActivityAt)
+{
+    /// <summary>
+    /// Time in this row's sessions in which the agent had stopped and the next thing to
+    /// happen was a person.
+    /// <para>
+    /// Zero for a row whose assistant records no prompt boundary, and that is a limit of
+    /// what that assistant writes down rather than a claim that nobody waited. A zero
+    /// here beside a real figure on the row above is where a reader actually meets that
+    /// limitation, which is why the column exists rather than the total alone.
+    /// </para>
+    /// <para>
+    /// Beside the primary constructor rather than in it, on
+    /// <see cref="AssistantSessionsInsight.SessionsPerWeek"/>'s precedent.
+    /// </para>
+    /// </summary>
+    public TimeSpan Waiting { get; init; }
+}
 
 /// <summary>
 /// What the assistants have been doing on the scoped machines, over the scoped window.
@@ -35,20 +53,46 @@ public sealed record AssistantSessionRow(
 /// Every figure here is a floor rather than a total whenever <see cref="Capped"/> is
 /// true or <see cref="Unreadable"/> is non-empty, and both travel with the figures for
 /// exactly that reason: a capped number presented as a whole one is how a dashboard
-/// quietly stops being trusted. <see cref="WithoutStart"/> is the third of the same
-/// kind — a session whose start was never written down is real and is counted, but it
-/// cannot contribute a duration, and saying so is the difference between an
-/// understated figure and a dishonest one.
+/// quietly stops being trusted. <see cref="WithoutActivity"/> is the third of the same
+/// kind — a session that left nothing to parse is real and is counted, but it cannot
+/// contribute a duration, and saying so is the difference between an understated figure
+/// and a dishonest one.
+/// </para>
+/// <para>
+/// One thing on here does not follow the window: <see cref="ActivityByHour"/> is always
+/// the last seven dated days, whichever period the reader selected. Its own
+/// documentation says why, and the surface says it on screen.
 /// </para>
 /// </summary>
 /// <param name="Sessions">How many sessions touched the window.</param>
-/// <param name="ActiveTime">Their time inside the window, summed. Overlapping sessions
-/// are summed rather than merged: this is time spent working with the assistants, not
-/// wall-clock time during which one was open.</param>
+/// <param name="ActiveTime">
+/// Time an agent was actually producing inside the window, over the scoped machines.
+/// Not the span of the sessions: a session left open overnight contributes the stretches
+/// it worked and nothing else. Concurrent sessions are summed rather than merged — this
+/// is agent-hours, so twelve agents running through one hour is twelve hours and the
+/// figure is deliberately capable of exceeding the window.
+/// <para>
+/// The same total <see cref="ActivityByHour"/> sums to whenever the two cover the same
+/// days, because it comes off the same sweep: the total <em>is</em> the integral of the
+/// concurrency the grid shades. A second pass here would be a second place for a tile
+/// and the grid under it to disagree.
+/// </para>
+/// </param>
 /// <param name="LastActivityAt">The most recent activity in the scoped set, or null
 /// when there was none.</param>
-/// <param name="WithoutStart">How many of <paramref name="Sessions"/> had no recorded
-/// start and so added nothing to <paramref name="ActiveTime"/>.</param>
+/// <param name="WithoutActivity">
+/// How many of <paramref name="Sessions"/> left no parsable activity record and so added
+/// nothing to <paramref name="ActiveTime"/>.
+/// <para>
+/// <b>This is a different fact from the one this parameter used to carry.</b> It was
+/// <c>WithoutStart</c> — sessions whose start instant was never written down — back when
+/// the active time was a session's file span and a missing start meant no span. That
+/// arithmetic is gone. What is counted here is a session the activity source could not
+/// describe at all: no transcript, an unparsable one, or one whose stretches all fell
+/// outside the horizon. A reader diffing this record will see a rename and assume the
+/// meaning carried over; it did not.
+/// </para>
+/// </param>
 /// <param name="Capped">Whether the source stopped short of everything it holds.</param>
 /// <param name="CapPerAssistant">How many sessions per assistant the source stopped at,
 /// so the sentence admitting the cap can name the number instead of the surface keeping
@@ -60,7 +104,7 @@ public sealed record AssistantSessionsInsight(
     int Sessions,
     TimeSpan ActiveTime,
     DateTimeOffset? LastActivityAt,
-    int WithoutStart,
+    int WithoutActivity,
     bool Capped,
     int CapPerAssistant,
     IReadOnlyList<string> Unreadable,
@@ -86,6 +130,75 @@ public sealed record AssistantSessionsInsight(
     /// </para>
     /// </summary>
     public IReadOnlyList<InsightPoint> SessionsPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// Time inside the window in which a run had ended and the next thing to happen was
+    /// a person — the queue this installation put on the reader's own attention.
+    /// <para>
+    /// Summed over concurrent sessions exactly as <see cref="ActiveTime"/> is, because
+    /// two agents both blocked on you at once is two agent-hours of queue and that is
+    /// what the measure is about.
+    /// </para>
+    /// <para>
+    /// One of the two assistants cannot evidence this at all, so this is the other's
+    /// alone. And a gap counts in full however long it ran: a session picked up after a
+    /// weekend puts the whole weekend in here. That is deliberate — a prompt did
+    /// eventually arrive, and clamping it would introduce a second arguable constant to
+    /// go with the one that already ends a run — but it is the figure most likely to be
+    /// argued with, so the surface states it rather than letting "waiting on you" imply
+    /// you were sitting there.
+    /// </para>
+    /// <para>
+    /// An init property rather than a ninth parameter, on
+    /// <see cref="SessionsPerWeek"/>'s precedent.
+    /// </para>
+    /// </summary>
+    public TimeSpan Waiting { get; init; }
+
+    /// <summary>
+    /// The 168 cells of the last seven dated local days, oldest day first and hour 00
+    /// first within a day — or empty when the scoped set has no parsable activity at
+    /// all.
+    /// <para>
+    /// Empty rather than 168 zeros in that case, so the part can decline to draw an axis
+    /// it has nothing to put on — the rule <see cref="SessionsPerWeek"/> is already
+    /// rendered under. When there is something to draw, though, every cell is present:
+    /// an hour nobody worked is a zero and never a gap, and a heatmap draws those two
+    /// differently on purpose.
+    /// </para>
+    /// <para>
+    /// <b>This is the one figure here that does not follow the period control.</b> Move
+    /// the reader from four weeks to twelve and <see cref="ActiveTime"/>,
+    /// <see cref="Waiting"/>, <see cref="Sessions"/> and the breakdown all widen; this
+    /// stays the same seven days. The part therefore mixes a windowed figure with a
+    /// fixed one, which is a thing a surface may do only if it says so — and it says so
+    /// on the grid itself rather than only in the note, because the label is what sits
+    /// next to the thing that will not move.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ActivityHour> ActivityByHour { get; init; } = [];
+
+    /// <summary>
+    /// How many distinct sessions ran on each of the grid's days, oldest first, and empty
+    /// exactly when <see cref="ActivityByHour"/> is.
+    /// <para>
+    /// Beside the hours rather than inside them because it is a different measure of a
+    /// different thing. An hour's figure is "how many at once" and cannot be added up; a
+    /// day's is "how many ran", which can. Deriving one from the other is the mistake this
+    /// separation exists to prevent — summing a row of peaks counts a long session once
+    /// per hour it spanned.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ActivityDay> ActivityByDay { get; init; } = [];
+
+    /// <summary>
+    /// The gap that ends a run, as the source reported it. Carried so the footnote can
+    /// name the source's number rather than keeping a second copy of it —
+    /// <see cref="CapPerAssistant"/>'s precedent, and it matters more here: the answer
+    /// moves under this constant, so a surface quoting a stale copy of it would be
+    /// explaining one figure with another figure's threshold.
+    /// </summary>
+    public TimeSpan IdleAfter { get; init; }
 
     public static AssistantSessionsInsight Empty { get; } =
         new(0, TimeSpan.Zero, null, 0, false, 0, [], []) { SessionsPerWeek = [] };

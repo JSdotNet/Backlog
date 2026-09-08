@@ -23,12 +23,19 @@
 
     Two filters, and neither of them drives everything. The repository filter drives
     the productivity parts and visibly does not drive the cost parts or the sessions
-    part — neither provider reports spend per repository, and Claude records no
-    repository against a session at all. The machine filter drives only the sessions
-    part, because GitHub cannot say which machine a pull request was worked from and a
-    bill does not either. Every one of those refusals is stated on the section and on
-    the part rather than left for a reader to work out from a figure that will not
+    part — neither provider reports spend per repository, and only one of the two
+    assistants records a repository against a session, so narrowing by one would drop
+    Claude's half of that part rather than filter it. The machine filter drives only the
+    sessions part, because GitHub cannot say which machine a pull request was worked from
+    and a bill does not either. Every one of those refusals is stated on the section and
+    on the part rather than left for a reader to work out from a figure that will not
     move.
+
+    The sessions part refuses a third dimension that is not a filter at all: its activity
+    grid is the last seven days whatever period is selected, and is drawn on a local clock
+    while every other figure on this surface is UTC. Both are said in that part's own
+    caption, because this pane owns the filters and not the meaning of what they do not
+    reach.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
@@ -123,9 +130,10 @@
         <div class="dashboard-section" data-testid="dashboard-sessions-section">
             <h3 class="dashboard-section__title">Sessions</h3>
             <p class="dashboard-section__note">
-                Sessions Claude and Copilot left on this machine, and on any other machine that has
-                reported its own. Claude does not record a repository, so the repository filter above
-                does not change this section.
+                Sessions Claude and Copilot left on this machine and on any other that has reported
+                its own, and when an agent was actually producing. Only Copilot records a repository
+                against a session, so filtering by one would hide Claude's half of the picture; the
+                repository filter above does not change this section.
             </p>
             <SessionsPart Scope="_scope" />
         </div>

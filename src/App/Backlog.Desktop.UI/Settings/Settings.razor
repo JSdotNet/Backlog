@@ -56,6 +56,11 @@
 @using Microsoft.Extensions.Logging
 @inject WorkspaceSettingsStore Store
 @inject ITasksRefreshSettings Refresh
+@* Injected rather than read off IServiceProvider the way the sync collaborators
+   below are: those are optional and feature-gated, and this is neither. A host
+   that has not registered it should fail loudly at startup rather than quietly
+   drop the section that edits it. *@
+@inject IWorkingHoursSettings WorkingWeek
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -696,6 +701,95 @@
                         {
                             <span>Checking every @Refresh.Current.PollingIntervalSeconds seconds.</span>
                         }
+                    </p>
+                </div>
+
+                @* Not a storage setting, and it is here because this is the only
+                   tab that is always on screen and already carries a preference
+                   rather than a credential or a flag — the poll above is one too.
+                   The AI tab would have read better next to the surface that uses
+                   this, but it disappears behind two feature flags, and a working
+                   week nobody can reach is worse than one filed under the wrong
+                   heading. *@
+                <div class="repo-card__section" data-testid="working-hours-settings">
+                    <h3 class="knowledge-folders__title">Your working week</h3>
+                    <p class="setting__note">
+                        Which hours you mean to be working. This changes no figure - work is counted
+                        the same whenever it happened - it only lets the dashboard shade the hours
+                        you meant to be at work, so out-of-hours work is something you can see rather
+                        than something you have to work out. Each day stands on its own, and a day
+                        you turn off keeps its hours for when you turn it back on.
+                    </p>
+
+                    <div class="working-week">
+                        @foreach (var day in WorkingHours.Week)
+                        {
+                            var working = WorkingWeek.Current.On(day);
+                            var slug = day.ToString().ToLowerInvariant();
+
+                            <div class="working-day" data-testid="working-hours-row">
+                                @* Checkbox rather than Toggle, the way the knowledge
+                                   rows above do it: the box leads the row and the day
+                                   name is what it is clicked by. *@
+                                <Checkbox CssClass="knowledge-folder__toggle"
+                                          Label="@day.ToString()"
+                                          Checked="@working.Working"
+                                          CheckedChanged="value => SetWorkingDayEnabled(day, value)"
+                                          data-testid="@($"working-hours-{slug}-enabled")" />
+
+                                <TextField Bare="true"
+                                           InputCssClass="setting__input"
+                                           AriaLabel="@($"{day} start")"
+                                           Id="@($"working-hours-{slug}-start")"
+                                           data-testid="@($"working-hours-{slug}-start")"
+                                           Type="time"
+                                           autocomplete="off"
+                                           aria-describedby="working-hours-status"
+                                           Disabled="@(!working.Working)"
+                                           Value="@WorkingHoursDraft(day, start: true)"
+                                           @onchange="e => ApplyWorkingTime(day, start: true, e)"
+                                           @onkeydown="e => OnWorkingHoursKeyDown(e, day, start: true)" />
+
+                                <TextField Bare="true"
+                                           InputCssClass="setting__input"
+                                           AriaLabel="@($"{day} end")"
+                                           Id="@($"working-hours-{slug}-end")"
+                                           data-testid="@($"working-hours-{slug}-end")"
+                                           Type="time"
+                                           autocomplete="off"
+                                           aria-describedby="working-hours-status"
+                                           Disabled="@(!working.Working)"
+                                           Value="@WorkingHoursDraft(day, start: false)"
+                                           @onchange="e => ApplyWorkingTime(day, start: false, e)"
+                                           @onkeydown="e => OnWorkingHoursKeyDown(e, day, start: false)" />
+                            </div>
+                        }
+                    </div>
+
+                    <p class="setting__status" id="working-hours-status" data-testid="working-hours-status" role="status">
+                        @if (_workingHoursError is not null)
+                        {
+                            <span class="setting__status--error">@_workingHoursError</span>
+                        }
+                        else
+                        {
+                            <span>@WorkingWeekSummary()</span>
+                        }
+                    </p>
+
+                    <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="working-hours-reset-button"
+                                   Disabled="@IsDefaultWorkingWeek"
+                                   OnClick="ResetWorkingHours">
+                            Back to Monday to Friday
+                        </AppButton>
+                    </div>
+
+                    <p class="setting__note">
+                        Kept in <code>@WorkingWeek.SettingsPath</code>, beside the app's other
+                        per-user choices rather than in the backlog folder - it is yours, not the
+                        workspace's.
                     </p>
                 </div>
             </div>
@@ -1667,6 +1761,8 @@
     private string? _storageRepositoryError;
     private string _draftRefreshInterval = string.Empty;
     private string? _refreshError;
+    private readonly Dictionary<string, string> _draftWorkingHours = new(StringComparer.Ordinal);
+    private string? _workingHoursError;
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private string _draftAzureFoundryEndpoint = string.Empty;
@@ -1961,6 +2057,7 @@
         // where snapshots go rather than a path nobody typed.
         _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
         SyncRefreshDraft();
+        SyncWorkingHoursDrafts();
         SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
@@ -2059,6 +2156,143 @@
 
     private void SyncRefreshDraft() =>
         _draftRefreshInterval = Refresh.Current.PollingIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>What the seven rows are showing, keyed by day and by which end
+    /// of it. One dictionary rather than fourteen fields, the way the knowledge
+    /// folder rows keep theirs: the rows are generated, so what they are edited
+    /// through has to be too.</summary>
+    private static string WorkingHoursDraftKey(DayOfWeek day, bool start) =>
+        $"{day}:{(start ? "start" : "end")}";
+
+    private string WorkingHoursDraft(DayOfWeek day, bool start)
+    {
+        var key = WorkingHoursDraftKey(day, start);
+        if (!_draftWorkingHours.TryGetValue(key, out var draft))
+        {
+            var working = WorkingWeek.Current.On(day);
+            draft = FormatWorkingTime(start ? working.Start : working.End);
+            _draftWorkingHours[key] = draft;
+        }
+
+        return draft;
+    }
+
+    private void SyncWorkingHoursDrafts()
+    {
+        foreach (var day in WorkingHours.Week)
+        {
+            var working = WorkingWeek.Current.On(day);
+            _draftWorkingHours[WorkingHoursDraftKey(day, start: true)] = FormatWorkingTime(working.Start);
+            _draftWorkingHours[WorkingHoursDraftKey(day, start: false)] = FormatWorkingTime(working.End);
+        }
+    }
+
+    /// <summary>
+    /// Commits one end of one day, on change, with no save button - the rule the
+    /// rest of this screen follows.
+    /// <para>
+    /// The typed value is read off the change event rather than through
+    /// <c>ValueChanged</c>, which is what <c>TextField</c> asks of a
+    /// <c>Type="time"</c> host: a half-typed time raises input events that read
+    /// as empty, and a draft moved by those would be cleared mid-keystroke.
+    /// </para>
+    /// <para>
+    /// A refused time therefore stays in the field beside the reason it was
+    /// refused, rather than snapping back to what is in force the way the
+    /// interval above does. The snap-back works there because an input event
+    /// had already moved the draft, so putting it back is a change the renderer
+    /// can see; here the draft only ever moves at commit, and restoring it would
+    /// leave the browser showing a value the page no longer has any way to
+    /// explain.
+    /// </para>
+    /// </summary>
+    private void ApplyWorkingTime(DayOfWeek day, bool start, ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _draftWorkingHours[WorkingHoursDraftKey(day, start)] = typed;
+
+        if (!TryReadWorkingTime(typed, out var time))
+        {
+            _workingHoursError = $"Give {day} a {(start ? "start" : "finishing")} time, as HH:mm.";
+            return;
+        }
+
+        var working = WorkingWeek.Current.On(day);
+
+        _workingHoursError = start
+            ? WorkingWeek.SetDay(day, working.Working, time, working.End)
+            : WorkingWeek.SetDay(day, working.Working, working.Start, time);
+
+        if (_workingHoursError is null) SyncWorkingHoursDrafts();
+    }
+
+    /// <summary>
+    /// Escape puts the row back to what is in force.
+    /// <para>
+    /// There is no Enter branch here, unlike every other field on this page:
+    /// Enter on a time input already raises the change event that commits it,
+    /// and a key handler cannot see the typed value to commit anything else.
+    /// </para>
+    /// </summary>
+    private void OnWorkingHoursKeyDown(KeyboardEventArgs e, DayOfWeek day, bool start)
+    {
+        if (e.Key != "Escape") return;
+
+        var working = WorkingWeek.Current.On(day);
+        _draftWorkingHours[WorkingHoursDraftKey(day, start)] =
+            FormatWorkingTime(start ? working.Start : working.End);
+    }
+
+    /// <summary>Turns a day on or off with the hours it already has rather than
+    /// the ones in the fields. A half-typed time is not a choice, and the day
+    /// coming back with the hours it had is the promise
+    /// <see cref="WorkingDay.Working"/> makes.</summary>
+    private void SetWorkingDayEnabled(DayOfWeek day, bool working)
+    {
+        var stored = WorkingWeek.Current.On(day);
+        _workingHoursError = WorkingWeek.SetDay(day, working, stored.Start, stored.End);
+        SyncWorkingHoursDrafts();
+    }
+
+    private void ResetWorkingHours()
+    {
+        _workingHoursError = WorkingWeek.ResetToDefault();
+        SyncWorkingHoursDrafts();
+    }
+
+    private bool IsDefaultWorkingWeek =>
+        WorkingHours.Week.All(day => WorkingWeek.Current.On(day) == WorkingHours.Default.On(day));
+
+    /// <summary>The week in one sentence, so the section says what is in force
+    /// without the reader adding seven rows up themselves.</summary>
+    private string WorkingWeekSummary()
+    {
+        var worked = WorkingHours.Week.Select(WorkingWeek.Current.On).Where(day => day.Working).ToList();
+        if (worked.Count == 0) return "No working days. Nothing is marked as working hours.";
+
+        var names = string.Join(", ", worked.Select(day => day.Day.ToString()));
+
+        return worked.All(day => day.Start == worked[0].Start && day.End == worked[0].End)
+            ? $"{names}, {FormatWorkingTime(worked[0].Start)} to {FormatWorkingTime(worked[0].End)}."
+            : $"{names}, each between the hours listed.";
+    }
+
+    /// <summary>The wire format a <c>time</c> input takes and returns, and the
+    /// one the settings file is written in - invariant, so the two never drift
+    /// apart on a machine whose locale writes times some other way.</summary>
+    private static string FormatWorkingTime(TimeOnly time) =>
+        time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>Seconds are accepted as well as minutes because a browser is
+    /// entitled to send them, and refusing a time for being more precise than
+    /// the field asked for is a rejection nobody could act on.</summary>
+    private static bool TryReadWorkingTime(string text, out TimeOnly time) =>
+        TimeOnly.TryParseExact(
+            text,
+            ["HH:mm", "HH:mm:ss"],
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out time);
 
     /// <summary>The input's classes for a field whose rejection is reported in
     /// the status line beside it rather than by the component.</summary>

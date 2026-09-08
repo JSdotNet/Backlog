@@ -62,5 +62,12 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             MachineName: session.Environment,
             Assistant: AgentSessionGroups.Label(session.Kind),
             StartedAt: session.StartedAt,
-            LastActivityAt: session.LastActivityAt);
+            LastActivityAt: session.LastActivityAt)
+        {
+            // The agent's own identifier, carried across unchanged. It is what lets the
+            // Dashboard tell a session that left an activity record from one that left
+            // none, and an id rewritten here would be a join that silently matches
+            // nothing rather than one that fails.
+            Id = session.Id
+        };
 }
