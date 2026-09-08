@@ -6,21 +6,21 @@
     ".arc42"
   ],
   "stats": {
-    "nodes": 118,
-    "edges": 238,
+    "nodes": 120,
+    "edges": 240,
     "nodesByFolder": {
       "arc42": 90,
-      "domain": 18,
+      "domain": 20,
       "tech": 7,
       "design": 3
     },
     "nodesByType": {
-      "file": 43,
-      "chapter": 74,
+      "file": 44,
+      "chapter": 75,
       "heading": 1
     },
     "nodesByStatus": {
-      "active": 79,
+      "active": 81,
       "proposed": 10,
       "draft": 21,
       "none": 1,
@@ -28,7 +28,7 @@
     },
     "edgesByType": {
       "contains": 53,
-      "related": 185
+      "related": 187
     }
   },
   "problems": [],
@@ -712,7 +712,8 @@
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/08-crosscutting-concepts.md#task-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-            ".domain/sessions/domain.md#session-log"
+            ".domain/sessions/domain.md#session-log",
+            ".domain/sessions/features.md#sessions-from-another-machine"
           ]
         }
       },
@@ -725,7 +726,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "knowledge-index",
           "level": 2,
-          "line": 195,
+          "line": 219,
           "status": "proposed",
           "related": [
             ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -743,7 +744,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "feature-enablement",
           "level": 2,
-          "line": 254,
+          "line": 278,
           "status": "proposed",
           "related": [
             ".arc42/04-solution-strategy.md",
@@ -761,7 +762,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "tagging-and-organization",
           "level": 2,
-          "line": 281,
+          "line": 305,
           "status": "active",
           "related": [
             ".domain/roadmap/domain.md#roadmap-item-gathering"
@@ -777,7 +778,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "authentication-and-authorization",
           "level": 2,
-          "line": 302,
+          "line": 326,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -793,7 +794,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "observability",
           "level": 2,
-          "line": 325,
+          "line": 349,
           "status": "active",
           "related": [
             ".arc42/09-architecture-decisions.md"
@@ -809,7 +810,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "shared-data-types",
           "level": 2,
-          "line": 337,
+          "line": 361,
           "status": "active",
           "related": [
             ".arc42/12-glossary.md",
@@ -1117,6 +1118,7 @@
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
             ".domain/capture/domain.md#capture",
+            ".domain/sessions/dependencies.md",
             ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task",
             ".domain/tasks/naming.md#device"
@@ -1422,7 +1424,7 @@
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "slug": "identity",
           "level": 3,
-          "line": 443
+          "line": 500
         }
       },
       {
@@ -1604,6 +1606,26 @@
             ".domain/inbox/domain.md#inbox-item",
             ".arc42/08-crosscutting-concepts.md#shared-data-types",
             ".arc42/08-crosscutting-concepts.md#task-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/features.md#sessions-from-another-machine",
+          "label": "Sessions from another machine",
+          "type": "chapter",
+          "folder": "domain",
+          "path": ".domain/sessions/features.md",
+          "slug": "sessions-from-another-machine",
+          "level": 3,
+          "line": 105,
+          "status": "active",
+          "related": [
+            ".domain/sessions/domain.md#session-log",
+            ".domain/sessions/features.md#group-by-environment",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ],
           "outOfScope": true
@@ -1815,6 +1837,23 @@
           "related": [
             ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync"
+          ],
+          "outOfScope": true
+        }
+      },
+      {
+        "data": {
+          "id": ".domain/sessions/dependencies.md",
+          "label": "Sessions",
+          "type": "file",
+          "folder": "domain",
+          "path": ".domain/sessions/dependencies.md",
+          "status": "active",
+          "related": [
+            ".domain/context-map.md",
+            ".domain/dev-pc-management/domain.md#machine-registry",
+            ".arc42/08-crosscutting-concepts.md#session-record-sync",
+            ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"
           ],
           "outOfScope": true
         }
@@ -2921,6 +2960,14 @@
       },
       {
         "data": {
+          "id": "related:.arc42/08-crosscutting-concepts.md#session-record-sync->.domain/sessions/features.md#sessions-from-another-machine",
+          "source": ".arc42/08-crosscutting-concepts.md#session-record-sync",
+          "target": ".domain/sessions/features.md#sessions-from-another-machine",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
           "id": "related:.arc42/08-crosscutting-concepts.md#knowledge-index->.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
           "source": ".arc42/08-crosscutting-concepts.md#knowledge-index",
           "target": ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md",
@@ -3428,6 +3475,14 @@
           "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/capture/domain.md#capture",
           "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "target": ".domain/capture/domain.md#capture",
+          "type": "related"
+        }
+      },
+      {
+        "data": {
+          "id": "related:.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md->.domain/sessions/dependencies.md",
+          "source": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
+          "target": ".domain/sessions/dependencies.md",
           "type": "related"
         }
       },

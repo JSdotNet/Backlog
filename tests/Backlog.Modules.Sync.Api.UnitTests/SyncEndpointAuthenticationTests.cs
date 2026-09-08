@@ -27,6 +27,7 @@ public class SyncEndpointAuthenticationTests : IDisposable
     [
         SyncRoutes.Absolute(SyncRoutes.Inbox),
         SyncRoutes.Absolute(SyncRoutes.Tasks),
+        SyncRoutes.Absolute(SyncRoutes.Sessions),
     ];
 
     public void Dispose()

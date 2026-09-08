@@ -48,6 +48,35 @@ public static class SyncErrorCodes
     /// stopped batching or a caller that is not one of ours.</summary>
     public const string PushBatchTooLarge = "sync.push_batch_too_large";
 
+    /// <summary>More session records in one push than the service will take.
+    /// Its own code rather than sharing <see cref="PushBatchTooLarge"/>: the two
+    /// caps are different numbers over different containers, and a device told
+    /// only "too large" would not know which of its two pushes to make
+    /// smaller.</summary>
+    public const string SessionBatchTooLarge = "sync.session_batch_too_large";
+
+    /// <summary>A session record the service will not store — an empty session
+    /// id or agent kind, or a free-text field longer than the whitelist allows.
+    /// Refused at the edge and for the whole batch, so an oversized record is a
+    /// 400 naming the field rather than a store failure nobody can act
+    /// on.</summary>
+    public const string SessionInvalid = "sync.session_invalid";
+
+    /// <summary>One session record is larger than the store will take. Its own
+    /// code rather than <see cref="TaskTooLarge"/>, which names a task, and
+    /// mapped to 413 for the same reason that one is: it is the one replica
+    /// failure a retry cannot help with, so the batch carrying it would fail on
+    /// every run for ever and it has to be visible as the caller's to fix.
+    /// <para>
+    /// Reaching it means the edge bounds in <c>SyncRequestLimits</c> and the
+    /// store's own ceiling have drifted apart, because every field of a record is
+    /// bounded well below two megabytes before it gets here. That is worth
+    /// answering precisely rather than folding into "the replica is
+    /// unavailable", which would tell the caller to come back and try the same
+    /// record again.
+    /// </para></summary>
+    public const string SessionTooLarge = "sync.session_too_large";
+
     /// <summary>The <c>since</c> cursor is not one this service minted — wrong
     /// prefix, not base64, or a signature that does not verify. Mapped to 400:
     /// the caller sent something that is not a cursor, and the fix is to drop it

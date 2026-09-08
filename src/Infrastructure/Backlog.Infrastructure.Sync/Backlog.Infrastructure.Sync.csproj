@@ -45,6 +45,16 @@
     <!-- TaskItem, its full constructor, LoadStamps and ITaskRepository. See the
          header for why the implementation and not only its Abstractions. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <!-- The published surface only, and deliberately not the Sessions .UI project
+         that holds the local readers. Session replication reads AgentSession off
+         whatever answers IAgentSessionSource and hands replicated records back as a
+         second implementation of the same port, which is the widening that port's
+         own doc comment anticipates. The reverse reference is the one that cannot
+         exist: Backlog.Modules.Sessions.UI may not see Backlog.Modules.Sync.Abstractions,
+         because ModuleBoundaryTests forbids a module UI consuming another module's
+         published surface - which is why the replicated source lives here rather
+         than beside the local one. -->
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

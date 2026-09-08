@@ -587,6 +587,228 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.False(catalog.Capped);
     }
 
+    /// <summary>
+    /// The turn count is how many prompts the person sent, and this fixture is built
+    /// so that every cheaper way of arriving at a number gets a different one.
+    /// <para>
+    /// Counting the substring <c>"type":"user"</c> over the file is the first cheaper
+    /// way, and the assistant line here quotes a transcript line back inside its own
+    /// text so that count over-reads. Parsing every line and counting a root
+    /// <c>type</c> of <c>user</c> is the second, and the tool-result lines defeat it:
+    /// Claude files a tool's output as a user-role message, and on this machine's real
+    /// transcripts those outnumber the person's prompts by more than thirty to one. A
+    /// skill body injected as <c>isMeta</c> and a subagent's task prompt marked
+    /// <c>isSidechain</c> are user-role too, and neither was typed by anyone.
+    /// </para>
+    /// <para>
+    /// What survives all of that is what <see cref="AgentSession.TurnCount"/> defines:
+    /// an exchange the person initiated. Two of them here — the typed prompt, and the
+    /// one with a pasted image beside its text.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_transcript_counts_the_prompts_the_person_sent_and_nothing_else()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "counted",
+            Noon.AddHours(-1),
+            """{"type":"queue-operation","operation":"enqueue","content":"a queued prompt"}""",
+            """{"parentUuid":null,"isSidechain":false,"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"the first prompt"},"uuid":"1"}""",
+            """{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"a transcript line looks like {\"type\":\"user\",\"message\":{}} and that is why"}]}}""",
+            """{"type":"user","isSidechain":false,"toolUseResult":{"files":2},"message":{"role":"user","content":[{"tool_use_id":"toolu_01","type":"tool_result","content":"src/one.cs"}]}}""",
+            """{"type":"user","isSidechain":false,"toolUseResult":{"files":9},"message":{"role":"user","content":[{"tool_use_id":"toolu_02","type":"tool_result","content":"src/two.cs"}]}}""",
+            """{"type":"attachment","attachment":{"type":"user","content":"an attached file, filed under a line that is not a turn"}}""",
+            """{"type":"user","isMeta":true,"isSidechain":false,"message":{"role":"user","content":[{"type":"text","text":"Base directory for this skill: C:\\Users\\x"}]}}""",
+            """{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBOR"}},{"type":"text","text":"the second prompt"}]}}""",
+            """{"type":"user","isSidechain":true,"message":{"role":"user","content":"a subagent's own task prompt, written by an agent"}}""");
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal(2, session.TurnCount);
+    }
+
+    /// <summary>
+    /// A transcript the person never spoke in — a prompt queued and never sent, a
+    /// session that opened and closed. Null rather than 0, because 0 is a count and a
+    /// count is a claim: it would say someone sat here and said nothing, when what the
+    /// file supports is that there is nothing here to count.
+    /// </summary>
+    [Fact]
+    public async Task A_transcript_with_nothing_the_person_said_has_no_turn_count()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "silent",
+            Noon.AddHours(-2),
+            """{"type":"queue-operation","operation":"enqueue","content":"never sent"}""",
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main"}""",
+            """{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}}""");
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Null(session.TurnCount);
+    }
+
+    /// <summary>
+    /// A file of things that are not JSON at all. The count is null and the session is
+    /// still a row: a transcript this reader cannot make sense of costs the facts it
+    /// would have read out of it, and nothing else.
+    /// </summary>
+    [Fact]
+    public async Task A_malformed_transcript_has_no_turn_count_and_is_still_a_session()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "malformed",
+            Noon.AddHours(-3),
+            "not json at all",
+            "{ truncated because the disk filled",
+            "\"type\":\"user\" but not an object");
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        Assert.Equal("malformed", session.Id);
+        Assert.Null(session.TurnCount);
+        Assert.Empty(catalog.Unreadable);
+    }
+
+    /// <summary>
+    /// A transcript held open by the agent still appending to it. Counting turns reads
+    /// the whole file where the folder needed only its head, so this reader now runs a
+    /// race it used to run a fortieth of — and the answer has to stay the size of the
+    /// problem. One row keeps its place with a null count, the other rows are
+    /// untouched, and Claude is not named as an unreadable source, which is what would
+    /// happen if the count were allowed to throw out of here.
+    /// <para>
+    /// A partial count is the wrong answer rather than a nearly-right one: a file
+    /// interrupted at line nine of ninety reports a number lower than the truth with
+    /// nothing on the row to say so, and a reader comparing two sessions would be
+    /// comparing one real number against one artefact of a lost race.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_locked_transcript_has_no_turn_count_and_costs_no_other_row()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "locked",
+            Noon.AddHours(-1),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"the prompt nobody can read"}}""");
+
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "readable",
+            Noon.AddHours(-2),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"a prompt"}}""");
+
+        await using var _ = new FileStream(
+            Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "locked.jsonl"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var catalog = await ReadAsync();
+
+        Assert.Equal(2, catalog.Sessions.Count);
+        Assert.Empty(catalog.Unreadable);
+        Assert.Null(Assert.Single(catalog.Sessions, session => session.Id == "locked").TurnCount);
+        Assert.Equal(1, Assert.Single(catalog.Sessions, session => session.Id == "readable").TurnCount);
+    }
+
+    /// <summary>
+    /// A running session's own file says nothing about how much has been said in it,
+    /// so the count comes from the transcript the dedupe has already matched to it.
+    /// The row stays the live one — that file is still the better record of what the
+    /// session is called and where it is — carrying the one fact only the transcript
+    /// holds.
+    /// </summary>
+    [Fact]
+    public async Task A_live_session_takes_its_turn_count_from_its_own_transcript()
+    {
+        GivenClaudeLiveSession("shared", @"D:\Repos\Backlog", "live one", Noon.AddHours(-1), Noon.AddMinutes(-3));
+
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "shared",
+            Noon.AddMinutes(-3),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"the first prompt"}}""",
+            """{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_01","type":"tool_result","content":"a file"}]}}""",
+            """{"type":"user","message":{"role":"user","content":"the second prompt"}}""");
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        Assert.Equal(AgentSessionState.Running, session.State);
+        Assert.Equal("live one", session.Title);
+        Assert.Equal(2, session.TurnCount);
+
+        // Still one session. Taking a fact off the transcript must not also list it.
+        Assert.Equal(1, catalog.Discovered);
+    }
+
+    /// <summary>
+    /// A session registered as live before it has written a transcript. Null, because
+    /// the live file holds nothing to count and this reader does not answer a question
+    /// it was not told the answer to.
+    /// </summary>
+    [Fact]
+    public async Task A_live_session_with_no_transcript_yet_has_no_turn_count()
+    {
+        GivenClaudeLiveSession("fresh", @"D:\Repos\Backlog", "just started", Noon.AddMinutes(-1), Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Null(session.TurnCount);
+    }
+
+    /// <summary>
+    /// Copilot records no turn or message count anywhere this reader looks, so a
+    /// Copilot row's count is absent — Copilot's silence rather than this reader's
+    /// laziness, the same shape as the liveness marker it also does not write.
+    /// <para>
+    /// Asserted rather than left implicit, because "no count" is a fact about the
+    /// source that a later reader will otherwise take for a gap to be filled in from
+    /// timestamps or file sizes. Either of those would be an invented number wearing a
+    /// real one's name.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_copilot_session_has_no_turn_count()
+    {
+        GivenCopilotSession(
+            "0012e2c7-aa39-4e43-9e57-e74a0ab62517",
+            folder: @"D:\Repos\Backlog",
+            repository: "JSdotNet/Backlog",
+            branch: "main",
+            created: Noon.AddHours(-4),
+            updated: Noon.AddMinutes(-5));
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Null(session.TurnCount);
+    }
+
+    /// <summary>
+    /// Everything this source produces was read off this machine's own disk, so every
+    /// row says <see cref="AgentSessionOrigin.Local"/> — the live file, the transcript
+    /// and the Copilot descriptor alike. A row here saying otherwise would have come
+    /// from a source that is not this one.
+    /// </summary>
+    [Fact]
+    public async Task Every_session_this_source_produces_is_stamped_local()
+    {
+        GivenClaudeLiveSession("live", @"D:\Repos\Backlog", "running", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenClaudeTranscript("D--Repos-Backlog", "past", @"D:\Repos\Backlog", "main", Noon.AddHours(-5));
+        GivenCopilotSession("copilot", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        var catalog = await ReadAsync();
+
+        Assert.Equal(3, catalog.Sessions.Count);
+        Assert.All(catalog.Sessions, session => Assert.Equal(AgentSessionOrigin.Local, session.Origin));
+    }
+
     private Task<AgentSessionCatalog> ReadAsync() =>
         new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();
@@ -631,6 +853,26 @@ public sealed class AgentSessionSourceTests : IDisposable
             $$"""{"type":"user","sessionId":"{{id}}","cwd":"{{folder.Replace(@"\", @"\\")}}","gitBranch":"{{branch}}"}"""
         ]);
 
+        File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);
+    }
+
+    /// <summary>
+    /// A transcript of exactly the lines a test hands it, for the tests that are about
+    /// what is in the file rather than where it sits. The two-line fixture above stays
+    /// as it is: it is the shape most of these tests need, and rewriting them in terms
+    /// of this one would make every test that only cares about a folder carry a
+    /// transcript's worth of JSON to say so.
+    /// </summary>
+    private void GivenClaudeTranscriptOf(
+        string slug,
+        string id,
+        DateTimeOffset lastWrite,
+        params string[] lines)
+    {
+        var project = Directory.CreateDirectory(Path.Combine(ClaudeHome, "projects", slug));
+        var path = Path.Combine(project.FullName, $"{id}.jsonl");
+
+        File.WriteAllLines(path, lines);
         File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);
     }
 

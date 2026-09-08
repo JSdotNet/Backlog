@@ -99,7 +99,11 @@
     {
         get
         {
-            var basis = $"Read from what Claude and Copilot leave on this machine, over {Scope.Weeks} weeks. "
+            // "on this machine" was true until session records began replicating, and
+            // the machine breakdown directly under this note has listed several ever
+            // since — a note naming one machine above a table naming three is the kind
+            // of stale sentence a reader trusts and should not.
+            var basis = $"Read from what Claude and Copilot leave on the machines that have reported, over {Scope.Weeks} weeks. "
                 + "Claude does not record a repository, so the repository filter does not change this part.";
 
             if (!IsReady) return basis;

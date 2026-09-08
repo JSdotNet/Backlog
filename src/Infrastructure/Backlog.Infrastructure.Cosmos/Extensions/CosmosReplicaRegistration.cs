@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Cosmos.Sessions;
 using Backlog.Infrastructure.Cosmos.Tasks;
 using Backlog.Modules.Sync.Ports;
 using Microsoft.Azure.Cosmos;
@@ -8,10 +9,20 @@ using Microsoft.Extensions.Hosting;
 namespace Backlog.Infrastructure.Cosmos.Extensions;
 
 /// <summary>
-/// Wires the Cosmos-backed task replica into a host — or does nothing at all,
+/// Wires the Cosmos-backed replicas into a host — or does nothing at all,
 /// deliberately.
+/// <para>
+/// One method for both containers rather than one apiece, and the reason is the
+/// client rather than tidiness. There is a single <c>CosmosClient</c> for the
+/// account; registering it twice would build two connection pools and two
+/// background endpoint refreshes against the same account, and whichever
+/// registration ran second would be the one anything resolved. A method per
+/// replica would either have to do that or carry an "is it already there" probe,
+/// and both are worse than saying once that the sync service reaches one account
+/// with two containers in it (.arc42/adr/0005 §Storage).
+/// </para>
 /// </summary>
-public static class CosmosTaskReplicaRegistration
+public static class CosmosReplicaRegistration
 {
     /// <summary>
     /// Where the account endpoint may be named instead of by a connection
@@ -22,15 +33,18 @@ public static class CosmosTaskReplicaRegistration
     private const string AccountEndpointKey = $"{CosmosOptions.SectionName}:AccountEndpoint";
 
     /// <summary>
-    /// Registers the Cosmos client and the replica that reads it.
+    /// Registers the Cosmos client and the two replicas that read it — tasks and
+    /// session records.
     /// <para>
     /// <strong>In Development it no-ops when Cosmos is not configured.</strong>
     /// That is the point of the guard rather than a convenience: with no
     /// connection string and no account endpoint, the call returns having
     /// registered nothing, the module's
-    /// <c>TryAddSingleton&lt;ITaskReplica, InMemoryTaskReplica&gt;</c> stands,
-    /// and the sync service runs end to end with no emulator. Every endpoint
-    /// test gets that, and so does a bare <c>dotnet run</c> of the service.
+    /// <c>TryAddSingleton&lt;ITaskReplica, InMemoryTaskReplica&gt;</c> and
+    /// <c>TryAddSingleton&lt;ISessionReplica, InMemorySessionReplica&gt;</c>
+    /// stand, and the sync service runs end to end with no emulator. Every
+    /// endpoint test gets that, and so does a bare <c>dotnet run</c> of the
+    /// service.
     /// </para>
     /// <para>
     /// <strong>Anywhere else the same silence is a defect, so it throws.</strong>
@@ -43,10 +57,10 @@ public static class CosmosTaskReplicaRegistration
     /// </para>
     /// <para>
     /// Call it before <c>AddSyncModule()</c>. Both registrations are for the same
-    /// port, and the module's is a <c>TryAdd</c>, so whichever runs first wins.
+    /// ports, and the module's are <c>TryAdd</c>s, so whichever runs first wins.
     /// </para>
     /// </summary>
-    public static TBuilder AddCosmosTaskReplica<TBuilder>(this TBuilder builder)
+    public static TBuilder AddCosmosReplicas<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -65,8 +79,8 @@ public static class CosmosTaskReplicaRegistration
             {
                 throw new InvalidOperationException(
                     $"Cosmos is not configured. Set the '{CosmosOptions.ConnectionName}' connection string or "
-                    + $"'{AccountEndpointKey}'. Only a Development run may fall back to the in-memory replica, "
-                    + "which loses every owner's tasks when the process ends.");
+                    + $"'{AccountEndpointKey}'. Only a Development run may fall back to the in-memory replicas, "
+                    + "which lose every owner's tasks and session records when the process ends.");
             }
 
             return builder;
@@ -88,12 +102,14 @@ public static class CosmosTaskReplicaRegistration
             {
                 // Mandatory, and the single easiest thing here to leave out. The
                 // v3 SDK serialises with Newtonsoft by default, which ignores
-                // every [JsonPropertyName] on TaskDocument — including the one
-                // that makes OwnerId serialise as the /ownerId partition key.
-                // Omitting this line does not fail: it silently writes a
-                // container with no partitioning that matches the one the bicep
-                // declares.
-                options.UseSystemTextJsonSerializerWithOptions = TaskDocumentSerialization.Options;
+                // every [JsonPropertyName] on the document types — including the
+                // ones that make OwnerId serialise as the /ownerId partition key
+                // both containers are created on. Omitting this line does not
+                // fail: it silently writes documents with no partitioning that
+                // matches the containers the bicep declares, and on `sessions` it
+                // also writes documents that match none of the five paths that
+                // container indexes.
+                options.UseSystemTextJsonSerializerWithOptions = ReplicaDocumentSerialization.Options;
 
                 // Resilience per inherited ADR 0015. The standard HTTP resilience
                 // handler does not reach this dependency — CosmosClient owns its
@@ -111,11 +127,13 @@ public static class CosmosTaskReplicaRegistration
                 options.ConnectionMode = ConnectionMode.Gateway;
             });
 
-        // Add, not TryAdd: this is the concrete registration, and the in-memory
-        // one is what steps aside for it. Which is also why the call order in
-        // the summary above is not a style note — a TryAdd that ran first would
-        // leave the service talking to a dictionary while Cosmos sat there.
+        // Add, not TryAdd: these are the concrete registrations, and the
+        // in-memory ones are what step aside for them. Which is also why the call
+        // order in the summary above is not a style note — a TryAdd that ran
+        // first would leave the service talking to a dictionary while Cosmos sat
+        // there.
         builder.Services.AddSingleton<ITaskReplica, CosmosTaskReplica>();
+        builder.Services.AddSingleton<ISessionReplica, CosmosSessionReplica>();
 
         return builder;
     }

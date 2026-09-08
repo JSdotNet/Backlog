@@ -27,6 +27,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
@@ -153,6 +154,14 @@ public static class MauiProgram
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog",
             "task-sync-state.json")));
+        // Session replication's two files, in that same folder and for the same
+        // reasons - per-user, per-installation, never the workspace root. Two
+        // stores rather than one because a session save that corrupted a shared
+        // file would reset the task watermark above and re-push the whole machine;
+        // one call because where they go is the only part the host knows.
+        builder.Services.AddSessionSyncStores(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog"));
         // "https+http://sync" is resolved by Aspire service discovery, which
         // AddServiceDefaults above wired up, so the desktop always talks to the sync
         // service of this AppHost run. Ports are dynamic; a literal one would be
@@ -255,6 +264,16 @@ public static class MauiProgram
         // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
 
+        // Session replication, on top of AddSyncClient above and after the readers
+        // it pushes from: it reads this machine's sessions through the port that
+        // call registers and contributes a second source to the same port for what
+        // the other environments reported. Both lines are lazy factories, so the
+        // order is for whoever reads this file rather than for the container. It is
+        // its own call and its own feature key, because a person can want their
+        // tasks on both machines and still not want a list of what their agents
+        // have been doing leaving either one.
+        builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+
         // The join between the two: the Dashboard's sessions part reports on what the
         // Sessions context reads. Only an infrastructure adapter may see both, so the
         // registration is there rather than in either module — and it comes after both
@@ -285,6 +304,13 @@ public static class MauiProgram
         // an IHostedService: this head has no generic host to start one. See
         // TaskSyncWorker for the whole of that reasoning.
         _ = app.Services.GetRequiredService<TaskSyncWorker>();
+
+        // And session replication's own loop, for the same reason and with the
+        // same failure if it is left out. A sibling rather than a second exchange
+        // inside the worker above: see SessionSyncWorker for why one loop over two
+        // independently switchable features would have to run whenever either was
+        // on, and would give the two one shared error to report.
+        _ = app.Services.GetRequiredService<SessionSyncWorker>();
 
         return app;
     }

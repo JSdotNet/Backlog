@@ -27,6 +27,17 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// <c>.domain/sessions/dependencies.md</c>.
 /// </para>
 /// <para>
+/// Every session is also stamped <see cref="AgentSessionOrigin.Local"/>, which is
+/// the one field on a session record that describes the reading rather than the
+/// session. This source read it off this machine's own disk and can open the same
+/// file again to check; a record that arrived from elsewhere cannot say that, and
+/// the source that produces those says <see cref="AgentSessionOrigin.Replicated"/>
+/// on all of them. Stamped at the source rather than worked out later from whether
+/// the environment id matches this device: the readers know without comparing
+/// anything, and a comparison gets the wrong answer for a record this device pushed
+/// and received back.
+/// </para>
+/// <para>
 /// The identity is the kernel's <see cref="IDeviceIdentitySource"/> rather than
 /// <c>Environment.MachineName</c>, and that is the substantive change in this class:
 /// a name is not an identity. It is asked for once, at composition, because a machine

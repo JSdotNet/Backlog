@@ -53,7 +53,7 @@ public class TaskDocumentTests
         var document = TaskDocumentFactory.From(Scope, Change(), new CosmosOptions());
 
         using var json = JsonDocument.Parse(
-            JsonSerializer.Serialize(document, TaskDocumentSerialization.Options));
+            JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
 
         var root = json.RootElement;
 
@@ -72,7 +72,7 @@ public class TaskDocumentTests
         var document = TaskDocumentFactory.From(Scope, Change(), new CosmosOptions());
 
         using var json = JsonDocument.Parse(
-            JsonSerializer.Serialize(document, TaskDocumentSerialization.Options));
+            JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
 
         var task = json.RootElement.GetProperty("task");
 
@@ -94,7 +94,7 @@ public class TaskDocumentTests
         Assert.Null(document.Ttl);
 
         using var json = JsonDocument.Parse(
-            JsonSerializer.Serialize(document, TaskDocumentSerialization.Options));
+            JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
 
         Assert.False(json.RootElement.TryGetProperty("ttl", out _));
         Assert.False(json.RootElement.TryGetProperty("deletedAt", out _));
@@ -111,7 +111,7 @@ public class TaskDocumentTests
         Assert.Equal(1_234, document.Ttl);
 
         using var json = JsonDocument.Parse(
-            JsonSerializer.Serialize(document, TaskDocumentSerialization.Options));
+            JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
 
         Assert.Equal(1_234, json.RootElement.GetProperty("ttl").GetInt32());
     }
