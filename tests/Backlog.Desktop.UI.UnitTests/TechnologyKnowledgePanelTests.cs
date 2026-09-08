@@ -148,7 +148,7 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
         if (withTechFolder)
         {
-            WriteTechIndex(tech, "shared.md", "desktop.md");
+            WriteTechReadingOrder(tech, "shared.md", "desktop.md");
             File.WriteAllText(Path.Combine(tech, "technology-graph.md"), TechnologyGraph);
             File.WriteAllText(Path.Combine(tech, "shared.md"), SharedLayer);
             File.WriteAllText(Path.Combine(tech, "desktop.md"), DesktopLayer);
@@ -371,22 +371,18 @@ public sealed class TechnologyKnowledgePanelTests : IDisposable
 
     /// <summary>
     /// The committed reading order for a <c>.tech</c> fixture. The layer sequence
-    /// lives here now rather than in the root document's fence, so a fixture that
-    /// cares about order writes the index the reader actually consults.
+    /// lives in the authored <c>_reading-order.json</c> at the folder root — not
+    /// in the root document's fence, and no longer in the generated
+    /// <c>_meta/index.json</c> that fence was compiled into — so a fixture that
+    /// cares about order writes the file the reader actually consults.
     /// </summary>
-    private static void WriteTechIndex(string techPath, params string[] layers)
+    private static void WriteTechReadingOrder(string techPath, params string[] layers)
     {
-        Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
-
-        var entries = new List<string>
-        {
-            "{ \"type\": \"file\", \"name\": \"technology-graph.md\", \"path\": \".tech/technology-graph.md\", \"title\": \"Technology graph\", \"status\": \"draft\", \"root\": true }"
-        };
-        entries.AddRange(layers.Select(layer =>
-            $"{{ \"type\": \"file\", \"name\": \"{layer}\", \"path\": \".tech/{layer}\", \"title\": \"{layer}\", \"status\": null }}"));
+        var order = string.Join(", ", layers.Select(layer => $"\"{layer}\""));
 
         File.WriteAllText(
-            Path.Combine(techPath, "_meta", "index.json"),
-            "{ \"schemaVersion\": 1, \"scope\": \".tech\", \"problems\": [], \"entries\": [" + string.Join(", ", entries) + "] }");
+            Path.Combine(techPath, "_reading-order.json"),
+            "{ \"version\": 1, \"scope\": \".tech\", \"directories\": { \".tech\": "
+            + "{ \"root\": \"technology-graph.md\", \"order\": [" + order + "] } } }");
     }
 }

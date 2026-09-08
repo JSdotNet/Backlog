@@ -85,6 +85,8 @@ public sealed class AppFeatureSettingsStoreTests
                 KnowledgeFeatures.RepositoryKnowledge,
                 KnowledgeFeatures.ArchifyDiagrams,
                 KnowledgeFeatures.C4Diagrams,
+                KnowledgeFeatures.Search,
+                KnowledgeFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,

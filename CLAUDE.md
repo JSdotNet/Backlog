@@ -102,27 +102,40 @@ dotnet test Backlog.sln
 
 ## Knowledge indexes
 
-Each knowledge folder carries a generated `_meta/index.json` and `_meta/graph.json`.
-The desktop Knowledge panels **load from them at runtime** — `DomainKnowledgeStore`
-lists every bounded context out of the index and reads a context's Markdown only
-when that context is opened, rather than parsing all seventy-two `.domain` files up
-front. `KnowledgeIndexReader` is the consumer side of that contract.
-
-Refresh them on demand:
+The derived knowledge layer is **one generated SQLite database**, `_meta/knowledge.db`,
+holding the reference graph, the resolved reading outline, every chapter's text and
+hashes, the FTS5 index and the Archify artifact rows. It is a build output: git-ignored,
+rebuilt per machine, and **absent on a fresh clone until you build it**. Local ADR 0004
+(`.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is the decision and
+the reasoning.
 
 ```powershell
-./build/Update-KnowledgeIndex.ps1
+node tools/knowledge/build-database.mjs
 ```
 
-`-Scope .domain` limits it to one folder; `-Check` validates without writing.
-`/update-knowledge-index` is the same thing as a slash command.
+The authored half stays committed text: each knowledge folder carries a
+`_reading-order.json` naming its root document and the order of everything beside it.
+Edit that by hand when you move a chapter; it is the one part of the layer nobody
+generates.
 
-The policy around all of this — why refresh is deliberate rather than automatic,
-why the pull-request check only warns, and what a consumer owes the index it reads —
-is the `knowledge-base` plugin's `knowledge-derived-artifacts.instructions.md`, and
-is not restated here. The generator, both `knowledge-meta*` workflows, and the script
-above are installed copies of that plugin's tooling: re-sync them, never edit them
-here, and never hand-edit anything under `_meta/`.
+The desktop Knowledge panels **load from the database at runtime** and degrade in
+defined steps rather than on or off: a current row is served from the database, a file
+that has changed since it was indexed is read from its Markdown, an unrecognised schema
+version is ignored entirely, and an absent or unreadable database falls back to scanning
+the folder — which is what the panels did before any index existed. So browsing always
+works. Search is the one exception: without a database it is unavailable and says so,
+because scanning the corpus per query is a hang rather than a fallback.
+`Backlog.Infrastructure.Knowledge` is the reader; **nothing in C# ever writes to it.**
+
+`tools/knowledge/build-database.mjs` is repo-native and *imports* the installed
+generator's exported functions. Everything under `.github/tools/knowledge-meta/`, both
+`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are installed copies
+of the `knowledge-base` plugin's tooling: re-sync them, never edit them here, and never
+hand-edit anything under `_meta/`. The installed generator still writes
+`_meta/graph.json` and `_meta/index.json`; both are ignored now rather than committed.
+The convention behind all of this is that plugin's
+`knowledge-derived-artifacts.instructions.md`, and where this repository departs from it
+— on format, and on committing — ADR 0004 says so and says why.
 
 ## UI components
 

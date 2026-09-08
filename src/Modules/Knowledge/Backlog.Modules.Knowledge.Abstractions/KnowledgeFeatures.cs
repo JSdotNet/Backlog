@@ -41,4 +41,25 @@ public static class KnowledgeFeatures
     /// have should not have to take a whole second model with them.
     /// </para></summary>
     public const string C4Diagrams = "c4-diagrams";
+
+    /// <summary>Search the knowledge areas by the words their chapters use.
+    /// <para>
+    /// A knowledge key by the same rule as its neighbours: what it switches on is
+    /// a way of reading this context's chapters. It is the one capability that a
+    /// repository nobody has generated an index for cannot offer at all, which is
+    /// why the surface behind it says so in words rather than showing an empty
+    /// list — see <c>KnowledgeSearchAnswer.UnavailableMessage</c>.
+    /// </para></summary>
+    public const string Search = "knowledge-search";
+
+    /// <summary>Search the knowledge areas by what their chapters mean, beside
+    /// searching by their words.
+    /// <para>
+    /// Its own key rather than a second meaning for <see cref="Search"/>, because
+    /// the two are not one switch: retrieval by meaning needs an embedding model,
+    /// pins the database to whichever model produced its vectors, and is additive
+    /// — with it off, or with no vectors stored, search by words still answers.
+    /// Wired and making no live call yet.
+    /// </para></summary>
+    public const string SemanticSearch = "knowledge-semantic-search";
 }

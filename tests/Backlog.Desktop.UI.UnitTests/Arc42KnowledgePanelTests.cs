@@ -359,6 +359,7 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
             // test only appears for a decision record.
             File.WriteAllText(Path.Combine(arc42, "_meta", "index.json"), $$"""
                 {
+                  "schemaVersion": 1,
                   "entries": [
                     { "type": "file", "path": "{{indexPrefix}}/adr/0001-decision.md" },
                     { "type": "file", "path": "{{indexPrefix}}/01-introduction.md" }

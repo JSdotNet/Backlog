@@ -90,6 +90,18 @@ public static class AppFeatures
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
+            KnowledgeFeatures.Search,
+            "Knowledge search",
+            "Find the chapter that answers a question across every knowledge area at once. Results name the chapter they came from, so you can open it. A repository whose knowledge index has not been generated says so instead of showing an empty list.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
+            KnowledgeFeatures.SemanticSearch,
+            "Knowledge search by meaning",
+            "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a knowledge index built with an embedding model; without one, searching by words still answers.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",

@@ -3,19 +3,25 @@ using System.Diagnostics;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Every generator-written index file is pinned to LF in <c>.gitattributes</c>.
+/// Every generator-written index file that git tracks is pinned to LF in
+/// <c>.gitattributes</c>.
 ///
-/// <para>Two generators in this repository write a JSON index and both emit LF
-/// unconditionally: the knowledge index behind <c>build/Update-KnowledgeIndex.ps1</c>
-/// writes <c>**/_meta/*.json</c>, and <c>writeIndex()</c> in
-/// <c>tools/diagrams/archify-artifacts.mjs</c> writes <c>**/_archify/index.json</c>
-/// with a trailing newline and nothing else. With <c>core.autocrlf=true</c> — the
-/// Windows default, and what this repository is developed on — git hands the
-/// working copy back as CRLF, the generator's next run rewrites it as LF, and
-/// <c>git status</c> reports a file whose content did not change. The
-/// <c>_meta</c> half of the rule was written for exactly that; the
-/// <c>_archify</c> half was missing, so fourteen index files showed as modified
-/// after every re-render while <c>git diff</c> showed nothing.</para>
+/// <para><c>writeIndex()</c> in <c>tools/diagrams/archify-artifacts.mjs</c> writes
+/// <c>**/_archify/index.json</c> with a trailing newline and nothing else. With
+/// <c>core.autocrlf=true</c> — the Windows default, and what this repository is
+/// developed on — git hands the working copy back as CRLF, the generator's next run
+/// rewrites it as LF, and <c>git status</c> reports a file whose content did not
+/// change. The rule was written for the knowledge index and the Archify half was
+/// missing, so fourteen index files showed as modified after every re-render while
+/// <c>git diff</c> showed nothing.</para>
+///
+/// <para>The knowledge index is no longer one of these. Local ADR 0004 made the
+/// derived knowledge layer a generated <c>_meta/knowledge.db</c> that
+/// <c>.gitignore</c> covers, so <c>**/_meta/*.json</c> matches nothing git tracks
+/// and there is nothing left for a phantom diff to be a diff against. That is why
+/// the pathspecs below are one generator's rather than two, and why the guard on
+/// each rule finding files at all matters: it is what would catch this list going
+/// stale in the other direction.</para>
 ///
 /// <para>Asserted through <c>git check-attr</c> rather than by re-implementing
 /// git's pattern matching here. The claim is about what git resolves for a path,
@@ -37,19 +43,19 @@ public class GeneratedIndexLineEndingTests
     /// through <c>git ls-files</c> so build output and untracked scratch copies
     /// cannot join the set.</summary>
     private static readonly string[] GeneratedIndexes =
-        [":(glob)**/_meta/*.json", ":(glob)**/_archify/index.json"];
+        [":(glob)**/_archify/index.json"];
 
     /// <summary>The hand-written Archify specifications, which sit in the same
     /// folder as the index the generator writes.</summary>
     private static readonly string[] AuthoredSpecifications =
         [":(glob)**/_archify/*.json", ":(exclude,glob)**/_archify/index.json"];
 
-    /// <summary>The two generators that write a pinned index, by the path each is
-    /// invoked at. <c>.gitattributes</c> has to name both: the rules there are not
-    /// one workflow's private arrangement, and the next generator to be added needs
-    /// the comment to read as a list it belongs on.</summary>
+    /// <summary>The generators that write a pinned index git tracks, by the path
+    /// each is invoked at. <c>.gitattributes</c> has to name every one: the rules
+    /// there are not one workflow's private arrangement, and the next generator to
+    /// be added needs the comment to read as a list it belongs on.</summary>
     private static readonly string[] Generators =
-        ["build/Update-KnowledgeIndex.ps1", "tools/diagrams/archify-artifacts.mjs"];
+        ["tools/diagrams/archify-artifacts.mjs"];
 
     [Fact]
     public void Every_generated_index_is_pinned_to_lf()
@@ -105,15 +111,15 @@ public class GeneratedIndexLineEndingTests
     }
 
     /// <summary>
-    /// The comment above the rules names both generators.
+    /// The comment above the rules names every generator whose output they pin.
     ///
     /// <para>It named only <c>.github/workflows/knowledge-meta.yml</c>, which is a
-    /// consumer of one of them, so the next person to add a generator had nothing
+    /// consumer rather than a generator, so the next person to add one had nothing
     /// telling them the rule was theirs to extend — which is how the Archify index
     /// came to be missed in the first place.</para>
     /// </summary>
     [Fact]
-    public void The_line_ending_rules_name_both_generators()
+    public void The_line_ending_rules_name_every_generator()
     {
         var attributes = File.ReadAllText(RepositoryRoot.File(".gitattributes"));
 
@@ -121,8 +127,8 @@ public class GeneratedIndexLineEndingTests
         {
             Assert.True(
                 attributes.Contains(generator, StringComparison.Ordinal),
-                $".gitattributes does not mention {generator}. Both generators that write a pinned "
-                + "index have to be named there, so the rules read as a list of generator output rather "
+                $".gitattributes does not mention {generator}. Every generator that writes a pinned "
+                + "index has to be named there, so the rules read as a list of generator output rather "
                 + "than as one workflow's private arrangement.");
         }
     }

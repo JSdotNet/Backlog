@@ -100,7 +100,24 @@
                 @KnowledgeUpdatePresentation.ActionLabel(_updateState)
             </AppButton>
         }
-        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech"))
+        @* Search comes before the atlas and, unlike it, stays on Technology: the
+           map is a second way of looking at the documents in one section, and
+           search is a way into all of them at once, so which tab is open says
+           nothing about whether it is worth offering. Behind a flag because the
+           surface is only half the feature - the other half is a generated index
+           the repository may not have, which the surface itself reports. *@
+        @if (Scope.SearchOffered && VisibleAreas.Count > 0)
+        {
+            <AppButton BaseClass="knowledge-stack__search-toggle"
+                       Variant="ButtonVariant.None"
+                       TestId="knowledge-search-toggle"
+                       title="@(_searchOpen ? "Close search" : "Search every knowledge area at once")"
+                       aria-expanded="@(_searchOpen ? "true" : "false")"
+                       OnClick="ToggleSearch">
+                @(_searchOpen ? "Hide search" : "Search")
+            </AppButton>
+        }
+        @if (VisibleAreas.Count > 0 && !IsSectionActive("tech") && !_searchOpen)
         {
             @if (_atlasOpen)
             {
@@ -134,8 +151,8 @@
                Role="status"
                TestId="knowledge-update-status" />
 
-        <div class="knowledge-stack__body @(SectionUsesMenu && !_atlasOpen ? string.Empty : "knowledge-stack__body--without-menu")">
-            @if (SectionUsesMenu && !_atlasOpen)
+        <div class="knowledge-stack__body @(ShowMenu ? string.Empty : "knowledge-stack__body--without-menu")">
+            @if (ShowMenu)
             {
                 <KnowledgeMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Knowledge")"
                                        RootFolder="ActiveMenuRoot"
@@ -170,8 +187,13 @@
                        contents. *@
                     <TabPanel Id="@area.Key"
                               Title="@area.Label"
-                              BaseClass="@(_atlasOpen ? "knowledge-stack__section knowledge-stack__section--atlas" : "knowledge-stack__section")">
-                        @if (_atlasOpen)
+                              BaseClass="@(_atlasOpen || _searchOpen ? "knowledge-stack__section knowledge-stack__section--atlas" : "knowledge-stack__section")">
+                        @if (_searchOpen)
+                        {
+                            <KnowledgeSearchView RepositoryAlias="@ActiveRepositoryAlias"
+                                                 OnNavigateToChapter="OpenChapterFromSearch" />
+                        }
+                        else if (_atlasOpen)
                         {
                             <KnowledgeAtlasView Scope="@AtlasScope"
                                                 RepositoryAlias="@ActiveRepositoryAlias"
@@ -199,6 +221,7 @@
     private string _selectedSection = "instructions";
     private string _atlasScopeKey = "all";
     private bool _atlasOpen;
+    private bool _searchOpen;
     private string? _loadedMenuRepositoryAlias;
     private string _loadedMenuVisibleKeyFingerprint = string.Empty;
     private KnowledgeUpdateState _updateState = KnowledgeUpdateState.NotChecked;
@@ -334,6 +357,12 @@
 
     private bool SectionUsesMenu => !string.Equals(EffectiveSection, "tech", StringComparison.Ordinal);
 
+    /// <summary>Whether the chapter tree sits beside the body. The map and the
+    /// search results are both readings of the whole area rather than of the one
+    /// chapter a menu selects, so neither shares the width with it — and Technology
+    /// never had a menu to begin with.</summary>
+    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen;
+
     private string? SelectedChapterPath =>
         SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
 
@@ -435,6 +464,31 @@
     }
 
     private void CloseAtlas() => _atlasOpen = false;
+
+    /// <summary>
+    /// Opens or closes the search surface.
+    /// <para>
+    /// It closes the atlas on the way in, and the two are mutually exclusive
+    /// rather than stacked, because both replace the same panel body: showing one
+    /// over the other would leave the reader with two controls, one of which does
+    /// nothing visible until the other is pressed.
+    /// </para>
+    /// </summary>
+    private void ToggleSearch()
+    {
+        _searchOpen = !_searchOpen;
+        if (_searchOpen) _atlasOpen = false;
+    }
+
+    /// <summary>Following a result out of the list closes the list, for the reason
+    /// the atlas closes on the same move: the reader asked to go and read that
+    /// chapter, and leaving the search over it would answer a question they have
+    /// stopped asking.</summary>
+    private void OpenChapterFromSearch(KnowledgeChapterLink target)
+    {
+        SelectChapter(target);
+        _searchOpen = false;
+    }
 
     /// <summary>Widens the map to every knowledge folder at once. This is the
     /// explicit way back to the unfiltered view — the section tabs already narrow

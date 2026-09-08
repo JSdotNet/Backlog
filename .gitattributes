@@ -2,18 +2,20 @@
 # Without this, git's autocrlf would rewrite the working copy to CRLF on
 # Windows and the generator's next run would show a spurious diff.
 #
-# Two generators write a pinned index, and both belong on this list:
-#   build/Update-KnowledgeIndex.ps1        -> **/_meta/*.json
+# One generator writes a pinned index that git tracks:
 #   tools/diagrams/archify-artifacts.mjs   -> **/_archify/index.json
 #
-# The _meta half was written for the staleness check in
-# .github/workflows/knowledge-meta.yml, which is a consumer of one of them
-# rather than the reason the rule exists. The _archify half was missing, so
-# fourteen index files reported as modified after every re-render while
-# git diff showed nothing.
+# It was missing from this list once, and fourteen index files reported as
+# modified after every re-render while git diff showed nothing.
 #
-# Only the generated index is pinned. The Archify specifications beside it
-# are authored by hand, and pinning those would change what a Windows editor
-# writes instead of fixing a generator's phantom diff.
-**/_meta/*.json text eol=lf
+# `**/_meta/*.json` used to be pinned beside it, for the staleness check in
+# .github/workflows/knowledge-meta.yml. Local ADR 0004 took the derived knowledge
+# layer out of version control entirely -- it is `_meta/knowledge.db` now, a build
+# output listed in .gitignore -- so no tracked file is left for that rule to apply
+# to, and a phantom diff needs something committed to be a diff against.
+#
+# Only the generated index is pinned. The Archify specifications beside it are
+# authored by hand, and pinning those would change what a Windows editor writes
+# instead of fixing a generator's phantom diff. The same goes for each knowledge
+# folder's authored `_reading-order.json`, which no generator writes.
 **/_archify/index.json text eol=lf

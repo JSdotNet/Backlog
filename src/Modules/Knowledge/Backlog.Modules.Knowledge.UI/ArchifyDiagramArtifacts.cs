@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Knowledge;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Diagrams;
@@ -131,7 +132,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         if (!_features.IsEnabled(KnowledgeFeatures.ArchifyDiagrams)) return null;
         if (Diagram(source) is not { } diagram) return null;
 
-        var entries = ReadIndex(diagram.ChapterFile);
+        var entries = ReadIndex(diagram);
         var hash = DiagramSourceHash.Of(source);
         entries.TryGetValue(hash, out var entry);
 
@@ -648,7 +649,67 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         }
     }
 
-    private Dictionary<string, IndexEntry> ReadIndex(string chapterFile)
+    /// <summary>
+    /// What has been rendered for the chapters in this diagram's folder, keyed by
+    /// fence hash.
+    ///
+    /// <para>The generated database first — local ADR 0004 copied the fourteen
+    /// <c>_archify/index.json</c> files into <c>archify_artifact</c> rows, so the
+    /// lookup stops reading a JSON file per folder — and the file itself when there
+    /// is no database. The specifications and the rendered HTML stay on disk either
+    /// way; only the pointer moved.</para>
+    ///
+    /// <para>Read per call rather than cached, which is what it did before. The
+    /// artifact index changes underneath this while the app is running — that is
+    /// what the generate button does — and a cache with nothing to invalidate it
+    /// would leave a reader looking at mermaid beside a picture that now exists.</para>
+    /// </summary>
+    private Dictionary<string, IndexEntry> ReadIndex(ChapterDiagram diagram) =>
+        ReadDatabaseIndex(diagram) ?? ReadJsonIndex(diagram.ChapterFile);
+
+    /// <summary>
+    /// The folder's rows out of the database, or <see langword="null"/> when this
+    /// repository has no database, or has one that does not describe this chapter.
+    ///
+    /// <para>The second case matters as much as the first: a chapter reached
+    /// through a clone the database was not built from would otherwise be told it
+    /// has no artifacts, when what it has is no rows. Answering null sends it to
+    /// the file beside it, which is the same answer it got before.</para>
+    /// </summary>
+    private Dictionary<string, IndexEntry>? ReadDatabaseIndex(ChapterDiagram diagram)
+    {
+        using var database = KnowledgeDatabase.TryOpen(KnowledgeDatabaseLocation.ForRepositoryRoot(diagram.RootPath));
+        if (database is null) return null;
+
+        var directory = Path.GetRelativePath(diagram.RootPath, Path.GetDirectoryName(diagram.ChapterFile)!)
+            .Replace('\\', '/');
+
+        var rows = database.ArchifyArtifacts(directory);
+        if (rows.Count == 0) return null;
+
+        var entries = new Dictionary<string, IndexEntry>(rows.Count, StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            // Spelled the way the JSON spells it — bare names beside the chapter —
+            // so the two sources hand `IsSameDiagram` and the specification lookup
+            // the same strings and neither has to know which one answered.
+            entries[row.FenceHash] = new IndexEntry
+            {
+                Chapter = Path.GetFileName(row.ChapterPath),
+                Ordinal = row.Ordinal,
+                Type = row.Type,
+                Quality = row.Quality,
+                Kind = row.Kind,
+                Spec = row.SpecPath is { } spec ? Path.GetFileName(spec) : null,
+                Artifact = row.ArtifactPath is { } artifact ? Path.GetFileName(artifact) : null
+            };
+        }
+
+        return entries;
+    }
+
+    private Dictionary<string, IndexEntry> ReadJsonIndex(string chapterFile)
     {
         var file = Path.Combine(Path.GetDirectoryName(chapterFile)!, ArtifactDirectory, IndexFile);
         if (!File.Exists(file)) return [];

@@ -61,9 +61,11 @@ The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — 
 
 The generator at `.github/tools/knowledge-meta/`, the `knowledge-meta` and `knowledge-meta-nightly` workflows, and `build/Update-KnowledgeIndex.ps1` are installed copies of the plugin's tooling; re-sync them from the plugin rather than editing them locally.
 
-Refresh the indexes with `./build/Update-KnowledgeIndex.ps1`. When and why is the plugin's `knowledge-derived-artifacts.instructions.md`, not restated here.
+What is Backlog's own, and where it departs from that convention, is local ADR 0004 (`.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`): the derived knowledge layer is **one generated SQLite database**, `_meta/knowledge.db`, and it is not committed. Build it with `node tools/knowledge/build-database.mjs` — repo-native tooling that imports the installed generator's exported seam rather than editing it, the same arrangement as `tools/knowledge/check-metadata.mjs`. A fresh clone has no database until you run it.
 
-What is Backlog's own: the derived `_meta/index.json` is **load-bearing at runtime**. The desktop Knowledge panels read it — `DomainKnowledgeStore` lists all twelve bounded contexts from the index and opens a context's Markdown only when that context is opened, rather than parsing all seventy-two `.domain` files up front. `KnowledgeIndexReader` implements the convention's consumer rules (one `stat` per entry, re-read only what is strictly newer, fall back to the scan on a missing or unrecognised index), so any change to it is a change against that contract.
+The authored half stays committed text: each knowledge folder's `_reading-order.json` names its root document and the order of everything beside it, and is hand-edited when a chapter moves.
+
+The database is **load-bearing at runtime**. The desktop Knowledge panels read it and degrade in defined steps — current row from the database, changed file from its Markdown, unrecognised schema version ignored entirely, absent or unreadable database falls back to scanning the folder. Browsing therefore always works; search is the one capability that an unindexed repository does not have, and it says so rather than returning nothing. `Backlog.Infrastructure.Knowledge` is the reader, and **nothing in C# ever writes to the database** — the Node writer is the only writer, so the Markdown parse has exactly one implementation.
 
 ## UI components
 
@@ -81,7 +83,7 @@ See `.github/instructions/naming.instructions.md` for repository-wide file and f
 - Do not invent permanent project structure before architecture and domain decisions make the boundaries clear.
 - Ground governance and coding decisions in the checked-in decision records instead of memory. `.arc42/adr/guidelines/` is a fork of the organization's corpus, not a mirror: change it here when Backlog diverges, and record the divergence in that document's **Deviations and gaps** section.
 - Treat checked-in knowledge folders such as `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` as **task-scoped context**, not baseline context. Load only the relevant chapters after routing to the correct orchestration or specialist agent, or when the user explicitly asks for that knowledge.
-- Never hand-edit anything under an `_meta/` folder; it is generated. Run `pwsh build/Update-KnowledgeIndex.ps1` instead — and only when you actually want the indexes current in your branch, since the nightly refresh reconciles `main` anyway.
+- Never hand-edit anything under an `_meta/` folder; it is generated and no longer committed. Run `node tools/knowledge/build-database.mjs` to rebuild the knowledge database. The authored `_reading-order.json` beside each knowledge folder is the exception — nothing generates it, so it is edited by hand.
 - Honor the standing product UX rules recorded in `.design/`: dark mode only, no save buttons (everything auto-saves), Markdown stays canonical behind the rich text editor, and every drag-and-drop reorder has a keyboard equivalent.
 - Commit changes as they are made; do not leave edits uncommitted across multiple turns of the same task.
 - Never open a pull request unless the user explicitly asks for one (via the create-PR action, a PR-creation skill, or a direct request). Committing to the session branch is not an implicit request to open a PR.

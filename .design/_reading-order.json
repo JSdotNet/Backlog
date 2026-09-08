@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "scope": ".design",
+  "directories": {
+    ".design": {
+      "root": "README.md",
+      "order": [
+        "design-principles.md",
+        "color-scheme.md",
+        "typography-and-layout.md",
+        "interaction-guidelines.md",
+        "content-editing.md",
+        "accessibility.md",
+        "component-libraries.md"
+      ]
+    }
+  }
+}
