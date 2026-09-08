@@ -14,6 +14,18 @@ public sealed class InstructionSourceDiscovery
         "node_modules"
     ];
 
+    /// <summary>
+    /// The instruction files that sit at the repository root rather than inside one
+    /// of the instruction folders.
+    ///
+    /// <para>Public because the knowledge menu builds its roots out of folders and
+    /// so has no node to hang these off. It listed only <c>.github</c>, <c>.claude</c>
+    /// and <c>.agents</c>, which left <c>CLAUDE.md</c> discovered, listed in the
+    /// comparison, and impossible to open. Shared rather than copied, so the menu
+    /// cannot drift from what discovery actually reads.</para>
+    /// </summary>
+    public static IReadOnlyList<string> RootFileNames { get; } = ["CLAUDE.md", "AGENTS.md"];
+
     public IReadOnlyList<InstructionRepositoryView> Discover(IEnumerable<GitHubRepositoryRef> repositories) =>
     [
         .. repositories.Select(DiscoverRepository)

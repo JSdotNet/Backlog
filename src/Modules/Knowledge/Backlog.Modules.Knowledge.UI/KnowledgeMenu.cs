@@ -68,7 +68,37 @@ public sealed class KnowledgeMenu(IKnowledgeFolderSource source)
         AddInstructionRoot(roots, repositoryRoot, ".github", ".github", areaKey, cancellationToken);
         AddInstructionRoot(roots, repositoryRoot, ".claude", ".claude", areaKey, cancellationToken);
         AddInstructionRoot(roots, repositoryRoot, ".agent", ".agent", areaKey, cancellationToken, fallbackRelativePath: ".agents");
+        AddRootInstructionFiles(roots, repositoryRoot, areaKey);
         return roots;
+    }
+
+    /// <summary>
+    /// The instruction files that live at the root, as leaves beside the folders.
+    ///
+    /// <para>Without these the menu offers three folders and nothing else, so
+    /// <c>CLAUDE.md</c> - which discovery reads and the loading comparison lists -
+    /// has no row to click. The names come from discovery rather than from a
+    /// second list here, because two lists is how a menu starts disagreeing with
+    /// what the panel beside it can open.</para>
+    /// <para>Last, after the folders: they are the structure, and a handful of
+    /// loose files reads as a footnote to it rather than as a peer.</para>
+    /// </summary>
+    private static void AddRootInstructionFiles(List<KnowledgeMenuNode> roots, string repositoryRoot, string areaKey)
+    {
+        foreach (var name in InstructionSourceDiscovery.RootFileNames)
+        {
+            var fullPath = Path.Combine(repositoryRoot, name);
+            if (!File.Exists(fullPath)) continue;
+
+            roots.Add(new KnowledgeMenuNode(
+                Key(repositoryRoot, fullPath),
+                FileLabel(fullPath),
+                RelativePath(repositoryRoot, fullPath),
+                KnowledgeMenuNodeKind.File,
+                areaKey,
+                [],
+                true));
+        }
     }
 
     private static void AddInstructionRoot(
