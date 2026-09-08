@@ -5738,6 +5738,21 @@ h1, h2, h3 {
     justify-content: space-between;
 }
 
+/* A hairline between the bands. The library's ramp is four tints of one hue, and
+   measured against each other two adjacent tints come out at 1.44:1 - under the
+   3:1 a non-text boundary needs, so the joins were invisible at 1x and the bar
+   read as one solid band. The separator is the app background rather than the
+   pane it sits on - a shade darker than the surface behind the bar, which reads
+   as a cut rather than as a seam, and costs no second hue either way.
+
+   Only a separator. A minimum width per band was the other option and was not
+   taken: widening a band that is genuinely 0.2% of the window would misstate the
+   one number this whole surface exists to state honestly. A band too small to
+   see is the finding, not a rendering fault. */
+.instruction-reach__window .metric-breakdown-bar__segment + .metric-breakdown-bar__segment {
+    border-left: var(--border-width) solid var(--color-background);
+}
+
 /* The machine's own contribution, kept visually apart from the repository's.
    A reader has to be able to tell at a glance which half of the figure they
    could change by editing a file in this repo and which half they could only

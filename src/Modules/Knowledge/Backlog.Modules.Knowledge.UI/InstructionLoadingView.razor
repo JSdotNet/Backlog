@@ -89,15 +89,33 @@
                          OnChanged="SelectWindow" />
         </div>
 
+        @* Named, because the legend is the content and the label above it is a
+           bare paragraph the list has no link to. Read by list, every row would
+           otherwise arrive without saying which assistant it belonged to. *@
         <MetricBreakdownBar Parts="@WindowParts(row => row.Claude, "Claude Code")"
                             Label="Claude Code"
                             FormatValue="@FormatTokens"
-                            TestId="instructions-reach-window-claude" />
+                            TestId="instructions-reach-window-claude"
+                            role="group"
+                            aria-label="Claude Code context window" />
 
         <MetricBreakdownBar Parts="@WindowParts(row => row.Copilot, "GitHub Copilot")"
                             Label="GitHub Copilot"
                             FormatValue="@FormatTokens"
-                            TestId="instructions-reach-window-copilot" />
+                            TestId="instructions-reach-window-copilot"
+                            role="group"
+                            aria-label="GitHub Copilot context window" />
+
+        @* Said out loud, because a reader who picks a path and sees one of two
+           bars move will read the still one as broken. It is not: a host with no
+           path-scoped rules has nothing for a path to switch on. *@
+        @if (Comparison.IsScoped && HasNoPathScopedRules(row => row.Claude))
+        {
+            <p class="instruction-reach__caveat" data-testid="instructions-reach-window-note">
+                Claude Code's bar does not move when you pick a path: nothing it reads in this
+                repository is scoped by one, so there is nothing for a path to switch on.
+            </p>
+        }
 
         <p class="instruction-reach__caveat">
             Every figure here is the same four-bytes-per-token estimate as above.
@@ -348,6 +366,12 @@
             new MetricPart("Messages, tools and the rest", Math.Max(0, _window - always - matched - machine))
         ];
     }
+
+    /// <summary>Whether a host has any rule a path could switch on at all — as
+    /// opposed to having one that this selection happens to miss. The two look
+    /// identical on the bar and are not the same fact.</summary>
+    private bool HasNoPathScopedRules(Func<InstructionLoadingRow, InstructionHostReach> host) =>
+        !Comparison.Rows.Any(row => host(row).Reach == InstructionReach.OnMatch);
 
     private long LoadedBytes(Func<InstructionLoadingRow, InstructionHostReach> host, InstructionReach reach) =>
         Comparison.Rows

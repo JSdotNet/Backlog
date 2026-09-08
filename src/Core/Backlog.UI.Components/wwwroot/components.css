@@ -2243,6 +2243,23 @@ button.md-check {
     color: var(--color-text-primary);
 }
 
+/* Nor are the active row and the hovered row, and until this rule they were
+   drawn identically — the same fill, the same border colour, the same ink. In a
+   tree that stands still that is survivable, because only one row is ever
+   chosen. In one being clicked through it is not: while the pointer sits
+   anywhere in the list, the row under it is indistinguishable from the row you
+   actually picked, and a multi-select tree becomes a list where the only record
+   of your choices is somewhere else on the page.
+
+   Twice the fill and a solid bar down the edge. The bar is an inset shadow
+   rather than a wider border because a border would move the label a pixel every
+   time a row was chosen. */
+.knowledge-menu__item--active,
+.folder-tree__item--active {
+    background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 /* The active row and the focused row are not the same row, so the fill cannot
    speak for both. */
 .knowledge-menu__item:focus-visible,
