@@ -148,6 +148,7 @@
                 <MetadataChapterView Metadata="@ShownMetadataOf(fence)"
                                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
                                      ShowFields="@RenderKnowledgeMetadataFields"
+                                     CanEditStatus="@CanEditKnowledgeStatus"
                                      OnStatusChanged="status => ReportStatusAsync(index, status)"
                                      OnNavigate="@OnKnowledgeNavigate"
                                      HrefFor="@KnowledgeHrefFor"
@@ -231,6 +232,7 @@
                             InlineTarget="@InlineTarget"
                             RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                             RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                            CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
                             KnowledgeFolder="@KnowledgeFolder"
                             OnKnowledgeNavigate="@OnKnowledgeNavigate"
                             KnowledgeHrefFor="@KnowledgeHrefFor" />;
@@ -718,6 +720,14 @@
     /// Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Whether a chapter's status may be changed from this view. False
+    /// draws the static badge in place of the select — the status is still
+    /// stated, only the means of altering it goes away. A knowledge folder read
+    /// from a repository branch passes false, because the file behind it is a
+    /// copy of a commit and an edit would not survive the next fetch.</summary>
+    [Parameter]
+    public bool CanEditKnowledgeStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>

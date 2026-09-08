@@ -35,8 +35,8 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
 
     /// <summary>
     /// Development, because this host has no Cosmos configured and only a
-    /// Development run is allowed to fall back to the in-memory replica — see
-    /// <c>CosmosTaskReplicaRegistration</c>. Nothing these tests assert is
+    /// Development run is allowed to fall back to the in-memory replicas — see
+    /// <c>CosmosReplicaRegistration</c>. Nothing these tests assert is
     /// environment-specific: the authentication pipeline, the authorization
     /// policies and the problem shape are the same either way. The two cases
     /// that are about a deployed host say so themselves.

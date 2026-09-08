@@ -332,6 +332,139 @@ public class SessionInsightsTests
         Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
     }
 
+    /// <summary>
+    /// The weekly series the part draws as columns, and the one instant it is allowed
+    /// to bucket on.
+    /// <para>
+    /// A session is one mark in the ISO week it last moved. That is the only week every
+    /// session has: the start is optional and there is no end recorded at all, so any
+    /// other rule would either invent a fact or drop the sessions missing one. The cost
+    /// is that a session running across a week boundary is drawn once rather than in
+    /// both weeks, which the chart's own caption says out loud.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Sessions_are_counted_into_the_week_they_last_moved()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                // Two in the ISO week before the one Now falls in...
+                Session(Tower, "Claude", Now.AddDays(-8), Now.AddDays(-8)),
+                Session(Tower, "Copilot", Now.AddDays(-7), Now.AddDays(-7)),
+                // ...and one in Now's own week.
+                Session(Tower, "Claude", Now.AddHours(-2), Now.AddHours(-1)))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal([2m, 1m], value.SessionsPerWeek.TakeLast(2).Select(point => point.Value));
+
+        // ISO week labels, not a rolling seven-day count back from today: the last
+        // bucket has to mean the same thing tomorrow as it does now, or two readings a
+        // day apart would put the same session in different columns.
+        Assert.Equal(["W33", "W34"], value.SessionsPerWeek.TakeLast(2).Select(point => point.Label));
+    }
+
+    /// <summary>
+    /// A quiet week is a fact about the window and is drawn as one. Dropping it would
+    /// close the gap and draw two weeks either side of it as consecutive, which is the
+    /// one thing a reader takes off a column chart without checking.
+    /// </summary>
+    [Fact]
+    public async Task A_week_nobody_worked_is_a_zero_point_not_a_missing_one()
+    {
+        var scope = DashboardScope.Default;
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddDays(-15), Now.AddDays(-15)),
+                Session(Tower, "Claude", Now.AddHours(-2), Now.AddHours(-1)))
+        });
+
+        var value = await ValueOf(insights, scope);
+
+        // One bucket per ISO week the window touches. The window is a whole number of
+        // weeks back from a day boundary, so it opens on the same weekday it closes and
+        // the axis carries one bucket more than it has weeks.
+        Assert.Equal(scope.Weeks + 1, value.SessionsPerWeek.Count);
+
+        Assert.Equal([1m, 0m, 1m], value.SessionsPerWeek.TakeLast(3).Select(point => point.Value));
+    }
+
+    [Fact]
+    public async Task The_series_follows_the_machine_filter()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1)),
+                Session(Laptop, "Copilot", Now.AddHours(-3), Now.AddHours(-1)),
+                Session(Laptop, "Claude", Now.AddDays(-8), Now.AddDays(-8)))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default with { MachineId = Laptop });
+
+        // One week each for the laptop. The tower's session sits in the same week as
+        // one of them, so a filter that failed open would read three here rather than
+        // two — which is what makes the total worth asserting beside the tail.
+        Assert.Equal([1m, 1m], value.SessionsPerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal(2m, value.SessionsPerWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
+    /// The columns inherit the part's refusal of the repository dimension rather than
+    /// quietly honouring it. Claude records no repository against a session, so a
+    /// series that moved with the repository filter would be drawing the absence of
+    /// Claude's data as a fall in sessions.
+    /// </summary>
+    [Fact]
+    public async Task The_series_ignores_the_repository_filter()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddDays(-8), Now.AddDays(-8)),
+                Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-1)))
+        });
+
+        var everywhere = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, DashboardScope.Default with { RepositoryAlias = "backlog" });
+
+        Assert.Equal(everywhere.SessionsPerWeek, focused.SessionsPerWeek);
+
+        // Not two empty series agreeing with each other.
+        Assert.Equal(2m, focused.SessionsPerWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
+    /// The bucketing instant, pinned against the plausible alternative. A session that
+    /// began before the window opened is bucketed on its last activity, so it lands in
+    /// the week it last moved — bucketed on its start it would fall off the axis
+    /// altogether and the chart would draw nothing for a session the tiles above it
+    /// are counting.
+    /// </summary>
+    [Fact]
+    public async Task A_session_that_started_before_the_window_still_counts_in_the_week_it_last_moved()
+    {
+        var scope = DashboardScope.Default;
+        var (from, _) = scope.Window(Now);
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Claude", from.AddDays(-5), Now.AddHours(-1)))
+        });
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(1, value.Sessions);
+        Assert.Equal(1m, value.SessionsPerWeek[^1].Value);
+
+        // Once, and only in the last bucket.
+        Assert.Equal(1m, value.SessionsPerWeek.Sum(point => point.Value));
+    }
+
     [Fact]
     public async Task A_capped_read_is_reported_as_capped_with_whatever_it_could_not_read()
     {

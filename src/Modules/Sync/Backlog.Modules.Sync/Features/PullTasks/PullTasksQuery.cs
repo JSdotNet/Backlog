@@ -61,7 +61,7 @@ public sealed class PullTasksQueryHandler(ITaskReplica replica, ISyncCursorCodec
                 return verified.Error;
             }
 
-            cursor = verified.Value;
+            cursor = new TaskReplicaCursor(verified.Value);
         }
 
         var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);

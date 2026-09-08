@@ -292,6 +292,13 @@
               "path": ".arc42/adr/0007-import-reuses-the-entry-text-grammar.md",
               "title": "ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text",
               "status": "proposed"
+            },
+            {
+              "type": "file",
+              "name": "0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md",
+              "path": ".arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md",
+              "title": "ADR 0008: Knowledge reads from a cached branch snapshot when there is no clone; only a clone is editable",
+              "status": "proposed"
             }
           ]
         },

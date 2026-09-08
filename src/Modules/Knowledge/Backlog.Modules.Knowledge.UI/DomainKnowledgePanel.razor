@@ -168,6 +168,11 @@
     private bool _comparing;
     private string _baselineId = OpenedBaselineId;
     private DomainKnowledgeView? _view;
+
+    /// <summary>Whether this panel may write anything back. False for a folder
+    /// read from a repository branch, which hides the status controls and the
+    /// launchers rather than offering changes the next fetch would discard.</summary>
+    private bool CanEdit => _view?.CanEdit ?? true;
     private KnowledgeChapterContent _chapter = KnowledgeChapterContent.None;
     private DomainKnowledgeDocument? _chapterDocument;
     private KnowledgeChapterEditor? _editor;
@@ -857,6 +862,7 @@
                       RenderKnowledgeMetadataFields="false"
                       KnowledgeFolder="KnowledgeFolder.Domain"
                       KnowledgeDocumentPath="@document.Path"
+                      CanEditKnowledgeStatus="@CanEdit"
                       OnKnowledgeStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
                       Comments="@ChapterComments()"
@@ -864,7 +870,7 @@
                       OnResolveComment="ResolveChapterComment"
                       OnEditComment="EditChapterComment"
                       OnDeleteComment="DeleteChapterComment"
-                      CanEdit="@(_chapter.Chapter is not null)"
+                      CanEdit="@(_chapter.Chapter is { CanEdit: true })"
                       Editing="@_editing"
                       EditingChanged="OnEditingChangedAsync"
                       EditBodyContent="@ChapterEditor()"
@@ -973,7 +979,18 @@
        chapter that states no status has no record for the file view to draw, and
        the only way to give it one is still this select. *@
     private RenderFragment RenderKnowledgeActions(KnowledgeActionItem item, bool showStatus = true) => @<div class="domain-knowledge__actions" aria-label="Knowledge item actions">
-        @if (showStatus)
+        @* Read from a branch, the state is still shown — it is part of what the
+           chapter says — but as the badge rather than the select, which is the
+           same substitution MetadataView makes when a status cannot honestly be
+           edited. Hiding it outright would take the information with the
+           control. *@
+        @if (showStatus && !CanEdit)
+        {
+            <MetadataStatusBadge Status="@KnowledgeActionMetadata.Status(item.Metadata)"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain)"
+                                 TestId="knowledge-state-badge" />
+        }
+        else if (showStatus)
         {
             @* The slug comes from the vocabulary rather than being left to the
                control to derive. Without it a cleared item fell through to

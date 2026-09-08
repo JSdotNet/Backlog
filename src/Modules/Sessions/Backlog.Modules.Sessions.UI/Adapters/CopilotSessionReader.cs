@@ -22,6 +22,33 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// that trade changes and the package is the right answer then.
 /// </para>
 /// <para>
+/// <b>Copilot records no turn count either, and this was checked rather than
+/// assumed.</b> <c>workspace.yaml</c> holds an id, the two folders, the repository,
+/// the branch, a client name, an optional session name, the two timestamps and two
+/// counters that count neither turns nor messages — <c>summary_count</c> and
+/// <c>fork_count</c> — so <see cref="AgentSession.TurnCount"/> is null on every row
+/// this reader produces. Copilot's silence, not this reader's laziness: the same
+/// shape as the liveness marker below, and the same answer.
+/// </para>
+/// <para>
+/// Nothing else in the folder is read for it, and the temptation is real enough to
+/// name so a later reader does not take the null for an oversight. A sibling
+/// <c>events.jsonl</c> exists in some session folders — 223 of the 691 on the
+/// profile this was checked against, and 40 of the hundred most recent — and it does
+/// log <c>user.message</c> events that could be counted. Counting them was declined
+/// here, not overlooked: it would make the column mean "turns" for the third of
+/// sessions that have the file and "nothing recorded" for the rest, at the price of a
+/// second whole-file pass per row, and a column meaning two things is worse than one
+/// that is honestly empty. Filling it from that file is a decision worth taking on
+/// its own evidence rather than as a side effect of the field arriving.
+/// </para>
+/// <para>
+/// Nothing weaker than a recorded event is a turn count at all. A folder's size, its
+/// timestamps, how many checkpoints it holds — each of those correlates with how much
+/// happened and none of them is how many times a person spoke, and reading one out of
+/// them would be inventing the number rather than finding it.
+/// </para>
+/// <para>
 /// <b>Copilot has no liveness marker.</b> The folder stays exactly as it is after a
 /// session ends, so there is nothing on disk that distinguishes "running and quiet"
 /// from "over". This reader therefore calls a recently-updated session Running and
@@ -135,7 +162,16 @@ internal sealed class CopilotSessionReader
             LastActivityAt: lastActivity,
             State: now - lastActivity > AgentSessionStates.StaleAfter
                 ? AgentSessionState.Finished
-                : AgentSessionState.Running);
+                : AgentSessionState.Running,
+
+            // Absent, for the reason this class's summary argues at length: Copilot
+            // writes no count, and 0 would be a claim about a session this reader
+            // knows nothing about.
+            TurnCount: null,
+
+            // Read off this machine's own disk, which is the only kind of record this
+            // reader can produce.
+            Origin: AgentSessionOrigin.Local);
     }
 
     /// <summary>

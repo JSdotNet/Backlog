@@ -26,8 +26,25 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
     private readonly WorkspaceSettingsStore _store;
     private readonly bool _useRepositoryFallbackWhenNoAlias;
 
+    /// <summary>
+    /// The branch snapshots, or null where nothing composed one.
+    /// <para>
+    /// Optional rather than required because a snapshot needs a network client
+    /// and several compositions — tests, and anything that only ever reads a
+    /// local folder — have no business constructing one. Where it is absent, a
+    /// repository with no clone answers exactly what it answered before branch
+    /// loading existed.
+    /// </para>
+    /// </summary>
+    private readonly IKnowledgeSnapshotCache? _snapshots;
+
     public KnowledgeFolderSource(GitHubSettingsStore settings, WorkspaceSettingsStore store)
         : this(settings, store, useRepositoryFallbackWhenNoAlias: false)
+    {
+    }
+
+    public KnowledgeFolderSource(GitHubSettingsStore settings, WorkspaceSettingsStore store, IKnowledgeSnapshotCache? snapshots)
+        : this(settings, store, useRepositoryFallbackWhenNoAlias: false, snapshots)
     {
     }
 
@@ -42,7 +59,11 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
     {
     }
 
-    public KnowledgeFolderSource(GitHubSettingsStore settings, WorkspaceSettingsStore store, bool useRepositoryFallbackWhenNoAlias)
+    public KnowledgeFolderSource(
+        GitHubSettingsStore settings,
+        WorkspaceSettingsStore store,
+        bool useRepositoryFallbackWhenNoAlias,
+        IKnowledgeSnapshotCache? snapshots = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(store);
@@ -50,6 +71,7 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
         _settings = settings;
         _store = store;
         _useRepositoryFallbackWhenNoAlias = useRepositoryFallbackWhenNoAlias;
+        _snapshots = snapshots;
     }
 
     /// <summary>
@@ -156,18 +178,62 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
                 repositoryAlias: repository.Alias);
         }
 
-        if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
+        if (repository.KnowledgeSource is KnowledgeSourceKind.Branch) return ResolveBranch(key, folder, repository);
+
+        return ResolvePath(key, folder, repository.CloneDirectory!, repository, repository.FullName, repository.CloneDirectory);
+    }
+
+    /// <summary>
+    /// Resolves against the cached copy of the repository's branch.
+    /// <para>
+    /// Never fetches. This runs during every panel load, and a resolution that
+    /// reached the network would put GitHub in front of opening a tab — so a
+    /// branch nobody has fetched resolves to "not fetched yet" and the pane's
+    /// existing update control is what goes and gets it. That is the rule ADR
+    /// 0004 states for the knowledge index and it holds here for the same
+    /// reason: refresh is an optimisation, never a precondition.
+    /// </para>
+    /// </summary>
+    private KnowledgeFolderLocation ResolveBranch(string key, KnowledgeFolderSetting folder, GitHubRepositoryRef repository)
+    {
+        var branch = repository.KnowledgeBranch;
+
+        if (_snapshots is null)
         {
             return KnowledgeFolderLocation.Unavailable(
                 key,
                 $"Add a local clone directory for {repository.FullName} in Settings to read {folder.DisplayName} knowledge.",
                 repository.FullName,
                 folder,
-                rootPath: repository.CloneDirectory,
                 repositoryAlias: repository.Alias);
         }
 
-        return ResolvePath(key, folder, repository.CloneDirectory, repository, repository.FullName, repository.CloneDirectory);
+        var root = _snapshots.SnapshotPath(repository, branch);
+        var label = string.IsNullOrWhiteSpace(branch) ? "its default branch" : branch.Trim();
+
+        if (_snapshots.TryRead(repository, branch) is null)
+        {
+            return KnowledgeFolderLocation.Unavailable(
+                key,
+                $"{repository.FullName} has not been fetched from {label} yet.",
+                repository.FullName,
+                folder,
+                rootPath: root,
+                repositoryAlias: repository.Alias,
+                source: KnowledgeSourceKind.Branch);
+        }
+
+        // The scope label names the branch rather than just the repository,
+        // because "which of these am I reading?" is a real question the moment
+        // the same repository can be read two ways.
+        return ResolvePath(
+            key,
+            folder,
+            root,
+            repository,
+            $"{repository.FullName} ({label})",
+            root,
+            KnowledgeSourceKind.Branch);
     }
 
     private static KnowledgeFolderLocation ResolvePath(
@@ -176,7 +242,8 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
         string rootDirectory,
         GitHubRepositoryRef? repository,
         string scopeLabel,
-        string? rootPath)
+        string? rootPath,
+        KnowledgeSourceKind source = KnowledgeSourceKind.LocalFolder)
     {
         var path = folder.EffectivePath;
         var fullPath = Path.IsPathRooted(path)
@@ -196,19 +263,27 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
                 folder,
                 fullPath,
                 rootPath,
-                repositoryAlias: repository?.Alias);
+                repositoryAlias: repository?.Alias,
+                source: source);
         }
 
         if (!Directory.Exists(fullPath))
         {
+            // Worth different words when the tree came from a branch: the folder
+            // is not missing from somebody's disk, it is missing from the commit,
+            // and telling them to check their clone would send them looking in a
+            // folder that has nothing to do with it.
             return KnowledgeFolderLocation.Unavailable(
                 key,
-                $"{folder.DisplayName} knowledge folder was not found at {fullPath}.",
+                source is KnowledgeSourceKind.Branch
+                    ? $"{scopeLabel} has no {folder.DisplayName} knowledge folder at {folder.EffectivePath}."
+                    : $"{folder.DisplayName} knowledge folder was not found at {fullPath}.",
                 repository?.FullName,
                 folder,
                 fullPath,
                 rootPath,
-                repositoryAlias: repository?.Alias);
+                repositoryAlias: repository?.Alias,
+                source: source);
         }
 
         return new KnowledgeFolderLocation(
@@ -220,6 +295,7 @@ public sealed class KnowledgeFolderSource : IKnowledgeFolderSource
             fullPath,
             rootPath,
             scopeLabel,
-            repository?.Alias);
+            repository?.Alias,
+            source);
     }
 }

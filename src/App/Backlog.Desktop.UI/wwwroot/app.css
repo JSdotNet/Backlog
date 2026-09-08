@@ -4159,6 +4159,30 @@ h1, h2, h3 {
     font-weight: 500;
 }
 
+/* The second line of a row that arrived from another machine: which machine
+   recorded the session, and that its folder and transcript stayed there.
+
+   One declaration, and the absence of the rest is the design. It inherits
+   `.data-table__detail` whole — the same secondary ink, size and weight the folder
+   line has — because it is the same kind of detail and a quieter or louder one
+   would say something about the record that is not true: nothing is wrong with it,
+   and nothing about it is unavailable. It stays out of the mono family the folder
+   line wears, for the same reason that line wears it — the family follows the
+   content, and this is a sentence rather than a path.
+
+   The clamping itself is `data-table__clamp`'s, in the markup, so this line fails
+   the way a long path already fails: an ellipsis and the full text in the title,
+   rather than running out of the cell into the Type column. This rule widens that
+   clamp and does nothing else. A path is clamped at 22rem to stop it setting the
+   table's width; this is a sentence with a machine name in the middle of it, and at
+   22rem the sentence alone very nearly fills the cap, so almost every replicated row
+   would show an ellipsis and none would read whole. 26rem is what the longest
+   hostnames here need, and it is still bounded — uncapped, the column that would pay
+   is State at the far right, the one a reader scanning this list came for. */
+.sessions-table__origin {
+    max-width: 26rem;
+}
+
 /* The mark and the word read as one thing, so they sit on one baseline rather
    than the mark floating at the top of the cell. */
 .sessions-table__kind {
@@ -4476,6 +4500,47 @@ h1, h2, h3 {
 .knowledge-stack__strip > .knowledge-stack__nav {
     flex: 1 1 auto;
     min-width: 0;
+}
+
+/* The source the sections are read from, leading the strip. It wears the update
+   toggle's shape rather than a field's: on this row it is a quiet pill beside
+   the tabs, not a form control, and a bordered input here would out-shout the
+   tabs it qualifies. Sized to its content and never allowed to squeeze the tabs,
+   with a ceiling so a long branch name truncates instead of taking the row. */
+.knowledge-stack__source {
+    flex: 0 0 auto;
+    align-self: center;
+    max-width: 12rem;
+    min-width: 0;
+}
+
+.knowledge-stack__source-select {
+    max-width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.knowledge-stack__source-select:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+}
+
+.knowledge-stack__source-select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.knowledge-stack__source-error {
+    flex: 0 0 auto;
+    align-self: center;
+    font-size: var(--font-size-xs);
 }
 
 .knowledge-stack__repositories,

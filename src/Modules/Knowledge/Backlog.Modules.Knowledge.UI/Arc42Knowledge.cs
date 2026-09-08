@@ -15,12 +15,12 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<Arc42KnowledgeCatalog> LoadAsync(string? repositoryAlias = null)
+    public async Task<Arc42KnowledgeCatalog> LoadAsync(string? repositoryAlias = null)
     {
         var location = source.Resolve(".arc42", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(Arc42KnowledgeCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty));
+            return Arc42KnowledgeCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty);
         }
 
         // The root travels with the folder, because the index inside a folder
@@ -28,7 +28,12 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
         // folder pointed at docs/arch carries entries reading docs/arch/..., and
         // resolving those against the folder's own parent would look for them
         // under docs/docs/arch and list nothing at all.
-        return Arc42KnowledgeReader.LoadFolderAsync(location.FullPath, location.RootPath);
+        // The reader knows nothing about where the folder came from, so the
+        // editability the resolution decided is stamped on afterwards rather
+        // than threaded through a loader that would only carry it.
+        var catalog = await Arc42KnowledgeReader.LoadFolderAsync(location.FullPath, location.RootPath).ConfigureAwait(false);
+
+        return catalog with { CanEdit = location.CanEdit };
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -38,10 +43,9 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".arc42", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Architecture knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Architecture knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Architecture knowledge");
 
-        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".arc42/", status);
+        KnowledgeMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".arc42/", status);
         return Task.CompletedTask;
     }
 
@@ -60,10 +64,9 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".arc42", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Architecture knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Architecture knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Architecture knowledge");
 
-        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".arc42/");
+        KnowledgeMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
         return Task.CompletedTask;
     }
 }
@@ -191,7 +194,10 @@ public static class Arc42KnowledgeReader
     }
 }
 
-public sealed record Arc42KnowledgeCatalog(string RootDirectory, bool Exists, IReadOnlyList<KnowledgeDocument> Documents)
+/// <param name="CanEdit">Whether these documents may be written to. False for a
+/// branch snapshot; the panel then leaves out the status selector and renders
+/// the chapter read-only.</param>
+public sealed record Arc42KnowledgeCatalog(string RootDirectory, bool Exists, IReadOnlyList<KnowledgeDocument> Documents, bool CanEdit = true)
 {
     public static Arc42KnowledgeCatalog Missing(string rootDirectory) => new(rootDirectory, false, []);
 

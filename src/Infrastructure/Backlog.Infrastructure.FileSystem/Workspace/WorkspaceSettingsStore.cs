@@ -82,6 +82,11 @@ public sealed class WorkspaceSettingsStore
         KnowledgeFolders = KnowledgeFolderSetting.Normalize(
             settings?.KnowledgeFolders?.Select(folder => folder.ToSetting()).OfType<KnowledgeFolderSetting>() ?? []);
 
+        DefaultKnowledgeCacheDirectory = Path.Combine(appData, KnowledgeCacheFolderName);
+        KnowledgeCacheDirectory = Clean(settings?.KnowledgeCacheDirectory) ?? DefaultKnowledgeCacheDirectory;
+
+        ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
+
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
         // repository here; doing it deliberately means a first run still lands in
@@ -116,6 +121,66 @@ public sealed class WorkspaceSettingsStore
 
     /// <summary>Knowledge folders resolved against the storage root when no repository scope is active.</summary>
     public IReadOnlyList<KnowledgeFolderSetting> KnowledgeFolders { get; private set; }
+
+    /// <summary>The folder branch snapshots are kept in when nothing overrides
+    /// it: one beside the per-user settings, never inside the backlog.</summary>
+    public string DefaultKnowledgeCacheDirectory { get; }
+
+    /// <summary>
+    /// Where knowledge fetched from a repository branch is cached.
+    /// <para>
+    /// Configurable, and beside the per-user settings by default rather than
+    /// inside the backlog folder, because a snapshot is neither the workspace's
+    /// content nor anything anybody should back up: it is a disposable copy of a
+    /// commit that can always be fetched again. Somebody who keeps their backlog
+    /// on a synced drive should not find every registered repository's tree
+    /// syncing with it.
+    /// </para>
+    /// <para>
+    /// It is a setting rather than a constant because a machine with a small
+    /// system drive and a large one for work is an ordinary machine, and a
+    /// repository tree per registered repository is the kind of thing people
+    /// want somewhere they chose.
+    /// </para>
+    /// </summary>
+    public string KnowledgeCacheDirectory { get; private set; }
+
+    /// <summary>Whether snapshots are still going to the folder beside the
+    /// per-user settings. The settings screen shows the field empty when they
+    /// are, so the placeholder does the explaining rather than a path somebody
+    /// never typed.</summary>
+    public bool IsDefaultKnowledgeCacheDirectory =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(KnowledgeCacheDirectory),
+            Path.TrimEndingDirectorySeparator(DefaultKnowledgeCacheDirectory),
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Where the dashboard's merged-pull-request detail is kept.
+    /// <para>
+    /// Beside the per-user settings, and deliberately <em>not</em> under the
+    /// backlog root. <c>FileTaskSyncStateStore</c> spells out why at length: the
+    /// syncing of that root is the hazard ADR 0005 exists to remove, and a folder
+    /// of thousands of tiny per-pull-request files landing in somebody's synced
+    /// drive is exactly the shape of thing that made it a hazard. Nothing in here
+    /// is workspace content either — it is a copy of GitHub's own answers about
+    /// commits that cannot change, and can always be fetched again.
+    /// </para>
+    /// <para>
+    /// Not configurable, unlike <see cref="KnowledgeCacheDirectory"/>. That one is
+    /// a setting because a repository tree per registered repository is large
+    /// enough that somebody with a small system drive needs a say; this is
+    /// kilobytes, and a second path field on the settings screen would cost more
+    /// attention than it saves disk.
+    /// </para>
+    /// </summary>
+    public string ActivityCacheDirectory { get; }
+
+    private const string KnowledgeCacheFolderName = "knowledge-cache";
+
+    private const string ActivityCacheFolderName = "activity-cache";
+
+    private static string? Clean(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 
     public bool IsDefaultRoot =>
         string.Equals(
@@ -244,6 +309,72 @@ public sealed class WorkspaceSettingsStore
         return error;
     }
 
+    /// <summary>
+    /// Points branch snapshots at a different folder, or — with a blank path —
+    /// back at the default one.
+    /// <para>
+    /// Nothing is moved and nothing is deleted. The old folder's snapshots are
+    /// left where they are and the new folder simply starts empty, refilling on
+    /// the next fetch. Moving them would be a long file copy behind a settings
+    /// field, and deleting them would be this app throwing away a folder
+    /// somebody may have pointed at something else entirely.
+    /// </para>
+    /// </summary>
+    public string? SetKnowledgeCacheDirectory(string? path)
+    {
+        var trimmed = Clean(path);
+
+        if (trimmed is null)
+        {
+            if (IsDefaultKnowledgeCacheDirectory) return null;
+
+            KnowledgeCacheDirectory = DefaultKnowledgeCacheDirectory;
+            var reset = SaveSettings("Snapshot folder reset, but the choice couldn't be saved for next time.");
+            if (reset is null) RootChanged?.Invoke();
+            return reset;
+        }
+
+        // The same demand TryUseRoot makes, for the same reason: a relative path
+        // would resolve against whatever the working directory happens to be and
+        // put somebody's snapshots somewhere they never named.
+        if (!Path.IsPathRooted(trimmed)) return "Use a full path, such as D:\\Backlog\\knowledge-cache.";
+
+        string full;
+        try
+        {
+            full = Path.GetFullPath(trimmed);
+        }
+        catch (Exception)
+        {
+            return "That doesn't look like a valid folder path.";
+        }
+
+        if (!Path.IsPathFullyQualified(full)) return "Use a full path, such as D:\\Backlog\\knowledge-cache.";
+
+        try
+        {
+            Directory.CreateDirectory(full);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return $"Couldn't use that folder: {ex.Message}";
+        }
+
+        if (string.Equals(
+            Path.TrimEndingDirectorySeparator(full),
+            Path.TrimEndingDirectorySeparator(KnowledgeCacheDirectory),
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        KnowledgeCacheDirectory = full;
+
+        var error = SaveSettings("Snapshot folder changed, but the choice couldn't be saved for next time.");
+        if (error is null) RootChanged?.Invoke();
+        return error;
+    }
+
     private string? SaveSettings(string saveFailureMessage)
     {
         try
@@ -259,7 +390,11 @@ public sealed class WorkspaceSettingsStore
                         Owner = RootRepository.Owner,
                         Name = RootRepository.Name
                     },
-                KnowledgeFolders = KnowledgeFolders.Select(StoreKnowledgeFolderSettings.From).ToList()
+                KnowledgeFolders = KnowledgeFolders.Select(StoreKnowledgeFolderSettings.From).ToList(),
+
+                // Written as null while it is the default, so a workspace nobody
+                // has moved the cache in keeps producing the file it always did.
+                KnowledgeCacheDirectory = IsDefaultKnowledgeCacheDirectory ? null : KnowledgeCacheDirectory
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -300,6 +435,11 @@ public sealed class WorkspaceSettingsStore
         public StoreRepositorySettings? RootRepository { get; init; }
 
         public List<StoreKnowledgeFolderSettings>? KnowledgeFolders { get; init; }
+
+        /// <summary>Where branch snapshots are cached, or null for the default
+        /// folder beside this file. Absent reads as the default, which is what
+        /// every settings file written before branch loading existed says.</summary>
+        public string? KnowledgeCacheDirectory { get; init; }
     }
 
     private sealed record StoreKnowledgeFolderSettings

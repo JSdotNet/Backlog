@@ -119,5 +119,11 @@ public sealed class AgentSessionViewTests
             Branch: null,
             StartedAt: lastActivity.AddHours(-1),
             LastActivityAt: lastActivity,
-            State: state);
+            State: state,
+
+            // A view admits a session on its state alone, so neither of these can
+            // change an answer here; they are stated because the record requires
+            // every construction site to say them.
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local);
 }

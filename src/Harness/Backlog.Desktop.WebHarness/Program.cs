@@ -25,11 +25,17 @@ using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
+
+// Names the client the branch-archive download uses, so it gets a handler of its
+// own rather than sharing a general-purpose one whose timeout is set for
+// request-response calls.
+const string GitHubArchiveHttpClient = "github-archive";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,9 +48,27 @@ builder.Services.AddRazorComponents()
 // answer. The knowledge resolver is what both ports share, so neither context
 // has to see the other's settings.
 builder.Services.AddSingleton<WorkspaceSettingsStore>();
+
+// Knowledge read from a repository branch, for a repository nobody has cloned.
+// The download half lives in the GitHub adapter and the disk half in the file
+// system one; the cache root arrives as a delegate rather than as the workspace
+// store, because the GitHub adapter may not see that one.
+builder.Services.AddHttpClient(GitHubArchiveHttpClient);
+builder.Services.AddSingleton<IGitHubBranchCatalog>(sp => new GitHubBranchCatalog(
+    sp.GetRequiredService<ResolvingGitHubTransport>()));
+builder.Services.AddSingleton<IGitHubArchiveClient>(sp => new GitHubArchiveClient(
+    sp.GetRequiredService<IGitHubCredentialResolver>(),
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
+    () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
+builder.Services.AddSingleton<IKnowledgeSnapshotCache>(sp => new KnowledgeSnapshotCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().KnowledgeCacheDirectory,
+    sp.GetRequiredService<IGitHubArchiveClient>(),
+    sp.GetRequiredService<IGitHubBranchCatalog>()));
+
 builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
     sp.GetRequiredService<GitHubSettingsStore>(),
-    sp.GetRequiredService<WorkspaceSettingsStore>()));
+    sp.GetRequiredService<WorkspaceSettingsStore>(),
+    sp.GetRequiredService<IKnowledgeSnapshotCache>()));
 builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 // How often the list re-reads a store somebody else may have written to. Scoped
@@ -129,6 +153,16 @@ builder.Services.AddSingleton<ITaskSyncStateStore>(_ => TaskSyncStateStoreFactor
     builder.Environment.ContentRootPath,
     "BACKLOG_DESKTOP_TASK_SYNC_STATE_PATH",
     Path.Combine("obj", "local-development", "task-sync-state.json")));
+// Session replication's two files, scoped to this harness's content root the same
+// way and with an override variable of its own for the same reason: a shared name
+// would let two harnesses share a session watermark, and each would then skip what
+// the other had pushed - silently, because nothing about that fails. A folder
+// rather than a path, because two stores is an implementation detail of the
+// exchange and where they live is not.
+builder.Services.AddSessionSyncStores(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
+        ? sessionSyncFolder
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
 // "https+http://sync" is resolved by Aspire service discovery, so the harness
 // always talks to the sync service of this AppHost run. Task replication is the
 // second call and not part of the first: it needs the ITaskRepository above, and
@@ -147,7 +181,18 @@ builder.Services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(
 // chooses between the user and organization endpoints by the same login, so
 // neither needs a setting for it.
 builder.Services.AddSingleton<IGitHubIdentityClient>(sp => new GitHubIdentityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
-builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+// The detail cache is what keeps a dashboard read from re-fetching every pull
+// request it already read. Its folder is beside the per-user settings and never
+// under the backlog root - see ActivityCacheDirectory.
+builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
+builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
+    sp.GetRequiredService<ResolvingGitHubTransport>(),
+    sp.GetRequiredService<IPullRequestDetailCache>()));
+// Counts only, over the search API, for the stretches of history the detailed
+// client is too expensive to walk.
+builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
+    sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
     sp.GetRequiredService<ResolvingGitHubTransport>(),
     sp.GetRequiredService<IGitHubIdentityClient>(),
@@ -204,6 +249,10 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<KnowledgeScope>();
 builder.Services.AddSingleton<KnowledgeUpdateService>();
+
+// Shared by the knowledge pane and the settings screen, and a singleton so the
+// branch list somebody fetched in one is already there in the other.
+builder.Services.AddSingleton<KnowledgeSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
@@ -225,6 +274,15 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // tool service above there is nothing for a local-development variant to differ
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
+
+// Session replication, on top of AddSyncClient above and after the readers it
+// pushes from: it reads this machine's sessions through the port that call
+// registers and contributes a second source to the same port for what the other
+// environments reported. Both lines are lazy factories, so the order is for
+// whoever reads this file rather than for the container. Its own call and its own
+// feature key, because a person can want their tasks on both machines and still
+// not want a list of what their agents have been doing leaving either one.
+builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
 
 // The join between the two: the Dashboard's sessions part reports on what the Sessions
 // context reads. Only an infrastructure adapter may see both, so the registration is
@@ -251,6 +309,13 @@ var app = builder.Build();
 // host to start one, and a loop only one of the two heads runs is a loop nobody
 // can test against the harness.
 _ = app.Services.GetRequiredService<TaskSyncWorker>();
+
+// And session replication's own loop, for the same reason and with the same
+// failure if it is left out. A sibling rather than a second exchange inside the
+// worker above: see SessionSyncWorker for why one loop over two independently
+// switchable features would have to run whenever either was on, and would give the
+// two one shared error to report.
+_ = app.Services.GetRequiredService<SessionSyncWorker>();
 
 if (!app.Environment.IsDevelopment())
 {

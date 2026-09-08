@@ -50,6 +50,61 @@ internal static class SyncRequestLimits
     /// came from — <c>phone</c>, <c>vscode</c> — so anything longer is not a
     /// source.</summary>
     internal const int MaximumCaptureSource = 100;
+
+    /// <summary>
+    /// The most session records one push may carry.
+    /// <para>
+    /// The same number the pull clamps a page to, and for the same reason: a page
+    /// is a unit of work against the store, and the replica issues one round trip
+    /// per element in a sequential loop. It is a far looser bound in practice
+    /// than the task cap is, because a record is ten small fields rather than a
+    /// whole task document — the count is what has to be bounded here, not the
+    /// weight.
+    /// </para>
+    /// </summary>
+    internal const int MaximumPushSessions = 500;
+
+    /// <summary>
+    /// The most a session push body may weigh: 1 MB.
+    /// <para>
+    /// An eighth of the task limit, and deliberately not the same number. Every
+    /// field of a session record is bounded below, so
+    /// <see cref="MaximumPushSessions"/> records cannot honestly exceed about
+    /// half a megabyte; a body larger than this is not a batch of session records
+    /// however it is framed. The count cap bounds what reaches the store, and
+    /// this bounds what reaches the parser — which the count cap cannot, because
+    /// the count is not known until the body has been read.
+    /// </para>
+    /// </summary>
+    internal const long SessionPushBodyBytes = 1L * 1024 * 1024;
+
+    /// <summary>How long a session id may be. Generous for the UUIDs and short
+    /// tokens the agents issue, and short enough that it cannot be used to smuggle
+    /// content past the whitelist in the one field that has to be free
+    /// text.</summary>
+    internal const int MaximumSessionId = 200;
+
+    /// <summary>How long an agent kind may be. It names the assistant that ran
+    /// the session — <c>claude</c>, <c>copilot</c> — so anything longer is not an
+    /// agent kind. It stays a string rather than becoming an enum
+    /// (.arc42/adr/0005 §Storage: no domain logic runs against the replica), and
+    /// this length is what a string costs instead.</summary>
+    internal const int MaximumAgentKind = 50;
+
+    /// <summary>How long a machine name may be. Above every operating system's
+    /// own hostname limit, so a real machine name always fits and a two-megabyte
+    /// one is refused as what it is.</summary>
+    internal const int MaximumMachineName = 255;
+
+    /// <summary>How long a repository alias may be. An alias, never a path
+    /// (.arc42/adr/0005 §Session records), so it is a short name rather than
+    /// something that grows with a directory tree.</summary>
+    internal const int MaximumRepositoryAlias = 200;
+
+    /// <summary>How long a branch name may be. Git imposes no limit of its own
+    /// worth relying on, and this is well past anything a person types and well
+    /// short of anything that would trouble the store.</summary>
+    internal const int MaximumBranch = 255;
 }
 
 

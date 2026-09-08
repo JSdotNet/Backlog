@@ -78,9 +78,22 @@
         {
             var basis = "Commits, force pushes and files touched after the first review.";
 
-            return IsReady && !Value!.ChurnComplete
-                ? basis + " Some pull requests had more commits than were inspected, so the files figure is a floor."
-                : basis;
+            if (IsReady && !Value!.ChurnComplete)
+            {
+                basis += " Some pull requests had more commits than were inspected,"
+                    + " so the files figure is a floor.";
+            }
+
+            // A different truncation from the one above, and it has to be said
+            // separately: that one is about how deeply each pull request was
+            // inspected, this one about whether every pull request in the window
+            // arrived at all. Either can be true without the other.
+            if (IsReady && !Value!.Complete)
+            {
+                basis += " Some of this window could not be read, so every figure here is a floor.";
+            }
+
+            return basis;
         }
     }
 

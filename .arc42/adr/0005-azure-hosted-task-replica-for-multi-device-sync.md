@@ -2,16 +2,17 @@
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/capture/domain.md#capture", ".domain/sessions/domain.md#session-log", ".domain/tasks/domain.md#task", ".domain/tasks/naming.md#device"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/capture/domain.md#capture", ".domain/sessions/dependencies.md", ".domain/sessions/domain.md#session-log", ".domain/tasks/domain.md#task", ".domain/tasks/naming.md#device"]
 issue: null
 ```
 
 ## Status
 
-Accepted, and the task half of the cloud side is built — the note below says how
-far, and what it deliberately does not cover. The rest is still unbuilt, and what
-follows records the direction, the scope it covers, and the questions it leaves
-open. The two things that had to be true before it could be accepted are true.
+Accepted, and two halves of the cloud side are built — tasks, then session
+records. The notes below say how far each goes, and what they deliberately do not
+cover. The rest is still unbuilt, and what follows records the direction, the
+scope it covers, and the questions it leaves open. The two things that had to be
+true before it could be accepted are true.
 
 **The prerequisite it named is discharged.** `updated_at` and `deleted_at` are
 columns on the `tasks` table now, added by the guarded additive `ALTER TABLE` local
@@ -63,11 +64,22 @@ is still on screen.
 > Cosmos path is proven against the emulator by QA rather than by the unit suite,
 > which runs on an in-memory replica.
 >
-> **Not built, and not to be read into the above.** Session records do not sync:
-> `POST` and `GET /sync/sessions` do not exist, and nothing reads the `sessions`
-> container the AppHost and the Bicep both declare. Neither does the sparse rank
-> key or the `NormalizeOrderAsync` trigger fix under **Manual rank**,
-> attachments, or the local tombstone reaper the open questions leave open.
+> **Implemented, 2026-09-08 — the session half, on the terms Session records
+> below sets.** `POST /api/sync/sessions` and `GET /api/sync/sessions?since={token}`
+> exist, served from the `sessions` container through the same adapter project and
+> the same paired-device identity, and the desktop exchanges records on a schedule
+> and reads what arrives back through the port its session list already uses. The
+> single-writer rule is in the shape of the store rather than in a check: the
+> document key carries the machine, the agent kind and the session id, and the
+> machine is stamped from the caller's token rather than accepted from the body,
+> so a device can address nothing outside its own. **Built is not in service** here
+> either — same unprovisioned Azure, and its own `Dev` flag, off by default and
+> separate from `task-sync`. The twelve-month container TTL is unverifiable
+> locally for the reason the 180-day one is.
+>
+> **Not built, and not to be read into either of the above.** The sparse rank key
+> and the `NormalizeOrderAsync` trigger fix under **Manual rank** do not exist,
+> nor do attachments or the local tombstone reaper the open questions leave open.
 > Device registrations and pairing codes are still the in-memory adapters the
 > **Identity** note describes, so the registry does not survive a restart. The
 > 180-day tombstone TTL is stamped per document, and **it cannot be verified
@@ -335,7 +347,9 @@ carries exactly this, and nothing else:
 | Field | What it is |
 |---|---|
 | Session id | The identifier the agent gave the session. |
+| Agent kind | Which assistant ran it — Claude or Copilot. |
 | Machine id | Which environment ran it. |
+| Machine name | What the operating system calls that environment. A display label, never the identity. |
 | Repository alias | The repository's alias — not its path, which would describe the machine's disk. |
 | Branch | The branch the session worked on. |
 | Started at | When the session began. |
@@ -351,6 +365,49 @@ opposite directions — a filter that misses a field leaks it, a whitelist that
 misses a field merely omits it. A field not in this table does not sync, and
 adding one to the table is a decision to be taken here, not an implementation
 detail to be settled in the pushing code.
+
+**The table stood at eight when this record was accepted and stands at ten as of
+2026-09-08.** Widening it is precisely the decision the sentence above reserves to
+this record, so it is taken here and argued here rather than filed as a note about
+a change made somewhere else. Both additions are of the same kind as the original
+eight — they say which tool ran and which box it ran on — and neither carries a
+word the session produced.
+
+- **Agent kind, because a session id is not an identity on its own.**
+  `.domain/sessions/domain.md#session-log` puts session identity at the agent plus
+  the session id, never the id alone, because two agents may issue the same string;
+  a record that arrived without its agent would let the receiving log merge two
+  unrelated sessions, which is the one failure that rule exists to prevent. The
+  surface fails more visibly than the model does: it offers a section per assistant
+  and names the assistant on every row, so without this field every record that
+  arrived from another machine would read as an unknown assistant and the grouping
+  the pane offers would collapse to a single section of them. Withholding it buys
+  nothing, and the honest reason it is not a leak is that it names the tool that
+  ran, not the work it did — the same distinction the paragraph above draws between
+  metadata *about* work and a copy *of* it.
+- **Machine name, because the lookup that was supposed to supply it does not
+  exist.** This record assumed the id was enough and that a name could be resolved
+  on arrival; `.domain/sessions/dependencies.md` writes that assumption down as a
+  machine-name lookup against Dev PC Management's machine registry, and marks it
+  **Not built** — there is no such registry anywhere in `src/`, and nothing is
+  scheduled to build one. Meanwhile the pane heads an environment's section with
+  the name carried by the newest session in it, so a machine the reading device has
+  never been told the name of is headed by a raw GUID. Recognising the box is the
+  whole job that heading does, and a GUID does not do it.
+
+**Carrying the name does not collapse the id-and-name distinction this record
+argues elsewhere, and is not to be read as doing so.** A section is still keyed on
+the machine id, exactly as it is locally, because a name can be shared by two
+machines and changed on one — the reasons `.domain/tasks/naming.md#device` gives
+and the reasons **The database filename** below rejects `Environment.MachineName`
+as a device identity. The name travels only as the label on a section the id has
+already defined, refreshed from the operating system at the source like every other
+reading of it. Nothing here identifies anything by name.
+
+**Ten fields is still a whitelist, on the same terms eight was.** The boundary did
+not move to accommodate a screen: each of the two had to be argued past it
+separately, and a field the receiving surface would merely find convenient is still
+a field that does not sync until this table says it does.
 
 ### Manual rank
 

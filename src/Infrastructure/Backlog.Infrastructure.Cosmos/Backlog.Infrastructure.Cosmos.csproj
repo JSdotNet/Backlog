@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Cross-cutting Cosmos DB adapter: the task replica the sync service reads and
-    writes (.arc42/adr/0005). It implements ITaskReplica, a port declared by
+    Cross-cutting Cosmos DB adapter: the two replicas the sync service reads and
+    writes (.arc42/adr/0005) - tasks and session records, one container each. It
+    implements ITaskReplica and ISessionReplica, ports declared by
     Backlog.Modules.Sync; the module never sees this project, which is the same
     direction Backlog.Infrastructure.Sqlite runs in.
 

@@ -134,7 +134,7 @@
                                       AllowCopy="true"
                                       KnowledgeDocumentPath="@DocumentPath(selectedDocument)"
                                       OnKnowledgeNavigate="NavigateKnowledgeReferenceAsync"
-                                      CanEdit="@(_chapter.Chapter is not null)"
+                                      CanEdit="@(_chapter.Chapter is { CanEdit: true })"
                                       Editing="@_editing"
                                       EditingChanged="OnEditingChangedAsync"
                                       EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
@@ -296,9 +296,13 @@
 
     private void Discover()
     {
+        // The folder source is passed for the repository scope only. The storage
+        // scope synthesises a repository whose clone directory is the storage
+        // root, and asking the source about an alias it has never heard of would
+        // resolve nothing.
         _repositories = string.IsNullOrWhiteSpace(RepositoryAlias)
             ? InstructionSources.Discover([StorageInstructionRepository()])
-            : InstructionSources.Discover(Repositories.Current.Repositories);
+            : InstructionSources.Discover(Repositories.Current.Repositories, Folders);
         _loadedRepositoryAlias = RepositoryAlias;
         _tree = InstructionPathTree.Read(ActiveRepository?.LocalRoot);
         _userContext = UserContextSources.Read(ActiveRepository?.LocalRoot);

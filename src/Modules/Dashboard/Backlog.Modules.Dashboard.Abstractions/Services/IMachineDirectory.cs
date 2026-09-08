@@ -13,15 +13,32 @@ public sealed record DashboardMachine(string Id, string Name);
 /// PORT — which machines the filter can offer.
 /// <para>
 /// The dashboard does not own the list of machines any more than it owns the list of
-/// repositories, so it asks. Today the adapter answers with exactly one row — this
-/// one — because a session record has not left this device yet, and offering machines
-/// nobody has any figures for would be a filter that can only ever empty the surface.
-/// The port is what lets that widen without the pane changing: when ADR 0005's
-/// replication lands, the adapter unions this device with the machines seen in the
-/// records that arrived.
+/// repositories, so it asks. Every option it offers has to be a machine the figures
+/// behind the surface can account for; a machine nobody has figures for is a filter
+/// option that can only ever empty the screen. So the answer is this device unioned
+/// with the machines named by the records that arrived — which is what ADR 0005's
+/// replication made possible and what this port was shaped for.
+/// </para>
+/// <para>
+/// <strong>A method, and asynchronous, unlike <see cref="IRepositoryDirectory"/>
+/// beside it.</strong> That one reads a settings store already in memory; this one
+/// cannot be answered without reading the records, and the read is the same one
+/// <see cref="IAssistantSessionSource"/> does. A property would leave an adapter with
+/// two ways out and both are dishonest: block on the read inside a getter, or answer
+/// from a cache filled at some earlier moment and let a property that looks free
+/// claim a currency it does not have. The shape of the contract says which of those
+/// it is, so it says the true one — a caller can see it costs something, and can pass
+/// the token that stops it.
+/// </para>
+/// <para>
+/// Consequently the pane reads this once when it opens rather than on every render. A
+/// machine whose first record arrives while the dashboard is open turns up the next
+/// time it is opened, which is the same currency every other figure on that surface
+/// has: nothing here polls.
 /// </para>
 /// </summary>
 public interface IMachineDirectory
 {
-    IReadOnlyList<DashboardMachine> Machines { get; }
+    /// <summary>Every machine the filter may offer, this device first.</summary>
+    Task<IReadOnlyList<DashboardMachine>> GetMachinesAsync(CancellationToken cancellationToken = default);
 }

@@ -52,7 +52,7 @@ they made.
 ```meta
 type: sub-feature
 status: active
-related: [.domain/sessions/domain.md#session-view, .domain/sessions/naming.md#session-view]
+related: [.domain/sessions/domain.md#session-view, .domain/sessions/features.md#sessions-from-another-machine, .domain/sessions/naming.md#session-view]
 ```
 
 The list opens on the sessions that are still going, and a `Live` / `All` choice sits
@@ -80,6 +80,11 @@ running but has said nothing for half an hour therefore falls out of this view. 
 a limit of what Copilot writes down rather than a rule this product wanted, and it is
 why the way back to `All` is named in the empty state instead of left to be discovered.
 
+A session that arrived from another machine is thin in the same way and for a
+different reason — a record carries no liveness marker whichever agent wrote it —
+so it too falls out of this view once it has been quiet long enough. See
+`.domain/sessions/features.md#sessions-from-another-machine`.
+
 ### Only what the agent recorded
 
 ```meta
@@ -97,6 +102,46 @@ The alternative was inferring the missing facts from the working folder. A wrong
 repository attributed to a session renders exactly as convincingly as a right one,
 which is what makes inference the more expensive option.
 
+### Sessions from another machine
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/domain.md#session-log, .domain/sessions/features.md#group-by-environment, .arc42/08-crosscutting-concepts.md#session-record-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+```
+
+A session that ran on one of the person's machines can be read on another. The
+record travels and the work stays where it happened, and what arrives joins the
+same list rather than a panel of its own — somebody running agents on a desktop
+and a laptop has one set of sessions on two boxes, not two inventories to check
+in turn.
+
+Off until it is switched on, and switched on separately from anything else that
+syncs. A record of what the assistants have been doing is the kind of thing a
+person agrees to let off a machine rather than finds out has left it, and wanting
+the same backlog on two machines is a different wish from wanting that — so it is
+a switch of its own, and it starts off. Until it is on, this is the list it has
+always been: everything read here and nothing else.
+
+**A row from elsewhere says less than a row read here, and visibly so.** Only the
+whitelisted metadata travelled — which agent, which machine, which repository and
+branch, when the session was alive, and how much of it there was — so such a row
+has no working folder to show and is headed by its session id where a local row
+carries a title. Neither is a gap waiting to be closed: a folder names a disk the
+reading machine cannot see, and a title is written out of what the person typed,
+which puts it on the far side of the boundary that lets a record leave at all. An
+identifier that plainly reads as one is the honest heading; anything prettier
+would be this machine composing a description of work it never saw.
+
+**And it reads as finished once it goes quiet, sooner than the truth may be.** A
+record carries no liveness marker, so a session nobody has heard from for longer
+than the `Stale Threshold` reads as over — the same treatment Copilot's sessions
+already get here, for the same reason and with the same cost. A session still
+running on the other machine can therefore drop out of the live view between one
+exchange and the next. Reading it as stalled instead would be the worse answer:
+stalled says something is still there and quiet, and a record cannot tell that
+from a session that ended a month ago.
+
 ### Re-read on request
 
 ```meta
@@ -110,6 +155,14 @@ polls.
 A surface that refreshed itself would be claiming to be live, and the evidence does
 not support the claim: one of the two agents leaves no liveness marker at all, so a
 self-moving list would move without meaning.
+
+Records arriving from another machine do not change that, and the distinction is
+worth keeping straight. Those arrive on a schedule of their own — a machine cannot
+be asked for its sessions at the moment somebody looks at them — but they arrive
+into what this environment has a record of, which is the thing the list reads. The
+reading is still the reader's: nothing appears on screen until they open the list
+or ask for it again, so what moves under them is never the rows they are looking
+at.
 
 ## Session grouping
 
@@ -127,19 +180,28 @@ practice, without removing any of them.
 ```meta
 type: sub-feature
 status: active
-related: [.domain/sessions/naming.md#environment, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+related: [.domain/sessions/naming.md#environment, .domain/sessions/features.md#sessions-from-another-machine, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
 A section per environment, named after it, with its own count — so "how many are
 running on that box" is read rather than counted.
 
-Single-valued for as long as an environment can only read its own records: one
-section, named after the machine the reader is sitting at. It becomes the useful
-grouping the moment a second environment reports, which local ADR 0005 names as
-the point session records start replicating between the person's machines. A
-section for a machine the reader is not sitting at is answered from replicated
-records, so it is as fresh as the last time that machine synced and no fresher —
-which the derived state already shows, without needing a caveat of its own.
+It carves something now. For as long as an environment could only read its own
+records this was one section named after the box the reader was sitting at; a
+reader whose machines exchange session records gets a section per machine that
+has reported. Which section a row lands in is settled by the environment that
+gathered it and never by the one showing it, so a session sits under the machine
+that ran it wherever it is being read.
+
+A section for a machine the reader is not sitting at is as fresh as that
+machine's last exchange and no fresher, and that costs something real rather than
+nothing: a session started since is not in the section at all, and the count on
+it therefore answers for what has arrived rather than for what is happening over
+there. What the section does not do is lie about the sessions it has. Their state
+is derived against the reader's own clock from the timestamps that travelled, so
+a row ages honestly on this side instead of repeating the other machine's opinion
+of it — which is why the staleness needs naming here and not a caveat on every
+row.
 
 ### Group by agent
 

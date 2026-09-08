@@ -252,4 +252,94 @@ public sealed class TabsTests
         Assert.Empty(tabs.FindAll(".tabs__strip"));
         Assert.NotNull(tabs.Find(".host-strip"));
     }
+
+    /// <summary>Leading content shares the row too, and — the point of it being a
+    /// separate slot — comes out before the tablist rather than after. What goes
+    /// there qualifies every tab, so it is read first.</summary>
+    [Fact]
+    public void Leading_content_comes_before_the_tablist_on_the_same_row()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.ListLeading, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<span data-testid=\"before\">source</span>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        var row = tabs.Find(".tabs__strip");
+        var children = row.Children.ToList();
+
+        Assert.NotNull(row.QuerySelector("[data-testid='before']"));
+        Assert.Equal("before", children[0].GetAttribute("data-testid"));
+        Assert.Equal("tablist", children[1].GetAttribute("role"));
+    }
+
+    /// <summary>The same rule the trailing slot obeys: beside the tablist, never
+    /// inside it, or a screen reader is told there is a tab that does not
+    /// exist.</summary>
+    [Fact]
+    public void Leading_content_is_never_placed_inside_the_tablist()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.ListLeading, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<select data-testid=\"before\"><option>main</option></select>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        Assert.Null(tabs.Find("[role='tablist']").QuerySelector("[data-testid='before']"));
+        Assert.Single(tabs.FindAll("[role='tab']"));
+    }
+
+    /// <summary>Both slots at once put the tabs between them, which is the whole
+    /// arrangement the knowledge pane wants: the source it is reading, the
+    /// sections, and the update control.</summary>
+    [Fact]
+    public void Both_slots_put_the_tablist_between_them()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .Add(t => t.ListLeading, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<span data-testid=\"before\">source</span>")))
+            .Add(t => t.ListTrailing, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<span data-testid=\"after\">update</span>")))
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        var children = tabs.Find(".tabs__strip").Children.ToList();
+
+        Assert.Equal("before", children[0].GetAttribute("data-testid"));
+        Assert.Equal("tablist", children[1].GetAttribute("role"));
+        Assert.Equal("after", children[2].GetAttribute("data-testid"));
+    }
+
+    /// <summary>And a host that supplies neither still gets the bare list with no
+    /// wrapper — the DOM it got before either slot existed.</summary>
+    [Fact]
+    public void Neither_slot_leaves_the_list_unwrapped()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.Bare, true)
+            .Add(t => t.ActiveId, "only")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Only")));
+
+        Assert.Empty(tabs.FindAll(".tabs__strip"));
+        Assert.NotNull(tabs.Find("[role='tablist']"));
+    }
 }

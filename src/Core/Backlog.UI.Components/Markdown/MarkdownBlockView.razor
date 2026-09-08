@@ -70,6 +70,7 @@
             <MetadataView Metadata="@MetadataOf(codeBlock)"
                                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
                                ShowFields="@RenderKnowledgeMetadataFields"
+                               CanEditStatus="@CanEditKnowledgeStatus"
                                OnNavigate="@OnKnowledgeNavigate"
                                HrefFor="@KnowledgeHrefFor" />
         }
@@ -168,6 +169,12 @@
     /// well. Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Whether a metadata record's status may be changed here.
+    /// Forwarded verbatim to <c>MetadataView.CanEditStatus</c>, which draws the
+    /// static badge instead of the select when it is false.</summary>
+    [Parameter]
+    public bool CanEditKnowledgeStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>

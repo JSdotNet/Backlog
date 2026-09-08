@@ -26,12 +26,27 @@ public sealed class InstructionSourceDiscovery
     /// </summary>
     public static IReadOnlyList<string> RootFileNames { get; } = ["CLAUDE.md", "AGENTS.md"];
 
-    public IReadOnlyList<InstructionRepositoryView> Discover(IEnumerable<GitHubRepositoryRef> repositories) =>
+    /// <summary>
+    /// Reads each repository's instruction documents.
+    /// <para>
+    /// <paramref name="folders"/> is how a repository read from a branch finds
+    /// its root. Instructions are the one area whose folder <em>is</em> the
+    /// repository root — the setting carries an empty relative path — so the
+    /// knowledge-folder port already answers exactly the question this needed to
+    /// ask, and asking it is what stops this from being a second, independent
+    /// clone-directory gate that branch loading silently walks past. Omitting it
+    /// falls back to the clone, which is what every caller did before branch
+    /// loading existed.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<InstructionRepositoryView> Discover(
+        IEnumerable<GitHubRepositoryRef> repositories,
+        IKnowledgeFolderSource? folders = null) =>
     [
-        .. repositories.Select(DiscoverRepository)
+        .. repositories.Select(repository => DiscoverRepository(repository, folders))
     ];
 
-    private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository)
+    private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository, IKnowledgeFolderSource? folders)
     {
         var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
             .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
@@ -44,7 +59,22 @@ public sealed class InstructionSourceDiscovery
                 "Instructions are turned off for this repository.");
         }
 
-        if (string.IsNullOrWhiteSpace(repository.CloneDirectory))
+        var location = folders?.Resolve("instructions", repository.Alias);
+        var fromBranch = location?.Source is KnowledgeSourceKind.Branch;
+
+        if (fromBranch && location is not { Available: true })
+        {
+            return new InstructionRepositoryView(
+                repository,
+                location?.RootPath,
+                [],
+                location?.Message ?? "This repository's branch has not been fetched yet.",
+                CanEdit: false);
+        }
+
+        var configuredRoot = fromBranch ? location!.FullPath : repository.CloneDirectory;
+
+        if (string.IsNullOrWhiteSpace(configuredRoot))
         {
             return new InstructionRepositoryView(
                 repository,
@@ -53,14 +83,17 @@ public sealed class InstructionSourceDiscovery
                 "Set a local clone directory in Settings before instructions can be read.");
         }
 
-        var root = Path.GetFullPath(repository.CloneDirectory);
+        var root = Path.GetFullPath(configuredRoot);
         if (!Directory.Exists(root))
         {
             return new InstructionRepositoryView(
                 repository,
                 root,
                 [],
-                "The configured local clone directory was not found.");
+                fromBranch
+                    ? "The fetched copy of this branch is no longer on disk."
+                    : "The configured local clone directory was not found.",
+                CanEdit: !fromBranch);
         }
 
         var documents = new List<InstructionDocument>();
@@ -86,7 +119,13 @@ public sealed class InstructionSourceDiscovery
             repository,
             root,
             documents,
-            documents.Count == 0 ? "No recognized instruction documents were found in this clone." : null);
+            documents.Count switch
+            {
+                0 when fromBranch => "No recognized instruction documents were found on this branch.",
+                0 => "No recognized instruction documents were found in this clone.",
+                _ => null
+            },
+            CanEdit: !fromBranch);
     }
 
     private static int AgentOrder(string agent) => agent switch
@@ -169,11 +208,16 @@ public sealed class InstructionSourceDiscovery
     }
 }
 
+/// <param name="CanEdit">Whether these documents may be written to. False for a
+/// branch snapshot, which is a copy of somebody's commit — an edit to it would
+/// survive exactly until the next fetch. Defaults to true so that every caller
+/// predating branch loading keeps offering the edit it always offered.</param>
 public sealed record InstructionRepositoryView(
     GitHubRepositoryRef Repository,
     string? LocalRoot,
     IReadOnlyList<InstructionDocument> Documents,
-    string? Message);
+    string? Message,
+    bool CanEdit = true);
 
 public sealed record InstructionDocument(
     string Title,

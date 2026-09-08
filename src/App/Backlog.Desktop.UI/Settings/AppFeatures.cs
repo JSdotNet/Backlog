@@ -112,6 +112,12 @@ public static class AppFeatures
             "Push this machine's task changes to the cloud replica and pull back what the other devices changed.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
+        new(
+            SyncFeatures.SessionSync,
+            "Session sync",
+            "Push this machine's Claude and Copilot session records to the cloud replica and pull back what the other environments reported. Only the metadata: never a prompt, a transcript, a working folder, or a session's title.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

@@ -38,11 +38,13 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   last-write-wins**. Session records do not reconcile at all — only the machine
   that ran a session writes records for it, so there is never a second version to
   discard and the lost-edit failure mode does not reach them.
-- **Four kinds of state deliberately stay on the machine** — agent transcripts
+- **Five kinds of state deliberately stay on the machine** — agent transcripts
   (the sanitization boundary that lets session records travel at all), workspace
   settings (they describe one machine's disk), feature flags (per-device by
-  design, so an experiment on one machine is not a change on both), and the
-  derived knowledge layer (regenerated on the second machine, not shipped to it).
+  design, so an experiment on one machine is not a change on both), the
+  derived knowledge layer (regenerated on the second machine, not shipped to it),
+  and the branch snapshot cache (a verbatim copy of a named commit, refetched on
+  the second machine rather than shipped to it, and safe to delete).
   The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
   than it was: it is a document row in `backlog.db` rather than a file beside it, so
   it no longer carries the database's file-sync hazard, and the row stamps
@@ -67,7 +69,12 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   unmergeable, and its WAL sidecars sync out of step with it, so committed
   transactions silently roll back. Multi-device use goes through the sync service.
   See `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
-- **Desktop works fully standalone**; the cloud connection is purely additive.
+- **Desktop works fully standalone**; the cloud connection is purely additive. The
+  one qualification is a repository configured to read its knowledge from a branch
+  rather than from a clone: that needs the network once, to take the first
+  snapshot, and reads offline afterwards. A repository with a clone is unaffected,
+  and is what an install with no stored preference reads. See
+  `.arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
 - **Local credential handling includes Copilot sessions** — desktop workers and
   GitHub Copilot App session adapters both run on the same machine and pass local
   context (`session_id`, `worktree_path`, `branch`) without routing credentials
@@ -162,18 +169,35 @@ sequenceDiagram
 
 ```meta
 status: active
-related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/sessions/domain.md#session-log"]
+related: [".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#task-sync", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".domain/sessions/domain.md#session-log", ".domain/sessions/features.md#sessions-from-another-machine"]
 ```
 
 Session records replicate through the same service and the same pairing identity,
 into the `sessions` container, and reconcile on different terms — which is not a
 special case bolted on, but a consequence of who writes them.
 
-**None of this is built.** The container is declared by the AppHost and by
-`infra/sync/main.bicep`, and nothing reads or writes it; the `/sync/sessions`
-operations local ADR 0005 names do not exist. What follows is the position, not a
-description of running code — unlike
-`.arc42/08-crosscutting-concepts.md#task-sync`, which is now both.
+As of 2026-09-08 this section describes code rather than intent. The two
+operations local ADR 0005 names exist — `POST /api/sync/sessions` pushes the
+records a machine has read since its watermark and
+`GET /api/sync/sessions?since={token}` pulls the other environments' from a
+cursor — served by `Backlog.Modules.Sync.Api` over the `sessions` container the
+AppHost and `infra/sync/main.bicep` declare, behind the same paired-device
+identity and the same query-scoping check task sync uses. On the device side an
+exchange runs on its own schedule, and what it pulls is composed into the session
+list a person already reads rather than shown apart from it.
+
+The same two qualifications apply as above, and a third this half carries alone.
+Nothing is provisioned in Azure
+(`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
+is a `Dev`-status feature flag that is off by default — its own flag rather than
+`task-sync`, because wanting one backlog on two machines is not the same as
+wanting a record of what the assistants did to leave either of them. The third is
+that two behaviours here rest on a store nothing local has exercised: the change
+feed the pull reads needs a real Cosmos, emulator or deployed, and the unit suite
+runs against an in-memory replica standing in for one; the twelve-month container
+`defaultTtl` is worse off still, for the reason the 180-day tombstone TTL above
+is — the emulator does not honour TTL, so that number is deployed-only behaviour
+rather than something anything here has shown.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
@@ -181,15 +205,22 @@ description of running code — unlike
   `.arc42/08-crosscutting-concepts.md#task-sync`, and the silent loss it accepts,
   is not reachable here.
 - **Machine-stamped and append-only.** Each record names the machine that wrote
-  it, and the service accepts a record only from the machine it names. A session
-  that moves gets a later record rather than an edit to an earlier one, so the
-  container needs neither a tombstone nor an `updated_at`.
+  it, and that machine is not on the wire: the service stamps it from the caller's
+  validated token, so a caller cannot compose a record attributed to another box.
+  The document is keyed on that machine, the agent kind and the session id
+  together, which puts single-writer in the shape of the store rather than in a
+  check somebody has to keep — a machine can only address records under its own
+  device id. A session that moves gets a later record rather than an edit to an
+  earlier one, so the container needs neither a tombstone nor an `updated_at`.
 - **The sanitization boundary is a whitelist, not a filter.** A record carries
-  session id, machine id, repository alias (not path), branch, started at, last
-  activity at, turn count, and duration count. Never prompts, never tool output,
-  never file contents. A filter that misses a field leaks it; a whitelist that
-  misses one merely omits it, and adding a field is a decision taken in local
-  ADR 0005 rather than settled in the pushing code.
+  session id, agent kind, machine id, machine name, repository alias (not path),
+  branch, started at, last activity at, turn count, and duration count. Never
+  prompts, never tool output, never file contents. A filter that misses a field
+  leaks it; a whitelist that misses one merely omits it, and adding a field is a
+  decision taken in local ADR 0005 rather than settled in the pushing code — as
+  agent kind and machine name were, on 2026-09-08, the first two fields added
+  since the list was written. The name travels as a display label only: a section
+  is still keyed on the machine id, which is the thing a rename does not move.
 - **Retention is a 12-month container TTL**, and nothing else removes a record.
 
 ## Knowledge Index

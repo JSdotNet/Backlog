@@ -97,6 +97,8 @@ public sealed class HomeInitialLoadTests
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<KnowledgeSourceSelection>();
         context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));

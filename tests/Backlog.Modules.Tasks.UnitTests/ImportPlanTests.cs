@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks;
+﻿using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.DomainModels;
@@ -10,7 +10,10 @@ namespace Backlog.Modules.Tasks.UnitTests;
 /// Per ADR 0007, Import is a use case over the ordinary entry-text grammar: a
 /// plan is a block of text naming more than one entry, split and parsed exactly
 /// as a hand-typed multi-entry paste would be, with two-pass dependency
-/// resolution and upsert-by-<c>(import_plan_id, import_item_id)</c> on top.
+/// resolution on top and — per that ADR's re-import rule — the plan's
+/// not-yet-started entries cleared before the version being brought in is
+/// written, work already under way matched by
+/// <c>(import_plan_id, import_item_id)</c> and kept.
 /// These tests drive <see cref="ImportPlanCommandHandler"/> directly against an
 /// in-memory repository, the same style <c>RecurringTaskTests</c> uses.
 /// </summary>
@@ -207,19 +210,22 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>A later version of a plan is allowed to move an entry still in
-    /// flight on: restating its type and status rewrites both, the same way the
+    /// flight on: it is not one of the not-yet-started entries the re-import
+    /// clears, so restating its type and status rewrites both, the same way the
     /// title and body are rewritten.</summary>
     [Fact]
     public async Task Reimporting_applies_a_restated_type_and_status_to_an_entry_still_in_flight()
     {
         var store = new InMemoryTaskRepository();
 
-        var first = await Import(store, "# Step one\n`prompt` `!draft` `#myplan` `id:step-one`\n");
+        var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
         var firstId = Assert.Single(first.Entries).Id;
+        store.Entries[firstId].SetStatus(EntryStatus.InProgress);
 
         var second = await Import(store, "# Step one\n`task` `!in-progress` `#myplan` `id:step-one`\n");
 
         Assert.Equal(1, second.Updated);
+        Assert.Equal(0, second.Removed);
         var updated = store.Entries[firstId];
         Assert.Equal(EntryType.Task, updated.Type);
         Assert.Equal(EntryStatus.InProgress, updated.Status);
@@ -296,8 +302,12 @@ public sealed class ImportPlanTests
         Assert.All(result.Entries, e => Assert.Null(store.Entries[e.Id].ImportPlanId));
     }
 
+    /// <summary>An entry of the previous version that nobody has started yet is
+    /// cleared and written again from the version just brought in, rather than
+    /// edited in place. It is a fresh entry with a new real id — what survives a
+    /// re-import is the work someone has actually picked up.</summary>
     [Fact]
-    public async Task Reimporting_the_same_plan_and_id_updates_the_existing_entry_in_place()
+    public async Task Reimporting_replaces_an_entry_nobody_has_started()
     {
         var store = new InMemoryTaskRepository();
 
@@ -307,15 +317,138 @@ public sealed class ImportPlanTests
         var second = await Import(store, "# Revised title\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
 
         Assert.Equal(0, second.Created);
-        Assert.Equal(1, second.Updated);
+        Assert.Equal(1, second.Replaced);
+        Assert.Equal(0, second.Updated);
         Assert.Equal(0, second.Skipped);
+        Assert.Equal(0, second.Removed);
 
-        // Updated in place, not duplicated.
-        Assert.Single(store.Entries);
-        var updated = Assert.Single(second.Entries);
-        Assert.Equal(firstId, updated.Id);
-        Assert.Equal("Revised title", updated.Title);
-        Assert.Equal("Revised body.", updated.Body.Trim());
+        // Replaced, not duplicated: one live entry, and it is the new one.
+        var live = Assert.Single(Live(store));
+        var imported = Assert.Single(second.Entries);
+        Assert.Equal(live.Id, imported.Id);
+        Assert.NotEqual(firstId, imported.Id);
+        Assert.Equal("Revised title", imported.Title);
+        Assert.Equal("Revised body.", imported.Body.Trim());
+
+        // The one it replaced is tombstoned rather than dropped, so the
+        // replacement travels to the other devices too (ADR 0005).
+        Assert.NotNull(store.Entries[firstId].DeletedAt);
+    }
+
+    /// <summary>The whole point of clearing first: an entry with no <c>id:</c>
+    /// can never be matched, so a re-import used to leave a second copy of it
+    /// behind every time.</summary>
+    [Fact]
+    public async Task Reimporting_a_plan_whose_entries_carry_no_id_does_not_duplicate_them()
+    {
+        var store = new InMemoryTaskRepository();
+
+        await Import(store, "# Same title every time\n`prompt` `#myplan`\n");
+        var second = await Import(store, "# Same title every time\n`prompt` `#myplan`\n");
+
+        // Nothing to recognize it by, so it counts as a create against a
+        // removal rather than a replacement — the entry is written once either
+        // way, which is what the reader sees.
+        Assert.Equal(1, second.Created);
+        Assert.Equal(0, second.Replaced);
+        Assert.Equal(1, second.Removed);
+        Assert.Single(Live(store));
+    }
+
+    /// <summary>Clearing is by plan, not by what the new version happens to
+    /// mention: a prompt dropped from the plan goes with it, which is how a plan
+    /// stops describing work nobody started.</summary>
+    [Fact]
+    public async Task Reimporting_removes_a_not_yet_started_entry_the_new_version_dropped()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string first =
+            "# Step one\n`prompt` `#myplan` `id:step-one`\n\n"
+            + "# Step two\n`prompt` `#myplan` `id:step-two`\n";
+        await Import(store, first);
+
+        var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(1, second.Replaced);
+        Assert.Equal(1, second.Removed);
+        var live = Assert.Single(Live(store));
+        Assert.Equal("Step one", live.Title);
+    }
+
+    /// <summary>Only the plan being brought in is cleared. Another plan's
+    /// not-yet-started entries are somebody else's batch of work and are not
+    /// this import's to touch.</summary>
+    [Fact]
+    public async Task Reimporting_leaves_another_plans_entries_alone()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var other = await Import(store, "# Other plan step\n`prompt` `#otherplan` `id:step-one`\n");
+        var otherId = Assert.Single(other.Entries).Id;
+
+        await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+        var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(1, second.Replaced);
+        Assert.Null(store.Entries[otherId].DeletedAt);
+    }
+
+    /// <summary>A hand-typed entry carrying the plan's tag is not part of the
+    /// plan. Only Import writes <c>import_plan_id</c>, and that — not the tag —
+    /// is what says an entry came from a plan and can be replaced by a later
+    /// version of it.</summary>
+    [Fact]
+    public async Task Reimporting_leaves_a_hand_typed_entry_sharing_the_tag_alone()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var handTyped = new TaskItem("Hand typed", string.Empty, EntryType.Task, Priority.Medium, tags: ["myplan"]);
+        await store.SaveAsync(handTyped, TestContext.Current.CancellationToken);
+
+        await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+        var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(1, second.Replaced);
+        Assert.Null(store.Entries[handTyped.Id].DeletedAt);
+    }
+
+    /// <summary>An entry someone has picked up, finished or archived is never
+    /// cleared — the rule is about work not yet started, and everything else
+    /// keeps the outcome it already had.</summary>
+    [Theory]
+    [InlineData(EntryStatus.InProgress)]
+    [InlineData(EntryStatus.Done)]
+    [InlineData(EntryStatus.Archived)]
+    public async Task Reimporting_never_removes_an_entry_that_is_no_longer_waiting(EntryStatus status)
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
+        var firstId = Assert.Single(first.Entries).Id;
+        if (status is EntryStatus.Archived) store.Entries[firstId].SetStatus(EntryStatus.Done);
+        store.Entries[firstId].SetStatus(status);
+
+        var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
+
+        Assert.Equal(0, second.Removed);
+        Assert.Null(store.Entries[firstId].DeletedAt);
+        Assert.Equal(status, store.Entries[firstId].Status);
+    }
+
+    /// <summary>Without a shared tag there is no plan to have a previous version
+    /// of, so nothing is cleared — the entries are simply brought in, as they
+    /// always were.</summary>
+    [Fact]
+    public async Task A_plan_with_no_shared_tag_removes_nothing()
+    {
+        var store = new InMemoryTaskRepository();
+
+        await Import(store, "# Step one\n`prompt` `id:step-one`\n");
+        var second = await Import(store, "# Step one\n`prompt` `id:step-one`\n");
+
+        Assert.Equal(0, second.Removed);
+        Assert.Equal(2, Live(store).Count);
     }
 
     /// <summary>A later plan version does not reopen finished work — the same
@@ -382,20 +515,6 @@ public sealed class ImportPlanTests
         Assert.Equal(1, result.Skipped);
         var stepTwo = Assert.Single(result.Entries, e => e.Title == "Step two");
         Assert.Equal([firstId.ToString()], stepTwo.DependsOn!);
-    }
-
-    /// <summary>An entry with no <c>id:</c> token has nothing to be matched
-    /// against, so it is created new on every import, never matched — even
-    /// against an entry that shares its plan tag and title.</summary>
-    [Fact]
-    public async Task An_entry_with_no_id_token_is_always_created_new()
-    {
-        var store = new InMemoryTaskRepository();
-
-        await Import(store, "# Same title every time\n`prompt` `#myplan`\n");
-        await Import(store, "# Same title every time\n`prompt` `#myplan`\n");
-
-        Assert.Equal(2, store.Entries.Count);
     }
 
     [Fact]
@@ -573,6 +692,12 @@ public sealed class ImportPlanTests
         Assert.True(result.IsSuccess);
         return result.Value;
     }
+
+    /// <summary>What the store would still show. A replaced entry is tombstoned
+    /// rather than dropped, so counting <c>Entries</c> alone would not tell a
+    /// duplicate from a replacement.</summary>
+    private static IReadOnlyList<TaskItem> Live(InMemoryTaskRepository store) =>
+        [.. store.Entries.Values.Where(entry => entry.DeletedAt is null)];
 
     private static EntryType TypeOf(InMemoryTaskRepository store, ImportPlanResultDto result, string title) =>
         store.Entries[Assert.Single(result.Entries, e => e.Title == title).Id].Type;

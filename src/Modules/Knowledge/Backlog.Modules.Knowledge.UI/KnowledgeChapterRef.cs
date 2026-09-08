@@ -19,7 +19,12 @@ namespace Backlog.Desktop.UI.Knowledge;
 /// area, or the repository root for instructions.</param>
 /// <param name="RelativePath">Where the chapter sits beneath
 /// <paramref name="RootPath"/>, with forward slashes and no area prefix.</param>
-public sealed record KnowledgeChapterRef(string AreaKey, string RootPath, string RelativePath)
+/// <param name="CanEdit">Whether this chapter may be written to. A chapter under
+/// a branch snapshot may not: the file is real and readable, but it is a copy of
+/// a commit, so an edit would be discarded by the next fetch without anybody
+/// being told. Defaults to true, which keeps every ref built from a local folder
+/// — and every one built by a test — meaning what it has always meant.</param>
+public sealed record KnowledgeChapterRef(string AreaKey, string RootPath, string RelativePath, bool CanEdit = true)
 {
     /// <summary>
     /// Where the chapter is on disk.

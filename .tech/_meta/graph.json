@@ -2106,7 +2106,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 79,
+          "line": 86,
           "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
@@ -2140,6 +2140,7 @@
             ".arc42/adr/guidelines/0013-authorization-zero-trust.md",
             ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md",
             ".domain/capture/domain.md#capture",
+            ".domain/sessions/dependencies.md",
             ".domain/sessions/domain.md#session-log",
             ".domain/tasks/domain.md#task",
             ".domain/tasks/naming.md#device"
@@ -2180,14 +2181,15 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 161,
+          "line": 168,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
             ".arc42/08-crosscutting-concepts.md#storage-and-sync",
             ".arc42/08-crosscutting-concepts.md#task-sync",
             ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
-            ".domain/sessions/domain.md#session-log"
+            ".domain/sessions/domain.md#session-log",
+            ".domain/sessions/features.md#sessions-from-another-machine"
           ],
           "outOfScope": true
         }
@@ -2306,7 +2308,7 @@
           "path": ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md",
           "slug": "identity",
           "level": 3,
-          "line": 443,
+          "line": 500,
           "outOfScope": true
         }
       },
@@ -2319,7 +2321,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 626,
+          "line": 633,
           "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"

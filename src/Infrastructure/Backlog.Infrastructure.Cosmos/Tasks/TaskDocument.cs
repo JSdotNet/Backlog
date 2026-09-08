@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Cosmos.Tasks;
 /// <para>
 /// <see cref="OwnerId"/> is the partition key. The container is created on
 /// <c>/ownerId</c> in both the AppHost and <c>infra/sync/main.bicep</c>, and the
-/// camelCase naming policy in <see cref="TaskDocumentSerialization"/> is what
+/// camelCase naming policy in <see cref="ReplicaDocumentSerialization"/> is what
 /// makes this property serialise to exactly that name. The four Cosmos-reserved
 /// names below carry an explicit <see cref="JsonPropertyNameAttribute"/> instead
 /// of relying on that policy, because they are not camelCase in the first place

@@ -37,6 +37,10 @@
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Knowledge.Abstractions
+@* Said in writing, which is the rule this project's _Imports.razor states for
+   reaching into a context. The knowledge-source control is Second Brain's, and
+   this screen offers the same one its pane does rather than a second copy. *@
+@using Backlog.Desktop.UI.Knowledge
 @* Sync's published surface, for the feature key the Devices tab is gated on
    and the pairing-code format the panel displays a code in. *@
 @using Backlog.Modules.Sync.Abstractions
@@ -59,6 +63,7 @@
 @inject ILocalGitRepositoryService LocalGit
 @inject ClaudeSettingsStore Claude
 @inject IKnowledgeFolderSource KnowledgeFolders
+@inject KnowledgeSourceSelection KnowledgeSource
 @* The two sync collaborators are read off this rather than injected; see the
    Devices section of the code block for why. *@
 @inject IServiceProvider Services
@@ -498,6 +503,35 @@
                         yourself.
                     </p>
 
+                </div>
+
+                @* Not inside the storage folder, and deliberately: a snapshot is a
+                   disposable copy of a commit that can always be fetched again,
+                   so it has no business in a folder people back up or sync. It is
+                   a setting rather than a constant because a machine with a small
+                   system drive and a large one for work is an ordinary machine. *@
+                <div class="knowledge-folders" data-testid="knowledge-cache-settings">
+                    <h3 class="knowledge-folders__title">Branch snapshot folder</h3>
+                    <p class="setting__note">
+                        Where knowledge fetched from a repository branch is cached. Clear it to return to the
+                        default. Changing this leaves the old folder alone; the new one refills on the next fetch.
+                    </p>
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Snapshot folder"
+                               Id="knowledge-cache-directory"
+                               data-testid="knowledge-cache-directory-input"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="@Store.DefaultKnowledgeCacheDirectory"
+                               Value="@_draftKnowledgeCacheDirectory"
+                               ValueChanged="value => _draftKnowledgeCacheDirectory = value"
+                               @onchange="ApplyKnowledgeCacheDirectory" />
+                    <p class="setting__status" data-testid="knowledge-cache-status" role="status">
+                        <span>Snapshots: <code>@Store.KnowledgeCacheDirectory</code></span>
+                    </p>
+                    <Alert Message="@_knowledgeCacheError" TestId="knowledge-cache-error" />
                 </div>
 
                 <div class="knowledge-folders" data-testid="storage-knowledge-folder-settings">
@@ -1126,6 +1160,73 @@
                                         @CloneButtonText(activeRepo)
                                     </AppButton>
                                 </div>
+
+                                @* Where this repository's knowledge is read from.
+                                   One control for what is stored as two settings:
+                                   the branch travels with the workspace, the
+                                   decision to read the clone instead is this
+                                   machine's, and nobody choosing between them
+                                   thinks of that as two questions. *@
+                                <div class="repo-card__section" data-testid="repo-knowledge-source">
+                                    <h4 class="knowledge-folders__title">Knowledge source</h4>
+                                    @* Keyed for the reason the pane's copy is:
+                                       loading the branch list has to rebuild the
+                                       control, or the browser keeps the value of
+                                       the entry that triggered the load and shows
+                                       a branch nobody selected. *@
+                                    <SelectField @key="@($"{activeRepo.Alias}:{KnowledgeSource.HasBranches(activeRepo.Alias)}")"
+                                                 LabelCssClass="setting__label"
+                                                 SelectCssClass="setting__input"
+                                                 Label="Read knowledge from"
+                                                 Id="@($"knowledge-source-{activeRepo.Alias}")"
+                                                 TestId="repo-knowledge-source-select"
+                                                 CurrentValue="@KnowledgeSource.CurrentValue(activeRepo.Alias)"
+                                                 Options="@KnowledgeSource.Options(activeRepo.Alias)"
+                                                 OnChanged="value => ApplyKnowledgeSourceAsync(activeRepo, value)" />
+                                    <p class="setting__status" data-testid="repo-knowledge-source-status" role="status">
+                                        @KnowledgeSource.Summary(activeRepo.Alias)
+                                    </p>
+                                    <div class="setting__actions">
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   data-testid="repo-knowledge-branches-button"
+                                                   Disabled="@_loadingBranches"
+                                                   OnClick="() => LoadBranchesAsync(activeRepo)">
+                                            @(_loadingBranches ? "Loading branches..." : "Load branches")
+                                        </AppButton>
+                                    </div>
+                                    <Alert Message="@_branchError" TestId="repo-knowledge-branches-error" />
+                                </div>
+
+                                @* The dashboard's pull-request detail is kept on
+                                   this machine because a merged pull request's
+                                   reviews, churn and size cannot change again.
+                                   That is only true while the copy matches the
+                                   repository, so there has to be a way back -
+                                   and it is per repository, because a rewritten
+                                   history is one repository's problem and
+                                   re-reading the others would be a long fetch
+                                   for nothing. Present only when the app is
+                                   actually keeping one, the way the Devices
+                                   panel treats its collaborators. *@
+                                @if (_activityCache is not null)
+                                {
+                                    <div class="repo-card__section" data-testid="repo-activity-cache">
+                                        <h4 class="knowledge-folders__title">Dashboard activity</h4>
+                                        <p class="setting__note">
+                                            Merged pull requests keep their review, churn and size detail on this machine, so opening the dashboard only fetches the ones it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
+                                        </p>
+                                        <p class="setting__status" data-testid="repo-activity-cache-status" role="status">
+                                            @ActivityCacheStatus(activeRepo)
+                                        </p>
+                                        <div class="setting__actions">
+                                            <AppButton Variant="ButtonVariant.None"
+                                                       data-testid="repo-activity-cache-forget"
+                                                       OnClick="() => ForgetActivityCache(activeRepo)">
+                                                Forget this repository's saved pull requests
+                                            </AppButton>
+                                        </div>
+                                    </div>
+                                }
 
                                 @if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
                                 {
@@ -1824,6 +1925,7 @@
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
+        _activityCache = Services.GetService<IPullRequestDetailCache>();
         _taskSync = ResolveTaskSync();
 
         // The loop outlives this screen, so what it did while nobody was here is
@@ -1840,6 +1942,10 @@
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
+
+        // Blank while it is the default, so the placeholder is what explains
+        // where snapshots go rather than a path nobody typed.
+        _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
         SyncRefreshDraft();
         SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
@@ -2084,6 +2190,91 @@
         _draftCloneDirectories.TryGetValue(alias, out var value);
         _repoError = GitHub.Settings.SetCloneDirectory(alias, value);
         SyncRepositoryDrafts();
+    }
+
+    /// <summary>
+    /// The knowledge-source control is <see cref="KnowledgeSourceSelection"/>'s,
+    /// not this screen's. The pane offers the same choice, and two copies of the
+    /// options would drift the first time a case was added to one of them.
+    /// </summary>
+    private async Task ApplyKnowledgeSourceAsync(GitHubRepositoryRef repository, string? value)
+    {
+        if (KnowledgeSourceSelection.IsLoadRequest(value))
+        {
+            await LoadBranchesAsync(repository);
+            return;
+        }
+
+        _repoError = KnowledgeSource.Select(repository.Alias, value);
+        SyncRepositoryDrafts();
+    }
+
+    private async Task LoadBranchesAsync(GitHubRepositoryRef repository)
+    {
+        _branchError = null;
+        _loadingBranches = true;
+
+        try
+        {
+            _branchError = await KnowledgeSource.LoadBranchesAsync(repository.Alias, CancellationToken.None);
+        }
+        finally
+        {
+            _loadingBranches = false;
+        }
+    }
+
+    private bool _loadingBranches;
+    private string? _branchError;
+
+    private string _draftKnowledgeCacheDirectory = string.Empty;
+    private string? _knowledgeCacheError;
+
+    // ---- Dashboard activity detail --------------------------------------
+
+    /// <summary>Resolved rather than injected, for the reason the Devices panel's
+    /// collaborators are: it is registered by the two desktop heads and by nothing
+    /// that only wants a settings screen, and a settings screen that failed to open
+    /// because a dashboard cache was absent would be the worse of the two
+    /// answers.</summary>
+    private IPullRequestDetailCache? _activityCache;
+
+    /// <summary>Which repositories have been forgotten since this screen opened.
+    /// Keyed on the alias, so the message follows the repository rather than
+    /// whichever card happens to be open.</summary>
+    private readonly HashSet<string> _forgottenActivity = new(StringComparer.Ordinal);
+
+    /// <summary>What the section says. Both halves state the cost plainly, because
+    /// the cost is the whole of the decision: the next dashboard read is a slow
+    /// one.
+    /// <para>
+    /// The resting half states the rule rather than the state. Nothing here reads
+    /// the cache folder, so "saved detail is reused" would be a claim about disk
+    /// that this screen has not checked — and on a first run, before any dashboard
+    /// read, it would be false. A sentence describing what the app does with detail
+    /// once it has it is true whether or not any has been saved yet, which is the
+    /// only version of it worth putting on screen.
+    /// </para></summary>
+    private string ActivityCacheStatus(GitHubRepositoryRef repository) =>
+        _forgottenActivity.Contains(repository.Alias)
+            ? $"Forgotten. The next dashboard read fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
+            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read fetches every pull request's detail in {repository.FullName} again.";
+
+    /// <summary>Drops one repository's saved pull-request detail. Nothing else is
+    /// touched — the other repositories keep theirs, and this one keeps its
+    /// settings.</summary>
+    private void ForgetActivityCache(GitHubRepositoryRef repository)
+    {
+        _activityCache?.ForgetRepository(repository);
+        _forgottenActivity.Add(repository.Alias);
+    }
+
+    /// <summary>Commits the snapshot folder. Blank returns it to the default,
+    /// which is what clearing the field means everywhere else on this screen.</summary>
+    private void ApplyKnowledgeCacheDirectory()
+    {
+        _knowledgeCacheError = Store.SetKnowledgeCacheDirectory(_draftKnowledgeCacheDirectory);
+        _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
     }
 
     private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>

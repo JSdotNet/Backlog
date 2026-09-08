@@ -71,6 +71,7 @@
                           Source="@_blockSource"
                           RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
                           RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
+                          CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
                           KnowledgeFolder="@KnowledgeFolder"
                           KnowledgeDocumentPath="@KnowledgeDocumentPath"
                           OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
@@ -233,6 +234,12 @@
     /// them.</summary>
     [Parameter]
     public bool RenderKnowledgeMetadataFields { get; set; } = true;
+
+    /// <summary>Whether a chapter's status may be changed from this document.
+    /// Passed straight to the read view; false draws the badge in place of the
+    /// select.</summary>
+    [Parameter]
+    public bool CanEditKnowledgeStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the text was read from, forwarded so a
     /// status can be checked against that folder's vocabulary — which is what

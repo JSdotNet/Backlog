@@ -62,4 +62,26 @@ public static class DashboardFormat
         moment is { } value
             ? value.UtcDateTime.ToString("dd MMM HH:mm", CultureInfo.InvariantCulture)
             : "—";
+
+    /// <summary>
+    /// A day, for naming a stretch of history in prose. No time of day, unlike
+    /// <see cref="Moment"/>: the block a target came from is four weeks long, and a
+    /// minute-precise edge on it would be a precision nobody asked for.
+    /// <para>
+    /// The year is here where <see cref="Moment"/> leaves it out, and for the same
+    /// reason it leaves it out — that one labels something inside the window on
+    /// screen, this one names a block that may be five months behind it.
+    /// </para>
+    /// </summary>
+    public static string Day(DateTimeOffset moment) =>
+        moment.UtcDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A derived target as a whole number of items. Full marks is arithmetic over a
+    /// rate and lands on fractions — 380.0, or 356.25 — and a card that told a reader
+    /// to merge a quarter of a pull request would be inviting the wrong argument.
+    /// Rounded rather than truncated, and invariant, for the reason above.
+    /// </summary>
+    public static string Whole(decimal value) =>
+        Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
 }

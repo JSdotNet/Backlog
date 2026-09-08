@@ -171,10 +171,11 @@ public sealed class GitHubSettings
     /// somebody who never opens the Accounts panel.</item>
     /// </list>
     /// <para>
-    /// Handles all five path shapes the clients actually send, not just
-    /// <c>repos/</c>: the organization and user shapes the Copilot and billing
-    /// clients build used to fall past the repository lookup entirely and take the
-    /// arbitrary first token in the list.
+    /// Handles every path shape the clients actually send, not just <c>repos/</c>:
+    /// the organization and user shapes the Copilot and billing clients build used
+    /// to fall past the repository lookup entirely and take the arbitrary first
+    /// token in the list, and the <c>search/</c> shape names its subject in the
+    /// query rather than in the path.
     /// </para>
     /// </summary>
     public GitHubAccountChoice AccountForPath(string? path)
@@ -196,6 +197,14 @@ public sealed class GitHubSettings
             // The user billing endpoints name a login outright, which is a stronger
             // statement than any repository could make about them.
             "users" when parts.Length >= 2 => ChoiceForLogin(parts[1]),
+
+            // A search names its subject in the query rather than in the path, so
+            // it read as "nothing identifiable" and went out as the default. In a
+            // workspace with one account that was invisible; in one with two it is
+            // a count for the wrong identity, or a zero for a private repository
+            // the default account simply cannot see — and a zero is not an error,
+            // so nothing on screen would say so.
+            "search" => ChoiceForSearch(path),
 
             _ => GitHubAccountChoice.Default
         };
@@ -253,6 +262,73 @@ public sealed class GitHubSettings
             .ToList();
 
         return bound.Count == 1 ? Bind(bound[0], owner) : GitHubAccountChoice.Default;
+    }
+
+    /// <summary>
+    /// The identity a search has to go out as, taken from the scope qualifier in
+    /// its <c>q=</c> parameter.
+    /// <para>
+    /// The first scope qualifier wins, and there is normally only one: a query
+    /// naming repositories under two owners is a query no single credential is
+    /// guaranteed to satisfy, which is why the baseline client splits those into
+    /// separate queries rather than relying on a rule here.
+    /// </para>
+    /// <para>
+    /// <c>org:</c> and <c>user:</c> both route through <see cref="ChoiceForOwner"/>
+    /// rather than <see cref="ChoiceForLogin"/>. In search they name whose
+    /// repositories to look in, not whose account the report is about — the
+    /// opposite of what <c>users/{login}</c> in a billing path means.
+    /// </para>
+    /// </summary>
+    private GitHubAccountChoice ChoiceForSearch(string path)
+    {
+        if (QueryValue(path, "q") is not { } query) return GitHubAccountChoice.Default;
+
+        // GitHub separates qualifiers with a space, which travels through a query
+        // string as either a space or a '+'.
+        foreach (var qualifier in query.Split(['+', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Qualifier(qualifier, "repo:") is { } full)
+            {
+                var parts = full.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length == 2) return ChoiceForRepository(parts[0], parts[1]);
+                continue;
+            }
+
+            if (Qualifier(qualifier, "org:") is { } organization) return ChoiceForOwner(organization);
+            if (Qualifier(qualifier, "user:") is { } user) return ChoiceForOwner(user);
+        }
+
+        return GitHubAccountChoice.Default;
+    }
+
+    /// <summary>The value of one qualifier, or null when this is a different
+    /// one.</summary>
+    private static string? Qualifier(string token, string name) =>
+        token.StartsWith(name, StringComparison.OrdinalIgnoreCase) && token.Length > name.Length
+            ? token[name.Length..]
+            : null;
+
+    /// <summary>One named query-string parameter, decoded. Written here rather than
+    /// taken from a URI helper because the paths these clients build are relative
+    /// and would have to be made absolute first.</summary>
+    private static string? QueryValue(string path, string name)
+    {
+        var mark = path.IndexOf('?', StringComparison.Ordinal);
+        if (mark < 0) return null;
+
+        foreach (var pair in path[(mark + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equals = pair.IndexOf('=', StringComparison.Ordinal);
+            if (equals < 0) continue;
+            if (!string.Equals(pair[..equals], name, StringComparison.OrdinalIgnoreCase)) continue;
+
+            // Unescaping leaves '+' alone, which is what keeps the qualifier split
+            // above working whether the caller escaped the query or not.
+            return Uri.UnescapeDataString(pair[(equals + 1)..]);
+        }
+
+        return null;
     }
 
     private GitHubAccountChoice ChoiceForLogin(string login) =>
@@ -588,17 +664,67 @@ public sealed class GitHubSettingsStore
         });
 
     /// <summary>
+    /// Chooses where a repository's knowledge is read from: one of its branches,
+    /// or the local clone.
+    /// <para>
+    /// One call for both halves because it is one choice to the person making it,
+    /// even though the two halves live in different files — the branch is shared,
+    /// the decision to read the clone instead is this machine's. Writing them
+    /// together keeps a partial answer off disk.
+    /// </para>
+    /// <para>
+    /// The branch is remembered when the clone is selected, rather than cleared.
+    /// Switching to the clone for an afternoon's editing and back should not cost
+    /// somebody the branch they had picked.
+    /// </para>
+    /// </summary>
+    /// <param name="branch">The branch to read, or null for the repository's own
+    /// default branch. Ignored when it is blank and a branch is already
+    /// remembered.</param>
+    /// <param name="useLocalFolder">True to read the clone instead. A repository
+    /// with no clone directory still resolves to the branch — see
+    /// <see cref="GitHubRepositoryRef.KnowledgeSource"/> — so this is a stated
+    /// preference, not a promise.</param>
+    public string? SetKnowledgeSource(string alias, string? branch, bool useLocalFolder)
+    {
+        if (Find(alias) is not { } target) return NotConfigured;
+
+        return Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r => IsSame(r, target)
+                    ? r with
+                    {
+                        KnowledgeBranch = CleanBranch(branch) ?? r.KnowledgeBranch,
+                        UseLocalKnowledgeFolder = useLocalFolder
+                    }
+                    : r)
+            ],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
+        });
+    }
+
+    /// <summary>
     /// Points one of a repository's knowledge folders somewhere else, or turns it
     /// off.
     /// <para>
     /// Local, and the whole list stays local rather than being split down the
-    /// middle. Every repository knowledge resolution is gated on the clone
-    /// directory — <c>KnowledgeFolderSource.ResolveRepository</c> answers
-    /// <c>Unavailable</c> for a blank one — so a shared <c>enabled</c> would have
-    /// no shared consequence; <c>KnowledgeFolderSetting</c> is Second Brain's
-    /// published language and the shared registry has to stay a Repository
-    /// Management artifact; and splitting one row across two files would make this
-    /// a two-file write whose partial failure leaves an inconsistent row.
+    /// middle. <c>KnowledgeFolderSetting</c> is Second Brain's published language
+    /// and the shared registry has to stay a Repository Management artifact; and
+    /// splitting one row across two files would make this a two-file write whose
+    /// partial failure leaves an inconsistent row.
+    /// </para>
+    /// <para>
+    /// This used to rest on a third argument — that a shared <c>enabled</c> would
+    /// have no shared consequence, because every repository knowledge resolution
+    /// was gated on the clone directory. That is no longer true: knowledge now
+    /// resolves against a branch snapshot on a machine with no clone at all, so
+    /// these settings do have a consequence where nothing was cloned. The two
+    /// reasons above still hold and are why the list stays here; the third is
+    /// recorded as withdrawn rather than deleted, so nobody re-derives it.
     /// </para>
     /// </summary>
     public string? SetKnowledgeFolder(string alias, string key, bool enabled, string? path)
@@ -815,7 +941,8 @@ public sealed class GitHubSettingsStore
                 Id = r.FullName,
                 Alias = r.Alias,
                 Colour = r.Colour,
-                Account = r.Account
+                Account = r.Account,
+                KnowledgeBranch = r.KnowledgeBranch
             })
         ]);
 
@@ -924,6 +1051,7 @@ public sealed class GitHubSettingsStore
                 Id = repository.FullName,
                 CloneDirectory = repository.CloneDirectory,
                 Token = repository.Token,
+                UseLocalKnowledgeFolder = repository.UseLocalKnowledgeFolder,
                 KnowledgeFolders =
                 [
                     .. KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders).Select(f => new KnowledgeFolderDto
@@ -966,6 +1094,7 @@ public sealed class GitHubSettingsStore
     private static bool CarriesMachineLocalData(GitHubRepositoryRef repository) =>
         repository.CloneDirectory is not null
         || repository.Token is not null
+        || repository.UseLocalKnowledgeFolder is not null
         || !KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
             .SequenceEqual(KnowledgeFolderSetting.Defaults());
 
@@ -1009,7 +1138,8 @@ public sealed class GitHubSettingsStore
                         Id = row.Id,
                         Alias = row.Alias,
                         Colour = row.Colour,
-                        Account = row.Account
+                        Account = row.Account,
+                        KnowledgeBranch = row.KnowledgeBranch
                     })
                 ]) is null;
 
@@ -1096,6 +1226,16 @@ public sealed class GitHubSettingsStore
                         // every repository correctly reads as unbound and falls back
                         // to the default rather than to a guess.
                         Account = identity.Account,
+
+                        // Shared, like the account and for the same reason: which
+                        // branch a repository's knowledge is read from is true of
+                        // the repository, not of this machine.
+                        KnowledgeBranch = identity.KnowledgeBranch,
+
+                        // Machine-local, and absent stays absent rather than
+                        // becoming false. Null is what lets KnowledgeSource read an
+                        // upgraded install as "the clone it always used".
+                        UseLocalKnowledgeFolder = overlay?.UseLocalKnowledgeFolder,
 
                         // A repository with no overlay row starts from the defaults,
                         // which is exactly where a repository registered on another
@@ -1289,6 +1429,7 @@ public sealed class GitHubSettingsStore
                 Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
                 Colour = CleanColour(repository.Colour),
                 Account = GitHubAccount.NormalizeLogin(repository.Account),
+                KnowledgeBranch = CleanBranch(repository.KnowledgeBranch),
                 KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
             };
         }
@@ -1299,6 +1440,14 @@ public sealed class GitHubSettingsStore
             Token = CleanToken(repository.Token) ?? existing.Token ?? CleanToken(Current.Token),
             Colour = CleanColour(repository.Colour) ?? existing.Colour,
             Account = GitHubAccount.NormalizeLogin(repository.Account) ?? existing.Account,
+
+            // Both halves of the knowledge source are carried, for the reason
+            // stated above: the grammar has neither in it, so a re-typed list
+            // would otherwise send a repository back to its default branch and
+            // undo somebody's choice to read their own clone — turning the panels
+            // read-only on the next keystroke in the repositories box.
+            KnowledgeBranch = CleanBranch(repository.KnowledgeBranch) ?? existing.KnowledgeBranch,
+            UseLocalKnowledgeFolder = repository.UseLocalKnowledgeFolder ?? existing.UseLocalKnowledgeFolder,
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
         };
     }
@@ -1311,6 +1460,7 @@ public sealed class GitHubSettingsStore
             Token = CleanToken(r.Token),
             Colour = CleanColour(r.Colour),
             Account = GitHubAccount.NormalizeLogin(r.Account),
+            KnowledgeBranch = CleanBranch(r.KnowledgeBranch),
             KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
         })
     ];
@@ -1361,6 +1511,30 @@ public sealed class GitHubSettingsStore
     /// a hue they did not ask for and make it look like a choice they had made.</summary>
     private static int? CleanColour(int? colour) => RepositoryColours.IsSanctioned(colour) ? colour : null;
 
+    /// <summary>
+    /// A branch name as it is stored: trimmed, and null rather than blank, where
+    /// null means the repository's own default branch.
+    /// <para>
+    /// A leading <c>refs/heads/</c> is folded away because the two forms name the
+    /// same branch and only one of them can be pasted into an archive URL. What
+    /// is deliberately <em>not</em> done is validating the name against git's
+    /// rules: this app is not the authority on what the repository calls its
+    /// branches, and a name it wrongly rejected would be a branch somebody could
+    /// see on GitHub and not select here.
+    /// </para>
+    /// </summary>
+    private static string? CleanBranch(string? branch)
+    {
+        if (string.IsNullOrWhiteSpace(branch)) return null;
+
+        var trimmed = branch.Trim();
+        const string prefix = "refs/heads/";
+
+        if (trimmed.StartsWith(prefix, StringComparison.Ordinal)) trimmed = trimmed[prefix.Length..];
+
+        return trimmed.Length == 0 ? null : trimmed;
+    }
+
     private static string? CleanEndpoint(string? endpoint)
     {
         if (string.IsNullOrWhiteSpace(endpoint)) return null;
@@ -1387,10 +1561,17 @@ public sealed class GitHubSettingsStore
 
     /// <summary>One identity row, already split into the parts the rest of the
     /// class needs.</summary>
-    private sealed record RegistryRow(string Id, string Alias, string Owner, string Name, int? Colour, string? Account)
+    private sealed record RegistryRow(
+        string Id,
+        string Alias,
+        string Owner,
+        string Name,
+        int? Colour,
+        string? Account,
+        string? KnowledgeBranch = null)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
-            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account);
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.KnowledgeBranch);
 
         /// <summary>
         /// A stored row read as an identity, or null when its <c>id</c> is not a
@@ -1407,7 +1588,7 @@ public sealed class GitHubSettingsStore
         /// rather than a coordinate, so it is carried through as it was written and
         /// nothing is validated at read time: an account this machine has no row for
         /// is an unsatisfied binding to report, not a corrupt row to drop.</param>
-        public static RegistryRow? From(string? id, string? alias, int? colour, string? account = null)
+        public static RegistryRow? From(string? id, string? alias, int? colour, string? account = null, string? knowledgeBranch = null)
         {
             if (string.IsNullOrWhiteSpace(id)) return null;
 
@@ -1424,7 +1605,8 @@ public sealed class GitHubSettingsStore
                 owner,
                 name,
                 colour,
-                GitHubAccount.NormalizeLogin(account));
+                GitHubAccount.NormalizeLogin(account),
+                CleanBranch(knowledgeBranch));
         }
     }
 
@@ -1462,6 +1644,13 @@ public sealed class GitHubSettingsStore
         /// accounts existed.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Account { get; set; }
+
+        /// <summary>The branch this repository's knowledge is read from. Omitted
+        /// when null, for the reason <see cref="Account"/> is: a workspace where
+        /// nobody has picked a branch writes the file it always wrote, and absent
+        /// reads as the repository's own default branch.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? KnowledgeBranch { get; set; }
     }
 
     private sealed class SettingsDto
@@ -1502,6 +1691,23 @@ public sealed class GitHubSettingsStore
         public string? CloneDirectory { get; set; }
         public string? Token { get; set; }
         public List<KnowledgeFolderDto> KnowledgeFolders { get; set; } = [];
+
+        /// <summary>
+        /// Whether knowledge is read out of <see cref="CloneDirectory"/> rather
+        /// than out of a branch snapshot. Machine-local, because it is only
+        /// answerable where the clone is.
+        /// <para>
+        /// Nullable, and that is the migration. Absent means nobody has chosen,
+        /// which resolves to the clone when there is one and to the branch when
+        /// there is not — so every install written before branch loading existed
+        /// keeps reading and editing the folder it was reading and editing, and
+        /// only a repository with no clone takes the new path. A plain
+        /// <c>false</c> default would have turned every existing configured
+        /// repository read-only on upgrade.
+        /// </para>
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? UseLocalKnowledgeFolder { get; set; }
 
         // Omitted when null rather than written as null, which is what makes the
         // reduced write actually reduced: a `"alias": null` in the file would

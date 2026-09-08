@@ -184,6 +184,17 @@ public sealed class KnowledgeFolderChangeRefreshTests
 
         Assert.Contains("Instructions: Alpha", component.Markup, StringComparison.Ordinal);
 
+        // The panel reads the selected document asynchronously after the first
+        // render — KnowledgeChapterContent.LoadAsync, and so File.ReadAllTextAsync,
+        // which opens the file with FileShare.Read and therefore denies writers.
+        // The assertion above is satisfied by the synchronous discovery, so it does
+        // not wait for that read, and rewriting the file underneath it is a sharing
+        // violation rather than a test of anything. The edit affordance renders only
+        // once the chapter has loaded, so waiting for it is waiting for the handle
+        // to have closed — the same guard the editor-buffer test below already uses.
+        component.WaitForAssertion(() =>
+            Assert.Single(component.FindAll("[data-testid='instructions-document-edit']")));
+
         workspace.RewriteContextMap(workspace.RepositoryPath, "Pulled");
         workspace.Folders.NotifyContentChanged();
 
@@ -536,6 +547,8 @@ file sealed class KnowledgeWorkspace : IDisposable
         context.Services.AddSingleton<KnowledgeScope>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<KnowledgeSourceSelection>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<KnowledgeFolderOpenService>();
         return context;
