@@ -226,7 +226,7 @@ rather than something anything here has shown.
 ## Knowledge Index
 
 ```meta
-status: proposed
+status: active
 related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/second-brain/features.md#repository-knowledge-areas"]
 ```
 
@@ -272,15 +272,22 @@ How every channel reads the knowledge a repository carries alongside its code.
 - **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
   MCP server read the same schema rather than each carrying its own markdown parser.
 
-> Partly implemented. The derived layer is currently twelve committed JSON files
-> under `_meta/`, and the reading rules above are already how the panels treat
-> them: `KnowledgeIndexReader` lists a folder without opening a markdown file,
-> re-reads any entry whose file is newer than the index, rejects a `schemaVersion`
-> it does not recognise, and falls back to scanning a folder that has no index.
-> What is not implemented is the container — the database, the retrieval tiers,
-> and dropping the artifacts from version control. See
+> Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
+> `_meta/knowledge.db`, written by `tools/knowledge/build-database.mjs` and
+> git-ignored; each knowledge folder carries a committed `_reading-order.json`
+> holding the authored half; and `Backlog.Infrastructure.Knowledge` reads the
+> database read-only, down every rung of the ladder above.
+>
+> The gaps are the refresh paths that need the app to start the generator — the
+> debounced watcher and the idle background pass — which stay unbuilt because how
+> the app invokes it is still open, and the semantic tier's live call, which does
+> not happen: the embedding table, its port and a brute-force cosine reader exist,
+> and nothing fills them, so retrieval is full-text alone. Neither gap costs
+> correctness, because the floor of the ladder is the Markdown reader the panels
+> already had. See
 > `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` for the
-> reasoning and the questions it leaves open.
+> reasoning, what the implementation departed from, and the questions it still
+> leaves open.
 
 ## Feature Enablement
 

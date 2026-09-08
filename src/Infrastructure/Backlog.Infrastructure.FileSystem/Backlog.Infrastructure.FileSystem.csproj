@@ -47,6 +47,10 @@
     <ProjectReference Include="..\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <!-- For where the task database lives: the settings store shows the path on
          the settings screen, and the Sqlite adapter owns the file name. -->
+    <!-- The read side of the generated knowledge database. The roadmap rollup is
+         a join only an adapter may make, and the knowledge half of it is now a
+         few indexed rows rather than a 947 KB document parse. -->
+    <ProjectReference Include="..\Backlog.Infrastructure.Knowledge\Backlog.Infrastructure.Knowledge.csproj" />
     <ProjectReference Include="..\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 

@@ -36,4 +36,18 @@ public sealed class KnowledgeScope(GitHubSettingsStore repositories, IKnowledgeF
         features.IsEnabled(KnowledgeFeatures.KnowledgeSections)
             ? KnowledgeAreaCatalog.VisibleAreas(Folders(repositoryAlias))
             : [];
+
+    /// <summary>
+    /// Whether the pane offers to search this knowledge base.
+    /// <para>
+    /// Asked here rather than by the pane reading the feature settings itself, for
+    /// the reason this whole class exists: the pane's question is "is there
+    /// searching to offer", and whether that is answered by a flag, by a folder
+    /// setting, or by both is Second Brain's business and not the strip's. It is
+    /// also only half of what the reader ends up seeing — a repository whose index
+    /// has never been generated has the surface and no index, which the surface
+    /// itself says in words.
+    /// </para>
+    /// </summary>
+    public bool SearchOffered => features.IsEnabled(KnowledgeFeatures.Search);
 }

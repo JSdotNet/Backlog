@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using Backlog.UI.Components.Markdown;
@@ -73,8 +72,6 @@ public sealed class Arc42KnowledgeStore(IKnowledgeFolderSource source)
 
 public static class Arc42KnowledgeReader
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public static Task<Arc42KnowledgeCatalog> LoadAsync(string rootDirectory) =>
         LoadFolderAsync(Path.Combine(rootDirectory, ".arc42"), rootDirectory);
 
@@ -96,10 +93,8 @@ public static class Arc42KnowledgeReader
             return Arc42KnowledgeCatalog.Missing(rootDirectory);
         }
 
-        var indexPath = Path.Combine(arc42Directory, "_meta", "index.json");
-        var documentPaths = File.Exists(indexPath)
-            ? await ReadIndexedPathsAsync(indexPath, rootDirectory)
-            : Directory.EnumerateFiles(arc42Directory, "*.md", SearchOption.TopDirectoryOnly)
+        var documentPaths = IndexedPaths(arc42Directory, rootDirectory)
+            ?? Directory.EnumerateFiles(arc42Directory, "*.md", SearchOption.TopDirectoryOnly)
                 .Select(path => Path.GetRelativePath(rootDirectory, path))
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -146,51 +141,38 @@ public static class Arc42KnowledgeReader
         }
     }
 
-    private static async Task<List<string>> ReadIndexedPathsAsync(string indexPath, string rootDirectory)
+    /// <summary>
+    /// The chapters this folder holds, in reading order, or <see langword="null"/>
+    /// when nothing has indexed it and the caller should scan the directory.
+    ///
+    /// <para>This used to parse <c>_meta/index.json</c> here, with its own pair of
+    /// DTOs and — the part that mattered — no <c>schemaVersion</c> check at all, so
+    /// a file written by a generator this app had never heard of was read as though
+    /// it were the shape it expected. <see cref="KnowledgeIndexDocument"/> is the
+    /// reader that already knows how to refuse that, and asking it means arc42
+    /// reads the generated database like every other area rather than being the one
+    /// that still opens a JSON file of its own.</para>
+    ///
+    /// <para>What it does not buy, and is worth saying plainly: the documents are
+    /// still parsed from Markdown afterwards. A catalog carries rendered blocks, not
+    /// just titles, so the saving here is the index read rather than the corpus
+    /// read. Deferring the parse per chapter is what <c>LazyKnowledgeList</c> does
+    /// for <c>.domain</c>, and arc42 has not been moved onto it.</para>
+    /// </summary>
+    private static List<string>? IndexedPaths(string arc42Directory, string rootDirectory)
     {
-        await using var stream = File.OpenRead(indexPath);
-        var index = await JsonSerializer.DeserializeAsync<KnowledgeIndex>(stream, JsonOptions);
-        var paths = new List<string>();
+        if (KnowledgeIndexDocument.TryRead(arc42Directory) is not { } index) return null;
 
-        if (index?.Entries is not null)
-        {
-            CollectMarkdownPaths(index.Entries, paths);
-        }
-
-        return paths
+        var paths = index.Files
+            .Select(entry => entry.Path)
+            .Where(path => path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
             .Where(path => File.Exists(Path.Combine(rootDirectory, path.Replace('/', Path.DirectorySeparatorChar))))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-    }
 
-    private static void CollectMarkdownPaths(IEnumerable<KnowledgeIndexEntry> entries, List<string> paths)
-    {
-        foreach (var entry in entries)
-        {
-            if (string.Equals(entry.Type, "file", StringComparison.OrdinalIgnoreCase) && entry.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-            {
-                paths.Add(entry.Path);
-            }
-
-            if (entry.Children is { Count: > 0 })
-            {
-                CollectMarkdownPaths(entry.Children, paths);
-            }
-        }
-    }
-
-    private sealed class KnowledgeIndex
-    {
-        public List<KnowledgeIndexEntry>? Entries { get; set; }
-    }
-
-    private sealed class KnowledgeIndexEntry
-    {
-        public string Type { get; set; } = string.Empty;
-
-        public string Path { get; set; } = string.Empty;
-
-        public List<KnowledgeIndexEntry>? Children { get; set; }
+        // An index that names nothing this folder actually has is no more use than
+        // no index: the scan below still finds the chapters.
+        return paths.Count == 0 ? null : paths;
     }
 }
 

@@ -292,7 +292,9 @@ indexes.
 - **Used for** — `node .github/tools/knowledge-meta/build.mjs`, producing
   `_meta/graph.json` (the reference graph) and `_meta/index.json` (the reading
   outline) per folder plus a repository-wide rollup. Installed by the
-  `knowledge-base` plugin rather than hand-written here.
+  `knowledge-base` plugin rather than hand-written here. Since local ADR 0004
+  neither file is committed: both are ignored, and what this repository reads is
+  the database below, built from the same exported seam.
 - **Why** — it is what turns the metadata convention into something queryable,
   and it is where a broken `depends-on` or `related` reference is caught.
 - **How** — `.github/workflows/knowledge-meta.yml` fails on an unresolvable
@@ -318,6 +320,45 @@ indexes.
   field; and `type`, `date`, `tests`, `index` and `number` are exempt everywhere,
   because chapter authors write the current schema while the validator knows the
   old one. Re-syncing the generator is what retires both.
+
+## Knowledge Database Writer
+
+```meta
+status: adopted
+type: tool
+depends-on: [".tech/shared.md#nodejs", ".tech/shared.md#sqlite", ".tech/tooling.md#knowledge-meta-generator"]
+related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/08-crosscutting-concepts.md#knowledge-index"]
+```
+
+The repo-native writer that compiles the knowledge corpus into one generated
+SQLite database.
+
+- **Used for** — `node tools/knowledge/build-database.mjs`, producing
+  `_meta/knowledge.db`: the reference graph, the resolved reading outline, every
+  chapter's text and hashes, the FTS5 index, the Archify artifact rows, and an
+  empty embedding table. One database for the repository, so a scope is
+  `WHERE folder = ?` rather than another pair of files. It is git-ignored and
+  rebuilt per machine; `Backlog.Infrastructure.Knowledge` reads it read-only and
+  falls back to the Markdown for anything it cannot trust.
+- **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
+  every branch collided on and that CI had already been softened to stop
+  enforcing. Removing them from git finishes what the warning-only check started,
+  and the database gives retrieval somewhere to live.
+- **How** — repo-native, beside `check-metadata.mjs` and for the same reason:
+  everything under `.github/tools/knowledge-meta/` is an installed plugin copy
+  that CLAUDE.md says to re-sync and never edit, so this *imports* its exported
+  `buildGraph`, `parseDocument`, `folderKindForPath` and `discoverScopes` instead
+  of forking them. The authored reading order it resolves from each folder's
+  committed `_reading-order.json`, which is the one thing the installed outline
+  builder cannot supply, because it reads that order back out of the very
+  `index.json` this decision removed. `node:sqlite` provides SQLite and FTS5 with
+  no dependency added. `.github/workflows/knowledge-metadata.yml` runs its tests
+  and then builds it against the real corpus as a **blocking** step — which a
+  committed artifact could never be, and an uncommitted one can.
+- **Caveat** — the schema is written here and read from C#, which is a contract
+  that can drift silently. It is one exported string in
+  `tools/knowledge/knowledge-schema.mjs`, and the C# contract tests build their
+  fixtures from that text rather than restating it.
 
 ## Archify
 

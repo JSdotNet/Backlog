@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "scope": ".tech",
+  "directories": {
+    ".tech": {
+      "root": "technology-graph.md",
+      "order": [
+        "shared.md",
+        "desktop.md",
+        "ide.md",
+        "mobile.md",
+        "cloud.md",
+        "testing.md",
+        "ai-development.md",
+        "tooling.md"
+      ]
+    }
+  }
+}

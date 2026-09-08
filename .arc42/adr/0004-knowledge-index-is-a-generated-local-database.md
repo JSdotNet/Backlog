@@ -1,15 +1,88 @@
 # ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical
 
 ```meta
-status: proposed
+status: active
 related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
 issue: null
 ```
 
 ## Status
 
-Proposed. Nothing is built yet; this records the direction and the questions it
-deliberately leaves open.
+Accepted, and built — with the exceptions the note below names rather than
+leaves to be discovered. What is not built is the refresh machinery that was
+never required for correctness, and the semantic tier's one live call.
+
+> **Implemented, 2026-09-08.** The derived knowledge layer is
+> `_meta/knowledge.db`, generated and git-ignored, and the twelve `_meta/*.json`
+> artifacts are out of version control. The authored half moved first, as this
+> record said it had to: each knowledge folder now carries a committed
+> `_reading-order.json` naming its root document and the order of everything
+> beside it, and nothing else about a directory listing is stated twice.
+>
+> **The writer is repo-native, and that is a departure from the wording above.**
+> This record says "the Node generator" as though there were one. There are two:
+> `.github/tools/knowledge-meta/` is an installed copy of the `knowledge-base`
+> plugin's tooling, which `CLAUDE.md` and `.tech/tooling.md#knowledge-meta-generator`
+> both say to re-sync and never edit here — and the installed copy is four plugin
+> releases behind. So `tools/knowledge/build-database.mjs` *imports* that
+> generator's exported seam (`buildGraph`, `parseDocument`, `folderKindForPath`,
+> `discoverScopes`) rather than editing it, exactly as
+> `tools/knowledge/check-metadata.mjs` already does for `validateDocument`. The
+> rule this record actually cares about is unchanged and was the point of the
+> sentence: one Node writer, one implementation of the parse, and no C# that
+> writes to the database. The outline is the one thing not imported, because
+> `buildOutlineDocument` reads its order back out of the `index.json` it is
+> regenerating, and that file is gone.
+>
+> `node:sqlite` writes it — Node 22 and later ship it with FTS5 compiled in, so
+> the tooling still has no `package.json` and no dependency. Reading is
+> `Backlog.Infrastructure.Knowledge`, its own project so that mobile and the IDE
+> extension can take it later without the backlog store coming too, opening
+> `SqliteOpenMode.ReadOnly` — `ReadWriteCreate` would create an empty database
+> where none exists, turning "absent" into "present and empty", which is the one
+> state the ladder has no rung for. All six rungs are implemented and each has a
+> test. The schema is one exported string in `tools/knowledge/knowledge-schema.mjs`
+> and the C# side restates none of it: the contract tests build their fixtures
+> from that text, read at test time, which is the treatment the **Consequences**
+> below ask for and the same shape as the `DiagramSourceHash` pairing.
+>
+> **What CI does with it changed, and in the direction this record predicted.**
+> The drift check in `knowledge-meta.yml` had to be softened to a warning because
+> its output was committed. A build output nothing commits has nothing to conflict
+> on, so `knowledge-metadata.yml` now *blocks* on the database building against the
+> real corpus. That is the merge-churn argument closing the loop rather than a
+> new rule.
+>
+> **Not built, and not to be read into the above.** The debounced watcher and the
+> idle background pass do not exist, because both need the app to invoke the
+> generator and that is still the open question below — deliberately left open,
+> and safe to leave open because with no answer at all the app reads Markdown,
+> which is what it does today. What *is* built is the rung that needs no
+> generator: the on-open drift check, one `stat` per file an area is about to
+> present, comparing recorded size and modification time and only hashing when
+> those disagree.
+>
+> **The semantic tier is wired and makes no live call.** The table, the port and
+> the brute-force cosine reader exist and are tested; `text-embedding-3-small` is
+> declared in `infra/foundry/main.bicep` behind `includeEmbeddingModel`. Nothing
+> has been provisioned in Azure and nothing computes an embedding, so
+> `chapter_embedding` is empty in every database this change produces and
+> retrieval is FTS5 alone — which this record already says is the right default.
+> Both retrieval flags are `Dev` and off by default.
+>
+> **Two claims above are worth correcting rather than quietly inheriting.** The
+> corpus has grown since this was drafted: 812 nodes and 1741 edges, and the
+> repository-wide `graph.json` was 947 KB rather than 836 KB. And the roadmap
+> rollup's win is not the one described. **No chapter in this corpus authors
+> `effort` or `roadmap` at all** — not one line in the Markdown, and zero nodes
+> carrying either field in the committed graph. So the rollup was reading 947 KB
+> to find nothing, and now runs an indexed query that finds nothing; it is a
+> strictly cheaper way to get the same empty answer, and the "few hundred effort
+> values" this record imagines is a capability the corpus does not yet exercise.
+>
+> `_archify/index.json` stays committed. Its rows are copied into the database
+> and the Archify lookup reads them from there, but a different tool writes those
+> files and this record does not move them out of git.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0004 (result objects for expected failures) under

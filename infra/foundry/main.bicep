@@ -26,6 +26,9 @@ param deploymentCapacity int = 1
 @description('Deploy the optional balanced alternative model.')
 param includeBalancedModel bool = false
 
+@description('Deploy the optional embedding model that backs knowledge retrieval by meaning.')
+param includeEmbeddingModel bool = false
+
 @description('Deploy the optional speech-to-text model.')
 param includeSpeechModel bool = false
 
@@ -96,6 +99,27 @@ var optionalModelDeployments = includeBalancedModel ? [
   }
 ] : []
 
+// The knowledge database's semantic tier. `-small` rather than `-large` deliberately: 1536
+// dimensions against 3072 halves both the cost of the brute-force cosine scan the reader does and
+// the size of the database it scans, for a quality difference that barely shows on a documentation
+// corpus that FTS5 is answering alongside it. See
+// `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`, which keeps vector search
+// behind a port precisely so this choice can be revisited without moving its callers.
+var embeddingModelDeployments = includeEmbeddingModel ? [
+  {
+    name: 'text-embedding-3-small'
+    modelName: 'text-embedding-3-small'
+    modelFormat: 'OpenAI'
+    publisher: 'OpenAI'
+    modelVersion: ''
+    role: 'knowledge-embedding'
+    promptTokenBudget: ''
+    outputTokenBudget: ''
+    skuName: ''
+    capacity: 0
+  }
+] : []
+
 var speechModelDeployments = includeSpeechModel ? [
   {
     name: 'gpt-4o-transcribe'
@@ -111,7 +135,7 @@ var speechModelDeployments = includeSpeechModel ? [
   }
 ] : []
 
-var selectedModelDeployments = concat(requiredModelDeployments, optionalModelDeployments, speechModelDeployments)
+var selectedModelDeployments = concat(requiredModelDeployments, optionalModelDeployments, embeddingModelDeployments, speechModelDeployments)
 
 resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: accountName

@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Backlog.Infrastructure.Knowledge;
 using Backlog.Modules.Knowledge.Abstractions;
 using Backlog.UI.Components.Knowledge;
 
@@ -163,6 +164,10 @@ public sealed record KnowledgeMetadata(
 
 internal static class TechnologyKnowledgeReader
 {
+    /// <summary>The knowledge folder this reader is about, as the generated
+    /// database spells a scope.</summary>
+    private const string TechnologyScope = ".tech";
+
     public static TechnologyKnowledgeView Read(KnowledgeFolderLocation location)
     {
         var folderPath = location.FullPath ?? throw new InvalidOperationException("A technology folder path is required.");
@@ -191,7 +196,7 @@ internal static class TechnologyKnowledgeReader
             ? documents.SelectMany(document => document.Diagrams).ToList()
             : root.Diagrams;
 
-        var index = ReadIndex(Path.Combine(folderPath, "_meta", "graph.json"));
+        var index = ReadIndex(folderPath);
 
         return new TechnologyKnowledgeView(
             location,
@@ -391,14 +396,79 @@ internal static class TechnologyKnowledgeReader
     /// one — the graph is still readable from the Markdown alone, just with
     /// boundary nodes named from their slugs.</para>
     /// </summary>
-    private static TechnologyKnowledgeIndex ReadIndex(string path)
+    private static TechnologyKnowledgeIndex ReadIndex(string folderPath) =>
+        ReadDatabaseIndex(folderPath) ?? ReadJsonIndex(Path.Combine(folderPath, "_meta", "graph.json"));
+
+    /// <summary>
+    /// The same two answers out of the generated database, with the scope applied
+    /// on this side: the graph is stored once and
+    /// <see cref="KnowledgeScopeProjection"/> is the reading-side restatement of the
+    /// projection that used to produce <c>.tech/_meta/graph.json</c>.
+    /// <para>
+    /// The counts are computed rather than read, because the writer records rows and
+    /// not a summary. They come out of the same projected node and edge lists the
+    /// boundary does, which is what the "one file, opened once" note below was
+    /// protecting: two reads of one graph cannot disagree if there is only one read.
+    /// </para>
+    /// </summary>
+    private static TechnologyKnowledgeIndex? ReadDatabaseIndex(string folderPath)
+    {
+        using var database = KnowledgeDatabase.TryOpenForFolder(folderPath);
+        if (database is null) return null;
+
+        var projection = KnowledgeScopeProjection.Project(TechnologyScope, database.Nodes(), database.Edges());
+        if (projection.Nodes.Count == 0) return null;
+
+        var statuses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in projection.Nodes)
+        {
+            // "none" rather than an absent key, which is how the generator counts a
+            // node whose meta block states no status.
+            var status = node.Status is { Length: > 0 } declared ? declared : "none";
+            statuses[status] = statuses.GetValueOrDefault(status) + 1;
+        }
+
+        var boundary = new Dictionary<string, TechnologyBoundaryNode>(StringComparer.OrdinalIgnoreCase);
+        foreach (var node in projection.Nodes)
+        {
+            if (!node.OutOfScope) continue;
+
+            boundary[node.Id] = new TechnologyBoundaryNode(
+                node.Label ?? string.Empty,
+                FolderTitle(node.Folder),
+                node.Status ?? string.Empty);
+        }
+
+        return new TechnologyKnowledgeIndex(
+            new TechnologyGraphStats(projection.Nodes.Count, projection.Edges.Count, statuses),
+            boundary.Count == 0 ? TechnologyKnowledgeIndex.NoBoundary : boundary);
+    }
+
+    /// <summary>
+    /// The committed scoped graph, for a repository that has one and no database.
+    /// <para>
+    /// The try/catch is not decoration. This read had none, so a half-written or
+    /// hand-mangled <c>graph.json</c> threw <c>JsonException</c> out of
+    /// <c>Read</c> and took the whole technology panel with it — for a generated
+    /// file whose absence the same method already treats as ordinary. Absence and
+    /// malformation are the same answer here: no index.
+    /// </para>
+    /// </summary>
+    private static TechnologyKnowledgeIndex ReadJsonIndex(string path)
     {
         if (!File.Exists(path)) return TechnologyKnowledgeIndex.Empty;
 
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        var root = document.RootElement;
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var root = document.RootElement;
 
-        return new TechnologyKnowledgeIndex(ReadStats(root), ReadBoundary(root));
+            return new TechnologyKnowledgeIndex(ReadStats(root), ReadBoundary(root));
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return TechnologyKnowledgeIndex.Empty;
+        }
     }
 
     private static TechnologyGraphStats ReadStats(JsonElement root)
@@ -511,8 +581,10 @@ internal static class TechnologyKnowledgeReader
 /// the folder that owns it.</summary>
 internal sealed record TechnologyBoundaryNode(string Label, string Folder, string Status);
 
-/// <summary>The two answers <c>_meta/graph.json</c> holds, read together because it
-/// is one file and opening it twice would be two chances to disagree.</summary>
+/// <summary>The two answers the derived graph holds — the folder's own counts, and
+/// the out-of-scope nodes its <c>depends-on</c> references reach — read together
+/// from one source, because reading them apart would be two chances to
+/// disagree.</summary>
 internal sealed record TechnologyKnowledgeIndex(
     TechnologyGraphStats Stats,
     IReadOnlyDictionary<string, TechnologyBoundaryNode> Boundary)

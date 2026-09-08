@@ -55,7 +55,7 @@ public sealed class TechnologyKnowledgeReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
-        WriteTechIndex(techPath, "shared.md", "desktop.md");
+        WriteTechReadingOrder(techPath, "shared.md", "desktop.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
@@ -144,7 +144,7 @@ public sealed class TechnologyKnowledgeReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechIndex(techPath, "shared.md");
+        WriteTechReadingOrder(techPath, "shared.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
@@ -198,11 +198,6 @@ public sealed class TechnologyKnowledgeReaderTests
         Assert.False(DiagramView.CanRender(language));
     }
 
-    /// <summary>
-    /// The committed reading order for a <c>.tech</c> fixture. The layer sequence
-    /// lives here now rather than in the root document's fence, so a fixture that
-    /// cares about order writes the index the reader actually consults.
-    /// </summary>
     /// <summary>
     /// Everything the atlas needs beyond what a lane view did: how much leans on a
     /// node, where it sits in the reading order, which tone its status wears, and
@@ -312,6 +307,31 @@ public sealed class TechnologyKnowledgeReaderTests
         Assert.Equal(string.Empty, outside.ToneSlug);
     }
 
+    /// <summary>
+    /// A malformed index reads the same as no index at all.
+    ///
+    /// <para>It did not. The graph read had no <c>try</c> around
+    /// <c>JsonDocument.Parse</c>, so a half-written or hand-mangled
+    /// <c>_meta/graph.json</c> threw out of <c>Read</c> and took the whole
+    /// technology panel down — for a generated file whose complete absence the same
+    /// method already treated as ordinary. Every other reader of a generated
+    /// artifact in Second Brain degrades instead; this one is now among them.</para>
+    /// </summary>
+    [Fact]
+    public void A_malformed_index_does_not_stop_the_graph_being_read()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = WriteAtlasFolder(workspace.RepositoryPath, dependsOnOutside: true);
+
+        File.WriteAllText(Path.Combine(techPath, "_meta", "graph.json"), "{ \"stats\": { \"nodes\": ");
+
+        var view = TechnologyKnowledgeReader.Read(new KnowledgeFolderLocation(".tech", true, null, null, null, techPath));
+
+        Assert.True(view.Available);
+        Assert.Equal(0, view.Stats.Nodes);
+        Assert.Contains(view.Graph.Nodes, node => node.IsBoundary);
+    }
+
     [Fact]
     public void A_missing_index_does_not_stop_the_graph_being_read()
     {
@@ -344,7 +364,7 @@ public sealed class TechnologyKnowledgeReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechIndex(techPath, "cloud.md");
+        WriteTechReadingOrder(techPath, "cloud.md");
 
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
         File.WriteAllText(Path.Combine(techPath, "cloud.md"),
@@ -377,7 +397,7 @@ public sealed class TechnologyKnowledgeReaderTests
     {
         var techPath = Path.Combine(repositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechIndex(techPath, "shared.md", "desktop.md");
+        WriteTechReadingOrder(techPath, "shared.md", "desktop.md");
 
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
 
@@ -393,6 +413,10 @@ public sealed class TechnologyKnowledgeReaderTests
 
         if (writeGraphIndex)
         {
+            // The reading order no longer lives under `_meta`, so the folder the
+            // graph rollup goes in is this fixture's to create.
+            Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
+
             var boundary = dependsOnOutside && indexNamesOutside
                 ? ", { \"data\": { \"id\": \".arc42/04-solution-strategy.md#technology-choices\", \"label\": \"Technology Choices\","
                   + " \"type\": \"chapter\", \"folder\": \"arc42\", \"path\": \".arc42/04-solution-strategy.md\","
@@ -409,20 +433,25 @@ public sealed class TechnologyKnowledgeReaderTests
         return techPath;
     }
 
-    private static void WriteTechIndex(string techPath, params string[] layers)
+    /// <summary>
+    /// The committed reading order for a <c>.tech</c> fixture.
+    ///
+    /// <para>The layer sequence has moved twice. It began as an <c>order</c> field
+    /// in the root document's <c>meta</c> fence, became an entry order in the
+    /// generated <c>_meta/index.json</c>, and now sits in the authored
+    /// <c>_reading-order.json</c> at the folder root — because the generated half
+    /// is becoming a database that is a build output, and an authored fact cannot
+    /// live in one. A fixture that cares about order writes the file the reader
+    /// actually consults.</para>
+    /// </summary>
+    private static void WriteTechReadingOrder(string techPath, params string[] layers)
     {
-        Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
-
-        var entries = new List<string>
-        {
-            "{ \"type\": \"file\", \"name\": \"technology-graph.md\", \"path\": \".tech/technology-graph.md\", \"title\": \"Technology graph\", \"status\": \"draft\", \"root\": true }"
-        };
-        entries.AddRange(layers.Select(layer =>
-            $"{{ \"type\": \"file\", \"name\": \"{layer}\", \"path\": \".tech/{layer}\", \"title\": \"{layer}\", \"status\": null }}"));
+        var order = string.Join(", ", layers.Select(layer => $"\"{layer}\""));
 
         File.WriteAllText(
-            Path.Combine(techPath, "_meta", "index.json"),
-            "{ \"schemaVersion\": 1, \"scope\": \".tech\", \"problems\": [], \"entries\": [" + string.Join(", ", entries) + "] }");
+            Path.Combine(techPath, "_reading-order.json"),
+            "{ \"version\": 1, \"scope\": \".tech\", \"directories\": { \".tech\": "
+            + "{ \"root\": \"technology-graph.md\", \"order\": [" + order + "] } } }");
     }
 }
 

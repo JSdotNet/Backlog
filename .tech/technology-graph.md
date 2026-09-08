@@ -336,7 +336,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Model provider | Two, in two different roles: the harness's own provider (Anthropic, via [Claude Code](ai-development.md#claude-code)), and the product's, [Azure AI Foundry](cloud.md#azure-ai-foundry) — `gpt-5-4`, `gpt-5-5`, `gpt-5-6-luna`, with a balanced and a speech model behind Bicep parameters |
+| Model provider | Two, in two different roles: the harness's own provider (Anthropic, via [Claude Code](ai-development.md#claude-code)), and the product's, [Azure AI Foundry](cloud.md#azure-ai-foundry) — `gpt-5-4`, `gpt-5-5`, `gpt-5-6-luna`, with a balanced model, a speech model and an embedding model behind Bicep parameters |
 | Model, inference, next-token prediction, parameters, training | Vendor-side concepts. Nothing here configures them. |
 | Harness | [Claude Code](ai-development.md#claude-code) and the [GitHub Copilot CLI](ai-development.md#github-copilot-cli). The repository is governed for both. |
 | Effort | Not configured. `.claude/orch-context.md` records that this repository sets no model or effort override; runs take each plugin's default. |

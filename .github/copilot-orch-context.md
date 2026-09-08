@@ -181,8 +181,10 @@ checks pass:
   `knowledge-chapter-metadata.instructions.md`.
 - Instruction files keep valid `applyTo` and `description` frontmatter.
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
-  `node .github/tools/knowledge-meta/build.mjs --check` passes with a clean
-  `git diff` over `*_meta/*.json`.
+  `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
+  `_meta/` is committed any more, so there is no `git diff` to be clean: what
+  replaces it is `node tools/knowledge/build-database.mjs` building without
+  error, which is a blocking step in `knowledge-metadata.yml`.
 
 ## QA Depth
 

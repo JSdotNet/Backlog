@@ -25,6 +25,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Knowledge;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
@@ -195,6 +196,12 @@ public static class MauiProgram
         builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The embedding deployment beside the chat one. Registered and never
+        // called in this change: local ADR 0004's semantic tier is wired and
+        // dormant, and the thing that would join it up - writing vectors into
+        // _meta/knowledge.db - belongs to the Node generator, which is the only
+        // writer that file has.
+        builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
         builder.Services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
@@ -250,6 +257,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<DesignKnowledgeProvider>();
         builder.Services.AddSingleton<TechnologyKnowledgeService>();
         builder.Services.AddSingleton<KnowledgeAtlasService>();
+        // Retrieval, both tiers. Adapters over the generated database rather than
+        // over the Markdown: search is the one capability ADR 0004's ladder does
+        // not let degrade to a corpus scan, so where there is no database these
+        // report that in words instead of answering slowly or answering nothing.
+        builder.Services.AddSingleton<IKnowledgeSearch>(sp =>
+            new KnowledgeFullTextSearch(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        builder.Services.AddSingleton<IKnowledgeVectorSearch>(sp =>
+            new KnowledgeSemanticSearch(sp.GetRequiredService<IKnowledgeFolderSource>(), KnowledgeEmbeddingModel.Default));
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
         builder.Services.AddSingleton<KnowledgeMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();

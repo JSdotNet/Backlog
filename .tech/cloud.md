@@ -114,8 +114,12 @@ The managed model endpoint the product's own AI features call.
   filter policy, rather than a vendor key per developer machine.
 - **How** — `infra/foundry/main.bicep` declares a `Microsoft.CognitiveServices`
   account of kind `AIServices` plus its deployments: three required models, an
-  optional balanced model, and optional speech transcription, each behind a
-  parameter. `.github/workflows/deploy-foundry.yml` builds, validates, what-ifs,
+  optional balanced model, optional speech transcription, and an optional
+  `text-embedding-3-small` deployment behind `includeEmbeddingModel`, each behind a
+  parameter. The embedding deployment is what the knowledge database's semantic
+  tier would call; nothing calls it yet, and the database is correct without it —
+  see `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`.
+  `.github/workflows/deploy-foundry.yml` builds, validates, what-ifs,
   and then deploys it from a self-hosted runner. Development runs never touch it:
   the Aspire AppHost starts `Backlog.AzureFoundry.TestService` instead and points
   the desktop harness at it through
