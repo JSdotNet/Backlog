@@ -853,6 +853,21 @@ button.badge:hover {
     color: var(--color-primary-light);
 }
 
+/* A conditional file that the picked paths turned on. Identical to the always
+   badge, deliberately: both mean the file is loaded, which is the question the
+   column answers, and a reader scanning for what a change costs wants those two
+   to group rather than to differ.
+
+   It was drawn with a darker border to mark how it came to be loaded. That
+   border measured 1.34:1 against the fill — under the 3:1 a UI boundary needs
+   and invisible at reading distance — so it claimed a distinction it did not
+   deliver. Provenance is already on the row twice over: the badge reads "On
+   match" rather than "Always", and the globs sit underneath it. */
+.badge--reach-matched {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
 .badge--reach-linked {
     background: transparent;
     border: var(--border-width) solid var(--color-border);

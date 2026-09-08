@@ -252,7 +252,96 @@ public sealed class InstructionsKnowledgePanelTests
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
-        Assert.Equal(3, component.FindAll("[data-testid='instructions-reach-table'] tbody tr").Count);
+        Assert.Equal(4, component.FindAll("[data-testid='instructions-reach-table'] tbody tr").Count);
+
+        // What each host carries, which is the question the sizes answer.
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-total-claude']"));
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-total-copilot']"));
+    }
+
+    /// <summary>
+    /// The scoped reading. A conditional rule is context a host might spend, and
+    /// picking the file it governs is how a reader turns that into context it
+    /// does spend.
+    /// </summary>
+    [Fact]
+    public async Task Picking_a_path_turns_on_the_rules_that_govern_it()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        // Nothing picked yet, so the scoped rule is off and nothing is listed.
+        Assert.Empty(component.FindAll("[data-testid='instructions-reach-picked']"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        var picked = component.WaitForElement("[data-testid='instructions-reach-picked']");
+        Assert.Contains("src/App/Home.razor", picked.TextContent, StringComparison.Ordinal);
+
+        // The picked row has to look picked. Reported against this: aria-selected
+        // was set and nothing else was, so the only row that looked chosen was
+        // whichever one the pointer happened to be over.
+        var row = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']")
+                .Where(item => item.TextContent.Trim().EndsWith("Home.razor", StringComparison.Ordinal)));
+
+        Assert.Equal("true", row.GetAttribute("aria-selected"));
+        Assert.Contains("knowledge-menu__item--active", row.ClassName ?? string.Empty, StringComparison.Ordinal);
+
+        // The rule scoped to src/App is now one Copilot loads for this change.
+        var scoped = Assert.Single(
+            component.FindAll("[data-testid='instructions-reach-table'] tbody tr")
+                .Where(row => row.TextContent.Contains("ui-components.instructions.md", StringComparison.Ordinal)));
+
+        Assert.Contains(
+            "badge--reach-matched",
+            scoped.QuerySelector("[data-testid='instructions-reach-copilot'] .badge")!.ClassName ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Clearing_the_selection_puts_the_baseline_back()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        component.WaitForElement("[data-testid='instructions-reach-picked']");
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-clear']").Click());
+
+        component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='instructions-reach-picked']")));
+    }
+
+    /// <summary>Clicks a row of the picker's tree by its label. Re-found inside
+    /// the dispatch, because every click re-renders the tree under it.</summary>
+    private static async Task ClickTreeRowAsync(IRenderedComponent<InstructionsKnowledgePanel> component, string label)
+    {
+        component.WaitForAssertion(() => Assert.Contains(
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']"),
+            row => row.TextContent.Trim().EndsWith(label, StringComparison.Ordinal)));
+
+        await component.InvokeAsync(() =>
+            component.FindAll("[data-testid='instructions-reach-view'] [role='treeitem']")
+                .First(row => row.TextContent.Trim().EndsWith(label, StringComparison.Ordinal))
+                .Click());
     }
 
     /// <summary>
@@ -337,9 +426,19 @@ public sealed class InstructionsKnowledgePanelTests
                 Path.Combine(clone, ".github", "instructions", "naming.instructions.md"),
                 "---\napplyTo: \"**\"\ndescription: Naming.\n---\n\n# Naming\n");
 
+            // Scoped rather than repository-wide, so there is something for a
+            // picked path to switch on.
+            File.WriteAllText(
+                Path.Combine(clone, ".github", "instructions", "ui-components.instructions.md"),
+                "---\napplyTo: \"src/App/**\"\ndescription: UI components.\n---\n\n# UI components\n");
+
             // Names no instruction file of its own, which is what leaves the
             // naming rules unreachable from this side.
             File.WriteAllText(Path.Combine(clone, "CLAUDE.md"), "# Claude\n\nNothing linked from here.\n");
+
+            // Not an instruction file — a file to ask the question about.
+            Directory.CreateDirectory(Path.Combine(clone, "src", "App"));
+            File.WriteAllText(Path.Combine(clone, "src", "App", "Home.razor"), "<h1>Home</h1>\n");
         }
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));

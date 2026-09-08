@@ -25,16 +25,113 @@
     @if (OneSided.Count > 0)
     {
         <p class="instruction-reach__intro">
-            <strong>@OneSided.Count of @Rows.Count</strong>
+            <strong>@OneSided.Count of @Comparison.Rows.Count</strong>
             @(OneSided.Count == 1 ? "file reaches" : "files reach") one assistant and effectively not the
             other. A rule that governs the repository for one and does not exist for the other drifts
             without anybody noticing, because each host is behaving correctly on its own side of it.
         </p>
     }
 
+    @* What each host is carrying, which is the question the sizes are here to
+       answer. Two readings: with nothing picked it is the resting cost of opening
+       a session, and with paths picked it is what working on those files comes
+       to. *@
+    <div class="instruction-reach__totals">
+        <p class="instruction-reach__totals-title">
+            @(Comparison.IsScoped
+                ? $"Loaded when working on {Comparison.Paths.Count} selected {(Comparison.Paths.Count == 1 ? "path" : "paths")}"
+                : "Loaded in every session, before any file is opened")
+        </p>
+
+        <MetricGrid MinColumnWidth="13rem" Label="Context each assistant carries" TestId="instructions-reach-totals">
+            <MetricTile Label="Claude Code"
+                        Value="@Kilobytes(Comparison.Claude.Bytes)"
+                        Unit="KB"
+                        Footnote="@Breakdown(Comparison.Claude)"
+                        TestId="instructions-reach-total-claude" />
+            <MetricTile Label="GitHub Copilot"
+                        Value="@Kilobytes(Comparison.Copilot.Bytes)"
+                        Unit="KB"
+                        Footnote="@Breakdown(Comparison.Copilot)"
+                        TestId="instructions-reach-total-copilot" />
+        </MetricGrid>
+
+        @* The token figure is an estimate and says so wherever it appears; the
+           line figure is exact and still the weakest of the three, so the one
+           thing a reader must not do with it is rank files. Both cautions belong
+           next to the numbers rather than in a document nobody opens. *@
+        <p class="instruction-reach__caveat">
+            Tokens are estimated at four bytes each, not counted — no tokenizer ships with this app.
+            Lines are exact but measure formatting rather than content: in this repository
+            <code>copilot-instructions.md</code> has fewer lines than
+            <code>storybook.instructions.md</code> and more bytes, so lines rank the two backwards.
+        </p>
+    </div>
+
+    @* The picker. Folded away by default: it is a question a reader asks
+       sometimes, and the table under it is what they came for.
+
+       A ToggleButton and not a `details` element. The library owns the pressed
+       control the rest of this panel already uses, and a disclosure widget the
+       screen drew itself would be the second implementation of a thing the
+       library has — the same rule that put the shared file view here. *@
+    <div class="instruction-reach__picker">
+        <ToggleButton BaseClass="instruction-reach__picker-toggle"
+                      PressedCssClass="instruction-reach__picker-toggle--open"
+                      Pressed="@_picking"
+                      TestId="instructions-reach-picker-toggle"
+                      PressedChanged="value => _picking = value">
+            Pick paths to see what a change would load
+        </ToggleButton>
+
+        @if (Comparison.Paths.Count > 0)
+        {
+            <ul class="instruction-reach__picked" aria-label="Selected paths">
+                @foreach (var path in Comparison.Paths)
+                {
+                    var picked = path;
+
+                    <li>
+                        @* Named for what the button does, not for what it holds.
+                           Without this its accessible name is the path and a
+                           cross, which says nothing about pressing it. *@
+                        <Badge Kind="glob"
+                               Title="@($"Stop asking about {picked}")"
+                               TestId="instructions-reach-picked"
+                               aria-label="@($"Remove {picked} from the selection")"
+                               OnClick="() => OnPathForgotten.InvokeAsync(picked)">@picked ✕</Badge>
+                    </li>
+                }
+            </ul>
+
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="instructions-reach-clear"
+                       OnClick="() => OnSelectionCleared.InvokeAsync()">Clear selection</AppButton>
+        }
+
+        @if (_picking)
+        {
+            @* The default class prefix, which is the knowledge menu's. This is a
+               knowledge menu — the same rows, in the same pane, doing the same
+               job — so a second prefix would be a second copy of that styling to
+               keep in step for no difference a reader could see. *@
+            <TreeView Nodes="@Tree"
+                      ShowHeading="false"
+                      ShowOpenButton="false"
+                      NavClass="instruction-reach__tree"
+                      NavAriaLabel="Repository paths"
+                      TreeAriaLabel="Repository paths"
+                      EmptyMessage="No local clone to pick paths from."
+                      IsNodeSelected="@IsPathPicked"
+                      IsNodeExpanded="@IsFolderOpen"
+                      NodeClass="@PickedClass"
+                      OnNodeSelected="@OnPathToggled" />
+        }
+    </div>
+
     <DataTable TItem="InstructionLoadingRow"
                Columns="@Columns"
-               Items="@Rows"
+               Items="@Comparison.Rows"
                RowKey="@RowKey"
                RowCssClass="@RowCssClass"
                AriaLabel="How each assistant loads this repository's instruction files"
@@ -46,6 +143,11 @@
                the row is a statement about, so a reader arriving at one of them
                out of context has to be told which file it belongs to. *@
             <th scope="row" class="instruction-reach__file">@FilePath(row)</th>
+            <td class="instruction-reach__size" data-testid="instructions-reach-size">
+                @row.Size.Lines lines<br />
+                @Kilobytes(row.Size.Bytes) KB<br />
+                <span class="instruction-reach__estimate">~@row.Size.EstimatedTokens tokens est.</span>
+            </td>
             <td data-testid="instructions-reach-claude">
                 <Badge Kind="reach" Slug="@Slug(row.Claude)" Title="@Explain(row.Claude)">@Label(row.Claude)</Badge>
                 @if (row.Claude.Detail is { Length: > 0 } claudeDetail)
@@ -68,19 +170,43 @@
     private static readonly IReadOnlyList<DataTableColumn> Columns =
     [
         new("File"),
+        new("Size"),
         new("Claude Code"),
         new("GitHub Copilot")
     ];
 
-    /// <summary>Every discovered file with both verdicts, in discovery's
-    /// order.</summary>
+    /// <summary>Every discovered file with both verdicts and both totals.</summary>
     [Parameter]
-    public IReadOnlyList<InstructionLoadingRow> Rows { get; set; } = [];
+    public InstructionLoadingComparison Comparison { get; set; } = InstructionLoadingComparison.Empty;
+
+    /// <summary>The repository to pick paths out of.</summary>
+    [Parameter]
+    public IReadOnlyList<TreeNode> Tree { get; set; } = [];
+
+    [Parameter]
+    public Func<TreeNode, bool> IsPathPicked { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<TreeNode, bool> IsFolderOpen { get; set; } = static _ => false;
+
+    [Parameter]
+    public EventCallback<TreeNode> OnPathToggled { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnPathForgotten { get; set; }
+
+    [Parameter]
+    public EventCallback OnSelectionCleared { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }
 
-    private List<InstructionLoadingRow> OneSided => [.. Rows.Where(row => row.IsOneSided)];
+    /// <summary>Whether the picker is open. The picked paths live on the panel,
+    /// because they change what it computes; whether the tree is on screen is
+    /// this view's own business and nothing above it needs to know.</summary>
+    private bool _picking;
+
+    private List<InstructionLoadingRow> OneSided => [.. Comparison.Rows.Where(row => row.IsOneSided)];
 
     /// <summary>The path as the rules are written, not as this file system spells
     /// it — the reader is checking it against an instruction file, and those say
@@ -93,6 +219,25 @@
     private static string? RowCssClass(InstructionLoadingRow row) =>
         row.IsOneSided ? "instruction-reach__row--one-sided" : null;
 
+    /// <summary>
+    /// A picked row, drawn as picked.
+    /// <para>The tree's default class carries no selected state — it applies
+    /// whatever this returns and nothing else, so <c>IsNodeSelected</c> alone
+    /// reaches <c>aria-selected</c> and stops there. Without this a picked row
+    /// looked exactly like an unpicked one while the row under the pointer looked
+    /// picked, which is worse than no highlight at all.</para>
+    /// </summary>
+    private string PickedClass(TreeNode node) =>
+        IsPathPicked(node) ? "knowledge-menu__item knowledge-menu__item--active" : "knowledge-menu__item";
+
+    private static string Kilobytes(long bytes) => (bytes / 1024d).ToString("0.#");
+
+    /// <summary>The tile's second line: how the figure above it is made up.</summary>
+    private static string Breakdown(InstructionLoadTotals totals) =>
+        totals.Files == 0
+            ? "nothing loaded"
+            : $"{totals.Files} {(totals.Files == 1 ? "file" : "files")}, {totals.Lines} lines, ~{totals.EstimatedTokens} tokens est.";
+
     private static string Label(InstructionHostReach reach) => reach.Reach switch
     {
         InstructionReach.Always => "Always",
@@ -101,10 +246,12 @@
         _ => "Not read"
     };
 
+    /// <summary>An On match that a picked path turned on is drawn as the loaded
+    /// thing it now is, rather than staying the conditional it was.</summary>
     private static string Slug(InstructionHostReach reach) => reach.Reach switch
     {
         InstructionReach.Always => "always",
-        InstructionReach.OnMatch => "on-match",
+        InstructionReach.OnMatch => reach.Loaded ? "matched" : "on-match",
         InstructionReach.Linked => "linked",
         _ => "not-read"
     };
@@ -116,6 +263,7 @@
         InstructionReach.Always when reach.Detail == "imported" =>
             "Pulled in by an import from a file that loads every session.",
         InstructionReach.Always => "Loaded into every session.",
+        InstructionReach.OnMatch when reach.Loaded => "A selected path falls in this scope, so it is loaded.",
         InstructionReach.OnMatch => "Loaded when a path in this scope is worked on.",
         InstructionReach.Linked => "Named by a file that is loaded, but not loaded itself.",
         _ => "This host has no path to the file."

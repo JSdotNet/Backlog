@@ -5640,6 +5640,90 @@ h1, h2, h3 {
     box-shadow: inset 2px 0 0 var(--color-primary);
 }
 
+/* The three measures, stacked in one cell rather than spread over three columns.
+   They are one fact about one file read at three resolutions, and three columns
+   of numbers would triple the table's width to say it. */
+.instruction-reach__size {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* The estimate, quieter than the two measurements above it. A reader should be
+   able to see at a glance which of the three numbers is a guess. */
+.instruction-reach__estimate {
+    color: var(--color-text-disabled);
+}
+
+.instruction-reach__totals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.instruction-reach__totals-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+}
+
+/* Both cautions the numbers need, next to the numbers. Small, because a reader
+   reads this once and then knows it; present, because the alternative is a
+   figure that invites a comparison it cannot support. */
+.instruction-reach__caveat {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.instruction-reach__picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+}
+
+.instruction-reach__picker-toggle {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    text-align: left;
+}
+
+.instruction-reach__picker-toggle--open {
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+/* The paths currently being asked about. Each one is its own badge and its own
+   way out, because the set is built a file at a time and unpicking one should
+   not mean starting the selection again. */
+.instruction-reach__picked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* The tree is the whole repository, so it scrolls in a box of its own rather
+   than pushing the table it exists to change off the bottom of the pane. */
+.instruction-reach__tree {
+    max-height: 20rem;
+    overflow: auto;
+    width: 100%;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-2xs);
+}
+
 /* --- The roadmap band on a short window ---------------------------------- */
 /*
   Two steps down, both measured off the same arithmetic. The workspace is the

@@ -142,7 +142,7 @@
                     </div>
                         </TabPanel>
 
-                        @if (_reach.Count > 0)
+                        @if (_reach.Rows.Count > 0)
                         {
                             <TabPanel Id="@ReachTab"
                                       Title="Loading"
@@ -150,7 +150,14 @@
                                       TestId="instructions-reach-panel"
                                       TabTestId="instructions-reach-tab"
                                       aria-label="How each assistant loads these files">
-                                <InstructionLoadingView Rows="@_reach" TestId="instructions-reach-view" />
+                                <InstructionLoadingView Comparison="@_reach"
+                                                        Tree="@_tree"
+                                                        IsPathPicked="@(node => _paths.Contains(node.Id))"
+                                                        IsFolderOpen="@(node => _openFolders.Contains(node.Id))"
+                                                        OnPathToggled="TogglePath"
+                                                        OnPathForgotten="ForgetPath"
+                                                        OnSelectionCleared="ForgetEveryPath"
+                                                        TestId="instructions-reach-view" />
                             </TabPanel>
                         }
                     </Tabs>
@@ -174,8 +181,20 @@
 
     /// <summary>The whole set read as each assistant would read it. Held rather
     /// than computed per render: it is a fact about the folder, so it changes when
-    /// discovery runs and not when a keystroke lands in the editor beside it.</summary>
-    private IReadOnlyList<InstructionLoadingRow> _reach = [];
+    /// discovery runs or when the picked paths change, and not when a keystroke
+    /// lands in the editor beside it.</summary>
+    private InstructionLoadingComparison _reach = InstructionLoadingComparison.Empty;
+
+    /// <summary>The repository to pick paths out of. Read with discovery, for the
+    /// same reason: it is a fact about the clone, not about this render.</summary>
+    private IReadOnlyList<TreeNode> _tree = [];
+
+    /// <summary>The paths the reader is asking about. More than one, because a
+    /// change is rarely one file and the question is what the whole change
+    /// costs.</summary>
+    private readonly HashSet<string> _paths = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly HashSet<string> _openFolders = new(StringComparer.OrdinalIgnoreCase);
 
     private const string FilesTab = "files";
     private const string ReachTab = "reach";
@@ -275,7 +294,47 @@
             ? InstructionSources.Discover([StorageInstructionRepository()])
             : InstructionSources.Discover(Repositories.Current.Repositories);
         _loadedRepositoryAlias = RepositoryAlias;
-        _reach = ActiveRepository is { } repository ? InstructionLoading.Compare(repository.Documents) : [];
+        _tree = InstructionPathTree.Read(ActiveRepository?.LocalRoot);
+        ReadTheFolder();
+    }
+
+    /// <summary>The comparison, against whatever paths are picked right now.</summary>
+    private void ReadTheFolder() =>
+        _reach = ActiveRepository is { } repository
+            ? InstructionLoading.Compare(repository.Documents, [.. _paths])
+            : InstructionLoadingComparison.Empty;
+
+    /// <summary>
+    /// A row in the picker.
+    /// <para>A folder opens and closes; a file joins or leaves the question. The
+    /// tree carries no selection of its own, so the same click is both, told apart
+    /// by what was clicked — which is what makes this multi-select without a
+    /// second control to manage the set.</para>
+    /// </summary>
+    private void TogglePath(TreeNode node)
+    {
+        if (node.Kind == TreeNodeKind.Folder)
+        {
+            if (!_openFolders.Add(node.Id)) _openFolders.Remove(node.Id);
+
+            return;
+        }
+
+        if (!_paths.Add(node.Id)) _paths.Remove(node.Id);
+
+        ReadTheFolder();
+    }
+
+    private void ForgetPath(string path)
+    {
+        _paths.Remove(path);
+        ReadTheFolder();
+    }
+
+    private void ForgetEveryPath()
+    {
+        _paths.Clear();
+        ReadTheFolder();
     }
 
     /// <summary>
