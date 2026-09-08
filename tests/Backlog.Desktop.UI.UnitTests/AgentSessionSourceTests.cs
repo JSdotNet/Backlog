@@ -718,6 +718,73 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
+    /// What a session spawned is not a session. Claude files a transcript at
+    /// <c>projects/&lt;slug&gt;/&lt;id&gt;.jsonl</c> and gives that session a folder of its
+    /// own beside it for everything it ran: a sidechain transcript per subagent, and a
+    /// <c>journal.jsonl</c> of started/result records per Workflow run.
+    /// <para>
+    /// The journal is the one that shows: it states no <c>cwd</c> and no
+    /// <c>gitBranch</c> anywhere, so it surfaced as a row called <c>journal</c> with a
+    /// blank folder and no branch. The sidechain beside it is the same defect and the
+    /// harder one to see — it states the <em>spawning</em> session's id, cwd and branch,
+    /// so it renders as a plausible session that never existed, and there were 1,135 of
+    /// those against 460 real transcripts on the profile this was found on.
+    /// </para>
+    /// <para>
+    /// So the fixture asserts through <see cref="SessionReading.Discovered"/> as well as
+    /// through the rows. Discovered is how many sessions there were before the cap, and
+    /// it is read off the same set — a rule that filtered only what gets rendered would
+    /// leave the subtitle counting files that no row is allowed to show.
+    /// </para>
+    /// <para>
+    /// Both spellings are here on purpose. A Workflow's subagent is filed under
+    /// <c>subagents/workflows/wf_&lt;id&gt;/</c> and a directly spawned one under
+    /// <c>subagents/</c>, and a rule that recognised only the deeper path would pass this
+    /// test while leaving the commoner case in the list.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Files_a_session_spawned_are_not_sessions_of_their_own()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "0d377e3f-9687-4e7b-9a64-15f7d8b19053",
+            Noon.AddHours(-4),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"the prompt"}}""");
+
+        // Written after the session's own transcript, so a walk that admits it puts it
+        // at the top of the list rather than somewhere a lenient assertion could miss.
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "0d377e3f-9687-4e7b-9a64-15f7d8b19053",
+            "subagents/workflows/wf_b0b8ae23-828/journal.jsonl",
+            Noon.AddHours(-1),
+            """{"type":"started","key":"v2:d68dfac77245080a","agentId":"a16156d26373fd0e8"}""",
+            """{"type":"result","key":"v2:d68dfac77245080a","agentId":"a16156d26373fd0e8","result":{"summary":"the finding"}}""");
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "0d377e3f-9687-4e7b-9a64-15f7d8b19053",
+            "subagents/workflows/wf_b0b8ae23-828/agent-a16156d26373fd0e8.jsonl",
+            Noon.AddHours(-2),
+            """{"parentUuid":null,"isSidechain":true,"agentId":"a16156d26373fd0e8","sessionId":"0d377e3f-9687-4e7b-9a64-15f7d8b19053","cwd":"D:\\Repos\\Backlog","gitBranch":"main","type":"user","message":{"role":"user","content":"the task prompt, written by an agent"}}""");
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "0d377e3f-9687-4e7b-9a64-15f7d8b19053",
+            "subagents/agent-ae40b7e4276d8b85d.jsonl",
+            Noon.AddHours(-3),
+            """{"parentUuid":null,"isSidechain":true,"agentId":"ae40b7e4276d8b85d","sessionId":"0d377e3f-9687-4e7b-9a64-15f7d8b19053","cwd":"D:\\Repos\\Backlog","gitBranch":"main","type":"user","message":{"role":"user","content":"another task prompt"}}""");
+
+        var catalog = await ReadAsync();
+        var session = Assert.Single(catalog.Sessions);
+
+        Assert.Equal("0d377e3f-9687-4e7b-9a64-15f7d8b19053", session.Id);
+        Assert.Equal(@"D:\Repos\Backlog", session.WorkingFolder);
+        Assert.Equal(1, catalog.Discovered);
+    }
+
+    /// <summary>
     /// A running session's own file says nothing about how much has been said in it or
     /// which branch it is on, so both come from the transcript the dedupe has already
     /// matched to it. The row stays the live one — that file is still the better record
@@ -894,6 +961,31 @@ public sealed class AgentSessionSourceTests : IDisposable
         var project = Directory.CreateDirectory(Path.Combine(ClaudeHome, "projects", slug));
         var path = Path.Combine(project.FullName, $"{id}.jsonl");
 
+        File.WriteAllLines(path, lines);
+        File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);
+    }
+
+    /// <summary>
+    /// A file Claude wrote underneath a session's own folder rather than beside it. The
+    /// path is given whole, because what this fixture is about is exactly where the file
+    /// sits — naming the pieces would let a helper decide the shape the test is asserting
+    /// on.
+    /// </summary>
+    private void GivenClaudeFileSpawnedBy(
+        string slug,
+        string sessionId,
+        string relativePath,
+        DateTimeOffset lastWrite,
+        params string[] lines)
+    {
+        var path = Path.Combine(
+            ClaudeHome,
+            "projects",
+            slug,
+            sessionId,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllLines(path, lines);
         File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);
     }

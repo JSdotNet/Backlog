@@ -19,6 +19,37 @@ internal static class ClaudeTranscripts
     /// an activity read wants whatever the walk gives it, and a helper that sorted
     /// would be making one of those choices on the other's behalf.
     /// </summary>
+    /// <remarks>
+    /// A transcript is a file sitting <em>directly</em> in a project folder, and that
+    /// position is the whole test. Claude files a session at
+    /// <c>projects/&lt;slug&gt;/&lt;id&gt;.jsonl</c> and everything that session spawned
+    /// in a folder of its own beside it — <c>projects/&lt;slug&gt;/&lt;id&gt;/subagents/</c>,
+    /// holding a sidechain's transcript per subagent and a <c>journal.jsonl</c> of
+    /// started/result records per Workflow run. Those belong to the session named by the
+    /// folder they are under; none of them is a session.
+    /// <para>
+    /// This walk used to recurse, and so read every one of those filenames as a session
+    /// id. On the profile it was found on that was 1,136 rows that were not sessions
+    /// against 460 that were — a <c>journal</c> row with no folder and no branch,
+    /// because a journal record states neither, and 1,135 <c>agent-&lt;id&gt;</c> rows
+    /// wearing the cwd and branch of the session that spawned them, which is why those
+    /// read as plausible rather than as broken. It cost more than the rows: the count of
+    /// what a machine has been doing was over three times the truth, and the cap the
+    /// list is read under was being spent on them.
+    /// </para>
+    /// <para>
+    /// By position rather than by name, and not only to avoid chasing whatever Claude
+    /// files under a session next: the alternative that reads as principled — keep a
+    /// file whose basename is the session id it states inside — would have to open all
+    /// 1,596 of them to build a list that currently opens none, and it separates the
+    /// same two sets. Position is the same answer for free.
+    /// </para>
+    /// <para>
+    /// A file that is in the right place and cannot be read is still a session. That is
+    /// a transcript this reader failed on, not a file that was never a transcript, and
+    /// the difference is a session missing from the list versus a session listed thinly.
+    /// </para>
+    /// </remarks>
     internal static IReadOnlyList<(string SessionId, FileInfo File)> Newest(string home)
     {
         var folder = new DirectoryInfo(Path.Combine(home, "projects"));
@@ -48,7 +79,8 @@ internal static class ClaudeTranscripts
         return
         [
             .. folder
-                .EnumerateFiles("*.jsonl", SearchOption.AllDirectories)
+                .EnumerateDirectories()
+                .SelectMany(project => project.EnumerateFiles("*.jsonl", SearchOption.TopDirectoryOnly))
                 .GroupBy(
                     file => Path.GetFileNameWithoutExtension(file.Name),
                     StringComparer.OrdinalIgnoreCase)
