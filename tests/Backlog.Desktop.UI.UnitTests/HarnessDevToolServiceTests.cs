@@ -150,6 +150,98 @@ public sealed class HarnessDevToolServiceTests
         Assert.True(row.Acknowledged);
     }
 
+    /// <summary>
+    /// The three per-machine writes on the one kind that has no per-machine state
+    /// to write.
+    ///
+    /// <para>The pane draws a marketplace neither a switch nor a tick box, so this
+    /// is the port's contract rather than a button — and it has to come back as a
+    /// result and not as an exception out of the abstraction, because a caller of
+    /// <see cref="IDevToolService"/> reads failure off the result it is handed.
+    /// The desktop head already refuses an enable here; the harness is the half
+    /// that called straight through.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_marketplace_is_refused_a_per_machine_override()
+    {
+        var (tools, paths) = CreateServiceWith("""
+            {
+              "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] },
+              "plugins": []
+            }
+            """);
+        const string key = "marketplace:jsdotnet-copilot";
+
+        var disabled = await tools.DisableAsync(key, TestContext.Current.CancellationToken);
+        var enabled = await tools.EnableAsync(key, TestContext.Current.CancellationToken);
+        var acknowledged = await tools.AcknowledgeAsync(key, acknowledged: true, TestContext.Current.CancellationToken);
+
+        Assert.All(
+            new[] { disabled, enabled, acknowledged },
+            result =>
+            {
+                Assert.False(result.Succeeded);
+                Assert.Contains("marketplace", result.Message, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("catalog", result.Message, StringComparison.OrdinalIgnoreCase);
+
+                // The abstraction's own sentence, forwarded rather than
+                // reworded here — one rule, one wording.
+                Assert.Contains("jsdotnet-copilot", result.Message, StringComparison.Ordinal);
+            });
+
+        // What a refusal actually has to leave alone. Asserting the row instead
+        // would assert nothing: ListAsync builds a marketplace row with
+        // ConfiguredEnabled: true and never sets Acknowledged on one, so both
+        // read the same whether the write was refused or went through.
+        Assert.False(File.Exists(paths.PcConfigPath));
+
+        // And that this is the path the service actually writes to, so the line
+        // above is a fact about the refusal and not about a path nobody uses.
+        Assert.True((await tools.DisableAsync("plugin:architecture", TestContext.Current.CancellationToken)).Succeeded);
+        Assert.True(File.Exists(paths.PcConfigPath));
+    }
+
+    /// <summary>
+    /// The pair the fix rests on, asserted where it is observable: the merge is
+    /// live for the one property a marketplace actually owns, and inert for the
+    /// two the write half refuses.
+    ///
+    /// <para>This is what "the two halves cannot disagree" means in the end. The
+    /// per-PC <c>source</c> reaches the row, so a hand-edited entry is honoured
+    /// rather than discarded; the per-PC <c>enabled</c> reaches the document and
+    /// changes nothing, because a marketplace row is built
+    /// <c>ConfiguredEnabled: true</c> and is never asked. That second half is why
+    /// refusing the write costs nobody anything — and it is pinned here rather
+    /// than assumed, because it is the hardcode the refusal's reasoning
+    /// depends on.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_per_pc_marketplace_entry_moves_the_source_and_not_the_switch()
+    {
+        var (tools, paths) = CreateServiceWith("""
+            {
+              "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] },
+              "plugins": []
+            }
+            """);
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
+        await File.WriteAllTextAsync(paths.PcConfigPath, """
+            {
+              "claude": {
+                "marketplaces": [
+                  { "name": "jsdotnet-copilot", "source": "D:/Repos/Copilot", "enabled": false, "acknowledged": true }
+                ]
+              }
+            }
+            """, TestContext.Current.CancellationToken);
+
+        var row = await FindAsync(tools, "marketplace:jsdotnet-copilot");
+
+        Assert.Equal("D:/Repos/Copilot", row.Source);
+        Assert.True(row.ConfiguredEnabled);
+        Assert.False(row.Acknowledged);
+    }
+
     /// <summary>What the desktop head calls a row this machine does not want, and
     /// what the harness has to call it too for the pane to read the same.</summary>
     private const string DisabledStatus = "Disabled in config";
@@ -175,7 +267,12 @@ public sealed class HarnessDevToolServiceTests
     /// at the real one would write per-PC overrides into somebody's synced
     /// folder.</para>
     /// </summary>
-    private static LocalDevelopmentDevToolService CreateService(string catalog)
+    private static LocalDevelopmentDevToolService CreateService(string catalog) =>
+        CreateServiceWith(catalog).Tools;
+
+    /// <summary>The service and the paths it reads, for the tests that have to
+    /// assert on the files themselves rather than on a row.</summary>
+    private static (LocalDevelopmentDevToolService Tools, DevToolConfigurationPaths Paths) CreateServiceWith(string catalog)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-harness-tool-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
@@ -183,7 +280,7 @@ public sealed class HarnessDevToolServiceTests
             Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),
             catalog);
 
-        return new LocalDevelopmentDevToolService(TaskStoreFor(root));
+        return (new LocalDevelopmentDevToolService(TaskStoreFor(root)), DevToolConfigurationPaths.FromRepositoryRoot(root));
     }
 
     private static ITaskStore TaskStoreFor(string root) =>
