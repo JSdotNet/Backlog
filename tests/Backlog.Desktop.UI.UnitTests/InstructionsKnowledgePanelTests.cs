@@ -330,6 +330,65 @@ public sealed class InstructionsKnowledgePanelTests
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='instructions-reach-picked']")));
     }
 
+    /// <summary>
+    /// The band this view must never get wrong. Claude Code's own context view
+    /// calls its remainder "free space"; this one cannot, because the
+    /// conversation, the tool definitions and the system prompt all sit in there
+    /// and this app can see none of them.
+    /// </summary>
+    [Fact]
+    public async Task The_window_bar_never_calls_the_remainder_free()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        // One bar per assistant, each with its own legend.
+        var claude = component.Find("[data-testid='instructions-reach-window-claude']");
+        Assert.Single(component.FindAll("[data-testid='instructions-reach-window-copilot']"));
+
+        // Asserted on the bar rather than on the whole panel: the caveat below it
+        // says the words "not free space" on purpose, and a check over the markup
+        // cannot tell a disclaimer from the claim it disclaims.
+        Assert.Contains("Repository, every session", claude.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Messages, tools and the rest", claude.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("free", claude.TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("available", claude.TextContent, StringComparison.OrdinalIgnoreCase);
+
+        // The caveat is where the point gets made, so it has to be there.
+        Assert.Contains("not free space", component.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The matched band is absent until a path makes it real — the bar
+    /// drops a part worth nothing rather than drawing an empty one.</summary>
+    [Fact]
+    public async Task Picking_a_path_adds_a_matched_band_to_the_window_bar()
+    {
+        await using var harness = CreateComparisonHarness();
+
+        var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
+
+        Assert.DoesNotContain("Matched by the selected paths", component.Markup, StringComparison.Ordinal);
+
+        await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-picker-toggle']").Click());
+        await ClickTreeRowAsync(component, "src");
+        await ClickTreeRowAsync(component, "App");
+        await ClickTreeRowAsync(component, "Home.razor");
+
+        component.WaitForAssertion(() => Assert.Contains(
+            "Matched by the selected paths",
+            component.Markup,
+            StringComparison.Ordinal));
+    }
+
     /// <summary>Clicks a row of the picker's tree by its label. Re-found inside
     /// the dispatch, because every click re-renders the tree under it.</summary>
     private static async Task ClickTreeRowAsync(IRenderedComponent<InstructionsKnowledgePanel> component, string label)

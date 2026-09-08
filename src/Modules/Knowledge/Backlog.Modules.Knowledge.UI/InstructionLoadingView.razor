@@ -68,6 +68,101 @@
         </p>
     </div>
 
+    @* The same figures as a share of the window they are spent out of, which is
+       the question the totals above only half answer: 25 KB means nothing until
+       you know what it is 25 KB of.
+
+       The fourth part is the one to be careful with. Claude Code's own context
+       view calls its remainder "free space"; this one cannot, because messages,
+       tool definitions, skills and the system prompt all live in there and this
+       app can see none of them. Naming it for what it is keeps the bar from
+       claiming the window is emptier than it is — on the one surface built to be
+       trusted about exactly that. *@
+    <div class="instruction-reach__window">
+        <div class="instruction-reach__window-head">
+            <p class="instruction-reach__totals-title">Against the context window</p>
+
+            <SelectField CurrentValue="@_window.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                         Options="@WindowOptions"
+                         Label="Context window"
+                         TestId="instructions-reach-window"
+                         OnChanged="SelectWindow" />
+        </div>
+
+        <MetricBreakdownBar Parts="@WindowParts(row => row.Claude, "Claude Code")"
+                            Label="Claude Code"
+                            FormatValue="@FormatTokens"
+                            TestId="instructions-reach-window-claude" />
+
+        <MetricBreakdownBar Parts="@WindowParts(row => row.Copilot, "GitHub Copilot")"
+                            Label="GitHub Copilot"
+                            FormatValue="@FormatTokens"
+                            TestId="instructions-reach-window-copilot" />
+
+        <p class="instruction-reach__caveat">
+            Every figure here is the same four-bytes-per-token estimate as above.
+            <strong>The last band is not free space.</strong> It holds the conversation, the tool
+            definitions, the skills and the system prompt — none of which this app can see, so what
+            is left of the window is smaller than that band suggests.
+        </p>
+    </div>
+
+    @* What the repository cannot tell you. Everything above is checked in and the
+       same for everybody; this is read off the machine, so it differs per
+       developer and is loaded all the same. Kept as its own block with its own
+       subtotal rather than folded into the figures above, because those are a
+       fact about the repository and these are a fact about one laptop. *@
+    @if (UserContext.Count > 0)
+    {
+        <div class="instruction-reach__machine" data-testid="instructions-reach-machine">
+            <p class="instruction-reach__totals-title">
+                Loaded from this machine, outside the repository
+            </p>
+
+            <DataTable TItem="UserContextSource"
+                       Columns="@MachineColumns"
+                       Items="@UserContext"
+                       RowKey="@MachineKey"
+                       AriaLabel="Context each assistant loads from this machine"
+                       EmptyMessage="No user-level locations were checked."
+                       RowNoun="location"
+                       TestId="instructions-reach-machine-table">
+                <Row Context="source">
+                    <th scope="row" class="instruction-reach__file">
+                        @source.Label
+                        <span class="instruction-reach__scope">@source.Path</span>
+                    </th>
+                    <td>@source.Host</td>
+                    <td class="instruction-reach__size" data-testid="instructions-reach-machine-state">
+                        @if (source.State == UserContextState.Present)
+                        {
+                            @($"{source.Files} {(source.Files == 1 ? "file" : "files")}")<br />
+                            @Kilobytes(source.Bytes)
+
+                            <text> KB</text>
+
+                            <br />
+                            <span class="instruction-reach__estimate">~@source.EstimatedTokens tokens est.</span>
+                        }
+                        else
+                        {
+                            <Badge Kind="reach" Slug="not-read" Title="@MachineExplain(source)">@MachineLabel(source)</Badge>
+                        }
+                    </td>
+                </Row>
+            </DataTable>
+
+            <p class="instruction-reach__caveat">
+                Read from this machine's home directory, so it is not in the repository and the next
+                developer's figures will differ. Only paths and sizes are read here — never the contents.
+                Project memory counts its index alone: the notes beside it are recalled when something
+                makes them relevant, not carried into every session.
+                <strong>With it, Claude Code carries @Kilobytes(Comparison.Claude.Bytes + MachineTotal("Claude Code").Bytes) KB
+                and GitHub Copilot @Kilobytes(Comparison.Copilot.Bytes + MachineTotal("GitHub Copilot").Bytes) KB.</strong>
+            </p>
+        </div>
+    }
+
     @* The picker. Folded away by default: it is a question a reader asks
        sometimes, and the table under it is what they came for.
 
@@ -183,6 +278,10 @@
     [Parameter]
     public IReadOnlyList<TreeNode> Tree { get; set; } = [];
 
+    /// <summary>The user-level locations each host reads from this machine.</summary>
+    [Parameter]
+    public IReadOnlyList<UserContextSource> UserContext { get; set; } = [];
+
     [Parameter]
     public Func<TreeNode, bool> IsPathPicked { get; set; } = static _ => false;
 
@@ -205,6 +304,57 @@
     /// because they change what it computes; whether the tree is on screen is
     /// this view's own business and nothing above it needs to know.</summary>
     private bool _picking;
+
+    /// <summary>The window every share below is a share of. Claude Code's default
+    /// today, and switchable because the reader's own is the only one that makes
+    /// the percentages mean anything.</summary>
+    private long _window = 200_000;
+
+    private static readonly IReadOnlyList<SelectorOption> WindowOptions =
+    [
+        new("200000", "200K window"),
+        new("1000000", "1M window")
+    ];
+
+    private void SelectWindow(string? value)
+    {
+        if (long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var window) && window > 0)
+        {
+            _window = window;
+        }
+    }
+
+    private static string FormatTokens(decimal tokens) => $"~{MetricFormat.Compact(tokens)}";
+
+    /// <summary>
+    /// One host's window, in the order it reads: what it carries every session,
+    /// what the picked paths added, what came off this machine, and everything
+    /// this app cannot see.
+    /// <para>The bar drops a part worth nothing and works the shares out of what
+    /// is left, so the matched band simply is not there until a path is picked —
+    /// no empty segment, and no branch here to avoid one.</para>
+    /// </summary>
+    private IReadOnlyList<MetricPart> WindowParts(Func<InstructionLoadingRow, InstructionHostReach> host, string hostName)
+    {
+        var always = Tokens(LoadedBytes(host, InstructionReach.Always));
+        var matched = Tokens(LoadedBytes(host, InstructionReach.OnMatch));
+        var machine = MachineTotal(hostName).EstimatedTokens;
+
+        return
+        [
+            new MetricPart("Repository, every session", always),
+            new MetricPart("Matched by the selected paths", matched),
+            new MetricPart("From this machine", machine),
+            new MetricPart("Messages, tools and the rest", Math.Max(0, _window - always - matched - machine))
+        ];
+    }
+
+    private long LoadedBytes(Func<InstructionLoadingRow, InstructionHostReach> host, InstructionReach reach) =>
+        Comparison.Rows
+            .Where(row => host(row).Loaded && host(row).Reach == reach)
+            .Sum(row => row.Size.Bytes);
+
+    private static long Tokens(long bytes) => (long)Math.Round(bytes / 4d, MidpointRounding.AwayFromZero);
 
     private List<InstructionLoadingRow> OneSided => [.. Comparison.Rows.Where(row => row.IsOneSided)];
 
@@ -229,6 +379,34 @@
     /// </summary>
     private string PickedClass(TreeNode node) =>
         IsPathPicked(node) ? "knowledge-menu__item knowledge-menu__item--active" : "knowledge-menu__item";
+
+    private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
+    [
+        new("Location"),
+        new("Assistant"),
+        new("Size")
+    ];
+
+    private static object MachineKey(UserContextSource source) => source.Path + source.Label;
+
+    private InstructionLoadTotals MachineTotal(string host) => UserContextSources.Total(UserContext, host);
+
+    /// <summary>What a location that loads nothing is. Three different answers,
+    /// because a folder nobody created, a folder somebody emptied, and a folder
+    /// this app could not open are three different things to know.</summary>
+    private static string MachineLabel(UserContextSource source) => source.State switch
+    {
+        UserContextState.Empty => "Empty",
+        UserContextState.Unreadable => "Unreadable",
+        _ => "Not there"
+    };
+
+    private static string MachineExplain(UserContextSource source) => source.State switch
+    {
+        UserContextState.Empty => "The location exists and holds nothing, so nothing is loaded from it.",
+        UserContextState.Unreadable => "The location is there but could not be read, so what it loads is unknown.",
+        _ => "Nothing at this location on this machine."
+    };
 
     private static string Kilobytes(long bytes) => (bytes / 1024d).ToString("0.#");
 

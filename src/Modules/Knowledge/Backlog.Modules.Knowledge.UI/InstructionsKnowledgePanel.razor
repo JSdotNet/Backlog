@@ -152,6 +152,7 @@
                                       aria-label="How each assistant loads these files">
                                 <InstructionLoadingView Comparison="@_reach"
                                                         Tree="@_tree"
+                                                        UserContext="@_userContext"
                                                         IsPathPicked="@(node => _paths.Contains(node.Id))"
                                                         IsFolderOpen="@(node => _openFolders.Contains(node.Id))"
                                                         OnPathToggled="TogglePath"
@@ -195,6 +196,11 @@
     private readonly HashSet<string> _paths = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly HashSet<string> _openFolders = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>What each host loads from this machine rather than from the
+    /// clone. Read with discovery: it is a fact about the laptop, and it changes
+    /// about as often as the folder does.</summary>
+    private IReadOnlyList<UserContextSource> _userContext = [];
 
     private const string FilesTab = "files";
     private const string ReachTab = "reach";
@@ -295,6 +301,7 @@
             : InstructionSources.Discover(Repositories.Current.Repositories);
         _loadedRepositoryAlias = RepositoryAlias;
         _tree = InstructionPathTree.Read(ActiveRepository?.LocalRoot);
+        _userContext = UserContextSources.Read(ActiveRepository?.LocalRoot);
         ReadTheFolder();
     }
 
