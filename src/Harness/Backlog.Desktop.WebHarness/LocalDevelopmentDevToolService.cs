@@ -238,24 +238,33 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// <summary>Done for real, like the enable override beside it: it is a small
     /// write to the per-PC file and nothing else, and the harness is the only
     /// place a browser can tick one of these boxes and see the row come back
-    /// changed.</summary>
-    public async Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
-    {
-        await DevToolConfiguration.WriteAcknowledgementAsync(Paths, key, acknowledged, ct).ConfigureAwait(false);
-        _acknowledged[key] = acknowledged;
+    /// changed.
+    ///
+    /// <para>Through the same wrapper the catalog edits go through, because the
+    /// abstraction refuses a marketplace key by throwing and a caller of
+    /// <c>IDevToolService</c> reads failure off the result it is handed. The
+    /// desktop head guards the kind before it ever gets here; this adapter called
+    /// straight through, so that refusal escaped as an exception.</para></summary>
+    public Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default) =>
+        EditCatalogAsync(
+            async paths =>
+            {
+                await DevToolConfiguration.WriteAcknowledgementAsync(paths, key, acknowledged, ct).ConfigureAwait(false);
+                _acknowledged[key] = acknowledged;
+            },
+            _ => acknowledged
+                ? $"{key} is marked as done on this machine."
+                : $"{key} is no longer marked as done on this machine.");
 
-        return DevToolActionResult.Ok(acknowledged
-            ? $"{key} is marked as done on this machine."
-            : $"{key} is no longer marked as done on this machine.");
-    }
-
-    private async Task<DevToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct)
-    {
-        await DevToolConfiguration.WriteEnabledOverrideAsync(Paths, key, enabled, ct).ConfigureAwait(false);
-        _enabled[key] = enabled;
-
-        return DevToolActionResult.Ok($"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
-    }
+    /// <inheritdoc cref="AcknowledgeAsync" />
+    private Task<DevToolActionResult> SetEnabledAsync(string key, bool enabled, CancellationToken ct) =>
+        EditCatalogAsync(
+            async paths =>
+            {
+                await DevToolConfiguration.WriteEnabledOverrideAsync(paths, key, enabled, ct).ConfigureAwait(false);
+                _enabled[key] = enabled;
+            },
+            _ => $"{key} was {(enabled ? "enabled" : "disabled")} in the local PC config.");
 
     // Editing the catalog is a file write and nothing else, so the harness does it
     // for real rather than refusing the way it refuses an install: a browser

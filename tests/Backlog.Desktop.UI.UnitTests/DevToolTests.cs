@@ -1026,6 +1026,140 @@ public class ClaudeCatalogTests
         Assert.Null(Assert.Single(config.Root["mcpServers"]!.AsArray())!["claude"]);
     }
 
+    /// <summary>
+    /// The write half of the gap the applications merge was fixed for.
+    /// <see cref="DevToolConfiguration.ParseKey"/> resolves a <c>marketplace:</c>
+    /// key to a real array, so the override was written and then thrown away by a
+    /// read that merged three arrays and not this one — a setting that saved and
+    /// read back as never saved.
+    ///
+    /// <para>Refused rather than carried, because there is nothing here for a
+    /// machine to have an opinion about: a marketplace is where Claude plugins
+    /// come from, it is written without an <c>enabled</c> flag (see
+    /// <see cref="Adding_a_marketplace_lands_under_the_claude_section"/>), and the
+    /// pane draws its row neither a switch nor a tick box.</para>
+    /// </summary>
+    [Theory]
+    [InlineData("enabled")]
+    [InlineData("acknowledged")]
+    public async Task A_marketplace_takes_no_per_pc_override(string property)
+    {
+        var paths = await CreateCatalogWithAsync("""
+            { "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] } }
+            """);
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => property == "enabled"
+            ? DevToolConfiguration.WriteEnabledOverrideAsync(paths, "marketplace:jsdotnet-copilot", false, TestContext.Current.CancellationToken)
+            : DevToolConfiguration.WriteAcknowledgementAsync(paths, "marketplace:jsdotnet-copilot", true, TestContext.Current.CancellationToken));
+
+        // Which marketplace, and what to do instead — the wording the desktop
+        // head already refuses an enable with.
+        Assert.Contains("jsdotnet-copilot", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("catalog", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(property, refused.Message, StringComparison.OrdinalIgnoreCase);
+
+        // A refusal writes nothing: the file the pane would read the override back
+        // out of is not even brought into existence by the call that was declined.
+        Assert.False(File.Exists(paths.PcConfigPath));
+    }
+
+    /// <summary>A refusal is not a rewrite either. The per-PC file carries every
+    /// other row's state, and a declined write that reserialised it on the way out
+    /// would be a chance to lose them.</summary>
+    [Fact]
+    public async Task A_refused_marketplace_override_leaves_the_pc_config_alone()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            {
+              "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] },
+              "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ]
+            }
+            """);
+        const string existing = """{ "plugins": [ { "name": "architecture", "enabled": false } ] }""";
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
+        await File.WriteAllTextAsync(paths.PcConfigPath, existing, TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DevToolConfiguration.WriteEnabledOverrideAsync(paths, "marketplace:jsdotnet-copilot", false, TestContext.Current.CancellationToken));
+
+        Assert.Equal(existing, await File.ReadAllTextAsync(paths.PcConfigPath, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// The read half of the same gap. Nothing this app writes puts a marketplace
+    /// into the per-PC file any more, but that file is hand-editable and the build
+    /// this fixed did write them — so what is there is merged rather than
+    /// discarded, and the two halves cannot disagree in either direction.
+    ///
+    /// <para>It is also the one array that is nested, and the merge used to resolve
+    /// both sides with a plain <c>root["claude.marketplaces"]</c>, which is always
+    /// null. A merge call on this path would have compiled, run, and done
+    /// nothing.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_marketplace_in_the_pc_config_is_merged_rather_than_discarded()
+    {
+        var paths = await CreateCatalogWithAsync("""
+            {
+              "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] },
+              "plugins": []
+            }
+            """);
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
+        await File.WriteAllTextAsync(paths.PcConfigPath, """
+            {
+              "claude": {
+                "marketplaces": [
+                  { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot-fork" },
+                  { "name": "never-heard-of-it", "source": "nobody/nothing" }
+                ]
+              }
+            }
+            """, TestContext.Current.CancellationToken);
+
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
+        var marketplace = Assert.Single(DevToolConfiguration.MarketplaceEntries(config.Root));
+
+        Assert.Equal("JSdotNet/Copilot-fork", marketplace["source"]!.GetValue<string>());
+
+        // And a per-PC entry with no catalog entry behind it is dropped, which is
+        // the rule the other three arrays already merge by.
+        Assert.Equal("jsdotnet-copilot", DevToolConfiguration.DefaultMarketplaceName(config.Root));
+    }
+
+    /// <summary>
+    /// The per-PC file is hand-editable, and the marketplaces are the first array
+    /// either side reads through a dotted path — so a <c>claude</c> that is not an
+    /// object is now a step the walk has to take. It reads as "no such array", the
+    /// way <c>root["claude.marketplaces"]</c> did before the walk existed.
+    ///
+    /// <para>Otherwise every read of a catalog throws on that file, and
+    /// <c>ReadAsync</c> is awaited on pane load and outside the try/catch in
+    /// <c>DevToolService.ApplyCoreAsync</c> — so one bad hand edit takes out the
+    /// Tools pane rather than the one row it is about.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(""""{ "claude": 5 }"""")]
+    [InlineData(""""{ "claude": "JSdotNet/Copilot" }"""")]
+    [InlineData(""""{ "claude": [ { "marketplaces": [] } ] }"""")]
+    [InlineData(""""{ "claude": { "marketplaces": { "name": "jsdotnet-copilot" } } }"""")]
+    public async Task A_pc_config_whose_claude_section_is_not_an_object_merges_nothing(string pcConfig)
+    {
+        var paths = await CreateCatalogWithAsync("""
+            {
+              "claude": { "marketplaces": [ { "name": "jsdotnet-copilot", "source": "JSdotNet/Copilot" } ] },
+              "plugins": [ { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true } ]
+            }
+            """);
+        Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath)!);
+        await File.WriteAllTextAsync(paths.PcConfigPath, pcConfig, TestContext.Current.CancellationToken);
+
+        var config = await DevToolConfiguration.ReadAsync(paths, TestContext.Current.CancellationToken);
+
+        var marketplace = Assert.Single(DevToolConfiguration.MarketplaceEntries(config.Root));
+        Assert.Equal("JSdotNet/Copilot", marketplace["source"]!.GetValue<string>());
+    }
+
     private static async Task<DevToolConfigurationPaths> CreateCatalogWithAsync(string json)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-tool-tests", Guid.NewGuid().ToString("N"));
@@ -1480,9 +1614,12 @@ public class ApplicationCatalogTests
     }
 
     /// <summary>Without this the per-machine file merges for plugins and MCP
-    /// servers and silently does nothing for applications — the same gap
-    /// <c>claude.marketplaces</c> has, and one that reads as "the override did not
-    /// save" rather than as a missing merge.</summary>
+    /// servers and silently does nothing for applications — a gap that reads as
+    /// "the override did not save" rather than as a missing merge.
+    /// <c>claude.marketplaces</c> had the same one; it is closed from both ends
+    /// now, by <see cref="ClaudeCatalogTests.A_marketplace_takes_no_per_pc_override"/>
+    /// and <see cref="ClaudeCatalogTests.A_marketplace_in_the_pc_config_is_merged_rather_than_discarded"/>.
+    /// </summary>
     [Fact]
     public async Task A_pc_override_wins_for_an_application()
     {
