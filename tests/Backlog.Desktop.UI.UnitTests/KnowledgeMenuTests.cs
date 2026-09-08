@@ -180,6 +180,58 @@ public sealed class KnowledgeMenuTests : IDisposable
         Assert.Contains(github.Children.Single(node => node.Path == ".github/workflows").Children, node => node.Path == ".github/workflows/ci.yml");
         Assert.Contains(agent.Children.Single(node => node.Path == ".agent/guides").Children, node => node.Path == ".agent/guides/coding.txt");
     }
+
+    /// <summary>
+    /// The menu built its roots out of folders, so a file sitting at the root had
+    /// no row: CLAUDE.md was discovered, listed in the loading comparison, and
+    /// impossible to open from the menu that is supposed to reach it.
+    /// </summary>
+    [Fact]
+    public async Task Offers_the_root_instruction_files_beside_the_folders()
+    {
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".github"));
+        File.WriteAllText(Path.Combine(repo, ".github", "copilot-instructions.md"), "# Copilot");
+        File.WriteAllText(Path.Combine(repo, "CLAUDE.md"), "# Claude");
+        File.WriteAllText(Path.Combine(repo, "AGENTS.md"), "# Agents");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"], cancellationToken: TestContext.Current.CancellationToken);
+
+        var instructions = Assert.Single(tree.Roots);
+
+        var claude = Assert.Single(instructions.Children, node => node.Path == "CLAUDE.md");
+        Assert.Equal(KnowledgeMenuNodeKind.File, claude.Kind);
+        Assert.True(claude.Available);
+        Assert.Empty(claude.Children);
+
+        Assert.Contains(instructions.Children, node => node.Path == "AGENTS.md");
+
+        // The folders are the structure; the loose files read as a footnote to it.
+        Assert.Equal(
+            [".github", ".claude", ".agent", "CLAUDE.md", "AGENTS.md"],
+            instructions.Children.Select(node => node.Path));
+    }
+
+    [Fact]
+    public async Task Offers_no_row_for_a_root_file_that_is_not_there()
+    {
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".github"));
+        File.WriteAllText(Path.Combine(repo, "CLAUDE.md"), "# Claude");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new KnowledgeMenu(new KnowledgeFolderSource(settings)).LoadAsync(["instructions"], cancellationToken: TestContext.Current.CancellationToken);
+
+        var instructions = Assert.Single(tree.Roots);
+
+        Assert.Contains(instructions.Children, node => node.Path == "CLAUDE.md");
+        Assert.DoesNotContain(instructions.Children, node => node.Path == "AGENTS.md");
+    }
     public void Dispose()
     {
         foreach (var dir in _tempDirs.Where(Directory.Exists))

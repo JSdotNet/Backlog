@@ -4997,6 +4997,45 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* The tab strip stands in the middle of that chain, so it has to pass the height
+   through rather than grow with what is inside it. Without these three rules the
+   panel takes its content's full height, the pane clips at the section's height
+   with `overflow: hidden`, and the bottom of a long file is unreachable - two
+   thirds of `copilot-instructions.md` was, and a third of the comparison table.
+
+   Scoped to this panel rather than added to `.tabs` itself: the library's tab
+   strip is used by surfaces that are not inside a capped column, and giving it a
+   flex column by default would change every one of them to fix this one. The
+   technology pane threads the same three rules the same way for the same
+   reason. */
+.instructions-knowledge__repository > .tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.instructions-knowledge .tabs__panels {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.instructions-knowledge .tabs__panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* The comparison is the panel's whole content, so it takes the height and
+   scrolls itself - the table is longer than the pane whenever the folder has
+   more than a handful of files in it. */
+.instructions-knowledge .instruction-reach {
+    flex: 1 1 auto;
+}
+
 .instructions-knowledge .instructions-layout {
     flex: 1 1 auto;
     min-height: 0;
@@ -5628,6 +5667,213 @@ h1, h2, h3 {
         display: flex;
         flex-direction: column;
     }
+}
+
+/* --- Instruction reach --------------------------------------------------- */
+/*
+  The second reading of the instructions folder: one row per file, one column
+  per assistant. It scrolls on its own rather than growing the pane, the same
+  as the document beside it — the set is thirty-odd files and the tab strip
+  above has to stay reachable.
+*/
+.instruction-reach {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: 0;
+    overflow: auto;
+}
+
+.instruction-reach__intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+/* A path is a machine string the reader is checking one segment of, so it takes
+   the monospace every other path on this surface takes.
+
+   It wraps, against the table's own nowrap. These are the longest strings in the
+   table by a wide margin, and holding them on one line pushed the table past its
+   scroll box on a narrow window — which then scrolled the file name out of view
+   exactly when the reader was looking at the badges it names. Wrapping keeps the
+   table inside the box instead, so the identity column stays put. Normal weight,
+   because it is a row header for structure and not for emphasis.
+
+   Qualified by the table's own cell selector on purpose. The shared table holds
+   every cell on one line — right for the dashboards it was built for, where a
+   cell is a number or a name — and `.data-table__table th` outranks a bare class,
+   so the unqualified rule lost the cascade and nothing wrapped at all. This is a
+   deliberate override of that default for one column, not a second opinion about
+   the table. */
+.data-table__table th.instruction-reach__file {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+    white-space: normal;
+    /* `anywhere` and not `break-word`, which was tried and reverted. Only
+       `anywhere` lets the cell report a small min-content width, and that is what
+       lets the table fit its box: measured at a 900px window, `anywhere` gives
+       814px against an 814px box, and `break-word` holds the column at the
+       longest unbreakable segment — 402px — and puts 144px back outside the
+       scroll box. The cost is that a path occasionally breaks mid-segment
+       (`storybo` / `ok.instructions.md`) instead of at a separator. Losing the
+       fit costs the reader the file name exactly while they read its badges;
+       an ugly break costs them nothing they cannot read straight through. */
+    overflow-wrap: anywhere;
+    min-width: 14rem;
+}
+
+/* The globs a conditional reading is conditional on, under the badge that says
+   it is conditional. Quieter than the badge, because the reader wants the
+   verdict first and the scope only when the verdict surprises them. */
+.instruction-reach__scope {
+    display: block;
+    margin-top: var(--spacing-2xs);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+/* The rows the view exists to surface, marked down the edge rather than washed
+   in a tint: the two badges in the row already carry the colour, and a tinted
+   row behind them would be a third thing competing to say the same fact. */
+.instruction-reach__row--one-sided > :first-child {
+    box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+/* The three measures, stacked in one cell rather than spread over three columns.
+   They are one fact about one file read at three resolutions, and three columns
+   of numbers would triple the table's width to say it. */
+.instruction-reach__size {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* The estimate, quieter than the two measurements above it. A reader should be
+   able to see at a glance which of the three numbers is a guess. */
+.instruction-reach__estimate {
+    color: var(--color-text-disabled);
+}
+
+.instruction-reach__totals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.instruction-reach__totals-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+}
+
+/* Both cautions the numbers need, next to the numbers. Small, because a reader
+   reads this once and then knows it; present, because the alternative is a
+   figure that invites a comparison it cannot support. */
+.instruction-reach__caveat {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+/* The window block. The two bars are the comparison, so they sit directly under
+   each other with nothing between them to read across. */
+.instruction-reach__window {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* The title and the window picker on one line: the picker changes what every
+   percentage below it means, so it belongs with the heading rather than
+   somewhere the reader finds afterwards. */
+.instruction-reach__window-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* A hairline between the bands. The library's ramp is four tints of one hue, and
+   measured against each other two adjacent tints come out at 1.44:1 - under the
+   3:1 a non-text boundary needs, so the joins were invisible at 1x and the bar
+   read as one solid band. The separator is the app background rather than the
+   pane it sits on - a shade darker than the surface behind the bar, which reads
+   as a cut rather than as a seam, and costs no second hue either way.
+
+   Only a separator. A minimum width per band was the other option and was not
+   taken: widening a band that is genuinely 0.2% of the window would misstate the
+   one number this whole surface exists to state honestly. A band too small to
+   see is the finding, not a rendering fault. */
+.instruction-reach__window .metric-breakdown-bar__segment + .metric-breakdown-bar__segment {
+    border-left: var(--border-width) solid var(--color-background);
+}
+
+/* The machine's own contribution, kept visually apart from the repository's.
+   A reader has to be able to tell at a glance which half of the figure they
+   could change by editing a file in this repo and which half they could only
+   change on their own laptop. */
+.instruction-reach__machine {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.instruction-reach__picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+}
+
+.instruction-reach__picker-toggle {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    text-align: left;
+}
+
+.instruction-reach__picker-toggle--open {
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+/* The paths currently being asked about. Each one is its own badge and its own
+   way out, because the set is built a file at a time and unpicking one should
+   not mean starting the selection again. */
+.instruction-reach__picked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* The tree is the whole repository, so it scrolls in a box of its own rather
+   than pushing the table it exists to change off the bottom of the pane. */
+.instruction-reach__tree {
+    max-height: 20rem;
+    overflow: auto;
+    width: 100%;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-2xs);
 }
 
 /* --- The roadmap band on a short window ---------------------------------- */

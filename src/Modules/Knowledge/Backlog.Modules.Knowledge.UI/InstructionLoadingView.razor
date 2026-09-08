@@ -1,0 +1,473 @@
+@*
+    The whole instruction folder read twice — once as Claude Code would read it,
+    once as GitHub Copilot would — rather than one file read closely. That is the
+    question this view answers and the file list next to it cannot: a file says
+    what it governs, and says nothing at all about whether the assistant you are
+    talking to will ever see it.
+
+    A table rather than a chart. The reading is ordinal and two columns wide, so
+    a shade scale would spend a legend on four values a word says outright, and
+    the words are what a reader takes away — "not read" is the finding, not a
+    pale cell.
+
+    Rows are discovery's order, which is the file list's order, so the two
+    surfaces can be read against each other.
+*@
+
+<div class="instruction-reach" data-testid="@TestId">
+    <p class="instruction-reach__intro">
+        <strong>Always</strong> is every session. <strong>On match</strong> is only when a path in the
+        stated scope is touched. <strong>Linked</strong> means a file the host does load names this one
+        in prose, so it can be opened but is not loaded. <strong>Not read</strong> means the host has no
+        path to it.
+    </p>
+
+    @if (OneSided.Count > 0)
+    {
+        <p class="instruction-reach__intro">
+            <strong>@OneSided.Count of @Comparison.Rows.Count</strong>
+            @(OneSided.Count == 1 ? "file reaches" : "files reach") one assistant and effectively not the
+            other. A rule that governs the repository for one and does not exist for the other drifts
+            without anybody noticing, because each host is behaving correctly on its own side of it.
+        </p>
+    }
+
+    @* What each host is carrying, which is the question the sizes are here to
+       answer. Two readings: with nothing picked it is the resting cost of opening
+       a session, and with paths picked it is what working on those files comes
+       to. *@
+    <div class="instruction-reach__totals">
+        <p class="instruction-reach__totals-title">
+            @(Comparison.IsScoped
+                ? $"Loaded when working on {Comparison.Paths.Count} selected {(Comparison.Paths.Count == 1 ? "path" : "paths")}"
+                : "Loaded in every session, before any file is opened")
+        </p>
+
+        <MetricGrid MinColumnWidth="13rem" Label="Context each assistant carries" TestId="instructions-reach-totals">
+            <MetricTile Label="Claude Code"
+                        Value="@Kilobytes(Comparison.Claude.Bytes)"
+                        Unit="KB"
+                        Footnote="@Breakdown(Comparison.Claude)"
+                        TestId="instructions-reach-total-claude" />
+            <MetricTile Label="GitHub Copilot"
+                        Value="@Kilobytes(Comparison.Copilot.Bytes)"
+                        Unit="KB"
+                        Footnote="@Breakdown(Comparison.Copilot)"
+                        TestId="instructions-reach-total-copilot" />
+        </MetricGrid>
+
+        @* The token figure is an estimate and says so wherever it appears; the
+           line figure is exact and still the weakest of the three, so the one
+           thing a reader must not do with it is rank files. Both cautions belong
+           next to the numbers rather than in a document nobody opens. *@
+        <p class="instruction-reach__caveat">
+            Tokens are estimated at four bytes each, not counted — no tokenizer ships with this app.
+            Lines are exact but measure formatting rather than content: in this repository
+            <code>copilot-instructions.md</code> has fewer lines than
+            <code>storybook.instructions.md</code> and more bytes, so lines rank the two backwards.
+        </p>
+    </div>
+
+    @* The same figures as a share of the window they are spent out of, which is
+       the question the totals above only half answer: 25 KB means nothing until
+       you know what it is 25 KB of.
+
+       The fourth part is the one to be careful with. Claude Code's own context
+       view calls its remainder "free space"; this one cannot, because messages,
+       tool definitions, skills and the system prompt all live in there and this
+       app can see none of them. Naming it for what it is keeps the bar from
+       claiming the window is emptier than it is — on the one surface built to be
+       trusted about exactly that. *@
+    <div class="instruction-reach__window">
+        <div class="instruction-reach__window-head">
+            <p class="instruction-reach__totals-title">Against the context window</p>
+
+            <SelectField CurrentValue="@_window.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                         Options="@WindowOptions"
+                         Label="Context window"
+                         TestId="instructions-reach-window"
+                         OnChanged="SelectWindow" />
+        </div>
+
+        @* Named, because the legend is the content and the label above it is a
+           bare paragraph the list has no link to. Read by list, every row would
+           otherwise arrive without saying which assistant it belonged to. *@
+        <MetricBreakdownBar Parts="@WindowParts(row => row.Claude, "Claude Code")"
+                            Label="Claude Code"
+                            FormatValue="@FormatTokens"
+                            TestId="instructions-reach-window-claude"
+                            role="group"
+                            aria-label="Claude Code context window" />
+
+        <MetricBreakdownBar Parts="@WindowParts(row => row.Copilot, "GitHub Copilot")"
+                            Label="GitHub Copilot"
+                            FormatValue="@FormatTokens"
+                            TestId="instructions-reach-window-copilot"
+                            role="group"
+                            aria-label="GitHub Copilot context window" />
+
+        @* Said out loud, because a reader who picks a path and sees one of two
+           bars move will read the still one as broken. It is not: a host with no
+           path-scoped rules has nothing for a path to switch on. *@
+        @if (Comparison.IsScoped && HasNoPathScopedRules(row => row.Claude))
+        {
+            <p class="instruction-reach__caveat" data-testid="instructions-reach-window-note">
+                Claude Code's bar does not move when you pick a path: nothing it reads in this
+                repository is scoped by one, so there is nothing for a path to switch on.
+            </p>
+        }
+
+        <p class="instruction-reach__caveat">
+            Every figure here is the same four-bytes-per-token estimate as above.
+            <strong>The last band is not free space.</strong> It holds the conversation, the tool
+            definitions, the skills and the system prompt — none of which this app can see, so what
+            is left of the window is smaller than that band suggests.
+        </p>
+    </div>
+
+    @* What the repository cannot tell you. Everything above is checked in and the
+       same for everybody; this is read off the machine, so it differs per
+       developer and is loaded all the same. Kept as its own block with its own
+       subtotal rather than folded into the figures above, because those are a
+       fact about the repository and these are a fact about one laptop. *@
+    @if (UserContext.Count > 0)
+    {
+        <div class="instruction-reach__machine" data-testid="instructions-reach-machine">
+            <p class="instruction-reach__totals-title">
+                Loaded from this machine, outside the repository
+            </p>
+
+            <DataTable TItem="UserContextSource"
+                       Columns="@MachineColumns"
+                       Items="@UserContext"
+                       RowKey="@MachineKey"
+                       AriaLabel="Context each assistant loads from this machine"
+                       EmptyMessage="No user-level locations were checked."
+                       RowNoun="location"
+                       TestId="instructions-reach-machine-table">
+                <Row Context="source">
+                    <th scope="row" class="instruction-reach__file">
+                        @source.Label
+                        <span class="instruction-reach__scope">@source.Path</span>
+                    </th>
+                    <td>@source.Host</td>
+                    <td class="instruction-reach__size" data-testid="instructions-reach-machine-state">
+                        @if (source.State == UserContextState.Present)
+                        {
+                            @($"{source.Files} {(source.Files == 1 ? "file" : "files")}")<br />
+                            @Kilobytes(source.Bytes)
+
+                            <text> KB</text>
+
+                            <br />
+                            <span class="instruction-reach__estimate">~@source.EstimatedTokens tokens est.</span>
+                        }
+                        else
+                        {
+                            <Badge Kind="reach" Slug="not-read" Title="@MachineExplain(source)">@MachineLabel(source)</Badge>
+                        }
+                    </td>
+                </Row>
+            </DataTable>
+
+            <p class="instruction-reach__caveat">
+                Read from this machine's home directory, so it is not in the repository and the next
+                developer's figures will differ. Only paths and sizes are read here — never the contents.
+                Project memory counts its index alone: the notes beside it are recalled when something
+                makes them relevant, not carried into every session.
+                <strong>With it, Claude Code carries @Kilobytes(Comparison.Claude.Bytes + MachineTotal("Claude Code").Bytes) KB
+                and GitHub Copilot @Kilobytes(Comparison.Copilot.Bytes + MachineTotal("GitHub Copilot").Bytes) KB.</strong>
+            </p>
+        </div>
+    }
+
+    @* The picker. Folded away by default: it is a question a reader asks
+       sometimes, and the table under it is what they came for.
+
+       A ToggleButton and not a `details` element. The library owns the pressed
+       control the rest of this panel already uses, and a disclosure widget the
+       screen drew itself would be the second implementation of a thing the
+       library has — the same rule that put the shared file view here. *@
+    <div class="instruction-reach__picker">
+        <ToggleButton BaseClass="instruction-reach__picker-toggle"
+                      PressedCssClass="instruction-reach__picker-toggle--open"
+                      Pressed="@_picking"
+                      TestId="instructions-reach-picker-toggle"
+                      PressedChanged="value => _picking = value">
+            Pick paths to see what a change would load
+        </ToggleButton>
+
+        @if (Comparison.Paths.Count > 0)
+        {
+            <ul class="instruction-reach__picked" aria-label="Selected paths">
+                @foreach (var path in Comparison.Paths)
+                {
+                    var picked = path;
+
+                    <li>
+                        @* Named for what the button does, not for what it holds.
+                           Without this its accessible name is the path and a
+                           cross, which says nothing about pressing it. *@
+                        <Badge Kind="glob"
+                               Title="@($"Stop asking about {picked}")"
+                               TestId="instructions-reach-picked"
+                               aria-label="@($"Remove {picked} from the selection")"
+                               OnClick="() => OnPathForgotten.InvokeAsync(picked)">@picked ✕</Badge>
+                    </li>
+                }
+            </ul>
+
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="instructions-reach-clear"
+                       OnClick="() => OnSelectionCleared.InvokeAsync()">Clear selection</AppButton>
+        }
+
+        @if (_picking)
+        {
+            @* The default class prefix, which is the knowledge menu's. This is a
+               knowledge menu — the same rows, in the same pane, doing the same
+               job — so a second prefix would be a second copy of that styling to
+               keep in step for no difference a reader could see. *@
+            <TreeView Nodes="@Tree"
+                      ShowHeading="false"
+                      ShowOpenButton="false"
+                      NavClass="instruction-reach__tree"
+                      NavAriaLabel="Repository paths"
+                      TreeAriaLabel="Repository paths"
+                      EmptyMessage="No local clone to pick paths from."
+                      IsNodeSelected="@IsPathPicked"
+                      IsNodeExpanded="@IsFolderOpen"
+                      NodeClass="@PickedClass"
+                      OnNodeSelected="@OnPathToggled" />
+        }
+    </div>
+
+    <DataTable TItem="InstructionLoadingRow"
+               Columns="@Columns"
+               Items="@Comparison.Rows"
+               RowKey="@RowKey"
+               RowCssClass="@RowCssClass"
+               AriaLabel="How each assistant loads this repository's instruction files"
+               EmptyMessage="No instruction files were discovered."
+               RowNoun="file"
+               TestId="instructions-reach">
+        <Row Context="row">
+            @* The row header, not another cell. This is the name every badge in
+               the row is a statement about, so a reader arriving at one of them
+               out of context has to be told which file it belongs to. *@
+            <th scope="row" class="instruction-reach__file">@FilePath(row)</th>
+            <td class="instruction-reach__size" data-testid="instructions-reach-size">
+                @row.Size.Lines lines<br />
+                @Kilobytes(row.Size.Bytes) KB<br />
+                <span class="instruction-reach__estimate">~@row.Size.EstimatedTokens tokens est.</span>
+            </td>
+            <td data-testid="instructions-reach-claude">
+                <Badge Kind="reach" Slug="@Slug(row.Claude)" Title="@Explain(row.Claude)">@Label(row.Claude)</Badge>
+                @if (row.Claude.Detail is { Length: > 0 } claudeDetail)
+                {
+                    <span class="instruction-reach__scope">@claudeDetail</span>
+                }
+            </td>
+            <td data-testid="instructions-reach-copilot">
+                <Badge Kind="reach" Slug="@Slug(row.Copilot)" Title="@Explain(row.Copilot)">@Label(row.Copilot)</Badge>
+                @if (row.Copilot.Detail is { Length: > 0 } copilotDetail)
+                {
+                    <span class="instruction-reach__scope">@copilotDetail</span>
+                }
+            </td>
+        </Row>
+    </DataTable>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("File"),
+        new("Size"),
+        new("Claude Code"),
+        new("GitHub Copilot")
+    ];
+
+    /// <summary>Every discovered file with both verdicts and both totals.</summary>
+    [Parameter]
+    public InstructionLoadingComparison Comparison { get; set; } = InstructionLoadingComparison.Empty;
+
+    /// <summary>The repository to pick paths out of.</summary>
+    [Parameter]
+    public IReadOnlyList<TreeNode> Tree { get; set; } = [];
+
+    /// <summary>The user-level locations each host reads from this machine.</summary>
+    [Parameter]
+    public IReadOnlyList<UserContextSource> UserContext { get; set; } = [];
+
+    [Parameter]
+    public Func<TreeNode, bool> IsPathPicked { get; set; } = static _ => false;
+
+    [Parameter]
+    public Func<TreeNode, bool> IsFolderOpen { get; set; } = static _ => false;
+
+    [Parameter]
+    public EventCallback<TreeNode> OnPathToggled { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnPathForgotten { get; set; }
+
+    [Parameter]
+    public EventCallback OnSelectionCleared { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Whether the picker is open. The picked paths live on the panel,
+    /// because they change what it computes; whether the tree is on screen is
+    /// this view's own business and nothing above it needs to know.</summary>
+    private bool _picking;
+
+    /// <summary>The window every share below is a share of. Claude Code's default
+    /// today, and switchable because the reader's own is the only one that makes
+    /// the percentages mean anything.</summary>
+    private long _window = 200_000;
+
+    private static readonly IReadOnlyList<SelectorOption> WindowOptions =
+    [
+        new("200000", "200K window"),
+        new("1000000", "1M window")
+    ];
+
+    private void SelectWindow(string? value)
+    {
+        if (long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var window) && window > 0)
+        {
+            _window = window;
+        }
+    }
+
+    private static string FormatTokens(decimal tokens) => $"~{MetricFormat.Compact(tokens)}";
+
+    /// <summary>
+    /// One host's window, in the order it reads: what it carries every session,
+    /// what the picked paths added, what came off this machine, and everything
+    /// this app cannot see.
+    /// <para>The bar drops a part worth nothing and works the shares out of what
+    /// is left, so the matched band simply is not there until a path is picked —
+    /// no empty segment, and no branch here to avoid one.</para>
+    /// </summary>
+    private IReadOnlyList<MetricPart> WindowParts(Func<InstructionLoadingRow, InstructionHostReach> host, string hostName)
+    {
+        var always = Tokens(LoadedBytes(host, InstructionReach.Always));
+        var matched = Tokens(LoadedBytes(host, InstructionReach.OnMatch));
+        var machine = MachineTotal(hostName).EstimatedTokens;
+
+        return
+        [
+            new MetricPart("Repository, every session", always),
+            new MetricPart("Matched by the selected paths", matched),
+            new MetricPart("From this machine", machine),
+            new MetricPart("Messages, tools and the rest", Math.Max(0, _window - always - matched - machine))
+        ];
+    }
+
+    /// <summary>Whether a host has any rule a path could switch on at all — as
+    /// opposed to having one that this selection happens to miss. The two look
+    /// identical on the bar and are not the same fact.</summary>
+    private bool HasNoPathScopedRules(Func<InstructionLoadingRow, InstructionHostReach> host) =>
+        !Comparison.Rows.Any(row => host(row).Reach == InstructionReach.OnMatch);
+
+    private long LoadedBytes(Func<InstructionLoadingRow, InstructionHostReach> host, InstructionReach reach) =>
+        Comparison.Rows
+            .Where(row => host(row).Loaded && host(row).Reach == reach)
+            .Sum(row => row.Size.Bytes);
+
+    private static long Tokens(long bytes) => (long)Math.Round(bytes / 4d, MidpointRounding.AwayFromZero);
+
+    private List<InstructionLoadingRow> OneSided => [.. Comparison.Rows.Where(row => row.IsOneSided)];
+
+    /// <summary>The path as the rules are written, not as this file system spells
+    /// it — the reader is checking it against an instruction file, and those say
+    /// <c>.github/instructions</c> whatever the machine underneath does.</summary>
+    private static string FilePath(InstructionLoadingRow row) =>
+        row.Document.RelativePath.Replace('\\', '/');
+
+    private static object RowKey(InstructionLoadingRow row) => row.Document.RelativePath;
+
+    private static string? RowCssClass(InstructionLoadingRow row) =>
+        row.IsOneSided ? "instruction-reach__row--one-sided" : null;
+
+    /// <summary>
+    /// A picked row, drawn as picked.
+    /// <para>The tree's default class carries no selected state — it applies
+    /// whatever this returns and nothing else, so <c>IsNodeSelected</c> alone
+    /// reaches <c>aria-selected</c> and stops there. Without this a picked row
+    /// looked exactly like an unpicked one while the row under the pointer looked
+    /// picked, which is worse than no highlight at all.</para>
+    /// </summary>
+    private string PickedClass(TreeNode node) =>
+        IsPathPicked(node) ? "knowledge-menu__item knowledge-menu__item--active" : "knowledge-menu__item";
+
+    private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
+    [
+        new("Location"),
+        new("Assistant"),
+        new("Size")
+    ];
+
+    private static object MachineKey(UserContextSource source) => source.Path + source.Label;
+
+    private InstructionLoadTotals MachineTotal(string host) => UserContextSources.Total(UserContext, host);
+
+    /// <summary>What a location that loads nothing is. Three different answers,
+    /// because a folder nobody created, a folder somebody emptied, and a folder
+    /// this app could not open are three different things to know.</summary>
+    private static string MachineLabel(UserContextSource source) => source.State switch
+    {
+        UserContextState.Empty => "Empty",
+        UserContextState.Unreadable => "Unreadable",
+        _ => "Not there"
+    };
+
+    private static string MachineExplain(UserContextSource source) => source.State switch
+    {
+        UserContextState.Empty => "The location exists and holds nothing, so nothing is loaded from it.",
+        UserContextState.Unreadable => "The location is there but could not be read, so what it loads is unknown.",
+        _ => "Nothing at this location on this machine."
+    };
+
+    private static string Kilobytes(long bytes) => (bytes / 1024d).ToString("0.#");
+
+    /// <summary>The tile's second line: how the figure above it is made up.</summary>
+    private static string Breakdown(InstructionLoadTotals totals) =>
+        totals.Files == 0
+            ? "nothing loaded"
+            : $"{totals.Files} {(totals.Files == 1 ? "file" : "files")}, {totals.Lines} lines, ~{totals.EstimatedTokens} tokens est.";
+
+    private static string Label(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always => "Always",
+        InstructionReach.OnMatch => "On match",
+        InstructionReach.Linked => "Linked",
+        _ => "Not read"
+    };
+
+    /// <summary>An On match that a picked path turned on is drawn as the loaded
+    /// thing it now is, rather than staying the conditional it was.</summary>
+    private static string Slug(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always => "always",
+        InstructionReach.OnMatch => reach.Loaded ? "matched" : "on-match",
+        InstructionReach.Linked => "linked",
+        _ => "not-read"
+    };
+
+    /// <summary>What the badge means, for a pointer. The scope sits beside the
+    /// badge as text, so this says why rather than repeating where.</summary>
+    private static string Explain(InstructionHostReach reach) => reach.Reach switch
+    {
+        InstructionReach.Always when reach.Detail == "imported" =>
+            "Pulled in by an import from a file that loads every session.",
+        InstructionReach.Always => "Loaded into every session.",
+        InstructionReach.OnMatch when reach.Loaded => "A selected path falls in this scope, so it is loaded.",
+        InstructionReach.OnMatch => "Loaded when a path in this scope is worked on.",
+        InstructionReach.Linked => "Named by a file that is loaded, but not loaded itself.",
+        _ => "This host has no path to the file."
+    };
+}
