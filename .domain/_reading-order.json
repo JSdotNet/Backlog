@@ -119,8 +119,14 @@
       ]
     },
     ".domain/tasks": {
-      "root": null,
-      "order": []
+      "root": "domain.md",
+      "order": [
+        "features.md",
+        "model.md",
+        "flow.md",
+        "dependencies.md",
+        "naming.md"
+      ]
     },
     ".domain/tasks/assets": {
       "root": null,

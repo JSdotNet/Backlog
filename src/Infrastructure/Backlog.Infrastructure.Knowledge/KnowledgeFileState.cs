@@ -61,6 +61,33 @@ public sealed record KnowledgeFileState(string Path, long Size, long Mtime, stri
     }
 
     /// <summary>
+    /// Whether the file at <paramref name="fullPath"/> still looks the way this
+    /// row records it, asked from the <c>stat</c> alone.
+    ///
+    /// <para><see cref="HasDrifted"/> without the hash, for the one caller that
+    /// must not read a Markdown file to answer: the knowledge menu's rail. A file
+    /// whose modification time moved without its length changing is reported as
+    /// stale here, where <see cref="HasDrifted"/> would hash it and often find
+    /// nothing changed. So this over-reports drift and never under-reports it —
+    /// the same trade the JSON rung makes, and the caller pays for it in a
+    /// generated title it does not adopt rather than in a wrong one it does.</para>
+    /// </summary>
+    public bool LooksStale(string fullPath)
+    {
+        try
+        {
+            var file = new FileInfo(fullPath);
+            if (!file.Exists) return false;
+
+            return file.Length != Size || UnixMilliseconds(file.LastWriteTimeUtc) != Mtime;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
     /// A file's modification time in the units the writer recorded, rounded the
     /// same way it rounds.
     /// <para>

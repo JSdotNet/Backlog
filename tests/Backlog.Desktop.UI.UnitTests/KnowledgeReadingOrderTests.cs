@@ -61,6 +61,107 @@ public sealed class KnowledgeReadingOrderTests : IDisposable
             KnowledgeReadingOrder.ForFolder(folder));
     }
 
+    /// <summary>
+    /// The nested keys, which <c>ForFolder</c> cannot reach: the file declares a
+    /// bounded context's own documents under <c>.domain/inbox</c>, and the menu
+    /// rail orders that level too. The key is relative to the scope, so the
+    /// caller never has to know which path the folder was read from.
+    /// </summary>
+    [Fact]
+    public void Reads_a_nested_directory_by_its_key_relative_to_the_scope()
+    {
+        var folder = WriteOrder(".domain", """
+            {
+              "version": 1,
+              "scope": ".domain",
+              "directories": {
+                ".domain": { "root": "context-map.md", "order": ["inbox", "capture"] },
+                ".domain/inbox": { "root": "domain.md", "order": ["features.md", "model.md"] },
+                ".domain/tasks": { "root": null, "order": [] }
+              }
+            }
+            """);
+
+        var order = KnowledgeReadingOrder.Read(folder);
+
+        Assert.Equal(["context-map.md", "inbox", "capture"], order.ForDirectory(string.Empty));
+        Assert.Equal(["domain.md", "features.md", "model.md"], order.ForDirectory("inbox"));
+        Assert.Equal("domain.md", order.RootDocumentIn("inbox"));
+
+        // Declared, and declaring nothing — the caller sorts it itself.
+        Assert.Empty(order.ForDirectory("tasks"));
+        Assert.Null(order.RootDocumentIn("tasks"));
+
+        // Not declared at all, which is the same answer.
+        Assert.Empty(order.ForDirectory("capture"));
+    }
+
+    [Fact]
+    public void A_folder_with_no_readable_declaration_orders_no_directory()
+    {
+        var folder = WriteOrder(".domain", "{ \"version\": 1, \"directories\": ");
+
+        var order = KnowledgeReadingOrder.Read(folder);
+
+        Assert.Empty(order.ForDirectory(string.Empty));
+        Assert.Empty(order.ForDirectory("inbox"));
+        Assert.Null(order.RootDocumentIn(string.Empty));
+    }
+
+    /// <summary>
+    /// Read against the file that ships, resolved beneath this worktree's own root
+    /// rather than by an unbounded walk up from the test binary — inside
+    /// <c>.claude/worktrees/&lt;session&gt;</c> that walk climbs into the parent
+    /// checkout and answers from a different revision.
+    /// </summary>
+    [Fact]
+    public void The_committed_domain_file_orders_a_bounded_context()
+    {
+        var order = KnowledgeReadingOrder.Read(Backlog.Tests.RepositoryRoot.Directory(".domain"));
+
+        Assert.Equal(
+            ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"],
+            order.ForDirectory("inbox"));
+    }
+
+    /// <summary>
+    /// Every bounded context, not just the one. `.domain/tasks` used to declare
+    /// `root: null` with an empty order while its eleven siblings each declared
+    /// their chapters — so the rail sorted that one context alphabetically and
+    /// read dependencies-first where the other eleven read domain-first. Nothing
+    /// generates this file, so nothing but a test notices one context drifting
+    /// out of step with the rest.
+    ///
+    /// <para>The sequence is asserted against the chapters each context actually
+    /// has rather than against a fixed six: `capture` has no `flow.md`, and a
+    /// declaration naming a file that is not there would be the other bug.</para>
+    /// </summary>
+    [Fact]
+    public void The_committed_domain_file_orders_every_bounded_context()
+    {
+        var domain = Backlog.Tests.RepositoryRoot.Directory(".domain");
+        var order = KnowledgeReadingOrder.Read(domain);
+
+        string[] canonical = ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
+
+        var contexts = Directory.EnumerateDirectories(domain)
+            .Select(directory => Path.GetFileName(directory)!)
+            .Where(name => !name.StartsWith('_'))
+            .Where(name => File.Exists(Path.Combine(domain, name, "domain.md")))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.NotEmpty(contexts);
+
+        foreach (var context in contexts)
+        {
+            var expected = canonical.Where(chapter => File.Exists(Path.Combine(domain, context, chapter)));
+
+            Assert.Equal(expected, order.ForDirectory(context));
+            Assert.Equal("domain.md", order.RootDocumentIn(context));
+        }
+    }
+
     [Fact]
     public void A_folder_that_declares_no_root_document_declares_no_order()
     {
