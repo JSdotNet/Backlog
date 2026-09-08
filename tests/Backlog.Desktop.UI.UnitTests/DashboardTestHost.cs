@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -35,6 +36,11 @@ internal static class DashboardTestHost
         services.AddSingleton<IProductivityInsights, UnavailableProductivityInsights>();
         services.AddSingleton<ISessionInsights, UnavailableSessionInsights>();
         services.AddSingleton<ICostInsights, UnavailableCostInsights>();
+
+        // The default week, not this machine's. A grid asserted against whatever hours
+        // the person running the tests happens to keep is a grid asserted against
+        // nothing — the same reason the clock and the time zone are fixed.
+        services.AddSingleton<IWorkingHoursSettings>(new FixedWorkingHours());
 
         return services;
     }
@@ -114,5 +120,30 @@ internal static class DashboardTestHost
         public void Invalidate()
         {
         }
+    }
+
+    /// <summary>
+    /// The default working week, fixed, and never read off disk.
+    /// <para>
+    /// A settings store here would make every assertion about an outlined cell depend on
+    /// what the person running the tests had set their own hours to — and on whether a
+    /// <c>working-hours.json</c> existed on the build agent at all.
+    /// </para>
+    /// </summary>
+    private sealed class FixedWorkingHours : IWorkingHoursSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public WorkingHours Current => WorkingHours.Default;
+
+        public string SettingsPath => "working-hours.json";
+
+        public string? SetDay(DayOfWeek day, bool working, TimeOnly start, TimeOnly end) => null;
+
+        public string? ResetToDefault() => null;
     }
 }

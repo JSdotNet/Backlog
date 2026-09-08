@@ -21,6 +21,7 @@ using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
@@ -75,6 +76,12 @@ builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
 // never rewrites the real per-user choice.
 builder.Services.AddSingleton<ITasksRefreshSettings>(
     _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
+// Which hours the reader means to be working — written on the settings screen,
+// read by the dashboard to shade a grid. Scoped to the content root like the
+// harness's other settings files, so a session here never rewrites the real
+// per-user choice.
+builder.Services.AddSingleton<IWorkingHoursSettings>(
+    _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath));
 // Which surface the shell was last showing. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
@@ -264,10 +271,25 @@ builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>()
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
 
-// The join between the two: the Dashboard's sessions part reports on what the Sessions
-// context reads. Only an infrastructure adapter may see both, so the registration is
-// there rather than in either module — and it comes after both AddDashboardModule() and
-// AddAgentSessionSource(), whose ports it sits between.
+// What a transcript's parsed runs are kept in, so an activity read parses only the
+// transcripts that have changed. Beside the per-user settings and never under the
+// backlog root - see ActivityCacheDirectory: ADR 0005 syncs the workspace, and a
+// per-machine parse cache travelling to another device is exactly the hazard.
+builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+
+// When those sessions were actually producing, read out of the bodies of the
+// transcripts the call above only stats. A separate call because it is a separate
+// port: asking for the session list must not be the same thing as asking for hundreds
+// of megabytes to be parsed. It picks up the cache registered above through
+// GetService, so a host that composed none would still be correct and only slower.
+builder.Services.AddAgentActivitySource();
+
+// The join between the two contexts: the Dashboard's sessions part reports on what the
+// Sessions context reads. Only an infrastructure adapter may see both, so the
+// registration is there rather than in either module — and it comes after
+// AddDashboardModule(), AddAgentSessionSource() and AddAgentActivitySource(), whose
+// ports it sits between.
 builder.Services.AddDashboardCrossContextAdapters();
 
 // Which worktree served this harness. It is only ever started from a checkout,
@@ -394,6 +416,17 @@ static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(stri
     }
 
     return new TasksRefreshSettingsStore(settingsPath);
+}
+
+static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_WORKING_HOURS_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "working-hours.settings.json");
+    }
+
+    return new WorkingHoursSettingsStore(settingsPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

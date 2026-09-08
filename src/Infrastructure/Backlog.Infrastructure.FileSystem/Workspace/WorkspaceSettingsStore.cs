@@ -86,6 +86,7 @@ public sealed class WorkspaceSettingsStore
         KnowledgeCacheDirectory = Clean(settings?.KnowledgeCacheDirectory) ?? DefaultKnowledgeCacheDirectory;
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
+        SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
 
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
@@ -176,9 +177,31 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public string ActivityCacheDirectory { get; }
 
+    /// <summary>
+    /// Where the parsed activity of an agent transcript is kept.
+    /// <para>
+    /// Beside the per-user settings and never under the backlog root, for the reason
+    /// <see cref="ActivityCacheDirectory"/> gives and one more that is specific to this
+    /// folder: what is cached here is a parse of files that only exist on <em>this</em>
+    /// machine, keyed on those files' own paths and write times. Synced to another
+    /// device it would be a folder of entries nothing can ever match — ADR 0005's
+    /// hazard in its purest form, since the content is not merely disposable but
+    /// meaningless anywhere else.
+    /// </para>
+    /// <para>
+    /// Separate from <see cref="ActivityCacheDirectory"/> rather than shared with it.
+    /// The two hold unrelated things — GitHub's answers about pull requests, and this
+    /// machine's own transcripts — and one folder would make "forget the activity
+    /// cache" an action that threw away whichever of the two the person did not mean.
+    /// </para>
+    /// </summary>
+    public string SessionActivityCacheDirectory { get; }
+
     private const string KnowledgeCacheFolderName = "knowledge-cache";
 
     private const string ActivityCacheFolderName = "activity-cache";
+
+    private const string SessionActivityCacheFolderName = "session-activity-cache";
 
     private static string? Clean(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 

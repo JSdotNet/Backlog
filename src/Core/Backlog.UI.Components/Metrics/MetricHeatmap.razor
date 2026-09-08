@@ -43,6 +43,14 @@
                         {
                             <th scope="col" class="@(Part("bucket"))">@bucket</th>
                         }
+                        @* Upright, unlike the bucket headings beside them. They name
+                           columns of figures rather than columns of marks, and a heading
+                           turned on its side over readable numbers would be the one thing
+                           in the row a reader had to tilt their head for. *@
+                        @foreach (var total in Totals)
+                        {
+                            <th scope="col" class="@(Part("total-heading"))">@total.Heading</th>
+                        }
                     </tr>
                 </thead>
                 <tbody>
@@ -53,12 +61,25 @@
                             @foreach (var bucket in Buckets)
                             {
                                 var reading = Reading(row, bucket);
-                                <td class="@CellClass(reading)" title="@Title(row, bucket, reading)">
+                                <td class="@CellClass(row, bucket, reading)" title="@Title(row, bucket, reading)">
                                     @* The shade is a bucket of four; this is the
                                        reading. A screen reader gets the figure, and a
                                        pointer gets it from the title. *@
-                                    <span class="sr-only">@(reading is null ? NotReported : Format(reading.Value))</span>
+                                    <span class="sr-only">@CellText(row, bucket, reading)</span>
+                                    @if (ShowValues && reading is { } shown && shown != 0m)
+                                    {
+                                        @* aria-hidden because the sr-only span above
+                                           already carries this figure and the detail with
+                                           it. Without that, a reader hears the number
+                                           twice and the second time without its
+                                           context. *@
+                                        <span class="@(Part("value"))" aria-hidden="true">@Format(shown)</span>
+                                    }
                                 </td>
+                            }
+                            @foreach (var total in Totals)
+                            {
+                                <td class="@(Part("total"))">@total.Of(row.Name)</td>
                             }
                         </tr>
                     }
@@ -103,6 +124,89 @@
     /// <summary>How a cell's figure reads in its title and to a screen reader.</summary>
     [Parameter]
     public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>
+    /// A second sentence for one cell, keyed the way the grid already matches cells:
+    /// the row's name and the column's label.
+    /// <para>
+    /// It goes to the title <em>and</em> to the visually-hidden text, on the same
+    /// reasoning the figure itself does — the shade is a bucket of four and the text is
+    /// the reading, so a caller with more to say about a cell than one number must be
+    /// able to say it to a screen reader too, not only to a pointer.
+    /// </para>
+    /// <para>
+    /// Two strings rather than the <see cref="MetricSeries"/> and the point: the caller
+    /// already knows what it put in the grid, and handing it this component's own model
+    /// back would make its lambda depend on how rows are stored here.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<string, string, string?>? CellDetail { get; set; }
+
+    /// <summary>
+    /// Prints each cell's figure inside the cell as well as shading it.
+    /// <para>
+    /// Off by default, and that default is the honest one for what this component was
+    /// built for: a ramp of four steps against hundreds of distinct readings, where the
+    /// numbers would be unreadable at the size a cell has to be to fit twenty-six of them
+    /// across. Turn it on for the grid that is the exception — few columns, or readings
+    /// that are small whole numbers — where the shade answers "which cells" and the digit
+    /// answers "how many" without a pointer.
+    /// </para>
+    /// <para>
+    /// Neither a zero nor a cell with no reading prints anything, for two different
+    /// reasons that land on the same answer. A missing cell has no figure to print — not
+    /// reported is not none, which <c>--missing</c> already draws. A zero has one, and it
+    /// is the track's job: this component's whole position on zero is that it is drawn
+    /// rather than shaded, and a grid where most hours are quiet would otherwise print a
+    /// hundred noughts over the dozen figures somebody turned this on to read.
+    /// </para>
+    /// <para>
+    /// Both still reach a screen reader, and both are still in the title. What is
+    /// suppressed is ink, not information.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool ShowValues { get; set; }
+
+    /// <summary>
+    /// Columns of per-row figures, drawn after the cells in the order given.
+    /// <para>
+    /// A list rather than one column, because the figures a row deserves are rarely one:
+    /// a day of a working week has a count, the part of it inside working hours and the
+    /// part outside, and those are three answers to three questions rather than one
+    /// answer with two footnotes. Each is <see cref="MetricTotal"/>'s to compute — see
+    /// there for why the grid never works one out itself.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<MetricTotal> RowTotals { get; set; } = [];
+
+    /// <summary>
+    /// Marks a cell as belonging to some category the shade does not express — the hours
+    /// of a working day, a release window, a period under maintenance.
+    /// <para>
+    /// A second channel, and deliberately not a second ramp. The shade answers "how much"
+    /// on an ordinal scale of one hue; this answers "in or out" and nothing else, so it is
+    /// drawn as an edge rather than a fill and cannot be mistaken for a reading. Two
+    /// quantities in one cell would need two ramps, which
+    /// <c>.design/color-scheme.md</c> does not have and this component would not be the
+    /// place to invent.
+    /// </para>
+    /// <para>
+    /// Requires <see cref="MarkedLabel"/> to draw. That pairing is the point: a mark a
+    /// sighted reader can see and a screen reader cannot is a distinction the grid makes
+    /// and then refuses to say, so the label travels into the cell's text and the mark
+    /// does not appear without one.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<string, string, bool>? CellMarked { get; set; }
+
+    /// <summary>What a marked cell is, in the cell's own text. Required for
+    /// <see cref="CellMarked"/> to draw.</summary>
+    [Parameter]
+    public string? MarkedLabel { get; set; }
 
     /// <summary>The value that earns the darkest step. Left null it is the largest
     /// reading present; set it to a fixed ceiling — 100 for a score — so the shades
@@ -157,22 +261,59 @@
         }
     }
 
+    /// <summary>The columns worth drawing. A column with nothing to call it is dropped
+    /// rather than drawn blank: a heading is what makes a figure answerable.</summary>
+    private IReadOnlyList<MetricTotal> Totals =>
+        [.. (RowTotals ?? []).Where(total => !string.IsNullOrWhiteSpace(total.Heading))];
+
+    /// <summary>Both halves or neither, for the reason above and one more: an unnamed mark
+    /// is a distinction only some readers can perceive.</summary>
+    private bool HasMarks => CellMarked is not null && !string.IsNullOrWhiteSpace(MarkedLabel);
+
+    private bool Marked(string row, string bucket) => HasMarks && CellMarked!(row, bucket);
+
     private decimal Max => SharedMax ?? MetricScoring.SharedMax(Rows);
 
     private static decimal? Reading(MetricSeries series, string bucket) =>
         series.Points.FirstOrDefault(point => point.Label == bucket)?.Value;
 
-    private string CellClass(decimal? reading)
+    private string CellClass(MetricSeries row, string bucket, decimal? reading)
     {
-        if (reading is null) return $"{Part("cell")} {Part("cell")}--missing";
+        var mark = Marked(row.Name, bucket) ? $" {Part("cell")}--marked" : string.Empty;
+
+        if (reading is null) return $"{Part("cell")} {Part("cell")}--missing{mark}";
 
         var step = MetricScoring.RampStep(reading.Value, Max, RampSteps);
 
-        return $"{Part("cell")} {Part("cell")}--{step}";
+        return $"{Part("cell")} {Part("cell")}--{step}{mark}";
     }
 
     private string Title(MetricSeries row, string bucket, decimal? reading) =>
-        $"{row.Name}, {bucket}: {(reading is null ? NotReported : Format(reading.Value))}";
+        $"{row.Name}, {bucket}: {(reading is null ? NotReported : Format(reading.Value))}"
+        + (Detail(row.Name, bucket) is { } detail ? $" — {detail}" : string.Empty)
+        + (Marked(row.Name, bucket) ? $" ({MarkedLabel})" : string.Empty);
+
+    /// <summary>The hidden text: the reading, whatever else the caller has to say about
+    /// this cell, and the mark if it carries one. A pointer gets the same from the title.
+    /// <para>
+    /// The mark is in here rather than only in the class, because an edge somebody cannot
+    /// see is a distinction this grid draws and then withholds.
+    /// </para>
+    /// </summary>
+    private string CellText(MetricSeries row, string bucket, decimal? reading) =>
+        (reading is null ? NotReported : Format(reading.Value))
+        + (Detail(row.Name, bucket) is { } detail ? $". {detail}" : string.Empty)
+        + (Marked(row.Name, bucket) ? $". {MarkedLabel}" : string.Empty);
+
+    /// <summary>Blank is the same as absent. A caller building a sentence from data it
+    /// may not have should not have to decide whether an empty one is worth appending an
+    /// em dash to.</summary>
+    private string? Detail(string row, string bucket)
+    {
+        var text = CellDetail?.Invoke(row, bucket);
+
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
 
     /// <summary>The top of ramp step <paramref name="step"/>, for the legend.</summary>
     private decimal Ceiling(int step) => Math.Round(Max / RampSteps * step, 1, MidpointRounding.AwayFromZero);

@@ -18,6 +18,7 @@ using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
@@ -87,6 +88,12 @@ public static class MauiProgram
         // Its own per-user file beside the feature choices, for the same reason
         // theirs is not in settings.json.
         builder.Services.AddSingleton<ITasksRefreshSettings, TasksRefreshSettingsStore>();
+        // Which hours the reader means to be working. A kernel port rather than a
+        // dashboard one: the settings screen writes it and the dashboard shades a
+        // grid with it, and neither may reach through the other. Its own per-user
+        // file beside the two above, for the same reason theirs are not in
+        // settings.json.
+        builder.Services.AddSingleton<IWorkingHoursSettings, WorkingHoursSettingsStore>();
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();
@@ -293,11 +300,27 @@ public static class MauiProgram
         // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
 
-        // The join between the two: the Dashboard's sessions part reports on what the
-        // Sessions context reads. Only an infrastructure adapter may see both, so the
-        // registration is there rather than in either module — and it comes after both
-        // AddDashboardModule() and AddAgentSessionSource(), whose ports it sits
-        // between.
+        // What a transcript's parsed runs are kept in, so an activity read parses only
+        // the transcripts that have changed. Beside the per-user settings and never
+        // under the backlog root - see ActivityCacheDirectory: ADR 0005 syncs the
+        // workspace, and a per-machine parse cache travelling to another device is
+        // exactly the hazard.
+        builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+
+        // When those sessions were actually producing, read out of the bodies of the
+        // transcripts the call above only stats. A separate call because it is a
+        // separate port: asking for the session list must not be the same thing as
+        // asking for hundreds of megabytes to be parsed. It picks up the cache
+        // registered above through GetService, so a host that composed none would
+        // still be correct and only slower.
+        builder.Services.AddAgentActivitySource();
+
+        // The join between the two contexts: the Dashboard's sessions part reports on
+        // what the Sessions context reads. Only an infrastructure adapter may see both,
+        // so the registration is there rather than in either module — and it comes after
+        // AddDashboardModule(), AddAgentSessionSource() and AddAgentActivitySource(),
+        // whose ports it sits between.
         builder.Services.AddDashboardCrossContextAdapters();
 
 #if DEBUG

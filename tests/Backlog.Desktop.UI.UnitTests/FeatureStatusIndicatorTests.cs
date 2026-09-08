@@ -181,6 +181,8 @@ public sealed class FeatureStatusIndicatorTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<ITasksRefreshSettings>(
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
+        context.Services.AddSingleton<IWorkingHoursSettings>(
+            new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));

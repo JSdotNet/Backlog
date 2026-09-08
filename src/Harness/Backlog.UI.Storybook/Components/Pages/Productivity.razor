@@ -128,6 +128,47 @@ Bands take a ramp step and a name, never a red-amber-green light."
                        TestId="heatmap-score" />
     </Story>
 
+    <Story Name="MetricHeatmap — a cell that carries more than its shade"
+           Description="One grid, one shade, and a second measure the shade has no room for. CellDetail adds a sentence to a cell, keyed on the row name and the column label the grid already matches on.
+
+It reaches the title and the visually-hidden text both, for the reason the figure itself reaches both: a shade is one of four buckets, so anything a reader is meant to take off a cell has to be readable rather than only hoverable. A grid whose extra measure lived in a tooltip alone would be a grid a screen reader could not read."
+           Code="@HeatmapDetailCode">
+        <MetricHeatmap Series="Windowed"
+                       Label="@($"Score by repository and week, last {_weeks} weeks — with the week's hours beside each score")"
+                       SharedMax="MetricScoring.MaxScore"
+                       FormatValue="MetricFormat.Score"
+                       CellDetail="@HoursInCell"
+                       TestId="heatmap-detail" />
+    </Story>
+
+    <Story Name="MetricHeatmap — figures in the cells, and a column for the row"
+           Description="The dense case is a ramp and nothing else: twenty-six columns of small marks, where a printed figure would be too small to read and would still take the space. This is the other case — few enough columns, and readings that are small whole numbers — where the shade answers which cells and the digit answers how many, with no pointer.
+
+RowTotal adds a column after the grid. The figure in it is always the caller's: a grid cannot know whether its rows are summable, and peaks are not. Here the total counts something the row cannot be added into at all, which is why the column is headed."
+           Code="@HeatmapTotalCode">
+        <MetricHeatmap Series="Windowed"
+                       Label="@($"Score by repository and week, last {_weeks} weeks — with each week's figure and a column for the repository")"
+                       SharedMax="MetricScoring.MaxScore"
+                       FormatValue="MetricFormat.Score"
+                       ShowValues="true"
+                       RowTotals="@BestWeekTotals"
+                       TestId="heatmap-totals" />
+    </Story>
+
+    <Story Name="MetricHeatmap — a second channel that is not a second ramp"
+           Description="CellMarked answers whether a cell is in or out, where the shade answers how much of it there was — working hours on a day-and-hour grid, a release window, a period under maintenance. It is drawn as an edge rather than a fill, because a second fill would read as a second reading and this palette has one saturated hue to spend.
+
+It will not draw without MarkedLabel, and the pairing is the point: the label goes into the cell's title and its hidden text, so the distinction reaches a screen reader too. A mark a sighted reader can act on and nobody else can hear is a distinction the grid makes and then refuses to say."
+           Code="@HeatmapMarkedCode">
+        <MetricHeatmap Series="Windowed"
+                       Label="@($"Score by repository and week, last {_weeks} weeks — the last four weeks outlined")"
+                       SharedMax="MetricScoring.MaxScore"
+                       FormatValue="MetricFormat.Score"
+                       CellMarked="@RecentWeek"
+                       MarkedLabel="in the current quarter"
+                       TestId="heatmap-marked" />
+    </Story>
+
     <Story Name="MetricSpotlight — one series against the pack"
            Description="Every repository on one plot, the subject in the brand hue and the rest muted. It answers whether the subject sits above or below the pack.
 
@@ -282,6 +323,48 @@ Turn the totals off — as below — and the two charts are indistinguishable."
     private IReadOnlyList<MetricSeries> Windowed =>
         ProductivityFixtures.Window(ProductivityFixtures.ByRepository, _weeks);
 
+    /// <summary>
+    /// A second measure for the cell the shade has no room for. Derived from the score
+    /// rather than invented separately, so the story shows a cell saying two things
+    /// about one week rather than two unrelated numbers that happen to share a cell.
+    /// </summary>
+    /// <summary>
+    /// The last four bucket labels, so the mark falls on a contiguous band at the right
+    /// of the grid — the shape a working-day or release-window mark actually takes, rather
+    /// than a scatter that would demonstrate the parameter without demonstrating the idea.
+    /// </summary>
+    private Func<string, string, bool> RecentWeek => (_, week) =>
+        Windowed.FirstOrDefault() is { Points.Count: > 0 } first
+        && first.Points.Skip(Math.Max(0, first.Points.Count - 4)).Any(point => point.Label == week);
+
+    /// <summary>
+    /// A row figure the row cannot be added into: the best week a repository had, which is
+    /// a maximum and not a sum. Deliberately that rather than an average, because it shows
+    /// the column doing the thing the component refuses to do for a caller — decide what a
+    /// row of readings adds up to.
+    /// </summary>
+    private IReadOnlyList<MetricTotal> BestWeekTotals =>
+    [
+        new("Best", repository => Of(repository) is { } found
+            ? MetricFormat.Score(found.Points.Max(point => point.Value))
+            : null),
+        new("Worst", repository => Of(repository) is { } found
+            ? MetricFormat.Score(found.Points.Min(point => point.Value))
+            : null)
+    ];
+
+    private MetricSeries? Of(string repository) =>
+        Windowed.FirstOrDefault(series => series.Name == repository) is { Points.Count: > 0 } found
+            ? found
+            : null;
+
+    private Func<string, string, string?> HoursInCell => (repository, week) =>
+        Windowed
+            .FirstOrDefault(series => series.Name == repository)?
+            .Points.FirstOrDefault(point => point.Label == week) is { } point
+            ? $"{point.Value / 4m:0.#} hours that week"
+            : null;
+
     /// <summary>One score in each band, to show all four shades at once.</summary>
     private static readonly decimal[] BandSamples = [22m, 48m, 66m, 88m];
 
@@ -381,6 +464,35 @@ Turn the totals off — as below — and the two charts are indistinguishable."
         <MetricHeatmap Series="byRepository"
                        Label="Score by repository and week"
                        SharedMax="MetricScoring.MaxScore" />
+        """;
+
+    private const string HeatmapDetailCode = """
+        <MetricHeatmap Series="byRepository"
+                       Label="Score by repository and week"
+                       SharedMax="MetricScoring.MaxScore"
+                       CellDetail="@((repository, week) => Hours(repository, week) is { } hours
+                           ? $"{hours:0.#} hours that week"
+                           : null)" />
+        """;
+
+    private const string HeatmapMarkedCode = """
+        <MetricHeatmap Series="byRepository"
+                       Label="Score by repository and week"
+                       SharedMax="MetricScoring.MaxScore"
+                       CellMarked="@((repository, week) => IsCurrentQuarter(week))"
+                       MarkedLabel="in the current quarter" />
+        """;
+
+    private const string HeatmapTotalCode = """
+        <MetricHeatmap Series="byRepository"
+                       Label="Score by repository and week"
+                       SharedMax="MetricScoring.MaxScore"
+                       ShowValues="true"
+                       RowTotals="@(new MetricTotal[]
+                       {
+                           new("Best", repository => Best(repository)),
+                           new("Worst", repository => Worst(repository))
+                       })" />
         """;
 
     private const string SpotlightCode = """

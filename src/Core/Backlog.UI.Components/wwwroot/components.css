@@ -9386,6 +9386,70 @@ select.field__input option {
     box-shadow: inset 0 0 0 var(--border-width) var(--chart-grid);
 }
 
+/* A second channel, and deliberately not a second ramp: in or out, drawn as an edge
+   so it cannot be read as a quantity. outline rather than box-shadow because
+   --missing already spends the inset shadow, and a cell can be both missing and
+   marked — an hour inside the working day that nobody reported is exactly the pair a
+   reader wants to see. outline-offset pulls it inside the box so the mark does not
+   eat the border-spacing between cells. */
+.metric-heatmap__cell--marked {
+    outline: var(--border-width) solid var(--chart-axis);
+    outline-offset: calc(var(--border-width) * -1);
+}
+
+/* The figure printed inside its own cell, for the grids that turn ShowValues on.
+   The cell grows to hold two digits rather than the digits shrinking to fit a cell
+   sized for a mark: a number too small to read is worse than no number, because it
+   still takes the space and still asks to be read. */
+.metric-heatmap__value {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--font-size-xs) * 0.9);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--chart-ink);
+}
+
+/* Steps 3 and 4 are 80% and 100% of the brand hue, which is the same ground the
+   inverse token exists for — the badge and the primary button already read on it.
+   Steps 0 to 2 keep the ordinary ink; they are pale enough that inverting would be
+   the unreadable choice. */
+.metric-heatmap__cell--3 .metric-heatmap__value,
+.metric-heatmap__cell--4 .metric-heatmap__value {
+    color: var(--color-text-inverse);
+}
+
+/* Wide enough for two digits and tall enough to centre them. Only the grids that
+   print their figures pay this; a grid of marks stays at the 1.25rem the dense case
+   needs. */
+.metric-heatmap__grid:has(.metric-heatmap__value) .metric-heatmap__cell {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.metric-heatmap__total-heading {
+    padding: 0 var(--spacing-2xs) 0 var(--spacing-sm);
+    color: var(--chart-ink-muted);
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+/* Figures, so they line up on the digit rather than on the mark. The left padding
+   separates the column from the grid it summarises: without it a total reads as one
+   more cell of the day. */
+.metric-heatmap__total {
+    padding-left: var(--spacing-sm);
+    color: var(--chart-ink);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    text-align: right;
+    white-space: nowrap;
+}
+
 .metric-heatmap__legend {
     display: flex;
     flex-wrap: wrap;

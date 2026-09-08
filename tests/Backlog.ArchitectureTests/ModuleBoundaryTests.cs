@@ -322,6 +322,89 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// The activity cache's two halves sit either side of the same line
+    /// <see cref="Backlog_Infrastructure_GitHub_never_reaches_for_the_file_system_adapter"/>
+    /// draws, and this says so for the same reason that one does.
+    ///
+    /// <para>The port — <c>IAgentActivityCache</c> — is declared in
+    /// <c>Backlog.Modules.Sessions.Abstractions</c> because it is phrased in terms of
+    /// <c>AgentActivityRun</c>, which lives there. The half that decides where bytes
+    /// land on disk is in <c>Backlog.Infrastructure.FileSystem</c>, because that is
+    /// where the workspace root is known. The build already catches the cycle, so
+    /// what this stops is the fix somebody reaches for next: moving the port into
+    /// infrastructure, or giving the Sessions module a reference to the file-system
+    /// adapter, to make one call site legal.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Sessions_never_reaches_for_the_file_system_adapter()
+    {
+        const string abstractions = "Backlog.Modules.Sessions.Abstractions";
+
+        var infrastructure = InfrastructureNames();
+
+        Assert.NotEmpty(infrastructure);
+
+        var sessions = Repository.ProjectsUnder("src", "Modules", "Sessions")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        Assert.Contains("Backlog.Modules.Sessions.UI", sessions.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(abstractions, sessions.Keys, StringComparer.OrdinalIgnoreCase);
+
+        var offenders = sessions.Values
+            .SelectMany(project => Repository.ReferencedProjectNames(project)
+                .Where(infrastructure.Contains)
+                .Select(reference => $"{project.Name} -> {reference}"))
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The Sessions module declares the cache port; the file-system adapter implements it, never the "
+            + "other way round: " + string.Join(", ", offenders));
+
+        // And the edge this rule is about still runs the other way. Without this the
+        // rule would keep passing after somebody inverted the dependency and moved the
+        // port, green for exactly the wrong reason.
+        var fileSystem = Repository.ProjectsUnder("src", "Infrastructure")
+            .Single(project => Path.GetFileNameWithoutExtension(project.Name)
+                == "Backlog.Infrastructure.FileSystem");
+
+        Assert.Contains(
+            abstractions,
+            Repository.ReferencedProjectNames(fileSystem),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The sessions pane injects the cheap port and only the cheap port.
+    ///
+    /// <para><c>IAgentSessionSource</c> stats files; <c>IAgentActivitySource</c> reads
+    /// their bodies — hundreds of megabytes for a week of transcripts on the machine
+    /// this was measured on. The list of sessions must never pay that to draw a row,
+    /// and the obvious tidy-up is to fold activity into the catalog so there is one
+    /// read. This is what says no: two ports means the pane cannot accidentally ask,
+    /// and a pane that grew a second injection would be asking.</para>
+    ///
+    /// <para>Both halves are asserted. Only checking that the expensive port is absent
+    /// would pass on a pane that had stopped injecting anything at all, and only
+    /// checking the cheap one is there would pass on a pane that injected both.</para>
+    /// </summary>
+    [Fact]
+    public void The_sessions_pane_injects_only_the_port_that_costs_a_file_stat()
+    {
+        var pane = new FileInfo(Path.Combine(
+            Repository.Root.FullName,
+            "src", "Modules", "Sessions", "Backlog.Modules.Sessions.UI", "SessionsPane.razor"));
+
+        Assert.True(pane.Exists, $"{pane.FullName} is not where the sessions pane lives any more.");
+
+        var markup = File.ReadAllText(pane.FullName);
+
+        Assert.Contains("@inject IAgentSessionSource", markup, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("IAgentActivitySource", markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The projects that own the decision: the module library and its published
     /// contract. Everything the module rules were written for.
     ///

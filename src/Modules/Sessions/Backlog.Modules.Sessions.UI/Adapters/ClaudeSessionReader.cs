@@ -189,58 +189,26 @@ internal sealed class ClaudeSessionReader
         int room,
         CancellationToken cancellationToken)
     {
-        var folder = new DirectoryInfo(Path.Combine(_home, "projects"));
         var sessions = new List<AgentSession>();
 
-        if (!folder.Exists) return (sessions, 0);
-
-        // Enumerated and counted before anything is opened, and only the most recent
-        // are opened: a transcript costs a file handle and a few reads to find its
-        // cwd, and a developer's profile holds hundreds.
-        var all = folder
-            .EnumerateFiles("*.jsonl", SearchOption.AllDirectories)
-            .Where(file => !alreadySeen.Contains(Path.GetFileNameWithoutExtension(file.Name)))
-            .ToList();
-
-        // One session, one row — even when two project folders hold a transcript for it.
-        //
-        // A transcript is filed under the folder the session ran in, so a session whose
-        // cwd changed — resumed in a worktree it did not start in — is written under a
-        // second slug while keeping its id. That is one session filed twice rather than
-        // two sessions, so two rows would be wrong on its own terms; it was worse than
-        // wrong on screen, for the reason the live dedupe above gives. Found on a real
-        // profile, where one of 377 transcripts was filed under two worktrees.
-        //
-        // The more recently written file wins, because it is the more current record of
-        // the same session: it names the folder that session ended up in, and it is the
-        // copy the agent went on appending to. Ties go to the path that sorts first, and
-        // that tie-break is not decoration: two copies written in the same instant would
-        // otherwise be separated by whichever the directory walk happened to reach first,
-        // which nothing guarantees, and the row's folder and branch would change between
-        // two refreshes of an unchanged profile.
-        //
-        // Deduped before the cap, not after, so a session filed twice costs one place in
-        // the list rather than two.
-        var newest = all
-            .GroupBy(
-                file => Path.GetFileNameWithoutExtension(file.Name),
-                StringComparer.OrdinalIgnoreCase)
-            .Select(duplicates => duplicates
-                .OrderByDescending(file => file.LastWriteTimeUtc)
-                .ThenBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
-                .First())
+        // Enumerated, deduped and counted before anything is opened, and only the most
+        // recent are opened: a transcript costs a file handle and a few reads to find
+        // its cwd, and a developer's profile holds hundreds. The dedupe rule itself is
+        // ClaudeTranscripts' — the activity reader needs the identical one, and one copy
+        // of a rule that was found on a real profile is worth the extraction.
+        var newest = ClaudeTranscripts.Newest(_home)
+            .Where(transcript => !alreadySeen.Contains(transcript.SessionId))
             .ToList();
 
         var transcripts = newest
-            .OrderByDescending(file => file.LastWriteTimeUtc)
+            .OrderByDescending(transcript => transcript.File.LastWriteTimeUtc)
             .Take(room);
 
-        foreach (var transcript in transcripts)
+        foreach (var (id, transcript) in transcripts)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var (folderPath, branch) = await ReadHeaderAsync(transcript, cancellationToken).ConfigureAwait(false);
-            var id = Path.GetFileNameWithoutExtension(transcript.Name);
 
             sessions.Add(new AgentSession(
                 Id: id,

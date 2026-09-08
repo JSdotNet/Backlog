@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.GitHub;
 
@@ -135,39 +133,10 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
     }
 
     private string RepositoryRoot(GitHubRepositoryRef repository) =>
-        Path.Combine(_cacheRoot(), Safe($"{repository.Owner}-{repository.Name}"));
+        Path.Combine(_cacheRoot(), CachePaths.Safe($"{repository.Owner}-{repository.Name}"));
 
     private string EntryPath(GitHubRepositoryRef repository, int number) =>
         Path.Combine(RepositoryRoot(repository), $"{number}.json");
-
-    /// <summary>
-    /// One path segment standing for a name that may contain anything — the same
-    /// treatment <see cref="KnowledgeSnapshotCache"/> gives a branch name, and for
-    /// the same two reasons. The readable part is what makes the folder something
-    /// a person can look at and understand; the digest of the original is what
-    /// keeps two names that fold to the same readable form in different folders.
-    /// <para>
-    /// Trimmed because a long owner and name plus the configured cache root can
-    /// otherwise pass the path limit on Windows before a single entry is written
-    /// under it.
-    /// </para>
-    /// </summary>
-    private static string Safe(string name)
-    {
-        var readable = new StringBuilder(name.Length);
-
-        foreach (var character in name)
-        {
-            readable.Append(char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_' ? character : '-');
-        }
-
-        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..8].ToLowerInvariant();
-
-        var trimmed = readable.ToString().Trim('-');
-        if (trimmed.Length > 40) trimmed = trimmed[..40];
-
-        return trimmed.Length == 0 ? digest : $"{trimmed}-{digest}";
-    }
 
     /// <summary>The stored shape. Separate from <see cref="PullRequestDetail"/>
     /// so that the file format is a decision this class makes rather than a
