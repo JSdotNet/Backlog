@@ -16,7 +16,11 @@
          reading PATH and probing the disk. That decision is worth asserting
          against a fixed fake machine rather than only through whatever VS Code
          the build agent happens to have, so the resolver and the process seam
-         are internal and this project's own tests see them. -->
+         are internal and this project's own tests see them.
+         SyncedFolderDetector reads the machine the same way and extends the same
+         reasoning: which sync providers are installed and signed in is even less
+         a test's business than which VS Code is, so its environment and probe
+         seam is internal too. -->
     <InternalsVisibleTo Include="Backlog.Infrastructure.FileSystem.UnitTests" />
   </ItemGroup>
 
