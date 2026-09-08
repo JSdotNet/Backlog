@@ -94,13 +94,14 @@ related: [.domain/sessions/domain.md#working-location]
 ```
 
 Each session shows what its own agent wrote down and no more. The agents disagree
-about what they record — one names the repository and branch, the other names
-neither — so a column is empty for one agent and filled for the other, and the empty
-one is visibly "not recorded" rather than blank.
+about one field of the two — Copilot names the repository and the branch, Claude
+names the branch and never the repository — so a Claude row shows its branch and
+reads "not recorded" where its repository would be, visibly rather than blankly,
+while a Copilot row shows both.
 
-The alternative was inferring the missing facts from the working folder. A wrong
-repository attributed to a session renders exactly as convincingly as a right one,
-which is what makes inference the more expensive option.
+The alternative was inferring the missing repository from the working folder. A
+wrong repository attributed to a session renders exactly as convincingly as a right
+one, which is what makes inference the more expensive option.
 
 ### Sessions from another machine
 

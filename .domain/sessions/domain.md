@@ -206,9 +206,14 @@ status: active
 Where the session was working: `working_folder`, optional `repository` in
 `owner/name` form, and optional `branch`. Equality by all three.
 
-Both optional fields are optional because the agents disagree about what they
-record, not because the value is unimportant: one writes the repository and branch
-outright, the other writes neither. Absent means "the agent did not say".
+Both fields are optional because of what the agents actually write down, not
+because the value is unimportant. Copilot records the repository and the branch
+outright. Claude records the branch — it states one in the transcript it keeps —
+and never the repository, in any path: the folder is the only thing there is to go
+on, and a repository read off a path leaf would be a wrong fact where absence is a
+true one. So a Claude session carries a branch and no repository, and a Copilot
+session carries both. Absent means "the agent did not say", and about the
+repository Claude always says nothing.
 
 A replicated session is the one case where the folder is missing for a different
 reason. It was recorded, on the machine that ran the session, and it deliberately
