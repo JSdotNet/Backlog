@@ -40,7 +40,9 @@ public static class KnowledgeChapterResolver
     /// the area's conventional folder.
     /// </para></summary>
     public static KnowledgeChapterRef? TryResolve(string areaKey, KnowledgeFolderLocation? location, string? selection) =>
-        location is { Available: true } ? TryResolve(areaKey, location.FullPath, selection, location.Folder?.EffectivePath) : null;
+        location is { Available: true }
+            ? TryResolve(areaKey, location.FullPath, selection, location.Folder?.EffectivePath, location.CanEdit)
+            : null;
 
     /// <summary>Resolves against a root a store already holds — the technology
     /// view's location, the design model's folder, the arc42 folder. Same rules;
@@ -51,7 +53,17 @@ public static class KnowledgeChapterResolver
     /// which is what the stores that stamp a dotted prefix onto their document
     /// paths are naming whatever the folder was pointed at.
     /// </para></summary>
-    public static KnowledgeChapterRef? TryResolve(string areaKey, string? rootPath, string? selection, string? folderPath = null)
+    /// <param name="canEdit">Whether the resolved chapter may be written to. A
+    /// chapter is still resolved when it may not be — the reader wants to read
+    /// it — and the surface it reaches renders read-only instead of refusing to
+    /// open. Resolving to null for an unwritable chapter would hide the content
+    /// as well as the edit.</param>
+    public static KnowledgeChapterRef? TryResolve(
+        string areaKey,
+        string? rootPath,
+        string? selection,
+        string? folderPath = null,
+        bool canEdit = true)
     {
         if (string.IsNullOrWhiteSpace(areaKey) || string.IsNullOrWhiteSpace(rootPath) || string.IsNullOrWhiteSpace(selection))
         {
@@ -65,7 +77,7 @@ public static class KnowledgeChapterResolver
             if (KnowledgeChapterPaths.ResolveWithin(rootPath, candidate) is not { } fullPath) continue;
             if (!File.Exists(fullPath)) continue;
 
-            return new KnowledgeChapterRef(area, rootPath, candidate);
+            return new KnowledgeChapterRef(area, rootPath, candidate, canEdit);
         }
 
         return null;

@@ -21,6 +21,7 @@
           RootFolder="@RootTreeNode"
           Nodes="@TreeNodes"
           IsLoading="@IsLoading"
+          ShowOpenButton="@ShowOpenButton"
           OpenErrorMessage="@OpenErrorMessage"
           IsNodeSelected="node => IsNodeSelected(Original(node))"
           IsNodeExpanded="node => IsNodeExpanded(Original(node))"
@@ -38,6 +39,13 @@
 
     [Parameter]
     public KnowledgeMenuNode? RootFolder { get; set; }
+
+    /// <summary>Whether the heading offers "open this folder in an editor". A
+    /// knowledge folder read from a repository branch says no: the folder behind
+    /// it is an app-managed snapshot the next fetch replaces wholesale, so
+    /// opening it in an editor would invite edits that quietly vanish.</summary>
+    [Parameter]
+    public bool ShowOpenButton { get; set; } = true;
 
     [Parameter]
     public IReadOnlyList<KnowledgeMenuNode> Nodes { get; set; } = [];

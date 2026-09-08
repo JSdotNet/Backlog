@@ -38,18 +38,25 @@
            had already chosen. *@
         <header class="knowledge-pane__header">
             <h2>@_view.Title</h2>
-            <AppButton BaseClass="knowledge-folder-open"
-                       Variant="ButtonVariant.None"
-                       TestId="technology-open-vscode-button"
-                       Disabled="@_openingTechnologyFolder"
-                       title="Open Technology in VS Code"
-                       aria-label="Open Technology in VS Code"
-                       OnClick="OpenTechnologyFolderAsync">
-                @(_openingTechnologyFolder ? "..." : "Open in VS Code")
-            </AppButton>
-            <Alert Message="@_technologyFolderOpenError"
-                   TestId="technology-open-vscode-error"
-                   CssClass="knowledge-folder-open-error" />
+            @* A branch snapshot is an app-managed cache folder, not somebody's
+               working copy. Opening it in an editor would invite edits into a
+               folder the next fetch replaces wholesale, so the launcher is left
+               out entirely rather than disabled. *@
+            @if (CanEdit)
+            {
+                <AppButton BaseClass="knowledge-folder-open"
+                           Variant="ButtonVariant.None"
+                           TestId="technology-open-vscode-button"
+                           Disabled="@_openingTechnologyFolder"
+                           title="Open Technology in VS Code"
+                           aria-label="Open Technology in VS Code"
+                           OnClick="OpenTechnologyFolderAsync">
+                    @(_openingTechnologyFolder ? "..." : "Open in VS Code")
+                </AppButton>
+                <Alert Message="@_technologyFolderOpenError"
+                       TestId="technology-open-vscode-error"
+                       CssClass="knowledge-folder-open-error" />
+            }
         </header>
 
         <section class="tech-stats" aria-label="Technology graph summary">
@@ -188,6 +195,10 @@
 @code {
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyKnowledgeView? _view;
+
+    /// <summary>Whether this panel may write anything back. The view carries the
+    /// whole resolved location, so the answer comes straight off it.</summary>
+    private bool CanEdit => _view?.Location.CanEdit ?? true;
     private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
     private bool _openingTechnologyFolder;
@@ -265,12 +276,24 @@
 
     private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
     private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="knowledge-status-control">
-        <StatusSelector Id="@StateSelectId(itemPath)"
-                        CurrentValue="@status"
-                        Options="@StatusOptions(status)"
-                        Label="@($"State for {title}")"
-                        TestId="knowledge-state-select"
-                        OnChanged="value => ChangeKnowledgeStatusAsync(itemPath, status, value)" />
+        @* Read from a branch, the state is shown as the badge rather than the
+           select: still stated, but not offering an edit the next fetch would
+           discard. The same substitution MetadataView makes. *@
+        @if (!CanEdit)
+        {
+            <MetadataStatusBadge Status="@status"
+                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 TestId="knowledge-state-badge" />
+        }
+        else
+        {
+            <StatusSelector Id="@StateSelectId(itemPath)"
+                            CurrentValue="@status"
+                            Options="@StatusOptions(status)"
+                            Label="@($"State for {title}")"
+                            TestId="knowledge-state-select"
+                            OnChanged="value => ChangeKnowledgeStatusAsync(itemPath, status, value)" />
+        }
         @* Inline for the reason the domain panel's pair is: this sits beside the
            control that failed, and a block would break the row. *@
         @if (_statusErrors.TryGetValue(itemPath, out var error))

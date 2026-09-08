@@ -52,7 +52,7 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         }
 
         files = OrderFiles(files, folderPath);
-        return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files));
+        return Task.FromResult(DesignKnowledgeModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit));
     }
 
     /// <summary>
@@ -73,10 +73,9 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".design", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Design knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Design knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Design knowledge");
 
-        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".design/", status);
+        KnowledgeMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".design/", status);
         return Task.CompletedTask;
     }
 
@@ -95,10 +94,9 @@ public sealed class DesignKnowledgeProvider(IKnowledgeFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".design", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Design knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Design knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Design knowledge");
 
-        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".design/");
+        KnowledgeMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".design/");
         return Task.CompletedTask;
     }
 
@@ -417,10 +415,15 @@ public sealed record DesignKnowledgeModel(
     string? RepositoryName,
     string? FolderPath,
     IReadOnlyList<DesignKnowledgeFile> Files,
-    string Message)
+    string Message,
+    bool CanEdit = true)
 {
-    public static DesignKnowledgeModel Available(string repositoryName, string folderPath, IReadOnlyList<DesignKnowledgeFile> files) =>
-        new(true, repositoryName, folderPath, files, string.Empty);
+    public static DesignKnowledgeModel Available(
+        string repositoryName,
+        string folderPath,
+        IReadOnlyList<DesignKnowledgeFile> files,
+        bool canEdit = true) =>
+        new(true, repositoryName, folderPath, files, string.Empty, canEdit);
 
     public static DesignKnowledgeModel Unavailable(string message) =>
         new(false, null, null, [], message);

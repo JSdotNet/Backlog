@@ -65,7 +65,7 @@ public sealed class TasksPaneImportTests
         // than by this pane — so the assertion asks the channel what was published
         // instead of asking a render that never contained it. Same id, same words.
         Assert.Equal(
-            "Imported: 2 created, 0 updated, 0 skipped.",
+            "Imported: 2 created, 0 replaced, 0 updated, 0 skipped, 0 removed.",
             host.Toasts.Visible.Single(toast => toast.TestId == "import-plan-result").Message);
 
         // A row carries the canonical text rather than a title of its own, so the

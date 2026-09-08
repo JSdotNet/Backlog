@@ -55,6 +55,18 @@ public sealed class KnowledgeChapterWriter
         var filePath = KnowledgeChapterPaths.ResolveWithin(chapter.RootPath, chapter.RelativePath)
             ?? throw new InvalidOperationException($"Knowledge chapter path escapes the knowledge root: {chapter.RelativePath}");
 
+        // The same last-place reasoning, for the same reason. A chapter read out
+        // of a branch snapshot is a copy of a commit: writing it would succeed,
+        // look like it worked, and be gone at the next fetch. The panels do not
+        // offer the edit at all, so reaching here means a caller built its own
+        // ref — and silently discarding somebody's work is the one outcome worth
+        // throwing over.
+        if (!chapter.CanEdit)
+        {
+            throw new InvalidOperationException(
+                $"Knowledge chapter is read-only because it was read from a branch snapshot: {chapter.RelativePath}");
+        }
+
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException($"Knowledge chapter file was not found: {chapter.RelativePath}", filePath);

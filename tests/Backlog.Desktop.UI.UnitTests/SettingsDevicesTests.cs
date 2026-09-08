@@ -753,6 +753,7 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         testContext.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
+        testContext.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
         testContext.Services.AddSingleton(new DevicePairingClient(http, credentials));
         if (tokens is not null) testContext.Services.AddSingleton(tokens);

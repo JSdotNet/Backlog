@@ -53,7 +53,7 @@ public sealed class DomainKnowledgeStore
         var contexts = index is null
             ? ReadContexts(root, KnowledgeReadingOrder.ForFolder(root))
             : ReadContextsFromIndex(index, root);
-        return Task.FromResult(new DomainKnowledgeView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts));
+        return Task.FromResult(new DomainKnowledgeView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit));
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -63,10 +63,9 @@ public sealed class DomainKnowledgeStore
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".domain", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Domain knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Domain knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Domain knowledge");
 
-        KnowledgeMarkdownStatusWriter.UpdateStatus(location.FullPath, itemPath, ".domain/", status);
+        KnowledgeMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".domain/", status);
         return Task.CompletedTask;
     }
 
@@ -86,10 +85,9 @@ public sealed class DomainKnowledgeStore
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Knowledge item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".domain", repositoryAlias);
-        if (!location.Available) throw new InvalidOperationException(location.Message ?? "Domain knowledge is unavailable.");
-        if (location.FullPath is null) throw new InvalidOperationException("Domain knowledge folder path is unavailable.");
+        var folderPath = location.WritablePath("Domain knowledge");
 
-        KnowledgeMarkdownStatusWriter.RemoveStatus(location.FullPath, itemPath, ".domain/");
+        KnowledgeMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".domain/");
         return Task.CompletedTask;
     }
     /// <summary>
@@ -343,7 +341,11 @@ public sealed class DomainKnowledgeStore
     private static string Slug(string heading) => Regex.Replace(new string(heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()), "-+", "-").Trim('-');
 }
 
-public sealed record DomainKnowledgeView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainKnowledgeDocument ContextMap, IReadOnlyList<DomainKnowledgeContext> Contexts)
+/// <param name="CanEdit">Whether this view's documents may be written to. False
+/// when the folder resolved to a branch snapshot, and the panel then leaves out
+/// the status selectors, the editor and the launchers rather than offering
+/// changes the next fetch would discard.</param>
+public sealed record DomainKnowledgeView(string RepositoryLabel, string RepositoryRoot, string RootPath, string? Error, DomainKnowledgeDocument ContextMap, IReadOnlyList<DomainKnowledgeContext> Contexts, bool CanEdit = true)
 {
     public bool IsReady => Error is null;
     public static DomainKnowledgeView Unavailable(string error) => new(string.Empty, string.Empty, string.Empty, error, DomainKnowledgeDocument.Empty, []);

@@ -2106,7 +2106,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "task-sync",
           "level": 2,
-          "line": 79,
+          "line": 86,
           "status": "active",
           "related": [
             ".arc42/02-constraints.md#technical-constraints",
@@ -2181,7 +2181,7 @@
           "path": ".arc42/08-crosscutting-concepts.md",
           "slug": "session-record-sync",
           "level": 2,
-          "line": 161,
+          "line": 168,
           "status": "active",
           "related": [
             ".arc42/07-deployment-view.md#cloud-deployment-azure",
@@ -2321,7 +2321,7 @@
           "path": ".domain/tasks/features.md",
           "slug": "pairing-a-device",
           "level": 3,
-          "line": 626,
+          "line": 633,
           "status": "active",
           "depends-on": [
             ".domain/tasks/features.md#multi-device-sync"

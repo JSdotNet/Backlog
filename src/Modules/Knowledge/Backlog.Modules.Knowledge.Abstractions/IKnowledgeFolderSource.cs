@@ -67,8 +67,22 @@ public sealed record KnowledgeFolderLocation(
     string? FullPath,
     string? RootPath = null,
     string? ScopeLabel = null,
-    string? RepositoryAlias = null)
+    string? RepositoryAlias = null,
+    KnowledgeSourceKind Source = KnowledgeSourceKind.LocalFolder)
 {
+    /// <summary>
+    /// Whether a caller may write to what it just resolved.
+    /// <para>
+    /// A branch snapshot is a copy of somebody else's commit, and the only thing
+    /// editing it could achieve is losing the edit at the next fetch. So the
+    /// panels do not offer the edit at all rather than offering one that is
+    /// quietly discarded — the same reasoning
+    /// <c>KnowledgeChapterEditor</c> already applies to a chapter it could not
+    /// place on disk.
+    /// </para>
+    /// </summary>
+    public bool CanEdit => Source is KnowledgeSourceKind.LocalFolder;
+
     public static KnowledgeFolderLocation Unavailable(
         string key,
         string message,
@@ -77,6 +91,35 @@ public sealed record KnowledgeFolderLocation(
         string? fullPath = null,
         string? rootPath = null,
         string? scopeLabel = null,
-        string? repositoryAlias = null) =>
-        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias);
+        string? repositoryAlias = null,
+        KnowledgeSourceKind source = KnowledgeSourceKind.LocalFolder) =>
+        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias, source);
+}
+
+/// <summary>
+/// Which of the two places a resolved knowledge folder came from.
+/// <para>
+/// It rides on the location rather than being asked of the settings again,
+/// because the question every caller actually has is not "how is this repository
+/// configured?" but "may I write to the folder I was just handed?" — and only
+/// the resolution knows that. A repository configured to read a branch but
+/// holding a clone still resolves to the branch; a repository configured for its
+/// local folder with no clone on this machine still resolves to the branch.
+/// </para>
+/// <para>
+/// <see cref="LocalFolder"/> is the default on <see cref="KnowledgeFolderLocation"/>
+/// so that every construction predating branch loading — the storage-folder
+/// scope, and the test fakes — keeps meaning what it meant: a real folder
+/// somebody may edit.
+/// </para>
+/// </summary>
+public enum KnowledgeSourceKind
+{
+    /// <summary>A working folder on this machine: a clone, or the storage folder.
+    /// Readable and writable.</summary>
+    LocalFolder,
+
+    /// <summary>A snapshot of a repository branch, fetched and cached. Readable
+    /// only.</summary>
+    Branch
 }

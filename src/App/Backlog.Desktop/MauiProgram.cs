@@ -38,6 +38,11 @@ namespace Backlog.Desktop;
 
 public static class MauiProgram
 {
+    /// <summary>Names the client the branch-archive download uses, so it gets a
+    /// handler of its own rather than sharing a general-purpose one whose
+    /// timeout is set for request-response calls.</summary>
+    private const string GitHubArchiveHttpClient = "github-archive";
+
     public static MauiApp CreateMauiApp()
     {
         ConfigureWebView2RemoteDebugging();
@@ -56,9 +61,27 @@ public static class MauiProgram
         // over it answer. The knowledge resolver is what both ports share, so
         // neither context has to see the other's settings.
         builder.Services.AddSingleton<WorkspaceSettingsStore>();
+
+        // Knowledge read from a repository branch, for a repository nobody has
+        // cloned. The download half lives in the GitHub adapter and the disk
+        // half here; the cache root arrives as a delegate rather than as the
+        // workspace store, because the GitHub adapter may not see this one.
+        builder.Services.AddHttpClient(GitHubArchiveHttpClient);
+        builder.Services.AddSingleton<IGitHubBranchCatalog>(sp => new GitHubBranchCatalog(
+            sp.GetRequiredService<ResolvingGitHubTransport>()));
+        builder.Services.AddSingleton<IGitHubArchiveClient>(sp => new GitHubArchiveClient(
+            sp.GetRequiredService<IGitHubCredentialResolver>(),
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
+            () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
+        builder.Services.AddSingleton<IKnowledgeSnapshotCache>(sp => new KnowledgeSnapshotCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().KnowledgeCacheDirectory,
+            sp.GetRequiredService<IGitHubArchiveClient>(),
+            sp.GetRequiredService<IGitHubBranchCatalog>()));
+
         builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
-            sp.GetRequiredService<WorkspaceSettingsStore>()));
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
+            sp.GetRequiredService<IKnowledgeSnapshotCache>()));
         builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
         // How often the list re-reads a store somebody else may have written to.
@@ -228,6 +251,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
         builder.Services.AddSingleton<KnowledgeScope>();
         builder.Services.AddSingleton<KnowledgeUpdateService>();
+
+        // Shared by the knowledge pane and the settings screen, and a singleton so
+        // the branch list somebody fetched in one is already there in the other.
+        builder.Services.AddSingleton<KnowledgeSourceSelection>();
         builder.Services.AddSingleton<TasksDesktopState>();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the

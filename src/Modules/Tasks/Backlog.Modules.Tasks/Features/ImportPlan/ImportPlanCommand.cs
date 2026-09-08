@@ -18,8 +18,11 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// already offer: resolving <c>after:</c> against a same-document <c>id:</c>
 /// before any entry the document describes has a real id
 /// (`.design/content-editing.md#scheduling-and-dependency-tokens`), and
-/// upserting by <c>(import_plan_id, import_item_id)</c> so a later version of a
-/// plan already brought in updates its entries instead of duplicating them.
+/// replacing the previous version of the plan rather than adding to it: every
+/// entry of this <c>import_plan_id</c> that nobody has started yet is cleared
+/// before the new ones are written, so a plan brought in twice cannot leave two
+/// copies of a prompt behind. Work already picked up, finished or archived is
+/// matched by <c>(import_plan_id, import_item_id)</c> and kept.
 /// </para>
 /// </summary>
 /// <param name="RawText">The plan's raw text, pasted or read from an uploaded
@@ -93,8 +96,20 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         var planId = SharedTag(parsedEntries);
         var existing = await entries.ListAsync(cancellationToken);
 
-        // Pass 1: resolve each parsed entry's identity against what is already
-        // stored, before anything about the batch is written. None of the
+        var cleared = await ClearNotStartedAsync(planId, existing, cancellationToken);
+        if (cleared.Count > 0) existing = [.. existing.Except(cleared)];
+
+        // Which of the cleared entries this version can still be recognized as
+        // having rewritten, rather than simply dropped. Read before pass 1 so
+        // the counts can tell a replacement from a create — ImportPlanResultDto
+        // says why that distinction is worth keeping.
+        var clearedItemIds = cleared
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.ImportItemId))
+            .Select(entry => entry.ImportItemId!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Pass 1: resolve each parsed entry's identity against what is left
+        // standing, before anything about the batch is written. None of the
         // entries has a real id yet — see ADR 0007 — so this is the only place
         // that link can be made.
         var outcomes = new List<Outcome>(parsedEntries.Count);
@@ -112,7 +127,8 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
 
             if (match is null)
             {
-                // Whichever version of the plan first introduced the prompt.
+                // The prompt as this version of the plan writes it: either new,
+                // or written again in place of the copy just cleared.
                 outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++)));
             }
             else if (match.Status is EntryStatus.Done or EntryStatus.Archived)
@@ -122,6 +138,10 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             }
             else
             {
+                // Work already under way — the one thing a match can be, now
+                // that the entries nobody had started are gone. Brought up to
+                // date in place rather than replaced out from under whoever
+                // picked it up.
                 outcomes.Add(Outcome.ForUpdate(parsed, match));
             }
         }
@@ -134,6 +154,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             .ToDictionary(outcome => outcome.Parsed.ImportItemId!, outcome => outcome.RealId, StringComparer.Ordinal);
 
         var created = 0;
+        var replaced = 0;
         var updated = 0;
         var skipped = 0;
         var resultEntries = new List<TaskItemDto>();
@@ -164,7 +185,9 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
 
                 await entries.SaveAsync(entry, cancellationToken);
                 resultEntries.Add(entry.ToDto());
-                created++;
+
+                if (outcome.Parsed.ImportItemId is { } itemId && clearedItemIds.Contains(itemId)) replaced++;
+                else created++;
             }
             else
             {
@@ -177,7 +200,58 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             }
         }
 
-        return new ImportPlanResultDto(created, updated, skipped, resultEntries);
+        // What was cleared and not written again: the prompts this version of
+        // the plan has stopped asking for.
+        return new ImportPlanResultDto(created, replaced, updated, skipped, cleared.Count - replaced, resultEntries);
+    }
+
+    /// <summary>
+    /// Clears the previous version of this plan: every stored entry carrying the
+    /// plan's id that is still waiting to be picked up — <see cref="EntryStatus.Draft"/>
+    /// or <see cref="EntryStatus.Ready"/> — is tombstoned before the version
+    /// being brought in is written.
+    /// <para>
+    /// The alternative was matching each stored entry to a parsed one and
+    /// editing it in place, which is what this handler used to do. It cannot
+    /// hold: an entry is only recognizable by its <c>id:</c>, a plan is free not
+    /// to write one, and an entry with no id matches nothing and so arrives
+    /// again on every import. Clearing first makes a duplicate impossible
+    /// whatever the plan wrote, and says what a re-import means — this is the
+    /// plan now, and the work nobody has started is whatever the latest version
+    /// says it is.
+    /// </para>
+    /// <para>
+    /// Bounded by <c>import_plan_id</c>, which only Import ever writes, so a
+    /// hand-typed entry that happens to carry the plan's tag is not in scope. A
+    /// plan with no shared tag has no identity to have a previous version of
+    /// (see <see cref="SharedTag"/>) and clears nothing.
+    /// </para>
+    /// <para>
+    /// Tombstoning rather than deleting the row, because that is what deletion
+    /// is in this module — see <c>ITaskRepository</c> and ADR 0005: a row simply
+    /// dropped here would come back on the next sync from another device.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<TaskItem>> ClearNotStartedAsync(
+        string? planId,
+        IReadOnlyList<TaskItem> existing,
+        CancellationToken cancellationToken)
+    {
+        if (planId is null) return [];
+
+        var superseded = existing
+            .Where(entry =>
+                string.Equals(entry.ImportPlanId, planId, StringComparison.Ordinal)
+                && entry.Status is EntryStatus.Draft or EntryStatus.Ready)
+            .ToList();
+
+        foreach (var entry in superseded)
+        {
+            entry.MarkDeleted();
+            await entries.SaveAsync(entry, cancellationToken);
+        }
+
+        return superseded;
     }
 
     /// <summary>Constructs a new entry from a parsed segment the way every
