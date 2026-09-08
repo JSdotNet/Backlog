@@ -103,7 +103,15 @@ public class AgentSessionAssistantSessionSourceTests
             Branch: null,
             StartedAt: Noon.AddHours(-2),
             LastActivityAt: Noon.AddHours(-1),
-            State: state);
+            State: state,
+
+            // The two fields the session record grew for ADR 0005's whitelist. This
+            // adapter maps a session onto the Dashboard's own type and passes neither
+            // through yet, which is why they are stated here and asserted nowhere:
+            // the constructor requires them, and this file is not where that mapping
+            // is decided.
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local);
 
     private sealed class StubAgentSessionSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {

@@ -82,6 +82,11 @@ internal static class SyncResults
         // caller's to fix rather than to retry. 413 says which of the two.
         SyncErrorCodes.TaskTooLarge => StatusCodes.Status413PayloadTooLarge,
 
+        // The same answer for the other container. Separate codes because a
+        // client told only "too large" would not know which of its two pushes
+        // to make smaller.
+        SyncErrorCodes.SessionTooLarge => StatusCodes.Status413PayloadTooLarge,
+
         // More than the store will take from this caller right now. Same shape
         // as the 503 above and a different sentence: the store is answering.
         SyncErrorCodes.ReplicaBusy => StatusCodes.Status429TooManyRequests,
@@ -90,6 +95,11 @@ internal static class SyncResults
         // trimmed, because silently dropping the tail of a push would leave the
         // device believing tasks were stored that were not.
         SyncErrorCodes.PushBatchTooLarge => StatusCodes.Status400BadRequest,
+
+        // The same rule over the other container, and the same refusal: a batch
+        // trimmed to the cap would leave the machine believing records were
+        // appended that were not.
+        SyncErrorCodes.SessionBatchTooLarge => StatusCodes.Status400BadRequest,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,

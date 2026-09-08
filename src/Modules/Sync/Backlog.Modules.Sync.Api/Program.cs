@@ -30,12 +30,12 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 
 builder.Services.AddOpenApi();
 
-// Before AddSyncModule, so the concrete replica wins: the module registers its
-// in-memory stand-in with TryAdd, which no-ops once this has registered the
-// Cosmos-backed one. And this call itself no-ops when there is no Cosmos
-// connection string, which is what lets the endpoint tests and a bare
-// `dotnet run` work with no emulator anywhere.
-builder.AddCosmosTaskReplica();
+// Before AddSyncModule, so the concrete replicas win: the module registers its
+// in-memory stand-ins with TryAdd, which no-op once this has registered the
+// Cosmos-backed ones for both containers. And this call itself no-ops when there
+// is no Cosmos connection string, which is what lets the endpoint tests and a
+// bare `dotnet run` work with no emulator anywhere.
+builder.AddCosmosReplicas();
 
 builder.Services.AddSyncModule();
 
@@ -81,6 +81,7 @@ var sync = app.MapGroup(SyncRoutes.Base);
 sync.MapDeviceEndpoints();
 sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
+sync.MapSessionSyncEndpoints();
 
 // The service saying what it is. No owner, no data, nothing to protect.
 app.MapGet("/", () => Results.Ok(new { service = "Backlog Sync", role = "thin sync layer" }))

@@ -90,6 +90,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DashboardFeatures.Dashboard,
                 SyncFeatures.DevicePairing,
                 SyncFeatures.TaskSync,
+                SyncFeatures.SessionSync,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,

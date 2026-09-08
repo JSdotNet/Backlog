@@ -22,6 +22,15 @@ namespace Backlog.Modules.Sync.Services;
 /// <see cref="IDeviceTokenIssuer"/> does: minting means holding a signing key,
 /// and the key belongs with the host that validates what it signed.
 /// </para>
+/// <para>
+/// One codec for both feeds. It deals in <see cref="SyncCursor"/> — an owner and
+/// a continuation, with no opinion about which container the continuation came
+/// from — and <c>TaskReplicaCursor</c> and <c>SessionReplicaCursor</c> are each
+/// constructed from one. A second codec per feed would be a second place for the
+/// signature, the key derivation and the two failure codes to drift, and the
+/// drift would be silent: nothing fails when one of two checks is merely weaker
+/// than the other.
+/// </para>
 /// </summary>
 public interface ISyncCursorCodec
 {
@@ -37,5 +46,5 @@ public interface ISyncCursorCodec
     /// is a caller holding a real cursor belonging to somebody else. The second
     /// is attributable and must be loud.
     /// </summary>
-    Result<TaskReplicaCursor> Verify(string cursor, OwnerId caller);
+    Result<SyncCursor> Verify(string cursor, OwnerId caller);
 }

@@ -186,5 +186,12 @@ public sealed class AgentSessionGroupTests
             Branch: null,
             StartedAt: lastActivity.AddHours(-1),
             LastActivityAt: lastActivity,
-            State: AgentSessionState.Finished);
+            State: AgentSessionState.Finished,
+
+            // Neither field takes part in grouping, and both are stated rather than
+            // defaulted: this file is about which section a session lands in, and a
+            // record that let a caller leave its provenance unsaid would be a record
+            // that lets a replicated session pass for a local one.
+            TurnCount: null,
+            Origin: AgentSessionOrigin.Local);
 }

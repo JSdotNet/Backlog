@@ -62,7 +62,7 @@ primary-path result.
   this is not an adapter that was missed, it is a dependency the mechanism does
   not cover. Its resilience is the SDK's own options, stated in the one place the
   client is built (`Backlog.Infrastructure.Cosmos`,
-  `Extensions/CosmosTaskReplicaRegistration.cs`): a 10-second `RequestTimeout`,
+  `Extensions/CosmosReplicaRegistration.cs`): a 10-second `RequestTimeout`,
   retries on rate-limited requests capped at three attempts and ten seconds
   total, and Gateway connection mode. The mandatory-timeout rule is met; what is
   not is the circuit breaker, which the SDK has no equivalent for, and the retry
