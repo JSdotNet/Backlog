@@ -289,4 +289,135 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Assert.False(domain.Enabled);
         Assert.Equal("docs/.domain", domain.EffectivePath);
     }
+
+    /// <summary>
+    /// The half of R9 the corrected copy does not reach. The instruction that put
+    /// somebody's backlog on OneDrive is gone from the Storage screen, but a root
+    /// already inside a synced folder stays there until somebody moves it — so the
+    /// store looks, at construction, which is what "at startup" means for an app
+    /// that registers it as a singleton. Local ADR 0005's
+    /// <c>### The database filename</c> is where that was decided.
+    /// <para>
+    /// The probe is a seam for the same reason the VS Code launcher's is: whether
+    /// OneDrive is signed in on the build agent is not something a test may
+    /// depend on. What the heuristic itself recognises is asserted against a fake
+    /// machine in <c>SyncedFolderDetectorTests</c>.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_synced_root_is_reported_without_anybody_asking()
+    {
+        var appData = TempDir();
+        var probed = new List<string>();
+
+        var store = new WorkspaceSettingsStore(
+            appData,
+            Path.Combine(appData, "settings.json"),
+            root =>
+            {
+                probed.Add(root);
+                return new SyncedFolderMatch("OneDrive", root);
+            });
+
+        Assert.Equal("OneDrive", store.SyncedRoot?.ProviderName);
+
+        // The subject is the root folder and nothing else. ADR 0005 prefers the
+        // root precisely because everything under it carries the same hazard, so
+        // a check on backlog.db would have answered for one file of several.
+        Assert.Equal(store.RootDirectory, Assert.Single(probed));
+        Assert.DoesNotContain(store.DatabasePath, probed);
+    }
+
+    /// <summary>The probe is stubbed to find nothing rather than left as the real
+    /// detector, because over a temporary folder the real one would make this an
+    /// assertion about this machine's %TEMP%: a profile relocated onto OneDrive
+    /// — the very machine R9 describes — would turn it red for the one reason
+    /// that is not a defect.</summary>
+    [Fact]
+    public void A_plain_folder_is_reported_as_nothing_at_all()
+    {
+        var appData = TempDir();
+
+        var store = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"), _ => null);
+
+        Assert.Null(store.SyncedRoot);
+    }
+
+    [Fact]
+    public void The_synced_root_is_looked_at_again_after_every_move()
+    {
+        var appData = TempDir();
+        var synced = TempDir();
+        var store = new WorkspaceSettingsStore(
+            appData, Path.Combine(appData, "settings.json"), Inside(synced, "Dropbox"));
+
+        Assert.Null(store.SyncedRoot);
+
+        Assert.Null(store.TryUseRoot(Path.Combine(synced, "backlog")));
+        Assert.Equal("Dropbox", store.SyncedRoot?.ProviderName);
+
+        // And moving back out of it clears the warning rather than leaving the
+        // screen warning about a folder the app no longer uses.
+        Assert.Null(store.TryUseRoot(TempDir()));
+        Assert.Null(store.SyncedRoot);
+    }
+
+    [Fact]
+    public void Resetting_to_the_default_folder_looks_again_too()
+    {
+        var appData = TempDir();
+        var synced = TempDir();
+        var store = new WorkspaceSettingsStore(
+            appData, Path.Combine(appData, "settings.json"), Inside(synced, "Google Drive"));
+        Assert.Null(store.TryUseRoot(Path.Combine(synced, "backlog")));
+        Assert.NotNull(store.SyncedRoot);
+
+        Assert.Null(store.ResetToDefault());
+
+        Assert.Null(store.SyncedRoot);
+    }
+
+    /// <summary>Warn, do not prevent. The root stays the user's choice, so a
+    /// synced one is accepted, saved and reopened like any other.</summary>
+    [Fact]
+    public void A_synced_root_is_still_accepted_and_remembered()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+        var synced = TempDir();
+        var target = Path.Combine(synced, "backlog");
+        var store = new WorkspaceSettingsStore(appData, settingsPath, Inside(synced, "OneDrive"));
+
+        Assert.Null(store.TryUseRoot(target));
+
+        Assert.Equal(target, store.RootDirectory);
+        Assert.True(Directory.Exists(target));
+        Assert.Equal(
+            target,
+            new WorkspaceSettingsStore(appData, settingsPath, Inside(synced, "OneDrive")).RootDirectory);
+    }
+
+    /// <summary>Fail open. A probe that cannot answer leaves the app exactly
+    /// where a machine with no provider on it does — no warning, and nothing
+    /// thrown out of the constructor or out of a move.</summary>
+    [Fact]
+    public void A_probe_that_throws_is_no_warning_rather_than_a_broken_app()
+    {
+        var appData = TempDir();
+        var store = new WorkspaceSettingsStore(
+            appData,
+            Path.Combine(appData, "settings.json"),
+            _ => throw new IOException("the disk went away"));
+
+        Assert.Null(store.SyncedRoot);
+
+        Assert.Null(store.TryUseRoot(TempDir()));
+        Assert.Null(store.SyncedRoot);
+    }
+
+    /// <summary>A fake provider that claims one folder and nothing else.</summary>
+    private static Func<string, SyncedFolderMatch?> Inside(string syncedFolder, string providerName) =>
+        root => root.StartsWith(syncedFolder, StringComparison.OrdinalIgnoreCase)
+            ? new SyncedFolderMatch(providerName, syncedFolder)
+            : null;
 }

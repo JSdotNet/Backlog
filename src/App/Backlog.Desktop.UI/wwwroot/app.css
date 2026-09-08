@@ -1773,6 +1773,28 @@ h1, h2, h3 {
 .setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success-text); }
 
+/* The concrete sync-folder warning, at the weight .app-error-message carries but
+   in warning rather than error colours: the folder is a hazard the reader chose
+   and may keep, not a value the app refused.
+
+   --color-warning is a background, as .design/color-scheme.md says the semantic
+   tokens are, so the ink on it is text-primary. The boundary is the strong border
+   token rather than a mix of the surface, for the reason components.css records
+   twice: warning measures 1.31:1 against the page and would be no boundary at
+   all. */
+.setting__warning {
+    margin: 0 0 var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    /* It quotes no path, but the provider names are single words on a column
+       that narrows with the window. */
+    overflow-wrap: anywhere;
+}
+
 .setting__actions {
     margin-top: var(--spacing-md);
 }

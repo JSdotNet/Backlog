@@ -81,17 +81,126 @@ public sealed class SettingsStorageCopyTests
         Assert.DoesNotContain("synced or version-controlled", tab, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// The abstract warning above tells the reader what a file-sync folder does
+    /// to the database. It cannot tell them they are in one, and R9 was somebody
+    /// who was: the copy is now correct and their root is still on OneDrive. So
+    /// the concrete warning sits beside the general one and names the provider,
+    /// because a name is what somebody recognises their own folder in.
+    /// </summary>
+    [Fact]
+    public void The_tab_names_the_sync_provider_the_root_turned_out_to_be_inside()
+    {
+        using var settings = RenderSettings(_ => new SyncedFolderMatch("OneDrive", @"C:\Users\dev\OneDrive"));
+        OpenStorageTab(settings.Component);
+
+        var warning = settings.Component.Find(SyncWarning);
+
+        Assert.Contains("OneDrive", warning.TextContent, StringComparison.Ordinal);
+
+        // Not colour alone: it is announced, and the folder field points at it
+        // the way it already points at its own status line.
+        Assert.Equal("alert", warning.GetAttribute("role"));
+        Assert.Contains(
+            "storage-path-sync-warning",
+            settings.Component.Find(StoragePathInput).GetAttribute("aria-describedby") ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Detection is heuristic, so the folder nobody syncs must read exactly as it
+    /// read before this warning existed. A false positive here would be worse
+    /// than the gap it closes.
+    /// </summary>
+    [Fact]
+    public void The_tab_says_nothing_extra_about_an_ordinary_folder()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll(SyncWarning));
+        Assert.DoesNotContain(
+            "storage-path-sync-warning",
+            settings.Component.Find(StoragePathInput).GetAttribute("aria-describedby") ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>Changing the folder is the other half of "at startup, and when
+    /// the root is changed": the warning follows the root the screen just
+    /// applied, with no restart in between.</summary>
+    [Fact]
+    public void Applying_a_synced_folder_warns_without_a_restart()
+    {
+        using var settings = RenderSettings(ProviderFolderNamed("OneDrive"));
+        OpenStorageTab(settings.Component);
+
+        Assert.Empty(settings.Component.FindAll(SyncWarning));
+
+        var synced = Path.Combine(settings.Root, "OneDrive", "backlog");
+        Commit(settings.Component, synced);
+
+        Assert.Contains("OneDrive", settings.Component.Find(SyncWarning).TextContent, StringComparison.Ordinal);
+
+        // Warn, do not prevent. Over a synced root the field still takes a path
+        // and the way back to the default folder is still live - the warning is
+        // the whole of what the app does about it.
+        Assert.False(settings.Component.Find(StoragePathInput).HasAttribute("disabled"));
+        Assert.False(settings.Component.Find("[data-testid='reset-storage-path']").HasAttribute("disabled"));
+
+        // And moving back out of it leaves the tab as it was, rather than
+        // warning about a folder the app no longer uses.
+        Commit(settings.Component, Path.Combine(settings.Root, "local", "backlog"));
+
+        Assert.Empty(settings.Component.FindAll(SyncWarning));
+    }
+
+    private const string SyncWarning = "[data-testid='storage-path-sync-warning']";
+
+    private const string StoragePathInput = "[data-testid='storage-path-input']";
+
+    /// <summary>Types a folder in and commits it, the way the field is wired:
+    /// the value follows every keystroke and the change is what applies it.</summary>
+    private static void Commit(IRenderedComponent<Settings> component, string path)
+    {
+        var field = component.Find(StoragePathInput);
+        field.Input(path);
+        field.Change(path);
+    }
+
+    /// <summary>A fake provider that claims any folder named after it, so a test
+    /// can point the screen at one inside its own temporary root instead of at a
+    /// real OneDrive.</summary>
+    private static Func<string, SyncedFolderMatch?> ProviderFolderNamed(string providerName) =>
+        root => root.Contains(Path.DirectorySeparatorChar + providerName, StringComparison.OrdinalIgnoreCase)
+            ? new SyncedFolderMatch(providerName, providerName)
+            : null;
+
     private static string Description(IRenderedComponent<Settings> component) =>
         component.Find("[data-testid='storage-path-description']").TextContent;
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
 
-    private static SettingsRenderContext RenderSettings()
+    /// <summary>Renders the screen over a throwaway workspace, with a sync probe
+    /// that finds nothing unless a test hands it one.
+    /// <para>
+    /// Never the real detector, not even for the folder that is meant to raise no
+    /// warning: that would put the assertion on this machine's %TEMP% rather than
+    /// on the screen. A profile relocated onto OneDrive is not a hypothetical
+    /// machine either — it is the population R9 is about — and on one of those
+    /// every negative here would go red for the one reason that is not a defect.
+    /// What the heuristic itself recognises is asserted against a fake machine in
+    /// <c>SyncedFolderDetectorTests</c>.
+    /// </para></summary>
+    private static SettingsRenderContext RenderSettings(Func<string, SyncedFolderMatch?>? detectSyncedFolder = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-storage-copy-tests", Guid.NewGuid().ToString("n"));
 
-        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var storeAppData = Path.Combine(root, "store");
+        var store = new WorkspaceSettingsStore(
+            storeAppData,
+            Path.Combine(storeAppData, "settings.json"),
+            detectSyncedFolder ?? (_ => null));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
