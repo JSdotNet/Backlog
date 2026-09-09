@@ -46,6 +46,15 @@ on:
           - from-parameter-file
           - "true"
           - "false"
+      include_embedding_model:
+        description: 'Deploy optional text-embedding-3-small model that backs knowledge search by meaning'
+        required: true
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
       include_speech_model:
         description: 'Deploy optional gpt-4o-transcribe speech-to-text model'
         required: true
@@ -55,6 +64,58 @@ on:
           - from-parameter-file
           - "true"
           - "false"
+
+  # Called by Deploy All. The inputs mirror workflow_dispatch one for one, as
+  # strings rather than choices, because workflow_call has no choice type. The
+  # same `inputs.*` expressions below serve both triggers.
+  workflow_call:
+    inputs:
+      mode:
+        required: false
+        default: what-if
+        type: string
+      environment_name:
+        required: false
+        default: backlog-ai
+        type: string
+      subscription_id:
+        required: false
+        default: 8235e3b9-4cd0-4426-879a-471503d9e4fc
+        type: string
+      resource_group:
+        required: false
+        default: JS-AI
+        type: string
+      foundry_account_name:
+        required: false
+        default: ''
+        type: string
+      location:
+        required: false
+        default: ''
+        type: string
+      include_balanced_model:
+        required: false
+        default: from-parameter-file
+        type: string
+      include_embedding_model:
+        required: false
+        default: from-parameter-file
+        type: string
+      include_speech_model:
+        required: false
+        default: from-parameter-file
+        type: string
+    outputs:
+      endpoint:
+        description: 'Foundry account endpoint to paste into the desktop AI settings'
+        value: ${{ jobs.foundry.outputs.endpoint }}
+      chat_deployment:
+        description: 'Name of the default chat deployment'
+        value: ${{ jobs.foundry.outputs.chat_deployment }}
+      embedding_deployment:
+        description: 'Name of the embedding deployment, empty when it was not deployed'
+        value: ${{ jobs.foundry.outputs.embedding_deployment }}
 
 permissions:
   contents: read
@@ -74,6 +135,10 @@ jobs:
     environment: ${{ inputs.environment_name }}
     permissions:
       contents: read
+    outputs:
+      endpoint: ${{ steps.connection.outputs.endpoint }}
+      chat_deployment: ${{ steps.connection.outputs.chat_deployment }}
+      embedding_deployment: ${{ steps.connection.outputs.embedding_deployment }}
 
     steps:
       - name: Checkout
@@ -89,6 +154,7 @@ jobs:
           FOUNDRY_ACCOUNT_NAME: ${{ inputs.foundry_account_name }}
           LOCATION: ${{ inputs.location }}
           INCLUDE_BALANCED_MODEL: ${{ inputs.include_balanced_model }}
+          INCLUDE_EMBEDDING_MODEL: ${{ inputs.include_embedding_model }}
           INCLUDE_SPEECH_MODEL: ${{ inputs.include_speech_model }}
         run: |
           $ErrorActionPreference = 'Stop'
@@ -141,6 +207,10 @@ jobs:
 
           if ($env:INCLUDE_BALANCED_MODEL -ne 'from-parameter-file') {
             $overrides += "includeBalancedModel=$env:INCLUDE_BALANCED_MODEL"
+          }
+
+          if ($env:INCLUDE_EMBEDDING_MODEL -ne 'from-parameter-file') {
+            $overrides += "includeEmbeddingModel=$env:INCLUDE_EMBEDDING_MODEL"
           }
 
           if ($env:INCLUDE_SPEECH_MODEL -ne 'from-parameter-file') {
@@ -215,12 +285,46 @@ jobs:
           $overrides = if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES -split ' +' } else { @() }
 
           az deployment group create `
-            --name "backlog-foundry-${{ github.run_number }}" `
+            --name "backlog-foundry-${{ github.run_id }}" `
             --subscription $env:AZURE_SUBSCRIPTION_ID `
             --resource-group $env:AZURE_RESOURCE_GROUP `
             --template-file infra/foundry/main.bicep `
             --parameters $env:FOUNDRY_PARAMETER_FILE @overrides
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Read back the AI connection
+        id: connection
+        if: inputs.mode == 'deploy'
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Turning an AI feature on in the desktop app needs three values:
+          # endpoint, deployment and key (AzureFoundrySettings.IsConfigured). The
+          # first two are template outputs; the key is never printed and is fetched
+          # by hand. Surfacing them here is what makes the deploy usable rather than
+          # merely successful.
+          $deployment = az deployment group show `
+            --name "backlog-foundry-${{ github.run_id }}" `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --query properties.outputs `
+            --output json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          # Without this the step writes empty outputs and exits 0: both summary
+          # blocks then skip silently, and a deploy that cannot be turned into a
+          # working connection reports success.
+          if (-not $deployment -or -not $deployment.accountEndpoint.value) {
+            Write-Output "::error::Deployment backlog-foundry-${{ github.run_id }} returned no accountEndpoint output, so the AI connection cannot be reported."
+            exit 1
+          }
+
+          @(
+            "endpoint=$($deployment.accountEndpoint.value)"
+            "chat_deployment=$($deployment.chatDeploymentName.value)"
+            "embedding_deployment=$($deployment.embeddingDeploymentName.value)"
+            "account_name=$($deployment.accountName.value)"
+          ) | Add-Content -LiteralPath $env:GITHUB_OUTPUT
 
       - name: Write deployment summary
         if: always()
@@ -237,3 +341,31 @@ jobs:
             "- Parameter file: ``$(if ($env:FOUNDRY_PARAMETER_FILE) { $env:FOUNDRY_PARAMETER_FILE } else { $unresolved })``"
             "- Parameter overrides: ``$(if ($env:FOUNDRY_PARAMETER_OVERRIDES) { $env:FOUNDRY_PARAMETER_OVERRIDES } else { 'none' })``"
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+          $endpoint = '${{ steps.connection.outputs.endpoint }}'
+          if ($endpoint) {
+            @(
+              ""
+              "#### Enable the AI features"
+              ""
+              "Open the desktop app, go to Settings -> Azure Foundry, and enter:"
+              ""
+              "| Field | Value |"
+              "| --- | --- |"
+              "| Endpoint | ``$endpoint`` |"
+              "| Deployment | ``${{ steps.connection.outputs.chat_deployment }}`` |"
+              "| API key | not printed here - see the command below |"
+              ""
+              "The key is deliberately not written to this summary. Read it with:"
+              ""
+              "``````powershell"
+              "az cognitiveservices account keys list --name ${{ steps.connection.outputs.account_name }} --resource-group $env:AZURE_RESOURCE_GROUP --subscription $env:AZURE_SUBSCRIPTION_ID --query key1 --output tsv"
+              "``````"
+            ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+            $embedding = '${{ steps.connection.outputs.embedding_deployment }}'
+            if ($embedding) {
+              "" | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+              "Knowledge search by meaning uses the ``$embedding`` deployment on the same endpoint." | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+            }
+          }

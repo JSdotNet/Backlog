@@ -13,6 +13,19 @@ on:
         required: true
         type: string
 
+  # Called by Deploy All. `version` is optional here: left blank, the run falls
+  # through to the same main-branch numbering a scheduled run uses.
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        default: ''
+        type: string
+    outputs:
+      tag:
+        description: 'Release tag that was published, empty when the run was gated out'
+        value: ${{ jobs.release.outputs.tag }}
+
 permissions:
   contents: read
   issues: write
@@ -28,6 +41,8 @@ jobs:
     permissions:
       contents: write
       issues: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,8 +119,15 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $raw = '${{ github.event.inputs.version }}'
+          $requested = '${{ inputs.version }}'
+          # `required: true` is enforced by the Actions UI but historically not by
+          # API dispatches. Before this check an empty dispatched version fell
+          # through to the main-branch numbering instead of being rejected.
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and -not $requested) {
+            throw "workflow_dispatch requires an explicit version."
+          }
+          if ($requested) {
+            $raw = $requested
             $tag = "v$raw"
           }
           else {

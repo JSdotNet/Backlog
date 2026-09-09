@@ -1,0 +1,307 @@
+name: Deploy All
+
+# One run that takes the whole cloud-and-client side of Backlog out: the Azure AI
+# Foundry models, the cloud sync tier, and the desktop MSIX release.
+#
+# It owns no deployment logic. Each component is the workflow that already deployed
+# it, called as a reusable workflow, so a component behaves identically whether it
+# is run on its own or from here. Changing how sync deploys still means editing
+# deploy-sync.yml and nothing else.
+#
+# Mobile is deliberately absent. release-mobile.yml keeps its own triggers and is
+# not called from here; see docs/deployment/all.md for why.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'How far to take the infrastructure components'
+        required: true
+        default: what-if
+        type: choice
+        options:
+          # Nothing is created or changed. Foundry validates and previews; sync
+          # runs `azd provision --preview`; desktop is dropped with a notice,
+          # because there is no dry run of publishing a release.
+          - what-if
+          # Infrastructure is provisioned for real. Desktop is still dropped.
+          - provision
+          # Everything selected below actually deploys.
+          - deploy
+      components:
+        description: 'Which components to run'
+        required: true
+        default: foundry+sync
+        type: choice
+        options:
+          - foundry+sync
+          - foundry+sync+desktop
+          - foundry
+          - sync
+          - desktop
+      foundry_environment:
+        description: 'GitHub environment for Foundry; also selects infra/foundry/<name>.bicepparam'
+        required: true
+        default: backlog-ai
+        type: string
+      sync_environment:
+        description: 'GitHub environment for sync; also names the azd environment'
+        required: true
+        default: backlog-sync
+        type: string
+      desktop_version:
+        description: 'Desktop release version without the leading v (e.g. 1.2.3); required when components includes desktop'
+        required: false
+        default: ''
+        type: string
+      include_embedding_model:
+        description: 'Foundry: deploy text-embedding-3-small, which backs knowledge search by meaning'
+        required: true
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
+      include_speech_model:
+        description: 'Foundry: deploy gpt-4o-transcribe speech-to-text'
+        required: true
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
+      include_balanced_model:
+        description: 'Foundry: deploy the optional gpt-5.6-sol balanced alternative'
+        required: true
+        default: from-parameter-file
+        type: choice
+        options:
+          - from-parameter-file
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+# One combined run at a time. Component-level concurrency still applies inside the
+# called workflows, so a combined run and a standalone run of the same component
+# queue behind each other rather than racing.
+concurrency:
+  group: deploy-all
+  cancel-in-progress: false
+
+jobs:
+  # Turns the two choice inputs into per-component booleans once, so no other job
+  # repeats the string matching.
+  plan:
+    name: Plan the run
+    runs-on: ubuntu-latest
+    outputs:
+      foundry: ${{ steps.select.outputs.foundry }}
+      sync: ${{ steps.select.outputs.sync }}
+      desktop: ${{ steps.select.outputs.desktop }}
+      foundry_mode: ${{ steps.select.outputs.foundry_mode }}
+      sync_mode: ${{ steps.select.outputs.sync_mode }}
+    steps:
+      - name: Select components and per-component modes
+        id: select
+        shell: pwsh
+        env:
+          COMPONENTS: ${{ inputs.components }}
+          MODE: ${{ inputs.mode }}
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Validated before either switch below, so an unrecognised mode cannot
+          # fall through them as $null -- which would leave every mode-gated step
+          # in the called workflows false and report a green run that deployed
+          # nothing.
+          if ($env:MODE -notin @('what-if', 'provision', 'deploy')) {
+            Write-Output "::error::Unknown mode '$env:MODE'."
+            exit 1
+          }
+
+          $selected = $env:COMPONENTS -split '\+'
+
+          $foundry = $selected -contains 'foundry'
+          $sync    = $selected -contains 'sync'
+          $desktop = $selected -contains 'desktop'
+
+          # Publishing a release has no dry run, so desktop only takes part in a
+          # full deploy. Drop it out loud rather than failing the run: the other
+          # components still have a preview worth showing.
+          if ($desktop -and $env:MODE -ne 'deploy') {
+            Write-Output "::notice::Dropping the desktop component. Mode is '$env:MODE', and publishing a release has no what-if or provision equivalent. Re-run with mode 'deploy' to ship it."
+            $desktop = $false
+          }
+
+          if (-not ($foundry -or $sync -or $desktop)) {
+            Write-Output "::error::Nothing left to run: components '$env:COMPONENTS' in mode '$env:MODE' selects no component."
+            exit 1
+          }
+
+          # A combined run must be told the desktop version. Release desktop's own
+          # fallback numbers a release '0.1.<github.run_number>', and inside a
+          # called workflow that context is the *caller's* -- Deploy All's counter,
+          # which starts at 1. Its publish step clobbers an existing tag and marks
+          # it latest, so the fallback would republish v0.1.1, v0.1.2, ... over
+          # releases that already shipped and demote the real latest.
+          if ($desktop -and -not $env:DESKTOP_VERSION) {
+            Write-Output "::error::components includes desktop but desktop_version is blank. A combined run cannot derive a version; pass desktop_version, or release from Release desktop directly, which numbers itself correctly."
+            exit 1
+          }
+
+          # The two infrastructure workflows spell their modes differently: Foundry
+          # has validate/what-if/deploy, sync has preview/provision/deploy.
+          $foundryMode = switch ($env:MODE) {
+            'what-if'   { 'what-if' }
+            'provision' { 'deploy' }
+            'deploy'    { 'deploy' }
+          }
+          $syncMode = switch ($env:MODE) {
+            'what-if'   { 'preview' }
+            'provision' { 'provision' }
+            'deploy'    { 'deploy' }
+          }
+
+          @(
+            "foundry=$($foundry.ToString().ToLowerInvariant())"
+            "sync=$($sync.ToString().ToLowerInvariant())"
+            "desktop=$($desktop.ToString().ToLowerInvariant())"
+            "foundry_mode=$foundryMode"
+            "sync_mode=$syncMode"
+          ) | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+
+          Write-Output "foundry=$foundry ($foundryMode) sync=$sync ($syncMode) desktop=$desktop"
+
+  # Foundry and sync are independent: different resource groups, different runners,
+  # different lifecycles. They run in parallel.
+  foundry:
+    name: Foundry
+    needs: plan
+    if: needs.plan.outputs.foundry == 'true'
+    uses: ./.github/workflows/deploy-foundry.yml
+    permissions:
+      contents: read
+    with:
+      mode: ${{ needs.plan.outputs.foundry_mode }}
+      environment_name: ${{ inputs.foundry_environment }}
+      include_balanced_model: ${{ inputs.include_balanced_model }}
+      include_embedding_model: ${{ inputs.include_embedding_model }}
+      include_speech_model: ${{ inputs.include_speech_model }}
+
+  sync:
+    name: Sync
+    needs: plan
+    if: needs.plan.outputs.sync == 'true'
+    uses: ./.github/workflows/deploy-sync.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      mode: ${{ needs.plan.outputs.sync_mode }}
+      environment_name: ${{ inputs.sync_environment }}
+
+  # The desktop client talks to both tiers, so it ships last and only once neither
+  # of them failed. `always()` is what lets a component that was not selected --
+  # and so reports 'skipped' -- pass this gate, while a real failure does not.
+  desktop:
+    name: Desktop
+    needs: [plan, foundry, sync]
+    if: >-
+      !cancelled()
+      && needs.plan.outputs.desktop == 'true'
+      && needs.foundry.result != 'failure'
+      && needs.foundry.result != 'cancelled'
+      && needs.sync.result != 'failure'
+      && needs.sync.result != 'cancelled'
+    uses: ./.github/workflows/release-desktop.yml
+    permissions:
+      contents: write
+      issues: write
+    secrets: inherit
+    with:
+      version: ${{ inputs.desktop_version }}
+
+  summary:
+    name: Summary
+    needs: [plan, foundry, sync, desktop]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write combined summary
+        shell: pwsh
+        env:
+          MODE: ${{ inputs.mode }}
+          COMPONENTS: ${{ inputs.components }}
+          FOUNDRY_SELECTED: ${{ needs.plan.outputs.foundry }}
+          SYNC_SELECTED: ${{ needs.plan.outputs.sync }}
+          DESKTOP_SELECTED: ${{ needs.plan.outputs.desktop }}
+          FOUNDRY_RESULT: ${{ needs.foundry.result }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+          FOUNDRY_ENDPOINT: ${{ needs.foundry.outputs.endpoint }}
+          FOUNDRY_CHAT_DEPLOYMENT: ${{ needs.foundry.outputs.chat_deployment }}
+          FOUNDRY_EMBEDDING_DEPLOYMENT: ${{ needs.foundry.outputs.embedding_deployment }}
+          SYNC_ENDPOINT: ${{ needs.sync.outputs.endpoint }}
+          DESKTOP_TAG: ${{ needs.desktop.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # 'skipped' means two different things: the component was never
+          # selected, or it was selected and its `if:` gated it out because an
+          # upstream component failed. Reporting both as 'not selected' next to a
+          # FAILED row reads like the user's mistake.
+          function Format-Result([string] $result, [string] $detail, [string] $selected) {
+            $text = switch ($result) {
+              'success'   { 'succeeded' }
+              'failure'   { 'FAILED' }
+              'cancelled' { 'cancelled' }
+              'skipped'   {
+                if ($selected -eq 'true') { 'not run - an upstream component failed' }
+                else { 'not selected for this run' }
+              }
+              default     { $result }
+            }
+            if ($detail) { return "$text - $detail" }
+            return $text
+          }
+
+          @(
+            "### Deploy All"
+            ""
+            "- Mode: ``$env:MODE``"
+            "- Components: ``$env:COMPONENTS``"
+            ""
+            "| Component | Result |"
+            "| --- | --- |"
+            "| Foundry | $(Format-Result $env:FOUNDRY_RESULT $env:FOUNDRY_ENDPOINT $env:FOUNDRY_SELECTED) |"
+            "| Sync | $(Format-Result $env:SYNC_RESULT $env:SYNC_ENDPOINT $env:SYNC_SELECTED) |"
+            "| Desktop | $(Format-Result $env:DESKTOP_RESULT $env:DESKTOP_TAG $env:DESKTOP_SELECTED) |"
+            "| Mobile | excluded from this workflow |"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+          if ($env:FOUNDRY_ENDPOINT) {
+            @(
+              ""
+              "#### Enable the AI features"
+              ""
+              "In the desktop app, Settings -> Azure Foundry:"
+              ""
+              "| Field | Value |"
+              "| --- | --- |"
+              "| Endpoint | ``$env:FOUNDRY_ENDPOINT`` |"
+              "| Deployment | ``$env:FOUNDRY_CHAT_DEPLOYMENT`` |"
+              ""
+              "The API key is not printed here; the Foundry job's own summary carries the command that reads it."
+            ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+            if ($env:FOUNDRY_EMBEDDING_DEPLOYMENT) {
+              "" | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+              "Knowledge search by meaning uses ``$env:FOUNDRY_EMBEDDING_DEPLOYMENT`` on the same endpoint." |
+                Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+            }
+          }

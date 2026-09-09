@@ -39,6 +39,23 @@ on:
         default: backlog-sync
         type: string
 
+  # Called by Deploy All. `mode` is a string here because workflow_call has no
+  # choice type; the values it accepts are the same three.
+  workflow_call:
+    inputs:
+      mode:
+        required: false
+        default: preview
+        type: string
+      environment_name:
+        required: false
+        default: backlog-sync
+        type: string
+    outputs:
+      endpoint:
+        description: 'Deployed sync service endpoint, empty when the run only previewed'
+        value: ${{ jobs.sync.outputs.endpoint }}
+
 permissions:
   contents: read
 
@@ -60,6 +77,9 @@ jobs:
       # Required for the OIDC federated credential. This is the whole reason no
       # secret is stored: the runner mints a short-lived token Azure trusts.
       id-token: write
+
+    outputs:
+      endpoint: ${{ steps.summary.outputs.endpoint }}
 
     env:
       # A push to main always does the real thing; a manual run picks.
@@ -168,6 +188,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Write deployment summary
+        id: summary
         if: always()
         run: |
           $ErrorActionPreference = 'Continue'
@@ -175,6 +196,10 @@ jobs:
           $endpoint = 'not resolved'
           $values = azd env get-values --output json 2>$null | ConvertFrom-Json
           if ($values -and $values.SYNC_SERVICE_URI) { $endpoint = $values.SYNC_SERVICE_URI }
+
+          # Empty rather than 'not resolved' on the output, so a caller can test it.
+          "endpoint=$(if ($endpoint -eq 'not resolved') { '' } else { $endpoint })" |
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT
 
           @(
             "### Sync deployment"

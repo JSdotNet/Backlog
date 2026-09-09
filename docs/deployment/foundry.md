@@ -28,38 +28,38 @@ The resource group is `westeurope` but the Foundry account is placed in `swedenc
 
 To add a second target later, add a parameter file and a GitHub environment of the same name — the workflow needs no change.
 
-## Quota prerequisite
+## Quota
 
-The Sponsorship subscription has **no `GlobalStandard` quota** for the required models yet. Verified in both `swedencentral` and `westeurope`:
-
-| Quota | Used | Limit |
-| --- | ---: | ---: |
-| `OpenAI.GlobalStandard.gpt-5.4` | 0 | 0 |
-| `OpenAI.GlobalStandard.gpt-5.5` | 0 | 0 |
-| `OpenAI.GlobalStandard.gpt-5.6-luna` | 0 | 0 |
-| `OpenAI.GlobalStandard.gpt-5.6-sol` | 0 | 0 |
-
-The speech model is the exception — it already has quota in this subscription:
+Quota was zero across the board when this was first written, and every mode — `validate`
+included — failed preflight with `InsufficientQuota`. That has since been granted. Verified
+in `swedencentral` on 2026-09-09:
 
 | Quota | Used | Limit |
 | --- | ---: | ---: |
+| `OpenAI.GlobalStandard.gpt-5.4` | 0 | 2000 |
+| `OpenAI.GlobalStandard.gpt-5.5` | 0 | 2000 |
+| `OpenAI.GlobalStandard.gpt-5.6-luna` | 0 | 2000 |
+| `OpenAI.GlobalStandard.gpt-5.6-sol` | 1250 | 2000 |
+| `OpenAI.GlobalStandard.text-embedding-3-small` | 0 | 2000 |
 | `OpenAI.GlobalStandard.gpt-4o-transcribe` | 0 | 400 |
 
-That does not make the deployment succeed on its own: the template deploys the account and all
-selected models together, so the missing chat quota fails the whole run.
+The template's `deploymentCapacity` default of `1` — one thousand tokens per minute per
+deployment — sits well inside all of these. `gpt-5.6-sol` is the one to watch: 1250 of its
+2000 is already spent by something else in this subscription, so the balanced model has less
+headroom than the rest.
 
-The models themselves are available in both regions, and the template validates cleanly against a subscription that has quota. But every mode — including `validate` — fails preflight in this subscription with `InsufficientQuota` until a quota increase is granted:
+A `what-if` with `backlog-ai.bicepparam` returns `status: Succeeded`, `error: null`, and
+plans one `Modify` of the account plus a `Create` for each of the five selected deployments.
+So **quota is no longer what stops a deploy** — see *Runner and Azure access* below for what
+does.
 
-```text
-This operation require 1 new capacity in quota One Thousand Tokens Per Minute - gpt-5.4 - GlobalStandard, which is bigger than the current available capacity 0.
-```
+The account already exists (`https://backlog-foundry.cognitiveservices.azure.com/`) and
+currently carries **no model deployments at all**: it was created without them ever landing.
 
-Request quota for the Sponsorship subscription in the Azure AI Foundry portal (Management center -> Quota) before running the workflow. Then set `deploymentCapacity` in `backlog-ai.bicepparam` to a value the granted quota covers; the template default is `1` (one thousand tokens per minute per deployment).
-
-Check the current numbers with:
+Re-check the numbers before trusting this table — it is a snapshot, and it went stale once:
 
 ```powershell
-az cognitiveservices usage list --location swedencentral --subscription 8235e3b9-4cd0-4426-879a-471503d9e4fc --query "[?contains(name.value,'GlobalStandard') && contains(name.value,'gpt-5.')].{quota:name.value, used:currentValue, limit:limit}" --output table
+az cognitiveservices usage list --location swedencentral --subscription 8235e3b9-4cd0-4426-879a-471503d9e4fc --query "[?contains(name.value,'GlobalStandard') && (contains(name.value,'gpt-5.') || contains(name.value,'embedding') || contains(name.value,'transcribe'))].{quota:name.value, used:currentValue, limit:limit}" --output table
 ```
 
 ## Resources
@@ -153,6 +153,30 @@ identity needs enough access on the target resource group to create or update Az
 accounts and deployments — Microsoft Foundry guidance requires permissions equivalent to
 **Cognitive Services Contributor** on the Foundry resource or resource group.
 
+`build/Initialize-SelfHostedRunner.ps1` sets all of this up — prerequisites, the runner
+service, and the Azure sign-in and role assignment — and `-VerifyOnly` reports which of the
+three is missing without changing anything.
+
+### Current state: the runner cannot deploy
+
+Verified 2026-09-09. The last run (2026-08-18) reached `Validate deployment` and failed:
+
+```text
+ERROR: AADSTS50076: Due to a configuration change made by your administrator, or because you
+moved to a new location, you must use multi-factor authentication to access
+'797f4846-ba00-4fd7-ba43-dac1f8f63013'.
+```
+
+This is the gap the two checks below do not close. `az account show` succeeds against a
+cached account record, so `Select Azure subscription` passes — and then the first real
+management-plane call is refused for want of an MFA claim. A conditional-access policy on the
+tenant requires MFA that a non-interactive cached session cannot satisfy.
+
+Re-running `az login --tenant innovadis.com` **as the runner service account**, interactively,
+restores it until the token's MFA claim ages out again. A **managed identity** on the runner
+host (`az login --identity`) is the durable fix: conditional access does not apply to it, so
+it does not decay. That identity then needs Cognitive Services Contributor on `JS-AI`.
+
 The `Select Azure subscription` step fails fast with a clear message when the runner is not signed
 in, or when the signed-in identity cannot see the target subscription. Neither the Azure CLI nor the
 Bicep CLI is installed by the workflow; both must be present on the runner.
@@ -183,11 +207,56 @@ Open **Actions -> Deploy Foundry -> Run workflow** and choose:
 | `foundry_account_name` | blank | Blank uses the parameter file's `accountName`. |
 | `location` | blank | Blank uses the parameter file value, or the resource group location. |
 | `include_balanced_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
+| `include_embedding_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
 | `include_speech_model` | `from-parameter-file` | Choose `true`/`false` to override the parameter file for one run. |
 
 The workflow always builds and validates the Bicep template before previewing or deploying. It does not run automatically on push.
 
+It is also callable as a reusable workflow, which is how `Deploy All` runs it alongside
+sync and the desktop release. See [`all.md`](all.md).
+
+## Enabling the AI features after a deploy
+
+A successful `deploy` run reads its own deployment back and writes the connection into the
+job summary, because a deployed account is not yet a working feature: the desktop app turns
+AI on only once **Settings -> Azure Foundry** holds an endpoint, a deployment name and a key
+together (`AzureFoundrySettings.IsConfigured`).
+
+| Field | Where it comes from |
+| --- | --- |
+| Endpoint | Job summary, from the template's `accountEndpoint` output. |
+| Deployment | Job summary, from `chatDeploymentName` — `gpt-5-4` unless the required set changed. |
+| API key | Never printed. The summary carries the `az cognitiveservices account keys list` command that reads it. |
+
+The key is deliberately kept out of the summary and out of the workflow outputs: a run
+summary is readable by anyone who can read the repository's Actions, and the key is a
+bearer credential for a metered resource.
+
+Knowledge search by meaning uses a second deployment on the same endpoint,
+`text-embedding-3-small`, named in the summary when `includeEmbeddingModel` is on.
+
+That name is a coupling, not a coincidence: `KnowledgeEmbeddingModel.Default` in
+`src/Infrastructure/Backlog.Infrastructure.Knowledge/KnowledgeSemanticSearch.cs` is the same
+literal, and the embeddings client rejects a request that names no deployment. Renaming the
+deployment in `main.bicep` without changing that constant breaks embedding at runtime, and
+no build or test catches it.
+
 ## Run locally
+
+`build/Deploy-Azure.ps1` does all of this in one command, against the same template and
+parameter file the workflow uses, with the same validate/what-if/deploy modes:
+
+```powershell
+./build/Deploy-Azure.ps1 -Mode what-if
+```
+
+```powershell
+./build/Deploy-Azure.ps1 -Mode deploy
+```
+
+After a deploy it prints the endpoint and deployment name for the desktop AI settings, and
+the command that reads the key. The steps below are what it runs, kept for reference and for
+when you want one of them on its own.
 
 The Bicep CLI is a separate download from the Azure CLI; install it once:
 
