@@ -900,6 +900,265 @@ public class DashboardPaneTests
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The peak and the hour it happened, because the number alone is unplaceable — "four
+    /// at once" is a different fact at ten on a Wednesday and at three in the morning. The
+    /// hour is local, which makes it the one moment on this part not given in UTC, and the
+    /// footnote says so where a reader meets it.
+    /// </summary>
+    [Fact]
+    public void The_most_sessions_at_once_tile_shows_the_peak_and_the_hour_it_happened()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = pane.Find("[data-testid='dashboard-sessions-at-once']");
+
+        Assert.Contains("Most sessions at once", Squashed(tile.TextContent), StringComparison.Ordinal);
+        Assert.Equal("4", tile.QuerySelector(".metric-tile__value")!.TextContent.Trim());
+
+        Assert.Contains(
+            "First reached in the hour of Wed 19, 09:00 on your local clock — the one moment "
+            + "on this part not given in UTC.",
+            Squashed(tile.TextContent),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>The same, for the other population. The fixture gives the two different
+    /// peaks in different hours, so a tile wired to the wrong record fails here rather
+    /// than reading plausibly.</summary>
+    [Fact]
+    public void The_most_agents_at_once_tile_shows_the_peak_and_the_hour_it_happened()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = pane.Find("[data-testid='dashboard-sessions-agents-at-once']");
+
+        Assert.Contains("Most agents at once", Squashed(tile.TextContent), StringComparison.Ordinal);
+        Assert.Equal("11", tile.QuerySelector(".metric-tile__value")!.TextContent.Trim());
+
+        Assert.Contains(
+            "first reached in the hour of Wed 19, 11:00 on your local clock",
+            Squashed(tile.TextContent),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A period nothing produced in has no busiest hour, and a dash is how this surface
+    /// already says "no figure" as against "a figure of zero". A zero here would sit beside
+    /// a real day and hour and claim both.
+    /// </summary>
+    [Fact]
+    public void The_most_sessions_at_once_tile_shows_a_dash_when_there_was_no_peak()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(
+                new ReadySessionInsights(Insight() with { MostSessionsAtOnce = null })));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = pane.Find("[data-testid='dashboard-sessions-at-once']");
+
+        Assert.Equal("—", tile.QuerySelector(".metric-tile__value")!.TextContent.Trim());
+
+        // And no hour is named, because there is no hour to name.
+        Assert.DoesNotContain("First reached", Squashed(tile.TextContent), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The figure is Claude's alone and is counted apart from everything above it. Both
+    /// have to be said: a reader who takes this for a share of the sessions tile beside it
+    /// would be dividing two numbers that do not bound each other, and one who takes it for
+    /// both assistants would be reading a Claude-only figure under a general name.
+    /// </summary>
+    [Fact]
+    public void The_most_agents_at_once_tile_says_the_figure_is_Claudes_alone()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-agents-at-once']").TextContent);
+
+        Assert.Contains(
+            "Counted apart from the sessions themselves: no figure above this one includes "
+            + "them, and no session is counted twice for having spawned one.",
+            tile,
+            StringComparison.Ordinal);
+
+        Assert.Contains("Claude's alone, because Copilot spawns none.", tile, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A third grid on the same axes, counting a third thing. The fixture gives it an hour
+    /// the two session grids are empty in, so a grid wired to either of their measures
+    /// fails here rather than rendering a plausible copy.
+    /// </summary>
+    [Fact]
+    public void The_agent_grid_is_drawn_with_the_two_session_grids()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-hours']"));
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-open']"));
+
+        var agents = pane.Find("[data-testid='dashboard-sessions-agents']");
+        var cells = agents.QuerySelectorAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell");
+
+        Assert.Equal("11", cells[9].QuerySelector(".metric-heatmap__value")!.TextContent);
+
+        // The hour that belongs to this grid alone: nothing produced and nothing was open,
+        // and three agents were running.
+        Assert.Equal("3", cells[11].QuerySelector(".metric-heatmap__value")!.TextContent);
+
+        // And it says what it counts, and that it is neither of the other two.
+        var label = Squashed(agents.TextContent);
+
+        Assert.Contains("Peak agents at once, by hour of your local clock", label, StringComparison.Ordinal);
+        Assert.Contains("they are in neither grid above", label, StringComparison.Ordinal);
+    }
+
+    /// <summary>Three grids or none. They are the same seven days read three ways, so one
+    /// drawn without the others would be an axis with part of an answer on it.</summary>
+    [Fact]
+    public void The_agent_grid_is_not_drawn_when_there_is_no_grid_to_draw()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(
+                new ReadySessionInsights(Insight() with { ActivityByHour = [] })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-agents']"));
+    }
+
+    /// <summary>The outline is the reader's own working hours and comes off the same cell
+    /// the other two grids read, so the three cannot disagree about when the reader
+    /// works.</summary>
+    [Fact]
+    public void The_agent_grid_outlines_the_same_working_hours_as_the_session_grids()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var agents = pane.Find("[data-testid='dashboard-sessions-agents']")
+            .QuerySelectorAll("tbody tr")[0]
+            .QuerySelectorAll(".metric-heatmap__cell");
+
+        var sessions = pane.Find("[data-testid='dashboard-sessions-hours']")
+            .QuerySelectorAll("tbody tr")[0]
+            .QuerySelectorAll(".metric-heatmap__cell");
+
+        Assert.Equal(
+            sessions.Select(cell => cell.ClassList.Contains("metric-heatmap__cell--marked")),
+            agents.Select(cell => cell.ClassList.Contains("metric-heatmap__cell--marked")));
+
+        // Not two rows of falses agreeing with each other.
+        Assert.Contains("metric-heatmap__cell--marked", agents[9].ClassList);
+    }
+
+    /// <summary>Every hour on every row, quiet ones included. A row that omitted them
+    /// would render short and read as "not reported" where the honest answer is that no
+    /// agent ran.</summary>
+    [Fact]
+    public void The_agent_grid_carries_every_hour_including_the_quiet_ones()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var agents = pane.Find("[data-testid='dashboard-sessions-agents']");
+
+        Assert.Equal(7, agents.QuerySelectorAll("tbody tr").Length);
+        Assert.Equal(24, agents.QuerySelectorAll(".metric-heatmap__bucket").Length);
+        Assert.Equal(7 * 24, agents.QuerySelectorAll(".metric-heatmap__cell").Length);
+    }
+
+    /// <summary>
+    /// The session grids' cell detail is two session durations, so wiring it here would
+    /// print how long sessions ran under a label about agents. The shade and the number are
+    /// the whole answer this grid has, and saying only that is the honest version.
+    /// </summary>
+    [Fact]
+    public void The_agent_grid_does_not_wear_the_session_grids_cell_detail()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var busiest = pane.Find("[data-testid='dashboard-sessions-agents']")
+            .QuerySelectorAll(".metric-heatmap__cell")[9]
+            .QuerySelector(".sr-only")!
+            .TextContent;
+
+        Assert.DoesNotContain("agent-active", busiest, StringComparison.Ordinal);
+        Assert.DoesNotContain("waiting", busiest, StringComparison.Ordinal);
+
+        // The same cell on the first grid does carry them, so this is a difference between
+        // the two rather than a component that stopped rendering detail.
+        Assert.Contains(
+            "2h agent-active, 45m waiting",
+            pane.Find("[data-testid='dashboard-sessions-hours']")
+                .QuerySelectorAll(".metric-heatmap__cell")[9]
+                .QuerySelector(".sr-only")!
+                .TextContent,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The prerequisite relabel. The first grid opened "Peak agents running at once" and
+    /// counted sessions, which was harmless while it was the only grid using the word.
+    /// Ship an agent grid beside it and one word means two populations within one scroll.
+    /// </summary>
+    [Fact]
+    public void The_session_grid_no_longer_calls_a_session_an_agent()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
+
+        Assert.Contains("Peak sessions producing at once", grid, StringComparison.Ordinal);
+        Assert.DoesNotContain("Peak agents running at once", grid, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The part now mixes three windowed tiles with three fixed grids, and a surface may do
+    /// that only if it says so. The note owns the mixture because it is the one place that
+    /// can speak about the whole part at once.
+    /// </summary>
+    [Fact]
+    public void The_note_says_the_two_at_once_figures_follow_the_period_and_the_grids_do_not()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var note = Squashed(pane.Find("[data-testid='dashboard-sessions-note']").TextContent);
+
+        Assert.Contains(
+            "The two 'at once' figures follow the period like the tiles beside them; all "
+            + "three grids below are the same 7 days whichever period is selected.",
+            note,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "A session that spawned no agents is not missing from anything and lowers "
+            + "nothing — it simply has none to contribute, and a period nobody spawned one "
+            + "in shows no peak rather than a zero.",
+            note,
+            StringComparison.Ordinal);
+    }
+
     private static AssistantSessionsInsight Insight() =>
         new(
             Sessions: 12,
@@ -917,6 +1176,12 @@ public class DashboardPaneTests
         {
             Waiting = TimeSpan.FromHours(9),
             IdleAfter = TimeSpan.FromMinutes(5),
+
+            // Different peaks in different hours, so a tile wired to the wrong record
+            // renders a plausible figure and fails rather than passing quietly. 2026-08-19
+            // is the Wednesday the grid's week ends on.
+            MostSessionsAtOnce = new ConcurrencyPeak(4, new DateOnly(2026, 8, 19), 9),
+            MostAgentsAtOnce = new ConcurrencyPeak(11, new DateOnly(2026, 8, 19), 11),
             ActivityByHour = Grid(),
             ActivityByDay =
             [
@@ -948,7 +1213,14 @@ public class DashboardPaneTests
                 hour == 9 ? 7 : hour == 10 ? 2 : 0,
 
                 // Mon-Fri 09:00-17:30 against a week that starts on a Thursday.
-                WorkingHours.Default.Covers(new DateOnly(2026, 8, 13).AddDays(day).DayOfWeek, hour))))
+                WorkingHours.Default.Covers(new DateOnly(2026, 8, 13).AddDays(day).DayOfWeek, hour))
+            {
+                // Different from both figures above it in the hour they share, and present
+                // in an hour where neither of them is. One session can hold five agents at
+                // once, so nothing bounds this by either — and three grids wired to one
+                // measure would otherwise render identically and pass.
+                PeakAgents = hour == 9 ? 11 : hour == 11 ? 3 : 0
+            }))
     ];
 
     /// <summary>Sessions that can answer, so the part's own rendering — tiles, note and

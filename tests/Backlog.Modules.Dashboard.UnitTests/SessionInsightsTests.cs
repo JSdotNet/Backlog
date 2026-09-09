@@ -1131,6 +1131,575 @@ public class SessionInsightsTests
         Assert.All(value.ActivityByHour, hour => Assert.InRange(hour.Hour, 0, 23));
     }
 
+    /// <summary>The tile is a read-out of the same sweep the first grid is drawn from, so
+    /// it counts sessions that were producing and cannot have measured differently from
+    /// the cells under it.</summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_is_the_peak_of_the_sessions_that_were_producing()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", ran),
+                Ran("two", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.MostSessionsAtOnce!.Peak);
+    }
+
+    /// <summary>
+    /// Producing, not open. A session stopped with nothing having prompted it yet is on
+    /// the go and is not working, and a tile that counted those would be the second grid's
+    /// figure under the first grid's name.
+    /// </summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_ignores_sessions_that_were_only_waiting()
+    {
+        var span = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "two"),
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "three"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", span),
+                Waited("two", Tower, "Claude", span),
+                Waited("three", Tower, "Claude", span)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(1, value.MostSessionsAtOnce!.Peak);
+    }
+
+    /// <summary>
+    /// The hour is the reader's own, which makes it the one figure on this part not given
+    /// in UTC — the same clock the grid under it is drawn on, named with the same pair, so
+    /// a tile and a cell point at one cell in one set of words.
+    /// </summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_names_the_local_hour_it_happened_in()
+    {
+        // 06:00 UTC, which is 08:00 on a clock two hours ahead.
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", ran)),
+            zone: PlusTwo);
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(new DateOnly(2026, 8, 19), value.MostSessionsAtOnce!.Day);
+        Assert.Equal(8, value.MostSessionsAtOnce!.Hour);
+    }
+
+    /// <summary>
+    /// Two hours that both reached the peak are separated by when they happened, not by
+    /// whatever order a dictionary enumerated in. "When it first got that busy" has one
+    /// answer; "one of the times it got that busy" is a figure free to move between two
+    /// refreshes of an unchanged profile.
+    /// </summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_names_the_earliest_hour_when_two_hours_tie()
+    {
+        var early = (Now.AddHours(-6), Now.AddHours(-5));
+        var late = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-2), "one"),
+                    Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-2), "two"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", early, late),
+                Ran("two", Tower, "Claude", early, late)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        // Both hours reached two, and the earlier of them is the one named.
+        Assert.Equal(2, value.MostSessionsAtOnce!.Peak);
+        Assert.Equal(Now.AddHours(-6).Hour, value.MostSessionsAtOnce!.Hour);
+    }
+
+    /// <summary>Unlike the grid below it, this figure follows the period control — it is a
+    /// tile, and it widens with the tiles beside it.</summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_widens_with_the_period()
+    {
+        var recent = (Now.AddHours(-3), Now.AddHours(-2));
+        var older = (Now.AddDays(-42), Now.AddDays(-42).AddHours(1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddDays(-42), Now.AddHours(-2), "one"),
+                    Session(Tower, "Claude", Now.AddDays(-42), Now.AddHours(-2), "two"),
+                    Session(Tower, "Claude", Now.AddDays(-42), Now.AddDays(-42), "three"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", recent, older),
+                Ran("two", Tower, "Claude", recent, older),
+                Ran("three", Tower, "Claude", older)));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(2, four.MostSessionsAtOnce!.Peak);
+        Assert.Equal(3, twelve.MostSessionsAtOnce!.Peak);
+    }
+
+    /// <summary>
+    /// Null, never a zero-peak. A window nothing produced in has no busiest hour, and
+    /// inventing one would put a real day and hour beside a nothing — the scalar form of
+    /// the empty-versus-168-zeros rule the grid already follows.
+    /// </summary>
+    [Fact]
+    public async Task There_is_no_most_sessions_at_once_when_nothing_produced()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(Waited("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-2)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        // Not an empty read: something was waiting, and nothing was producing.
+        Assert.Equal(TimeSpan.FromHours(1), value.Waiting);
+        Assert.Null(value.MostSessionsAtOnce);
+    }
+
+    /// <summary>The fourth and last sweep, over the subagents' stretches alone. They are
+    /// never merged with the sessions' and never compared to them.</summary>
+    [Fact]
+    public async Task The_most_agents_at_once_is_the_peak_of_the_subagents()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "two"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", ran), Ran("two", Tower, "Claude", ran)],
+                [Spawned("a1", "one", Tower, ran), Spawned("a2", "two", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.MostAgentsAtOnce!.Peak);
+    }
+
+    /// <summary>
+    /// The agent id is what makes two overlapping stretches two agents, not the session
+    /// they were spawned from. One session holding five at once is the ordinary case, and
+    /// counting by session would report it as one.
+    /// </summary>
+    [Fact]
+    public async Task Two_subagents_of_one_session_running_together_are_two_at_once()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [Spawned("a1", "one", Tower, ran), Spawned("a2", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.MostAgentsAtOnce!.Peak);
+    }
+
+    /// <summary>
+    /// The two populations are counted apart. A subagent always overlaps the session that
+    /// spawned it — that is what spawning means — so one sweep over both would report two
+    /// of something that never existed.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_and_the_session_that_spawned_it_are_one_of_each_rather_than_two_of_either()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity([Ran("one", Tower, "Claude", ran)], [Spawned("a1", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(1, value.MostSessionsAtOnce!.Peak);
+        Assert.Equal(1, value.MostAgentsAtOnce!.Peak);
+    }
+
+    /// <inheritdoc cref="The_most_sessions_at_once_names_the_earliest_hour_when_two_hours_tie"/>
+    [Fact]
+    public async Task The_most_agents_at_once_names_the_earliest_hour_when_two_hours_tie()
+    {
+        var early = (Now.AddHours(-6), Now.AddHours(-5));
+        var late = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-6), Now.AddHours(-2), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", early, late)],
+                [Spawned("a1", "one", Tower, early, late), Spawned("a2", "one", Tower, early, late)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.MostAgentsAtOnce!.Peak);
+        Assert.Equal(Now.AddHours(-6).Hour, value.MostAgentsAtOnce!.Hour);
+    }
+
+    /// <inheritdoc cref="The_most_sessions_at_once_widens_with_the_period"/>
+    [Fact]
+    public async Task The_most_agents_at_once_widens_with_the_period()
+    {
+        var recent = (Now.AddHours(-3), Now.AddHours(-2));
+        var older = (Now.AddDays(-42), Now.AddDays(-42).AddHours(1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddDays(-42), Now.AddHours(-2), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", recent, older)],
+                [
+                    Spawned("a1", "one", Tower, recent, older),
+                    Spawned("a2", "one", Tower, recent, older),
+                    Spawned("a3", "one", Tower, older)
+                ]));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(2, four.MostAgentsAtOnce!.Peak);
+        Assert.Equal(3, twelve.MostAgentsAtOnce!.Peak);
+    }
+
+    /// <summary>A period nobody spawned one in shows no peak rather than a zero, exactly
+    /// as the sessions figure does.</summary>
+    [Fact]
+    public async Task There_is_no_most_agents_at_once_when_no_session_spawned_one()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-2)))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.NotNull(value.MostSessionsAtOnce);
+        Assert.Null(value.MostAgentsAtOnce);
+    }
+
+    /// <summary>The machine filter drives these figures exactly as it drives the session
+    /// ones, which is the whole reason the machine id is carried on a subagent at
+    /// all.</summary>
+    [Fact]
+    public async Task Subagents_of_a_machine_the_reader_filtered_out_are_not_counted()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"),
+                    Session(Laptop, "Claude", Now.AddHours(-3), Now.AddHours(-2), "two"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", ran), Ran("two", Laptop, "Claude", ran)],
+                [
+                    Spawned("a1", "one", Tower, ran),
+                    Spawned("a2", "one", Tower, ran),
+                    Spawned("a3", "one", Tower, ran),
+                    Spawned("b1", "two", Laptop, ran)
+                ]));
+
+        var value = await ValueOf(insights, DashboardScope.Default with { MachineId = Laptop });
+
+        Assert.Equal(1, value.MostAgentsAtOnce!.Peak);
+    }
+
+    /// <summary>The agents' figure is a third number in the same 168 cells, dated the same
+    /// way and outlined by the same working-hours answer — never a parallel record with a
+    /// second list of days in it.</summary>
+    [Fact]
+    public async Task Peak_agents_by_hour_fills_every_cell_of_the_last_seven_days()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [Spawned("a1", "one", Tower, ran), Spawned("a2", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(168, value.ActivityByHour.Count);
+
+        var worked = value.ActivityByHour.Single(hour =>
+            hour.Day == DateOnly.FromDateTime(Now.UtcDateTime) && hour.Hour == Now.AddHours(-3).Hour);
+
+        Assert.Equal(2, worked.PeakAgents);
+
+        // Not a share of the sessions figure and not bounded by it: one session held both
+        // of them, so the two are freely in any ratio.
+        Assert.Equal(1, worked.PeakSessions);
+    }
+
+    /// <summary>An hour that happened and had no agent in it is a zero, never a gap — the
+    /// rule the cells beside it are already drawn under.</summary>
+    [Fact]
+    public async Task Peak_agents_by_hour_is_zero_in_an_hour_no_agent_ran()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", (Now.AddHours(-3), Now.AddHours(-1)))],
+                [Spawned("a1", "one", Tower, (Now.AddHours(-3), Now.AddHours(-2)))]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var quiet = value.ActivityByHour.Single(hour =>
+            hour.Day == DateOnly.FromDateTime(Now.UtcDateTime) && hour.Hour == Now.AddHours(-2).Hour);
+
+        // The session was still producing through that hour, so this is an hour with a
+        // reading rather than an hour outside the grid.
+        Assert.Equal(1, quiet.PeakSessions);
+        Assert.Equal(0, quiet.PeakAgents);
+    }
+
+    /// <summary>The third grid is the same seven dated days as the other two and refuses
+    /// the period control for the same reason: eighty-four dated rows is not a grid.</summary>
+    [Fact]
+    public async Task Peak_agents_by_hour_stays_seven_days_when_the_period_widens()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddDays(-42), Now.AddHours(-2), "one"))
+            },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [Spawned("a1", "one", Tower, ran)]));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(168, four.ActivityByHour.Count);
+        Assert.Equal(
+            four.ActivityByHour.Select(hour => (hour.Day, hour.Hour, hour.PeakAgents)),
+            twelve.ActivityByHour.Select(hour => (hour.Day, hour.Hour, hour.PeakAgents)));
+    }
+
+    /// <summary>The agents' figure travels in the same cells as the session ones, so it is
+    /// drawn or not drawn with them and never on an axis the part has declined.</summary>
+    [Fact]
+    public async Task Peak_agents_by_hour_is_empty_when_the_session_grids_are_empty()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity([], [Spawned("a1", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Empty(value.ActivityByHour);
+    }
+
+    /// <summary>
+    /// The emptiness gate is deliberately not widened to include the agents. A subagent
+    /// exists because a session was producing, so a profile with agents and no session
+    /// activity is not a thing that happens — and widening the gate would let an agent
+    /// grid appear beside two grids the part declined to draw. The tile still reports,
+    /// because a tile is not an axis.
+    /// </summary>
+    [Fact]
+    public async Task Agents_alone_do_not_bring_a_grid_into_existence()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one"))
+            },
+            Activity([], [Spawned("a1", "one", Tower, ran), Spawned("a2", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Empty(value.ActivityByHour);
+        Assert.Empty(value.ActivityByDay);
+        Assert.Equal(2, value.MostAgentsAtOnce!.Peak);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_session_count()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(1, value.Sessions);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_agent_active_time()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromHours(2), value.ActiveTime);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_waiting_time()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(TimeSpan.FromHours(1), value.Waiting);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_last_activity()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(Now.AddHours(-1), value.LastActivityAt);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_sessions_per_week()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(1, value.SessionsPerWeek.Sum(point => point.Value));
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_peak_sessions_in_an_hour()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.All(value.ActivityByHour, hour => Assert.InRange(hour.PeakSessions, 0, 1));
+
+        // And the agents really were there to be miscounted.
+        Assert.Equal(3, value.ActivityByHour.Max(hour => hour.PeakAgents));
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_open_sessions_in_an_hour()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.All(value.ActivityByHour, hour => Assert.InRange(hour.OpenSessions, 0, 1));
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_day_counts()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        var today = value.ActivityByDay.Single(day => day.Day == DateOnly.FromDateTime(Now.UtcDateTime));
+
+        Assert.Equal(1, today.Sessions);
+    }
+
+    [Fact]
+    public async Task Subagents_add_nothing_to_the_breakdown()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        var row = Assert.Single(value.Breakdown);
+
+        Assert.Equal(1, row.Sessions);
+        Assert.Equal(TimeSpan.FromHours(2), row.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(1), row.Waiting);
+    }
+
+    [Fact]
+    public async Task A_subagent_is_never_counted_as_a_session_without_activity()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(0, value.WithoutActivity);
+    }
+
+    /// <summary>
+    /// One session, and three agents it spawned running right through the stretch it
+    /// produced in. The fixture the ten hard-constraint facts above are all asserted
+    /// against, and the numbers are chosen so that folding the agents into the sessions
+    /// moves every one of them: the count would read four, the agent-active time eight
+    /// hours, and the peak and open counts four apiece.
+    /// <para>
+    /// Ten facts rather than one assertion over the whole record, deliberately. A single
+    /// whole-insight comparison goes green the day somebody adds a member to the record,
+    /// and the constraint these hold up is the one the feature was approved on.
+    /// </para>
+    /// </summary>
+    private static SessionInsights WithSpawnedAgents()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+        var waited = (Now.AddHours(-1), Now);
+
+        return Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one"))
+            },
+            Activity(
+                [RanAndWaited("one", Tower, "Claude", [ran], [waited])],
+                [
+                    Spawned("a1", "one", Tower, ran),
+                    Spawned("a2", "one", Tower, ran),
+                    Spawned("a3", "one", Tower, ran)
+                ]));
+    }
+
     private static async Task<AssistantSessionsInsight> ValueOf(ISessionInsights insights, DashboardScope scope)
     {
         var result = await insights.GetSessionsAsync(scope);
@@ -1205,6 +1774,30 @@ public class SessionInsightsTests
 
     private static StubAssistantActivitySource Activity(params AssistantActivitySession[] sessions) =>
         new() { Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5)) };
+
+    /// <summary>A report carrying both lists. The positional builder above stays untouched
+    /// and the agents arrive through the init property, exactly as they do out of the
+    /// seam.</summary>
+    private static StubAssistantActivitySource Activity(
+        AssistantActivitySession[] sessions,
+        AssistantActivitySubagent[] subagents) =>
+        new()
+        {
+            Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5))
+            {
+                Subagents = subagents
+            }
+        };
+
+    /// <summary>One agent a session spawned, and when it was producing. Always Claude:
+    /// Copilot spawns none, and a fixture that pretended otherwise would be describing a
+    /// profile nobody has.</summary>
+    private static AssistantActivitySubagent Spawned(
+        string agentId,
+        string sessionId,
+        string machineId,
+        params (DateTimeOffset From, DateTimeOffset To)[] active) =>
+        new(agentId, sessionId, machineId, MachineName(machineId), "Claude", [.. active.Select(Interval)]);
 
     /// <summary>One session that produced, and when.</summary>
     private static AssistantActivitySession Ran(

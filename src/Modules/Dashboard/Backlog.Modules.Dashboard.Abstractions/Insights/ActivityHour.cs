@@ -69,7 +69,28 @@ public sealed record ActivityHour(
     TimeSpan Active,
     TimeSpan Waiting,
     int OpenSessions,
-    bool InWorkingHours);
+    bool InWorkingHours)
+{
+    /// <summary>
+    /// The most agents a session had spawned and running at one instant in this hour.
+    /// <para>
+    /// A second population in the same cell, and the member name is the only warning a
+    /// reader gets, because the record's name is not going to give them one. It is not
+    /// comparable to <see cref="PeakSessions"/> and it is not a share of it: one session
+    /// can hold five of these at once, so the two are freely in any ratio and neither
+    /// bounds the other. The surface may draw them side by side; it may not divide them.
+    /// </para>
+    /// <para>
+    /// Here rather than in a record of its own so the three grids are the same 168 cells,
+    /// dated the same way and outlined by the same <see cref="InWorkingHours"/> answer.
+    /// A parallel record would be a second list of days and a second decision about what
+    /// "in hours" means — the exact defect that member's own note exists to have stopped.
+    /// </para>
+    /// <para>An init property rather than an eighth parameter; the fixtures construct
+    /// this positionally.</para>
+    /// </summary>
+    public int PeakAgents { get; init; }
+}
 
 /// <summary>
 /// One dated day of the activity grid, and how many distinct sessions ran in it.

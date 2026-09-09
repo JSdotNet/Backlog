@@ -109,7 +109,7 @@
     @if (IsReady)
     {
         <div class="dashboard-part__stack">
-            <MetricGrid Label="Assistant sessions over the selected window" TestId="dashboard-sessions-tiles">
+            <MetricGrid Label="Assistant sessions and agents over the selected window" TestId="dashboard-sessions-tiles">
                 <MetricTile Label="Sessions"
                             Value="@MetricFormat.Compact(Value!.Sessions)"
                             Emphasis="true"
@@ -137,6 +137,23 @@
                             Value="@DashboardFormat.Moment(Value!.LastActivityAt)"
                             Footnote="@(Value!.LastActivityAt is null ? null : "UTC")"
                             TestId="dashboard-sessions-last" />
+                @* The peak and the hour it happened, because the count alone is
+                   unplaceable: four at once means one thing at ten on a Wednesday and
+                   another at three in the morning. The hour is the reader's own clock,
+                   which makes these the one moment on the part not given in UTC, and the
+                   footnote says so where a reader meets it rather than only in the note. *@
+                <MetricTile Label="Most sessions at once"
+                            Value="@Peak(Value!.MostSessionsAtOnce)"
+                            Footnote="@SessionsAtOnceFootnote"
+                            TestId="dashboard-sessions-at-once" />
+                @* A second population, and the tile beside it is the reason the footnote
+                   has to say so twice over: these are counted apart from the sessions, and
+                   one session can hold five of them at once, so the two tiles are freely
+                   in any ratio and neither is a share of the other. *@
+                <MetricTile Label="Most agents at once"
+                            Value="@Peak(Value!.MostAgentsAtOnce)"
+                            Footnote="@AgentsAtOnceFootnote"
+                            TestId="dashboard-sessions-agents-at-once" />
             </MetricGrid>
 
             @* Drawn only when there is an axis to draw it on. The part's empty state
@@ -183,6 +200,20 @@
                                ShowValues="true"
                                FormatValue="MetricFormat.Compact"
                                TestId="dashboard-sessions-open" />
+
+                @* A third grid, on the same axes and the same outline, counting the agents
+                   those sessions spawned rather than the sessions themselves. Deliberately
+                   without CellDetail: that lambda reads the cell's two session durations,
+                   so wiring it here would print how long sessions ran under a label about
+                   agents. The shade and the number are the whole answer this grid has, and
+                   saying only that is the honest version of it. *@
+                <MetricHeatmap Series="@ByHourAgents"
+                               Label="@ByHourAgentsLabel"
+                               CellMarked="@InsideWorkingHours"
+                               MarkedLabel="working hours"
+                               ShowValues="true"
+                               FormatValue="MetricFormat.Compact"
+                               TestId="dashboard-sessions-agents" />
             }
 
             @if (Value!.Breakdown.Count > 1)
@@ -248,7 +279,20 @@
                 + "Working time is this machine's alone — a session another machine reported arrives as "
                 + "a record, not as a transcript to read it from. "
                 + "The grid below is the last 7 days on this machine's local clock, whichever period is "
-                + "selected, and every other figure here is UTC.";
+                + "selected, and every other figure here is UTC. "
+
+                // Three windowed tiles above three fixed grids is a mixture, and a surface
+                // may do that only if it says so. The grids' own captions say it where the
+                // things that will not move are; this says it once about the whole part,
+                // because the tiles and the grids are too far apart to read together.
+                + "The two 'at once' figures follow the period like the tiles beside them; all three "
+                + "grids below are the same 7 days whichever period is selected. "
+
+                // The absence somebody will otherwise read as a fault in the figure. Most
+                // sessions spawn nothing, and none of them is missing from anything.
+                + "A session that spawned no agents is not missing from anything and lowers nothing — "
+                + "it simply has none to contribute, and a period nobody spawned one in shows no peak "
+                + "rather than a zero.";
 
             if (!IsReady) return basis;
 
@@ -308,6 +352,11 @@
     /// that were producing.</summary>
     private IReadOnlyList<MetricSeries> ByHourOpen => Series(hour => hour.OpenSessions);
 
+    /// <summary>The same grid counting a different population altogether: the agents those
+    /// sessions spawned. Read off the same cell as the two above it, so the three are one
+    /// set of days outlined by one answer about working hours.</summary>
+    private IReadOnlyList<MetricSeries> ByHourAgents => Series(hour => hour.PeakAgents);
+
     private IReadOnlyList<MetricSeries> Series(Func<ActivityHour, int> of) =>
         IsReady
             ? [.. Value!.ActivityByHour
@@ -341,9 +390,16 @@
     /// working day ending at half five leaves the five o'clock hour half worked, and there
     /// is no half-outlined cell to draw that with.
     /// </para>
+    /// <para>
+    /// It opened "Peak agents running at once" and counted <em>sessions</em>, which was
+    /// harmless for exactly as long as it was the only grid on the surface using the word.
+    /// A third grid counting real agents sits below it now, so one word would mean two
+    /// populations within one scroll — and of the two, the one that was already borrowing
+    /// the other's noun is the one that had to give it up.
+    /// </para>
     /// </summary>
     private const string ByHourLabel =
-        "Peak agents running at once, by hour of your local clock — the last 7 days, "
+        "Peak sessions producing at once, by hour of your local clock — the last 7 days, "
         + "whichever period is selected above. Outlined cells are your working hours from "
         + "Settings, marked wherever the hour overlaps them. The columns count the "
         + "distinct sessions that ran each day, so they are not the row added up — and a "
@@ -365,6 +421,32 @@
         + "them yet. Never lower than the grid above, and the gap between the two is the "
         + "time an agent was open and idle. A session that went quiet and never resumed is "
         + "not counted, because nothing records when a session ended.";
+
+    /// <summary>
+    /// What the third grid counts, and the two ways a reader would otherwise get it wrong.
+    /// <para>
+    /// The first is arithmetic. Three grids on one axis invite being added or divided, and
+    /// none of these is another's total: one session can hold five agents at once, so this
+    /// grid is freely above or below either of the others and the ratio between them means
+    /// nothing. Saying it here is cheaper than letting somebody work out a percentage.
+    /// </para>
+    /// <para>
+    /// The second is the run's own edge, carried over from the tile above because it
+    /// applies harder here. A run ends at the last thing an agent wrote down rather than
+    /// at the moment it handed back, and a subagent that finished quietly — one last tool
+    /// call and then nothing — is short by its own silence.
+    /// </para>
+    /// </summary>
+    private const string ByHourAgentsLabel =
+        "Peak agents at once, by hour of your local clock — the last 7 days, whichever "
+        + "period is selected above. These are the agents Claude's sessions spawned, and "
+        + "they are in neither grid above: the three count different things and none is "
+        + "another's total. One session can hold five of these at once, so this grid is "
+        + "freely higher or lower than either of the others and the two must not be read "
+        + "as a share of each other. A run ends at the last thing an agent wrote down "
+        + "rather than at the moment it handed back, so one that finished quietly is "
+        + "short by its own silence. Outlined cells are your working hours from Settings, "
+        + "marked wherever the hour overlaps them.";
 
     /// <summary>
     /// What a cell says beyond its shade. The shade is one of four steps and answers "how
@@ -527,6 +609,78 @@
         + "A gap counts in full however long it ran, so a session picked up after a weekend "
         + "puts the whole weekend here. "
         + "Concurrent sessions are counted separately, as above.";
+
+    /// <summary>
+    /// A peak as the tile prints it, or a dash where there was none.
+    /// <para>
+    /// A dash and not a zero, on <c>DashboardFormat.Duration</c>'s rule: a window nothing
+    /// ran in has no busiest hour at all, and a nought printed above a footnote naming a
+    /// real day and hour would claim both.
+    /// </para>
+    /// </summary>
+    private static string Peak(ConcurrencyPeak? peak) =>
+        peak is { } reached ? MetricFormat.Compact(reached.Peak) : "—";
+
+    /// <summary>
+    /// The hour a peak was first reached, or null when there was no peak to place. Written
+    /// with the grid's own words for a day and an hour, so a tile and a cell point at the
+    /// same cell in the same spelling rather than in two formats a reader has to match up.
+    /// </summary>
+    private static string? Reached(ConcurrencyPeak? peak) =>
+        peak is { } at ? $"{DashboardFormat.Day(at.Day)}, {DashboardFormat.Hour(at.Hour)}:00" : null;
+
+    /// <summary>
+    /// What the peak counts, and where it happened.
+    /// <para>
+    /// The second sentence is conditional because the hour is: a period nothing produced
+    /// in has no hour to name, and "First reached in the hour of —" is the kind of sentence
+    /// that makes a reader stop trusting the ones beside it.
+    /// </para>
+    /// <para>
+    /// It names the clock as well as the hour, and that clause is not decoration. Every
+    /// other instant on this part is UTC and this one is not, so a reader comparing this
+    /// hour against the last-activity tile two places to its left is comparing two clocks
+    /// — which is fine if they know, and a silent error if they do not.
+    /// </para>
+    /// </summary>
+    private string SessionsAtOnceFootnote =>
+        Reached(Value!.MostSessionsAtOnce) is { } at
+            ? $"{SessionsAtOnce} First reached in the hour of {at} on your local clock — "
+                + "the one moment on this part not given in UTC."
+            : SessionsAtOnce;
+
+    private const string SessionsAtOnce =
+        "Sessions producing at the same moment, over the selected period.";
+
+    /// <summary>
+    /// What the second peak counts, why it cannot be read against anything above it, and
+    /// whose figure it is.
+    /// <para>
+    /// The middle sentence is the hard constraint said on screen. Nothing above this tile
+    /// includes these agents — not the session count, not the agent-active time, not the
+    /// waiting figure, not the two grids — and a reader who assumed otherwise would be
+    /// double-counting a session for having spawned something.
+    /// </para>
+    /// <para>
+    /// The last is the same admission the waiting tile makes the other way round. Copilot
+    /// spawns nothing, so this is Claude's alone, and a figure presented under both names
+    /// would be the failure this whole part exists to avoid.
+    /// </para>
+    /// </summary>
+    private string AgentsAtOnceFootnote =>
+        string.Join(' ', new[] { AgentsAtOnce, ApartFromSessions, AgentsAreClaudes });
+
+    private string AgentsAtOnce =>
+        Reached(Value!.MostAgentsAtOnce) is { } at
+            ? $"Agents Claude's sessions spawned, running at the same moment — first reached in the "
+                + $"hour of {at} on your local clock."
+            : "Agents Claude's sessions spawned, running at the same moment.";
+
+    private const string ApartFromSessions =
+        "Counted apart from the sessions themselves: no figure above this one includes them, "
+        + "and no session is counted twice for having spawned one.";
+
+    private const string AgentsAreClaudes = "Claude's alone, because Copilot spawns none.";
 
     protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetSessionsAsync(Scope, cancellationToken);

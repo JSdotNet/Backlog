@@ -41,7 +41,10 @@ public sealed class AgentActivityAssistantActivitySource(IAgentActivitySource ac
             [.. log.Sessions.Select(Map)],
             log.Unreadable,
             log.Since,
-            log.IdleAfter);
+            log.IdleAfter)
+        {
+            Subagents = [.. log.Subagents.Select(Map)]
+        };
     }
 
     /// <summary>
@@ -57,4 +60,17 @@ public sealed class AgentActivityAssistantActivitySource(IAgentActivitySource ac
             Assistant: AgentSessionGroups.Label(session.Kind),
             Active: [.. session.Runs.Select(run => new AssistantActivityInterval(run.StartedAt, run.EndedAt))],
             Waiting: [.. session.Waits.Select(wait => new AssistantActivityInterval(wait.StartedAt, wait.EndedAt))]);
+
+    /// <summary>One spawned agent's activity, in the Dashboard's words. The agent id and
+    /// the session id both cross unchanged: the first is what makes two runs two agents,
+    /// the second is what lets the surface say how many sessions the peak was spread
+    /// over.</summary>
+    private static AssistantActivitySubagent Map(SubagentActivity agent) =>
+        new(
+            Id: agent.Id,
+            SessionId: agent.SessionId,
+            MachineId: agent.EnvironmentId,
+            MachineName: agent.Environment,
+            Assistant: AgentSessionGroups.Label(agent.Kind),
+            Active: [.. agent.Runs.Select(run => new AssistantActivityInterval(run.StartedAt, run.EndedAt))]);
 }
