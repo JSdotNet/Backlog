@@ -28,6 +28,13 @@
 /// </summary>
 public sealed class FilterBarLayoutTests
 {
+    /// <summary>Where the tag pile leaves the bar. Its own step, above the cluster's:
+    /// the bar's four groups come to 48.1rem with a two-chip pile in front of them and
+    /// 30.2rem without it, so the pile is the whole difference between a bar that fits
+    /// and one that is clipped. The two shared 38rem until the list was given a floor
+    /// that sits between them — see <c>BacklogListMinimumWidthTests</c>.</summary>
+    private const string TagStep = "@container backlog-list (max-width: 48rem) {";
+
     private const string CollapseStep = "@container backlog-list (max-width: 38rem) {";
 
     /// <summary>Where the status strip comes down to the chosen chip. Its own step,
@@ -67,7 +74,8 @@ public sealed class FilterBarLayoutTests
         Assert.DoesNotContain(".filter-group .chip", css, StringComparison.Ordinal);
 
         // One decision per group: status loses its unchosen chips, tags loses the
-        // group, and nothing else on the bar is touched at either step.
+        // group, and nothing else on the bar is touched at any step.
+        Assert.DoesNotContain(".filter-group--scope", Block(css, TagStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--scope", Block(css, CollapseStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--scope", status, StringComparison.Ordinal);
 
@@ -76,11 +84,12 @@ public sealed class FilterBarLayoutTests
         Assert.Contains(".chip__count", tighten, StringComparison.Ordinal);
         Assert.Contains("gap: var(--spacing-xs);", tighten, StringComparison.Ordinal);
 
-        // Widest first, all three of them: each step matches everywhere the ones
+        // Widest first, all four of them: each step matches everywhere the ones
         // above it do, so a narrower rule written earlier would be overridden by
         // the wider one it was supposed to replace.
         Assert.True(
-            css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(StatusStep, StringComparison.Ordinal)
+            css.IndexOf(TagStep, StringComparison.Ordinal) < css.IndexOf(CollapseStep, StringComparison.Ordinal)
+            && css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(StatusStep, StringComparison.Ordinal)
             && css.IndexOf(StatusStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
             "Each narrower container step must come after the wider ones it overrides.");
     }
@@ -112,7 +121,7 @@ public sealed class FilterBarLayoutTests
 
         // And the tag chips are never collapsed one by one to buy width — the group
         // grows and shrinks whole. The one rule that does reach a single chip is not
-        // a width tactic: below 38rem a group with something picked keeps the pressed
+        // a width tactic: below 48rem a group with something picked keeps the pressed
         // chips and drops the rest, which is what stops the group going and taking
         // the only way out of the selection with it.
         Assert.DoesNotContain(".filter-group--tags .chip", css, StringComparison.Ordinal);
@@ -147,18 +156,22 @@ public sealed class FilterBarLayoutTests
     public void The_tag_group_is_the_one_group_that_leaves_the_bar()
     {
         var css = Css();
-        var collapse = Block(css, CollapseStep);
+        var tags = Block(css, TagStep);
 
         Assert.Contains(
             ".filter-group--tags:not(.filter-group--tags--picked) {",
-            collapse,
+            tags,
             StringComparison.Ordinal);
 
         Assert.Contains(
             ".filter-group--tags--picked .chip:not(.chip--active) {",
-            collapse,
+            tags,
             StringComparison.Ordinal);
 
+        // And it leaves at its own width. Sharing the cluster's step put the pile back
+        // on a bar that had no room for it, at every width between the two — which is
+        // the band the list's floor now keeps it in.
+        Assert.DoesNotContain(".filter-group--tags", Block(css, CollapseStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags", Block(css, StatusStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags", Block(css, TightenStep), StringComparison.Ordinal);
     }

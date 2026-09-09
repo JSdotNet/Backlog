@@ -25,7 +25,7 @@
      data-pane-split="true"
      data-pane-anchor="@AnchorAttribute"
      data-pane-owner="@(UseJsResizer ? _ownerId : null)"
-     style="--split-pane-fixed: @Rem(FixedWidthRem)rem"
+     style="--split-pane-fixed: @Rem(DrawnWidthRem)rem"
      @attributes="AdditionalAttributes">
     <div class="split-pane__start">@Start</div>
 
@@ -37,7 +37,7 @@
          aria-label="@AriaLabel"
          aria-valuemin="@Rem(MinRem)"
          aria-valuemax="@Rem(EffectiveMaxRem)"
-         aria-valuenow="@Rem(FixedWidthRem)"
+         aria-valuenow="@Rem(DrawnWidthRem)"
          tabindex="0"
          @onkeydown="OnKeyDownAsync"
          @onkeydown:preventDefault="true">
@@ -144,6 +144,25 @@
     /// <summary>What the pane is actually clamped to: the measured room when there
     /// is a measurement, and the host's guess until then.</summary>
     private double EffectiveMaxRem => _measuredMaxRem ?? MaxRem;
+
+    /// <summary>
+    /// The width the pane is drawn and announced at: the host's number, held to the
+    /// room there actually is.
+    /// <para>
+    /// A drag has always been clamped to <see cref="EffectiveMaxRem"/> and the render
+    /// was not, so a width settled on a large window went straight out to the grid
+    /// and to <c>aria-valuenow</c> on a small one. The grid gave the pane what it
+    /// could and the separator went on announcing a number nobody could see — and
+    /// the pane took the difference out of the content beside it, which is the half
+    /// of it a reader notices.
+    /// </para>
+    /// <para>
+    /// The clamp is on the render only. <see cref="FixedWidthRem"/> keeps the width
+    /// the reader chose, so a window that grows gives it back rather than having
+    /// quietly lost it to a moment when it did not fit.
+    /// </para>
+    /// </summary>
+    private double DrawnWidthRem => Math.Clamp(FixedWidthRem, MinRem, Math.Max(MinRem, EffectiveMaxRem));
 
     /// <summary>The anchor as the shared resizer spells it. One expression, so the
     /// attribute and the modifier class below are two readings of one field rather

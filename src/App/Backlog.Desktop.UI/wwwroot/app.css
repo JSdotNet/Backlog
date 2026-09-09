@@ -558,6 +558,23 @@ h1, h2, h3 {
 */
 
 .backlog-split {
+    /* How little of the list this split may leave standing, and it is more than
+       the 22rem :root declares. That number is about reading the backlog; this
+       one is about operating it, and the rows put the two a step apart: below
+       38rem a row drops its pencil, its copy button and its repository picker,
+       because those four controls come to most of a 38rem column.
+
+       The default layout landed in the gap. At a 1280px window with an entry
+       open the split resolved to 576px for the list — above 22rem, below 38rem —
+       so every control right of the title went on first sight, with nothing
+       dragged. A floor of 39rem clears the step rather than sitting on it: a
+       floor equal to the step is still a width the step matches.
+
+       This is a floor, not a ban. A reader who drags the panel out past what the
+       list needs still gets the narrow row that width deserves, and a window too
+       small for both halves stacks them below. What it stops is the layout
+       making that choice for them. */
+    --pane-min-width: 39rem;
     min-height: 0;
     flex: 1 1 auto;
 }
@@ -1331,16 +1348,22 @@ h1, h2, h3 {
   room — tightening the gaps first would have bought about 20px of it.
 */
 
-/* 38rem: the width the tag pile and the row's trailing cluster stop fitting at.
-   The pile has no ceiling at all — an entry wears any number of tags and every
-   distinct one gets a chip — and the cluster is a pencil, a repository picker, a
-   status pill and a copy button, which together come to most of a 38rem column.
+/* 48rem: the width the tag pile stops fitting at, measured rather than reasoned.
+   The bar's four groups come to 48.1rem with a two-chip pile in front of them and
+   30.2rem without it, so between those two numbers the pile is the whole difference
+   between a bar that fits and one `.filter-bar { overflow: hidden }` clips in
+   silence — which is the failure every step on this bar exists to catch.
 
-   This number used to be attributed to the status strip as well, back when that
-   strip was six chips and 369px wide. It is four chips and about 230px now, so the
-   status rule moved down to the 30rem step below, where it is actually true. The
-   remaining rules here never depended on the strip's width. */
-@container backlog-list (max-width: 38rem) {
+   It was 38rem, shared with the row cluster below. 38rem is where the *cluster*
+   stops fitting; it was never where the pile does, and nothing showed the difference
+   while the split handed the list a width under both of them. The list has a floor
+   of its own now — see `.backlog-split` — and that floor sits between the two, so
+   the band they disagree in is exactly where the list lives. One number could not go
+   on standing for both.
+
+   Still a small pile's width and not a promise: the pile has no ceiling at all, since
+   an entry wears any number of tags and every distinct one gets a chip. */
+@container backlog-list (max-width: 48rem) {
     /* The tag group goes while nothing is picked, and it is the only group that may.
 
        Every other group on the bar is the whole of its own question — there is no
@@ -1368,9 +1391,18 @@ h1, h2, h3 {
     .filter-group--tags--picked .chip:not(.chip--active) {
         display: none;
     }
+}
 
-    /* The row's trailing cluster goes with it, all but the one thing on it that
-       says how far the entry has got.
+/* 38rem: the width the row's trailing cluster stops fitting at.
+
+   This number used to be attributed to the status strip as well, back when that
+   strip was six chips and 369px wide. It is four chips and about 230px now, so the
+   status rule moved down to the 30rem step below, where it is actually true. It
+   carried the tag pile too, until the pile was measured and moved up to the step
+   above — the cluster's width never depended on either of them. */
+@container backlog-list (max-width: 38rem) {
+    /* The cluster goes, all but the one thing on it that says how far the entry
+       has got.
 
        By this width the title has been giving up room for a while and the cluster
        has not: a pencil, a repository picker, a status pill and a copy button come
