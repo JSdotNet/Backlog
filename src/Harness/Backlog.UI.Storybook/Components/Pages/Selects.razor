@@ -61,6 +61,19 @@ Both of these are the inline shape wearing nothing but the component's own class
         </div>
     </Story>
 
+    <Story Name="SelectField sections"
+           Description="An option can name the section it belongs to, and a native select draws those as `optgroup`s — runs in the order the options arrive in, never a grouping the control derives. This is the knowledge source picker: a default, the branches under one heading, then the local clone and the entry that fetches more branches. Note that two of the three unsectioned entries come *after* the section and stay there; nothing is hoisted, because the order is the host's.
+
+                        The heading is drawn by the operating system inside the select's popup, so it is the one thing on this page you cannot see by looking at the page. Open the control to read it. Its colours come from `select optgroup` in components.css, for the same reason `select option` exists: the platform paints that window black on white, and this product has no light theme."
+           Code="@SelectSectionCode">
+        <SelectField CurrentValue="@_source"
+                     Options="Sources"
+                     Label="Knowledge source"
+                     TestId="select-source"
+                     OnChanged="v => _source = v ?? string.Empty" />
+        <p class="sb-state" data-testid="select-source-value">Source = @Show(_source)</p>
+    </Story>
+
     <Story Name="BadgeSelect"
            Description="The same select, rendered as the badge it sets. Used wherever a status is both shown and changed in place."
            Code="@BadgeSelectCode">
@@ -252,6 +265,20 @@ It is outlined rather than filled, and that is the component's own answer rather
         new("marketplace", "Claude marketplace")
     ];
 
+    /// <summary>The knowledge source picker's list, as
+    /// <c>KnowledgeSourceSelection</c> builds it: one section holding the branches,
+    /// and three entries of other kinds around it. The two below the section are the
+    /// point — they are last because they are the least likely thing to want, and a
+    /// control that hoisted the unsectioned entries would invert that.</summary>
+    private static readonly IReadOnlyList<SelectorOption> Sources =
+    [
+        new("", "Default branch", "Whatever GitHub calls this repository's default branch"),
+        new("main", "main", null, "Branches"),
+        new("release/2.0", "release/2.0", "Configured", "Branches"),
+        new("__local__", "Local clone", "The only source you can edit knowledge in"),
+        new("__load__", "Load branches…", "Asks GitHub which branches this repository has")
+    ];
+
     private static readonly IReadOnlyList<SelectorOption> Statuses =
     [
         new("draft", "Draft"),
@@ -294,6 +321,7 @@ It is outlined rather than filled, and that is the component's own answer rather
         [DemoPriority.Highest, DemoPriority.High, DemoPriority.Medium];
 
     private string _area = "product";
+    private string _source = "release/2.0";
     private string? _owner;
     private string _kind = "plugin";
     private string _name = string.Empty;
@@ -318,6 +346,15 @@ It is outlined rather than filled, and that is the component's own answer rather
         <SelectField CurrentValue="@_kind" Options="Kinds" Label="Kind" Form="true"
                      HelpText="What the tool is. Changing it changes what the form asks for below."
                      OnChanged="v => _kind = v ?? string.Empty" />
+        """;
+
+    private const string SelectSectionCode = """
+        // The fourth positional argument is the section. Runs, in the host's order:
+        // "Local clone" below the branches stays below them.
+        new SelectorOption("main", "main", null, "Branches")
+
+        <SelectField CurrentValue="@_source" Options="Sources" Label="Knowledge source"
+                     OnChanged="v => _source = v ?? string.Empty" />
         """;
 
     private const string BadgeSelectCode = """

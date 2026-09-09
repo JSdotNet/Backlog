@@ -4537,21 +4537,21 @@ h1, h2, h3 {
         max-height: none;
     }
 
-    /* Stacked, there is no vertical edge left to drag — this layout's own edge,
-       and only it.
+    /* Stacked, there is no vertical edge left to drag — this layout's separator,
+       said as such rather than by the class alone.
 
-       `.pane-resizer` is not this layout's word. It is the shared resizer block in
-       components.css, and every SplitPane the library renders puts it on the
-       separator too, so a bare selector here was a rule about all of them. The
-       backlog split reads it: that split does not stack until 60rem and this step
-       is 72rem, so for the whole 12rem in between its separator was gone while its
-       grid was still three columns wide — and a hidden child is not a grid item, so
-       the entry panel slid into the separator's 8px track and the panel's own track
-       stood empty at the edge of the window. `624px 172px 172px` at 1024px, with
-       nothing dragged.
+       The class is `SplitPane`'s and this layout's separator borrows it on purpose,
+       which `SharedControlAdoptionTests` records; every split in the app wears the
+       same one. So a rule naming only `.pane-resizer` reaches the split inside the
+       pane as well, and that split is still side by side here — it has its own step,
+       at 60rem. Between the two it kept the three-track template with two items left
+       in it, and the entry auto-placed into the track the separator had vacated:
+       measured with an entry open, 624px 236px 236px at 1152 where the third track
+       gives it 456px. The reader lost about half the entry and, with it, the handle
+       that could have dragged the rest back.
 
-       The child combinator is the scope: this layout's edge is its direct child
-       (Home.razor), and a split nested anywhere inside it is not. */
+       A child combinator because that split is a descendant of this layout too, only
+       further down — through the tasks workspace. */
     .knowledge-layout > .pane-resizer {
         display: none;
     }

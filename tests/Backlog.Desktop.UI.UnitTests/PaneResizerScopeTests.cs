@@ -1,149 +1,205 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A rule about a pane resizer has to say whose resizer it is.
+/// <c>pane-resizer</c> is worn by two separators, and a rule that names it without
+/// saying which one is a rule about both.
 /// <para>
-/// This app draws two of them and they are the same class. The knowledge layout
-/// renders its own <c>.pane-resizer</c> between the backlog and the side stack
-/// (<c>Home.razor</c>), and every <c>SplitPane</c> the shared library renders puts
-/// that class on its separator too — the resizer's styling is one block in
-/// <c>components.css</c> and its pointer drag is one handler keyed off
-/// <c>data-pane-resizer</c>, so sharing the name is the point.
+/// The shell's side pane has its own separator, and it wears the library's class on
+/// purpose — <c>SharedControlAdoptionTests</c> records that as a documented
+/// duplication, because the shell drives it through its own interop and
+/// <c>SplitPane</c> cannot take that over yet. Every <c>SplitPane</c> separator wears
+/// the same class, which is what makes the borrowed name dangerous rather than merely
+/// untidy: a rule written for one of them silently reaches the other.
 /// </para>
 /// <para>
-/// Which makes an unscoped selector here a rule about both. The knowledge layout's
-/// stacking step at 72rem carried a bare <c>.pane-resizer { display: none }</c> —
-/// correct for its own edge, which has nothing vertical left to drag once the panes
-/// stack, and wrong for the backlog split, which does not stack until 60rem and is
-/// still a side-by-side grid for the whole 12rem in between.
+/// It did. The 72rem step stacks the knowledge layout to one column and hid
+/// <c>.pane-resizer</c> unscoped, on the reasoning that a stacked layout has no
+/// vertical edge left to drag. True of that layout; false of the split inside its
+/// pane, which is still side by side at 72rem and stacks at 60rem. Between the two
+/// steps the split kept <c>.split-pane--end</c>'s three-track template while having
+/// only two grid items, so the trailing pane auto-placed into the middle — the
+/// separator's own track — and the third track sat empty. Measured in the harness
+/// with an entry open, <c>.backlog-split</c> resolved to <c>624px 236px 236px</c> at
+/// 1152 and <c>624px 160px 160px</c> at 1000, where the third track gives the entry
+/// 456px and 312px. The entry was drawn at about half its width, and the handle that
+/// could have corrected it was the thing that had been removed.
 /// </para>
 /// <para>
-/// What that cost, measured in the harness at a 1024x900 window with an entry open:
-/// the separator was <c>display: none</c>, so it stopped being a grid item, and
-/// auto-placement moved the entry panel into the 8px track the separator had left
-/// behind. The split resolved to <c>624px 172px 172px</c> — the list pinned at its
-/// 39rem floor, the panel crushed to 172px against 224px of content, its title
-/// rendering one letter per line, and the third track, the panel's own, standing
-/// empty at the right edge of the window. The reader could not drag any of it back,
-/// because the thing you drag was the thing that had gone.
-/// </para>
-/// <para>
-/// So the rule is structural rather than a number: reach a resizer through the
-/// layout that owns it. <c>SplitPaneColumnTests</c> holds the other half — that the
-/// split's panes name their own columns, so a separator hidden by anything at all
-/// cannot move them again.
+/// So the fix is to say which separator, and these tests hold the two halves of that:
+/// the step names the layout it is about, and no step anywhere in the sheet goes back
+/// to naming the class alone.
 /// </para>
 /// </summary>
 public sealed class PaneResizerScopeTests
 {
+    /// <summary>Where the knowledge layout stops being two columns.</summary>
+    private const string NarrowStep = "@media (max-width: 72rem) {";
+
+    /// <summary>And where the split inside its pane stops being two, which is a
+    /// different width because it is a different layout.</summary>
+    private const string StackStep = "@media (max-width: 60rem) {";
+
+    /// <summary>
+    /// The narrow step hides the shell's own separator, named by the layout it
+    /// belongs to.
+    /// <para>
+    /// A child combinator rather than a descendant one, because the split's separator
+    /// is also inside <c>.knowledge-layout</c> — two levels down, through the tasks
+    /// workspace — so a descendant selector would hide exactly what this is scoped to
+    /// spare. The sheet already writes the layout's own children this way; see
+    /// <c>.knowledge-layout--inbox-before-backlog &gt; .inbox-pane</c>.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Every_rule_about_a_resizer_names_the_layout_that_owns_it()
+    public void The_narrow_step_hides_the_shells_own_separator()
     {
-        var unscoped = Selectors(WithoutComments(Css()))
-            .Where(Opens)
+        var narrow = Block(Css(), NarrowStep);
+
+        Assert.Contains(".knowledge-layout > .pane-resizer {", narrow, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And styles nothing about the split, which at this width is still a split.
+    /// <para>
+    /// Comments stripped first, because the rule above this one names both classes in
+    /// prose to explain why it is scoped. Reading them as declarations would make the
+    /// explanation the failure.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_narrow_step_leaves_the_backlog_split_alone()
+    {
+        var narrow = StripComments(Block(Css(), NarrowStep));
+
+        Assert.DoesNotContain(".split-pane__separator", narrow, StringComparison.Ordinal);
+        Assert.DoesNotContain(".backlog-split", narrow, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The split loses its separator at its own step, and only there — the width at
+    /// which it really has stacked and really has no vertical edge left.
+    /// </summary>
+    [Fact]
+    public void The_split_keeps_its_separator_until_it_stops_being_a_split()
+    {
+        var stack = Block(Css(), StackStep);
+
+        Assert.Contains(".backlog-split .split-pane__separator", stack, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", stack, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The general rule, and the one that would have caught this: no viewport step
+    /// hides the class on its own.
+    /// <para>
+    /// The defect was not that the wrong number was chosen — 72rem is right for the
+    /// layout it was written for. It was that a shared class was addressed as though
+    /// it named one element. Any future step that does the same will be wrong in the
+    /// same way and for the same reason, whatever width it picks, so this is pinned
+    /// as a property of the sheet rather than as a second copy of the case above.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void No_viewport_step_hides_every_separator_at_once()
+    {
+        var css = StripComments(Css());
+
+        var offenders = MediaBlocks(css)
+            .SelectMany(SelectorLists)
+            .Where(selector => selector == ".pane-resizer" || selector == ".split-pane__separator")
             .ToList();
 
         Assert.True(
-            unscoped.Count == 0,
-            "A selector that opens on `.pane-resizer` is a rule about every resizer in the app, "
-            + "including the separator of every SplitPane the library renders. Reach the intended "
-            + "one through its layout instead. Unscoped: " + string.Join("; ", unscoped));
+            offenders.Count == 0,
+            "A viewport step is addressing the separator class on its own, which reaches both the "
+            + "shell's side pane and every SplitPane in the app. Name the layout the step is about:\n"
+            + string.Join("\n", offenders));
     }
-
-    /// <summary>
-    /// Whether a selector starts at the resizer itself. <c>.pane-resizer__grip</c>
-    /// does not: it is a different class that happens to share a prefix, it names a
-    /// part rather than the element, and a rule about it is already inside whatever
-    /// rule put the resizer there.
-    /// </summary>
-    private static bool Opens(string selector) =>
-        System.Text.RegularExpressions.Regex.IsMatch(selector, @"^\.pane-resizer(?![\w-])");
-
-    /// <summary>
-    /// Every selector in the stylesheet, one per comma, with whitespace flattened.
-    /// <para>
-    /// A selector list is the text between the end of the previous block or
-    /// declaration and the <c>{</c> that opens this one. At-rules open a block the
-    /// same way and are skipped by their leading <c>@</c>, which also skips their
-    /// nesting: the rules inside a media query are found by the same scan, since
-    /// what precedes them is a <c>{</c> just like anywhere else.
-    /// </para>
-    /// </summary>
-    private static IEnumerable<string> Selectors(string css)
-    {
-        var cursor = 0;
-
-        while (cursor < css.Length)
-        {
-            var open = css.IndexOf('{', cursor);
-            if (open < 0)
-            {
-                yield break;
-            }
-
-            var previous = open == 0 ? -1 : css.LastIndexOfAny(['{', '}', ';'], open - 1);
-            var text = Flatten(css[(previous + 1)..open]);
-            cursor = open + 1;
-
-            if (text.Length == 0 || text.StartsWith('@'))
-            {
-                continue;
-            }
-
-            foreach (var selector in text.Split(','))
-            {
-                var trimmed = selector.Trim();
-                if (trimmed.Length > 0)
-                {
-                    yield return trimmed;
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// The stylesheet with its comments taken out, because this file explains itself
-    /// in prose that quotes CSS — braces, semicolons and selectors and all — and a
-    /// scan that reads those as rules would report a rule nobody wrote.
-    /// </summary>
-    private static string WithoutComments(string css)
-    {
-        var kept = new System.Text.StringBuilder(css.Length);
-        var at = 0;
-
-        while (at < css.Length)
-        {
-            var start = css.IndexOf("/*", at, StringComparison.Ordinal);
-            if (start < 0)
-            {
-                kept.Append(css[at..]);
-                break;
-            }
-
-            kept.Append(css[at..start]);
-
-            var end = css.IndexOf("*/", start + 2, StringComparison.Ordinal);
-            if (end < 0)
-            {
-                break;
-            }
-
-            // A newline in place of the comment, so two rules either side of one do
-            // not run together into a single selector.
-            kept.Append('\n');
-            at = end + 2;
-        }
-
-        return kept.ToString();
-    }
-
-    /// <summary>Runs of whitespace down to one space: a selector split over three
-    /// lines is one selector.</summary>
-    private static string Flatten(string text) => string.Join(
-        ' ',
-        text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private static string Css() => File.ReadAllText(
         RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css"))
         .Replace("\r\n", "\n");
+
+    /// <summary>Every <c>@media</c> block in the sheet, braces matched so a nested
+    /// rule cannot end the block early.</summary>
+    private static IEnumerable<string> MediaBlocks(string css)
+    {
+        for (var at = css.IndexOf("@media", StringComparison.Ordinal); at >= 0;
+             at = css.IndexOf("@media", at + 1, StringComparison.Ordinal))
+        {
+            yield return BlockAt(css, at);
+        }
+    }
+
+    /// <summary>Each selector in the block, one per comma, trimmed — so that
+    /// <c>.knowledge-layout &gt; .pane-resizer</c> and <c>.pane-resizer</c> are told
+    /// apart rather than both matching a substring search.</summary>
+    private static IEnumerable<string> SelectorLists(string block)
+    {
+        var from = block.IndexOf('{') + 1;
+
+        for (var at = block.IndexOf('{', from); at > 0; at = block.IndexOf('{', from))
+        {
+            var previous = block.LastIndexOfAny(['}', '{'], at - 1);
+            var list = block[(previous < 0 ? from : previous + 1)..at];
+
+            foreach (var selector in list.Split(','))
+            {
+                yield return selector.Trim();
+            }
+
+            from = at + 1;
+        }
+    }
+
+    private static string StripComments(string css)
+    {
+        var stripped = new System.Text.StringBuilder(css.Length);
+
+        for (var at = 0; at < css.Length;)
+        {
+            var open = css.IndexOf("/*", at, StringComparison.Ordinal);
+
+            if (open < 0)
+            {
+                stripped.Append(css[at..]);
+                break;
+            }
+
+            stripped.Append(css[at..open]);
+
+            var close = css.IndexOf("*/", open + 2, StringComparison.Ordinal);
+
+            at = close < 0 ? css.Length : close + 2;
+        }
+
+        return stripped.ToString();
+    }
+
+    private static string Block(string css, string opening)
+    {
+        var start = css.IndexOf(opening, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{opening} should exist.");
+
+        return BlockAt(css, start);
+    }
+
+    private static string BlockAt(string css, int start)
+    {
+        var depth = 0;
+
+        for (var index = css.IndexOf('{', start); index < css.Length && index >= 0; index++)
+        {
+            if (css[index] == '{')
+            {
+                depth++;
+            }
+            else if (css[index] == '}' && --depth == 0)
+            {
+                return css[start..(index + 1)];
+            }
+        }
+
+        return css[start..];
+    }
 }
