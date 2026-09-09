@@ -18,24 +18,21 @@
     be the element that says it does. `aria-labelledby` pointing at the label is
     what makes the group announce its name on the way in.
 
-    Sections are runs, walked off `Matches` in order — the first option whose group
-    differs from the one before it opens a new one. Not a `GroupBy`: that would
-    coalesce two non-adjacent runs of the same name into one, which is this control
-    quietly deciding an ordering. The host owns the order (see SelectorOption.Group),
-    and a control that re-derived it would be a second definition of it, free to
-    disagree with the first. Walking the matches also means a section whose options
-    all fell out of the query takes its heading with it, without anything having to
-    check for that case.
+    Sections are runs rather than a `GroupBy`, and the walk itself is
+    `SelectorOptionRuns` — shared with the native selects, which draw the same
+    sections as `optgroup`s, and where the rule and the reason for it are stated.
+    What belongs here is which list is walked: `Matches` rather than `Options`, so a
+    section whose options all fell out of the query takes its heading with it,
+    without anything having to check for that case.
 
     The index an option is identified by stays flat and stays keyed on `Matches`,
     so nesting some options one level deeper changes nothing about `_activeIndex`,
     the cycling arithmetic, or the id `aria-activedescendant` resolves. A section is
     a fact about the markup, not about the order the keyboard walks.
 
-    An option with no group is left where it was, an unwrapped child of the listbox.
-    Giving it a heading would mean inventing a name for it, and the only honest name
-    is one the host did not supply — so instead a list nobody grouped renders exactly
-    the markup it rendered before groups existed.
+    An option with no group is left where it was, an unwrapped child of the listbox,
+    so a list nobody grouped renders exactly the markup it rendered before groups
+    existed.
 *@
 
 <div class="@ClassValue" data-testid="@TestId">
@@ -82,7 +79,7 @@
     @if (_open && (Matches.Count > 0 || CanCreate))
     {
         var matches = Matches;
-        var runs = SectionRuns(matches);
+        var runs = SelectorOptionRuns.Of(matches);
 
         @* preventDefault on mousedown keeps the focus in the input, so the
            blur that closes the popup cannot fire before this click lands. *@
@@ -222,33 +219,6 @@
     private string? ActiveOptionId => _open && _activeIndex >= 0 && _activeIndex < OptionCount
         ? OptionId(_activeIndex)
         : null;
-
-    /// <summary>One stretch of <c>Matches</c> that renders together: a named
-    /// section, or the unwrapped options between two of them. <c>Ordinal</c>
-    /// numbers only the named ones, because it exists to name the label element a
-    /// section points <c>aria-labelledby</c> at.</summary>
-    private readonly record struct OptionRun(string? Name, int Ordinal, int Start, int End);
-
-    private static List<OptionRun> SectionRuns(IReadOnlyList<SelectorOption> matches)
-    {
-        var runs = new List<OptionRun>();
-        var ordinal = 0;
-
-        for (var index = 0; index < matches.Count;)
-        {
-            var name = matches[index].Group;
-            var start = index;
-
-            while (index < matches.Count && string.Equals(matches[index].Group, name, StringComparison.Ordinal))
-            {
-                index++;
-            }
-
-            runs.Add(new OptionRun(name, name is null ? -1 : ordinal++, start, index));
-        }
-
-        return runs;
-    }
 
     private string OptionClass(int index) => index == _activeIndex
         ? "tag-select__option tag-select__option--active"

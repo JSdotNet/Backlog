@@ -13,6 +13,12 @@
 
     The structural classes stay ours either way, because the stylesheet reaches
     the control and the wrapper through them.
+
+    Its list draws sections the same way `SelectField`'s does — native `optgroup`s
+    over the runs `SelectorOptionRuns` finds — because the two take the same option
+    list, and one type that means one thing in one select and nothing in the other is
+    the harder rule to remember. No caller groups a badge's values today; the point
+    is that a caller who does gets the sections rather than a silence.
 *@
 
 <label class="@WrapperClass" data-testid="@TestId">
@@ -28,9 +34,24 @@
         {
             <option value="">@EmptyLabel</option>
         }
-        @foreach (var option in Options)
+        @foreach (var run in SelectorOptionRuns.Of(Options))
         {
-            <option value="@option.Value">@option.Label</option>
+            if (run.Name is null)
+            {
+                for (var i = run.Start; i < run.End; i++)
+                {
+                    <option value="@Options[i].Value">@Options[i].Label</option>
+                }
+            }
+            else
+            {
+                <optgroup label="@run.Name">
+                    @for (var i = run.Start; i < run.End; i++)
+                    {
+                        <option value="@Options[i].Value">@Options[i].Label</option>
+                    }
+                </optgroup>
+            }
         }
     </select>
 </label>

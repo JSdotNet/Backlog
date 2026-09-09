@@ -69,6 +69,43 @@ public class SelectOptionStylingTests
     }
 
     /// <summary>
+    /// And so is the heading inside it, now that there is one.
+    ///
+    /// <para><c>SelectField</c> and <c>BadgeSelect</c> draw
+    /// <c>SelectorOption.Group</c> as native <c>optgroup</c>s, so the platform paints
+    /// a second kind of thing in that list from the same black-on-white default. An
+    /// undressed heading is the smaller half of the original defect rather than a
+    /// different one, and it arrived after the rule that fixed the first half — which
+    /// is exactly the shape of gap that goes unnoticed, because the list it is in
+    /// already looks fixed.</para>
+    /// </summary>
+    [Fact]
+    public void The_heading_a_section_draws_inside_that_list_is_dressed_too()
+    {
+        var rule = Rules().FirstOrDefault(r => r.Selector == "select optgroup");
+
+        Assert.True(
+            rule is not null,
+            "components.css has no `select optgroup` rule. `SelectField` and `BadgeSelect` render "
+            + "`SelectorOption.Group` as a native optgroup, and its label is painted by the platform in "
+            + "the same list the `select option` rule exists to dress.");
+
+        var background = Declaration(rule!.Body, "background");
+        var color = Declaration(rule.Body, "color");
+
+        Assert.True(
+            background is not null && IsAuthored(background),
+            $"`select optgroup` declares its background as {background ?? "nothing"}, which is not a "
+            + "value the design system owns.");
+
+        Assert.True(
+            color is not null && IsAuthored(color),
+            $"`select optgroup` declares its colour as {color ?? "nothing"}, which is not a value the "
+            + "design system owns. A heading left at the platform's near-black is unreadable on the "
+            + "fill the options beside it were given.");
+    }
+
+    /// <summary>
     /// And dressed once, by the element rather than by the class.
     ///
     /// <para>This is the defect itself, stated as a rule. Three class-scoped copies
@@ -78,12 +115,17 @@ public class SelectOptionStylingTests
     /// one select's list a different font or padding is a choice about that select,
     /// but a class-scoped rule about its <em>colours</em> is a claim that the
     /// platform's default is acceptable everywhere the class is absent.</para>
+    ///
+    /// <para>Both elements the list is made of, because <c>optgroup</c> would
+    /// otherwise inherit the hole rather than the rule: <c>\boption\b</c> does not
+    /// match inside <c>optgroup</c>, so a class-keyed heading colour was invisible to
+    /// this test on the day sections were added.</para>
     /// </summary>
     [Fact]
     public void No_rule_ties_a_list_s_colours_to_the_class_its_select_happens_to_wear()
     {
         var keyed = Rules()
-            .Where(rule => Regex.IsMatch(rule.Selector, @"(^|\s|,)[^,]*\.[^,]*\boption\b"))
+            .Where(rule => Regex.IsMatch(rule.Selector, @"(^|\s|,)[^,]*\.[^,]*\b(option|optgroup)\b"))
             .Where(rule => Declaration(rule.Body, "background") is not null
                            || Declaration(rule.Body, "color") is not null)
             .Select(rule => rule.Selector)
@@ -94,8 +136,8 @@ public class SelectOptionStylingTests
             "These rules give an option list its colours only when its select wears a particular class: "
             + string.Join("; ", keyed)
             + ". A select wearing any other class — `SelectCssClass` replaces the default outright — then "
-            + "opens a list the platform paints black on white. State the colours on `select option` "
-            + "instead, where no host class can escape them.");
+            + "opens a list the platform paints black on white. State the colours on `select option` and "
+            + "`select optgroup` instead, where no host class can escape them.");
     }
 
     private sealed record CssRule(string Selector, string Body);
