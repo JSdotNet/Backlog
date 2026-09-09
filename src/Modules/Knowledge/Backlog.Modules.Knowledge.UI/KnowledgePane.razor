@@ -396,7 +396,7 @@
         if (!node.Available || node.Kind == KnowledgeMenuNodeKind.Message) return;
 
         _selectedSection = node.AreaKey;
-        if (IsSelectableMenuNode(node))
+        if (IsSelectableMenuNode(node) || IsContextOverviewNode(node))
         {
             _selectedChapterPaths[node.AreaKey] = node.Path;
         }
@@ -547,6 +547,39 @@
 
     private static bool IsSelectableMenuNode(KnowledgeMenuNode node) =>
         node.Kind == KnowledgeMenuNodeKind.File || node.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A bounded context of <c>.domain</c>, which the panel can show whole — its
+    /// documents stacked under the context's own name and status, with the row of
+    /// contexts above them — rather than one chapter at a time.
+    /// <para>
+    /// This is what makes that row reachable at all. The panel draws it when no
+    /// chapter is open, and until now nothing here could produce that state:
+    /// <see cref="EnsureSelectedChapter"/> assigns a chapter as soon as the menu
+    /// loads and every route through this pane only ever assigns another one. So
+    /// the context list — the names, the order and the statuses the knowledge
+    /// database answers with, and the drift check local ADR 0004 pairs with it —
+    /// was on screen only on the standalone Domain page.
+    /// </para>
+    /// <para>
+    /// A folder is already a row carrying its own path, so selecting the thing the
+    /// row names needs no new control and no state beside the selection: the path
+    /// is in the tree, which is what keeps <see cref="EnsureSelectedChapter"/> from
+    /// replacing it on the next menu reload.
+    /// </para>
+    /// <para>
+    /// Direct children of <c>.domain</c> only, and only where the folder is not
+    /// already a chapter: a directory holding an <c>index.md</c> reports that file
+    /// as its path and is opened as the chapter it is. Nothing deeper is offered
+    /// because the panel has no view of a sub-folder, and no other area is,
+    /// because a bounded context is the only folder any panel draws whole.
+    /// </para>
+    /// </summary>
+    private static bool IsContextOverviewNode(KnowledgeMenuNode node) =>
+        node.Kind == KnowledgeMenuNodeKind.Folder
+        && string.Equals(node.AreaKey, "domain", StringComparison.Ordinal)
+        && !node.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+        && !node.Path.Contains('/', StringComparison.Ordinal);
 
     private static string MenuNodeKey(KnowledgeMenuNode node) => $"{node.AreaKey}:{node.Key}";
 
