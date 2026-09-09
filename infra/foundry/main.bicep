@@ -45,9 +45,14 @@ param tags object = {
 // Each entry may pin its own deployment SKU and capacity. An empty skuName falls back to
 // deploymentSkuName, and a zero capacity falls back to deploymentCapacity. Speech models
 // need this because their quota and supported SKUs differ from the chat models.
+// Named rather than taken as requiredModelDeployments[0], because that index is
+// what the deploy summary tells someone to paste into the desktop AI settings and
+// reordering the array would silently change it.
+var defaultChatDeployment = 'gpt-5-4'
+
 var requiredModelDeployments = [
   {
-    name: 'gpt-5-4'
+    name: defaultChatDeployment
     modelName: 'gpt-5.4'
     modelFormat: 'OpenAI'
     publisher: 'OpenAI'
@@ -105,9 +110,11 @@ var optionalModelDeployments = includeBalancedModel ? [
 // corpus that FTS5 is answering alongside it. See
 // `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`, which keeps vector search
 // behind a port precisely so this choice can be revisited without moving its callers.
+var knowledgeEmbeddingDeployment = 'text-embedding-3-small'
+
 var embeddingModelDeployments = includeEmbeddingModel ? [
   {
-    name: 'text-embedding-3-small'
+    name: knowledgeEmbeddingDeployment
     modelName: 'text-embedding-3-small'
     modelFormat: 'OpenAI'
     publisher: 'OpenAI'
@@ -186,3 +193,10 @@ resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025
 output accountName string = foundryAccount.name
 output accountResourceId string = foundryAccount.id
 output deploymentNames array = [for deployment in selectedModelDeployments: deployment.name]
+
+// The desktop AI settings need an endpoint, a deployment name and a key before any AI
+// feature turns on (`AzureFoundrySettings.IsConfigured`). Two of those three are template
+// outputs, so emit them rather than making someone go and read them off the portal.
+output accountEndpoint string = foundryAccount.properties.endpoint
+output chatDeploymentName string = defaultChatDeployment
+output embeddingDeploymentName string = includeEmbeddingModel ? knowledgeEmbeddingDeployment : ''

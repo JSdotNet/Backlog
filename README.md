@@ -278,6 +278,16 @@ worktrees of this repository can run their own AppHost side by side. Read the
 actual dashboard and resource URLs from the `aspire start` output, or with
 `aspire describe`.
 
+## Deploying everything at once
+
+**Deploy All** runs the Foundry models, the sync service and the desktop release in a
+single GitHub Actions run, choosing which components take part and how far to take them.
+It owns no deployment logic — each component is the workflow below, called as a reusable
+workflow — so a component behaves the same whether it runs on its own or from there.
+Mobile is deliberately left out for now.
+
+See [`docs/deployment/all.md`](docs/deployment/all.md).
+
 ## Deploying Azure Foundry models
 
 Azure AI Foundry model deployments are described in `infra/foundry/` and deployed
