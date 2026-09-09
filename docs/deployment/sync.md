@@ -13,6 +13,9 @@ self-hosted runner that is already signed in. Sync is the product's own cloud ti
 deployed by `azd` from a GitHub-hosted runner authenticating with an OIDC federated
 credential. Neither workflow touches the other's resources.
 
+Both are callable as reusable workflows, which is how `Deploy All` runs them together —
+see [`all.md`](all.md). That changes nothing about how sync deploys on its own.
+
 ## Deployment target
 
 One environment. A personal tool does not earn a staging ring.
@@ -53,13 +56,26 @@ repository.
 az ad app create --display-name backlog-sync-deploy
 ```
 
+The subject must be the **environment** form, not the branch form:
+
 ```powershell
-az ad app federated-credential create --id <app-object-id> --parameters '{\"name\":\"backlog-sync-main\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:JSdotNet/Backlog:ref:refs/heads/main\",\"audiences\":[\"api://AzureADTokenExchange\"]}'
+az ad app federated-credential create --id <app-object-id> --parameters '{\"name\":\"backlog-sync-environment\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:JSdotNet/Backlog:environment:backlog-sync\",\"audiences\":[\"api://AzureADTokenExchange\"]}'
 ```
 
-Add a second credential with subject `repo:JSdotNet/Backlog:environment:backlog-sync`
-if you also want manual `workflow_dispatch` runs against the environment to
-authenticate.
+This is the one that has to exist, and a `repo:JSdotNet/Backlog:ref:refs/heads/main`
+credential on its own will never authenticate anything. GitHub derives the subject from the
+job: when a job declares an `environment`, the token's subject is
+`repo:<org>/<repo>:environment:<name>` **on every trigger**, push to `main` included — and
+the `sync` job always declares one. An earlier version of this document had it the other way
+round, presenting the branch subject as primary and the environment subject as an optional
+extra for `workflow_dispatch` runs. Nobody caught it because the workflow has never got past
+its first step (see *Current state* below).
+
+The environment subject is not scoped to a branch, so pair it with a **deployment branch
+policy** on the `backlog-sync` environment limiting deployments to `main`. Without that, any
+branch able to start the workflow can mint a token that holds Contributor and User Access
+Administrator on the resource group. The environment's protection rules are the branch
+restriction here; the credential no longer carries one.
 
 ### 3. Set the GitHub environment variables
 
@@ -86,6 +102,29 @@ az consumption budget create --budget-name backlog-sync --amount 10 --time-grain
 
 > **Still outstanding:** current Cosmos serverless pricing has not been re-verified
 > against the numbers ADR 0005 quotes. Check it before the first `provision` run.
+
+## Current state
+
+Verified 2026-09-09: **none of the four prerequisites above have been done**, and this
+workflow has never completed a run.
+
+| Prerequisite | State |
+| --- | --- |
+| 1. Resource group | Not created. No sync group exists in the subscription. |
+| 2. Federated credential | Not created. No `backlog-sync-deploy` app registration exists in the tenant. |
+| 3. Environment variables | All five unset on `backlog-sync`. |
+| 4. Budget alert | Not created. |
+
+So every run fails in `Verify deployment target`, before touching Azure, with:
+
+```text
+Set these variables on the GitHub environment 'backlog-sync': AZURE_LOCATION,
+AZURE_RESOURCE_GROUP, AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SUBSCRIPTION_ID.
+```
+
+That is the step doing its job — it names what is missing rather than letting `azd` fail
+halfway — but it does mean the later steps have never executed, so nothing past step one of
+this document is proven by a real run.
 
 ## Resources
 
@@ -257,6 +296,15 @@ Every mode runs the preview first, so a `deploy` run still shows what it is abou
 change before it changes it.
 
 ## Run locally
+
+`build/Deploy-Azure.ps1` wraps this, once the four prerequisites above are done:
+
+```powershell
+./build/Deploy-Azure.ps1 -Component sync -Mode deploy -SyncResourceGroup <resource-group>
+```
+
+It selects the azd environment rather than recreating it, so it is safe to re-run. The steps
+below are what it does.
 
 Install the Azure Developer CLI (it is a separate download from the Azure CLI):
 
