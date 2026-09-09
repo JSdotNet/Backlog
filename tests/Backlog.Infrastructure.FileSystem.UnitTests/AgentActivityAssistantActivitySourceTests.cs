@@ -135,8 +135,112 @@ public class AgentActivityAssistantActivitySourceTests
         Assert.Equal(Horizon, Assert.Single(source.Asked));
     }
 
+    /// <summary>
+    /// The agents a session spawned cross as a list of their own, and the separation is
+    /// the contract rather than a convenience: the Dashboard's session figures are all
+    /// measured over <c>Sessions</c>, so an agent that arrived in there would not skew one
+    /// of them but redefine every one.
+    /// </summary>
+    [Fact]
+    public async Task Subagents_cross_the_seam_as_their_own_list_and_never_as_sessions()
+    {
+        var report = await Source(
+                [Activity("claude-1", AgentSessionKind.Claude)],
+                [Subagent("a16156d26373fd0e8", "claude-1")])
+            .GetActivityAsync(Horizon);
+
+        var session = Assert.Single(report.Sessions);
+
+        Assert.Equal("claude-1", session.Id);
+
+        var agent = Assert.Single(report.Subagents);
+
+        Assert.Equal("a16156d26373fd0e8", agent.Id);
+
+        // And its stretches cross unchanged, for the reason the sessions' do: anything
+        // this class did to them would be a second opinion about a figure the other
+        // context already formed.
+        Assert.Equal(
+            [(Noon.AddHours(-3), Noon.AddHours(-2))],
+            agent.Active.Select(interval => (interval.From, interval.To)));
+    }
+
+    /// <summary>
+    /// The label comes from the Sessions context here exactly as it does for a session
+    /// row, so "this figure is Claude's alone" stays something the data says rather than
+    /// something a switch in this file decided. Asserted against that context's own
+    /// function, or the test would be a second copy of the thing it is checking is not
+    /// copied.
+    /// </summary>
+    [Theory]
+    [InlineData(AgentSessionKind.Claude)]
+    [InlineData(AgentSessionKind.Copilot)]
+    public async Task A_subagents_assistant_is_named_by_the_sessions_context_rather_than_here(
+        AgentSessionKind kind)
+    {
+        var report = await Source(
+                [Activity("one", kind)],
+                [Subagent("a1", "one", kind)])
+            .GetActivityAsync(Horizon);
+
+        Assert.Equal(AgentSessionGroups.Label(kind), Assert.Single(report.Subagents).Assistant);
+    }
+
+    /// <summary>
+    /// Both identifiers cross untouched, and each is load-bearing. The machine id is what
+    /// makes the machine filter drive these figures the way it drives the session ones;
+    /// the session id is what lets the surface say how many sessions a peak was spread
+    /// across. The Environment→Machine rename happens here as it does for a session row.
+    /// </summary>
+    [Fact]
+    public async Task A_subagents_machine_id_and_session_id_cross_unchanged()
+    {
+        var report = await Source(
+                [Activity("claude-1", AgentSessionKind.Claude)],
+                [Subagent("a1", "claude-1")])
+            .GetActivityAsync(Horizon);
+
+        var agent = Assert.Single(report.Subagents);
+
+        Assert.Equal("tower", agent.MachineId);
+        Assert.Equal("DEV-TOWER", agent.MachineName);
+        Assert.Equal("claude-1", agent.SessionId);
+    }
+
+    /// <summary>Most profiles have sessions that spawned nothing, and a log with no agents
+    /// maps to a report with none rather than to anything the surface has to explain.</summary>
+    [Fact]
+    public async Task A_log_with_no_subagents_maps_to_a_report_with_none()
+    {
+        var report = await Source(Activity("claude-1", AgentSessionKind.Claude)).GetActivityAsync(Horizon);
+
+        Assert.Single(report.Sessions);
+        Assert.Empty(report.Subagents);
+    }
+
     private static AgentActivityAssistantActivitySource Source(params AgentSessionActivity[] sessions) =>
         new(new StubAgentActivitySource(new AgentActivityLog(sessions, [], Horizon, TimeSpan.FromMinutes(5))));
+
+    /// <summary>A log carrying both lists, for the facts that are about the second one.
+    /// The positional builder below stays untouched and the agents arrive through the init
+    /// property, exactly as they do out of the source.</summary>
+    private static AgentActivityAssistantActivitySource Source(
+        AgentSessionActivity[] sessions,
+        SubagentActivity[] subagents) =>
+        new(new StubAgentActivitySource(
+            new AgentActivityLog(sessions, [], Horizon, TimeSpan.FromMinutes(5)) { Subagents = subagents }));
+
+    private static SubagentActivity Subagent(
+        string id,
+        string sessionId,
+        AgentSessionKind kind = AgentSessionKind.Claude) =>
+        new(
+            Id: id,
+            SessionId: sessionId,
+            Kind: kind,
+            EnvironmentId: "tower",
+            Environment: "DEV-TOWER",
+            Runs: [new AgentActivityRun(Noon.AddHours(-3), Noon.AddHours(-2))]);
 
     private static AgentSessionActivity Activity(string id, AgentSessionKind kind) =>
         new(

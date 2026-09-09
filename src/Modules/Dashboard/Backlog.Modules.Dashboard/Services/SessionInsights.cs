@@ -175,6 +175,20 @@ public sealed class SessionInsights(
             to,
             zone);
 
+        var scopedAgents = reading.Activity.Subagents
+            .Where(agent => scope.IsAllMachines || Matches(agent.MachineId, scope.MachineId))
+            .ToList();
+
+        // The fourth and last sweep, and the only new one. Over the subagents' stretches
+        // alone: they are never merged with the sessions' and never compared to them. A
+        // subagent always overlaps the session that spawned it — that is what spawning
+        // means — so one sweep over both would report two of something that never existed.
+        var agents = LocalHourBuckets.Sweep(
+            scopedAgents.SelectMany(agent => agent.Active).Select(interval => (interval.From, interval.To)),
+            from,
+            to,
+            zone);
+
         var week = workingHours.Current;
 
         var recorded = scopedActivity.Select(session => session.Id).ToHashSet(StringComparer.Ordinal);
@@ -199,15 +213,43 @@ public sealed class SessionInsights(
                 scoped,
                 session => session.LastActivityAt),
             Waiting = Sum(waiting),
-            ActivityByHour = Grid(active, waiting, open, week, to, zone),
+            MostSessionsAtOnce = Busiest(active),
+            MostAgentsAtOnce = Busiest(agents),
+            ActivityByHour = Grid(active, waiting, open, agents, week, to, zone),
             ActivityByDay = Days(scopedActivity, active, waiting, week, to, zone),
             IdleAfter = reading.Activity.IdleAfter
         };
     }
 
     /// <summary>
+    /// The busiest cell of a sweep, or null when the sweep found nothing.
+    /// <para>
+    /// Ordered before it is maximised, and that is not decoration. A dictionary
+    /// enumerates in whatever order it enumerates in, so two hours that both reached the
+    /// peak would be separated by nothing at all and the tile would name a different hour
+    /// between two refreshes of an unchanged profile — the defect
+    /// <c>ClaudeTranscripts.Newest</c> carries a path tie-break against. The earliest
+    /// wins, because "when it first got that busy" is a question with one answer.
+    /// </para>
+    /// <para>
+    /// A read-out of the same sweep the grid is drawn from, never a second pass. The
+    /// window's true maximum falls inside some hour and that hour's cell recorded it, so
+    /// the tile and the grid cannot have measured differently — the rule the active time
+    /// is already summed under.
+    /// </para>
+    /// </summary>
+    private static ConcurrencyPeak? Busiest(IReadOnlyDictionary<HourCell, HourReading> cells) =>
+        cells
+            .Where(cell => cell.Value.Peak > 0)
+            .OrderByDescending(cell => cell.Value.Peak)
+            .ThenBy(cell => cell.Key.Day)
+            .ThenBy(cell => cell.Key.Hour)
+            .Select(cell => new ConcurrencyPeak(cell.Value.Peak, cell.Key.Day, cell.Key.Hour))
+            .FirstOrDefault();
+
+    /// <summary>
     /// The grid: the last seven dated local days, every hour of them, read out of the
-    /// two sweeps.
+    /// sweeps.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -219,16 +261,23 @@ public sealed class SessionInsights(
     /// that the asymmetry is deliberate and in one place.
     /// </para>
     /// <para>
-    /// Empty when neither sweep found anything, so the part can decline to draw an axis
-    /// with nothing on it. Otherwise every cell is present, including the ones nobody
+    /// Empty when neither session sweep found anything, so the part can decline to draw an
+    /// axis with nothing on it. Otherwise every cell is present, including the ones nobody
     /// worked: a heatmap draws a zero and an absence differently, and an hour that
     /// happened and was quiet is a zero.
+    /// </para>
+    /// <para>
+    /// <b>The agents deliberately do not open this gate.</b> A subagent exists because a
+    /// session was producing, so a profile with agents and no session activity is not a
+    /// thing that happens — and widening the test to include them would let a third grid
+    /// appear beside two the part had declined to draw.
     /// </para>
     /// </remarks>
     private static IReadOnlyList<ActivityHour> Grid(
         IReadOnlyDictionary<HourCell, HourReading> active,
         IReadOnlyDictionary<HourCell, HourReading> waiting,
         IReadOnlyDictionary<HourCell, HourReading> open,
+        IReadOnlyDictionary<HourCell, HourReading> agents,
         WorkingHours week,
         DateTimeOffset to,
         TimeZoneInfo zone)
@@ -254,7 +303,14 @@ public sealed class SessionInsights(
                     worked.Total,
                     waited.Total,
                     At(open, cell).Peak,
-                    week.Covers(cell.Day.DayOfWeek, cell.Hour));
+                    week.Covers(cell.Day.DayOfWeek, cell.Hour))
+                {
+                    // The agents' peak and not their total, for the reason the open sweep's
+                    // total is dropped: agent-hours spawned is a duration nobody asked for
+                    // and it would read as a bigger version of the active time it is not
+                    // comparable to.
+                    PeakAgents = At(agents, cell).Peak
+                };
             })
         ];
     }

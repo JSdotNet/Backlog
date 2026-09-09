@@ -96,4 +96,98 @@ internal static class ClaudeTranscripts
                 .Select(file => (SessionId: Path.GetFileNameWithoutExtension(file.Name), File: file))
         ];
     }
+
+    /// <summary>
+    /// Every agent a session spawned, with the one file that speaks for it and the
+    /// session it belongs to. Ordering is deliberately not decided here, for the reason
+    /// <see cref="Newest"/> gives about its own.
+    /// </summary>
+    /// <remarks>
+    /// The other side of <see cref="Newest"/>'s rule, and here rather than in a sibling
+    /// helper because it is the same rule read from the far end. That one says a session
+    /// is a file sitting <em>directly</em> in a project folder; this one says everything
+    /// under <c>projects/&lt;slug&gt;/&lt;id&gt;/subagents/</c> belongs to the session
+    /// named by the folder above it and is none of them. Two owners for one boundary is
+    /// how the two walks come to disagree about which files they have each already taken.
+    /// <para>
+    /// <b>All the way down, not the top of the folder.</b> A Workflow's subagent is filed
+    /// under <c>subagents/workflows/wf_&lt;runId&gt;/</c> and a directly spawned one sits
+    /// in <c>subagents/</c>. On the profile this was measured against, 377 of 655 files
+    /// were the deeper spelling — so a <c>TopDirectoryOnly</c> walk finds 42% of them and
+    /// reports a peak of 9 where the truth is 19. This is the one rule here somebody will
+    /// "simplify" back into a bug, and the number it produces is plausible rather than
+    /// broken, which is what makes it worth the sentence.
+    /// </para>
+    /// <para>
+    /// <b>By name as well as by position.</b> Beside these sit <c>journal.jsonl</c> — a
+    /// Workflow run's started/result ledger — and <c>agent-&lt;id&gt;.meta.json</c>
+    /// sidecars, and neither is a subagent. Admitting whatever is in the folder would make
+    /// the set "whatever Claude files under a session next", which is the open-ended
+    /// admission <see cref="Newest"/> refuses in its own remarks.
+    /// </para>
+    /// <para>
+    /// <b>The session comes off the path.</b> The directory that owns the
+    /// <c>subagents</c> folder is the session, and the id is never read out of the file.
+    /// Opening 1,146 files to learn what the path already says is the trade
+    /// <see cref="Newest"/> rejects: position is the same answer for free.
+    /// </para>
+    /// <para>
+    /// <b>A folder that cannot be listed costs its own session.</b> The guard is around
+    /// the per-session enumeration rather than around the whole walk, so one session's
+    /// permissions lose one session's agents instead of every agent on the machine.
+    /// </para>
+    /// </remarks>
+    internal static IReadOnlyList<(string SessionId, string AgentId, FileInfo File)> Spawned(string home)
+    {
+        var folder = new DirectoryInfo(Path.Combine(home, "projects"));
+
+        if (!folder.Exists) return [];
+
+        var found = new List<(string SessionId, string AgentId, FileInfo File)>();
+
+        foreach (var project in folder.EnumerateDirectories())
+        {
+            foreach (var session in project.EnumerateDirectories())
+            {
+                var subagents = new DirectoryInfo(Path.Combine(session.FullName, "subagents"));
+
+                // Most sessions spawn nothing at all, and an absent folder is that rather
+                // than a failure: it is the ordinary case and costs nothing to say so.
+                if (!subagents.Exists) continue;
+
+                try
+                {
+                    found.AddRange(subagents
+                        .EnumerateFiles("agent-*.jsonl", SearchOption.AllDirectories)
+                        .Select(file => (
+                            SessionId: session.Name,
+                            AgentId: file.Name["agent-".Length..^".jsonl".Length],
+                            File: file)));
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    // This session's agents, and no more. Letting it out would name Claude
+                    // unreadable over one folder and take every other session's agents with
+                    // it — the disproportion the per-file guard in the activity reader is
+                    // already there to avoid.
+                    continue;
+                }
+            }
+        }
+
+        // The dedupe ten lines above, applied to the folder beside the transcripts. Zero
+        // duplicates measured today, but the mechanism that files a parent transcript
+        // twice — a session resumed in a worktree it did not start in — has no reason to
+        // spare what that session spawned, and two records for one agent would double it
+        // in a figure whose whole point is how many there were at once.
+        return
+        [
+            .. found
+                .GroupBy(entry => entry.AgentId, StringComparer.OrdinalIgnoreCase)
+                .Select(duplicates => duplicates
+                    .OrderByDescending(entry => entry.File.LastWriteTimeUtc)
+                    .ThenBy(entry => entry.File.FullName, StringComparer.OrdinalIgnoreCase)
+                    .First())
+        ];
+    }
 }

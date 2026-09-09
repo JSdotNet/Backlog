@@ -625,6 +625,440 @@ public sealed class AgentActivitySourceTests : IDisposable
         Assert.Equal(2, cache.Writes);
     }
 
+    /// <summary>
+    /// The boundary the whole agents figure rests on, read from the activity side.
+    /// <c>AgentSessionSourceTests.Files_a_session_spawned_are_not_sessions_of_their_own</c>
+    /// is the same claim read from the session side and stays green untouched: the two
+    /// walks read strictly disjoint sets, one of files sitting directly in a project
+    /// folder and one of files under a session's own folder beside it.
+    /// </summary>
+    [Fact]
+    public async Task Subagent_transcripts_are_reported_as_agents_and_never_as_sessions()
+    {
+        GivenClaudeTranscript(
+            "D--Repos-Backlog",
+            "parent",
+            [(Yesterday, false), (Yesterday.AddMinutes(3), false)],
+            lastWrite: Noon);
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-a16156d26373fd0e8.jsonl",
+            Noon,
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday, "one"),
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday.AddMinutes(2), "two"));
+
+        var log = await ReadAsync();
+
+        // One session, and it is the parent's own transcript rather than the sidechain
+        // wearing the parent's id — which is what it would be if the two walks overlapped.
+        var session = Assert.Single(log.Sessions);
+
+        Assert.Equal("parent", session.Id);
+        Assert.Equal(TimeSpan.FromMinutes(3), Total(session));
+
+        var agent = Assert.Single(log.Subagents);
+
+        Assert.Equal("a16156d26373fd0e8", agent.Id);
+        Assert.Equal(AgentSessionKind.Claude, agent.Kind);
+        Assert.Equal(MachineId, agent.EnvironmentId);
+        Assert.Equal(Machine, agent.Environment);
+
+        var run = Assert.Single(agent.Runs);
+
+        Assert.Equal(Yesterday, run.StartedAt);
+        Assert.Equal(Yesterday.AddMinutes(2), run.EndedAt);
+    }
+
+    /// <summary>
+    /// The one rule somebody will simplify back into a bug. A Workflow's subagent is
+    /// filed under <c>subagents/workflows/wf_&lt;runId&gt;/</c> and a directly spawned one
+    /// sits in <c>subagents/</c>, and on the profile this was measured against 377 of the
+    /// 655 files were the deeper spelling. A shallow walk finds 42% of them and reports a
+    /// peak of 9 where the truth is 19 — a plausible number, quietly halved.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_filed_under_a_workflow_run_is_found_as_well_as_one_filed_beside_it()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-beside.jsonl",
+            Noon,
+            Sidechain("parent", "beside", Yesterday, "one"),
+            Sidechain("parent", "beside", Yesterday.AddMinutes(2), "two"));
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/workflows/wf_b0b8ae23-828/agent-deeper.jsonl",
+            Noon,
+            Sidechain("parent", "deeper", Yesterday, "one"),
+            Sidechain("parent", "deeper", Yesterday.AddMinutes(4), "two"));
+
+        var log = await ReadAsync();
+
+        Assert.Equal(["beside", "deeper"], log.Subagents.Select(agent => agent.Id).Order());
+    }
+
+    /// <summary>
+    /// The session comes off the path — the folder the <c>subagents</c> directory sits in
+    /// — rather than out of the file. The fixture states a different id inside every line,
+    /// so a reader that opened the file to answer a question the path already answers
+    /// fails here rather than on a profile nobody is looking at.
+    /// </summary>
+    [Fact]
+    public async Task The_session_that_spawned_a_subagent_is_named_on_its_record()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "the-folder-that-owns-it",
+            "subagents/agent-one.jsonl",
+            Noon,
+            Sidechain("a-session-id-written-inside-the-file", "one", Yesterday, "one"),
+            Sidechain("a-session-id-written-inside-the-file", "one", Yesterday.AddMinutes(2), "two"));
+
+        var agent = Assert.Single((await ReadAsync()).Subagents);
+
+        Assert.Equal("the-folder-that-owns-it", agent.SessionId);
+    }
+
+    /// <summary>
+    /// A Workflow run's ledger of started/result records sits in the same folder and is
+    /// not an agent. Admitting files by position rather than by name would make the set
+    /// "whatever Claude files under subagents next", which is the open-ended admission the
+    /// session walk already refuses.
+    /// </summary>
+    [Fact]
+    public async Task A_journal_beside_a_subagent_transcript_is_not_an_agent()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/workflows/wf_b0b8ae23-828/journal.jsonl",
+            Noon,
+            """{"type":"started","key":"v2:d68dfac77245080a","agentId":"a16156d26373fd0e8"}""",
+            """{"type":"result","key":"v2:d68dfac77245080a","agentId":"a16156d26373fd0e8"}""");
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/workflows/wf_b0b8ae23-828/agent-a16156d26373fd0e8.jsonl",
+            Noon,
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday, "one"),
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday.AddMinutes(2), "two"));
+
+        var agent = Assert.Single((await ReadAsync()).Subagents);
+
+        Assert.Equal("a16156d26373fd0e8", agent.Id);
+    }
+
+    /// <summary>The sidecar beside a sidechain transcript is not an agent either. It
+    /// shares the <c>agent-</c> prefix and differs only in its extension, which is why the
+    /// filter is a pattern rather than a prefix test.</summary>
+    [Fact]
+    public async Task A_meta_file_beside_a_subagent_transcript_is_not_an_agent()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-a16156d26373fd0e8.meta.json",
+            Noon,
+            """{"agentId":"a16156d26373fd0e8","name":"Explore","model":"claude-opus-5"}""");
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-a16156d26373fd0e8.jsonl",
+            Noon,
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday, "one"),
+            Sidechain("parent", "a16156d26373fd0e8", Yesterday.AddMinutes(2), "two"));
+
+        var agent = Assert.Single((await ReadAsync()).Subagents);
+
+        Assert.Equal("a16156d26373fd0e8", agent.Id);
+    }
+
+    /// <summary>
+    /// A sidechain's user turns are tool results, so there is no prompt in one of these
+    /// files to end a gap with — 135,896 turns across every subagent transcript on the
+    /// machine this was built against carry no <c>promptSource</c> at all, against
+    /// sdk 768 / typed 41 / system 37 on the parent side. The record therefore has no
+    /// waits to carry, and none leaks into the sessions either.
+    /// </summary>
+    [Fact]
+    public async Task Subagents_report_no_waits_because_a_sidechain_records_no_prompt()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-quiet.jsonl",
+            Noon,
+            Sidechain("parent", "quiet", Yesterday, "one"),
+            Sidechain("parent", "quiet", Yesterday.AddMinutes(2), "two"),
+
+            // Half an hour later, and the thing that ends the gap is a tool result rather
+            // than a prompt — which is the only shape a sidechain's user turn comes in.
+            SidechainToolResult("parent", "quiet", Yesterday.AddMinutes(32)),
+            Sidechain("parent", "quiet", Yesterday.AddMinutes(34), "three"));
+
+        var log = await ReadAsync();
+
+        // The gap closed a run, exactly as it would in a parent transcript.
+        var agent = Assert.Single(log.Subagents);
+
+        Assert.Equal(2, agent.Runs.Count);
+
+        // And nothing anywhere claims somebody was being waited on. The fold may produce
+        // a wait; the contract has nowhere to put one, so a subagent can never assert it.
+        Assert.Empty(log.Sessions.SelectMany(session => session.Waits));
+    }
+
+    /// <summary>
+    /// Absent rather than present-and-empty, the rule the sessions already follow. A
+    /// subagent whose whole record fell outside the horizon has nothing to contribute to a
+    /// duration, and an entry with no intervals would be an agent claiming to have been
+    /// measured.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_whose_whole_record_falls_outside_the_horizon_is_absent_rather_than_empty()
+    {
+        // Written well inside the horizon, so it is opened rather than skipped on its
+        // mtime: this is about the clipping and not about the cheap test in front of it.
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-ancient.jsonl",
+            Noon,
+            Sidechain("parent", "ancient", Horizon.AddHours(-3), "one"),
+            Sidechain("parent", "ancient", Horizon.AddHours(-3).AddMinutes(2), "two"));
+
+        Assert.Empty((await ReadAsync()).Subagents);
+    }
+
+    /// <summary>Clipped to the horizon rather than dropped at it, so an agent that began
+    /// before the window reports the part of itself inside it.</summary>
+    [Fact]
+    public async Task A_subagent_run_that_began_before_the_horizon_is_clipped_to_it()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-straddling.jsonl",
+            Noon,
+            Sidechain("parent", "straddling", Horizon.AddMinutes(-2), "one"),
+            Sidechain("parent", "straddling", Horizon.AddMinutes(3), "two"),
+            Sidechain("parent", "straddling", Horizon.AddMinutes(4), "three"));
+
+        var run = Assert.Single(Assert.Single((await ReadAsync()).Subagents).Runs);
+
+        Assert.Equal(Horizon, run.StartedAt);
+        Assert.Equal(Horizon.AddMinutes(4), run.EndedAt);
+    }
+
+    /// <summary>
+    /// The mtime skip is what keeps a read over 1,146 extra files bounded, and it is
+    /// inherited rather than rewritten. Proved the way the sessions prove it: the stale
+    /// file is held open exclusively, so a read that opened it would fail, and it is full
+    /// of events that are inside the horizon, so a read that opened it successfully would
+    /// report them.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_transcript_untouched_since_before_the_horizon_is_never_opened()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-stale.jsonl",
+            Horizon.AddDays(-1),
+            Sidechain("parent", "stale", Yesterday, "one"),
+            Sidechain("parent", "stale", Yesterday.AddMinutes(20), "two"));
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-fresh.jsonl",
+            Noon,
+            Sidechain("parent", "fresh", Yesterday, "one"),
+            Sidechain("parent", "fresh", Yesterday.AddMinutes(2), "two"));
+
+        await using var _ = new FileStream(
+            SpawnedPath("D--Repos-Backlog", "parent", "subagents/agent-stale.jsonl"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var log = await ReadAsync();
+
+        Assert.Equal("fresh", Assert.Single(log.Subagents).Id);
+        Assert.Empty(log.Unreadable);
+    }
+
+    /// <summary>
+    /// The same cache, the same key, and no new port. A finished sidechain never changes,
+    /// so it is parsed once ever — proved by locking it after the first read, which a
+    /// second trip to the disk would fail on.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_transcript_is_parsed_once_and_read_from_the_cache_after()
+    {
+        GivenClaudeTranscript(
+            "D--Repos-Backlog",
+            "parent",
+            [(Yesterday, false), (Yesterday.AddMinutes(3), false)],
+            lastWrite: Noon);
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "parent",
+            "subagents/agent-remembered.jsonl",
+            Noon,
+            Sidechain("parent", "remembered", Yesterday, "one"),
+            Sidechain("parent", "remembered", Yesterday.AddMinutes(4), "two"));
+
+        var cache = new RecordingCache();
+
+        Assert.Single((await ReadAsync(cache)).Subagents);
+
+        // The parent and the agent, one entry each and no more: the agent went through
+        // the same path rather than round it.
+        Assert.Equal(2, cache.Writes);
+
+        await using var _ = new FileStream(
+            SpawnedPath("D--Repos-Backlog", "parent", "subagents/agent-remembered.jsonl"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var agent = Assert.Single((await ReadAsync(cache)).Subagents);
+
+        Assert.Equal(TimeSpan.FromMinutes(4), agent.Runs.Single().EndedAt - agent.Runs.Single().StartedAt);
+        Assert.Equal(2, cache.Writes);
+    }
+
+    /// <summary>
+    /// One session's permissions cost one session. The enumeration is guarded per session
+    /// rather than per agent, so a folder that cannot be listed loses its own agents and
+    /// leaves both the next session's agents and Claude's own name off the unreadable
+    /// list — naming the whole agent over one folder would blank a grid the rest of the
+    /// profile can fill.
+    /// <para>
+    /// Windows only: denying yourself a directory is the only way to produce this
+    /// deliberately, the way <c>DpapiDeviceCredentialStoreTests</c> already guards.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_subagents_folder_that_cannot_be_read_costs_that_session_and_not_the_agent()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "denied",
+            "subagents/agent-hidden.jsonl",
+            Noon,
+            Sidechain("denied", "hidden", Yesterday, "one"),
+            Sidechain("denied", "hidden", Yesterday.AddMinutes(2), "two"));
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "readable",
+            "subagents/agent-visible.jsonl",
+            Noon,
+            Sidechain("readable", "visible", Yesterday, "one"),
+            Sidechain("readable", "visible", Yesterday.AddMinutes(2), "two"));
+
+        var folder = new DirectoryInfo(
+            Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "denied", "subagents"));
+
+        var denial = new FileSystemAccessRule(
+            WindowsIdentity.GetCurrent().User!,
+            FileSystemRights.ListDirectory,
+            AccessControlType.Deny);
+
+        Deny(folder, denial);
+
+        try
+        {
+            var log = await ReadAsync();
+
+            Assert.Equal("visible", Assert.Single(log.Subagents).Id);
+            Assert.Empty(log.Unreadable);
+        }
+        finally
+        {
+            Allow(folder, denial);
+        }
+    }
+
+    /// <summary>Most sessions spawn nothing, and that is not an absence to report. The
+    /// session is itself exactly as it was, and the agents list simply has nothing from
+    /// it.</summary>
+    [Fact]
+    public async Task A_session_with_no_subagents_folder_still_reports_itself_and_reports_no_agents()
+    {
+        GivenClaudeTranscript(
+            "D--Repos-Backlog",
+            "solitary",
+            [(Yesterday, false), (Yesterday.AddMinutes(3), false)],
+            lastWrite: Noon);
+
+        var log = await ReadAsync();
+
+        Assert.Equal("solitary", Assert.Single(log.Sessions).Id);
+        Assert.Empty(log.Subagents);
+    }
+
+    /// <summary>
+    /// The dedupe rule the session walk already carries, applied to the folder beside it.
+    /// A session resumed in a worktree it did not start in is filed under a second slug
+    /// while keeping its id, and there is no reason that would spare the agents filed
+    /// under it. The more recently written copy wins, because it is the one the agent went
+    /// on appending to.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_filed_under_two_project_folders_is_one_agent()
+    {
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog--claude-worktrees-where-it-started",
+            "parent",
+            "subagents/agent-twice.jsonl",
+            Noon.AddDays(-3),
+            Sidechain("parent", "twice", Noon.AddDays(-3), "one"),
+            Sidechain("parent", "twice", Noon.AddDays(-3).AddMinutes(10), "two"));
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog--claude-worktrees-where-it-carried-on",
+            "parent",
+            "subagents/agent-twice.jsonl",
+            Noon,
+            Sidechain("parent", "twice", Yesterday, "one"),
+            Sidechain("parent", "twice", Yesterday.AddMinutes(2), "two"));
+
+        var agent = Assert.Single((await ReadAsync()).Subagents);
+        var run = Assert.Single(agent.Runs);
+
+        Assert.Equal(Yesterday, run.StartedAt);
+        Assert.Equal(TimeSpan.FromMinutes(2), run.EndedAt - run.StartedAt);
+    }
+
+    /// <summary>Copilot spawns none, so there is no Copilot path to invent. An empty list
+    /// here is a fact about Copilot rather than a gap in the read.</summary>
+    [Fact]
+    public async Task Copilot_contributes_no_subagents()
+    {
+        GivenCopilotEvents(
+            "chatting",
+            [(Yesterday, "assistant.turn_start"), (Yesterday.AddMinutes(2), "assistant.turn_end")],
+            lastWrite: Noon);
+
+        var log = await ReadAsync();
+
+        Assert.Single(log.Sessions);
+        Assert.Empty(log.Subagents);
+    }
+
     private Task<AgentActivityLog> ReadAsync(IAgentActivityCache? cache = null) =>
         new LocalAgentActivitySource(ClaudeHome, CopilotHome, MachineId, Machine, cache)
             .GetActivityAsync(Horizon);
@@ -664,6 +1098,54 @@ public sealed class AgentActivitySourceTests : IDisposable
 
     private string TranscriptPath(string slug, string id) =>
         Path.Combine(ClaudeHome, "projects", slug, $"{id}.jsonl");
+
+    /// <summary>
+    /// One file inside a session's own folder — a sidechain transcript, a Workflow
+    /// journal, a meta sidecar. The path is given relative to that folder and spelled
+    /// with forward slashes, because the shape of the path <em>is</em> what these facts
+    /// are about: a rule that only recognised one of the two depths would pass half of
+    /// them.
+    /// </summary>
+    private void GivenClaudeFileSpawnedBy(
+        string slug,
+        string sessionId,
+        string relativePath,
+        DateTimeOffset lastWrite,
+        params string[] lines)
+    {
+        var path = SpawnedPath(slug, sessionId, relativePath);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllLines(path, lines);
+        File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);
+    }
+
+    private string SpawnedPath(string slug, string sessionId, string relativePath) =>
+        Path.Combine(
+            ClaudeHome,
+            "projects",
+            slug,
+            sessionId,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+    /// <summary>
+    /// One line of a subagent's transcript, in the shape Claude really writes one:
+    /// <c>isSidechain</c> true, an <c>agentId</c>, the spawning session's id, and no
+    /// <c>promptSource</c> anywhere. The last of those is the point — it is what makes a
+    /// subagent's waits structurally impossible rather than merely rare.
+    /// </summary>
+    private static string Sidechain(string sessionId, string agentId, DateTimeOffset at, string text) =>
+        $$$"""
+        {"parentUuid":null,"isSidechain":true,"agentId":"{{{agentId}}}","userType":"external","cwd":"D:\\Repos\\Backlog","sessionId":"{{{sessionId}}}","version":"2.1.229","gitBranch":"main","type":"assistant","message":{"id":"msg_01Hs","type":"message","role":"assistant","model":"claude-opus-4-5-20260101","content":[{"type":"text","text":"{{{text}}}"}],"usage":{"input_tokens":4,"output_tokens":9}},"requestId":"req_011CT","uuid":"5d6e7f8a-9b0c-4d1e-8f2a-3b4c5d6e7f80","timestamp":"{{{Stamp(at)}}}"}
+        """;
+
+    /// <summary>A sidechain's user turn, which is a tool result and never a prompt. This
+    /// is the only shape one comes in, which is why no gap inside one of these files can
+    /// end in a wait.</summary>
+    private static string SidechainToolResult(string sessionId, string agentId, DateTimeOffset at) =>
+        $$"""
+        {"parentUuid":"5d6e7f8a-9b0c-4d1e-8f2a-3b4c5d6e7f80","isSidechain":true,"agentId":"{{agentId}}","userType":"external","cwd":"D:\\Repos\\Backlog","sessionId":"{{sessionId}}","version":"2.1.229","gitBranch":"main","type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_01Wq","type":"tool_result","content":"Done."}]},"uuid":"6e7f8a9b-0c1d-4e2f-9a3b-4c5d6e7f8a91","timestamp":"{{Stamp(at)}}"}
+        """;
 
     private static string Prompt(string id, DateTimeOffset at, string source) =>
         $$"""

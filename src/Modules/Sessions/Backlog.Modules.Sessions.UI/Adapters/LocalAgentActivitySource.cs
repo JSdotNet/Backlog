@@ -81,13 +81,17 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         CancellationToken cancellationToken = default)
     {
         var sessions = new List<AgentSessionActivity>();
+        var subagents = new List<SubagentActivity>();
         var unreadable = new List<string>();
 
         foreach (var reader in Readers(since, cancellationToken))
         {
             try
             {
-                sessions.AddRange(await reader.Read().ConfigureAwait(false));
+                var read = await reader.Read().ConfigureAwait(false);
+
+                sessions.AddRange(read.Sessions);
+                subagents.AddRange(read.Subagents);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
             {
@@ -99,10 +103,26 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
             }
         }
 
-        return new AgentActivityLog(sessions, unreadable, since, AgentActivityRuns.IdleAfter);
+        return new AgentActivityLog(sessions, unreadable, since, AgentActivityRuns.IdleAfter)
+        {
+            Subagents = subagents
+        };
     }
 
-    private (string Name, Func<Task<IReadOnlyList<AgentSessionActivity>>> Read)[] Readers(
+    /// <summary>
+    /// What one agent's reader produced: the sessions it found, and whatever those
+    /// sessions spawned.
+    /// <para>
+    /// One return rather than a second pass, so both halves sit inside the same guard
+    /// above and a catastrophic failure names that agent exactly once. Two calls would
+    /// let one agent appear twice on a list the surface prints as a sentence.
+    /// </para>
+    /// </summary>
+    private sealed record AgentRead(
+        IReadOnlyList<AgentSessionActivity> Sessions,
+        IReadOnlyList<SubagentActivity> Subagents);
+
+    private (string Name, Func<Task<AgentRead>> Read)[] Readers(
         DateTimeOffset since,
         CancellationToken cancellationToken) =>
     [
@@ -115,7 +135,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// walks, deduped by the same rule, through the same helper. Two copies of that rule
     /// is what <see cref="ClaudeTranscripts"/> exists to prevent.
     /// </summary>
-    private async Task<IReadOnlyList<AgentSessionActivity>> ReadClaudeAsync(
+    private async Task<AgentRead> ReadClaudeAsync(
         DateTimeOffset since,
         CancellationToken cancellationToken)
     {
@@ -135,21 +155,89 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
             if (activity is not null) sessions.Add(activity);
         }
 
-        return sessions;
+        return new AgentRead(sessions, await ReadClaudeSubagentsAsync(since, cancellationToken).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// The agents those sessions spawned, out of the sidechain transcripts filed under
+    /// each session's own folder — <see cref="ClaudeTranscripts.Spawned"/> decides which
+    /// files those are, from the same place the session rule lives.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Everything expensive about this read is inherited rather than restated. The same
+    /// mtime skip keeps 1,146 extra files bounded by not opening them, the same cache
+    /// entry means a finished sidechain is parsed once ever, and the same whole-file fold
+    /// before clipping is what keeps moving the period control a derivation. A separate
+    /// path here would be a second copy of all three, free to lose any of them quietly.
+    /// </para>
+    /// <para>
+    /// <see cref="ClaudeTranscriptEvents.ReadAsync"/> is reused unchanged, and that is
+    /// checked rather than assumed: the only line types a sidechain file holds are
+    /// <c>user</c>, <c>assistant</c> and <c>attachment</c>, which is exactly the closed
+    /// list that reader admits.
+    /// </para>
+    /// <para>
+    /// The fold's waits are dropped here, the way the grid drops the open sweep's totals.
+    /// The cache may hold them — they are an output of a shared fold — but the contract
+    /// may not, because a list of waits on a subagent would be a published claim that one
+    /// can wait, and no sidechain on any profile carries the field that would evidence it.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<SubagentActivity>> ReadClaudeSubagentsAsync(
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        var agents = new List<SubagentActivity>();
+
+        foreach (var (sessionId, agentId, transcript) in ClaudeTranscripts.Spawned(_claudeHome))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var entry = await EntryOf(
+                transcript,
+                path => ClaudeTranscriptEvents.ReadAsync(path, cancellationToken),
+                since).ConfigureAwait(false);
+
+            if (entry is null) continue;
+
+            var runs = Clip(entry.Runs, since);
+
+            // Absent rather than present-and-empty, the rule the sessions are already
+            // read under: an agent whose whole record fell outside the horizon has
+            // nothing to contribute to a concurrency figure, and an entry with no
+            // intervals would be an agent claiming to have been measured.
+            if (runs.Count == 0) continue;
+
+            agents.Add(new SubagentActivity(
+                agentId,
+                sessionId,
+                AgentSessionKind.Claude,
+                _environmentId,
+                _environment,
+                runs));
+        }
+
+        return agents;
     }
 
     /// <summary>
     /// Copilot's history, one folder per session. No dedupe rule here and none needed:
     /// the folder <em>is</em> the session id, so a session cannot be filed twice the way
     /// a Claude transcript can.
+    /// <para>
+    /// And no subagents, ever. Copilot spawns none, so an empty list here is a fact about
+    /// Copilot rather than a path nobody got round to writing — inventing one would mean
+    /// guessing at a folder shape that does not exist.
+    /// </para>
     /// </summary>
-    private async Task<IReadOnlyList<AgentSessionActivity>> ReadCopilotAsync(
+    private async Task<AgentRead> ReadCopilotAsync(
         DateTimeOffset since,
         CancellationToken cancellationToken)
     {
         var folder = new DirectoryInfo(Path.Combine(_copilotHome, "session-state"));
 
-        if (!folder.Exists) return [];
+        if (!folder.Exists) return new AgentRead([], []);
 
         var sessions = new List<AgentSessionActivity>();
 
@@ -174,11 +262,38 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
             if (activity is not null) sessions.Add(activity);
         }
 
-        return sessions;
+        return new AgentRead(sessions, []);
     }
 
     /// <summary>
-    /// One file's record, or null when it has nothing to say inside the horizon.
+    /// One session's record, or null when it has nothing to say inside the horizon.
+    /// Clipping and the record itself; everything before that is
+    /// <see cref="EntryOf"/>'s, which the subagents go through as well.
+    /// </summary>
+    private async Task<AgentSessionActivity?> ActivityOf(
+        string id,
+        AgentSessionKind kind,
+        FileInfo file,
+        Func<string, Task<IReadOnlyList<ActivityEvent>>> read,
+        DateTimeOffset since)
+    {
+        var entry = await EntryOf(file, read, since).ConfigureAwait(false);
+
+        if (entry is null) return null;
+
+        var runs = Clip(entry.Runs, since);
+        var waits = Clip(entry.Waits, since);
+
+        // Absent rather than present-and-empty. A session whose whole record fell outside
+        // the horizon, or that left one lone event, has nothing to contribute to a
+        // duration — and the session list is already the place that says it existed.
+        return runs.Count == 0 && waits.Count == 0
+            ? null
+            : new AgentSessionActivity(id, kind, _environmentId, _environment, runs, waits);
+    }
+
+    /// <summary>
+    /// One file's whole-file fold, or null when it was skipped or could not be read.
     /// <para>
     /// The mtime test is what makes a twelve-week read bounded rather than all-time, and
     /// it is safe because a file's last write is its last event's own upper bound: a
@@ -191,10 +306,14 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
     /// of here would cost every record of that agent and report the agent as unreadable
     /// into the bargain. One record is the proportionate answer to one locked file.
     /// </para>
+    /// <para>
+    /// Whole-file and unclipped, which is what lets both callers share it. A session and
+    /// an agent it spawned differ in what they build out of the fold and in nothing before
+    /// it, so the mtime skip, the cache and the guard have one home rather than two free
+    /// to drift — and the second read inherits every one of them by construction.
+    /// </para>
     /// </summary>
-    private async Task<AgentSessionActivity?> ActivityOf(
-        string id,
-        AgentSessionKind kind,
+    private async Task<AgentActivityEntry?> EntryOf(
         FileInfo file,
         Func<string, Task<IReadOnlyList<ActivityEvent>>> read,
         DateTimeOffset since)
@@ -227,15 +346,7 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
             _cache?.Write(file.FullName, writtenAt, entry);
         }
 
-        var runs = Clip(entry.Runs, since);
-        var waits = Clip(entry.Waits, since);
-
-        // Absent rather than present-and-empty. A session whose whole record fell outside
-        // the horizon, or that left one lone event, has nothing to contribute to a
-        // duration — and the session list is already the place that says it existed.
-        return runs.Count == 0 && waits.Count == 0
-            ? null
-            : new AgentSessionActivity(id, kind, _environmentId, _environment, runs, waits);
+        return entry;
     }
 
     /// <summary>

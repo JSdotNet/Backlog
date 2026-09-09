@@ -192,6 +192,50 @@ public sealed record AssistantSessionsInsight(
     public IReadOnlyList<ActivityDay> ActivityByDay { get; init; } = [];
 
     /// <summary>
+    /// The most sessions that were producing at one instant anywhere in the window, and
+    /// the local hour that first happened in — or null when nothing produced.
+    /// <para>
+    /// Producing rather than open, so it is the first grid's measure and not the second's:
+    /// a session stopped with nothing having prompted it yet is on the go and is not
+    /// working, and the two figures are far apart on a real profile.
+    /// </para>
+    /// <para>
+    /// Read out of the same sweep <see cref="ActivityByHour"/> is drawn from, never a
+    /// second pass. The window's true maximum falls inside some hour and that hour's cell
+    /// recorded it, so the tile and the grid cannot have measured differently — the rule
+    /// <see cref="ActiveTime"/> is already summed under.
+    /// </para>
+    /// <para>
+    /// <b>This follows the period control and the grid does not.</b> Twelve weeks reaches
+    /// further back than seven days, so a peak named here may sit outside every row drawn
+    /// below it. That is the part's sentence to say, and it says it.
+    /// </para>
+    /// </summary>
+    public ConcurrencyPeak? MostSessionsAtOnce { get; init; }
+
+    /// <summary>
+    /// The most agents the sessions had spawned and running at one instant anywhere in the
+    /// window, and the local hour that first happened in — or null when none was spawned.
+    /// <para>
+    /// Counted apart from the sessions and never with them. A subagent always overlaps the
+    /// session that spawned it — that is what spawning means — so one sweep over both
+    /// would report two of something that never existed, and no figure above this one
+    /// includes them.
+    /// </para>
+    /// <para>
+    /// Claude's alone, because Copilot spawns none. That is a fact about Copilot rather
+    /// than a gap in the read, and it is the same admission the waiting figure already
+    /// carries the other way round.
+    /// </para>
+    /// <para>
+    /// Not comparable to <see cref="MostSessionsAtOnce"/> and not a share of it: one
+    /// session can hold five of these at once, so neither bounds the other. The surface
+    /// may set them side by side; it may not divide them.
+    /// </para>
+    /// </summary>
+    public ConcurrencyPeak? MostAgentsAtOnce { get; init; }
+
+    /// <summary>
     /// The gap that ends a run, as the source reported it. Carried so the footnote can
     /// name the source's number rather than keeping a second copy of it —
     /// <see cref="CapPerAssistant"/>'s precedent, and it matters more here: the answer
