@@ -4537,8 +4537,22 @@ h1, h2, h3 {
         max-height: none;
     }
 
-    /* Stacked, there is no vertical edge left to drag. */
-    .pane-resizer {
+    /* Stacked, there is no vertical edge left to drag — this layout's separator,
+       said as such rather than by the class alone.
+
+       The class is `SplitPane`'s and this layout's separator borrows it on purpose,
+       which `SharedControlAdoptionTests` records; every split in the app wears the
+       same one. So a rule naming only `.pane-resizer` reaches the split inside the
+       pane as well, and that split is still side by side here — it has its own step,
+       at 60rem. Between the two it kept the three-track template with two items left
+       in it, and the entry auto-placed into the track the separator had vacated:
+       measured with an entry open, 624px 236px 236px at 1152 where the third track
+       gives it 456px. The reader lost about half the entry and, with it, the handle
+       that could have dragged the rest back.
+
+       A child combinator because that split is a descendant of this layout too, only
+       further down — through the tasks workspace. */
+    .knowledge-layout > .pane-resizer {
         display: none;
     }
 
