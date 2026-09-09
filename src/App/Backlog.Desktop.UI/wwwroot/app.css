@@ -4537,8 +4537,22 @@ h1, h2, h3 {
         max-height: none;
     }
 
-    /* Stacked, there is no vertical edge left to drag. */
-    .pane-resizer {
+    /* Stacked, there is no vertical edge left to drag — this layout's own edge,
+       and only it.
+
+       `.pane-resizer` is not this layout's word. It is the shared resizer block in
+       components.css, and every SplitPane the library renders puts it on the
+       separator too, so a bare selector here was a rule about all of them. The
+       backlog split reads it: that split does not stack until 60rem and this step
+       is 72rem, so for the whole 12rem in between its separator was gone while its
+       grid was still three columns wide — and a hidden child is not a grid item, so
+       the entry panel slid into the separator's 8px track and the panel's own track
+       stood empty at the edge of the window. `624px 172px 172px` at 1024px, with
+       nothing dragged.
+
+       The child combinator is the scope: this layout's edge is its direct child
+       (Home.razor), and a split nested anywhere inside it is not. */
+    .knowledge-layout > .pane-resizer {
         display: none;
     }
 

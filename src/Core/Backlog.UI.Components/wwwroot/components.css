@@ -8032,6 +8032,35 @@ select.field__input {
     grid-template-columns: minmax(min(100%, var(--pane-min-width, 0px)), 1fr) auto minmax(0, var(--split-pane-fixed, 36rem));
 }
 
+/*
+  And each part is told which track is its own, rather than counted into it.
+
+  Three children in the order of three tracks place themselves correctly, right up
+  until one of them is not a child any more. The separator wears `.pane-resizer`,
+  which is also what the app's knowledge layout calls its own edge, and a stylesheet
+  outside this library hid every element with that class at a width where this split
+  was still side by side. A `display: none` child is not a grid item: the split lost
+  the middle of its three, and the trailing pane slid one column left into the 8px
+  track the separator had left behind, with its own track standing empty at the far
+  edge. Measured, at a 1024px window: `624px 172px 172px`, the last of them nothing.
+
+  Naming the columns is what makes that a missing handle instead of a broken layout.
+  Placements and not a second template, because the anchor swaps which track is the
+  fixed one and never the order the children are rendered in — `.split-pane--end`
+  has nothing to say here.
+*/
+.split-pane__start {
+    grid-column: 1;
+}
+
+.split-pane__separator {
+    grid-column: 2;
+}
+
+.split-pane__end {
+    grid-column: 3;
+}
+
 .split-pane__start,
 .split-pane__end {
     min-width: 0;
