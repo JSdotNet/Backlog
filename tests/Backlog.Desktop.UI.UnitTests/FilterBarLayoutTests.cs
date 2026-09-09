@@ -209,7 +209,7 @@ public sealed class FilterBarLayoutTests
         Assert.Contains("width: var(--spacing-md);", dot, StringComparison.Ordinal);
 
         // The word goes, not the control — and not the words in the list it opens,
-        // which .status-editor__select option draws in full colour.
+        // which `select option` draws in full colour.
         Assert.Contains("color: transparent;", dot, StringComparison.Ordinal);
 
         // Tokens only: no literal length, colour or font in any of it.

@@ -593,11 +593,6 @@ button.badge:hover {
     appearance: none;
 }
 
-.status-editor__select option {
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-}
-
 .status-editor__select:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 1px;
@@ -775,11 +770,6 @@ button.badge:hover {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-}
-
-.metadata-editor__select option {
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
 }
 
 .status-editor__select::-ms-expand,
@@ -5727,18 +5717,35 @@ button.tag-chip__label {
     border-width: var(--border-width-2);
 }
 
-/* SelectField's form shape wears field__input, so the border, the padding and
-   the focus ring above are already the ones the inputs beside it use. The only
-   thing written here is what a <select> has and an <input> does not: a list the
-   platform paints itself, which defaults to black on white and so has to be told
-   the theme's colours - the same reason the inline shape carries the rule too. */
-select.field__input {
-    cursor: pointer;
-}
+/*
+  A select's list is painted by the platform, not by the page, and it defaults to
+  black on white - so in a product with no light theme it has to be told the
+  theme's colours or the control reads correctly and the list it opens does not.
 
-select.field__input option {
+  Keyed on the element, because a class only covers the selects wearing it. This
+  was written three times over - once each for `.status-editor__select`,
+  `.metadata-editor__select` and `select.field__input` - and `SelectField` lets a
+  host replace that class outright through `SelectCssClass`. Four selects did,
+  and opened an unreadable list: the knowledge source picker and three in
+  settings. Both host classes dress the control in the host's own stylesheet and
+  neither dresses the list, `setting__input` because it was written for a
+  TextField's input and pointed at a select later. `BadgeSelect` builds its class
+  from a parameter, so it was one argument away from the same hole.
+
+  No `optgroup` rule beside it: nothing in the product emits one. `SelectField`
+  ignores `SelectorOption.Group`, and `TagMultiSelect` - the one component that
+  honours it - is a listbox of its own rather than a native select.
+*/
+select option {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+}
+
+/* SelectField's form shape wears field__input, so the border, the padding and
+   the focus ring above are already the ones the inputs beside it use. The only
+   thing left is what a <select> has and an <input> does not. */
+select.field__input {
+    cursor: pointer;
 }
 
 .field__help {
