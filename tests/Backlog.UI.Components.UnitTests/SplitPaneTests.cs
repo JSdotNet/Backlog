@@ -175,4 +175,43 @@ public sealed class SplitPaneTests
 
         Assert.Equal(48d, width);
     }
+
+    /// <summary>
+    /// The pane draws the width it says it has.
+    /// <para>
+    /// The room a pane may take is measured in the browser and pushed back through
+    /// <c>SetSidePaneMaxWidthAsync</c>, and a drag has always been clamped to it. The
+    /// render was not: the host's stored width went out to the grid and to
+    /// <c>aria-valuenow</c> whatever the measurement said, so a pane that had been
+    /// dragged wide on a large window came back on a small one asking for a width
+    /// that was not there — and the grid gave it what it could while the separator
+    /// went on announcing the number nobody could see.
+    /// </para>
+    /// <para>
+    /// Clamped for the render only. The parameter keeps the reader's number, so a
+    /// window that grows gives the width back rather than having quietly lost it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_measured_room_clamps_the_width_the_pane_draws()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = context.Render<SplitPane>(parameters => parameters
+            .Add(p => p.FixedWidthRem, 40)
+            .Add(p => p.MinRem, 24));
+
+        await pane.InvokeAsync(() => pane.Instance.SetSidePaneMaxWidthAsync(30));
+
+        Assert.Contains(
+            "--split-pane-fixed: 30rem",
+            pane.Find("[data-pane-split]").GetAttribute("style") ?? string.Empty,
+            StringComparison.Ordinal);
+
+        var separator = pane.Find("[role='separator']");
+
+        Assert.Equal("30", separator.GetAttribute("aria-valuenow"));
+        Assert.Equal("30", separator.GetAttribute("aria-valuemax"));
+    }
 }

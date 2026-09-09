@@ -7964,11 +7964,29 @@ select.field__input option {
 /*
   The separator styling is the `pane-resizer` block above; this is only the
   grid that gives the two panes their widths.
+
+  Both templates are one arrangement read from opposite ends, and both say the
+  same two things. The fixed pane asks for `--split-pane-fixed` and gives it back
+  when there is not that much; the flexible one never goes below
+  `--pane-min-width`, the measurement declared at the top of this file as how
+  little room the resizer must leave the content beside the pane.
+
+  That minimum used to hold against a drag and not against the layout. The fixed
+  track was a plain length, so the grid owed it in full before the other pane got
+  anything, and `minmax(0, 1fr)` let that pane go to nothing — which it did: a
+  36rem panel beside a list on a window with room for one of them left the list
+  narrower than its own rows could be operated at, with nothing dragged. A floor
+  the reader can cross by hand and the layout cannot hand them is the only kind
+  worth declaring, so the grid reads the same custom property the pointer does.
+
+  `min(100%, …)` on the floor because a minimum may starve the pane beside it and
+  never the window: in a split too narrow to seat the floor at all, the floor
+  becomes the whole split rather than pushing the grid out of its own box.
 */
 
 .split-pane {
     display: grid;
-    grid-template-columns: var(--split-pane-fixed, 36rem) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, var(--split-pane-fixed, 36rem)) auto minmax(min(100%, var(--pane-min-width, 0px)), 1fr);
     align-items: stretch;
     min-height: 0;
 }
@@ -7983,7 +8001,7 @@ select.field__input option {
   attribute names.
 */
 .split-pane--end {
-    grid-template-columns: minmax(0, 1fr) auto var(--split-pane-fixed, 36rem);
+    grid-template-columns: minmax(min(100%, var(--pane-min-width, 0px)), 1fr) auto minmax(0, var(--split-pane-fixed, 36rem));
 }
 
 .split-pane__start,
