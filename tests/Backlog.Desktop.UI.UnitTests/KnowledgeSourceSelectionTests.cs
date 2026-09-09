@@ -123,6 +123,40 @@ public sealed class KnowledgeSourceSelectionTests : IDisposable
         Assert.Single(selection.Options("backlog"), option => option.Value == "main");
     }
 
+    /// <summary>
+    /// One section, holding the branches and nothing else.
+    ///
+    /// <para>The list mixes four kinds of entry — a default, the branches, the local
+    /// clone, and an action that fetches more — and only the branches are the same
+    /// kind of thing as each other. <c>SelectField</c> draws that as an
+    /// <c>optgroup</c>, so the group names decide what the reader sees; a stored
+    /// branch that named a different section than a loaded one would split the
+    /// branches into two headings that mean the same thing.</para>
+    ///
+    /// <para>Asserted as positions rather than as a set, because a section is a run:
+    /// a branch that drifted below "Local clone" would open a second heading without
+    /// any group name having changed.</para>
+    /// </summary>
+    [Fact]
+    public async Task Only_the_branches_form_a_section_and_they_form_one_section()
+    {
+        var settings = Settings(withClone: true);
+        Assert.Null(settings.SetKnowledgeSource("backlog", "release/2.0", useLocalFolder: false));
+
+        var selection = Selection(settings, new StubBranchCatalog { Branches = { "main" } });
+        Assert.Null(await selection.LoadBranchesAsync("backlog", TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            [null, "Branches", "Branches", null],
+            selection.Options("backlog").Select(option => option.Group));
+
+        // The configured branch names the section; "Configured" is its hint, which
+        // is a different field and reaches the reader a different way.
+        var configured = selection.Options("backlog").Single(option => option.Value == "release/2.0");
+        Assert.Equal("Branches", configured.Group);
+        Assert.Equal("Configured", configured.Hint);
+    }
+
     // --- What it currently reads ---------------------------------------------
 
     /// <summary>The upgrade default, seen through the control: a repository with a

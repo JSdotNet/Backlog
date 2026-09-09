@@ -5732,13 +5732,29 @@ button.tag-chip__label {
   TextField's input and pointed at a select later. `BadgeSelect` builds its class
   from a parameter, so it was one argument away from the same hole.
 
-  No `optgroup` rule beside it: nothing in the product emits one. `SelectField`
-  ignores `SelectorOption.Group`, and `TagMultiSelect` - the one component that
-  honours it - is a listbox of its own rather than a native select.
+  The `optgroup` rule beside it is the same rule for the same reason. `SelectField`
+  and `BadgeSelect` draw `SelectorOption.Group` as native sections, so the platform
+  now paints a heading inside that list as well as the options - and it paints it
+  from the same black-on-white default. Keyed on the element for the same reason
+  again: there is no class to key it on that a host cannot replace.
+
+  The heading is the quieter of the two. It names a section rather than offering a
+  value, and `--color-text-secondary` is what the library already reaches for when
+  a label has to read as subordinate to the thing it labels.
+
+  Neither rule can be verified in a browser. The list a select opens is an OS
+  window, not part of the page: it is absent from the DOM, from a screenshot, and
+  from anything Playwright can reach. What is checkable is that the rules exist and
+  are stated in tokens, which is what `SelectOptionStylingTests` asserts.
 */
 select option {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+}
+
+select optgroup {
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
 }
 
 /* SelectField's form shape wears field__input, so the border, the padding and
