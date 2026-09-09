@@ -337,6 +337,25 @@
 
 /* --- Buttons ------------------------------------------------------------- */
 
+/*
+  The stem carried the metrics every variant is built on but none of the paint,
+  so a button that took no modifier at all — `ButtonVariant.None`, the escape
+  hatch for a host that dresses plain `.btn` itself — fell through to the user
+  agent's `buttonface` and `buttontext`: a light grey slab under near-black ink,
+  in a product with no light theme. It was reported from the settings screen,
+  where seventeen buttons take that variant, as buttons that were white and
+  could not be read.
+
+  Both halves, for the reason `.btn--toggle` needed both: a transparent fill
+  alone would trade a wrong slab for an unreadable label. `inherit` rather than
+  a token because the stem is what a host wraps around its own text — the same
+  answer `.btn--icon` gives — and every variant that wants ink of its own says
+  so, later in this file.
+
+  The border stays transparent. Colouring it here would put an edge on
+  `--primary` and `--ghost`, which state no `border-color` and rely on that;
+  a host rendering a bare `.btn` gives it a boundary itself.
+*/
 .btn {
     font: inherit;
     font-size: var(--font-size-sm);
@@ -344,6 +363,8 @@
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--border-radius-md);
     border: var(--border-width) solid transparent;
+    background: transparent;
+    color: inherit;
     cursor: pointer;
     transition: background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
