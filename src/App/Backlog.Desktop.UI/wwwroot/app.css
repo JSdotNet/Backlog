@@ -1831,19 +1831,28 @@ h1, h2, h3 {
     margin-top: var(--spacing-md);
 }
 
-.setting__actions .btn {
+/*
+  Both places render `ButtonVariant.None`, which is a promise to dress plain
+  `.btn` here rather than take a modifier the host would have to undo. This kept
+  half of that promise — an edge and a quieter ink — and the repository cards
+  kept none of it. The platform's `buttonface` hid the gap by painting a slab
+  under both until the library stopped letting it, so the whole outline is
+  stated here now.
+
+  The disabled state is not restated. `.btn:disabled` already carries it, and
+  the copy here only differed by fading harder — 0.4 against the library's 0.55
+  — on the two buttons the contrast was reported against.
+*/
+.setting__actions .btn,
+.repo-card__header .btn {
     border-color: var(--color-border);
     color: var(--color-text-secondary);
 }
 
-.setting__actions .btn:hover:not(:disabled) {
+.setting__actions .btn:hover:not(:disabled),
+.repo-card__header .btn:hover:not(:disabled) {
     border-color: var(--color-border-strong);
     color: var(--color-text-primary);
-}
-
-.setting__actions .btn:disabled {
-    opacity: 0.4;
-    cursor: default;
 }
 
 .setting__note {
