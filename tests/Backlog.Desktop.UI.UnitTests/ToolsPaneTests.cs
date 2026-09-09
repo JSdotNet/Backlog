@@ -660,6 +660,48 @@ public sealed class ToolsPaneTests
         Assert.DoesNotContain("Up to date", actions, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// AC6. An MCP server registered by the command it declares has no package,
+    /// so there is nothing for an Install to install and no version for an Update
+    /// to move to — and the note that replaces them says which of the pane's
+    /// no-mechanism states this is.
+    ///
+    /// <para>"Install by hand", which is what every other row with no mechanism
+    /// reads, would be the wrong afternoon entirely: nobody is going to install
+    /// anything, because the catalog registers this one by its command.</para>
+    /// </summary>
+    [Fact]
+    public void A_command_registered_mcp_row_offers_no_install()
+    {
+        var actions = ActionsFor(CommandRegisteredServer());
+
+        Assert.Contains("No .NET tool to install", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Install by hand", actions, StringComparison.Ordinal);
+
+        // Capitalised, which is what the two buttons would read. The note beside
+        // them says "to install" in lower case.
+        Assert.DoesNotContain("Install<", actions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Update", actions, StringComparison.Ordinal);
+
+        // What the row does keep: the machine can still say it does not want it.
+        Assert.Contains("Disable", actions, StringComparison.Ordinal);
+    }
+
+    /// <summary>AC4 through the column the reader actually looks at: the command
+    /// line stands in for the installed version, and nothing opposite it claims a
+    /// version was looked up.</summary>
+    [Fact]
+    public void A_command_registered_mcp_row_reports_its_command_where_a_version_goes()
+    {
+        using var context = Context(FakeDevToolService.With(CommandRegisteredServer()));
+
+        var row = context.Render<ToolsPane>().Find("[data-tool-key='mcp:aspire']");
+
+        Assert.Contains("aspire agent mcp", row.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Up to date", row.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Version unknown", row.TextContent, StringComparison.Ordinal);
+    }
+
     /// <summary>A marketplace has no version to be behind, so it never earns an
     /// Update the way a tool does. What it has is two states and one verb for
     /// each.</summary>
@@ -803,6 +845,74 @@ public sealed class ToolsPaneTests
         Assert.Equal("jsdotnet-coding-guidelines", draft.ClaudeServerName);
         Assert.Equal("jsdotnet-guidelines-mcpserver", draft.ClaudeCommand);
         Assert.Equal(["agent", "mcp"], draft.ClaudeArgs);
+
+        // The mechanism every entry written before there was a choice was, so it
+        // is what the form submits without being asked.
+        Assert.Equal(DevToolMcpMechanism.DotNetTool, draft.McpMechanism);
+        Assert.Null(draft.ServerCommand);
+    }
+
+    /// <summary>
+    /// AC9. The other kind of MCP server the array holds, which the form could
+    /// not express at all: it only ever asked for a package id, so the one entry
+    /// this repository's own catalog registers by command could not be added
+    /// through the dialog that is meant to write the catalog.
+    /// </summary>
+    [Fact]
+    public void Adding_a_command_registered_mcp_server_sends_the_command_it_was_given()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.McpServer));
+        pane.Find("[data-testid='tools-add-mcp-mechanism'] select").Change(nameof(DevToolMcpMechanism.Command));
+
+        // The package id box is gone with the mechanism that had one: what
+        // identifies this entry is its name.
+        Assert.Empty(pane.FindAll("[data-testid='tools-add-package-id']"));
+
+        pane.Find("[data-testid='tools-add-server-name'] input").Input("aspire");
+        pane.Find("[data-testid='tools-add-server-command'] input").Input("aspire");
+        pane.Find("[data-testid='tools-add-server-args'] input").Input("agent mcp");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        var draft = Assert.Single(service.Added);
+        Assert.Equal(DevToolKind.McpServer, draft.Kind);
+        Assert.Equal(DevToolMcpMechanism.Command, draft.McpMechanism);
+        Assert.Equal("aspire", draft.Id);
+        Assert.Equal("aspire", draft.ServerCommand);
+        Assert.Equal(["agent", "mcp"], draft.ServerArgs);
+
+        // No Claude section: the command above is what every host it targets is
+        // registered with, and a section restating it would be a second place for
+        // the same command to drift.
+        Assert.Null(draft.ClaudeCommand);
+    }
+
+    /// <summary>The same thing the port refuses, refused under the field it is
+    /// about: a server with no package id and no command has nothing to install
+    /// and nothing to register.</summary>
+    [Fact]
+    public void A_command_registered_mcp_server_is_refused_without_a_command()
+    {
+        var service = FakeDevToolService.With();
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-add-open']").Click();
+        pane.Find("[data-testid='tools-add-kind'] select").Change(nameof(DevToolKind.McpServer));
+        pane.Find("[data-testid='tools-add-mcp-mechanism'] select").Change(nameof(DevToolMcpMechanism.Command));
+
+        pane.Find("[data-testid='tools-add-server-name'] input").Input("aspire");
+        pane.Find("[data-testid='tools-add-submit']").Click();
+
+        Assert.Empty(service.Added);
+        Assert.Contains(
+            "needs a command",
+            pane.Find("[data-testid='tools-add-server-command']").TextContent,
+            StringComparison.Ordinal);
     }
 
     /// <summary>The catalog stopped being six rows of AI tooling and became this
@@ -1303,6 +1413,23 @@ public sealed class ToolsPaneTests
         "1.0.0",
         "1.0.0",
         "Enabled plugin");
+
+    /// <summary>The row this repository's own catalog produces for the Aspire CLI
+    /// server: registered by the command it declares, so no package, no published
+    /// version, and nothing to install.</summary>
+    private static DevToolInfo CommandRegisteredServer() => new(
+        "mcp:aspire",
+        DevToolKind.McpServer,
+        "aspire",
+        "aspire agent mcp",
+        ConfiguredEnabled: true,
+        Installed: true,
+        "aspire agent mcp",
+        DevToolOutput.NoVersion,
+        "Registered by the command it declares")
+    {
+        Installable = false
+    };
 
     /// <summary>The one row's action cell, as text. The pane is rendered with a
     /// single tool so the cell is unambiguous without reaching for an index.</summary>

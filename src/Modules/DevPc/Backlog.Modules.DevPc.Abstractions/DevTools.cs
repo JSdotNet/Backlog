@@ -73,6 +73,52 @@ public enum DevToolProvider
 }
 
 /// <summary>
+/// How an <see cref="DevToolKind.McpServer"/> entry gets onto the machine, and
+/// therefore what identifies it.
+///
+/// <para>The array has always held both kinds — one installed as a global .NET
+/// tool, one registered by the command that starts it — and only the first was
+/// ever read. A <c>packageId</c> was taken for the array's identity everywhere:
+/// the <c>mcp:</c> key's property, the per-PC override's property, the display
+/// name, and both version lookups. So the Aspire CLI server, which this
+/// repository's own catalog ships as a command, was dropped before a row was
+/// built and the entry's <c>command</c> was read by nothing at all.</para>
+///
+/// <para>Declared rather than implied, for the reason
+/// <see cref="DevToolProvider"/> is: two mechanisms in one array is exactly the
+/// shape that needs saying out loud. Unlike an application's, it may be left
+/// unsaid — the entry's own shape answers it, a <c>packageId</c> meaning
+/// <see cref="DotNetTool"/> and a bare <c>command</c> meaning
+/// <see cref="Command"/> — because every catalog on every machine predates the
+/// property and none of them is going to grow one.</para>
+/// </summary>
+public enum DevToolMcpMechanism
+{
+    /// <summary>A global .NET tool, installed and updated by its
+    /// <c>packageId</c>, which is also what identifies the entry. The kind every
+    /// version column, every <c>dotnet tool</c> launch and every stored per-PC
+    /// override in the wild is about.</summary>
+    DotNetTool,
+
+    /// <summary>A server registered by the command it declares, identified by its
+    /// <c>name</c>. There is nothing to install: the command is already on the
+    /// machine or it is not, and what the row can act on is the registration with
+    /// each host rather than a package.</summary>
+    Command,
+
+    /// <summary>Nothing this build knows how to install or register — and where
+    /// an entry whose <c>mechanism</c> this version does not recognise lands, for
+    /// the reason <see cref="DevToolProvider.Manual"/> is where an unknown
+    /// <c>provider</c> lands: the safe reading of a mechanism nobody here knows
+    /// is the one that runs nothing.
+    ///
+    /// <para><see cref="DevToolMcpServer.MechanismRecognised"/> is what keeps that
+    /// from being silent, and the row is still drawn — dropping it would hide a
+    /// typo in a hand-edited file behind a row that simply is not there.</para></summary>
+    Manual
+}
+
+/// <summary>
 /// A command an application entry declares, exactly as the catalog spells it.
 ///
 /// <para><paramref name="Args"/> is a list and not a command line because the
@@ -470,6 +516,96 @@ public sealed record DevToolApplication(
 }
 
 /// <summary>
+/// One entry of the catalog's <c>mcpServers</c> array, read into something both
+/// hosts can branch on without each of them deciding for itself what identifies
+/// an entry.
+///
+/// <para>That last part is the whole point of this record. The array holds two
+/// mechanisms, and the property that identifies an entry differs between them —
+/// so the rule is written once, here, and read by the reader that mints the row's
+/// key, by the merge that applies a per-PC override, and by the lookup that
+/// resolves a key back to an entry. A stored identifier that stops matching is
+/// silent user-state loss: an override written under a property the catalog entry
+/// does not carry is a setting that saves successfully and reads back as never
+/// saved.</para>
+/// </summary>
+public sealed record DevToolMcpServer(
+    string Id,
+    string IdName,
+    DevToolMcpMechanism Mechanism,
+    bool Enabled)
+{
+    /// <summary>How the row is addressed, minted the same way every other kind's
+    /// key is — and from <see cref="Id"/>, so a key carries whichever identity
+    /// this entry actually has.</summary>
+    public string Key => DevToolConfiguration.KeyFor(DevToolKind.McpServer, Id);
+
+    /// <summary>The <c>packageId</c>, or empty for a server nothing installs.
+    /// Every <c>dotnet tool</c> launch is about this and only this, which is why
+    /// an empty one has to mean "do not run it" rather than "run it with a blank
+    /// id".</summary>
+    public string PackageId { get; init; } = string.Empty;
+
+    /// <summary>The entry's <c>name</c>: what the row reads as, and what
+    /// identifies it when there is no package.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>The top-level <c>command</c> the entry declares, or empty.</summary>
+    public string Command { get; init; } = string.Empty;
+
+    /// <summary>The arguments that follow it, in order. A list rather than a
+    /// command line for the reason <see cref="DevToolCommandSpec.Args"/> is: they
+    /// are passed through <c>ArgumentList</c>, and hand-quoting loses a path with
+    /// a space in it.</summary>
+    public IReadOnlyList<string> Args { get; init; } = [];
+
+    /// <inheritdoc cref="DevToolClaudeDesktopServer.CommandLine" />
+    public string CommandLine => string.Join(' ', new[] { Command }.Concat(Args)).Trim();
+
+    /// <inheritdoc cref="DevToolInfo.Hosts" />
+    public DevToolHosts Hosts { get; init; } = DevToolHosts.Default;
+
+    /// <summary>The <c>mechanism</c> string exactly as the catalog spelled it, or
+    /// empty when it said nothing — which is the ordinary case, because the
+    /// entry's own shape already answers it.</summary>
+    public string DeclaredMechanism { get; init; } = string.Empty;
+
+    /// <inheritdoc cref="DevToolApplication.ProviderRecognised" />
+    public bool MechanismRecognised { get; init; } = true;
+
+    /// <summary>Whether there is anything to install for this row.
+    ///
+    /// <para>Only a .NET tool. A command-registered server is already on the
+    /// machine or it is not, and there is no <c>dotnet tool install</c> that would
+    /// change that — so the row carries this straight through to
+    /// <see cref="DevToolInfo.Installable"/>, which is what keeps it from being
+    /// offered an Install with a blank package id behind it.</para></summary>
+    public bool Installable => Mechanism is DevToolMcpMechanism.DotNetTool;
+
+    /// <summary>What the row reads as: the name and the package it ships as when
+    /// it ships as one, and the name alone when the package is not what it is.
+    /// An entry with a package and no name still reads as the package, which is
+    /// what it did before there was a second mechanism.
+    ///
+    /// <para>And the command line when the entry carries neither, which is a shape
+    /// the array genuinely holds: a <c>command</c> on its own is all
+    /// <see cref="TryReadCatalog"/> asks of an entry, so one written that way is
+    /// accepted, read, and given a row. The same last fallback
+    /// <c>DevToolService.ToolDisplayName</c> makes for a failure message, and for
+    /// the same reason — a row has to be called something, and the empty string
+    /// this used to return was a nameless line under "MCP servers" whose remove
+    /// control offered to "Remove  from the catalog".</para></summary>
+    public string DisplayName => PackageId.Length == 0
+        ? Name.Length == 0 ? CommandLine : Name
+        : Name.Length == 0 ? PackageId : $"{Name} ({PackageId})";
+
+    /// <summary>Where the row says it comes from: the package for a .NET tool,
+    /// and the command line for a server that is registered rather than
+    /// installed.</summary>
+    public string Source => PackageId.Length == 0 ? CommandLine : PackageId;
+}
+
+/// <summary>
 /// Which AI host a catalog entry is for.
 ///
 /// <para>Flags rather than an enum with a single both-hosts member, because the question
@@ -862,6 +998,36 @@ public sealed record DevToolDraft(
     /// <summary>The arguments that follow the command, in order.</summary>
     public IReadOnlyList<string> ClaudeArgs { get; init; } = [];
 
+    /// <summary>
+    /// How the new MCP server gets onto the machine, for
+    /// <see cref="DevToolKind.McpServer"/> and nothing else.
+    ///
+    /// <para>It decides what <paramref name="Id"/> means, which is why the caller
+    /// says it rather than the writer guessing from which boxes were filled in:
+    /// a <see cref="DevToolMcpMechanism.DotNetTool"/> id is a package id and a
+    /// <see cref="DevToolMcpMechanism.Command"/> id is the server's name.
+    /// Defaults to the .NET tool, which is what every entry written before this
+    /// existed was.</para>
+    ///
+    /// <para>Unlike <see cref="Provider"/> it is not written into the entry. The
+    /// shape of what is written already says it — a <c>packageId</c> or a
+    /// <c>command</c> — and a <c>mechanism</c> line that only restates the shape
+    /// is a line the next reader has to go and check against it.</para></summary>
+    public DevToolMcpMechanism McpMechanism { get; init; } = DevToolMcpMechanism.DotNetTool;
+
+    /// <summary>The command that starts a command-registered MCP server, written
+    /// as the entry's own top-level <c>command</c>.
+    ///
+    /// <para>Deliberately not <see cref="ClaudeCommand"/>, which is the nested
+    /// <c>claude</c> section: that one is a Claude-specific override of the
+    /// registration, and this one is what the entry <em>is</em>. An entry with a
+    /// top-level command and no nested section registers with every host it
+    /// targets from this one value.</para></summary>
+    public string? ServerCommand { get; init; }
+
+    /// <inheritdoc cref="ClaudeArgs" />
+    public IReadOnlyList<string> ServerArgs { get; init; } = [];
+
     /// <summary>What installs the new application, for
     /// <see cref="DevToolKind.Application"/> and nothing else.
     ///
@@ -1111,6 +1277,254 @@ public static class DevToolConfiguration
     /// the <c>app:</c> prefix stays unambiguous.</summary>
     public const string ApplicationIdName = "id";
 
+    /// <summary>Where the MCP servers live in the catalog.</summary>
+    public const string McpServersArrayName = "mcpServers";
+
+    /// <summary>
+    /// What identifies an <c>mcpServers</c> entry, in precedence order: its
+    /// <c>packageId</c> when it ships as a .NET tool, its <c>name</c> when a
+    /// command registers it instead, and the <c>command</c> itself for an entry
+    /// that never said what to call it.
+    ///
+    /// <para>The one array with more than one of them, and the one list that says
+    /// so. It is read by <see cref="ReadMcpServer"/> — which is what mints the
+    /// row's key — by the merge that applies a per-PC override, and by every
+    /// lookup that resolves a key back to an entry, so those three cannot drift
+    /// apart. The order is what keeps the identifiers already stored in per-PC
+    /// files working: a <c>packageId</c> entry is still a <c>packageId</c>
+    /// entry.</para>
+    ///
+    /// <para>This is precedence for addressing an entry that has already been
+    /// accepted, and not the definition of which entries are acceptable — those
+    /// are two different questions and conflating them is how the reader and
+    /// <see cref="TryReadCatalog"/> came apart. The validator takes a
+    /// <c>packageId</c> or a <c>command</c> as proof there is something to
+    /// address; a <c>name</c> is not on that list, because a <c>name</c> says what
+    /// to call a server and nothing about how to reach one. So <c>name</c> sits
+    /// second here — the live catalog's Aspire entry is identified by it, and every
+    /// per-PC override already written for that entry depends on it staying so —
+    /// while <see cref="ReadMcpServer"/> holds the entry to the validator's bar
+    /// before it gets that far. The third candidate is what addresses the entry
+    /// that cleared that bar with a <c>command</c> and never said what to call
+    /// itself.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> McpServerIdNames = ["packageId", "name", "command"];
+
+    /// <summary>
+    /// Every property an entry of one array can be identified by, in precedence
+    /// order — which is the single property <see cref="ParseKey"/> named for three
+    /// of the four arrays, and <see cref="McpServerIdNames"/> for the fourth.
+    ///
+    /// <para>Here rather than at each call site because there are five of them —
+    /// the merge, the two removes, the duplicate check and the override write —
+    /// and one of them forgetting is an override that writes successfully and
+    /// reads back as nothing.</para>
+    /// </summary>
+    public static IReadOnlyList<string> IdNamesFor(string arrayName, string idName) =>
+        arrayName.Equals(McpServersArrayName, StringComparison.Ordinal) ? McpServerIdNames : [idName];
+
+    /// <summary>The <c>mechanism</c> string a <see cref="DevToolMcpMechanism"/> is
+    /// written as. Exhaustive for the reason <see cref="ProviderName"/> is: a
+    /// mechanism added and not spelled out here would be written as another
+    /// mechanism's name.</summary>
+    public static string McpMechanismName(DevToolMcpMechanism mechanism) => mechanism switch
+    {
+        DevToolMcpMechanism.DotNetTool => "dotnet-tool",
+        DevToolMcpMechanism.Command => "command",
+        DevToolMcpMechanism.Manual => "manual"
+    };
+
+    /// <summary>
+    /// Which mechanism a <c>mechanism</c> string names, or nothing when the entry
+    /// named none — which is the ordinary case, and is answered from the entry's
+    /// own shape by <see cref="ReadMcpServer"/> rather than guessed at here.
+    ///
+    /// <para>A catch-all, like <see cref="ParseProvider"/>'s and for the same
+    /// reason: the input is text out of a hand-edited file, and the safe reading
+    /// of a mechanism nobody knows is <see cref="DevToolMcpMechanism.Manual"/> —
+    /// the one that runs nothing.</para>
+    /// </summary>
+    public static DevToolMcpMechanism? ParseMcpMechanism(string? mechanism) => mechanism?.Trim().ToLowerInvariant() switch
+    {
+        null or "" => null,
+        "dotnet-tool" => DevToolMcpMechanism.DotNetTool,
+        "command" => DevToolMcpMechanism.Command,
+        _ => DevToolMcpMechanism.Manual
+    };
+
+    /// <summary>
+    /// The MCP servers a catalog declares, in the order it declares them.
+    ///
+    /// <para>An entry that cannot be addressed is skipped rather than thrown on,
+    /// exactly as <see cref="ReadApplications"/> skips one with no id: this array
+    /// is read on every load of the pane, and one mistyped entry taking the rest
+    /// off the screen would be a far worse answer than one missing row.</para>
+    /// </summary>
+    public static IReadOnlyList<DevToolMcpServer> ReadMcpServers(JsonNode? root)
+    {
+        if (FindArray(root, McpServersArrayName) is not { } array)
+        {
+            return [];
+        }
+
+        var servers = new List<DevToolMcpServer>();
+
+        foreach (var node in array)
+        {
+            if (ReadMcpServer(node) is { } server)
+            {
+                servers.Add(server);
+            }
+        }
+
+        return servers;
+    }
+
+    /// <summary>
+    /// One MCP server entry, or nothing when it carries neither a <c>packageId</c>
+    /// nor a <c>command</c> — an entry no override can reach and no button can act
+    /// on, which is exactly the bar <see cref="TryReadCatalog"/> holds this array
+    /// to.
+    ///
+    /// <para>The same bar, deliberately, and it has to be said here rather than
+    /// left to the import: a hand-edited <c>{"name": "foo", "enabled": true}</c> is
+    /// a file nobody validated, and reading it produced a row with an empty command
+    /// line, a status announcing it was registered by a command it never declared,
+    /// and no registration section for any button to run — a row about nothing,
+    /// sitting in a catalog that would be refused the moment somebody exported it
+    /// and read it back.</para>
+    ///
+    /// <para>The mechanism is the entry's own <c>mechanism</c> when it names one,
+    /// and the shape of the entry otherwise: a <c>packageId</c> is a .NET tool and
+    /// a bare <c>command</c> is a registration. Silence is read rather than
+    /// defaulted because every catalog in existence is silent, and reading it as
+    /// ".NET tool" would put a blank package id in front of
+    /// <c>dotnet tool install</c>.</para>
+    /// </summary>
+    public static DevToolMcpServer? ReadMcpServer(JsonNode? node)
+    {
+        if (node is not JsonObject entry)
+        {
+            return null;
+        }
+
+        var packageId = GetString(entry, "packageId").Trim();
+        var name = GetString(entry, "name").Trim();
+        var command = GetString(entry, "command").Trim();
+
+        // The identity, and the one place the precedence in McpServerIdNames is
+        // actually applied to an entry.
+        var (idName, id) = packageId.Length > 0
+            ? (McpServerIdNames[0], packageId)
+            : name.Length > 0
+                ? (McpServerIdNames[1], name)
+                : (McpServerIdNames[2], command);
+
+        // Addressable is not the same as identified, and this is where the two are
+        // held together. A name identifies the entry above; a packageId or a
+        // command is what says there is anything there to identify. An entry with
+        // neither is the one the import refuses, and it is refused here for the
+        // same reason rather than drawn as a row nothing behind it can act on —
+        // which also subsumes the entry that carries no identity of any kind, the
+        // shape this used to be the only guard against.
+        if (packageId.Length == 0 && command.Length == 0)
+        {
+            return null;
+        }
+
+        // Which leaves the inference below resting on that guard: past it, an
+        // entry with no packageId has a command, so "no package" really does mean
+        // "registered by the command it declares" rather than "shape unknown".
+        // Manual is not inferred at all — it is what an entry has to say out loud,
+        // or what an unrecognised mechanism degrades to.
+        var declared = GetString(entry, "mechanism").Trim();
+        var mechanism = ParseMcpMechanism(declared)
+            ?? (packageId.Length > 0 ? DevToolMcpMechanism.DotNetTool : DevToolMcpMechanism.Command);
+
+        return new DevToolMcpServer(id, idName, mechanism, GetBool(entry, "enabled"))
+        {
+            PackageId = packageId,
+            Name = name,
+            Command = command,
+            Args = ReadArgs(entry["args"]),
+            Hosts = ParseHosts(entry),
+            DeclaredMechanism = declared,
+            MechanismRecognised = declared.Length == 0
+                || McpMechanismName(mechanism).Equals(declared, StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    /// <summary>
+    /// What registers this server with a host, and with what.
+    ///
+    /// <para>The nested <c>claude</c> section when the entry has one, and the
+    /// entry's own top-level <c>command</c> and <c>args</c> otherwise —
+    /// synthesised into the same shape, so one code path registers both kinds of
+    /// entry and there is one definition of which wins.</para>
+    ///
+    /// <para>The nested section wins, wherever an entry carries both. It is the
+    /// more specific of the two: the top level says what the server is, and the
+    /// section says what one particular host is to be told, which is routinely
+    /// not the same string — <c>jsdotnet-project-guidelines</c> is registered with
+    /// Claude as <c>jsdotnet-coding-guidelines</c>. An entry with neither has
+    /// nothing to register, and says so with a null rather than with a section
+    /// whose command is blank.</para>
+    /// </summary>
+    public static JsonNode? McpRegistrationSection(JsonNode? server)
+    {
+        if (server?["claude"] is { } claude)
+        {
+            return claude;
+        }
+
+        if (server is not JsonObject entry || GetString(entry, "command").Trim() is not { Length: > 0 } command)
+        {
+            return null;
+        }
+
+        var section = new JsonObject
+        {
+            ["name"] = GetString(entry, "name").Trim(),
+            ["command"] = command
+        };
+
+        if (ReadArgs(entry["args"]) is { Count: > 0 } args)
+        {
+            var values = new JsonArray();
+            foreach (var argument in args)
+            {
+                values.Add(argument);
+            }
+
+            section["args"] = values;
+        }
+
+        return section;
+    }
+
+    /// <summary>A string array read as strings, skipping anything that is not
+    /// one. The catalog is hand-edited, and a number in an argument list is an
+    /// argument nobody can pass rather than a reason to fail the whole
+    /// read.</summary>
+    private static IReadOnlyList<string> ReadArgs(JsonNode? node)
+    {
+        if (node is not JsonArray declared)
+        {
+            return [];
+        }
+
+        var args = new List<string>();
+        foreach (var argument in declared)
+        {
+            if (argument is JsonValue value && value.TryGetValue<string>(out var text))
+            {
+                args.Add(text);
+            }
+        }
+
+        return args;
+    }
+
     /// <summary>
     /// The key a tool is addressed by, minted in one place so the prefixes
     /// <see cref="ParseKey"/> reads are the prefixes callers write.
@@ -1312,7 +1726,13 @@ public static class DevToolConfiguration
             throw new InvalidOperationException(draft.Kind switch
             {
                 DevToolKind.Plugin => "A plugin needs a name.",
-                DevToolKind.McpServer => "An MCP server needs a package id.",
+                // Which of the two the id is depends on the mechanism, so the
+                // sentence does too: telling somebody registering the Aspire CLI
+                // server to name a package id would be asking for the one thing
+                // that entry does not have.
+                DevToolKind.McpServer => draft.McpMechanism is DevToolMcpMechanism.DotNetTool
+                    ? "An MCP server needs a package id."
+                    : "An MCP server registered by a command needs a name.",
                 DevToolKind.Marketplace => "A marketplace needs a name.",
                 DevToolKind.Application => "An application needs an id."
             });
@@ -1343,6 +1763,18 @@ public static class DevToolConfiguration
             throw new InvalidOperationException("A command application needs a detect command.");
         }
 
+        // The .NET-tool half of an MCP server is what its package id installs, so
+        // a server that has no package id has to say what starts it instead. One
+        // that names neither is an entry with nothing to install and nothing to
+        // register — which is the row the import validator already refuses a
+        // catalog for carrying.
+        if (draft.Kind is DevToolKind.McpServer
+            && draft.McpMechanism is not DevToolMcpMechanism.DotNetTool
+            && string.IsNullOrWhiteSpace(draft.ServerCommand))
+        {
+            throw new InvalidOperationException("An MCP server that is not a .NET tool needs the command that registers it.");
+        }
+
         await CatalogWriteLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -1358,12 +1790,21 @@ public static class DevToolConfiguration
             // OrdinalIgnoreCase, matching every other lookup in this file: the
             // catalog is read case-insensitively, so two entries differing only in
             // case would be one tool with two rows and an ambiguous key.
-            if (FindObject(array, idName, id) is not null)
+            if (FindEntry(array, arrayName, idName, id) is not null)
             {
                 throw new InvalidOperationException($"{id} is already in the catalog.");
             }
 
-            var entry = new JsonObject { [idName] = id };
+            // Which property the new entry is written under. Every kind has
+            // exactly one, except an MCP server: its packageId when it ships as a
+            // .NET tool, and its name when a command registers it — the same
+            // precedence DevToolMcpServer.IdName reads back out, so the row this
+            // entry becomes carries the key the id was typed as.
+            var entryIdName = draft.Kind is DevToolKind.McpServer && draft.McpMechanism is not DevToolMcpMechanism.DotNetTool
+                ? McpServerIdNames[1]
+                : idName;
+
+            var entry = new JsonObject { [entryIdName] = id };
 
             if (draft.Kind is DevToolKind.Marketplace)
             {
@@ -1420,9 +1861,12 @@ public static class DevToolConfiguration
             }
             else
             {
-                // An MCP server is identified by its package id and read out by its
-                // name, so a display name is a second property rather than the key.
-                if (!string.IsNullOrWhiteSpace(draft.DisplayName))
+                // An MCP server that ships as a .NET tool is identified by its
+                // package id and read out by its name, so a display name is a
+                // second property rather than the key. One a command registers is
+                // identified by that name already, and writing it twice is the
+                // shape where the two can come to disagree.
+                if (draft.McpMechanism is DevToolMcpMechanism.DotNetTool && !string.IsNullOrWhiteSpace(draft.DisplayName))
                 {
                     entry["name"] = draft.DisplayName.Trim();
                 }
@@ -1430,6 +1874,27 @@ public static class DevToolConfiguration
                 if (source.Length > 0)
                 {
                     entry["source"] = source;
+                }
+
+                // The top-level command is what the server *is*, and it is what
+                // registers the entry with every host it targets — the claude
+                // section below is the override for the one host that calls it
+                // something else. So a command-registered entry needs no section
+                // written for it to work.
+                WriteIfPresent(entry, "command", draft.ServerCommand);
+                if (ArgsArrayFor(draft.ServerArgs) is { } args)
+                {
+                    entry["args"] = args;
+                }
+
+                // Written only when the entry's own shape cannot say it. A
+                // packageId means a .NET tool and a bare command means a
+                // registration, and a `mechanism` line that restates the shape is
+                // a line the next reader has to go and check against it — but a
+                // mechanism neither shape implies has nowhere else to live.
+                if (draft.McpMechanism is DevToolMcpMechanism.Manual)
+                {
+                    entry["mechanism"] = McpMechanismName(draft.McpMechanism);
                 }
 
                 if (ClaudeServerSection(draft) is { } claude)
@@ -1467,7 +1932,7 @@ public static class DevToolConfiguration
 
             var root = await ReadCatalogAsync(paths.CatalogPath, ct).ConfigureAwait(false);
             var array = FindArray(root, arrayName);
-            var entry = array is null ? null : FindObject(array, idName, idValue);
+            var entry = array is null ? null : FindEntry(array, arrayName, idName, idValue);
 
             if (array is null || entry is null)
             {
@@ -1503,7 +1968,7 @@ public static class DevToolConfiguration
         var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var (arrayName, idName, idValue) = ParseKey(key);
 
-        if (FindArray(root, arrayName) is not { } array || FindObject(array, idName, idValue) is not { } entry)
+        if (FindArray(root, arrayName) is not { } array || FindEntry(array, arrayName, idName, idValue) is not { } entry)
         {
             return;
         }
@@ -1676,7 +2141,14 @@ public static class DevToolConfiguration
             ?? throw new InvalidOperationException("PC tool config is empty.");
 
         MergeArray(root, pcRoot, "plugins", "name");
-        MergeArray(root, pcRoot, "mcpServers", "packageId");
+
+        // The MCP servers are the one array with two identities, and the property
+        // named here is the first of them rather than the only one: MergeArray
+        // asks IdNamesFor for the rest, so a per-PC entry keyed on packageId — the
+        // only kind any machine has stored — and one keyed on the name of a
+        // command-registered server both find their catalog entry out of the same
+        // file, in this one read.
+        MergeArray(root, pcRoot, McpServersArrayName, McpServerIdNames[0]);
 
         // Applications merge for the same reason the two above do, and the cost of
         // forgetting is worse: an application override is where a machine says it
@@ -1757,13 +2229,19 @@ public static class DevToolConfiguration
                 $"A marketplace is added to or removed from the catalog, so {idValue} has no \"{propertyName}\" to set on one machine.");
         }
 
+        // Under whichever property the catalog entry itself is identified by, and
+        // not whichever one the key's prefix used to imply. An override written
+        // under a property the entry does not carry is dropped by the merge in
+        // ReadAsync — a write that reports success and reads back as never saved.
+        var overrideIdName = await OverrideIdNameAsync(paths, arrayName, idName, idValue, ct).ConfigureAwait(false);
+
         var root = await ReadPcConfigOrEmptyAsync(paths.PcConfigPath, ct).ConfigureAwait(false);
         var array = GetOrCreateArray(root, arrayName);
-        var tool = FindObject(array, idName, idValue);
+        var tool = FindEntry(array, arrayName, idName, idValue);
 
         if (tool is null)
         {
-            tool = new JsonObject { [idName] = idValue };
+            tool = new JsonObject { [overrideIdName] = idValue };
             array.Add(tool);
         }
 
@@ -1772,6 +2250,38 @@ public static class DevToolConfiguration
         Directory.CreateDirectory(Path.GetDirectoryName(paths.PcConfigPath) ?? Environment.CurrentDirectory);
         await using var stream = File.Create(paths.PcConfigPath);
         await JsonSerializer.SerializeAsync(stream, root, JsonOptions, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Which property a per-PC override is to be written under, read off the
+    /// catalog entry the key is about.
+    ///
+    /// <para>Only <c>mcpServers</c> has a question here, and only because it has
+    /// two identities. The catalog is the authority on which of them one entry
+    /// uses — <see cref="ReadMcpServer"/> is where that rule lives — so this asks
+    /// it rather than re-deriving anything, and falls back to the key's own
+    /// property when there is no catalog to ask or no entry left in it. That
+    /// fallback is what a write for an entry somebody has just removed does, and
+    /// it is exactly what such a write did before there was a second
+    /// identity.</para>
+    /// </summary>
+    private static async Task<string> OverrideIdNameAsync(
+        DevToolConfigurationPaths paths,
+        string arrayName,
+        string idName,
+        string idValue,
+        CancellationToken ct)
+    {
+        if (!arrayName.Equals(McpServersArrayName, StringComparison.Ordinal) || !File.Exists(paths.CatalogPath))
+        {
+            return idName;
+        }
+
+        var root = await ReadCatalogAsync(paths.CatalogPath, ct).ConfigureAwait(false);
+
+        return ReadMcpServers(root)
+            .FirstOrDefault(server => server.Id.Equals(idValue, StringComparison.OrdinalIgnoreCase))
+            ?.IdName ?? idName;
     }
 
     private static async Task<JsonObject> ReadPcConfigOrEmptyAsync(string path, CancellationToken ct)
@@ -1799,8 +2309,15 @@ public static class DevToolConfiguration
     /// and that is uniform across all four arrays — so what a per-PC file may carry
     /// is "anything an entry of that array has", and what the app itself writes
     /// there is only ever <c>enabled</c> or <c>acknowledged</c>. An entry with no
-    /// catalog entry of the same <paramref name="idName" /> behind it is dropped:
-    /// the per-PC file overrides the catalog and never extends it.</para></summary>
+    /// catalog entry of the same id property behind it is dropped:
+    /// the per-PC file overrides the catalog and never extends it.</para>
+    ///
+    /// <para>Which property that is comes from <see cref="IdNamesFor" />, because
+    /// <c>mcpServers</c> has two of them and one per-PC file holds both: every
+    /// entry already stored on every machine is keyed on <c>packageId</c>, and a
+    /// command-registered server is keyed on <c>name</c>. A per-PC entry is
+    /// matched on the first of the candidates it actually carries, so neither
+    /// identity is renamed out from under a file somebody already has.</para></summary>
     private static void MergeArray(JsonNode root, JsonNode pcRoot, string arrayName, string idName)
     {
         var catalogArray = FindArray(root, arrayName);
@@ -1810,14 +2327,19 @@ public static class DevToolConfiguration
             return;
         }
 
+        var idNames = IdNamesFor(arrayName, idName);
+
         foreach (var pcNode in pcArray)
         {
-            if (pcNode is not JsonObject pcObject || GetString(pcObject, idName) is not { Length: > 0 } idValue)
+            if (pcNode is not JsonObject pcObject)
             {
                 continue;
             }
 
-            var catalogObject = FindObject(catalogArray, idName, idValue);
+            var catalogObject = idNames
+                .Select(name => GetString(pcObject, name) is { Length: > 0 } idValue ? FindObject(catalogArray, name, idValue) : null)
+                .FirstOrDefault(match => match is not null);
+
             if (catalogObject is null)
             {
                 continue;
@@ -1962,6 +2484,24 @@ public static class DevToolConfiguration
         return spec;
     }
 
+    /// <summary>An argument list as the catalog spells it, or nothing when there
+    /// is nothing to spell — an empty <c>args</c> array is a line that says the
+    /// same as no line at all.</summary>
+    private static JsonArray? ArgsArrayFor(IReadOnlyList<string> args)
+    {
+        var values = new JsonArray();
+
+        foreach (var argument in args)
+        {
+            if (!string.IsNullOrWhiteSpace(argument))
+            {
+                values.Add(argument.Trim());
+            }
+        }
+
+        return values.Count > 0 ? values : null;
+    }
+
     /// <summary>The <c>claude</c> section of an MCP server entry, or nothing when
     /// the draft named no command. The section exists to be handed to
     /// <c>claude mcp add</c>, and one with no command is a registration that could
@@ -1996,6 +2536,20 @@ public static class DevToolConfiguration
         return claude;
     }
 
+    /// <summary>The entry a key addresses, tried against every property that can
+    /// identify one in that array — one for three of the four arrays, and both of
+    /// <see cref="McpServerIdNames"/> for <c>mcpServers</c>.
+    ///
+    /// <para>Every lookup that starts from a key goes through here rather than
+    /// through <see cref="FindObject"/> directly, so a command-registered server
+    /// is as removable, as de-duplicable and as overridable as a .NET-tool one —
+    /// a key that resolves to nothing is a button that reports the entry is gone
+    /// when it is sitting right there in the file.</para></summary>
+    private static JsonObject? FindEntry(JsonArray array, string arrayName, string idName, string idValue) =>
+        IdNamesFor(arrayName, idName)
+            .Select(name => FindObject(array, name, idValue))
+            .FirstOrDefault(match => match is not null);
+
     private static JsonObject? FindObject(JsonArray array, string idName, string idValue) =>
         array.OfType<JsonObject>().FirstOrDefault(node => GetString(node, idName).Equals(idValue, StringComparison.OrdinalIgnoreCase));
 
@@ -2021,7 +2575,15 @@ public static class DevToolConfiguration
 
     /// <summary>Which array a key addresses, which property identifies an entry
     /// in it, and the id itself. Public because it is how a caller turns the key
-    /// a row carries back into the entry behind it.</summary>
+    /// a row carries back into the entry behind it.
+    ///
+    /// <para>The property is the first candidate rather than the only one, for
+    /// <c>mcpServers</c>: that array holds both a server installed as a .NET tool
+    /// and one registered by a command, and they are identified by different
+    /// properties. <see cref="IdNamesFor" /> is the whole list, and every lookup
+    /// that resolves a key back to an entry goes through it — this answers
+    /// <c>packageId</c> because that is what every stored override and every
+    /// caller that predates the second mechanism means.</para></summary>
     public static (string ArrayName, string IdName, string IdValue) ParseKey(string key)
     {
         if (key.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase))
@@ -2031,7 +2593,7 @@ public static class DevToolConfiguration
 
         if (key.StartsWith("mcp:", StringComparison.OrdinalIgnoreCase))
         {
-            return ("mcpServers", "packageId", key["mcp:".Length..]);
+            return (McpServersArrayName, McpServerIdNames[0], key["mcp:".Length..]);
         }
 
         if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))

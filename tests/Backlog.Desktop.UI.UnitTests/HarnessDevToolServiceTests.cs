@@ -94,6 +94,7 @@ public sealed class HarnessDevToolServiceTests
     [Theory]
     [InlineData("plugin:architecture")]
     [InlineData("mcp:JSdotNet.MCP.Guidelines")]
+    [InlineData("mcp:aspire")]
     [InlineData("app:Microsoft.PowerToys")]
     public async Task A_disabled_catalog_row_reads_back_disabled(string key)
     {
@@ -103,7 +104,8 @@ public sealed class HarnessDevToolServiceTests
                 { "name": "architecture", "source": "JSdotNet/Copilot:plugins/architecture", "enabled": true }
               ],
               "mcpServers": [
-                { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "enabled": true }
+                { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "enabled": true },
+                { "name": "aspire", "command": "aspire", "args": [ "agent", "mcp" ], "enabled": true }
               ],
               "applications": [
                 { "id": "Microsoft.PowerToys", "name": "PowerToys", "provider": "winget", "enabled": true }
@@ -242,9 +244,111 @@ public sealed class HarnessDevToolServiceTests
         Assert.False(row.Acknowledged);
     }
 
+    /// <summary>
+    /// AC1, AC4 and AC6 on the half a browser can reach.
+    ///
+    /// <para>An <c>mcpServers</c> entry with no <c>packageId</c> was dropped by
+    /// both enumerations before a row was ever built, so the one server in this
+    /// repository's own catalog that is registered by a command instead of
+    /// installed as a .NET tool was invisible in the only copy of this pane a
+    /// driver can open.</para>
+    ///
+    /// <para>The version columns are the second half of the same fix. There is no
+    /// published version of a command to be behind, so nothing is looked up and
+    /// nothing is invented: the command line stands in for the installed version —
+    /// the way <c>DescribeClaudeRegistration</c> already lets a command stand in
+    /// for a registration's — and the available column keeps the no-version dash,
+    /// which is what stops the row reading as up to date about nothing.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_command_registered_server_becomes_one_row()
+    {
+        var tools = CreateService(CommandRegisteredCatalog);
+
+        var row = await FindAsync(tools, "mcp:aspire");
+
+        Assert.Equal(DevToolKind.McpServer, row.Kind);
+        Assert.Equal("aspire", row.Name);
+        Assert.Equal("aspire agent mcp", row.InstalledVersion);
+        Assert.Equal(DevToolOutput.NoVersion, row.AvailableVersion);
+        Assert.False(row.AvailableVersionKnown);
+
+        // Nothing this pane can press: there is no .NET tool to install and no
+        // version to update to.
+        Assert.False(row.Installable);
+        Assert.False(row.CanInstall);
+        Assert.False(row.CanUpdate);
+    }
+
+    /// <summary>AC8. A mechanism nobody here knows is read the way an unknown
+    /// application <c>provider</c> is: the row is drawn, nothing runs for it, and
+    /// the fact travels in the status rather than in a row that simply is not
+    /// there.</summary>
+    [Fact]
+    public async Task A_server_with_an_unrecognised_mechanism_is_still_a_row()
+    {
+        var tools = CreateService("""
+            {
+              "mcpServers": [
+                { "name": "aspire", "mechanism": "docker-compose", "command": "aspire", "enabled": true }
+              ]
+            }
+            """);
+
+        var row = await FindAsync(tools, "mcp:aspire");
+
+        Assert.False(row.Installable);
+        Assert.False(row.CanInstall);
+        Assert.Contains("docker-compose", row.Status, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The same shape without a command in it, which is where the version columns
+    /// ran out of anything honest to say.
+    ///
+    /// <para>A row with no .NET tool reports its command line where the installed
+    /// version goes — but an entry can reach that state carrying no top-level
+    /// command at all, either by naming a mechanism this build has never heard of
+    /// or by declaring itself <c>manual</c>. What arrived in the cell then was the
+    /// empty string, which the pane draws as a blank Installed cell opposite a
+    /// dashed Available one: a column that reads as though the lookup broke, on a
+    /// row where no lookup was ever meant to happen. The no-version dash is the
+    /// marker for that, and it is the one both columns now carry.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_server_with_no_command_to_stand_in_keeps_the_no_version_dash()
+    {
+        var tools = CreateService("""
+            {
+              "mcpServers": [
+                { "name": "guidelines", "packageId": "JSdotNet.MCP.Guidelines", "mechanism": "docker-compose", "enabled": true }
+              ]
+            }
+            """);
+
+        var row = await FindAsync(tools, "mcp:JSdotNet.MCP.Guidelines");
+
+        Assert.Equal(DevToolOutput.NoVersion, row.InstalledVersion);
+        Assert.Equal(DevToolOutput.NoVersion, row.AvailableVersion);
+        Assert.False(row.Installable);
+        Assert.False(row.CanInstall);
+    }
+
     /// <summary>What the desktop head calls a row this machine does not want, and
     /// what the harness has to call it too for the pane to read the same.</summary>
     private const string DisabledStatus = "Disabled in config";
+
+    /// <summary>The entry this repository's own catalog ships: an MCP server that
+    /// is registered by the command that starts it rather than installed as a
+    /// .NET tool.</summary>
+    private const string CommandRegisteredCatalog = """
+        {
+          "plugins": [],
+          "mcpServers": [
+            { "name": "aspire", "command": "aspire", "args": [ "agent", "mcp" ], "enabled": true }
+          ]
+        }
+        """;
 
     private const string EmptyCatalog = """{ "plugins": [], "mcpServers": [] }""";
 
