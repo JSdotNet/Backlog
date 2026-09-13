@@ -16,6 +16,16 @@
     Which classes each part wears stays the caller's business in either shape,
     through BaseClass, LabelCssClass and SelectCssClass, so a host can keep
     whatever badge styling it already ships.
+
+    An option may name a section it belongs to, and the list draws those as native
+    `optgroup`s — runs in the order the host handed them over, per
+    `SelectorOptionRuns`. Native rather than a listbox of our own: a `select` opens a
+    list the platform draws, `optgroup` is the only sectioning that list has, and
+    every route into it — the keyboard, the screen reader, the mobile picker sheet —
+    is the platform's already. Reaching for TagMultiSelect's hand-built listbox here
+    would mean re-implementing all of that to gain a heading. What it does cost is
+    that the heading is painted by the OS: `select optgroup` in components.css is
+    where its colours are set, and nothing in a browser can screenshot it.
 *@
 
 @if (Form)
@@ -169,11 +179,28 @@ else
                  @onchange="OnChange">
             @if (IncludeEmptyOption)
             {
+                @* Before the sections and inside none of them: it holds no value, so
+                   there is no section it could honestly belong to. *@
                 <option value="">@EmptyLabel</option>
             }
-            @foreach (var option in Options)
+            @foreach (var run in SelectorOptionRuns.Of(Options))
             {
-                <option value="@option.Value">@option.Label</option>
+                if (run.Name is null)
+                {
+                    for (var i = run.Start; i < run.End; i++)
+                    {
+                        <option value="@Options[i].Value">@Options[i].Label</option>
+                    }
+                }
+                else
+                {
+                    <optgroup label="@run.Name">
+                        @for (var i = run.Start; i < run.End; i++)
+                        {
+                            <option value="@Options[i].Value">@Options[i].Label</option>
+                        }
+                    </optgroup>
+                }
             }
         </select>;
 

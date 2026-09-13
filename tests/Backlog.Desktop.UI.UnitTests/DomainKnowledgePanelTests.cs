@@ -649,6 +649,83 @@ public sealed class DomainKnowledgePanelTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The row of bounded contexts — the one screen in this product that shows the
+    /// context list as the store built it: the display names, the order, and the
+    /// status beside each, all of which come from the generated knowledge database
+    /// (local ADR 0004) with the drift check applied per file.
+    ///
+    /// <para>It had no test of its own for as long as it had no route into it from
+    /// the knowledge pane. These two pin the contract the pane now relies on: the
+    /// row draws the list it is given, and a selection naming a context rather than
+    /// a file opens that context.</para>
+    /// </summary>
+    [Fact]
+    public async Task The_context_row_names_every_context_and_opens_on_the_map()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderView(ContextsView(), selectedPath: null);
+
+        Assert.Equal(
+            ["Context map", "Capture", "Tasks"],
+            component.FindAll("button.domain-context-tab").Select(tab => tab.TextContent.Trim()));
+
+        // Nothing named, so the map is what the row rests on — and the map is what
+        // is drawn below it.
+        Assert.Equal("true", component.Find("button.domain-context-tab").GetAttribute("aria-pressed"));
+        Assert.Empty(component.FindAll("[data-testid='domain-context']"));
+    }
+
+    [Fact]
+    public async Task A_selection_naming_a_context_opens_that_context_with_its_status()
+    {
+        await using var harness = CreateHarness();
+
+        // The path the knowledge menu carries for a bounded-context folder: the
+        // folder, not a file in it. No document answers to it, and that is the
+        // panel's cue to show the context whole.
+        var component = harness.RenderView(ContextsView(), selectedPath: "capture");
+
+        Assert.Equal("Capture", component.Find("button.domain-context-tab[aria-pressed='true']").TextContent.Trim());
+
+        var context = component.Find("[data-testid='domain-context']");
+        Assert.Contains("Capture", context.QuerySelector(".domain-context__header")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("proposed", context.QuerySelector(".domain-context__header .badge")!.TextContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Two contexts and a map, handed in rather than read: the row is what
+    /// is under test, and a view built here says what the store would have said
+    /// without a folder on disk having to spell it.</summary>
+    private static DomainKnowledgeView ContextsView()
+    {
+        var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-contexts", Guid.NewGuid().ToString("N"));
+
+        static DomainKnowledgeDocument Document(string path, string title, DomainKnowledgeDocumentKind kind, string status) =>
+            new(path,
+                title,
+                kind,
+                status,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                "A summary nobody can edit.",
+                [],
+                [],
+                []);
+
+        return new DomainKnowledgeView(
+            "JSdotNet/Backlog",
+            absent,
+            Path.Combine(absent, ".domain"),
+            null,
+            Document(ContextMapPath, "Context Map", DomainKnowledgeDocumentKind.ContextMap, "draft"),
+            [
+                new DomainKnowledgeContext("capture", "Capture", "proposed",
+                    [Document(".domain/capture/domain.md", "Domain: Capture", DomainKnowledgeDocumentKind.Domain, "proposed")]),
+                new DomainKnowledgeContext("tasks", "Tasks", "draft",
+                    [Document(".domain/tasks/domain.md", "Domain: Tasks", DomainKnowledgeDocumentKind.Domain, "draft")])
+            ]);
+    }
+
     private static DomainKnowledgeView MissingRootView()
     {
         var absent = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-absent", Guid.NewGuid().ToString("N"));

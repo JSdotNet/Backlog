@@ -50,7 +50,14 @@
            folder is, which is a fact about the workspace rather than about
            anything on this screen; the file the reader opened says where it is on
            the file view's header, and that one is the file's identity. *@
-        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        @* The row shows whenever there is no chapter on screen, which is the same
+           question the body below asks and so cannot disagree with it. It used to
+           ask whether a path had been handed in, and that made the row unreachable
+           from the knowledge pane: the pane always hands one in. A path naming a
+           bounded context rather than a file is how the pane asks for this view,
+           and a path naming a chapter that has since been renamed away lands here
+           too — with the tabs, which is a way out, instead of on a dead end. *@
+        @if (SelectedDocument is null)
         {
             <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
                 <ToggleButton BaseClass="domain-context-tab"
@@ -178,6 +185,10 @@
     private KnowledgeChapterEditor? _editor;
     private string? _chapterSaveError;
     private string? _selectedContextSlug;
+
+    /// <summary>The selection the context above was last derived from, so it is
+    /// derived once per change rather than on every render.</summary>
+    private string? _appliedSelectedPath;
     private string? _loadedRepositoryAlias;
 
     [Parameter]
@@ -318,14 +329,37 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>A reload can drop the selected context, so the selection is
-    /// re-resolved against whatever loaded.</summary>
+    /// <summary>
+    /// Which context the overview opens on: the one the host asked for, and
+    /// otherwise the context map.
+    /// <para>
+    /// A <see cref="SelectedPath"/> that names a bounded context rather than a file
+    /// is the pane asking for that context, so it is followed — once per change of
+    /// the path, because a tab pressed afterwards is the reader's answer to the
+    /// same question and re-deriving it on every render would take the row's own
+    /// tabs away from them.
+    /// </para>
+    /// <para>A reload can also drop the selected context, which is the other half:
+    /// a slug that no longer names anything falls back rather than leaving the
+    /// header describing a context that is gone.</para>
+    /// </summary>
     private void SelectDefaultContext()
     {
         if (_view is null) return;
-        if (_selectedContextSlug is null || !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
+
+        if (!string.Equals(_appliedSelectedPath, SelectedPath, StringComparison.OrdinalIgnoreCase))
         {
-            _selectedContextSlug = Compact ? _view.Contexts.FirstOrDefault()?.Slug : null;
+            _appliedSelectedPath = SelectedPath;
+            if (!string.IsNullOrWhiteSpace(SelectedPath) && SelectedDocument is null)
+            {
+                _selectedContextSlug = _view.Contexts.FirstOrDefault(context => OwnsPath(context.Slug, SelectedPath))?.Slug;
+                return;
+            }
+        }
+
+        if (_selectedContextSlug is not null && !_view.Contexts.Any(c => c.Slug == _selectedContextSlug))
+        {
+            _selectedContextSlug = null;
         }
     }
 
