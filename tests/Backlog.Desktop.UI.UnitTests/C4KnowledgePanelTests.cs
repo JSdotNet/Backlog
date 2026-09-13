@@ -105,7 +105,7 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-option']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
     }
 
@@ -154,7 +154,7 @@ public sealed class C4KnowledgePanelTests : IDisposable
         var component = harness.Render(null);
         harness.Settle(component);
 
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-option']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
     }
 

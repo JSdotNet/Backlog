@@ -114,14 +114,18 @@ public sealed class InstructionsKnowledgePanelTests
 
         var component = harness.Context.Render<InstructionsKnowledgePanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
-        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='instructions-document-button']").Count));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-document-body']")));
 
-        // Discovery read every instruction file in the clone to build the list on
-        // the left, and the file moved after it. Selecting it has to open what the
-        // file says now: the editor writes the whole buffer back, so a buffer built
-        // from the discovery pass would put the old text back over this.
+        // Discovery read every instruction file in the clone once, and the file
+        // moved after it. Selecting it has to open what the file says now: the
+        // editor writes the whole buffer back, so a buffer built from the
+        // discovery pass would put the old text back over this. The selection
+        // arrives as a parameter because the host holds it — the panel's own
+        // picker is gone, and this is the move the knowledge menu makes.
         File.WriteAllText(claude, "# Claude\n\nChanged on disk after the list was built.\n");
-        component.FindAll("[data-testid='instructions-document-button']")[1].Click();
+        component.Render(parameters => parameters
+            .Add(parameter => parameter.RepositoryAlias, "backlog")
+            .Add(parameter => parameter.SelectedPath, "CLAUDE.md"));
 
         component.WaitForAssertion(
             () => Assert.Contains("Changed on disk after the list was built.", component.Markup, StringComparison.Ordinal),

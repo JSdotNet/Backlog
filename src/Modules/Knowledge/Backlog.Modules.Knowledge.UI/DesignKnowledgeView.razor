@@ -46,7 +46,15 @@
             <Alert Message="@statusError" BaseClass="design-knowledge__message" />
         }
 
-        @if (string.IsNullOrWhiteSpace(SelectedPath))
+        @* The nav shows whenever the overview below is what is on screen, which is
+           the same question the documents ask and so cannot disagree with them. It
+           used to ask whether a path had been handed in, and that made the whole
+           overview unreachable from the knowledge pane: the pane always hands one
+           in. A path naming the folder rather than a file in it is how the pane
+           asks for this view, and a path naming a document that has since been
+           renamed away lands here too — on the folder, which is a way out, rather
+           than on whichever file happened to be first. *@
+        @if (SelectedFile is null)
         {
             <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
                 @foreach (var file in _model.Files)
@@ -564,11 +572,11 @@
     /// The chapter behind the document on screen, and its text, or
     /// <see cref="KnowledgeChapterContent.None"/> when nothing is selected.
     /// <para>
-    /// Resolved from the rendered file's name rather than from
+    /// Resolved from the document on screen rather than from
     /// <see cref="SelectedPath"/>, because the two can differ: a selection that
-    /// matches no design file still renders a document — the first one — and a
-    /// chapter resolved from the selection would then be pointing at a file
-    /// nobody is looking at.
+    /// matches no design file puts the folder overview on screen, and a chapter
+    /// resolved from the selection would then be pointing at a file nobody is
+    /// looking at — and offering to edit it.
     /// </para>
     /// </summary>
     private Task<KnowledgeChapterContent> LoadChapterAsync() =>
@@ -576,12 +584,22 @@
             ? KnowledgeChapterContent.LoadAsync("design", model.FolderPath, file.FileName)
             : Task.FromResult(KnowledgeChapterContent.None);
 
-    /// <summary>The one document a selection puts on screen, or null while the
-    /// folder overview is showing. Design parses its folder
-    /// <c>TopDirectoryOnly</c>, so a file name is the whole relative path and the
-    /// resolver needs nothing else.</summary>
+    /// <summary>
+    /// The one document a selection puts on screen, or null while the folder
+    /// overview is showing. Design parses its folder <c>TopDirectoryOnly</c>, so a
+    /// file name is the whole relative path and the resolver needs nothing else.
+    /// <para>
+    /// Resolved against the folder rather than against whatever the overview would
+    /// render, so this and <see cref="VisibleFiles"/> answer in one direction: a
+    /// selection matching no file is no document, and no document is the overview.
+    /// A path the folder does not have is the ordinary case now rather than the
+    /// odd one — the knowledge pane names the folder itself to ask for this view.
+    /// </para>
+    /// </summary>
     private DesignKnowledgeFile? SelectedFile =>
-        string.IsNullOrWhiteSpace(SelectedPath) ? null : VisibleFiles().FirstOrDefault();
+        _model is null || string.IsNullOrWhiteSpace(SelectedPath)
+            ? null
+            : _model.Files.FirstOrDefault(file => PathMatches(file.FileName, SelectedPath));
 
     /// <summary>The ref to hand the editing surface for this document, or null so
     /// the sections render instead. Matched on the file name because the loaded
@@ -592,13 +610,11 @@
             ? chapter
             : null;
 
-    private IReadOnlyList<DesignKnowledgeFile> VisibleFiles()
-    {
-        if (_model is null || string.IsNullOrWhiteSpace(SelectedPath)) return _model?.Files ?? [];
-
-        var selected = _model.Files.Where(file => PathMatches(file.FileName, SelectedPath)).ToArray();
-        return selected.Length == 0 ? _model.Files.Take(1).ToArray() : selected;
-    }
+    /// <summary>The selected document alone, or the whole folder when there is no
+    /// selected document — the two states this view has, read off the one
+    /// question.</summary>
+    private IReadOnlyList<DesignKnowledgeFile> VisibleFiles() =>
+        SelectedFile is { } file ? [file] : _model?.Files ?? [];
 
     private static string FileAnchor(DesignKnowledgeFile file) =>
         $"design-file-{Path.GetFileNameWithoutExtension(file.FileName).ToLowerInvariant()}";

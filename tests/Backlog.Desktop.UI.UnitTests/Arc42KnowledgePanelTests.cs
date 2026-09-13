@@ -125,18 +125,20 @@ public sealed class Arc42KnowledgePanelTests : IDisposable
     }
 
     [Fact]
-    public async Task The_chapter_nav_survives_the_body_swap()
+    public async Task With_nothing_asked_for_the_panel_opens_on_a_chapter()
     {
         await using var harness = CreateHarness(withArc42Folder: true);
 
-        // No SelectedPath is the browsing shape: the chapter list on the left is
-        // what makes the pane navigable, and it is a list of other files rather
-        // than anything about the one open inside it — so replacing the body with
-        // the file view does not take it away.
+        // A host that holds no selection still gets a chapter. This panel used to
+        // answer that state with a list of every chapter beside the open one — the
+        // left column of a standalone page nobody built — and the knowledge pane,
+        // its only host, never produced the state anyway. What is left is the file,
+        // which is what a panel with no picker of its own owes its host.
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-option']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-document']")));
         Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-body']"));
+        Assert.Empty(component.FindAll("nav[aria-label='arc42 chapters']"));
     }
 
     [Fact]

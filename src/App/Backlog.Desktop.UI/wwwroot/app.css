@@ -4984,8 +4984,7 @@ h1, h2, h3 {
 .domain-context-tab:focus-visible,
 .domain-context-tab[aria-pressed="true"],
 .knowledge-chapter:hover,
-.knowledge-chapter:focus-visible,
-.knowledge-chapter--active {
+.knowledge-chapter:focus-visible {
     border-color: var(--color-primary);
     color: var(--color-text-primary);
     outline: none;
@@ -5271,6 +5270,38 @@ h1, h2, h3 {
 .tech-knowledge-pane {
     display: grid;
     gap: var(--spacing-md);
+}
+
+/* The design overview renders its documents' blocks straight into the page, and
+   is the one knowledge view that does: every other one puts the file through the
+   file view, whose body is a scroll box and so is never wider than the pane it is
+   in. Without one of its own, the widest thing in a `.design` file sets the width
+   of the whole knowledge pane — a table, or a code span like
+   `DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`,
+   which has nowhere to break and is twice the docked pane. Each subject scrolls
+   its own overflow instead, which is the answer the file view already gives this
+   same content one level down; the tracks are told they may shrink, because a
+   grid track floors at its content's minimum otherwise and the scroll box would
+   never get the chance. */
+.design-knowledge__documents,
+.design-document,
+.design-section {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.design-section {
+    overflow-x: auto;
+}
+
+/* And a name in prose breaks rather than reaching for that scrollbar. A test
+   method or a repository path written inline has no space in it, so at pane width
+   it is one word wider than the column; scrolled to, it arrives alone in an empty
+   column a long way below the paragraph it belongs to, which is a worse way to
+   read it than a break mid-token. Paragraphs only — a fenced block and a table
+   both scroll themselves already, and both are laid out in columns a break would
+   ruin. */
+.knowledge-p code {
+    overflow-wrap: anywhere;
 }
 
 .design-section__header,

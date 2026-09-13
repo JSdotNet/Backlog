@@ -305,12 +305,43 @@
     private IReadOnlyList<KnowledgeMenuNode> ActiveMenuNodes => ActiveMenuRoot switch
     {
         null => [],
-        { Children.Count: > 0 } root => root.Children,
+        { Children.Count: > 0 } root => AreaOverviewRow(root) is { } overview ? [overview, .. root.Children] : root.Children,
         var root => [root]
     };
 
-    private KnowledgeMenuNode? ActiveMenuRoot =>
-        _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, EffectiveSection, StringComparison.Ordinal));
+    private KnowledgeMenuNode? ActiveMenuRoot => RootOf(EffectiveSection);
+
+    private KnowledgeMenuNode? RootOf(string areaKey) =>
+        _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, areaKey, StringComparison.Ordinal));
+
+    /// <summary>
+    /// The row that opens a whole knowledge folder at once, above the chapters —
+    /// or nothing, for an area whose panel has no such reading.
+    /// <para>
+    /// Only <c>.design</c>. Its panel draws every file of the folder stacked, each
+    /// subject's status beside its own heading, and that is the reading a design
+    /// folder is opened as a folder for; the other areas draw one chapter, and a
+    /// row promising a folder view they do not have would go nowhere. The Domain
+    /// panel draws a folder whole too, but the folder it draws is a bounded
+    /// context — a row the tree already has.
+    /// </para>
+    /// <para>
+    /// It is the area root wearing a name that says what it opens. Carrying the
+    /// root's own path is the whole point: the path a reader selects is then a
+    /// real node of the tree, which is what stops
+    /// <see cref="EnsureSelectedChapter"/> replacing it with a chapter on the next
+    /// menu load. Its children are dropped so the row is a destination rather than
+    /// a second copy of the list below it.
+    /// </para>
+    /// </summary>
+    private static KnowledgeMenuNode? AreaOverviewRow(KnowledgeMenuNode? root) =>
+        root is { Available: true, AreaKey: "design" } ? root with { Label = "All documents", Children = [] } : null;
+
+    /// <summary>Whether this row is that one, asked of a node the menu handed
+    /// back.</summary>
+    private bool IsAreaOverviewNode(KnowledgeMenuNode node) =>
+        AreaOverviewRow(RootOf(node.AreaKey)) is { } overview
+        && string.Equals(overview.Path, node.Path, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether the menu offers to open this scope's folder in an editor.
@@ -396,7 +427,7 @@
         if (!node.Available || node.Kind == KnowledgeMenuNodeKind.Message) return;
 
         _selectedSection = node.AreaKey;
-        if (IsSelectableMenuNode(node))
+        if (IsSelectableMenuNode(node) || IsAreaOverviewNode(node))
         {
             _selectedChapterPaths[node.AreaKey] = node.Path;
         }
