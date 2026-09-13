@@ -64,31 +64,15 @@
                       TestId="arc42-chapters-panel"
                       TabTestId="arc42-chapters-tab"
                       aria-label="Architecture chapters">
+        @* One column, holding the chapter. There was a second one beside it — a
+           list of every chapter with its status and diagram count — drawn when no
+           chapter had been asked for. That was the left column of a standalone
+           architecture page, and no such page was ever built: the knowledge pane
+           is this panel's only host and it names a chapter from its first render,
+           so the list could not be reached. The pane's menu is that list, and
+           nothing the list said is missing without it — a chapter's status is in
+           the file view's own header and its diagrams are in the chapter. *@
         <div class="arc42-knowledge-layout">
-            @if (string.IsNullOrWhiteSpace(SelectedPath))
-            {
-                <nav class="knowledge-chapters" aria-label="arc42 chapters">
-                    @foreach (var chapter in _catalog.Documents)
-                    {
-                        <div class="knowledge-chapter @(ReferenceEquals(chapter, _selected) ? "knowledge-chapter--active" : string.Empty)" data-testid="arc42-chapter-option">
-                            <AppButton BaseClass="knowledge-chapter__button"
-                                       Variant="ButtonVariant.None"
-                                       aria-current="@(ReferenceEquals(chapter, _selected) ? "page" : null)"
-                                       OnClick="() => Select(chapter)">
-                                <span class="knowledge-chapter__title">@chapter.Title</span>
-                                <span class="knowledge-chapter__meta">
-                                    <StatusBadge BaseClass="knowledge-status" Kind="" Status="@chapter.Status" />
-                                    @if (chapter.DiagramCount > 0)
-                                    {
-                                        <span>@chapter.DiagramCount diagram@(chapter.DiagramCount == 1 ? string.Empty : "s")</span>
-                                    }
-                                </span>
-                            </AppButton>
-                        </div>
-                    }
-                </nav>
-            }
-
             @* No longer a card. This article always holds a file view now, and the
                file view draws its own edge, so a card here framed a framed
                document — the nesting that was reported. It stays as an element
@@ -417,12 +401,6 @@
         if (_catalog is null || string.IsNullOrWhiteSpace(SelectedPath)) return;
 
         _selected = _catalog.Documents.FirstOrDefault(document => PathMatches(document.Path, SelectedPath)) ?? _selected;
-    }
-
-    private async Task Select(KnowledgeDocument document)
-    {
-        _selected = document;
-        await LoadSelectedChapterAsync();
     }
 
     /// <summary>
