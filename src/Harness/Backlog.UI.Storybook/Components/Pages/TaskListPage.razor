@@ -68,6 +68,24 @@ The field arrives with the caret in it and the title selected, so the first keys
         <p class="sb-state" data-testid="task-list-quick-edit-renames">@(_quickSettled.Count == 0 ? "nothing settled yet" : string.Join(" → ", _quickSettled))</p>
     </Story>
 
+    <Story Name="Escape, and where it stops"
+           Description="Both text fields in this list answer Escape — a rename abandons the title, the composer clears the draft — and both stop the key there rather than letting it climb into the host. A host's Escape means something else entirely: leave a selection mode, close the pane the list is in. One keystroke may not decide both, and the field in front of the reader is the one that asked for it.
+
+`OnDismiss` is the other half of the same rule. A row's own line holds no draft, so Escape on it is nobody's but the host's and the list reports it. Try both: press Escape in a title or in the composer and the line below does not move; press it with the focus on a row's line and it does."
+           Code="@DismissCode">
+        <div class="sb-menu-wide" data-testid="task-list-dismiss">
+            <TaskListView Tasks="@_dismissable"
+                          QuickEdit="true"
+                          OnRename="RenameDismissable"
+                          OnAdd="AddDismissable"
+                          AddLabel="Add a task"
+                          OnDismiss="Dismiss"
+                          AriaLabel="Tasks with a way out"
+                          TestId="dismiss" />
+        </div>
+        <p class="sb-state" data-testid="task-list-dismissed">@(_dismissals == 0 ? "no row has asked to be left yet" : $"Escape on a row's line: {_dismissals}")</p>
+    </Story>
+
     <Story Name="Deleting a row"
            Description="`OnDelete` puts a bin on the end of every row, and the delegate is what puts it there: a list that passes none grows none, which is how the desktop pane's entry list — where an entry is deleted from the footer of the open one — stays bin-free. The id goes out and the host decides what deleting means — nothing is applied here, exactly as with a rename or a reorder.
 
@@ -377,6 +395,20 @@ It exists for the row that was projected from a document the task itself does no
     /// is the thing worth reading.</summary>
     private readonly List<string> _quickSettled = [];
 
+    private IReadOnlyList<TaskRow> _dismissable =
+    [
+        new("e1", "Tab to this line and press Escape", Group: "Tasks"),
+        new("e2", "Or pencil it and press Escape in the field", Group: "Tasks"),
+        new("e3", "Or type into the add row and press Escape there", Group: "Tasks")
+    ];
+
+    private int _dismissalAdded;
+
+    /// <summary>How many times the list said a reader had asked to be let out of
+    /// it. A count, because the fields' half of the rule is that this number does
+    /// not move — an Escape spent on a draft is not one of these.</summary>
+    private int _dismissals;
+
     private IReadOnlyList<TaskRow> _completable =
     [
         new("d1", "Tick me and I move down", Group: "Tasks"),
@@ -527,6 +559,17 @@ It exists for the row that was projected from a document the task itself does no
         _quickSettled.Add($"added {id} as “{title}”");
     }
 
+    private void RenameDismissable(TaskRename rename) =>
+        _dismissable = [.. _dismissable.Select(t => t.Id == rename.Id ? t with { Title = rename.Title } : t)];
+
+    private void AddDismissable(string title) =>
+        _dismissable = [.. _dismissable, new TaskRow($"e{100 + ++_dismissalAdded}", title, Group: "Tasks")];
+
+    /// <summary>What a dismissal means is the host's, and here it is a number: this
+    /// page has no mode to leave, and inventing one would make the story about the
+    /// mode rather than about which presses reach it.</summary>
+    private void Dismiss() => _dismissals++;
+
     /// <summary>The host applying the delete, which is the arrangement the component
     /// is built for: the list said which row and stored nothing, and the row is gone
     /// from here rather than from the list's own state.</summary>
@@ -576,6 +619,25 @@ It exists for the row that was projected from a document the task itself does no
                 <AppButton OnClick="Add">+ New task</AppButton>
             </AfterOpenRows>
         </TaskListView>
+        """;
+
+    private const string DismissCode = """
+        @* Escape in either field belongs to that field: the rename abandons the
+           title, the composer clears the draft, and neither key reaches this host.
+           OnDismiss is the press that does — Escape on a row's line, where there
+           is nothing to abandon. *@
+        <TaskListView Tasks="@tasks"
+                      QuickEdit="true"
+                      OnRename="Rename"
+                      OnAdd="Add"
+                      AddLabel="Add a task"
+                      OnDismiss="Dismiss" />
+
+        @code {
+            // The desktop Tasks pane leaves its bulk-selection mode here. A list
+            // with no mode to leave passes nothing and hears nothing.
+            private void Dismiss() => _selection.Clear();
+        }
         """;
 
     private const string QuickEditCode = """

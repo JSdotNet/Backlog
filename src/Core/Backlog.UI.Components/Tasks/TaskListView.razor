@@ -171,7 +171,10 @@
     @if (CanAdd)
     {
         <li @key="_addFieldId" class="task-item task-item--add" data-testid="@Suffix("add")">
-            <div class="task-item__rename">
+            @* The same wrapper a row's rename uses, and the same boundary on it:
+               what is pressed in this field stops here rather than climbing into
+               a host whose Escape closes something. See OnAddKeyAsync. *@
+            <div class="task-item__rename" @onkeydown:stopPropagation="true">
                 <TextField Value="@_addTitle"
                            ValueChanged="value => _addTitle = value"
                            AriaLabel="@AddLabel"
@@ -492,6 +495,7 @@
                    LinkRole="@LinkRoleFor(task)"
                    LinkArmed="@(_linking && string.Equals(_over, task.Id, StringComparison.Ordinal))"
                    RowElementId="@RowElementId(task)"
+                   OnDismiss="OnDismiss"
                    OnTabForward="@TabForwardFor(task)"
                    OnKeyboardMove="delta => MoveByKeyboardAsync(task, delta)"
                    OnKeyboardLink="@KeyboardLinkFor(task)"
@@ -732,6 +736,45 @@
     /// </summary>
     [Parameter]
     public EventCallback<TaskLink> OnLink { get; set; }
+
+    /// <summary>
+    /// The reader pressed Escape on a row's own line, which is this list saying
+    /// they asked to be let out of whatever the host has the list in.
+    /// <para>
+    /// A hook rather than a keydown a host puts above the list: this component's
+    /// markup is several siblings in the host's own column — the rows, the live
+    /// region, the host's slot and the Completed section — so a wrapper around
+    /// them to catch one key would change the layout to buy an event.
+    /// </para>
+    /// <para>
+    /// From the row's line and from nowhere else in the row. The two text fields
+    /// contain their own Escape (see <c>TaskItem.OnRenameKeyAsync</c>), because
+    /// there it means "abandon this draft" and a host must not hear that press;
+    /// and a control the host put in a row's action slot keeps its own key, since
+    /// a select closing the list the browser opened is not a reader leaving the
+    /// list. The row's line holds no draft, so Escape on it has nothing else it
+    /// could mean.
+    /// </para>
+    /// <para>
+    /// What it means is the host's: the Tasks pane leaves its bulk-selection mode.
+    /// Unset, nothing happens at all, which is the state every list in the product
+    /// that has no mode to leave is in.
+    /// </para>
+    /// <para>
+    /// This hook or a handler above the list, and never both. The press it
+    /// reports still climbs — a row's line contains nothing, which is the whole
+    /// reason the key reaches a host at all — so a host that wires this and also
+    /// listens for Escape above the list answers one keystroke twice, and the
+    /// second answer is the expensive one: a press meant to leave a mode closes
+    /// the surface behind it as well. That is the two-decisions-from-one-press
+    /// defect the fields' own boundary exists to prevent, arriving by the other
+    /// door. Nothing in the product has both channels today, but a wrapper element
+    /// is all it would take, so a host picks its channel rather than finding out
+    /// which one it has.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
 
     /// <summary>
     /// The reader tabbed forward off the selected row.
@@ -1339,6 +1382,15 @@
     /// by the blur that leaving causes, which is the same promise every other field
     /// in this list makes.
     /// </para>
+    /// <para>
+    /// Escape abandons what was typed, and it is contained: the wrapper around the
+    /// field stops the key climbing, on the same terms and for the same reason as a
+    /// row's rename — see <c>TaskItem.OnRenameKeyAsync</c>, which carries the
+    /// decision and what containing the whole keydown costs. A draft in this field
+    /// is a task that does not exist yet, and throwing one away is not leaving the
+    /// surface the list is on; a host that heard this key would decide otherwise on
+    /// the reader's behalf.
+    /// </para>
     /// </summary>
     private async Task OnAddKeyAsync(KeyboardEventArgs e)
     {
@@ -1576,7 +1628,19 @@
     /// <summary>The gesture was taken away rather than finished — Escape, a
     /// cancelled pointer, or the window losing focus. The row goes back where it
     /// was: a drag nobody released is not a drop, and committing one would put a
-    /// move the reader abandoned into the host's undo stack.</summary>
+    /// move the reader abandoned into the host's undo stack.
+    /// <para>
+    /// The Escape half of that arrives from <c>components.js</c>, and a drag can
+    /// be in flight while the caret sits in a rename — so it is worth saying why
+    /// this list's two text fields containing the key (see
+    /// <c>TaskItem.OnRenameKeyAsync</c>) does not take that way out away. The
+    /// containment is Blazor's: it ends the framework's own walk to the
+    /// <c>@onkeydown</c> handlers above the field, and never calls the event's
+    /// <c>stopPropagation</c>. A document listener added in script is not on that
+    /// walk at all, so it hears the key in either phase. This one is registered in
+    /// the capture phase so it runs before the rest, which is a choice about order
+    /// and not a requirement — a bubble-phase listener here would work too.
+    /// </para></summary>
     [JSInvokable]
     public void PointerDragCancel()
     {

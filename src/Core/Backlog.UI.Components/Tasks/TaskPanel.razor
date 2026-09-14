@@ -112,8 +112,20 @@
         @* One heading, whatever state the title is in. The panel is named by this
            element, so replacing it with a field while somebody types would take the
            panel's name away mid-edit — and put a hole in the page's outline where
-           its only heading was. *@
-        <h2 class="task-panel__title" id="@_titleId">
+           its only heading was.
+
+           The boundary is on the heading and gated on the field being open, which
+           is the whole of what containment costs here: while the field has the
+           keyboard nothing but the field is inside this element, and while it does
+           not the title is a button whose keys the host needs — Escape to leave the
+           surface the panel is in, Shift+Tab to go back out of it. On the heading
+           rather than on the field because an event directive modifier is an
+           element's and the field is a component, and on the heading rather than a
+           wrapper inside it because a wrapper would put a box between the h2 and
+           its own input. See OnRenameKeyAsync for the decision. *@
+        <h2 class="task-panel__title"
+            id="@_titleId"
+            @onkeydown:stopPropagation="_editing">
             @if (_editing)
             {
                 <TextField Value="@_draft"
@@ -560,6 +572,34 @@
         }
     }
 
+    /// <summary>
+    /// The heading's keys, and the boundary they stop at.
+    /// <para>
+    /// Escape here means "abandon this title", and it means nothing else. The
+    /// heading stops the key climbing while the field is open — the
+    /// <c>@onkeydown:stopPropagation</c> gated on <c>_editing</c> in the markup
+    /// above — for the reason <c>TaskItem</c>'s rename and <c>TaskListView</c>'s
+    /// composer do the same: a host whose own Escape closes something would
+    /// otherwise take that decision out of the same press that abandoned a title.
+    /// This field is the case that matters most, because the one real host that
+    /// draws it puts the panel inside a region whose Escape closes the pane — so
+    /// without the boundary, backing out of a retitle closed the pane on top of it.
+    /// </para>
+    /// <para>
+    /// The field closing itself does not contain the key and never did. A browser
+    /// fixes an event's path before the first handler runs, so an element removed
+    /// while the key is being handled is still on the path the key climbs; the
+    /// handlers above it are reached either way. Measured, not assumed:
+    /// <c>TaskPanelTests.Escape_in_the_headings_field_stops_at_the_heading</c>
+    /// dispatches into a host that counts keys, and it fails without the boundary.
+    /// </para>
+    /// <para>
+    /// Gated rather than permanent, because the closed heading is a button whose
+    /// keys are the host's: Escape on it is a reader asking to leave the surface
+    /// the panel is in, and Shift+Tab off it is <see cref="OnTabBackward"/>. The
+    /// same split <c>TaskItem</c> draws between a row's line and the field over it.
+    /// </para>
+    /// </summary>
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")

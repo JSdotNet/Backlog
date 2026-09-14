@@ -397,6 +397,16 @@ What is true today, and where it differs from the model above:
   palette to list it in, so the hatch is currently discoverable only to a reader
   who already knows the shortcut. The half of the rule that is unmet is the
   command, and it stays unmet until there is a palette to put it in.
+  Since the task fields began containing their own keydown
+  (`interaction-guidelines.md#task-rows`, "Escape belongs to the innermost
+  draft"), the surviving half has two dead spots: the shortcut does not reach the
+  pane from inside a step's title, the step composer, or the entry's heading
+  rename, because the boundary those fields draw stops the whole keydown and not
+  Escape alone. From anywhere else in the pane it still opens and closes the
+  hatch, and from those three the way to it is to leave the field first. Whether
+  that is an acceptable price for the boundary, or whether the shortcut should be
+  lifted out of the pane's own handler so it is heard everywhere, is open — it is
+  the one question `#366` did not settle.
 - **The metadata line now carries two syntaxes.** Sigil tokens for type, priority,
   status, area and tags, and named `name:value` tokens for the scheduling and
   dependency fields — see `#scheduling-and-dependency-tokens` for why the second
