@@ -51,22 +51,47 @@ held at `!draft`; `!draft` is for an entry still being shaped, which a generated
 none of. `effort:` sits after `repo:` on the line, which is where Backlog itself writes it
 back.
 
+## Entry kinds
+
+Backlog accepts three types; a generated plan writes two of them, and the type says who
+does the work:
+
+- **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker)
+  and the session-name line, states `repo:`, and may carry `## Setup:` sub-items and the
+  knowledge/devbook reminder.
+- **`task`** — only the user does it: a decision, a sign-off, an action in an account or on a
+  machine an AI session cannot reach. A plain entry addressed to the user — title, metadata
+  line, body saying what to do and what done looks like, `- [ ]` lines for the user's own
+  steps. No marker, no session-name line, no `Setup:` or knowledge sub-item, and `repo:`
+  only when the step is done in or to that repository.
+
+The two never mix. A manual step is never a sub-item, checklist line or instruction inside
+a `prompt`, and a `task` never carries instructions for an AI. Work that needs both is
+split: the manual step is its own `task`, and the prompts that need it done wait on it with
+`after:`. `idea` is a type Backlog holds, not one a plan emits.
+
 ## Worked example
 
 ```markdown
+# Confirm the export format with design
+
+`task` `!ready` `@repos` `#vscode-desktop-rollout` `id:confirm-format` `effort:1`
+
+Agree with design whether the export is plain Markdown or Markdown with front matter, and
+note the answer on this entry. Done when the format is written down here.
+
 # Add the export command
 
-`prompt` `*high` `!ready` `@repos` `#vscode-desktop-rollout` `id:add-command` `repo:backlog-desktop` `effort:5`
+`prompt` `*high` `!ready` `@repos` `#vscode-desktop-rollout` `id:add-command` `after:confirm-format` `repo:backlog-desktop` `effort:5`
 
-Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop` — run it with the `backlog-run-plan-item` skill.
+Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `confirm-format` — run it with the `backlog-run-plan-item` skill.
 
 Add the plan name `vscode-desktop-rollout` to this session's title before you start.
 
-Add an export command to the command palette that serializes the current view to Markdown.
+Add an export command to the command palette that serializes the current view to Markdown,
+in the format agreed on the `confirm-format` entry.
 
 ## Setup: install the command-palette SDK
-
-## Manual: confirm the export format with design
 
 ## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
 
@@ -94,12 +119,18 @@ Read the material this plan came from against what actually landed: every entry 
 nothing dropped, deferred or left half-finished on the way. Write up anything still
 outstanding as a new entry.
 
-## Manual: sign off that the plan is complete
+# Sign off the VS Code desktop rollout plan
+
+`task` `!ready` `@repos` `#vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `effort:1`
+
+Read the review's outcome. Confirm the plan is complete, or pick up the follow-up entries
+it wrote.
 ```
 
 ## Plan item marker
 
-The first body line of every entry. It exists because of what Backlog's copy button hands
+The first body line of every `prompt` entry — a `task` entry has none, because nobody
+pastes it into a session to run. It exists because of what Backlog's copy button hands
 over: the entry's title, a blank line, and its body — never the metadata line, which
 Backlog treats as its own bookkeeping. An entry copied out of the app and pasted into a
 chat has therefore lost its `id:`, `#tag`, `repo:` and `after:` unless the body restates
@@ -123,14 +154,17 @@ Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<i
 
 ## Sub-item conventions
 
+These sub-items belong to `prompt` entries; a `task` entry carries none of them.
+
 - `## Setup: ...` — a prerequisite the target repository needs before the entry's own
   instructions make sense (update a plugin, install one, make a related change first).
   Ordered ahead of everything else in the entry.
-- `## Manual: ...` — a step only a human can do.
 - One further `##` sub-item reminding whoever runs the prompt to update the target
-  repository's own knowledge folders or devbook once it is done. Every entry carries one;
-  it is never optional. The plan's closing review entry is the single exception — it
-  changes no repository of its own, and carries a `Manual: ...` sign-off instead.
+  repository's own knowledge folders or devbook once it is done. Every prompt carries one;
+  it is never optional. The plan's closing review prompt is the single exception — it
+  changes no repository of its own.
+- There is no manual sub-item. A step only a person can do is a `task` entry of its own
+  (see [Entry kinds](#entry-kinds)), never a `## Manual:` heading inside a prompt.
 - `- [ ]` checklist lines are for granular steps inside a sub-item, not a substitute for a
   `##` sub-item.
 
