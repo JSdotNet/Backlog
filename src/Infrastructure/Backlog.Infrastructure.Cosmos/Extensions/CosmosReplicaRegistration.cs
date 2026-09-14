@@ -1,25 +1,28 @@
+using Backlog.Infrastructure.Cosmos.Devices;
+using Backlog.Infrastructure.Cosmos.PairingCodes;
 using Backlog.Infrastructure.Cosmos.Sessions;
 using Backlog.Infrastructure.Cosmos.Tasks;
 using Backlog.Modules.Sync.Ports;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Backlog.Infrastructure.Cosmos.Extensions;
 
 /// <summary>
-/// Wires the Cosmos-backed replicas into a host — or does nothing at all,
+/// Wires the Cosmos-backed adapters into a host — or does nothing at all,
 /// deliberately.
 /// <para>
-/// One method for both containers rather than one apiece, and the reason is the
+/// One method for every container rather than one apiece, and the reason is the
 /// client rather than tidiness. There is a single <c>CosmosClient</c> for the
 /// account; registering it twice would build two connection pools and two
 /// background endpoint refreshes against the same account, and whichever
 /// registration ran second would be the one anything resolved. A method per
-/// replica would either have to do that or carry an "is it already there" probe,
+/// adapter would either have to do that or carry an "is it already there" probe,
 /// and both are worse than saying once that the sync service reaches one account
-/// with two containers in it (.arc42/adr/0005 §Storage).
+/// with four containers in it (.arc42/adr/0005 §Storage, §Identity).
 /// </para>
 /// </summary>
 public static class CosmosReplicaRegistration
@@ -33,15 +36,14 @@ public static class CosmosReplicaRegistration
     private const string AccountEndpointKey = $"{CosmosOptions.SectionName}:AccountEndpoint";
 
     /// <summary>
-    /// Registers the Cosmos client and the two replicas that read it — tasks and
-    /// session records.
+    /// Registers the Cosmos client and the four adapters that read it — the
+    /// task and session replicas, the device registry and the pairing-code
+    /// store.
     /// <para>
     /// <strong>In Development it no-ops when Cosmos is not configured.</strong>
     /// That is the point of the guard rather than a convenience: with no
     /// connection string and no account endpoint, the call returns having
-    /// registered nothing, the module's
-    /// <c>TryAddSingleton&lt;ITaskReplica, InMemoryTaskReplica&gt;</c> and
-    /// <c>TryAddSingleton&lt;ISessionReplica, InMemorySessionReplica&gt;</c>
+    /// registered nothing, the module's four in-memory <c>TryAddSingleton</c>s
     /// stand, and the sync service runs end to end with no emulator. Every
     /// endpoint test gets that, and so does a bare <c>dotnet run</c> of the
     /// service.
@@ -50,10 +52,11 @@ public static class CosmosReplicaRegistration
     /// <strong>Anywhere else the same silence is a defect, so it throws.</strong>
     /// A deployed service that lost its connection string would otherwise start
     /// healthy and serve every owner out of process memory, losing all of it on
-    /// the next restart — and nothing about it would look wrong until somebody
-    /// noticed their tasks had stopped travelling. Inherited ADR 0018: bind,
-    /// validate, fail fast. Startup is the only place this can be said, because
-    /// afterwards a memory-backed replica behaves exactly like a working one.
+    /// the next restart — every task, and every paired device with it, so each
+    /// one would have to register again — and nothing about it would look wrong
+    /// until somebody noticed. Inherited ADR 0018: bind, validate, fail fast.
+    /// Startup is the only place this can be said, because afterwards a
+    /// memory-backed adapter behaves exactly like a working one.
     /// </para>
     /// <para>
     /// Call it before <c>AddSyncModule()</c>. Both registrations are for the same
@@ -104,11 +107,12 @@ public static class CosmosReplicaRegistration
                 // v3 SDK serialises with Newtonsoft by default, which ignores
                 // every [JsonPropertyName] on the document types — including the
                 // ones that make OwnerId serialise as the /ownerId partition key
-                // both containers are created on. Omitting this line does not
-                // fail: it silently writes documents with no partitioning that
-                // matches the containers the bicep declares, and on `sessions` it
-                // also writes documents that match none of the five paths that
-                // container indexes.
+                // the two replica containers are created on, and `id` as the
+                // one the device and pairing-code containers use. Omitting this
+                // line does not fail: it silently writes documents with no
+                // partitioning that matches the containers the bicep declares,
+                // and on `sessions` it also writes documents that match none of
+                // the five paths that container indexes.
                 options.UseSystemTextJsonSerializerWithOptions = ReplicaDocumentSerialization.Options;
 
                 // Resilience per inherited ADR 0015. The standard HTTP resilience
@@ -134,6 +138,13 @@ public static class CosmosReplicaRegistration
         // there.
         builder.Services.AddSingleton<ITaskReplica, CosmosTaskReplica>();
         builder.Services.AddSingleton<ISessionReplica, CosmosSessionReplica>();
+        builder.Services.AddSingleton<IDeviceRegistry, CosmosDeviceRegistry>();
+        builder.Services.AddSingleton<IPairingCodeStore, CosmosPairingCodeStore>();
+
+        // The code store stamps each document's ttl from the clock. The module
+        // registers the same default, but this call is meant to stand on its
+        // own, so it does not rely on being followed by AddSyncModule for it.
+        builder.Services.TryAddSingleton(TimeProvider.System);
 
         return builder;
     }
