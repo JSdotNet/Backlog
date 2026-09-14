@@ -14,8 +14,9 @@ deployed it, called as a [reusable workflow][reusable]:
 
 So a component behaves identically whether it runs on its own or from here, and changing
 how sync deploys still means editing `deploy-sync.yml` and nothing else. Every workflow
-keeps the triggers it already had: a push to `main` that touches the sync paths still
-deploys sync directly, and the nightly desktop release still runs on its schedule.
+keeps the triggers it already had: the nightly desktop release still runs on its schedule,
+and sync — manual only for now, its push-to-`main` trigger parked until a first deploy has
+been watched succeed — still runs from its own **Run workflow** button as well as from here.
 
 [reusable]: https://docs.github.com/actions/using-workflows/reusing-workflows
 
@@ -101,10 +102,13 @@ token can only be the same or more restrictive than its caller's:
 | Component | Permissions | Why |
 | --- | --- | --- |
 | Foundry | `contents: read` | The self-hosted runner supplies Azure access; the workflow signs in to nothing. |
-| Sync | `contents: read`, `id-token: write` | `id-token` is what mints the OIDC token Azure trusts, so no secret is stored. |
+| Sync | `contents: read`, `id-token: write` | `id-token` is what mints the OIDC token Azure trusts, so no Azure secret is stored. |
 | Desktop | `contents: write`, `issues: write` | It publishes a GitHub Release, and opens an issue when the release fails. |
 
-Only the desktop job passes `secrets: inherit`, and only because the signing certificate is a
-secret. Foundry and sync read `vars.*` alone, which need no inheriting — and Foundry runs on
-the self-hosted runner, which is the last place to pre-authorise the repository's whole secret
-set against a future `secrets.` reference.
+The desktop and sync jobs pass `secrets: inherit`; Foundry does not. Desktop needs it for the
+signing certificate. Sync needs it for `SYNC_TOKEN_SIGNING_KEY`, the key the sync service
+signs device tokens with (see [`sync.md`](sync.md#the-device-token-signing-key)) — and
+`inherit` rather than passing it by name because it is an *environment* secret: the calling
+job has no environment to resolve it in, only the called workflow's job does. Foundry reads
+`vars.*` alone and runs on the self-hosted runner, which is the last place to pre-authorise
+the repository's whole secret set against a future `secrets.` reference.

@@ -32,9 +32,9 @@ One environment. A personal tool does not earn a staging ring.
 
 ## Manual prerequisites
 
-Four things are done by hand, once, before the workflow can run. They are manual on
-purpose: each one either costs money, grants trust, or cannot be undone by re-running
-a template.
+Five things are done by hand, once, before the workflow can run. They are manual on
+purpose: each one either costs money, grants trust, holds a secret, or cannot be undone
+by re-running a template.
 
 ### 1. Create the resource group
 
@@ -65,8 +65,8 @@ az ad app federated-credential create --id <app-object-id> --parameters '{\"name
 This is the one that has to exist, and a `repo:JSdotNet/Backlog:ref:refs/heads/main`
 credential on its own will never authenticate anything. GitHub derives the subject from the
 job: when a job declares an `environment`, the token's subject is
-`repo:<org>/<repo>:environment:<name>` **on every trigger**, push to `main` included — and
-the `sync` job always declares one. An earlier version of this document had it the other way
+`repo:<org>/<repo>:environment:<name>` **on every trigger**, a manual run and a call from
+`Deploy All` alike — and the `sync` job always declares one. An earlier version of this document had it the other way
 round, presenting the branch subject as primary and the environment subject as an optional
 extra for `workflow_dispatch` runs. Nobody caught it because the workflow has never got past
 its first step (see *Current state* below).
@@ -110,10 +110,31 @@ az consumption budget create --budget-name backlog-sync --amount 10 --time-grain
 > **Still outstanding:** current Cosmos serverless pricing has not been re-verified
 > against the numbers ADR 0005 quotes. Check it before the first `provision` run.
 
+### 5. Set the device-token signing key
+
+The service signs the device tokens it issues with an HMAC key, and outside
+Development it refuses to start without one. The key is a GitHub **environment
+secret**, `SYNC_TOKEN_SIGNING_KEY`, on the same `backlog-sync` environment as the
+variables above. Mint it locally — 32 random bytes, base64:
+
+```powershell
+$bytes = [byte[]]::new(32)
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+Paste the output into the secret and nowhere else. The workflow's first step checks it
+has the shape the service will accept — base64, at least 32 bytes decoded — and fails by
+name if it does not, so a bad key is caught before `azd provision` rather than as a
+container that never comes up. How it travels from there to the running service is in
+[*The device-token signing key*](#the-device-token-signing-key) below, along with what
+rotating it does.
+
 ## Current state
 
-Verified 2026-09-09: **none of the four prerequisites above have been done**, and this
-workflow has never completed a run.
+Verified 2026-09-09: **none of the first four prerequisites above have been done**, and
+this workflow has never completed a run. The fifth was added on 2026-09-14 and has not
+been set either.
 
 | Prerequisite | State |
 | --- | --- |
@@ -121,6 +142,7 @@ workflow has never completed a run.
 | 2. Federated credential | Not created. No `backlog-sync-deploy` app registration exists in the tenant. |
 | 3. Environment variables | All five unset on `backlog-sync`. |
 | 4. Budget alert | Not created. |
+| 5. Signing key secret | Not set. |
 
 So every run fails in `Verify deployment target`, before touching Azure, with:
 
@@ -131,7 +153,13 @@ AZURE_RESOURCE_GROUP, AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SUBSCRIPTION_ID.
 
 That is the step doing its job — it names what is missing rather than letting `azd` fail
 halfway — but it does mean the later steps have never executed, so nothing past step one of
-this document is proven by a real run.
+this document is proven by a workflow run.
+
+The template itself *has* been provisioned, from a local run of `build/Deploy-Azure.ps1`
+into `JS-AI` on 2026-09-14 — and every revision of the container app it produced sits in
+`ActivationFailed` with zero replicas, because the template of that day handed the service
+no signing key and the service refuses to start without one. That is the gap prerequisite 5
+closes; the first revision provisioned with a key is the first one that can come up.
 
 ## Resources
 
@@ -149,7 +177,7 @@ this document is proven by a real run.
 | Container Apps environment | Consumption workload profile, logs via Azure Monitor |
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
 | Container registry | Basic, admin user off |
-| Key Vault | RBAC authorization, soft delete, purge protection off |
+| Key Vault | RBAC authorization, soft delete, purge protection off. Empty and unread today; see below |
 | Log Analytics workspace | 30-day retention, 1 GB/day ingestion cap |
 | Application Insights | Workspace-based, ingesting into that workspace |
 
@@ -230,19 +258,77 @@ heard of, so keeping a device inside its own partition is a check in the service
 in front of a credential that can see everything. Nothing in this template changes
 that, and nothing in it can.
 
-**A different key belongs to a different secret, and it is not provisioned here.**
+## The device-token signing key
+
 The identity model above is about how the service reaches Cosmos; it says nothing
 about how the service signs the device tokens it issues. That key —
-`Modules:Sync:Tokens:SigningKey`, at least 32 bytes, base64 — is a required
-setting outside Development: `Backlog.Modules.Sync.Api` validates it on start and
-refuses to come up without one. Development mints and warns about an ephemeral
-key so no configuration is needed locally, but that path is Development-only by
-construction. The Key Vault this template provisions is empty — it holds `Key
-Vault Secrets User` for the service's managed identity and nothing else, since
-neither the signing key nor the webhook secrets it also names have code to
-consume them yet — so the signing key has to be put into it (or supplied another
-way, e.g. a container app secret) and wired to `Modules:Sync:Tokens:SigningKey`
-before the first production start will succeed.
+`Modules:Sync:Tokens:SigningKey`, at least 32 bytes, base64 — is a required setting
+outside Development: `Backlog.Modules.Sync.Api` binds it into `SyncTokenOptions`,
+validates it with `ValidateOnStart()`, and refuses to come up without one. Development
+mints and warns about an ephemeral key so no configuration is needed locally, but that
+path is Development-only by construction and stays that way: the point of failing at
+start is that a misconfigured deployment is found by the deploy, not by the first
+device that syncs.
+
+Deployed, the key travels like this:
+
+| Step | Where | What |
+| --- | --- | --- |
+| 1 | GitHub environment `backlog-sync` | Secret `SYNC_TOKEN_SIGNING_KEY` (prerequisite 5) |
+| 2 | `.github/workflows/deploy-sync.yml` | Exported into the job environment; `Verify deployment target` checks its shape |
+| 3 | `infra/sync/main.parameters.json` | `tokenSigningKey: ${SYNC_TOKEN_SIGNING_KEY}` — `azd` substitutes from the process environment |
+| 4 | `infra/sync/main.bicep` | `@secure() @minLength(44) param tokenSigningKey`, no default |
+| 5 | Container app `configuration.secrets` | `sync-token-signing-key` |
+| 6 | Container `env` | `Modules__Sync__Tokens__SigningKey`, a `secretRef` — `__` is how .NET reads the `:` path from an environment variable |
+
+Three properties fall out of that, and they are the reason it is a container app
+secret rather than a Key Vault read:
+
+- **A missing key fails the provision, not the app.** The parameter has no default and
+  ARM rejects a value under 44 characters, so an empty substitution cannot deploy a
+  container that restarts forever. The workflow fails earlier still, by name.
+- **The value is never on disk or in a log.** It goes from the GitHub secret straight
+  into the process environment; the workflow never passes it to `azd env set`, so it
+  is not written to `.azure/<env>/.env` and does not appear in `azd env get-values` or
+  the run summary. `@secure()` keeps it out of the deployment history, and
+  `az containerapp show` does not return secret values — `az containerapp secret show`
+  can, for a principal that can already write the app, which is the same trust as
+  being able to redeploy it with any key. GitHub masks the secret in the log as well,
+  though nothing in the workflow prints it.
+- **No round-trip on cold start.** The app scales to zero; a Key Vault call on every
+  start would be paid on every first request for one secret.
+
+Locally, `build/Deploy-Azure.ps1` makes the same check and reads the same variable from
+your shell — see *Run locally*.
+
+**Rotation.** Set a new value on the GitHub secret (or in the shell) and run a
+`provision`. What that invalidates, and what each device does about it:
+
+- **Device tokens** (`LifetimeMinutes`, 30 minutes) signed under the old key are refused
+  with a 401. The desktop's `SyncAuthenticationHandler` drops a token that earns a 401
+  and the next call re-mints from the device's registration credential — it does not
+  wait for the token's expiry — so a rotation costs each device one failed request, not
+  half an hour. The registration credential itself is hashed (`Sha256CredentialHasher`),
+  not signed, and the registration lives in the `devices` container
+  (`CosmosDeviceRegistry`), so neither the key nor the restart a rotation causes
+  touches a pairing.
+- **Pull cursors** are signed with a key *derived* from the same secret
+  (`HmacSyncCursorCodec`: `HMACSHA256(SigningKey, "backlog.sync.cursor.v1")`). A cursor
+  from before the rotation no longer verifies and the service answers 400
+  `sync.cursor_malformed`. The desktop treats that, like `sync.cursor_expired`, as
+  "forget the cursor and pull from the beginning" (`TaskSyncSession`,
+  `SessionSyncSession`), so a rotation is one full re-pull per device rather than an
+  error. On a personal-scale replica that is worth knowing, not worth avoiding.
+
+**The Key Vault this template provisions stays empty.** ADR 0005 lists it, the
+service's managed identity holds *Key Vault Secrets User* on it, and no code reads it:
+the container app is handed no vault endpoint, because a `Sync__KeyVault__Endpoint`
+that nothing consumed was configuration that looked live and was not. It is reserved
+for the day the signing key wants vault-managed rotation, or for the webhook secrets
+ADR 0005 also names — that change adds
+`Azure.Extensions.AspNetCore.Configuration.Secrets` to the service and a vault secret
+named `Modules--Sync--Tokens--SigningKey` (`--` is that provider's section separator),
+and is product code rather than infrastructure.
 
 ## Observability carries no domain data
 
@@ -327,11 +413,14 @@ resource alone.
 
 ## Run from GitHub Actions
 
-A push to `main` that touches `infra/sync/`, `azure.yaml`, `src/Modules/Sync/`, the
-service defaults, either `Directory.*.props`, or the workflow itself runs a full
-provision and deploy. Nothing else on `main` triggers it.
+**Manual only, for now.** Nothing on `main` triggers this workflow; a person starts every
+run, either here or through `Deploy All`. It used to run a full provision and deploy on a
+push to `main` touching `infra/sync/`, `azure.yaml`, `src/Modules/Sync/`, the service
+defaults, either `Directory.*.props`, or the workflow itself; that trigger is parked until
+the first deploy has been watched succeed by hand, and comes back as a deliberate change to
+`deploy-sync.yml`.
 
-For a manual run, open **Actions -> Deploy Sync -> Run workflow**:
+Open **Actions -> Deploy Sync -> Run workflow**:
 
 | Input | Default | Notes |
 | --- | --- | --- |
@@ -343,9 +432,21 @@ change before it changes it.
 
 ## Run locally
 
-`build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so only
-prerequisite 1 applies — and the script's default `-SyncResourceGroup` is `JS-AI`, the
-group Foundry already lives in, so on the Sponsorship subscription nothing needs creating.
+`build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so of the
+prerequisites only 1 and 5 apply — and the script's default `-SyncResourceGroup` is
+`JS-AI`, the group Foundry already lives in, so on the Sponsorship subscription nothing
+needs creating. The signing key comes from your shell, set for the session only:
+
+```powershell
+$env:SYNC_TOKEN_SIGNING_KEY = '<base64 key from prerequisite 5>'
+```
+
+The script checks it the way the workflow does and stops by name when it is missing or
+the wrong shape, in every mode — `azd` resolves the parameter file before it knows
+whether it is going to change anything. Do **not** `azd env set` it: that writes the
+value to `.azure/backlog-sync/.env` on disk, where `azd env get-values` would print it
+back. The process environment is the only place it belongs.
+
 Its default component is `all`; pass `-Component sync` to deploy the sync tier alone:
 
 ```powershell
