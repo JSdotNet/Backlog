@@ -56,3 +56,14 @@ reaches this ground. No typed options class exists and nothing calls
 - This is also the first real exercise of the section-naming convention
   (`Modules:Sync:…`); no conflict has arisen because it is still the only
   section a module owns outside what Aspire injects.
+- **The installed desktop app is the one host that takes another host's
+  address from outside service discovery.** `https+http://sync` resolves only
+  under an AppHost run, and the shipped MSIX is never launched that way, so
+  `Backlog.Infrastructure.Sync/SyncServiceEndpoint.cs` resolves the sync
+  address per client: the URL entered on Settings → Devices (kept per machine
+  in `%LocalAppData%\Backlog\sync-service.json`), then `BACKLOG_SYNC_URL` —
+  the variable the mobile head already honoured when run standalone — then the
+  service-discovery name. Under Aspire nothing is entered and the rule holds as
+  before; the deviation is scoped to a head that has no Aspire to discover
+  through, and the Devices tab names which source is in use so the gap is
+  visible rather than silent.
