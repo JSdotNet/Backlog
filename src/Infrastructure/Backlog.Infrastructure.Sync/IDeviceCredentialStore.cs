@@ -11,9 +11,9 @@ namespace Backlog.Infrastructure.Sync;
 /// </para>
 /// <para>
 /// The port says nothing about how the secret is protected. That is the whole
-/// point of it being a port: Windows gets DPAPI, the Android head gets an
-/// in-memory store until its SecureStorage adapter lands, and a test gets
-/// whichever of the two it can assert against.
+/// point of it being a port: Windows gets DPAPI, the Android head gets the
+/// Keystore behind MAUI SecureStorage (<see cref="SecureValueDeviceCredentialStore"/>
+/// over the head's own adapter), and a test gets the in-memory store.
 /// </para>
 /// </summary>
 public interface IDeviceCredentialStore

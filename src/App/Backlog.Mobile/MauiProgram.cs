@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Storage;
 
 namespace Backlog.Mobile;
 
@@ -32,13 +33,14 @@ public static class MauiProgram
 			?? Environment.GetEnvironmentVariable("BACKLOG_SYNC_URL")
 			?? EmulatorHostFallback;
 
-		// The device half of cloud sync. In memory, and honestly so: DPAPI is
-		// Windows and Android's own answer is Xamarin.Essentials SecureStorage,
-		// which is a slice of its own — until it lands a phone pairs once per run
-		// rather than writing the registration credential to a plain file.
-		// TODO: replace with a SecureStorageDeviceCredentialStore adapter beside
-		// AndroidSpeechTranscriber, registered here the way this one is.
-		builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new InMemoryDeviceCredentialStore());
+		// The device half of cloud sync: the registration credential, kept in
+		// Android's Keystore-backed secure storage so a force-stop does not
+		// un-pair the phone. DPAPI is Windows; this is the platform's own answer.
+		// ISecureStorage is registered explicitly because MAUI does not put its
+		// Essentials interfaces in the container on its own, and the store takes
+		// it through the constructor so its logic is testable off a device.
+		builder.Services.AddSingleton<ISecureStorage>(SecureStorage.Default);
+		builder.Services.AddSingleton<IDeviceCredentialStore, SecureStorageDeviceCredentialStore>();
 
 		// Pairing and tokens only. Task replication is AddTaskSyncClient, and it is
 		// not called here on purpose: it needs an ITaskRepository, and this head has
@@ -76,6 +78,15 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
-		return builder.Build();
+		var app = builder.Build();
+
+		// The credential store reads secure storage once, in its constructor,
+		// and answers from memory afterwards. Resolving it here puts that one
+		// blocking read at startup, where the head is already doing startup
+		// work, rather than under the Inbox's first render — see the seam note
+		// on SecureValueDeviceCredentialStore.
+		_ = app.Services.GetRequiredService<IDeviceCredentialStore>();
+
+		return app;
 	}
 }
