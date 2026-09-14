@@ -1,0 +1,39 @@
+@* The side panel with a host handler above it, for the same reason
+   TaskEscapeHarness exists: where a key stops is not visible from the control it
+   was pressed in.
+
+   The panel's heading is the library's third Escape-consuming field, and the one
+   real host that draws it — the desktop Tasks pane — puts it inside a region
+   whose own Escape closes the pane. So the arrangement under test is a div that
+   counts keys with the panel inside it, and the fact being asserted is which of
+   those keys the div is allowed to hear. *@
+
+<div class="escape-host" data-testid="host" @onkeydown="OnHostKeyDown">
+    <TaskPanel Title="@Title"
+               OnRename="Rename"
+               OnTabBackward="() => Backwards++"
+               TestId="panel" />
+</div>
+
+@code {
+    public string Title { get; private set; } = "Wire the pane into the shell";
+
+    /// <summary>Every key that reached the host, in order — the record a test
+    /// asserts on instead of asserting the absence of an effect.</summary>
+    public List<string> HostKeys { get; } = [];
+
+    public List<string> Renames { get; } = [];
+
+    /// <summary>Shift+Tab off the front of the panel, which the heading still owes
+    /// its host while the field is closed. Counted so that a boundary which took
+    /// the whole keyboard rather than the one key would not pass.</summary>
+    public int Backwards { get; private set; }
+
+    private void OnHostKeyDown(KeyboardEventArgs e) => HostKeys.Add(e.Key);
+
+    private void Rename(string title)
+    {
+        Renames.Add(title);
+        Title = title;
+    }
+}

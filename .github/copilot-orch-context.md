@@ -121,7 +121,7 @@ No external secret is required. Backlog is local-first, but the sync service now
 a bearer token on every call — `/api/sync/devices/me` and every `/api/sync/inbox` endpoint
 are behind it — so each harness has to pair itself before exercising them:
 
-- On `desktop-web-harness`: Settings → Features → turn on `device-pairing` → Settings →
+- On `desktop-web-harness`: Settings → Features → turn on `sync` → Settings →
   Devices → **Register this device**, or **Pair with a code** copied from the other
   harness's pairing code.
 - On `mobile-web-harness`: the Inbox pane shows a pairing-code entry while unpaired.
@@ -131,11 +131,15 @@ are behind it — so each harness has to pair itself before exercising them:
   distinct devices under one owner rather than sharing a pairing.
 
 **The Development signing key is ephemeral** — generated fresh on process start and logged
-as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` unpairs every
-device; re-pair after any `aspire start` that restarts it. The Devices tab now says so
-itself rather than going on reporting a healthy pairing: a device the service no longer
-recognises is told, and is offered registering, pairing, and **Forget this device** on the
-spot, so re-pairing no longer means deleting a credential file by hand.
+as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` invalidates every
+outstanding device token and sync cursor. A pairing survives it: device registrations live
+in the Cosmos emulator's `devices` container, so the client exchanges its credential for a
+fresh token and drops the rejected cursor on the next sync. What does not survive is the
+emulator's own data — a `Forget this device` or a wiped emulator volume is what unpairs.
+The Devices tab says so itself rather than going on reporting a healthy pairing: a device
+the service no longer recognises is told, and is offered registering, pairing, and
+**Forget this device** on the spot, so re-pairing never means deleting a credential file
+by hand.
 
 If credentials become necessary later, record only a **pointer** here (for example the name
 of the secret store, vault, or user-secrets entry). Never place actual secrets, tokens, or

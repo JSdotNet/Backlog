@@ -90,6 +90,13 @@ fails and names the missing one rather than letting `azd` fail halfway.
 | `AZURE_RESOURCE_GROUP` | The group created in step 1 |
 | `AZURE_LOCATION` | Azure region, e.g. `swedencentral` |
 
+One optional variable: `AZURE_COSMOS_LOCATION` places the Cosmos account in a different
+region from everything else. It defaults to `swedencentral`, next to the Foundry account,
+because West Europe and North Europe both refuse to create new Cosmos accounts for this
+subscription ("high demand in <region>", `ServiceUnavailable`, zone redundancy off or not —
+verified 2026-09-14; the error points at a region-access request, `aka.ms/cosmosdbquota`).
+Set it to `westeurope` once that request is granted.
+
 ### 4. Set a budget alert
 
 ADR 0005 puts the expected cost well under €5/month, and the point of a budget alert
@@ -133,9 +140,11 @@ this document is proven by a real run.
 | Resource | Notes |
 | --- | --- |
 | Cosmos DB account | Serverless, session consistency, `disableLocalAuth: true` |
-| Cosmos database `backlog` | One database, two containers |
+| Cosmos database `backlog` | One database, four containers |
 | Container `tasks` | Partition `/ownerId`, default indexing policy |
 | Container `sessions` | Partition `/ownerId`, lean custom index |
+| Container `devices` | Partition `/id` (the device id), default indexing policy |
+| Container `pairingCodes` | Partition `/id` (the code hash), nothing indexed |
 | User-assigned managed identity | The only principal the service runs as |
 | Container Apps environment | Consumption workload profile, logs via Azure Monitor |
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
@@ -155,6 +164,8 @@ identity it uses for everything else.
 | --- | --- | --- |
 | `tasks` | `defaultTtl: -1` | TTL enabled, nothing expires by default |
 | `sessions` | `defaultTtl: 31536000` | Every record expires at 12 months |
+| `devices` | none | A registration lasts until the device is forgotten |
+| `pairingCodes` | `defaultTtl: -1` | TTL enabled; every code carries its own |
 
 `sessions` is straightforward: the whole record is history, and the retention is a
 container setting exactly as ADR 0005 describes.
@@ -170,6 +181,14 @@ property ADR 0005 was buying — but the value comes from the writer.
 That value is provisioned, not hard-coded: the container app receives it as
 `Sync__Cosmos__TaskTombstoneTtlSeconds` (15552000), from the `taskTombstoneTtlSeconds`
 parameter. Changing the retention is a parameter change, not a code change.
+
+`pairingCodes` works the same way as `tasks` but with nothing to configure: every
+code is written with a `ttl` of its own ten-minute window plus a ten-minute grace,
+so Cosmos reaps it shortly after it could last have been used. The grace is what
+lets the service keep answering "that code has expired" rather than "not one this
+service issued" for a while after the window closes. Reaping is lazy and the
+emulator does not do it at all, so the service's own expiry check — not the TTL —
+is what turns a stale code away.
 
 ### The `sessions` index
 
@@ -270,7 +289,7 @@ az monitor log-analytics workspace show --name <workspace> --resource-group <gro
 
 No Azure account is needed to build or run the sync path. The Aspire AppHost starts
 the **Cosmos DB preview (vNext) emulator** as a container, declares the `backlog`
-database and both containers, and hands `sync` a reference to it.
+database and all four containers, and hands `sync` a reference to it.
 
 ```powershell
 aspire start --isolated --non-interactive --apphost src\Aspire\Backlog.Aspire.AppHost\Backlog.Aspire.AppHost.csproj
@@ -324,14 +343,21 @@ change before it changes it.
 
 ## Run locally
 
-`build/Deploy-Azure.ps1` wraps this, once the four prerequisites above are done:
+`build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so only
+prerequisite 1 applies — and the script's default `-SyncResourceGroup` is `JS-AI`, the
+group Foundry already lives in, so on the Sponsorship subscription nothing needs creating.
+Its default component is `all`; pass `-Component sync` to deploy the sync tier alone:
 
 ```powershell
-./build/Deploy-Azure.ps1 -Component sync -Mode deploy -SyncResourceGroup <resource-group>
+./build/Deploy-Azure.ps1 -Component sync -Mode deploy
 ```
 
 It selects the azd environment rather than recreating it, so it is safe to re-run. The steps
 below are what it does.
+
+Sharing the group with Foundry has one hazard: **never run `azd down`** on the
+`backlog-sync` environment. With `AZURE_RESOURCE_GROUP` set, `azd down` deletes that
+resource group — the Foundry account with it. Remove the sync resources by hand instead.
 
 Install the Azure Developer CLI (it is a separate download from the Azure CLI):
 
@@ -350,7 +376,7 @@ azd env new backlog-sync --subscription <subscription-id> --location <region>
 ```
 
 ```powershell
-azd env set AZURE_RESOURCE_GROUP <resource-group>
+azd env set AZURE_RESOURCE_GROUP JS-AI
 ```
 
 Preview, then apply:

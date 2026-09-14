@@ -2704,13 +2704,18 @@ h1, h2, h3 {
    steps as the pane narrows, because the shell draws it in a column that can
    be 20rem wide beside the backlog or the whole row wide on its own.
 
+   A flex column rather than a grid: between the header and the body sits the
+   last capture run's line, which is not there until a run happens, and a grid
+   row reserved for it would leave a double gap while it is absent. The body
+   takes whatever height the header and that line leave.
+
    container-type sits here rather than on .inbox-pane__body because a query
    styles a container's descendants and never the container itself. Every
    colour below is a token or a token mixed with transparent; the old block
    carried rgba literals and .design/color-scheme.md forbids them. */
 .inbox-pane {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-md);
     min-width: 0;
     min-height: 0;
@@ -2729,10 +2734,40 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The header's text and its actions side by side, the way the tools pane lays
+   its header out; the actions keep their width and the text takes the rest. */
+.inbox-pane__header {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.inbox-pane__header-actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
 .inbox-pane__eyebrow,
 .inbox-pane__title,
-.inbox-pane__subtitle {
+.inbox-pane__subtitle,
+.inbox-pane__capture-result {
     margin: 0;
+}
+
+/* What the last run said: a line in the pane's own body copy between the
+   header and the columns. The pane's column gap spaces it; the line is absent
+   until a run, and a flex column leaves no gap behind for an absent child. */
+.inbox-pane__capture-result {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__add-form {
+    display: grid;
+    gap: var(--spacing-md);
 }
 
 .inbox-pane__eyebrow {
@@ -2756,10 +2791,12 @@ h1, h2, h3 {
 /* --- The three columns --------------------------------------------------- */
 
 /* The side menu is a fixed column; the split beside it takes the rest and
-   divides itself. min-height: 0 on the body and on both children is what lets
-   each column scroll on its own instead of the pane growing to fit the longest. */
+   divides itself. The body grows into what the header leaves, and min-height: 0
+   on it and on both children is what lets each column scroll on its own
+   instead of the pane growing to fit the longest. */
 .inbox-pane__body {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: 16rem minmax(0, 1fr);
     gap: var(--spacing-md);
     min-height: 0;
@@ -2787,19 +2824,6 @@ h1, h2, h3 {
     height: 100%;
     padding: 0 var(--spacing-sm);
     overflow: auto;
-}
-
-/* --- Capture ------------------------------------------------------------- */
-
-.inbox-pane__capture {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.inbox-pane__capture-input {
-    flex: 1 1 auto;
-    min-width: 0;
 }
 
 /* --- Kind chips ---------------------------------------------------------- */

@@ -45,10 +45,11 @@ editor extension's `vscode` files as `ide`).
 type: term
 status: draft
 aliases: [CaptureItemCommand, manual, ManualChannel]
-related: [.domain/inbox/domain.md#capture-source, .domain/inbox/features.md#capture-by-hand]
+related: [.domain/inbox/domain.md#capture-source, .domain/inbox/features.md#add-by-hand]
 ```
 
-A thought typed straight into the desktop's capture field. It becomes an
+A thought typed straight into the desktop through the Inbox's Add dialog: a
+title and, optionally, notes that become the item's body. It becomes an
 `unprocessed` Inbox Item with channel `manual` and no replica behind it —
 `CaptureItemCommand` is the slice, `InboxEnumMap.ManualChannel` the token.
 Distinct from a `Capture` in the Capture context, which arrives from a device

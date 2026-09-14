@@ -3,25 +3,24 @@ namespace Backlog.Modules.Sync.Abstractions;
 /// <summary>The feature keys the Sync context owns.</summary>
 public static class SyncFeatures
 {
-    /// <summary>Register this device with the sync service, and pair a second
-    /// one to it.</summary>
-    public const string DevicePairing = "device-pairing";
-
-    /// <summary>Push local task changes to the replica and pull the owner's
-    /// change feed back. Separate from <see cref="DevicePairing"/> because a
-    /// person can have paired devices and still not want their tasks leaving
-    /// the machine.</summary>
-    public const string TaskSync = "task-sync";
-
-    /// <summary>Push this machine's session records to the replica and pull back
-    /// what the other environments reported. Its own key rather than a second
-    /// use of <see cref="TaskSync"/>, because the two answer different questions
-    /// about the same person: tasks are their work, and a session record is a
-    /// note about how they did it. Somebody can want their backlog on both
-    /// machines and still not want a list of what their agents have been doing
-    /// leaving either one — and the sanitization boundary that makes the second
-    /// safe (.arc42/adr/0005 §Session records) is not the same argument as the
-    /// one that makes the first safe, so it deserves its own switch to say no
-    /// to.</summary>
-    public const string SessionSync = "session-sync";
+    /// <summary>Talk to the cloud sync service at all: register this device and
+    /// pair a second one to it, push local task changes to the replica and pull
+    /// the owner's change feed back, and do the same for this machine's session
+    /// records - only their metadata, never a prompt, a transcript, a working
+    /// folder, or a title (.arc42/adr/0005 §Session records).
+    /// <para>
+    /// One switch where there used to be three (<c>device-pairing</c>,
+    /// <c>task-sync</c>, <c>session-sync</c>). They were split so that somebody
+    /// could pair devices without their tasks leaving the machine, or replicate
+    /// their backlog without a note of what their agents had been doing going
+    /// with it. In practice the question a person answers on the settings
+    /// screen is whether this machine takes part in sync, and three switches
+    /// that each had to be found and turned on before anything synced made that
+    /// one answer look like three. The sanitization boundary that made session
+    /// records safe to replicate still holds; it is what lets the three become
+    /// one rather than a reason to keep them apart. The former keys are named
+    /// on the catalog entry, so a settings file written while any of them was on
+    /// comes up with this one on.
+    /// </para></summary>
+    public const string Sync = "sync";
 }

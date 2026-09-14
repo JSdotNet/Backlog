@@ -17,6 +17,8 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -136,6 +138,14 @@ public static class MauiProgram
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
 
+        // The same arrangement for capture: the module brings the run, and the host
+        // decides where the monitored sources are kept — its own per-user file
+        // beside the choices above, for the same reason theirs are not in
+        // settings.json. No source adapter is registered because none ships yet;
+        // the run says so per enabled source rather than needing one to exist.
+        builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddCaptureModule();
+
         // The two cross-context joins the plan takes part in, each a port a screen
         // owns and an adapter here answers because only an adapter may see both
         // contexts: the backlog's tag picker offers the plan's tags, and a roadmap
@@ -216,14 +226,21 @@ public static class MauiProgram
         builder.Services.AddSessionSyncStores(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog"));
-        // "https+http://sync" is resolved by Aspire service discovery, which
-        // AddServiceDefaults above wired up, so the desktop always talks to the sync
-        // service of this AppHost run. Ports are dynamic; a literal one would be
-        // wrong by the next launch. Task replication is the second call and not
-        // part of the first: it needs the ITaskRepository this head registers,
-        // and a head without one composes only the pairing surface.
-        builder.Services.AddSyncClient(new Uri("https+http://sync"));
-        builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
+        // Where the sync service is, asked per client rather than fixed here.
+        // Under the AppHost it is "https+http://sync", which the service discovery
+        // AddServiceDefaults wired up rewrites to this run's sync resource - ports
+        // are dynamic and a literal one would be wrong by the next launch. The
+        // installed app is never launched that way, and for it that name is a DNS
+        // lookup that fails; so the URL on the Settings page comes first, then
+        // BACKLOG_SYNC_URL, and the discovery name is what is left. The settings
+        // file sits beside the credential above, per machine and never in the
+        // workspace. Task replication is the second call and not part of the
+        // first: it needs the ITaskRepository this head registers, and a head
+        // without one composes only the pairing surface.
+        builder.Services.AddSingleton<SyncServiceSettingsStore>();
+        builder.Services.AddSingleton<SyncServiceEndpoint>();
+        builder.Services.AddSyncClient(SyncServiceAddress);
+        builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
@@ -365,10 +382,9 @@ public static class MauiProgram
         // call registers and contributes a second source to the same port for what
         // the other environments reported. Both lines are lazy factories, so the
         // order is for whoever reads this file rather than for the container. It is
-        // its own call and its own feature key, because a person can want their
-        // tasks on both machines and still not want a list of what their agents
-        // have been doing leaving either one.
-        builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+        // its own call because a head can have a task database and no session
+        // readers; it answers to the same Sync switch as the task loop.
+        builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
         // What a transcript's parsed runs are kept in, so an activity read parses only
         // the transcripts that have changed. Beside the per-user settings and never
@@ -430,6 +446,11 @@ public static class MauiProgram
 
         return app;
     }
+
+    /// <summary>The base-address callback the three sync registrations share, so
+    /// they cannot disagree about which service this head is talking to.</summary>
+    private static Uri SyncServiceAddress(IServiceProvider services) =>
+        services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
     private static void ConfigureWebView2RemoteDebugging()
     {

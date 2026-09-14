@@ -23,6 +23,27 @@ timestamp. Every row leads with its `Content Kind` and its `Source`, so the
 reader sees what a thing is and who sent it before deciding on it, and the
 selected item opens in a detail view shaped by its kind.
 
+### Add by hand
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/inbox/domain.md#capture-source, .domain/capture/domain.md#capture-source, .domain/capture/features.md#run-capture-now]
+feature-flag: inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
+```
+
+The queue offers the two ways something gets into it from its own header:
+**Add**, for a thing the reader has in their head right now, and **Capture**,
+which runs the watched sources. Add asks for a title and, optionally, notes —
+nothing else, because the Inbox is where deciding happens and a dialog that
+asked where the item goes would be asking for triage before the item exists.
+The result is an `unprocessed` Inbox Item with channel `manual`, the notes as
+its body, captured and received at the same instant; it lands unfiled in the
+queue the reader is filling and opens in the detail beside it rather than
+anywhere else. It needs no paired device, which makes it the offline path and
+the way an inbox is seeded without a phone.
+
 ### Organise into lists and groups
 
 ```meta
@@ -53,21 +74,6 @@ feature-flag: inbox-pane
 One chip per `Content Kind` present in the selected slice, each with its count;
 toggling chips narrows the rows to those kinds. The chips are a lens over a
 list, never a place an item goes.
-
-### Capture by hand
-
-```meta
-type: sub-feature
-status: draft
-related: [.domain/inbox/domain.md#capture-source]
-feature-flag: inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.CaptureItemTests]
-```
-
-A capture field at the top of the queue: a thought typed there becomes an
-`unprocessed` item with channel `manual`, captured and received at the same
-instant. It needs no paired device, which makes it the offline path and the way
-an inbox is seeded without a phone.
 
 ## Triage workflow
 

@@ -21,8 +21,13 @@
     you ask with -ShowApiKey; the key is a bearer credential for a metered
     resource, so the default is to print the command that reads it.
 
+    Both components land in the same resource group (JS-AI) by default. One thing
+    that makes dangerous: `azd down` on the sync environment deletes the resource
+    group it was pointed at, Foundry account included. Never run it against a
+    shared group; remove the sync resources by hand instead.
+
 .PARAMETER Component
-    Which component to act on: foundry, sync, or all. Defaults to foundry.
+    Which component to act on: foundry, sync, or all. Defaults to all.
 
 .PARAMETER Mode
     validate, what-if, or deploy. Defaults to what-if, which changes nothing.
@@ -38,8 +43,8 @@
     Selects infra/foundry/<name>.bicepparam. Defaults to backlog-ai.
 
 .PARAMETER SyncResourceGroup
-    Existing resource group for the sync tier. Required when Component includes
-    sync — there is no sensible default, because the group does not exist yet.
+    Existing resource group for the sync tier. Defaults to JS-AI, the same group as
+    Foundry: one personal deployment does not earn a second group.
 
 .PARAMETER SyncLocation
     Region for the azd environment. Defaults to westeurope, matching every other
@@ -53,22 +58,23 @@
 
 .EXAMPLE
     ./build/Deploy-Azure.ps1
-    Previews the Foundry deployment. Changes nothing.
+    Previews both deployments. Changes nothing.
+
+.EXAMPLE
+    ./build/Deploy-Azure.ps1 -Mode deploy
+    Deploys the Foundry account and its model deployments, then provisions and
+    pushes the sync service, then prints the endpoint and deployment name to
+    paste into the desktop AI settings and the sync endpoint.
 
 .EXAMPLE
     ./build/Deploy-Azure.ps1 -Component foundry -Mode deploy
-    Deploys the Foundry account and its model deployments, then prints the
-    endpoint and deployment name to paste into the desktop AI settings.
-
-.EXAMPLE
-    ./build/Deploy-Azure.ps1 -Component all -Mode deploy -SyncResourceGroup backlog-sync
-    Deploys both components.
+    Deploys Foundry only.
 #>
 #Requires -Version 7.0
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet('foundry', 'sync', 'all')]
-    [string]$Component = 'foundry',
+    [string]$Component = 'all',
 
     [ValidateSet('validate', 'what-if', 'deploy')]
     [string]$Mode = 'what-if',
@@ -79,7 +85,7 @@ param(
     [string]$FoundryResourceGroup = 'JS-AI',
     [string]$FoundryEnvironment = 'backlog-ai',
 
-    [string]$SyncResourceGroup,
+    [string]$SyncResourceGroup = 'JS-AI',
     [string]$SyncLocation = 'westeurope',
     [string]$SyncEnvironment = 'backlog-sync',
 
@@ -260,7 +266,7 @@ function Deploy-Foundry {
 
 function Deploy-Sync {
     if (-not $SyncResourceGroup) {
-        throw 'Pass -SyncResourceGroup. The sync tier has no default group because it has not been created yet; see docs/deployment/sync.md.'
+        throw 'SyncResourceGroup is empty. Pass an existing group, or leave the default; see docs/deployment/sync.md.'
     }
 
     Assert-Tool -Name 'azd' -Install 'winget install Microsoft.Azd'

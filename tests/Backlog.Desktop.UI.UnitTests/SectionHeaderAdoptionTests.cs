@@ -38,9 +38,9 @@ public sealed class SectionHeaderAdoptionTests
 
         AssertPaneHeader(header, "inbox-pane", "inbox-pane-title");
 
-        // No actions on this pane, so no wrapper for them either.
-        Assert.Single(header.Children);
-        Assert.Empty(pane.FindAll(".inbox-pane__header-actions"));
+        // Add and Capture live in the actions slot under the pane's own name, the
+        // same shape the tools, sessions and dashboard panes keep.
+        AssertPaneHeaderActions(header, "inbox-pane");
     }
 
     [Fact]

@@ -1156,4 +1156,118 @@ public sealed class TasksDetailPaneTests
         Assert.Empty(row.QuerySelectorAll(".task-item__detail--blocked"));
         Assert.Contains("task-item--next", row.ClassList);
     }
+    // --- Escape in a step -------------------------------------------------
+    //
+    // The step list is a TaskListView inside a pane whose own Escape closes
+    // things, so the two Escape-consuming fields in it sit under a handler that
+    // means something else entirely. Both of these used to take two decisions out
+    // of one keystroke: the field abandoned the title and the pane it was in
+    // closed on top of it.
+
+    /// <summary>Escape in a step's title abandons that title and nothing else. The
+    /// pane around it is not the reader's to lose for pressing the key the field in
+    /// front of them answers.</summary>
+    [Fact]
+    public async Task Escape_in_a_step_title_abandons_only_the_title()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+        var field = pane.Find("[data-testid='subitem-list-0-rename']");
+
+        await field.InputAsync(new() { Value = "Abandoned" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        // The field's own half: the step is still called what it was called, in the
+        // text and in the field.
+        Assert.Contains("## [ ] Wire up the store", row.RawText, StringComparison.Ordinal);
+        Assert.Equal(
+            "Wire up the store",
+            pane.Find("[data-testid='subitem-list-0-rename']").GetAttribute("value"));
+
+        // And the pane's: still open, on the same entry.
+        Assert.Same(row, host.State.SelectedRow);
+        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
+    /// <summary>With the source open, an Escape in a step's title is still the
+    /// title's. The hatch is what an Escape on the pane closes first — see
+    /// <c>TasksPaneFocusTests</c> — and a key spent inside one of the pane's own
+    /// fields is not that press.</summary>
+    [Fact]
+    public async Task Escape_in_a_step_title_leaves_the_markdown_hatch_open()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-detail']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
+
+        Assert.True(host.State.RawHatchOpen);
+
+        await pane.Find("[data-testid='subitem-list-0-rename']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.True(host.State.RawHatchOpen);
+        Assert.Same(row, host.State.SelectedRow);
+    }
+
+    /// <summary>The composer under the steps says the same thing: what it throws
+    /// away is a step that does not exist yet, and the pane stays where it
+    /// was.</summary>
+    [Fact]
+    public async Task Escape_in_the_step_composer_abandons_only_the_draft()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+        var field = pane.Find("[data-testid='subitem-list-add-input']");
+
+        await field.InputAsync(new() { Value = "Never mind" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(2, row.PreviewSubItems.Count);
+        Assert.Same(row, host.State.SelectedRow);
+        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+
+        var composer = pane.Find("[data-testid='subitem-list-add-input']");
+
+        Assert.True(string.IsNullOrEmpty(composer.GetAttribute("value")));
+    }
+
+    /// <summary>
+    /// The entry's own title reads the same way, and this pins it.
+    /// <para>
+    /// It is the third Escape-consuming field the library has and it sits in this
+    /// same pane, so the three must not disagree. It gets there the same way the
+    /// steps above do: the heading contains the key while its field is open —
+    /// <c>TaskPanel.OnRenameKeyAsync</c> for the decision. Closing the field is
+    /// not what contains it, since an event's path is fixed before the first
+    /// handler runs, and the proof of the boundary is
+    /// <c>TaskPanelTests.Escape_in_the_headings_field_stops_at_the_heading</c>:
+    /// a host that counts keys, which the pane cannot be. What this one adds is
+    /// that the pane in front of a reader is the one that stays open.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Escape_in_the_entrys_title_abandons_only_the_title()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(WithSteps);
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-panel-title']").ClickAsync(new());
+
+        var field = pane.Find("[data-testid='entry-panel-rename']");
+
+        await field.InputAsync(new() { Value = "Abandoned" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Contains("# Ship the sync spike", row.RawText, StringComparison.Ordinal);
+        Assert.Same(row, host.State.SelectedRow);
+        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+    }
 }

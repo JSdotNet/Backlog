@@ -134,54 +134,18 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
             });
         }
 
-        foreach (var server in GetArray(config.Root, "mcpServers"))
+        foreach (var node in GetArray(config.Root, DevToolConfiguration.McpServersArrayName))
         {
-            var packageId = GetString(server, "packageId");
-            if (string.IsNullOrWhiteSpace(packageId))
+            // Through the abstraction's own reader, which is what the desktop head
+            // enumerates with too. Which property identifies an entry and which
+            // mechanism is behind it are decisions this harness has to answer
+            // identically — the pane is one component over two implementations of
+            // one port, and an array read twice, two ways, is how this half came to
+            // lie about a catalog it was reading correctly.
+            if (DevToolConfiguration.ReadMcpServer(node) is { } server)
             {
-                continue;
+                tools.Add(McpServer(node, server));
             }
-
-            var name = GetString(server, "name");
-            var enabled = GetBool(server, "enabled");
-            var hosts = DevToolConfiguration.ParseHosts(server);
-            var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
-            var installedVersion = VersionOr(server, "installedVersion", enabled ? "configured" : "disabled");
-            var availableVersion = VersionOr(server, "availableVersion", "catalog");
-            var states = new List<DevToolHostState>
-            {
-                new(hosts, enabled, installedVersion, availableVersion, "The .NET tool, shared by both hosts")
-            };
-
-            // The registration Claude needs on top of the shared tool. Read out of
-            // the catalog rather than probed, because nothing here starts a
-            // process — but drawn, because the pane's per-host detail is one of the
-            // shapes a browser session is here to look at.
-            if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
-            {
-                var claudeName = GetString(claude, "name") is { Length: > 0 } registered ? registered : name;
-                states.Add(new DevToolHostState(
-                    DevToolHosts.Claude,
-                    enabled,
-                    GetString(claude, "command"),
-                    GetString(claude, "command"),
-                    $"Registered with Claude as '{claudeName}'"));
-            }
-
-            tools.Add(new DevToolInfo(
-                DevToolConfiguration.KeyFor(DevToolKind.McpServer, packageId),
-                DevToolKind.McpServer,
-                displayName,
-                packageId,
-                enabled,
-                enabled,
-                installedVersion,
-                availableVersion,
-                enabled ? "Configured from local JSON" : DisabledStatus)
-            {
-                Hosts = hosts,
-                HostStates = states
-            });
         }
 
         // The applications: whatever the catalog declares, and then the sample
@@ -469,6 +433,99 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
             status: manual
                 ? "Nothing can check this — confirm it by hand"
                 : "Read from the catalog; this harness starts no processes");
+    }
+
+    /// <summary>
+    /// One MCP server row, of either mechanism the array holds.
+    ///
+    /// <para>The versions still come out of the catalog — nothing here starts a
+    /// process — but only for a server that ships as a .NET tool, because that is
+    /// the only kind those two properties are about. A server registered by the
+    /// command it declares reports the command line where the installed version
+    /// goes, the way the desktop head lets a command stand in for a registration's
+    /// version, and keeps the no-version dash opposite it: there is nothing
+    /// published for it to be behind, and a second copy of its own command line
+    /// there would make the row read as up to date about a lookup nobody
+    /// performed.</para>
+    ///
+    /// <para>An entry with no .NET tool and no command either — <c>manual</c>, or a
+    /// <c>packageId</c> entry naming a mechanism this build does not know — has no
+    /// command line to stand in, so it keeps the no-version dash on both sides.
+    /// That is the marker the pane already reads as "there is deliberately nothing
+    /// here", where an empty string is a cell that looks like it broke; the desktop
+    /// head answers the same shape the same way, and the two have to agree or the
+    /// browser copy of this pane stops being worth looking at.</para>
+    /// </summary>
+    private static DevToolInfo McpServer(JsonNode node, DevToolMcpServer server)
+    {
+        var enabled = server.Enabled;
+        var hosts = server.Hosts;
+        var installedVersion = server.Installable
+            ? VersionOr(node, "installedVersion", enabled ? "configured" : "disabled")
+            : server.CommandLine is { Length: > 0 } commandLine ? commandLine : DevToolOutput.NoVersion;
+        var availableVersion = server.Installable
+            ? VersionOr(node, "availableVersion", "catalog")
+            : DevToolOutput.NoVersion;
+
+        var states = new List<DevToolHostState>
+        {
+            new(
+                hosts,
+                enabled,
+                installedVersion,
+                availableVersion,
+                server.Mechanism switch
+                {
+                    DevToolMcpMechanism.DotNetTool => "The .NET tool, shared by both hosts",
+                    DevToolMcpMechanism.Command => "Registered by the command it declares",
+                    _ => "Nothing here installs or registers this server"
+                })
+        };
+
+        // The registration Claude needs on top of the shared tool. Read out of
+        // the catalog rather than probed, because nothing here starts a
+        // process — but drawn, because the pane's per-host detail is one of the
+        // shapes a browser session is here to look at.
+        //
+        // Only for a .NET tool. For a command-registered server the command *is*
+        // the registration, so a second state repeating it would be the same fact
+        // twice — and its version columns would be the invented version the row
+        // above is careful not to have.
+        if (server.Installable && hosts.HasFlag(DevToolHosts.Claude) && node["claude"] is { } claude)
+        {
+            var claudeName = GetString(claude, "name") is { Length: > 0 } registered ? registered : server.Name;
+            states.Add(new DevToolHostState(
+                DevToolHosts.Claude,
+                enabled,
+                GetString(claude, "command"),
+                GetString(claude, "command"),
+                $"Registered with Claude as '{claudeName}'"));
+        }
+
+        // A mechanism this build does not know is drawn action-less and says so.
+        // The note travels appended to the status behind a middle dot, which is
+        // the shape the pane splits on and the shape the application rows below
+        // already use for what an entry wanted said about itself.
+        var status = enabled ? "Configured from local JSON" : DisabledStatus;
+        var note = server.MechanismRecognised
+            ? null
+            : $"\"{server.DeclaredMechanism}\" is not a mechanism this build knows, so nothing runs for this row";
+
+        return new DevToolInfo(
+            server.Key,
+            DevToolKind.McpServer,
+            server.DisplayName,
+            server.Source,
+            enabled,
+            enabled,
+            installedVersion,
+            availableVersion,
+            note is null ? status : $"{status} · {note}")
+        {
+            Hosts = hosts,
+            HostStates = states,
+            Installable = server.Installable
+        };
     }
 
     /// <summary>The shape every application row shares, so the sample spread and

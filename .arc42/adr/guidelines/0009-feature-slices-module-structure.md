@@ -64,6 +64,8 @@ The intended reflex: to find the code for a feature, open
   the four ports the hosts and adapters answer (`IInboxIntake`,
   `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter`). See local
   ADR 0009.
+- `Capture` was born sliced — `Features/RunCapture/` behind an `ICaptureRunner`
+  facade — with its source-adapter port and no adapter yet behind it.
 - `Knowledge`, `DevPc` and `Sessions` remain UI-only, with an `.Abstractions`
   project each and no module implementation project, so they have not been
   carved into feature slices yet.

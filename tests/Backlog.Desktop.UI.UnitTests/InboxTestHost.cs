@@ -142,14 +142,32 @@ internal sealed class FakeInboxItems : IInboxItems
         return new InboxSnapshotDto([.. _items], [.. _lists], [.. _groups]);
     }
 
-    public Task<Result<InboxItemDto>> CaptureAsync(string title, string channel = "manual", CancellationToken cancellationToken = default)
+    /// <summary>A refusal to hand back from the next capture, for a test about
+    /// what the pane does when the module says no. Reset after one use.</summary>
+    public Error? NextCaptureError { get; set; }
+
+    public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(title)) return Task.FromResult(Result.Failure<InboxItemDto>(InboxErrors.ItemNeedsTitle));
+
+        if (NextCaptureError is { } error)
+        {
+            NextCaptureError = null;
+            return Task.FromResult(Result.Failure<InboxItemDto>(error));
+        }
 
         var next = NextCapture ?? (ContentKind.Text, "text", null);
         NextCapture = null;
 
-        var item = Seed(title.Trim(), next.Kind, next.Slug, channel, sourceUrl: next.SourceUrl);
+        // The same trim the module applies: the notes are the body, and none is
+        // an empty body rather than a blank one.
+        var item = Seed(
+            title.Trim(),
+            next.Kind,
+            next.Slug,
+            channel,
+            sourceUrl: next.SourceUrl,
+            bodyMd: string.IsNullOrWhiteSpace(notes) ? string.Empty : notes.Trim());
         return Task.FromResult(Result.Success(item));
     }
 

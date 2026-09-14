@@ -1,4 +1,6 @@
 ﻿using AngleSharp.Dom;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
@@ -1369,6 +1371,13 @@ public sealed class HomeWorkspaceSurfaceTests
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable,
             toasts: sp.GetRequiredService<IToastChannel>()));
+        // Home answers the Inbox's Capture button through the module's runner and
+        // injects it hard, so a host that renders Home composes the module and
+        // picks where its sources are kept, the same as the application hosts do.
+        context.Services.AddSingleton<ICaptureSourceSettings>(
+            new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddCaptureModule();
+
         TasksTestHost.AddToastChannel(context.Services);
         // The Inbox pane the shell now composes: its state over the in-memory
         // module, the same terms as the Tasks state above.

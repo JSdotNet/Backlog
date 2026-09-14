@@ -12,10 +12,16 @@ namespace Backlog.Modules.Inbox.Features.CaptureItem;
 /// one that needs no paired device, which makes it both the offline path and
 /// the way a QA run seeds an inbox without a phone.
 /// </summary>
+/// <param name="Notes">What was written beneath the title — the Add dialog's
+/// notes field — kept as the item's body. Null or blank means a bare one-line
+/// capture, which is what the older Enter-to-capture field produced.</param>
 /// <param name="Channel">The capture source to file it under. <c>manual</c>
 /// unless a desktop-side channel says otherwise; an item captured this way has
 /// no replica behind it whatever the channel is called.</param>
-public sealed record CaptureItemCommand(string Title, string Channel = InboxEnumMap.ManualChannel);
+public sealed record CaptureItemCommand(
+    string Title,
+    string? Notes = null,
+    string Channel = InboxEnumMap.ManualChannel);
 
 public sealed class CaptureItemCommandHandler(IInboxItemRepository items, TimeProvider clock)
     : ICommandHandler<CaptureItemCommand, Result<InboxItemDto>>
@@ -39,7 +45,8 @@ public sealed class CaptureItemCommandHandler(IInboxItemRepository items, TimePr
             ContentKindDetector.Detect(command.Title),
             capturedAt: now,
             receivedAt: now,
-            replicaBacked: false);
+            replicaBacked: false,
+            bodyMd: string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim());
 
         await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 

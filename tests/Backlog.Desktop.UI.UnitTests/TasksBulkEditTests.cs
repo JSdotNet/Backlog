@@ -305,9 +305,9 @@ public sealed class TasksBulkEditTests
     /// read as a key that had not worked.
     /// </para>
     /// <para>
-    /// Only on the chip and on the bar — see the comment on
-    /// <c>OnSelectionBarKeyDown</c> for why it is not on the list, where a row
-    /// being renamed already owns the key.
+    /// The chip, the bar and a row's own line, which is the whole of what answers
+    /// this key — see <c>Escape_on_a_row_leaves_the_mode</c> for the third one,
+    /// and for why a row being renamed still does not.
     /// </para>
     /// </summary>
     [Fact]
@@ -416,6 +416,66 @@ public sealed class TasksBulkEditTests
         {
             Assert.NotNull(boundary.QuerySelector($"[data-testid='{control}']"));
         }
+    }
+
+    /// <summary>
+    /// Escape on a row's own line leaves the mode, which is the third surface that
+    /// answers the key and the one a reader is actually standing on.
+    /// <para>
+    /// It could not be offered while the key climbed out of a row's rename: a
+    /// handler above the list would have heard both, so every abandoned rename
+    /// would have thrown away the picked set as well. The fields contain their own
+    /// Escape now — see <c>TaskItem.OnRenameKeyAsync</c> — and the row's line
+    /// holds no draft, so this press has nothing else it could have meant.
+    /// </para>
+    /// <para>
+    /// One press rather than the bar's two, for the chip's reason: from a row an
+    /// open group may be scrolled out of view behind the rows, and a first press
+    /// that closed something invisible reads as a key that did not work.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Escape_on_a_row_leaves_the_mode()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, _) = await TwoPickedAsync(host);
+
+        await OpenGroupAsync(pane, "classification");
+
+        await pane.Find($"[data-testid='{RowTestId(one)}-open']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.False(host.State.SelectionMode);
+        Assert.Equal(0, host.State.SelectionCount);
+    }
+
+    /// <summary>
+    /// Escape in a row's rename abandons the title and keeps the picked set, which
+    /// is the whole reason the row's exit could be added at all.
+    /// <para>
+    /// A reader in bulk selection who opens a rename, changes their mind and backs
+    /// out of it has said nothing about the twenty rows they picked before it. The
+    /// field's boundary is what makes that true, and this is the case it was put
+    /// there for.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Escape_in_a_rows_rename_keeps_the_picked_set()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, _) = await TwoPickedAsync(host);
+
+        await pane.Find($"[data-testid='{RowTestId(one)}-edit']").ClickAsync(new());
+
+        var field = pane.Find($"[data-testid='{RowTestId(one)}-rename']");
+
+        await field.InputAsync(new() { Value = "Renamed by mistake" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        // The rename went nowhere, and neither did the selection.
+        Assert.Contains("# Provision the box", one.RawText, StringComparison.Ordinal);
+        Assert.True(host.State.SelectionMode);
+        Assert.Equal(2, host.State.SelectionCount);
     }
 
     /// <summary>A group's trigger sits outside that boundary, so Escape there is

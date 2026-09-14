@@ -4,11 +4,13 @@ Backlog-native tooling — skills specific to the Backlog product itself, as opp
 general-purpose or knowledge-folder tooling. Two skills, one for each direction:
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
-  (ADR 0007: `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). User-invoked only
-  (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
+  (ADR 0007: `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
+  either a `prompt` an AI session runs or a `task` only the user does — never both in one
+  entry. User-invoked only (`disable-model-invocation: true`); it never talks to the
+  Backlog app or GitHub.
 - **`backlog-run-plan-item`** — runs one entry of such a plan after it is copied out of the
   Backlog app and pasted into a session. Model-invoked: it triggers on the marker line
-  every generated entry opens with (`Backlog plan item `…``, defined in
+  every generated `prompt` entry opens with (`Backlog plan item `…``, defined in
   `skills/backlog-import-plan/assets/backlog-import-grammar.md#plan-item-marker`), checks
   the item is still outstanding before doing anything — pasting the same item twice is
   expected and must not redo finished work — and then carries out the instructions the way

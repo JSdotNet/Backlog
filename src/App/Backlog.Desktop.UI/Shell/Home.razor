@@ -12,6 +12,10 @@
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
 @inject ShellNavigationStore ShellNavigation
+@* Injected hard rather than resolved: the Inbox's Capture button is on screen
+   whenever the Inbox is, and a host that composes the Inbox without the module
+   behind it should fail at startup rather than quietly offer a dead button. *@
+@inject ICaptureRunner CaptureRunner
 
 @*
     This page. It owns the header and the AI panel, and decides which surface sits
@@ -541,7 +545,7 @@
             <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane />
+                    <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                 }
 
                 @if (TasksPaneVisible)
@@ -575,7 +579,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane />
+                            <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                         }
 
                         @if (KnowledgePaneVisible)
@@ -991,6 +995,61 @@
     /// to find and a reader to read.</summary>
     private const string InboxReloadErrorTestId = "inbox-reload-error";
     private const string TasksReloadErrorTestId = "tasks-reload-error";
+
+    /// <summary>Whether a capture run is in flight, and what the last one said.
+    /// Held here rather than in the pane for the reason the Inbox's own view
+    /// state lives in <see cref="InboxDesktopState"/>: the pane re-mounts when
+    /// it changes slot, and a run's result dropping at that moment would leave
+    /// the reader with a button that did nothing. The Inbox's Add is not
+    /// answered here at all — the pane files it through its own module.</summary>
+    private bool _captureRunning;
+    private string? _captureMessage;
+
+    /// <summary>
+    /// The Inbox's Capture, answered: one run over the sources switched on in
+    /// Settings, reported back as a sentence the pane can print.
+    /// <para>
+    /// The runner never throws for a source — each answers for itself in the
+    /// result — so a throw here is the run itself failing to start, and that is
+    /// reported in the same line rather than left to the console.
+    /// </para>
+    /// </summary>
+    private async Task RunCaptureAsync()
+    {
+        if (_captureRunning) return;
+
+        _captureRunning = true;
+        _captureMessage = null;
+
+        try
+        {
+            _captureMessage = Describe(await CaptureRunner.RunAsync());
+        }
+        catch (Exception ex)
+        {
+            _captureMessage = $"Capture could not run: {ex.Message}";
+        }
+        finally
+        {
+            _captureRunning = false;
+        }
+    }
+
+    /// <summary>A run's result in one line. Nothing enabled points at the tab
+    /// that would change that; otherwise each source's own sentence, and the
+    /// total, so a run that found nothing still says it looked.</summary>
+    private static string Describe(CaptureRunResultDto run)
+    {
+        if (run.NothingEnabled)
+        {
+            return "No capture sources are enabled. Turn one on under Settings › Capture.";
+        }
+
+        var sources = string.Join(" · ", run.Sources.Select(source => source.Message));
+        var total = run.TotalNewItems == 1 ? "1 new item." : $"{run.TotalNewItems} new items.";
+
+        return $"{sources} {total}";
+    }
 
     private void SynchronizePaneAvailability()
     {

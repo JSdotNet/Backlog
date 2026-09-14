@@ -53,9 +53,10 @@ internal sealed class InboxItems(
 
     public Task<Result<InboxItemDto>> CaptureAsync(
         string title,
+        string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
         CancellationToken cancellationToken = default) =>
-        capture.Handle(new CaptureItemCommand(title, channel), cancellationToken);
+        capture.Handle(new CaptureItemCommand(title, notes, channel), cancellationToken);
 
     public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) =>
         setTags.Handle(new SetTagsCommand(id, tags), cancellationToken);

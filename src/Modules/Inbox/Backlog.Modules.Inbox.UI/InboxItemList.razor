@@ -1,12 +1,8 @@
 @*
-    The middle column: a capture field, the kind chips, and the rows of the open
-    slice newest first.
-
-    The capture field is the one way into the inbox that involves no other
-    device. Everything else arrives through sync; this is a thought typed at the
-    desk, filed under the "manual" channel the domain already names. Enter
-    keeps it and clears the field; a refusal leaves the text where it was with
-    the reason on a toast.
+    The middle column: the kind chips, and the rows of the open slice newest
+    first. Nothing is typed here — a thought typed at the desk goes in through
+    the header's Add dialog, which is the pane's, so the column only ever
+    reads what the state holds.
 
     The chips are a filter and they multi-select: pressing "Video" and
     "Article" shows both. Each carries its count from before the filter, so the
@@ -26,30 +22,6 @@
 *@
 
 <div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
-    <div class="inbox-pane__capture" data-testid="inbox-pane-capture">
-        @* Bare, so the input itself wears the test id a driver types into, and
-           the wrapper above is this pane's own layout row. The button sits
-           beside the field rather than in its Suffix slot: a suffix is a marker
-           the pointer passes through, not a control. *@
-        <TextField Value="@_capture"
-                   ValueChanged="value => _capture = value"
-                   Placeholder="Capture a thought and press Enter"
-                   AriaLabel="Capture"
-                   Bare="true"
-                   Compact="true"
-                   InputCssClass="field__input inbox-pane__capture-input"
-                   TestId="inbox-capture"
-                   Disabled="@_capturing"
-                   @onkeydown="OnCaptureKeyDownAsync" />
-        <AppButton Size="ButtonSize.Small"
-                   Variant="ButtonVariant.Secondary"
-                   Disabled="@(string.IsNullOrWhiteSpace(_capture))"
-                   Busy="@_capturing"
-                   BusyLabel="Capturing"
-                   OnClick="CaptureAsync"
-                   TestId="inbox-capture-submit">Capture</AppButton>
-    </div>
-
     @if (!State.Loaded)
     {
         @* Local-first: the snapshot is a database read away, so there is no
@@ -113,7 +85,7 @@
             else
             {
                 <EmptyState Title="Nothing captured yet."
-                            Description="Type a thought above, or capture one from your phone — it lands here on the next sync."
+                            Description="Press Add to write one down, or capture one from your phone — it lands here on the next sync."
                             BaseClass="empty-state inbox-pane__empty-state"
                             TestId="inbox-pane-empty"
                             data-inbox-empty="first-use" />
@@ -189,9 +161,6 @@
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
 
-    private string _capture = string.Empty;
-    private bool _capturing;
-
     private static string Title(InboxItemDto item) =>
         string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;
 
@@ -210,24 +179,5 @@
             1 => labels[0],
             _ => string.Join(", ", labels[..^1]) + " or " + labels[^1]
         };
-    }
-
-    private Task OnCaptureKeyDownAsync(KeyboardEventArgs e) =>
-        e.Key == "Enter" ? CaptureAsync() : Task.CompletedTask;
-
-    private async Task CaptureAsync()
-    {
-        if (_capturing || string.IsNullOrWhiteSpace(_capture)) return;
-
-        _capturing = true;
-
-        try
-        {
-            if (await State.CaptureAsync(_capture)) _capture = string.Empty;
-        }
-        finally
-        {
-            _capturing = false;
-        }
     }
 }

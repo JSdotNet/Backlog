@@ -36,6 +36,27 @@ public sealed class CaptureItemTests
         Assert.False(stored.ReplicaBacked);
     }
 
+    /// <summary>The Add dialog's notes are the item's body, trimmed; a capture
+    /// without any is a bare one-line item rather than one with a blank body.</summary>
+    [Fact]
+    public async Task Notes_become_the_body_and_none_is_an_empty_body()
+    {
+        var store = new InMemoryInboxStore();
+        var handler = new CaptureItemCommandHandler(store, Clock);
+
+        var withNotes = await handler.Handle(
+            new CaptureItemCommand("Ask about the trial length", "  Before Friday, and in writing.\n"),
+            TestContext.Current.CancellationToken);
+        var bare = await handler.Handle(
+            new CaptureItemCommand("Just a title", "   "),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("Before Friday, and in writing.", withNotes.Value.BodyMd);
+        Assert.Equal(InboxEnumMap.ManualChannel, withNotes.Value.Channel);
+        Assert.Equal(string.Empty, bare.Value.BodyMd);
+        Assert.Equal("Before Friday, and in writing.", store.Items[withNotes.Value.Id].BodyMd);
+    }
+
     [Fact]
     public async Task A_blank_capture_needs_a_title()
     {

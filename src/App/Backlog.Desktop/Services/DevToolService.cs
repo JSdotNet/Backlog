@@ -166,14 +166,22 @@ public sealed class DevToolService : IDevToolService
             }
         }
 
-        try
+        // Only when some server in the catalog is actually a .NET tool. This is
+        // the inventory every packageId is looked up in, and a catalog whose MCP
+        // servers are all registered by command has nothing to look up in it — so
+        // running it anyway would be a launch on behalf of rows it cannot say
+        // anything about.
+        if (DevToolConfiguration.ReadMcpServers(root).Any(server => server.Mechanism is DevToolMcpMechanism.DotNetTool))
         {
-            installedTools = await GetInstalledDotNetToolsAsync(log, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "Failed to list .NET tools.");
-            messages.Add(".NET tools could not be checked.");
+            try
+            {
+                installedTools = await GetInstalledDotNetToolsAsync(log, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to list .NET tools.");
+                messages.Add(".NET tools could not be checked.");
+            }
         }
 
         var claudeCli = await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false);
@@ -285,13 +293,23 @@ public sealed class DevToolService : IDevToolService
 
         foreach (var server in GetArray(root, "mcpServers"))
         {
-            var packageId = GetString(server, "packageId");
-            if (string.IsNullOrWhiteSpace(packageId))
+            // Read through the abstraction rather than by reaching for a
+            // packageId. That reach is what dropped every command-registered
+            // server before a row was ever built — this repository's own catalog
+            // ships one — and the reader is where the two decisions a row needs
+            // live: which property identifies the entry, and which mechanism is
+            // behind it. It is the same reader the harness enumerates with, so the
+            // two implementations of this port cannot disagree about one catalog.
+            //
+            // An entry that cannot be addressed at all is still skipped: there is
+            // nothing to write an override against and nothing for a button to
+            // remove, so a row for it would be a row nothing can act on.
+            if (DevToolConfiguration.ReadMcpServer(server) is not { } declared)
             {
                 continue;
             }
 
-            tools.Add(await DescribeMcpServerAsync(server, packageId, installedTools, claudeCli, claudeDesktop, log, ct).ConfigureAwait(false));
+            tools.Add(await DescribeMcpServerAsync(server, declared, installedTools, claudeCli, claudeDesktop, log, ct).ConfigureAwait(false));
         }
 
         // Applications last, and read as one batch. Every other kind above asks
@@ -495,36 +513,75 @@ public sealed class DevToolService : IDevToolService
     /// pointing somewhere else, or owned by another scope — travels in its host
     /// state, where it decides what the row offers without displacing the number
     /// the columns are for.</para>
+    ///
+    /// <para>All of which is about a server that ships as a .NET tool, and the
+    /// array holds one other kind: a server registered by the command it declares,
+    /// which has no package, no published version and no install. That row reports
+    /// its command line where a version would go — the way
+    /// <see cref="DescribeClaudeRegistration" /> already lets a command stand in
+    /// for a registration's version — and keeps the no-version dash in the
+    /// available column, because there is nothing published to be behind. Nothing
+    /// is looked up for it and nothing is invented: a number here would be a claim
+    /// about a search nobody ran.</para>
+    ///
+    /// <para>And a row with no .NET tool and no command either — an entry that
+    /// declares itself <c>manual</c>, or a <c>packageId</c> entry whose mechanism
+    /// this build has never heard of — gets the no-version dash in both columns.
+    /// The dash is the marker the pane's own <c>ReportsDetection</c> and
+    /// <see cref="DevToolInfo.AvailableVersionKnown" /> already read as "there is
+    /// deliberately nothing here"; the empty string that used to arrive instead is
+    /// read by nothing, and drew a blank Installed cell opposite a dashed Available
+    /// one, which reads as a column that failed rather than one with nothing to
+    /// say.</para>
     /// </summary>
     private static async Task<DevToolInfo> DescribeMcpServerAsync(
         JsonNode server,
-        string packageId,
+        DevToolMcpServer declared,
         IReadOnlyDictionary<string, string> installedTools,
         string? claudeCli,
         ClaudeDesktopState? claudeDesktop,
         CommandLog log,
         CancellationToken ct)
     {
-        var name = GetString(server, "name");
-        var displayName = string.IsNullOrWhiteSpace(name) ? packageId : $"{name} ({packageId})";
-        var enabled = GetBool(server, "enabled");
-        var hosts = DevToolConfiguration.ParseHosts(server);
-        var toolInstalled = installedTools.ContainsKey(packageId);
-        var installedVersion = installedTools.TryGetValue(packageId, out var version) ? version : DevToolOutput.NotInstalled;
-        var availableVersion = await GetDotNetToolAvailableVersionAsync(packageId, log, ct).ConfigureAwait(false);
+        var enabled = declared.Enabled;
+        var hosts = declared.Hosts;
+        var toolInstalled = declared.Installable && installedTools.ContainsKey(declared.PackageId);
+        var installedVersion = declared.Installable
+            ? installedTools.TryGetValue(declared.PackageId, out var version) ? version : DevToolOutput.NotInstalled
+            : declared.CommandLine is { Length: > 0 } commandLine ? commandLine : DevToolOutput.NoVersion;
+        var availableVersion = await GetDotNetToolAvailableVersionAsync(declared, log, ct).ConfigureAwait(false);
 
         var states = new List<DevToolHostState>
         {
             new(
                 hosts,
-                toolInstalled,
+                // A row with no mechanism behind it is reported as present, for the
+                // reason DescribePluginAsync reports an uninspectable host as
+                // present: "not installed" is a claim, and it is the claim that
+                // puts an Install button on a row with nothing to run.
+                !declared.Installable || toolInstalled,
                 installedVersion,
                 availableVersion,
-                DescribeStatus(enabled, toolInstalled, DevToolInfo.VersionDiffers(installedVersion, availableVersion), "mcp-server"))
+                declared.Installable
+                    ? DescribeStatus(enabled, toolInstalled, DevToolInfo.VersionDiffers(installedVersion, availableVersion), "mcp-server")
+                    : MechanismStatus(declared))
         };
         var notes = new List<string>();
 
-        if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
+        // A mechanism this build has never heard of runs nothing at all — not the
+        // .NET tool half above, and not either registration below. The fact
+        // travels in the row's own notes, because an entry silently drawn as
+        // action-less is a typo in a hand-edited file with nothing pointing at it.
+        if (!declared.MechanismRecognised)
+        {
+            notes.Add($"\"{declared.DeclaredMechanism}\" is not a mechanism this build knows, so nothing runs for this row");
+        }
+
+        var registration = declared.Mechanism is DevToolMcpMechanism.Manual
+            ? null
+            : DevToolConfiguration.McpRegistrationSection(server);
+
+        if (hosts.HasFlag(DevToolHosts.Claude) && registration is { } claude)
         {
             var serverName = ClaudeServerName(server, claude);
             var command = GetString(claude, "command");
@@ -540,7 +597,7 @@ public sealed class DevToolService : IDevToolService
             else
             {
                 var details = await GetClaudeMcpServerAsync(claudeCli, serverName, log, ct).ConfigureAwait(false);
-                states.Add(DescribeClaudeRegistration(serverName, command, details));
+                states.Add(WithoutAnInventedVersion(DescribeClaudeRegistration(serverName, command, details), declared));
             }
         }
 
@@ -549,7 +606,23 @@ public sealed class DevToolService : IDevToolService
         // either that the other never sees.
         if (hosts.HasFlag(DevToolHosts.ClaudeDesktop))
         {
-            if (ClaudeDesktopSection(server) is not { } desktopSection)
+            // A manual entry and an entry with no section are two different facts,
+            // and folding them into one condition reported the wrong one: an entry
+            // that declares "mechanism": "manual" and carries a perfectly good
+            // claudeDesktop section was told there was "No claudeDesktop or claude
+            // section to register". What is true of it is that nothing here is
+            // going to act on it, which is what MechanismStatus already says for
+            // the row's own status — and an unrecognised mechanism, which lands on
+            // Manual as well, has said so in its own note above and is not told
+            // twice.
+            if (declared.Mechanism is DevToolMcpMechanism.Manual)
+            {
+                if (declared.MechanismRecognised)
+                {
+                    notes.Add(MechanismStatus(declared));
+                }
+            }
+            else if (ClaudeDesktopSection(server) is not { } desktopSection)
             {
                 notes.Add("No claudeDesktop or claude section to register");
             }
@@ -559,18 +632,20 @@ public sealed class DevToolService : IDevToolService
             }
             else
             {
-                states.Add(DescribeClaudeDesktopRegistration(
-                    ClaudeServerName(server, desktopSection),
-                    ClaudeDesktopCommandLine(desktopSection),
-                    claudeDesktop));
+                states.Add(WithoutAnInventedVersion(
+                    DescribeClaudeDesktopRegistration(
+                        ClaudeServerName(server, desktopSection),
+                        ClaudeDesktopCommandLine(desktopSection),
+                        claudeDesktop),
+                    declared));
             }
         }
 
         return new DevToolInfo(
-            McpServerKey(packageId),
+            declared.Key,
             DevToolKind.McpServer,
-            displayName,
-            packageId,
+            declared.DisplayName,
+            declared.Source,
             enabled,
             states.All(state => state.Installed),
             installedVersion,
@@ -578,9 +653,39 @@ public sealed class DevToolService : IDevToolService
             AggregateStatus(enabled, states, notes, "mcp-server"))
         {
             Hosts = hosts,
-            HostStates = states
+            HostStates = states,
+            Installable = declared.Installable
         };
     }
+
+    /// <summary>What a row with no .NET tool behind it says where a version would
+    /// go.
+    ///
+    /// <para>A command-registered server is on the machine or it is not, and
+    /// nothing here can tell which — so the status says what it is rather than
+    /// what was found. A mechanism this build does not recognise says exactly
+    /// that, in the row's notes; here it only says that nothing was run.</para></summary>
+    private static string MechanismStatus(DevToolMcpServer server) => server.Mechanism switch
+    {
+        DevToolMcpMechanism.Command => "Registered by the command it declares",
+        _ => "Nothing here installs or registers this server"
+    };
+
+    /// <summary>
+    /// One host state's available column, blanked for a row that has no published
+    /// version to be behind.
+    ///
+    /// <para>Both registration describers put the catalog's own command in that
+    /// column, and for a .NET-tool server that is the right answer: a registration
+    /// pointing at a renamed executable is fixed by a re-add, and the two columns
+    /// differing is how the row offers it. A command-registered server has no
+    /// second thing to compare against — the command <em>is</em> the entry — so
+    /// repeating it there would make <see cref="DevToolInfo.AvailableVersionKnown"/>
+    /// true about a lookup nobody performed, and the row would read as up to date
+    /// on the strength of its own command line.</para>
+    /// </summary>
+    private static DevToolHostState WithoutAnInventedVersion(DevToolHostState state, DevToolMcpServer server) =>
+        server.Installable ? state : state with { AvailableVersion = DevToolOutput.NoVersion };
 
     /// <summary>
     /// What one Claude MCP registration is, said in the terms the row acts on.
@@ -1114,11 +1219,100 @@ public sealed class DevToolService : IDevToolService
     /// tool: registering before installing would name an executable that is not
     /// there yet, and disabling in the other order would leave Claude holding a
     /// registration for something that has just been uninstalled.</para>
+    ///
+    /// <para>Which halves run at all is the entry's mechanism. A server registered
+    /// by the command it declares has no .NET tool half: there is no package to
+    /// install, none to uninstall on a disable, and a <c>dotnet tool</c> launch
+    /// with a blank id behind it would be reported as this row's failure. So that
+    /// half is omitted rather than attempted, and a mechanism this build does not
+    /// recognise omits both — the safe reading of a mechanism nobody here knows is
+    /// the one that runs nothing.</para>
     /// </summary>
     private async Task<DevToolActionResult> ApplyMcpServerAsync(JsonNode server, CommandLog log, CancellationToken ct)
     {
-        var packageId = GetRequiredString(server, "packageId");
-        var enabled = GetBool(server, "enabled");
+        var declared = DevToolConfiguration.ReadMcpServer(server)
+            ?? throw new InvalidOperationException("The tool config entry has no 'packageId', 'name' or 'command' to address it by.");
+        var enabled = declared.Enabled;
+        var outcomes = new List<string>();
+        var failed = false;
+
+        if (declared.Mechanism is DevToolMcpMechanism.DotNetTool)
+        {
+            var tool = await ApplyDotNetToolAsync(declared, enabled, log, ct).ConfigureAwait(false);
+            outcomes.Add($".NET tool: {tool.Message}");
+            failed |= !tool.Succeeded;
+        }
+        else if (!declared.MechanismRecognised)
+        {
+            outcomes.Add($"nothing was run: \"{declared.DeclaredMechanism}\" is not a mechanism this build knows.");
+        }
+        else if (declared.Mechanism is DevToolMcpMechanism.Command)
+        {
+            outcomes.Add("nothing to install: this server is registered by the command it declares.");
+        }
+        else
+        {
+            // Which leaves Manual, and it gets its own sentence rather than the
+            // one above. Keying this off MechanismRecognised told an entry that
+            // says "mechanism": "manual" out loud — recognised, so it falls past
+            // the typo branch — that it "is registered by the command it
+            // declares", which is a claim about a command such an entry declares
+            // nowhere. The wording is MechanismStatus's, so the status the row
+            // shows and the sentence the action reports cannot describe the same
+            // entry two different ways.
+            outcomes.Add("nothing was run: nothing here installs or registers this server.");
+        }
+
+        var hosts = declared.Hosts;
+        var registration = declared.Mechanism is DevToolMcpMechanism.Manual
+            ? null
+            : DevToolConfiguration.McpRegistrationSection(server);
+
+        if (hosts.HasFlag(DevToolHosts.Claude) && registration is { } claude)
+        {
+            var claudeResult = await ApplyClaudeMcpRegistrationAsync(server, claude, enabled, log, ct).ConfigureAwait(false);
+            outcomes.Add($"Claude: {claudeResult.Message}");
+            failed |= !claudeResult.Succeeded;
+        }
+
+        // The desktop app after the CLI, and separately from it. The two keep
+        // their own server lists in their own places, and a registration made
+        // through one is invisible to the other.
+        if (hosts.HasFlag(DevToolHosts.ClaudeDesktop) && declared.Mechanism is not DevToolMcpMechanism.Manual)
+        {
+            var desktop = await ApplyClaudeDesktopRegistrationAsync(server, enabled, log, ct).ConfigureAwait(false);
+            outcomes.Add($"Claude Desktop: {desktop.Message}");
+            failed |= !desktop.Succeeded;
+        }
+
+        // Named by whichever identity the entry actually has, rather than by a
+        // package id that a command-registered server does not carry: a message
+        // that opened with " — " told the operator nothing about which row it was
+        // reporting on.
+        var message = $"{declared.Id} — {string.Join(" ", outcomes)}";
+
+        return failed ? DevToolActionResult.Failed(message) : DevToolActionResult.Ok(message);
+    }
+
+    /// <summary>
+    /// The shared .NET tool half of one MCP server row: installed when it is
+    /// wanted and absent, updated when it is wanted and there, and uninstalled
+    /// when the machine has said it does not want it.
+    ///
+    /// <para>Its own method so that the one thing it must never do is structural
+    /// rather than remembered: it takes a <see cref="DevToolMcpServer" /> and
+    /// refuses anything but a <see cref="DevToolMcpMechanism.DotNetTool" />, so
+    /// there is no path from a command-registered entry to a <c>dotnet tool</c>
+    /// launch with a blank package id.</para>
+    /// </summary>
+    private async Task<DevToolActionResult> ApplyDotNetToolAsync(DevToolMcpServer server, bool enabled, CommandLog log, CancellationToken ct)
+    {
+        if (server.Mechanism is not DevToolMcpMechanism.DotNetTool)
+        {
+            return DevToolActionResult.Ok("nothing to install: this server ships as no .NET tool.");
+        }
+
+        var packageId = server.PackageId;
         var installed = await GetInstalledDotNetToolsAsync(log, ct).ConfigureAwait(false);
         var isInstalled = installed.ContainsKey(packageId);
 
@@ -1140,42 +1334,16 @@ public sealed class DevToolService : IDevToolService
             success = "installed.";
         }
 
-        var outcomes = new List<string>();
-        var failed = false;
-
-        if (enabled || isInstalled)
+        if (!enabled && !isInstalled)
         {
-            var result = await RunAsync("dotnet", args, log, ct).ConfigureAwait(false);
-            outcomes.Add($".NET tool: {(result.ExitCode == 0 ? success : CommandFailure(packageId, result))}");
-            failed |= result.ExitCode != 0;
-        }
-        else
-        {
-            outcomes.Add(".NET tool: already absent.");
+            return DevToolActionResult.Ok("already absent.");
         }
 
-        var hosts = DevToolConfiguration.ParseHosts(server);
+        var result = await RunAsync("dotnet", args, log, ct).ConfigureAwait(false);
 
-        if (hosts.HasFlag(DevToolHosts.Claude) && server["claude"] is { } claude)
-        {
-            var registration = await ApplyClaudeMcpRegistrationAsync(server, claude, enabled, log, ct).ConfigureAwait(false);
-            outcomes.Add($"Claude: {registration.Message}");
-            failed |= !registration.Succeeded;
-        }
-
-        // The desktop app after the CLI, and separately from it. The two keep
-        // their own server lists in their own places, and a registration made
-        // through one is invisible to the other.
-        if (hosts.HasFlag(DevToolHosts.ClaudeDesktop))
-        {
-            var desktop = await ApplyClaudeDesktopRegistrationAsync(server, enabled, log, ct).ConfigureAwait(false);
-            outcomes.Add($"Claude Desktop: {desktop.Message}");
-            failed |= !desktop.Succeeded;
-        }
-
-        var message = $"{packageId} — {string.Join(" ", outcomes)}";
-
-        return failed ? DevToolActionResult.Failed(message) : DevToolActionResult.Ok(message);
+        return result.ExitCode == 0
+            ? DevToolActionResult.Ok(success)
+            : DevToolActionResult.Failed(CommandFailure(packageId, result));
     }
 
     /// <summary>
@@ -2049,10 +2217,14 @@ public sealed class DevToolService : IDevToolService
     }
 
     /// <summary>Where an entry says what the desktop app should register.
-    /// <c>claudeDesktop</c> when it has one, and the <c>claude</c> section
-    /// otherwise — the command is usually the same one the CLI is given, and
-    /// making every entry say it twice would be two places for it to drift.</summary>
-    private static JsonNode? ClaudeDesktopSection(JsonNode server) => server["claudeDesktop"] ?? server["claude"];
+    /// <c>claudeDesktop</c> when it has one, and whatever registers it with every
+    /// other host otherwise — the command is usually the same one the CLI is
+    /// given, and making every entry say it twice would be two places for it to
+    /// drift. Which section that is, and which wins for an entry carrying both, is
+    /// <see cref="DevToolConfiguration.McpRegistrationSection"/>'s one
+    /// answer.</summary>
+    private static JsonNode? ClaudeDesktopSection(JsonNode server) =>
+        server["claudeDesktop"] ?? DevToolConfiguration.McpRegistrationSection(server);
 
     /// <summary>The registration as one line, which is what the row compares. The
     /// arguments are part of it: a registration pointing at the right executable
@@ -2276,9 +2448,21 @@ public sealed class DevToolService : IDevToolService
     /// <para>Searched without <c>--exact-match</c>, because the installed SDK has
     /// no such flag: every lookup exited non-zero on an unrecognised argument and
     /// every available version came back unknown. The exactness the flag was
-    /// there for now happens in the parser, over the whole result.</para></summary>
-    private static async Task<string> GetDotNetToolAvailableVersionAsync(string packageId, CommandLog log, CancellationToken ct)
+    /// there for now happens in the parser, over the whole result.</para>
+    ///
+    /// <para>A server that is not a .NET tool is answered with the no-version dash
+    /// and nothing is run. This is the one place a package id reaches
+    /// <c>dotnet tool search</c>, so it is the place that has to refuse a blank
+    /// one: searching for nothing returns the whole feed, and whatever the parser
+    /// found in it would be a version this row invented for itself.</para></summary>
+    private static async Task<string> GetDotNetToolAvailableVersionAsync(DevToolMcpServer server, CommandLog log, CancellationToken ct)
     {
+        if (server.Mechanism is not DevToolMcpMechanism.DotNetTool)
+        {
+            return DevToolOutput.NoVersion;
+        }
+
+        var packageId = server.PackageId;
         var result = await RunAsync("dotnet", ["tool", "search", packageId], log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
@@ -2501,10 +2685,18 @@ public sealed class DevToolService : IDevToolService
             return GetArray(root, "plugins").FirstOrDefault(node => GetString(node, "name").Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
+        // Resolved through the abstraction's reader rather than against a
+        // packageId, because that is where the rule about which property
+        // identifies an entry lives: a command-registered server is addressed by
+        // its name, and a lookup that knew only about package ids told the
+        // operator its row was "no longer in the config" while the entry sat right
+        // there in the file.
         if (key.StartsWith("mcp:", StringComparison.OrdinalIgnoreCase))
         {
-            var packageId = key["mcp:".Length..];
-            return GetArray(root, "mcpServers").FirstOrDefault(node => GetString(node, "packageId").Equals(packageId, StringComparison.OrdinalIgnoreCase));
+            var id = key["mcp:".Length..];
+            return GetArray(root, DevToolConfiguration.McpServersArrayName)
+                .FirstOrDefault(node => DevToolConfiguration.ReadMcpServer(node) is { } server
+                    && server.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
         }
 
         if (key.StartsWith("marketplace:", StringComparison.OrdinalIgnoreCase))
@@ -2539,11 +2731,15 @@ public sealed class DevToolService : IDevToolService
 
     private static string PluginKey(string name) => DevToolConfiguration.KeyFor(DevToolKind.Plugin, name);
 
-    private static string McpServerKey(string packageId) => DevToolConfiguration.KeyFor(DevToolKind.McpServer, packageId);
-
     private static string MarketplaceKey(string name) => DevToolConfiguration.KeyFor(DevToolKind.Marketplace, name);
 
-    private static string ToolDisplayName(JsonNode node) => GetString(node, "name") is { Length: > 0 } name ? name : GetString(node, "packageId");
+    /// <summary>What a failure message calls the row. The command is the last
+    /// fallback rather than nothing at all: an MCP server that ships as no package
+    /// and was never named still has to be named in the sentence reporting on
+    /// it.</summary>
+    private static string ToolDisplayName(JsonNode node) => GetString(node, "name") is { Length: > 0 } name
+        ? name
+        : GetString(node, "packageId") is { Length: > 0 } packageId ? packageId : GetString(node, "command");
 
     /// <summary>The two plugin kinds that are Copilot mechanisms and nothing else:
     /// one copies flat skill files into <c>~/.copilot/skills</c>, the other copies

@@ -28,7 +28,8 @@ public sealed class InboxItem
 
     /// <summary>A thought captured on this machine, or through a channel with no
     /// replica behind it. Born <see cref="InboxStatus.Unprocessed"/> with a fresh
-    /// id.</summary>
+    /// id. <paramref name="bodyMd"/> is whatever was written beneath the title —
+    /// the Add dialog's notes — and is empty for a bare one-line capture.</summary>
     public static InboxItem Capture(
         string title,
         InboxSource source,
@@ -36,8 +37,9 @@ public sealed class InboxItem
         ContentKind kind,
         DateTimeOffset capturedAt,
         DateTimeOffset receivedAt,
-        bool replicaBacked) =>
-        new(Guid.CreateVersion7(), title, string.Empty, sourceUrl, capturedAt, receivedAt, kind, source, replicaBacked);
+        bool replicaBacked,
+        string? bodyMd = null) =>
+        new(Guid.CreateVersion7(), title, bodyMd ?? string.Empty, sourceUrl, capturedAt, receivedAt, kind, source, replicaBacked);
 
     /// <summary>A capture pulled from the replica. It <em>reuses the capture's
     /// id</em>, which is what makes intake idempotent by primary key: the same

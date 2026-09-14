@@ -3,6 +3,7 @@ using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -534,42 +535,209 @@ public sealed class InboxPaneTests
         Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-error" && toast.Severity == ToastSeverity.Error);
     }
 
-    // --- Capture ------------------------------------------------------------
+    // --- Add and Capture ----------------------------------------------------
 
+    /// <summary>Both actions sit in the header whether or not there is anything
+    /// in the queue: an empty Inbox is exactly where somebody reaches for Add.</summary>
     [Fact]
-    public async Task Typing_a_thought_and_pressing_enter_adds_a_row_and_opens_it()
+    public async Task The_header_offers_add_and_capture_when_the_inbox_is_empty()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
 
-        var field = pane.Find("[data-testid='inbox-capture']");
-        await field.InputAsync(new ChangeEventArgs { Value = "  Ask about the trial length  " });
-        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
-
-        Assert.Equal(["Ask about the trial length"], Titles(pane));
-        Assert.Equal("manual", harness.Inbox.Items.Single().Channel);
-        Assert.Equal("Manual", pane.Find("[data-testid='inbox-pane-item-source']").TextContent.Trim());
-        Assert.Equal("Ask about the trial length", pane.Find("[data-testid='inbox-detail'] #inbox-detail-title").TextContent.Trim());
-        // The field is cleared for the next thought.
-        Assert.Equal(string.Empty, pane.Find("[data-testid='inbox-capture']").GetAttribute("value"));
+        Assert.Equal("Add", pane.Find("[data-testid='inbox-pane-add']").TextContent.Trim());
+        Assert.Equal("Capture", pane.Find("[data-testid='inbox-pane-capture']").TextContent.Trim());
     }
 
     [Fact]
-    public async Task The_capture_button_captures_too_and_a_blank_field_captures_nothing()
+    public async Task The_header_offers_add_and_capture_when_there_are_items()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("One");
+        harness.Inbox.Seed("Two");
+
+        var pane = await harness.RenderAsync();
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-capture']"));
+    }
+
+    [Fact]
+    public async Task Add_opens_a_dialog_with_a_title_and_notes()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+
+        var dialog = pane.Find("[data-testid='inbox-pane-add-dialog']");
+        Assert.Equal("dialog", dialog.GetAttribute("role"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-title']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-notes']"));
+    }
+
+    /// <summary>The module refuses an item without a title, so the dialog does
+    /// not offer to try.</summary>
+    [Fact]
+    public async Task Submit_is_disabled_until_a_title_is_typed()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+
+        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "   " });
+        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+        Assert.Empty(harness.Inbox.Items);
+
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Ask about the trial length" });
+        Assert.False(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+    }
+
+    /// <summary>Asserted on what the module received and on what the pane shows,
+    /// never on a throw: bUnit swallows a handler's exception, so a submit that
+    /// did nothing would look exactly like one that threw.</summary>
+    [Fact]
+    public async Task Submitting_files_a_manual_item_with_the_notes_as_its_body_and_opens_it()
     {
         using var harness = Harness.Create();
 
         var pane = await harness.RenderAsync();
 
-        Assert.True(pane.Find("[data-testid='inbox-capture-submit']").HasAttribute("disabled"));
-        await pane.Find("[data-testid='inbox-capture']").KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "  Ask about the trial length " });
+        await pane.Find("[data-testid='inbox-pane-add-notes'] textarea").InputAsync(new ChangeEventArgs { Value = "Before Friday.\n" });
+        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+
+        var item = Assert.Single(harness.Inbox.Items);
+        Assert.Equal("Ask about the trial length", item.Title);
+        Assert.Equal("Before Friday.", item.BodyMd);
+        Assert.Equal("manual", item.Channel);
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+        Assert.Equal(["Ask about the trial length"], Titles(pane));
+        Assert.Equal("Manual", pane.Find("[data-testid='inbox-pane-item-source']").TextContent.Trim());
+        // The new item is selected, so the detail opens on it with the notes as its body.
+        Assert.Equal("Ask about the trial length", pane.Find("[data-testid='inbox-detail'] #inbox-detail-title").TextContent.Trim());
+        Assert.Contains("Before Friday.", pane.Find("[data-testid='inbox-detail']").TextContent, StringComparison.Ordinal);
+
+        // The next Add starts clean rather than with the last one still in it.
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        Assert.Equal(string.Empty, pane.Find("[data-testid='inbox-pane-add-title'] input").GetAttribute("value"));
+    }
+
+    [Fact]
+    public async Task Notes_are_optional_and_none_is_an_empty_body()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Just a title" });
+        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+
+        var item = Assert.Single(harness.Inbox.Items);
+        Assert.Equal("Just a title", item.Title);
+        Assert.Equal(string.Empty, item.BodyMd);
+        Assert.Equal(["Just a title"], Titles(pane));
+    }
+
+    [Fact]
+    public async Task Cancel_closes_the_dialog_and_files_nothing()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Something" });
+        await pane.Find("[data-testid='inbox-pane-add-cancel']").ClickAsync(new());
+
         Assert.Empty(harness.Inbox.Items);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+    }
 
-        await pane.Find("[data-testid='inbox-capture']").InputAsync(new ChangeEventArgs { Value = "By button" });
-        await pane.Find("[data-testid='inbox-capture-submit']").ClickAsync(new());
+    /// <summary>The dialog has closed by the time the module answers, so a
+    /// refusal is a toast of its own rather than the item acts' one.</summary>
+    [Fact]
+    public async Task A_refused_add_is_a_toast_under_its_own_id()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.NextCaptureError = Error.Unexpected("inbox.store_failed", "The inbox database is locked.");
 
-        Assert.Equal(["By button"], Titles(pane));
+        var pane = await harness.RenderAsync();
+
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-pane-add-title'] input").InputAsync(new ChangeEventArgs { Value = "Ask about the trial length" });
+        await pane.Find("[data-testid='inbox-pane-add-submit']").ClickAsync(new());
+
+        Assert.Empty(harness.Inbox.Items);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+        var toast = Assert.Single(harness.Toasts.Visible);
+        Assert.Equal("inbox-add-error", toast.TestId);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Contains("locked", toast.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Capture_raises_OnCapture()
+    {
+        using var harness = Harness.Create();
+
+        var raised = 0;
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.OnCapture, () => raised++));
+
+        await pane.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());
+
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>While a run is in flight the button is busy rather than gone,
+    /// so focus survives the round trip and a second press cannot start a
+    /// second run.</summary>
+    [Fact]
+    public async Task The_capture_button_is_busy_while_a_run_is_in_flight()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.CaptureRunning, true));
+
+        var button = pane.Find("[data-testid='inbox-pane-capture']");
+        Assert.Equal("true", button.GetAttribute("aria-busy"));
+        Assert.True(button.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public async Task A_capture_message_is_shown_as_a_status_alert()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync(parameters => parameters
+            .Add(p => p.CaptureMessage, "YouTube: no adapter is available yet. 0 new items."));
+
+        var result = pane.Find("[data-testid='inbox-pane-capture-result']");
+        Assert.Equal("status", result.GetAttribute("role"));
+        Assert.Contains("inbox-pane__capture-result", result.ClassList);
+        Assert.Contains("no adapter", result.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task No_message_renders_no_alert()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("One");
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-result']"));
     }
 
     // --- The context menu ---------------------------------------------------
@@ -888,9 +1056,10 @@ public sealed class InboxPaneTests
 
         /// <summary>Renders the pane the way the shell shows it: initialised, so
         /// the starter organiser is seeded and the snapshot is on screen.</summary>
-        public async Task<IRenderedComponent<InboxPane>> RenderAsync()
+        public async Task<IRenderedComponent<InboxPane>> RenderAsync(
+            Action<ComponentParameterCollectionBuilder<InboxPane>>? parameters = null)
         {
-            var pane = Context.Render<InboxPane>();
+            var pane = parameters is null ? Context.Render<InboxPane>() : Context.Render(parameters);
             await pane.InvokeAsync(State.InitializeAsync);
             return pane;
         }

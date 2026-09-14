@@ -60,7 +60,10 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Two containers in the cloud replica** — `tasks` and `sessions`, both
   partitioned on `/ownerId`. Separate because each wants its own change feed, its
   own indexing policy, and its own retention, and because serverless billing
-  levies no per-container charge to trade against.
+  levies no per-container charge to trade against. Two more beside them,
+  `devices` and `pairingCodes`, hold the device registry; they are not replicas —
+  no change feed is read from them — and they are partitioned on `/id`, because
+  the read on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Container TTL expires task
   tombstones after 180 days and whole session records after 12 months. Nothing
   reaps, so there is no scheduled job to fail silently at exactly the moment
@@ -155,7 +158,9 @@ sequenceDiagram
 - **Pairing, not accounts.** A first device generates an `ownerId`; a second is
   paired with a short code entered once, out of band. Each holds its own
   registration credential in the OS credential store and exchanges it for a
-  short-lived JWT. `ownerId` is the Cosmos partition key of both containers.
+  short-lived JWT. `ownerId` is the Cosmos partition key of both replica
+  containers; the registry that holds the devices and codes is persisted in
+  Cosmos as well, so a pairing survives a restart of the service.
 - **The service, not the partition key, is what keeps a device inside its own
   data.** The partition key organizes the store; it authorizes nothing. Access to
   Cosmos is a managed identity with an account-scoped data-plane role, so as far
@@ -199,9 +204,13 @@ list a person already reads rather than shown apart from it.
 The same two qualifications apply as above, and a third this half carries alone.
 Nothing is provisioned in Azure
 (`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
-is a `Dev`-status feature flag that is off by default — its own flag rather than
-`task-sync`, because wanting one backlog on two machines is not the same as
-wanting a record of what the assistants did to leave either of them. The third is
+is behind the one `Dev`-status `sync` feature flag, off by default, that also
+gates pairing and the task loop. Until 2026-09-14 it had a flag of its own,
+`session-sync`, on the argument that wanting one backlog on two machines is not
+the same as wanting a record of what the assistants did to leave either of them;
+the three switches were folded into one because the question a person actually
+answers is whether this machine takes part in sync at all, and the sanitization
+boundary above is what makes that one answer safe to give. The third is
 that two behaviours here rest on a store nothing local has exercised: the change
 feed the pull reads needs a real Cosmos, emulator or deployed, and the unit suite
 runs against an in-memory replica standing in for one; the twelve-month container

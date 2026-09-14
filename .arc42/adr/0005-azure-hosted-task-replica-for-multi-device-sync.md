@@ -8,8 +8,8 @@ issue: null
 
 ## Status
 
-Accepted, and two halves of the cloud side are built — tasks, then session
-records. The notes below say how far each goes, and what they deliberately do not
+Accepted, and three parts of the cloud side are built — tasks, session records,
+then the device registry. The notes below say how far each goes, and what they deliberately do not
 cover. The rest is still unbuilt, and what follows records the direction, the
 scope it covers, and the questions it leaves open. The two things that had to be
 true before it could be accepted are true.
@@ -74,15 +74,30 @@ is still on screen.
 > machine is stamped from the caller's token rather than accepted from the body,
 > so a device can address nothing outside its own. **Built is not in service** here
 > either — same unprovisioned Azure, and its own `Dev` flag, off by default and
-> separate from `task-sync`. The twelve-month container TTL is unverifiable
+> separate from `task-sync` (as of 2026-09-14 the two, and `device-pairing`, are
+> one `sync` flag). The twelve-month container TTL is unverifiable
 > locally for the reason the 180-day one is.
 >
-> **Not built, and not to be read into either of the above.** The sparse rank key
+> **Implemented, 2026-09-14 — the device registry, which is the deferred half
+> of Identity.** Device registrations and pairing codes are persisted in two
+> more containers on the same account, `devices` and `pairingCodes`, through
+> `CosmosDeviceRegistry` and `CosmosPairingCodeStore` in the same adapter
+> project, registered ahead of the module exactly as the **Scope** paragraph
+> promised — one line, not a fork. A paired device now survives a restart,
+> a redeploy, and a scale-to-zero of the service. Neither container is a
+> replica: no change feed is ever read from them, and they are partitioned on
+> `/id` rather than `/ownerId`, because the one read on every token mint has
+> only the device id in hand and would otherwise be a cross-partition query on
+> every sync. A code burns by an etag-conditioned replace, so two devices racing
+> on one code still get exactly one success. Pairing-code documents carry a
+> per-document TTL of the window plus a grace, which is housekeeping rather
+> than enforcement — the handler's own expiry check is what turns a stale code
+> away — and like the tombstone TTL it is unverifiable locally.
+>
+> **Not built, and not to be read into any of the above.** The sparse rank key
 > and the `NormalizeOrderAsync` trigger fix under **Manual rank** do not exist,
 > nor do attachments or the local tombstone reaper the open questions leave open.
-> Device registrations and pairing codes are still the in-memory adapters the
-> **Identity** note describes, so the registry does not survive a restart. The
-> 180-day tombstone TTL is stamped per document, and **it cannot be verified
+> The 180-day tombstone TTL is stamped per document, and **it cannot be verified
 > locally at all** — the Cosmos emulator does not honour TTL, so that number is
 > deployed-only behaviour rather than something a test or a QA run here has
 > shown.
@@ -540,9 +555,24 @@ check is the part of the service that carries that weight instead.
 > asks for — issuer, audience, lifetime, signature, and a pinned algorithm — and
 > the query-scoping check described above exists as `OwnerScopeFilter`, in front
 > of a fallback-deny authorization policy. Device registrations and pairing
-> codes live behind ports in an in-memory adapter rather than Cosmos, so the
-> registry does not yet survive a restart; that persistence gap is the deferred
-> half of this section, not the identity model itself.
+> codes lived behind ports in an in-memory adapter at first, so the registry did
+> not survive a restart; that persistence gap was the deferred half of this
+> section, not the identity model itself.
+>
+> **Implemented, 2026-09-14 — the deferred half.** The two ports are served from
+> Cosmos: a `devices` container holding one document per registration and a
+> `pairingCodes` container holding one per live code, both on the account the
+> replicas use and reached under the same managed identity. Nothing about the
+> isolation story above moves: the identity can still see every partition, and
+> the check in code is still what keeps an owner inside their own devices. What
+> is worth saying is that these containers are partitioned on `/id` — the device
+> id, and the code hash — rather than on `/ownerId` like the replicas. The read
+> that runs on every token mint is the one that *finds out* the owner, so it has
+> nothing but the device id to address a partition with; on `/id` it is a point
+> read, and the two owner-scoped reads behind the Devices tab pay for that with a
+> cross-partition count bounded by how many machines one person owns. The
+> documents hold hashes only, as before: a copy of either container is not a
+> copy of any secret.
 
 ### The transport that was considered and deferred
 

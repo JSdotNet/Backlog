@@ -24,7 +24,14 @@ internal static class DeviceEndpoints
 {
     internal static IEndpointRouteBuilder MapDeviceEndpoints(this IEndpointRouteBuilder sync)
     {
-        var devices = sync.MapGroup(string.Empty).WithTags("Devices");
+        // The registry and the code store are Cosmos-backed, so every route
+        // here can meet the store not being up yet — including the token
+        // exchange, which is the one call every sync begins with. The filter
+        // turns that into the coded 503 the client already treats as "come
+        // back later" rather than an unclassified 500.
+        var devices = sync.MapGroup(string.Empty)
+            .WithTags("Devices")
+            .AddEndpointFilter<ReplicaFaultFilter>();
 
         devices.MapPost(SyncRoutes.RegisterDevice, RegisterDevice)
             .AllowAnonymous()

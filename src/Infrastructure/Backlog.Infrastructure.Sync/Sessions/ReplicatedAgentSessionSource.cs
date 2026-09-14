@@ -79,7 +79,7 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
     /// </summary>
     public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
     {
-        if (!_features.IsEnabled(SyncFeatures.SessionSync))
+        if (!_features.IsEnabled(SyncFeatures.Sync))
         {
             return Task.FromResult(AgentSessionCatalog.Empty);
         }

@@ -46,6 +46,10 @@
 @using Backlog.Modules.Sync.Abstractions
 @using Backlog.Modules.Sync.Abstractions.DataTransferObjects
 @using Backlog.Infrastructure.Sync
+@* Capture's published surface, for the Capture tab: the vocabulary of sources
+   and the settings port the tab writes. *@
+@using Backlog.Modules.Capture.Abstractions
+@using Backlog.Modules.Capture.Abstractions.Services
 @* The one namespace this page needs that the app's _Imports does not already
    carry, written here because this folder cannot have an _Imports of its own -
    see the note at the top of the file. SelectField is what the account binding
@@ -61,6 +65,9 @@
    that has not registered it should fail loudly at startup rather than quietly
    drop the section that edits it. *@
 @inject IWorkingHoursSettings WorkingWeek
+@* Hard for the same reason: the tab is feature-gated, but the port behind it is
+   not optional in any host that composes the Inbox. *@
+@inject ICaptureSourceSettings CaptureSources
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -1484,6 +1491,56 @@
     @if (IsSettingsPageAvailable(SettingsPage.Devices))
     {
         <TabPanel Id="devices" Title="Devices" Element="section" BaseClass="setting" aria-label="Device settings">
+            @* Where the cards below send their traffic. First, because when it is
+               wrong nothing under it works and the only other sign is a DNS error
+               naming a host called "sync". Under the AppHost the field stays blank
+               and the line says so; the installed app has no AppHost and needs
+               the URL from here or from the environment. *@
+            @if (_syncService is not null && _syncServiceEndpoint is not null)
+            {
+                <section class="setting" data-testid="sync-service-settings" aria-label="Sync service">
+                    <h2 class="setting__title">Sync service</h2>
+                    <p class="setting__body">
+                        The service this device pairs through and replicates to. Leave it
+                        blank when the app is started from the Aspire AppHost, which finds
+                        that run's own service by itself.
+                    </p>
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Service URL"
+                               Id="sync-service-url"
+                               data-testid="sync-service-url-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="https://backlog-sync.example.azurecontainerapps.io"
+                               Value="@_draftSyncServiceUrl"
+                               ValueChanged="value => _draftSyncServiceUrl = value"
+                               @onchange="ApplySyncServiceUrlAsync"
+                               @onkeydown="OnSyncServiceKeyDownAsync" />
+
+                    <p class="setting__status @(_syncServiceFailed ? "setting__status--error" : null)"
+                       data-testid="sync-service-status"
+                       role="@(_syncServiceFailed ? "alert" : "status")">
+                        @if (_syncServiceMessage is not null)
+                        {
+                            <span>@_syncServiceMessage</span>
+                        }
+                        else
+                        {
+                            <span>@SyncServiceStatusLine</span>
+                        }
+                    </p>
+
+                    <p class="setting__note">
+                        Kept in <code>@_syncService.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                        <code>@SyncServiceEndpoint.EnvironmentVariable</code> in the environment is used when this is blank.
+                    </p>
+                </section>
+            }
+
             @* A device is in one of two states and each has exactly one thing to do
                next, so the cards come in pairs: unpaired offers register and redeem,
                paired offers the code that lets the next device in. *@
@@ -1554,19 +1611,17 @@
                 </section>
 
                 @* Only for a device that is already one: an unpaired device has no
-                   owner to replicate under, and nothing to sync. Its own feature
-                   from device pairing, because a person can have paired devices
-                   and still not want their tasks leaving the machine. And only
-                   where a host composed the loop at all - a head that registered
-                   no sync-state store hides this rather than offering a button
-                   that cannot work.
+                   owner to replicate under, and nothing to sync. And only where a
+                   host composed the loop at all - a head that registered no
+                   sync-state store hides this rather than offering a button that
+                   cannot work.
 
                    Withheld as well from a device the service has stopped
                    recognising, for the same reason as the pairing-code card
                    below it: a credential nothing will accept cannot replicate
                    anything, and the button would fail every time it was pressed.
                    The panel offers the way back instead. *@
-                @if (TaskSyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+                @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
                 {
                     <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
                         <h2 class="setting__title">Sync tasks</h2>
@@ -1731,6 +1786,81 @@
                            OnCancel="@(() => _forgettingDevice = false)" />
         </TabPanel>
     }
+
+    @if (IsSettingsPageAvailable(SettingsPage.Capture))
+    {
+        @* Which sources the Inbox's Capture button looks at. Gated on the Inbox
+           pane's own feature rather than one of its own: there is no Capture
+           button without the pane it lives on, so a tab for it would be settings
+           for a control nobody can reach. *@
+        <TabPanel Id="capture" Title="Capture" Element="section" BaseClass="setting" TestId="capture-settings" aria-label="Capture settings">
+            <h2 class="setting__title">Capture</h2>
+            <p class="setting__description">
+                Which sources the Inbox's Capture button looks at, and what each one is
+                pointed at. Nothing is watched until you switch it on here; no source can
+                fetch anything yet, and a run says so per source rather than failing.
+            </p>
+
+            @foreach (var kind in CaptureSourceKinds.Monitorable)
+            {
+                var slug = CaptureSourceKinds.Slug(kind);
+                var error = CaptureSourceError(kind);
+
+                <div class="repo-card__section" data-testid="@($"capture-source-{slug}")">
+                    @* The same shape as the Storage tab's refresh toggle: the whole
+                       row is a label, and the switch saves the moment it flips. *@
+                    <Toggle NativeCheckbox="true"
+                            BaseClass="feature-flag"
+                            TextCssClass="feature-flag__content"
+                            LabelCssClass="feature-flag__title"
+                            DescriptionCssClass="feature-flag__description"
+                            Label="@CaptureSourceKinds.Label(kind)"
+                            Description="@CaptureSourceDescription(kind)"
+                            Checked="@CaptureSources.Current.For(kind).Enabled"
+                            CheckedChanged="enabled => SetCaptureSourceEnabled(kind, enabled)"
+                            data-testid="@($"capture-source-{slug}-enabled")" />
+
+                    @* One target per line, committed on change, the way the
+                       Repositories tab takes its list. The box carries its own
+                       border through `setting__input`, so the library's grow
+                       wrapper is emitted without one and auto-grow stays off. *@
+                    <TextArea Bare="true"
+                              AutoGrow="false"
+                              GrowCssClass=""
+                              LabelCssClass="setting__label"
+                              InputCssClass="@($"{SettingInputClass(error)} setting__input--multiline")"
+                              Label="@CaptureSourceTargetsLabel(kind)"
+                              Id="@($"capture-source-{slug}-targets")"
+                              data-testid="@($"capture-source-{slug}-targets")"
+                              Rows="4"
+                              spellcheck="false"
+                              autocomplete="off"
+                              aria-describedby="@($"capture-source-{slug}-status")"
+                              Placeholder="@CaptureSourceTargetsPlaceholder(kind)"
+                              Value="@CaptureTargetsDraft(kind)"
+                              ValueChanged="value => _draftCaptureTargets[kind] = value"
+                              @onchange="() => ApplyCaptureTargets(kind)" />
+
+                    <p class="setting__status" id="@($"capture-source-{slug}-status")" data-testid="@($"capture-source-{slug}-status")" role="status">
+                        @if (error is not null)
+                        {
+                            <span class="setting__status--error">@error</span>
+                        }
+                        else
+                        {
+                            <span>@CaptureSourceSummary(kind)</span>
+                        }
+                    </p>
+                </div>
+            }
+
+            <p class="setting__note">
+                Kept in <code>@CaptureSources.SettingsPath</code>, beside the app's other
+                per-user choices rather than in the backlog folder. Addresses and channels
+                only - never a password or a key.
+            </p>
+        </TabPanel>
+    }
     </Tabs>
 </div>
 
@@ -1763,6 +1893,8 @@
     private string? _refreshError;
     private readonly Dictionary<string, string> _draftWorkingHours = new(StringComparer.Ordinal);
     private string? _workingHoursError;
+    private readonly Dictionary<CaptureSourceKind, string> _draftCaptureTargets = [];
+    private readonly Dictionary<CaptureSourceKind, string?> _captureSourceErrors = [];
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private string _draftAzureFoundryEndpoint = string.Empty;
@@ -1806,6 +1938,7 @@
         Accounts,
         Repositories,
         Devices,
+        Capture,
     }
 
     // The strip speaks in ids; the page still thinks in the enum.
@@ -1852,7 +1985,11 @@
         // usage reports. With neither on there is nothing for the panel to say, so
         // it is not offered rather than offered empty.
         SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
-        SettingsPage.Devices => DevicePairingEnabled,
+        SettingsPage.Devices => SyncEnabled,
+
+        // The Capture button lives on the Inbox pane, so the tab that configures
+        // it goes with the pane rather than with a feature of its own.
+        SettingsPage.Capture => Features.IsEnabled(AppFeatures.InboxPane),
         _ => false
     };
 
@@ -2033,6 +2170,11 @@
     {
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
+        // Optional the way the pairing client is: a head that composes the sync
+        // clients against a fixed address has no URL to offer and hides the field.
+        _syncService = Services.GetService<SyncServiceSettingsStore>();
+        _syncServiceEndpoint = Services.GetService<SyncServiceEndpoint>();
+        _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();
@@ -2058,6 +2200,7 @@
         _draftKnowledgeCacheDirectory = Store.IsDefaultKnowledgeCacheDirectory ? string.Empty : Store.KnowledgeCacheDirectory;
         SyncRefreshDraft();
         SyncWorkingHoursDrafts();
+        SyncCaptureTargetsDrafts();
         SyncStorageKnowledgeDrafts();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
@@ -2081,7 +2224,7 @@
         // Same reasoning: asking the sync service who this device is goes over
         // the network, so the panel draws from what is stored and fills the
         // device count in when the answer arrives.
-        if (DevicePairingEnabled && StoredDevice is not null)
+        if (SyncEnabled && StoredDevice is not null)
         {
             await RefreshDeviceStatusAsync();
             StateHasChanged();
@@ -2293,6 +2436,86 @@
             CultureInfo.InvariantCulture,
             DateTimeStyles.None,
             out time);
+
+    // --- Capture sources ------------------------------------------------
+
+    /// <summary>Turns a source on or off with the targets it already has rather
+    /// than the ones in the field: a half-typed address is not a choice.</summary>
+    private void SetCaptureSourceEnabled(CaptureSourceKind kind, bool enabled) =>
+        _captureSourceErrors[kind] = CaptureSources.SetEnabled(kind, enabled);
+
+    /// <summary>Commits the field the way every other list on this page
+    /// commits: on change, one target per line, with blanks dropped and the
+    /// field put back to exactly what was stored.</summary>
+    private void ApplyCaptureTargets(CaptureSourceKind kind)
+    {
+        var lines = CaptureTargetsDraft(kind)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        _captureSourceErrors[kind] = CaptureSources.SetTargets(kind, lines);
+        SyncCaptureTargetsDrafts();
+    }
+
+    private void SyncCaptureTargetsDrafts()
+    {
+        foreach (var kind in CaptureSourceKinds.Monitorable)
+        {
+            _draftCaptureTargets[kind] = string.Join('\n', CaptureSources.Current.For(kind).Targets);
+        }
+    }
+
+    private string CaptureTargetsDraft(CaptureSourceKind kind) =>
+        _draftCaptureTargets.GetValueOrDefault(kind, string.Empty);
+
+    private string? CaptureSourceError(CaptureSourceKind kind) =>
+        _captureSourceErrors.GetValueOrDefault(kind);
+
+    /// <summary>What the row is in force as, said in words: off, on with nothing
+    /// to look at, or on and looking at so many.</summary>
+    private string CaptureSourceSummary(CaptureSourceKind kind)
+    {
+        var source = CaptureSources.Current.For(kind);
+        var label = CaptureSourceKinds.Label(kind);
+
+        if (!source.Enabled) return $"Off. {label} is not looked at.";
+        if (source.Targets.Count == 0) return $"On, but pointed at nothing yet - add at least one below.";
+
+        return source.Targets.Count == 1
+            ? $"On. Looking at 1 {CaptureSourceTargetNoun(kind)}."
+            : $"On. Looking at {source.Targets.Count} {CaptureSourceTargetNoun(kind)}s.";
+    }
+
+    private static string CaptureSourceDescription(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "New videos on the channels listed below.",
+        CaptureSourceKind.Website => "Changes to the pages listed below.",
+        CaptureSourceKind.Email => "Newsletters and summaries from the senders listed below.",
+        _ => string.Empty
+    };
+
+    private static string CaptureSourceTargetsLabel(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "Channels - one URL per line",
+        CaptureSourceKind.Website => "Pages - one URL per line",
+        CaptureSourceKind.Email => "Senders - one address per line",
+        _ => "Targets - one per line"
+    };
+
+    private static string CaptureSourceTargetsPlaceholder(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "https://www.youtube.com/@channel",
+        CaptureSourceKind.Website => "https://example.com/blog",
+        CaptureSourceKind.Email => "newsletter@example.com",
+        _ => string.Empty
+    };
+
+    private static string CaptureSourceTargetNoun(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "channel",
+        CaptureSourceKind.Website => "page",
+        CaptureSourceKind.Email => "sender",
+        _ => "target"
+    };
 
     /// <summary>The input's classes for a field whose rejection is reported in
     /// the status line beside it rather than by the component.</summary>
@@ -3022,6 +3245,11 @@
     private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
 
     private DevicePairingClient? _devicePairing;
+    private SyncServiceSettingsStore? _syncService;
+    private SyncServiceEndpoint? _syncServiceEndpoint;
+    private string _draftSyncServiceUrl = string.Empty;
+    private string? _syncServiceMessage;
+    private bool _syncServiceFailed;
 
     /// <summary>Optional on purpose: the panel works without it, and the unit
     /// tests that predate the credential-rejected state compose the pairing
@@ -3084,9 +3312,7 @@
     /// the screen, so a settings page left behind does not go on ticking.</summary>
     private System.Threading.Timer? _pairingCodeCountdown;
 
-    private bool DevicePairingEnabled => Features.IsEnabled(SyncFeatures.DevicePairing);
-
-    private bool TaskSyncEnabled => Features.IsEnabled(SyncFeatures.TaskSync);
+    private bool SyncEnabled => Features.IsEnabled(SyncFeatures.Sync);
 
     /// <summary>
     /// What the last exchange did, or an invitation when there has not been one.
@@ -3428,6 +3654,65 @@
     /// a question rather than a retry.
     /// </para>
     /// </summary>
+    /// <summary>One sentence for where the sync traffic goes and why there,
+    /// so "No such host is known" has its explanation next to the fix.</summary>
+    private string SyncServiceStatusLine
+    {
+        get
+        {
+            if (_syncServiceEndpoint is null) return string.Empty;
+
+            var resolved = _syncServiceEndpoint.Resolve();
+            return resolved.Source switch
+            {
+                SyncServiceAddressSource.Settings => $"Talking to {resolved.Address} - the URL entered here.",
+                SyncServiceAddressSource.EnvironmentVariable => $"Talking to {resolved.Address} - from {SyncServiceEndpoint.EnvironmentVariable}.",
+                SyncServiceAddressSource.ServiceDiscovery => "Started from the Aspire AppHost: talking to this run's own sync service.",
+                _ => $"No sync service is configured. Enter its URL above, or set {SyncServiceEndpoint.EnvironmentVariable} before starting the app."
+            };
+        }
+    }
+
+    private async Task ApplySyncServiceUrlAsync()
+    {
+        if (_syncService is null) return;
+
+        // Enter arrives twice - once as the key and once as the change the
+        // browser commits behind it - so an unchanged draft is a no-op rather
+        // than a second save and a second status call. A refused value is the
+        // exception: it stays in the field with its message, so the second
+        // arrival repeats the same refusal instead of clearing it.
+        var stored = _syncService.Current.ServiceUrl ?? string.Empty;
+        if (_syncServiceMessage is null && string.Equals(_draftSyncServiceUrl, stored, StringComparison.Ordinal)) return;
+
+        var error = _syncService.SetServiceUrl(_draftSyncServiceUrl);
+        _syncServiceFailed = error is not null;
+        _syncServiceMessage = error;
+        if (error is not null) return;
+
+        _draftSyncServiceUrl = _syncService.Current.ServiceUrl ?? string.Empty;
+
+        // The next client the factory hands out already points at the new
+        // address - but the one this page resolved when it opened does not, its
+        // HttpClient was configured then. So ask for a fresh one (typed clients
+        // are transient) before asking the card above to check again, which is
+        // how a person finds out they typed it right.
+        _devicePairing = Services.GetService<DevicePairingClient>();
+        _devicesMessage = null;
+        await RefreshDeviceStatusAsync();
+    }
+
+    private async Task OnSyncServiceKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplySyncServiceUrlAsync();
+        else if (e.Key == "Escape")
+        {
+            _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
+            _syncServiceMessage = null;
+            _syncServiceFailed = false;
+        }
+    }
+
     private async Task RefreshDeviceStatusAsync()
     {
         if (_devicePairing is null || StoredDevice is null)

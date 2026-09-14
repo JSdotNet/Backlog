@@ -342,15 +342,20 @@ public sealed class InboxDesktopState
 
     // --- Capture and the item's own acts ------------------------------------
 
-    /// <summary>Captures a thought typed into the pane. Returns whether it was
-    /// kept, so the field can clear itself on success and keep the text on a
-    /// refusal. The new item is selected so the detail opens on it.</summary>
-    public async Task<bool> CaptureAsync(string title)
+    /// <summary>Captures what was typed into the pane's Add dialog: a title and,
+    /// optionally, notes that become the item's body. Returns whether it was
+    /// kept; a refusal is a toast under <c>inbox-add-error</c>, because the
+    /// dialog has closed by the time the answer arrives and there is nowhere in
+    /// the pane for a one-off failure to sit. The new item is selected so the
+    /// detail opens on it.</summary>
+    public async Task<bool> CaptureAsync(InboxCapture capture)
     {
-        if (string.IsNullOrWhiteSpace(title)) return false;
+        ArgumentNullException.ThrowIfNull(capture);
 
-        var captured = await _inbox.CaptureAsync(title.Trim());
-        if (Report(captured)) return false;
+        if (string.IsNullOrWhiteSpace(capture.Title)) return false;
+
+        var captured = await _inbox.CaptureAsync(capture.Title.Trim(), capture.Notes);
+        if (Report(captured, AddErrorTestId)) return false;
 
         // A capture lands in the unfiled inbox. Opening it there rather than in
         // whatever list was showing, so the row the reader just made is on
@@ -628,14 +633,21 @@ public sealed class InboxDesktopState
         }
     }
 
+    /// <summary>The toast an item act's refusal lands on, and the one the Add
+    /// dialog's refusal lands on. Two ids because a test — and a driver — needs
+    /// to tell "the add failed" from "the archive failed" without reading the
+    /// sentence.</summary>
+    private const string ErrorTestId = "inbox-error";
+    private const string AddErrorTestId = "inbox-add-error";
+
     /// <summary>Puts a refused result on a toast and says whether it was one.
     /// Action-level feedback per the interaction guidelines: an error toast, and
     /// the control that failed is left as it was so the reader can try again.</summary>
-    private bool Report(Result result)
+    private bool Report(Result result, string testId = ErrorTestId)
     {
         if (result.IsSuccess) return false;
 
-        _toasts?.Publish(ToastMessage.Error(result.Error.Message, "inbox-error"));
+        _toasts?.Publish(ToastMessage.Error(result.Error.Message, testId));
         return true;
     }
 }

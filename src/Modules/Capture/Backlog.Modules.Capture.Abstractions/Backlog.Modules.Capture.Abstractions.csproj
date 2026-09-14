@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Capture module's public surface — everything a host or another module is
+    allowed to see (ADR 0005, ADR 0009):
+      DataTransferObjects/  what a caller receives: the monitored sources and a run's result
+      Services/             ICaptureRunner, the one port a host calls, and
+                            ICaptureSourceSettings, the port the settings screen writes
+      Enums                 the Capture Source vocabulary those DTOs are written in
+    The adapter port and the use-case handler stay in the implementation project.
+    Nothing here may reference it, or anything else in the solution beyond the
+    shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Capture.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -21,30 +21,70 @@
 
     Three child components rather than one file, split where the state splits:
     the side menu draws lists and groups and owns the menus that change them;
-    the item list draws the slice, the chips and the capture field; the detail
-    draws one item and the acts on it. All three read the one state object the
-    shell registers, which is what lets the pane be re-mounted in another slot
-    without forgetting what was open — the same bargain TasksDesktopState makes.
+    the item list draws the slice and the chips; the detail draws one item and
+    the acts on it. All three read the one state object the shell registers,
+    which is what lets the pane be re-mounted in another slot without
+    forgetting what was open — the same bargain TasksDesktopState makes.
 
-    Parameterless on purpose, and the shell renders it that way. The old pane
-    took its items from the shell, which is why the shell knew what an inbox
-    item looked like. This one asks its own module.
+    The header offers the two ways something gets into the queue: Add, for a
+    thing the reader has in their head right now, and Capture, for the sources
+    they have asked to be watched. Add is the pane's own: the dialog's title and
+    notes go through the state into the Inbox's module as an item, body and all,
+    and nothing outside the Inbox learns of it. Capture is raised to the host
+    and nothing more — which sources, and what a run is, belongs to the Capture
+    context, and the run's outcome comes back as a sentence so the pane never
+    learns that context's types either.
+
+    The old pane took its items from the shell, which is why the shell knew what
+    an inbox item looked like. This one asks its own module; the three
+    parameters it does take are the Capture button's, and the shell renders it
+    with those alone.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
-    @* The library's section header wearing this pane's own class names, the
-       same shape it had before the rewrite so app.css and the adoption test
-       find the same elements. No actions: what can be done to an item is done
-       from the item, and what can be done to a list is done from the list. *@
+    @* The library's section header wearing this pane's own class names, with
+       the two actions in its slot. Both are drawn whether or not the queue has
+       anything in it: an empty Inbox is exactly where somebody reaches for Add. *@
     <SectionHeader BaseClass="inbox-pane__header"
                    TextCssClass=""
                    EyebrowCssClass="inbox-pane__eyebrow"
                    TitleCssClass="inbox-pane__title"
                    DescriptionCssClass="inbox-pane__subtitle"
+                   ActionsCssClass="inbox-pane__header-actions"
                    Eyebrow="Global pane"
                    TitleId="inbox-pane-title"
                    Title="Inbox"
-                   Description="Capture, file and triage what arrived before it settles into the backlog." />
+                   Description="Capture, file and triage what arrived before it settles into the backlog.">
+        <Actions>
+            @* The id is for the dialog to hand focus back to on close; it is
+               named rather than captured so it survives the header re-rendering
+               while the dialog is up. *@
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="inbox-pane-add"
+                       id="inbox-pane-add"
+                       OnClick="OpenAdd">Add</AppButton>
+            @* Busy rather than hidden while a run is in flight, so focus survives
+               the round trip and a second press cannot start a second run. *@
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="inbox-pane-capture"
+                       Busy="@CaptureRunning"
+                       BusyLabel="Capturing"
+                       OnClick="() => OnCapture.InvokeAsync()">Capture</AppButton>
+        </Actions>
+    </SectionHeader>
+
+    @* What the last run said, wearing this pane's own class. A status rather
+       than an alert: a run that found nothing new is the ordinary result, and
+       the line is replaced by the next run rather than stacked. Alert renders
+       nothing at all for an empty message, so there is no branch here — and
+       the pane is a flex column for that reason, so an absent line leaves no
+       gap behind. *@
+    <Alert Message="@CaptureMessage"
+           BaseClass="inbox-pane__capture-result"
+           Role="status"
+           TestId="inbox-pane-capture-result" />
 
     <div class="inbox-pane__body" data-testid="inbox-pane-body">
         <InboxSideMenu State="State" />
@@ -67,12 +107,94 @@
             </End>
         </SplitPane>
     </div>
+
+    @* The Add dialog: a title and, optionally, some notes. The shared Modal
+       brings the focus handling and Escape; this pane brings two fields and a
+       rule — nothing is filed without a title, because the module refuses an
+       item without one, and a dialog that offered to try would be offering an
+       error. *@
+    <Modal Open="@_addOpen"
+           OpenChanged="v => _addOpen = v"
+           Title="Add to Inbox"
+           RestoreFocusToId="inbox-pane-add"
+           TestId="inbox-pane-add-dialog">
+        <ChildContent>
+            @* A layout wrapper for the two fields, the way the import dialog's
+               form is one; the fields themselves are the library's, wrapper and
+               all, so the dialog needs no styling of its own. *@
+            <div class="inbox-pane__add-form">
+                <TextField Label="Title"
+                           Value="@_title"
+                           ValueChanged="v => _title = v"
+                           Id="inbox-pane-add-title"
+                           TestId="inbox-pane-add-title"
+                           autocomplete="off" />
+                <TextArea Label="Notes"
+                          Value="@_notes"
+                          ValueChanged="v => _notes = v"
+                          Rows="4"
+                          AutoGrow="false"
+                          TestId="inbox-pane-add-notes" />
+            </div>
+        </ChildContent>
+        <Footer>
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="CloseAdd" TestId="inbox-pane-add-cancel">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary"
+                       Disabled="@string.IsNullOrWhiteSpace(_title)"
+                       OnClick="SubmitAddAsync"
+                       TestId="inbox-pane-add-submit">Add</AppButton>
+        </Footer>
+    </Modal>
 </section>
 
 @code {
+    /// <summary>Raised when Capture is pressed. Which sources, and what a run
+    /// is, the pane does not know.</summary>
+    [Parameter]
+    public EventCallback OnCapture { get; set; }
+
+    /// <summary>True while the host has a run in flight; the button is busy
+    /// for as long as this is.</summary>
+    [Parameter]
+    public bool CaptureRunning { get; set; }
+
+    /// <summary>What the last run said, as a sentence. A string rather than a
+    /// result type so the Inbox stays free of the Capture context's types — the
+    /// host reads the run and writes the line.</summary>
+    [Parameter]
+    public string? CaptureMessage { get; set; }
+
+    private bool _addOpen;
+    private string _title = string.Empty;
+    private string _notes = string.Empty;
+
     protected override void OnInitialized()
     {
         State.Changed += HandleStateChanged;
+    }
+
+    private void OpenAdd() => _addOpen = true;
+
+    private void CloseAdd()
+    {
+        _addOpen = false;
+        _title = string.Empty;
+        _notes = string.Empty;
+    }
+
+    /// <summary>Closes first, then files. The state's refusal — the only one
+    /// the module has is a blank title, which the button already guards — is a
+    /// toast, and the item lands selected so the detail opens on it.</summary>
+    private async Task SubmitAddAsync()
+    {
+        // The button is disabled for a blank title, so reaching here with one
+        // means the caller went around it; refusing is still cheaper than
+        // asking the module to store nothing.
+        if (string.IsNullOrWhiteSpace(_title)) return;
+
+        var capture = new InboxCapture(_title.Trim(), _notes.Trim());
+        CloseAdd();
+        await State.CaptureAsync(capture);
     }
 
     /// <summary>The state raises from whichever thread finished the store call;

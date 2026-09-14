@@ -990,10 +990,14 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        // Parameterless, like the Tasks pane: the Inbox asks its own module for
-        // its items, and a shell handing them down would be a shell that knows
-        // what an inbox item looks like.
-        Assert.Contains("<InboxPane />", home, StringComparison.Ordinal);
+        // No items handed down, like the Tasks pane: the Inbox asks its own
+        // module for them, and a shell handing them down would be a shell that
+        // knows what an inbox item looks like. What the shell does pass is the
+        // Capture button's three parameters - the run belongs to the Capture
+        // context, which the Inbox never sees - and nothing else.
+        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\" />", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
         Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
 

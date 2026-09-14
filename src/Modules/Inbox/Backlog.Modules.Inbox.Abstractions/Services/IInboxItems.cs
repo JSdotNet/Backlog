@@ -24,10 +24,13 @@ public interface IInboxItems
 
     /// <summary>Captures a thought typed straight into the desktop. The one
     /// path into the inbox that involves no other device, and therefore the one
-    /// a person can use offline; <paramref name="channel"/> is the capture source
-    /// it is filed under and defaults to the domain's word for "by hand".</summary>
+    /// a person can use offline. <paramref name="notes"/> is what was written
+    /// beneath the title and becomes the item's body; null or blank is a bare
+    /// one-line capture. <paramref name="channel"/> is the capture source it is
+    /// filed under and defaults to the domain's word for "by hand".</summary>
     Task<Result<InboxItemDto>> CaptureAsync(
         string title,
+        string? notes = null,
         string channel = InboxEnumMap.ManualChannel,
         CancellationToken cancellationToken = default);
 

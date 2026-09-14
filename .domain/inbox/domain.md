@@ -60,8 +60,8 @@ and an archived item may still be moved between lists.
 An item is born one of two ways. A capture pulled from the replica becomes an
 item that **reuses the capture's id**, which is what makes intake idempotent: a
 replayed page or the desktop's own acknowledgement echo finds the row it already
-has. A thought typed into the desktop's capture field becomes an item with a
-fresh id, channel `manual`, and no replica behind it.
+has. A thought typed into the desktop's Add dialog becomes an item with a
+fresh id, channel `manual`, the notes as its body, and no replica behind it.
 
 The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`
 and `Source` are value objects owned by the root.
@@ -178,7 +178,7 @@ status: draft
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
 `website`, `email`, `web_clipper`, `ide`, `manual`. `manual` is the channel of
-an item typed straight into the desktop's capture field — the one channel with
+an item typed straight into the desktop's Add dialog — the one channel with
 no replica behind it. A channel token nobody recognises is kept as written
 rather than folded into a default.
 

@@ -20,6 +20,8 @@ using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
@@ -125,6 +127,14 @@ builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
     new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
 
+// The same arrangement for capture: the module brings the run, and the host picks
+// where the monitored sources are kept. Scoped to the content root like the
+// harness's other settings files, so a session here never rewrites the real
+// per-user choice.
+builder.Services.AddSingleton<ICaptureSourceSettings>(
+    _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddCaptureModule();
+
 // The two cross-context joins the plan takes part in, answered by adapters that may
 // see both contexts: the backlog's tag picker offers the plan's tags, and a roadmap
 // item rolls up the backlog entries and knowledge chapters it gathers. Both capture
@@ -199,12 +209,23 @@ builder.Services.AddSessionSyncStores(
     Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
         ? sessionSyncFolder
         : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
-// "https+http://sync" is resolved by Aspire service discovery, so the harness
-// always talks to the sync service of this AppHost run. Task replication is the
-// second call and not part of the first: it needs the ITaskRepository above, and
-// a host without one composes only the pairing surface.
-builder.Services.AddSyncClient(new Uri("https+http://sync"));
-builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
+// Where the sync service is, resolved the way the desktop head resolves it so the
+// Settings page behaves the same here: a URL entered there, then BACKLOG_SYNC_URL,
+// then "https+http://sync", which Aspire service discovery rewrites to this
+// AppHost run's sync resource. Under Aspire with nothing entered that is the
+// address this harness always used. The settings file is this harness's own,
+// under its content root and with an override variable of its own, for the
+// reason the credential above is: a shared file would point both harnesses at
+// whatever one of them was told. Task replication is the second call and not
+// part of the first: it needs the ITaskRepository above, and a host without one
+// composes only the pairing surface.
+builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH") is { Length: > 0 } syncSettingsPath
+        ? syncSettingsPath
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "sync-service.json")));
+builder.Services.AddSingleton<SyncServiceEndpoint>();
+builder.Services.AddSyncClient(SyncServiceAddress);
+builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
@@ -336,10 +357,10 @@ builder.Services.AddAgentSessionSource();
 // pushes from: it reads this machine's sessions through the port that call
 // registers and contributes a second source to the same port for what the other
 // environments reported. Both lines are lazy factories, so the order is for
-// whoever reads this file rather than for the container. Its own call and its own
-// feature key, because a person can want their tasks on both machines and still
-// not want a list of what their agents have been doing leaving either one.
-builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+// whoever reads this file rather than for the container. Its own call because a
+// head can have a task database and no session readers; it answers to the same
+// Sync switch as the task loop.
+builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
 // What a transcript's parsed runs are kept in, so an activity read parses only the
 // transcripts that have changed. Beside the per-user settings and never under the
@@ -443,6 +464,11 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
     return settings;
 }
 
+// The base-address callback the three sync registrations share, so they cannot
+// disagree about which service this harness is talking to.
+static Uri SyncServiceAddress(IServiceProvider services) =>
+    services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
+
 static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH");
@@ -523,6 +549,17 @@ static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore
     }
 
     return new WorkingHoursSettingsStore(settingsPath);
+}
+
+static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_CAPTURE_SOURCES_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "capture-sources.settings.json");
+    }
+
+    return new CaptureSourcesSettingsStore(settingsPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

@@ -63,7 +63,7 @@ stable contract, not before.
 ## Deviations and gaps
 
 - **Modules are nested under `src/Modules/`** rather than sitting at the top of
-  `src/`. Deliberate: with eight modules plus `App`, `Aspire`, `Core`, and
+  `src/`. Deliberate: with nine modules plus `App`, `Aspire`, `Core`, and
   `Infrastructure`, a flat `src/` stops being readable.
 - **`src/Infrastructure/` is a fifth top-level folder** the organization's layout
   does not name. Adapters that serve several modules — Sqlite, GitHub, Claude,

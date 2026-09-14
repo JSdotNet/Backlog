@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,7 +6,6 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Ports;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -35,7 +33,9 @@ namespace Backlog.Infrastructure.Cosmos.Tasks;
 /// </summary>
 internal sealed class CosmosTaskReplica : ITaskReplica
 {
-    private readonly Lazy<Container> _container;
+    private const string UnavailableMessage = "The task replica is not available yet. Try again shortly.";
+
+    private readonly CosmosContainerHandle _container;
     private readonly CosmosOptions _options;
     private readonly ILogger<CosmosTaskReplica> _log;
 
@@ -50,52 +50,16 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         _options = options.Value;
         _log = log;
 
-        // Lazy rather than resolved in the constructor: this adapter is a
-        // singleton built while the emulator may still be starting, and a
-        // failure to reach Cosmos must surface as a 503 on the call that needed
-        // it rather than as a service that would not start.
-        //
-        // PublicationOnly, and that mode is doing real work here. The default
-        // ExecutionAndPublication caches the exception as well as the value:
-        // once the factory throws, every later .Value rethrows that same
-        // instance and the factory never runs again, so a service that started a
-        // second before its store would answer 503 for the life of the process.
-        // That is worse than failing to start, because Container Apps restarts a
-        // container that died and never one that is answering. PublicationOnly
-        // runs the factory again for the next caller; the cost is that two
-        // callers racing may both build one, and the loser's is discarded.
-        _container = new Lazy<Container>(() =>
-        {
-            // Lazy has a consequence, and this is it. The client singleton is
-            // built here, inside whichever request needed Cosmos first, and the
-            // SDK starts a background endpoint refresh when it is constructed.
-            // A timer captures the ExecutionContext it was started on and
-            // Activity.Current travels in that context, so the refresh five
-            // minutes later reports itself as a child of that one push: the
-            // sync.push_tasks trace then measures 300 seconds and every latency
-            // percentile read off it is a fiction.
-            //
-            // Clearing Activity.Current for the length of the construction is
-            // what unparents it. Not ExecutionContext.SuppressFlow, which stops
-            // the whole context flowing and would take the cancellation and
-            // logging scopes with it, and not eager construction, which would
-            // trade this for a service that cannot start before its emulator.
-            var ambient = Activity.Current;
-            Activity.Current = null;
-
-            try
-            {
-                return services
-                    .GetRequiredService<CosmosClient>()
-                    .GetContainer(_options.DatabaseName, _options.TasksContainerName);
-            }
-            finally
-            {
-                // The caller is mid-request and the rest of it belongs on the
-                // trace it arrived on.
-                Activity.Current = ambient;
-            }
-        }, LazyThreadSafetyMode.PublicationOnly);
+        // Resolved on first use rather than in the constructor, and the
+        // reasons — the emulator that is not up yet, the exception a
+        // default-mode Lazy would cache, the activity the client must not be
+        // constructed under — are on CosmosContainerHandle, where the other
+        // three adapters share them.
+        _container = new CosmosContainerHandle(
+            services,
+            _options.DatabaseName,
+            _options.TasksContainerName,
+            UnavailableMessage);
     }
 
     public async Task<int> Upsert(
@@ -212,7 +176,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
             {
                 throw new SyncReplicaException(
                     SyncErrorCodes.ReplicaUnavailable,
-                    "The task replica is not available yet. Try again shortly.");
+                    UnavailableMessage);
             }
 
             var documents = Read(response.Content);
@@ -407,7 +371,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
 
     private static SyncReplicaException Unavailable(CosmosException failure) => new(
         SyncErrorCodes.ReplicaUnavailable,
-        "The task replica is not available yet. Try again shortly.",
+        UnavailableMessage,
         failure);
 
     /// <summary>A continuation Cosmos will not resume from. It is the client's to
@@ -421,20 +385,7 @@ internal sealed class CosmosTaskReplica : ITaskReplica
     /// <summary>The container, resolved once. Internal rather than private so
     /// that the activity the client is constructed under can be asserted without
     /// a call that would then try to reach Cosmos.</summary>
-    internal Container Container()
-    {
-        try
-        {
-            return _container.Value;
-        }
-        catch (Exception failure) when (failure is not SyncReplicaException)
-        {
-            throw new SyncReplicaException(
-                SyncErrorCodes.ReplicaUnavailable,
-                "The task replica is not available yet. Try again shortly.",
-                failure);
-        }
-    }
+    internal Container Container() => _container.Container();
 
     /// <summary>The envelope a change feed page arrives in. Only the documents
     /// are read; the <c>_rid</c> and <c>_count</c> beside them say nothing this

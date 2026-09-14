@@ -20,6 +20,9 @@
     <!-- The Inbox module implementation, for AddInboxModule() and its two
          repository ports; the pane asks through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
+    <!-- The Capture module implementation, for AddCaptureModule(); the same
+         reasoning as the Roadmap line above. -->
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
     <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />

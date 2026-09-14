@@ -244,7 +244,7 @@ prerequisites, and `docs/deployment/sync.md` is where they are written down.
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
 | **CI/CD** | GitHub Actions on push to `main` — path-filtered to the sync service and its infrastructure — authenticating with **OIDC federated credentials**. No publish profile, no service principal secret in the repository. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same two containers, so the sync path builds and tests with no cloud account. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same four containers, so the sync path builds and tests with no cloud account. |
 | **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Application observability only: no domain data is written to either, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. The workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop against runaway logging — once reached, Azure drops the rest of the day, exceptions included, which is intended: on such a day the volume is the incident. See `docs/deployment/sync.md`. |
 
 The Bicep declares one resource ADR 0005 did not name: a container registry.

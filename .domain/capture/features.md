@@ -66,6 +66,24 @@ status: draft
 Unattended monitors that watch external sources and create captures on a
 configurable schedule, with retry/backoff and failure logging.
 
+### Run capture now
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/capture/domain.md#source-adapter, .domain/inbox/features.md#incoming-queue]
+feature-flag: inbox-pane
+```
+
+The reader runs the monitors on demand from the Inbox, without waiting for a
+schedule. Which sources are watched — YouTube, website, email — and what each
+one looks at (channels, URLs, senders) is set under Settings › Capture and
+kept on the machine; a source is off until switched on. A run answers per
+source: how many new captures it delivered, or that no `Source Adapter` exists
+for it yet, so a source that cannot be watched says so instead of silently
+finding nothing. With no source switched on, the run points at the settings
+that would change that.
+
 ### YouTube monitor
 
 ```meta
