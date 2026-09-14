@@ -53,6 +53,10 @@
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!-- Capture's published surface: the runner the Inbox's Capture button is
+         answered with, and the settings port the Capture tab writes. The
+         implementation stays with the hosts, which compose it. -->
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <!-- Sync's published surface, for the same reason as the four above and one
          more: the Devices panel shows a pairing code, and the alphabet and the
          two-groups-of-four display it is written in are the service's, shared
