@@ -24,23 +24,60 @@
     keyed by drawer alone, so switching lenses does not reopen a drawer the
     reader shut; section folds are keyed by lens as well, so switching from tags
     to repositories and back finds the sections where they were left.
+
+    The header offers the two ways something gets into the queue: Add, for a
+    thing the reader has in their head right now, and Capture, for the sources
+    they have asked to be watched. Both are raised to the host and nothing more
+    — the pane holds the Add dialog's two fields and the Capture button's busy
+    state, and has no idea what a draft is stored as or what a run reads. The
+    run's outcome comes back as a sentence, so the pane never learns the
+    Capture context's types either.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
-    @* The library's section header wearing this pane's own class names. No
-       actions: the Inbox is read and triaged from its rows, so there is nothing
-       for the header to offer. *@
+    @* The library's section header wearing this pane's own class names, with
+       the two actions in its slot. Both are drawn whether or not the queue has
+       anything in it: an empty Inbox is exactly where somebody reaches for Add. *@
     <SectionHeader BaseClass="inbox-pane__header"
                    TextCssClass=""
                    EyebrowCssClass="inbox-pane__eyebrow"
                    TitleCssClass="inbox-pane__title"
                    DescriptionCssClass="inbox-pane__subtitle"
+                   ActionsCssClass="inbox-pane__header-actions"
                    Eyebrow="Global pane"
                    TitleId="inbox-pane-title"
                    Title="Inbox"
-                   Description="Capture and triage drafts before they settle into the backlog and knowledge lanes." />
+                   Description="Capture and triage drafts before they settle into the backlog and knowledge lanes.">
+        <Actions>
+            @* The id is for the dialog to hand focus back to on close; it is
+               named rather than captured so it survives the header re-rendering
+               while the dialog is up. *@
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="inbox-pane-add"
+                       id="inbox-pane-add"
+                       OnClick="OpenAdd">Add</AppButton>
+            @* Busy rather than hidden while a run is in flight, so focus survives
+               the round trip and a second press cannot start a second run. *@
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       TestId="inbox-pane-capture"
+                       Busy="@CaptureRunning"
+                       BusyLabel="Capturing"
+                       OnClick="() => OnCapture.InvokeAsync()">Capture</AppButton>
+        </Actions>
+    </SectionHeader>
 
     <div class="inbox-pane__content">
+        @* What the last run said, wearing this pane's own class. A status rather
+           than an alert: a run that found nothing new is the ordinary result, and
+           the line is replaced by the next run rather than stacked. Alert renders
+           nothing at all for an empty message, so there is no branch here. *@
+        <Alert Message="@CaptureMessage"
+               BaseClass="inbox-pane__capture-result"
+               Role="status"
+               TestId="inbox-pane-capture-result" />
+
         @* The library's alert wearing this pane's own class. An Alert rather than an
            EmptyState, even though the mobile head draws this same fact as one: the
            desktop pane's line is a sentence in the pane's own body copy, and an
@@ -139,6 +176,44 @@
             </div>
         }
     </div>
+
+    @* The Add dialog: a title and, optionally, some notes. The shared Modal
+       brings the focus handling and Escape; this pane brings two fields and a
+       rule — nothing is raised without a title, because nothing downstream can
+       be saved without one, and a dialog that offered to try would be offering
+       an error. *@
+    <Modal Open="@_addOpen"
+           OpenChanged="v => _addOpen = v"
+           Title="Add to Inbox"
+           RestoreFocusToId="inbox-pane-add"
+           TestId="inbox-pane-add-dialog">
+        <ChildContent>
+            @* A layout wrapper for the two fields, the way the import dialog's
+               form is one; the fields themselves are the library's, wrapper and
+               all, so the dialog needs no styling of its own. *@
+            <div class="inbox-pane__add-form">
+                <TextField Label="Title"
+                           Value="@_title"
+                           ValueChanged="v => _title = v"
+                           Id="inbox-pane-add-title"
+                           TestId="inbox-pane-add-title"
+                           autocomplete="off" />
+                <TextArea Label="Notes"
+                          Value="@_notes"
+                          ValueChanged="v => _notes = v"
+                          Rows="4"
+                          AutoGrow="false"
+                          TestId="inbox-pane-add-notes" />
+            </div>
+        </ChildContent>
+        <Footer>
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="CloseAdd" TestId="inbox-pane-add-cancel">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary"
+                       Disabled="@string.IsNullOrWhiteSpace(_title)"
+                       OnClick="SubmitAddAsync"
+                       TestId="inbox-pane-add-submit">Add</AppButton>
+        </Footer>
+    </Modal>
 </section>
 
 @code {
@@ -149,6 +224,52 @@
     /// receiving context's business, not the Inbox's.</summary>
     [Parameter]
     public EventCallback<InboxItem> OnOpen { get; set; }
+
+    /// <summary>Raised with what was typed into the Add dialog. What it is
+    /// stored as is the host's business; the pane only promises a title.</summary>
+    [Parameter]
+    public EventCallback<InboxCapture> OnAdd { get; set; }
+
+    /// <summary>Raised when Capture is pressed. Which sources, and what a run
+    /// is, the pane does not know.</summary>
+    [Parameter]
+    public EventCallback OnCapture { get; set; }
+
+    /// <summary>True while the host has a run in flight; the button is busy
+    /// for as long as this is.</summary>
+    [Parameter]
+    public bool CaptureRunning { get; set; }
+
+    /// <summary>What the last run said, as a sentence. A string rather than a
+    /// result type so the Inbox stays free of the Capture context's types — the
+    /// host reads the run and writes the line.</summary>
+    [Parameter]
+    public string? CaptureMessage { get; set; }
+
+    private bool _addOpen;
+    private string _title = string.Empty;
+    private string _notes = string.Empty;
+
+    private void OpenAdd() => _addOpen = true;
+
+    private void CloseAdd()
+    {
+        _addOpen = false;
+        _title = string.Empty;
+        _notes = string.Empty;
+    }
+
+    private async Task SubmitAddAsync()
+    {
+        // The button is disabled for a blank title, so reaching here with one
+        // means the caller went around it; refusing is still cheaper than
+        // raising a capture nothing can store.
+        if (string.IsNullOrWhiteSpace(_title)) return;
+
+        var capture = new InboxCapture(_title.Trim(), _notes.Trim());
+        CloseAdd();
+        await OnAdd.InvokeAsync(capture);
+    }
 
     /// <summary>The lens over the drawers. None by default, which is each
     /// drawer's own subdivision rather than no subdivision.

@@ -1,6 +1,8 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -385,6 +387,13 @@ public sealed class InboxTriageOpensTheEntryTests
         // than resolving it: a screen that silently lost the reader's only feedback
         // is worse than one that refuses to construct. So a host that renders Home
         // has to register it, the same as the other four.
+        // Home answers the Inbox's Capture button through the module's runner and
+        // injects it hard, so a host that renders Home composes the module and
+        // picks where its sources are kept, the same as the application hosts do.
+        context.Services.AddSingleton<ICaptureSourceSettings>(
+            new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddCaptureModule();
+
         TasksTestHost.AddToastChannel(context.Services);
 
         context.Services.AddScoped(sp => TasksTestHost.StateFor(

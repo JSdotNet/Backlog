@@ -40,6 +40,10 @@
          rather than as a reference between the two module UIs. -->
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- The capture-sources settings file under Workspace/ answers Capture's
+         ICaptureSourceSettings port. The published surface only: the store
+         writes the vocabulary and the DTOs, and never sees a run. -->
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Second Brain's
