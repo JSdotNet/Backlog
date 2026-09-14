@@ -374,8 +374,10 @@ Task replication runs the same way, and its adapter is a fourth project:
 port against the Cosmos `tasks` container and is the only place in the solution
 that references the Cosmos SDK, so the API head depends on a port implementation
 rather than on a database driver. The device registry and pairing-code store are
-still in-memory adapters behind their own ports, so a restart forgets every
-registration; a Cosmos-backed adapter for those is the deferred slice.
+served from the same project against two more containers, `devices` and
+`pairingCodes`, so a registration survives a restart of the service; the module's
+in-memory adapters remain for the endpoint tests and for a run with no Cosmos
+configured.
 
 ```mermaid
 flowchart TB

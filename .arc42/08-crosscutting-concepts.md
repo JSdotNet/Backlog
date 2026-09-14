@@ -53,7 +53,10 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Two containers in the cloud replica** — `tasks` and `sessions`, both
   partitioned on `/ownerId`. Separate because each wants its own change feed, its
   own indexing policy, and its own retention, and because serverless billing
-  levies no per-container charge to trade against.
+  levies no per-container charge to trade against. Two more beside them,
+  `devices` and `pairingCodes`, hold the device registry; they are not replicas —
+  no change feed is read from them — and they are partitioned on `/id`, because
+  the read on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Container TTL expires task
   tombstones after 180 days and whole session records after 12 months. Nothing
   reaps, so there is no scheduled job to fail silently at exactly the moment
@@ -145,7 +148,9 @@ sequenceDiagram
 - **Pairing, not accounts.** A first device generates an `ownerId`; a second is
   paired with a short code entered once, out of band. Each holds its own
   registration credential in the OS credential store and exchanges it for a
-  short-lived JWT. `ownerId` is the Cosmos partition key of both containers.
+  short-lived JWT. `ownerId` is the Cosmos partition key of both replica
+  containers; the registry that holds the devices and codes is persisted in
+  Cosmos as well, so a pairing survives a restart of the service.
 - **The service, not the partition key, is what keeps a device inside its own
   data.** The partition key organizes the store; it authorizes nothing. Access to
   Cosmos is a managed identity with an account-scoped data-plane role, so as far

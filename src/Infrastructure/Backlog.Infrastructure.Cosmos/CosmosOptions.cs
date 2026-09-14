@@ -54,6 +54,27 @@ public sealed class CosmosOptions
     public string SessionsContainerName { get; set; } = "sessions";
 
     /// <summary>
+    /// The container holding registered devices, partitioned on <c>/id</c> —
+    /// the device id, not the owner. The one read on every token mint has only
+    /// the device id in hand, and partitioning on the owner would put a
+    /// cross-partition query on that path to make the two owner-scoped reads
+    /// behind the Devices tab point reads instead; see <c>DeviceDocument</c>.
+    /// No TTL: a registration lasts until somebody forgets the device.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string DevicesContainerName { get; set; } = "devices";
+
+    /// <summary>
+    /// The container holding live pairing codes, partitioned on <c>/id</c> —
+    /// the code hash, which is the only handle a redemption ever has. Its TTL is
+    /// per document like a tombstone's, from the code's own expiry, and is not
+    /// configurable here: the window is fixed by the handler that issues the
+    /// code, so the number the document carries is derived rather than chosen.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string PairingCodesContainerName { get; set; } = "pairingCodes";
+
+    /// <summary>
     /// How long a tombstone is kept, in seconds — 180 days by default.
     /// <para>
     /// The bound is how long a device may be offline and still converge. Below
