@@ -1,37 +1,37 @@
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
+using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Ports;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
 
-/// <summary>The desktop says it has taken a capture and the inbox need not
-/// offer it again.</summary>
+/// <summary>A device says the capture has been dealt with and the inbox need
+/// not offer it again — the phone's own "Triage" button, or a desktop that has
+/// no other way to say so.</summary>
 public sealed record AcknowledgeInboxItemCommand(OwnerScope Scope, Guid Id);
 
 /// <summary>
-/// Clears the document's source inbox id. It does not delete anything, and that
-/// is the decision this slice exists to hold.
+/// Tombstones the capture document.
 /// <para>
-/// A capture is an ordinary task document that happens to carry a source inbox
-/// id, and the replica is whole-document last-write-wins across every device an
-/// owner has. Writing a tombstone here would therefore delete that task
-/// <em>everywhere</em> — so acknowledging a capture the desktop had already
-/// pulled and turned into real work would silently destroy the work. Clearing
-/// the source id drops the document out of the inbox predicate instead, and the
-/// task survives on every device as what it has become.
-/// </para>
-/// <para>
-/// If a future reader is about to "fix" this into a delete: the test
-/// <c>Acknowledging_a_capture_keeps_the_task</c> is what will stop them, and
-/// this paragraph is why it should.
+/// This used to clear the source inbox id instead and leave the document alive,
+/// because a capture was an ordinary task document and the desktop turned it
+/// into work <em>under the same id</em> — so a tombstone here would have deleted
+/// that work on every device. Neither half is true any more. A capture carries
+/// its own kind token and never lands in a task table; the desktop's inbox
+/// creates an item from it and routes that item to entries with ids of their
+/// own, so the capture id names nothing but the capture. The desktop's own
+/// acknowledgement is the same tombstone, pushed through the ordinary task
+/// push, and this slice writing the same thing keeps one meaning for "dealt
+/// with" whichever end says it.
 /// </para>
 /// <para>
 /// A document belonging to another owner is not found rather than forbidden.
 /// The lookup starts from the owner in the token, so there is no query here that
-/// could see it, and saying "forbidden" would confirm the id exists.
+/// could see it, and saying "forbidden" would confirm the id exists. A document
+/// that is not a capture is not found for the same reason: the route is about
+/// captures, and an ordinary task's id is not the caller's to tombstone here.
 /// </para>
 /// </summary>
 public sealed class AcknowledgeInboxItemCommandHandler(ITaskReplica replica, TimeProvider clock)
@@ -45,18 +45,17 @@ public sealed class AcknowledgeInboxItemCommandHandler(ITaskReplica replica, Tim
 
         var found = await replica.Find(command.Scope.OwnerId, command.Id, cancellationToken);
 
-        if (found is null || found.Change.DeletedAt is not null || found.Change.Task.SourceInboxId is null)
+        if (found is null
+            || found.Change.DeletedAt is not null
+            || !string.Equals(found.Change.Task.Type, CaptureInboxItemCommandHandler.CaptureType, StringComparison.Ordinal))
         {
             return Result.Failure(Error.NotFound(
                 SyncErrorCodes.InboxItemNotFound,
                 "No capture with that id is waiting for this owner."));
         }
 
-        var acknowledged = found.Change with
-        {
-            UpdatedAt = clock.GetUtcNow(),
-            Task = found.Change.Task with { SourceInboxId = null },
-        };
+        var now = clock.GetUtcNow();
+        var acknowledged = found.Change with { UpdatedAt = now, DeletedAt = now };
 
         await replica.Upsert(command.Scope, [acknowledged], cancellationToken);
 

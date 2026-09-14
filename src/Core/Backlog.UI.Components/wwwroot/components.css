@@ -6413,6 +6413,170 @@ select.field__input {
     color: var(--color-text-primary);
 }
 
+/* --- List navigation ----------------------------------------------------- */
+/*
+  The column of lists a pane keeps on its left: fixed rows, folds of rows under
+  headings, loose rows, each with its count. The same row geometry as the menu
+  above so the two read as one family, and the same three-way distinction the
+  knowledge menu pays for: hover is a tint, focus is the ring, and the selected
+  row is the border in --color-border-focus plus the strip down its edge that
+  `interaction-guidelines.md#focus-and-selection` asks for. The strip is an
+  inset shadow rather than a wider border so choosing a row does not move its
+  label a pixel.
+*/
+
+.list-nav {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    min-height: 100%;
+    padding: var(--spacing-xs);
+}
+
+.list-nav__list {
+    display: grid;
+    gap: 0.125rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* The group's list is kept in the DOM and hidden; the attribute has to win over
+   the grid above or a folded group would still take its rows' height. */
+.list-nav__list[hidden] {
+    display: none;
+}
+
+.list-nav__item {
+    display: block;
+}
+
+.list-nav__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.list-nav__row:hover {
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-text-primary);
+}
+
+.list-nav__row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.list-nav__row--selected,
+.list-nav__row--selected:hover {
+    border-color: var(--color-border-focus);
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+/* A heading is quieter than the rows it folds and set in the eyebrow weight, so
+   the eye reads it as a divider with a name rather than as one more list. */
+.list-nav__row--group {
+    min-height: 1.75rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* A rename is the row with a field where its name was: the same box, the same
+   height, so opening it moves nothing under it. Not a button, so no cursor. */
+.list-nav__row--editing {
+    cursor: default;
+}
+
+.list-nav__chevron {
+    display: inline-flex;
+    flex: 0 0 1rem;
+    justify-content: center;
+    transition: transform var(--transition-fast);
+}
+
+.list-nav__chevron--open {
+    transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .list-nav__chevron {
+        transition: none;
+    }
+}
+
+.list-nav__icon {
+    display: inline-flex;
+    flex: none;
+    justify-content: center;
+    min-width: 1rem;
+}
+
+.list-nav__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The count is a Badge wearing this class instead of `badge`, so it takes none
+   of the badge families' tones: a number on a navigation row is a quiet fact in
+   the metadata colour, right-aligned so a column of them lines up. */
+.list-nav__count {
+    flex: none;
+    margin-left: auto;
+    min-width: 1.25rem;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.list-nav__row--selected .list-nav__count {
+    color: var(--color-text-primary);
+}
+
+/* Zero is still drawn — a row without a count would be ambiguous — but in the
+   disabled ink, so an empty list does not compete with the ones that have work. */
+.list-nav__count--zero {
+    color: var(--color-text-disabled);
+}
+
+/* The field takes the label's room and nothing more. It replaces `field__input`
+   rather than adding to it — the form input's width and padding would break the
+   row — so the skin is restated here in the row's own terms, and the compact
+   modifier the component adds supplies the geometry over it. */
+.list-nav__rename {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.list-nav__rename:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* --- Modal and confirm dialog -------------------------------------------- */
 
 .modal-backdrop {

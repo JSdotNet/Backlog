@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Inbox module — the Inbox bounded context (.domain/inbox).
+    Clean architecture, inside out, the same shape as Backlog.Modules.Tasks:
+      DomainModels/  the item aggregate, the two organiser roots, value objects
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      the kind detector, and the facades over the slices
+      Extensions/    AddInboxModule() composition root for hosts
+    Ports such as IInboxItemRepository live here; adapters live in
+    src/Infrastructure. The two outward ports the module needs answered —
+    IInboxBacklogTarget and IInboxPlanDrafter — are declared in Abstractions and
+    registered by the host, never here.
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Inbox</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddInboxModule(); the domain and the handlers know nothing
+         about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Inbox.UnitTests" />
+  </ItemGroup>
+
+</Project>

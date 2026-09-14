@@ -1845,6 +1845,37 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
+    /// Starts over from the store because something else in this process wrote
+    /// to it — the Inbox routing an item into entries is the caller today, and
+    /// the shell is what calls, because only the shell sees both panes.
+    /// <para>
+    /// The poll below would notice the same write on its next tick, but the poll
+    /// can be switched off, and its first tick after start records the baseline
+    /// without reloading. Somebody who has just pressed "Move to backlog" should
+    /// see the entry now rather than a tick later or never, so this reloads
+    /// without asking whether the timestamp moved.
+    /// </para>
+    /// <para>
+    /// The one guard it keeps is the poll's: a reload replaces every row, and
+    /// doing that under a live caret or a save still on its way to the store
+    /// would take typed text off the screen. In that case the write is left for
+    /// the next tick, which sees the timestamp and reloads once the caret is
+    /// gone — the same bargain the poll makes.
+    /// </para>
+    /// </summary>
+    public async Task ReloadFromStoreAsync()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+        if (EditingRow is not null || SaveIsPending) return;
+
+        await ReloadRowsAsync();
+
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>
     /// One tick's worth of work: has the store been written to since this list
     /// last looked, and if so, start over from it.
     /// <para>

@@ -7,6 +7,9 @@
          build a RoadmapPlan by hand, so the module is a first-class input here and a
          reference that says so cannot be removed by a change to the adapter's own. -->
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The inbox aggregates, for the same reason: the tests build an InboxItem by
+         hand and assert what comes back. -->
+    <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 

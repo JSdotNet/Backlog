@@ -82,6 +82,26 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The session is resolvable from the <em>root</em> provider, which is where
+    /// the background loop actually asks for it — outside any scope. The session
+    /// now takes the Inbox's intake and outbox, and in Development the provider
+    /// validates scopes: a scoped registration on either would not fail
+    /// <c>Build()</c> (a transient may take a scoped dependency) and would not
+    /// fail the scoped resolve above, but it would throw here, and the loop
+    /// reads that throw as "this host does not replicate". Captures would then
+    /// stop arriving with nothing on screen to say so.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_sync_session_where_the_loop_resolves_it()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Infrastructure.Sync.TaskSyncSession>());
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxIntake>());
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Inbox.Abstractions.Services.IInboxCaptureOutbox>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.

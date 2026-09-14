@@ -19,7 +19,11 @@ namespace Backlog.Modules.Tasks.Features.SaveTaskFromText;
 /// has to honour them.
 /// </para>
 /// </summary>
-public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order);
+/// <param name="SourceInboxId">The inbox item this entry was routed from, or
+/// null for an entry typed by hand. Read on create only: the aggregate holds it
+/// as constructor-only provenance, so an update carries it for nothing and the
+/// stored value stands.</param>
+public sealed record SaveTaskFromTextCommand(Guid? Id, string RawText, int Order, string? SourceInboxId = null);
 
 public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
     : ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>
@@ -45,7 +49,7 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
 
         return command.Id is { } id
             ? await UpdateAsync(id, parsed, cancellationToken)
-            : await CreateAsync(parsed, command.Order, cancellationToken);
+            : await CreateAsync(parsed, command.Order, command.SourceInboxId, cancellationToken);
     }
 
     /// <summary>
@@ -76,11 +80,12 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
     private async Task<Result<SavedTaskDto>> CreateAsync(
         EntryTextParser.ParsedEntry parsed,
         int order,
+        string? sourceInboxId,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(parsed.Title)) return NeedsTitle;
 
-        var entry = TaskEntryFields.CreateFrom(parsed, order);
+        var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
 
         await entries.SaveAsync(entry, cancellationToken);
 

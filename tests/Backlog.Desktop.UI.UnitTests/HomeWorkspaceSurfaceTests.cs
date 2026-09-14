@@ -1370,6 +1370,9 @@ public sealed class HomeWorkspaceSurfaceTests
             TasksCopilotCli.Unavailable,
             toasts: sp.GetRequiredService<IToastChannel>()));
         TasksTestHost.AddToastChannel(context.Services);
+        // The Inbox pane the shell now composes: its state over the in-memory
+        // module, the same terms as the Tasks state above.
+        _ = InboxTestHost.AddInboxState(context.Services);
 
         return new Harness(root, context);
     }
@@ -1400,6 +1403,9 @@ public sealed class HomeWorkspaceSurfaceTests
     {
         public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AzureFoundryChatResponse("Not used in this test."));
+
+        public Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AzureFoundryPlanResponse("# Not used in this test."));
     }
 
     private sealed class StubGitHubClient : IGitHubClient

@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.AzureFoundry.TestService;
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -154,6 +156,174 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         Assert.EndsWith("...", ex.Message);
     }
 
+    /// <summary>The plan request travels the same route with the same header as
+    /// a question, and the two messages are the prompt's: the system message
+    /// opens with the marker the harness keys on, and the user message carries
+    /// the item under the labels the harness reads back.</summary>
+    [Fact]
+    public async Task A_plan_request_posts_the_plan_prompt_and_the_item_as_labelled_sections()
+    {
+        var handler = new RecordingHandler(_ => Completion("# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\nDo it."));
+        var client = BuildConfiguredClient(handler);
+
+        var response = await client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\nDo it.", response.PlanMarkdown);
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal("https://foundry.example.com/openai/deployments/chat/chat/completions?api-version=2024-10-21", handler.Request.RequestUri!.ToString());
+        Assert.Equal("secret", Assert.Single(handler.Request.Headers.GetValues("api-key")));
+
+        using var document = JsonDocument.Parse(handler.Body!);
+        var messages = document.RootElement.GetProperty("messages");
+        Assert.Equal(2, messages.GetArrayLength());
+
+        Assert.Equal("system", messages[0].GetProperty("role").GetString());
+        var system = messages[0].GetProperty("content").GetString()!;
+        Assert.StartsWith(AzureFoundryPlanPrompt.Marker, system, StringComparison.Ordinal);
+        Assert.Equal(AzureFoundryPlanPrompt.Text, system);
+
+        Assert.Equal("user", messages[1].GetProperty("role").GetString());
+        var user = messages[1].GetProperty("content").GetString()!;
+        Assert.Contains("Item: Fix the login page", user, StringComparison.Ordinal);
+        Assert.Contains("Kind: article", user, StringComparison.Ordinal);
+        Assert.Contains("Source: https://example.com/login-bug", user, StringComparison.Ordinal);
+        Assert.Contains("Tags: auth, ui", user, StringComparison.Ordinal);
+        Assert.Contains("Repositories:\nacme/web\nacme/api\n", user, StringComparison.Ordinal);
+        Assert.Contains("Plan tag: fix-login", user, StringComparison.Ordinal);
+        Assert.EndsWith("Content:\nThe login page 500s on submit.", user, StringComparison.Ordinal);
+    }
+
+    /// <summary>An item with nothing to say still gets a well-formed message:
+    /// the empty lists are written as "(none)" rather than as a label with
+    /// nothing after it, and the source line is left out rather than left
+    /// blank.</summary>
+    [Fact]
+    public async Task A_plan_request_with_no_source_tags_or_repositories_says_so()
+    {
+        var handler = new RecordingHandler(_ => Completion("# Step one\n`prompt` `!ready` `#note` `id:step-1` `effort:2`\n\nDo it."));
+        var client = BuildConfiguredClient(handler);
+
+        await client.DraftPlanAsync(new AzureFoundryPlanRequest("A note", "", null, "text", [], [], "note"), TestContext.Current.CancellationToken);
+
+        using var document = JsonDocument.Parse(handler.Body!);
+        var user = document.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
+        Assert.DoesNotContain("Source:", user, StringComparison.Ordinal);
+        Assert.Contains("Tags: (none)", user, StringComparison.Ordinal);
+        Assert.Contains("Repositories: (none)", user, StringComparison.Ordinal);
+        Assert.EndsWith("Content:\n", user, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("```markdown\n# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\nDo it.\n```")]
+    [InlineData("```\n# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\nDo it.\n```")]
+    [InlineData("  ```md\r\n# Step one\r\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\r\n\r\nDo it.\r\n```  ")]
+    public async Task A_fence_wrapped_around_the_whole_plan_is_taken_off(string fenced)
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ => Completion(fenced)));
+
+        var response = await client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("# Step one", response.PlanMarkdown, StringComparison.Ordinal);
+        Assert.EndsWith("Do it.", response.PlanMarkdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("```", response.PlanMarkdown, StringComparison.Ordinal);
+    }
+
+    /// <summary>A fence that is part of an entry — a code block in a body — is
+    /// not a wrapper, and an answer that only opens one is left as it came so
+    /// the import can say what it makes of it.</summary>
+    [Fact]
+    public async Task A_fence_inside_the_plan_is_left_alone()
+    {
+        const string plan = "# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\n```bash\ndotnet build\n```\n\n# Step two\n`prompt` `!ready` `#fix-login` `id:step-2` `after:step-1` `effort:2`\n\nThen this.";
+        var client = BuildConfiguredClient(new RecordingHandler(_ => Completion(plan)));
+
+        var response = await client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(plan, response.PlanMarkdown);
+    }
+
+    [Fact]
+    public async Task A_plan_request_without_settings_is_refused_before_any_http_request()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var client = new AzureFoundryChatClient(new HttpClient(handler), new AzureFoundrySettingsStore(NewSettingsPath()));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
+
+        Assert.Equal("Configure Azure Foundry in Settings to create plans.", ex.Message);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task A_plan_request_with_no_title_or_tag_is_refused_before_any_http_request()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var client = BuildConfiguredClient(handler);
+
+        await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(PlanRequest() with { ItemTitle = " " }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(PlanRequest() with { PlanTag = "" }, TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task A_plan_request_that_fails_upstream_reports_the_status()
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+        {
+            Content = new StringContent("busy")
+        }));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
+
+        Assert.Equal("Azure Foundry returned 503: busy", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("""{ "choices": [ { "message": { "content": "" } } ] }""")]
+    [InlineData("""{ "choices": [ { "message": { "content": "   " } } ] }""")]
+    [InlineData("""{ "choices": [] }""")]
+    [InlineData("""{ "choices": [ { "message": { "content": "```markdown\n```" } } ] }""")]
+    public async Task An_empty_plan_is_refused(string payload)
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        }));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("empty answer", ex.Message);
+    }
+
+    [Fact]
+    public async Task The_unavailable_client_refuses_a_plan_the_way_it_refuses_a_question()
+    {
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            new UnavailableAzureFoundryChatClient().DraftPlanAsync(PlanRequest(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("not registered", ex.Message);
+    }
+
+    private static AzureFoundryPlanRequest PlanRequest() => new(
+        "Fix the login page",
+        "The login page 500s on submit.",
+        "https://example.com/login-bug",
+        "article",
+        ["auth", "ui"],
+        ["acme/web", "acme/api"],
+        "fix-login");
+
+    private static HttpResponseMessage Completion(string content) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(JsonSerializer.Serialize(new { choices = new[] { new { message = new { content } } } }), Encoding.UTF8, "application/json")
+    };
+
     private AzureFoundryChatClient BuildConfiguredClient(RecordingHandler handler)
     {
         var settings = new AzureFoundrySettingsStore(NewSettingsPath());
@@ -182,6 +352,193 @@ public sealed class AzureFoundryChatClientTests : IDisposable
             Request = request;
             Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             return respond(request);
+        }
+    }
+}
+
+/// <summary>
+/// The adapter between the Inbox's plan-drafter port and the Foundry client.
+/// Two translations and one property: the DTO becomes the client's request,
+/// a thrown <see cref="AzureFoundryException"/> becomes the Inbox's
+/// <c>inbox.plan.failed</c>, and availability is read off the settings store
+/// so "Create plan" can be disabled with a reason rather than fail on click.
+/// </summary>
+public sealed class AzureFoundryInboxPlanDrafterTests : IDisposable
+{
+    private readonly List<string> _paths = [];
+
+    public void Dispose()
+    {
+        foreach (var path in _paths)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (directory is null) continue;
+
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void Unconfigured_settings_read_as_unavailable_with_a_reason_that_points_at_settings()
+    {
+        var drafter = new AzureFoundryInboxPlanDrafter(new StubChatClient(), new AzureFoundrySettingsStore(NewSettingsPath()));
+
+        Assert.False(drafter.IsAvailable);
+        Assert.Equal("Configure Azure Foundry in Settings to create plans.", drafter.UnavailableReason);
+    }
+
+    /// <summary>Read live, not captured at construction: a key entered in
+    /// Settings enables the control without a restart.</summary>
+    [Fact]
+    public void Configuring_settings_makes_the_drafter_available_without_a_new_instance()
+    {
+        var settings = new AzureFoundrySettingsStore(NewSettingsPath());
+        var drafter = new AzureFoundryInboxPlanDrafter(new StubChatClient(), settings);
+        Assert.False(drafter.IsAvailable);
+
+        settings.SetConnection("https://foundry.example.com", "chat", "secret", "2024-10-21");
+
+        Assert.True(drafter.IsAvailable);
+        Assert.Null(drafter.UnavailableReason);
+    }
+
+    [Fact]
+    public async Task The_item_is_handed_to_the_client_fact_for_fact_and_the_plan_comes_back()
+    {
+        var chat = new StubChatClient { Plan = "# Step one\n`prompt` `!ready` `#fix-login` `id:step-1` `effort:2`\n\nDo it." };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+        var itemId = Guid.NewGuid();
+
+        var result = await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(itemId, "Fix the login page", "The login page 500s.", "https://example.com/bug", "article", ["auth"], ["acme/web"], "fix-login"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(chat.Plan, result.Value.PlanMarkdown);
+
+        var request = Assert.Single(chat.Requests);
+        Assert.Equal("Fix the login page", request.ItemTitle);
+        Assert.Equal("The login page 500s.", request.ItemContent);
+        Assert.Equal("https://example.com/bug", request.SourceUrl);
+        Assert.Equal("article", request.KindSlug);
+        Assert.Equal(["auth"], request.Tags);
+        Assert.Equal(["acme/web"], request.Repositories);
+        Assert.Equal("fix-login", request.PlanTag);
+    }
+
+    [Fact]
+    public async Task A_client_failure_comes_back_as_a_failed_result_carrying_the_clients_words()
+    {
+        var chat = new StubChatClient { Failure = new AzureFoundryException("Azure Foundry returned 503: busy") };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+
+        var result = await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.plan.failed", result.Error.Code);
+        Assert.Equal("Azure Foundry returned 503: busy", result.Error.Message);
+        Assert.Equal(ErrorType.Failure, result.Error.Type);
+    }
+
+    /// <summary>A refused or unresolved endpoint is what HttpClient throws
+    /// rather than answers; the pane shows it like any other failed plan
+    /// instead of losing the circuit.</summary>
+    [Fact]
+    public async Task An_unreachable_endpoint_comes_back_as_a_failed_result_naming_the_transport_error()
+    {
+        var chat = new StubChatClient { Failure = new HttpRequestException("No connection could be made because the target machine actively refused it.") };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+
+        var result = await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.plan.failed", result.Error.Code);
+        Assert.Equal("Could not reach Azure Foundry: No connection could be made because the target machine actively refused it.", result.Error.Message);
+        Assert.Equal(ErrorType.Failure, result.Error.Type);
+    }
+
+    /// <summary>HttpClient reports its own timeout as a cancellation on a
+    /// token the caller never cancelled. That is a bad answer, not a request
+    /// to stop.</summary>
+    [Fact]
+    public async Task A_timeout_comes_back_as_a_failed_result_when_the_caller_did_not_cancel()
+    {
+        var chat = new StubChatClient { Failure = new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 100 seconds elapsing.") };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+        using var callerCancellation = new CancellationTokenSource();
+
+        var result = await drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            callerCancellation.Token);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.plan.failed", result.Error.Code);
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", result.Error.Message);
+        Assert.Equal(ErrorType.Failure, result.Error.Type);
+    }
+
+    /// <summary>The caller's own cancellation is not dressed up as a failed
+    /// plan: it propagates so whoever asked can tell they stopped it.</summary>
+    [Fact]
+    public async Task The_callers_cancellation_propagates()
+    {
+        using var callerCancellation = new CancellationTokenSource();
+        await callerCancellation.CancelAsync();
+        var chat = new StubChatClient { Failure = new OperationCanceledException(callerCancellation.Token) };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            callerCancellation.Token));
+    }
+
+    /// <summary>Only the client's own exception and the transport's are bad
+    /// answers. Anything else is a bug and is not dressed up as one.</summary>
+    [Fact]
+    public async Task Any_other_exception_is_left_to_surface()
+    {
+        var chat = new StubChatClient { Failure = new InvalidOperationException("boom") };
+        var drafter = new AzureFoundryInboxPlanDrafter(chat, ConfiguredSettings());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => drafter.DraftAsync(
+            new InboxPlanDraftRequestDto(Guid.NewGuid(), "Fix the login page", "", null, "text", [], [], "fix-login"),
+            TestContext.Current.CancellationToken));
+    }
+
+    private AzureFoundrySettingsStore ConfiguredSettings()
+    {
+        var settings = new AzureFoundrySettingsStore(NewSettingsPath());
+        settings.SetConnection("https://foundry.example.com", "chat", "secret", "2024-10-21");
+        return settings;
+    }
+
+    private string NewSettingsPath()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-drafter", Guid.NewGuid().ToString("n"), "azure-foundry.json");
+        _paths.Add(path);
+        return path;
+    }
+
+    private sealed class StubChatClient : IAzureFoundryChatClient
+    {
+        public string Plan { get; init; } = "# Step one\n`prompt` `!ready` `#plan` `id:step-1` `effort:2`\n\nDo it.";
+
+        public Exception? Failure { get; init; }
+
+        public List<AzureFoundryPlanRequest> Requests { get; } = [];
+
+        public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("The drafter never asks a question.");
+
+        public Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            if (Failure is not null) throw Failure;
+            return Task.FromResult(new AzureFoundryPlanResponse(Plan));
         }
     }
 }

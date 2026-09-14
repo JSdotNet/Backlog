@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
+using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Ports;
 
 namespace Backlog.Modules.Sync.Adapters;
@@ -158,7 +159,7 @@ public sealed class InMemoryTaskReplica : ITaskReplica
                 return
                 [
                     .. _documents.Values
-                        .Where(document => document.Change is { DeletedAt: null, Task.SourceInboxId: not null })
+                        .Where(document => document.Change is { DeletedAt: null, Task.Type: CaptureInboxItemCommandHandler.CaptureType })
                         .OrderByDescending(document => document.Change.Task.CreatedAt)
                         .Select(document => document.ToRecord()),
                 ];

@@ -1,0 +1,233 @@
+@*
+    The middle column: a capture field, the kind chips, and the rows of the open
+    slice newest first.
+
+    The capture field is the one way into the inbox that involves no other
+    device. Everything else arrives through sync; this is a thought typed at the
+    desk, filed under the "manual" channel the domain already names. Enter
+    keeps it and clears the field; a refusal leaves the text where it was with
+    the reason on a toast.
+
+    The chips are a filter and they multi-select: pressing "Video" and
+    "Article" shows both. Each carries its count from before the filter, so the
+    numbers do not shift as chips are pressed. A kind with no rows in the slice
+    has no chip — a chip that would show nothing is a chip that lies.
+
+    Each row says three things before its title: what kind of thing it is (a
+    mark and the word, never the mark alone), where it came from (the channel as
+    a dashed source badge, and the person who shared it as a person chip), and
+    what it is tagged and targeted at. The time it was captured closes the line.
+    A routed row stays and says so; an archived one has left.
+
+    Rows are buttons, because choosing one is the act. aria-pressed carries the
+    selection, and the row's own classes carry the border-and-strip look that
+    .design/interaction-guidelines.md#focus-and-selection asks for — distinct
+    from hover and from focus.
+*@
+
+<div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
+    <div class="inbox-pane__capture" data-testid="inbox-pane-capture">
+        @* Bare, so the input itself wears the test id a driver types into, and
+           the wrapper above is this pane's own layout row. The button sits
+           beside the field rather than in its Suffix slot: a suffix is a marker
+           the pointer passes through, not a control. *@
+        <TextField Value="@_capture"
+                   ValueChanged="value => _capture = value"
+                   Placeholder="Capture a thought and press Enter"
+                   AriaLabel="Capture"
+                   Bare="true"
+                   Compact="true"
+                   InputCssClass="field__input inbox-pane__capture-input"
+                   TestId="inbox-capture"
+                   Disabled="@_capturing"
+                   @onkeydown="OnCaptureKeyDownAsync" />
+        <AppButton Size="ButtonSize.Small"
+                   Variant="ButtonVariant.Secondary"
+                   Disabled="@(string.IsNullOrWhiteSpace(_capture))"
+                   Busy="@_capturing"
+                   BusyLabel="Capturing"
+                   OnClick="CaptureAsync"
+                   TestId="inbox-capture-submit">Capture</AppButton>
+    </div>
+
+    @if (!State.Loaded)
+    {
+        @* Local-first: the snapshot is a database read away, so there is no
+           skeleton to draw — the list simply is not there yet. *@
+    }
+    else
+    {
+        var kinds = State.KindCounts;
+
+        @if (kinds.Count > 0)
+        {
+            <div class="inbox-pane__filters" role="group" aria-label="Filter by kind" data-testid="inbox-pane-filters">
+                @foreach (var kind in kinds)
+                {
+                    <ToggleButton Pressed="@State.KindFilter.Contains(kind.Slug)"
+                                  PressedChanged="_ => State.ToggleKind(kind.Slug)"
+                                  BaseClass="btn btn--toggle"
+                                  CssClass="btn--small inbox-pane__chip"
+                                  Title="@($"Show only {kind.Label.ToLowerInvariant()} items")"
+                                  TestId="@($"inbox-kind-{kind.Slug}")">
+                        <CaptureKindMarker Value="@kind.Slug" CssClass="inbox-pane__chip-mark" />
+                        <span class="inbox-pane__chip-label">@kind.Label</span>
+                        <Badge BaseClass="inbox-pane__chip-count" Kind="" TestId="@($"inbox-kind-{kind.Slug}-count")">@kind.Count</Badge>
+                    </ToggleButton>
+                }
+                @if (State.KindFilter.Count > 0)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               CssClass="inbox-pane__chip-clear"
+                               OnClick="() => State.ClearKindFilter()"
+                               TestId="inbox-kind-clear">Clear filters</AppButton>
+                }
+            </div>
+        }
+
+        var rows = State.VisibleItems;
+
+        @if (rows.Count == 0)
+        {
+            @if (State.FilteredOut)
+            {
+                <EmptyState Title="@($"No {FilteredKindsLabel()} items in {State.SliceName}.")"
+                            Description="The chips above are hiding every row here."
+                            BaseClass="empty-state inbox-pane__empty-state"
+                            TestId="inbox-pane-empty"
+                            data-inbox-empty="filtered">
+                    <Action>
+                        <AppButton Size="ButtonSize.Small" OnClick="() => State.ClearKindFilter()" TestId="inbox-empty-clear">Clear filters</AppButton>
+                    </Action>
+                </EmptyState>
+            }
+            else if (State.SelectedListId is not null)
+            {
+                <EmptyState Title="@($"Nothing in {State.SliceName}.")"
+                            Description="Open an item and choose Move to list to file it here."
+                            BaseClass="empty-state inbox-pane__empty-state"
+                            TestId="inbox-pane-empty"
+                            data-inbox-empty="list" />
+            }
+            else
+            {
+                <EmptyState Title="Nothing captured yet."
+                            Description="Type a thought above, or capture one from your phone — it lands here on the next sync."
+                            BaseClass="empty-state inbox-pane__empty-state"
+                            TestId="inbox-pane-empty"
+                            data-inbox-empty="first-use" />
+            }
+        }
+        else
+        {
+            <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list">
+                @foreach (var item in rows)
+                {
+                    var selected = item.Id == State.SelectedItemId;
+
+                    <li class="inbox-pane__item" @key="item.Id" data-inbox-kind="@item.KindSlug" data-testid="inbox-pane-item">
+                        <AppButton Variant="ButtonVariant.None"
+                                   BaseClass="inbox-pane__row"
+                                   CssClass="@(selected ? "inbox-pane__row--selected" : null)"
+                                   OnClick="() => State.SelectItem(item.Id)"
+                                   TestId="@($"inbox-item-{item.Id:D}")"
+                                   aria-pressed="@(selected ? "true" : "false")">
+                            @* The kind: a mark and the word. The mark is aria-hidden
+                               because the word is right beside it, and the word is
+                               never dropped because shape alone is not a carrier. *@
+                            <span class="inbox-pane__kind" data-testid="inbox-pane-item-kind">
+                                <CaptureKindMarker Value="@item.KindSlug" CssClass="inbox-pane__kind-mark" />
+                                <span class="inbox-pane__kind-label">@InboxLabels.Kind(item.KindSlug)</span>
+                            </span>
+                            <span class="inbox-pane__row-body">
+                                <span class="inbox-pane__row-title" data-testid="inbox-pane-item-title">@Title(item)</span>
+                                <span class="inbox-pane__row-meta">
+                                    <Badge Kind="source"
+                                           Slug="@item.Channel"
+                                           CssClass="inbox-pane__source"
+                                           Title="@($"Captured via {InboxLabels.Channel(item.Channel)}")"
+                                           TestId="inbox-pane-item-source">@InboxLabels.Channel(item.Channel)</Badge>
+                                    @if (!string.IsNullOrWhiteSpace(item.Person))
+                                    {
+                                        <TagChip Text="@TagText.Display(item.Person)"
+                                                 CssClass="inbox-pane__person"
+                                                 title="@($"Shared by {TagText.Display(item.Person)}")"
+                                                 TestId="inbox-pane-item-person" />
+                                    }
+                                    @foreach (var tag in item.Tags)
+                                    {
+                                        <TagChip Text="@TagText.Display(tag.Name)" CssClass="inbox-pane__tag" TestId="inbox-pane-item-tag" />
+                                    }
+                                    @foreach (var repoId in item.RepoIds)
+                                    {
+                                        <Badge Kind="kind"
+                                               Slug="repository"
+                                               CssClass="inbox-pane__repository"
+                                               Title="@($"Repository: {repoId}")"
+                                               TestId="inbox-pane-item-repository">@State.RepositoryAlias(repoId)</Badge>
+                                    }
+                                    @if (item.Status == InboxStatus.Triaged)
+                                    {
+                                        <Badge BaseClass="inbox-pane__routed" Kind="" TestId="inbox-pane-item-routed">@InboxLabels.Status(item.Status)</Badge>
+                                    }
+                                </span>
+                            </span>
+                            <time class="inbox-pane__row-age"
+                                  datetime="@item.CapturedAt.ToString("O")"
+                                  title="@item.CapturedAt.ToLocalTime().ToString("f", System.Globalization.CultureInfo.CurrentCulture)"
+                                  data-testid="inbox-pane-item-age">@State.Age(item.CapturedAt)</time>
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    private string _capture = string.Empty;
+    private bool _capturing;
+
+    private static string Title(InboxItemDto item) =>
+        string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;
+
+    /// <summary>The pressed kinds as one phrase — "video", or "video or article"
+    /// — for the filtered-empty title.</summary>
+    private string FilteredKindsLabel()
+    {
+        var labels = State.KindFilter
+            .Select(slug => InboxLabels.Kind(slug).ToLowerInvariant())
+            .OrderBy(label => label, StringComparer.Ordinal)
+            .ToList();
+
+        return labels.Count switch
+        {
+            0 => "such",
+            1 => labels[0],
+            _ => string.Join(", ", labels[..^1]) + " or " + labels[^1]
+        };
+    }
+
+    private Task OnCaptureKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" ? CaptureAsync() : Task.CompletedTask;
+
+    private async Task CaptureAsync()
+    {
+        if (_capturing || string.IsNullOrWhiteSpace(_capture)) return;
+
+        _capturing = true;
+
+        try
+        {
+            if (await State.CaptureAsync(_capture)) _capture = string.Empty;
+        }
+        finally
+        {
+            _capturing = false;
+        }
+    }
+}

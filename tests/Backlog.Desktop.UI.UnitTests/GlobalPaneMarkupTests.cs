@@ -285,10 +285,10 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Triage hands an item from the Inbox to Tasks, which is the shell opening
-    /// a pane on the reader's behalf rather than the reader switching sections. It
-    /// goes through the non-switching entry point for exactly that reason: the plain
-    /// enable would close the Inbox the item was picked from.
+    /// Routing turns an Inbox item into Tasks entries, and the shell opens the
+    /// Tasks pane on the reader's behalf rather than the reader switching sections.
+    /// It goes through the non-switching entry point for exactly that reason: the
+    /// plain enable would close the Inbox the item was routed from.
     /// </summary>
     [Fact]
     public void Opening_an_inbox_item_never_closes_the_inbox()
@@ -990,7 +990,10 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("<InboxPane Items=", home, StringComparison.Ordinal);
+        // Parameterless, like the Tasks pane: the Inbox asks its own module for
+        // its items, and a shell handing them down would be a shell that knows
+        // what an inbox item looks like.
+        Assert.Contains("<InboxPane />", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
         Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
 

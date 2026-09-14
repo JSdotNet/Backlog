@@ -1,3 +1,4 @@
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
@@ -36,18 +37,28 @@ public sealed class TaskSyncSession
     /// rather than the run's.</summary>
     private const int PushBatchSize = 200;
 
+    /// <summary>The kind token a capture document carries. The same literal
+    /// <see cref="TaskReplicaMerge"/> reads and the service writes, duplicated
+    /// for the reason given there.</summary>
+    private const string CaptureType = "capture";
+
     private readonly TaskSyncClient _client;
     private readonly TaskReplicaMerge _merge;
     private readonly ITaskRepository _tasks;
     private readonly ITaskSyncStateStore _state;
     private readonly TimeProvider _time;
+    private readonly IInboxCaptureOutbox? _outbox;
 
+    /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
+    /// machine, or null on a head that has no inbox store. Optional by
+    /// construction, so the mobile head composes exactly as it did.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
         ITaskRepository tasks,
         ITaskSyncStateStore state,
-        TimeProvider time)
+        TimeProvider time,
+        IInboxCaptureOutbox? outbox = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -60,6 +71,7 @@ public sealed class TaskSyncSession
         _tasks = tasks;
         _state = state;
         _time = time;
+        _outbox = outbox;
     }
 
     /// <summary>
@@ -95,6 +107,17 @@ public sealed class TaskSyncSession
     /// watermark and the ordering this loop depends on, so there is nothing to
     /// filter or sort here.
     /// </para>
+    /// <para>
+    /// <b>After the tasks, the inbox's acknowledgements.</b> A capture this
+    /// desktop routed or archived is told to the replica as a tombstone of the
+    /// capture document, through this same push and counted in
+    /// <see cref="TaskSyncSummary.Pushed"/>. Its own outbox rather than the task
+    /// watermark, because a capture is not a row in the task store and never
+    /// was; the flag on the inbox item is cleared only once the replica has
+    /// accepted the batch it went in, so an acknowledgement decided offline
+    /// waits for the first push that succeeds and a failed one leaves it — and
+    /// every one after it — exactly where it was.
+    /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
@@ -118,6 +141,34 @@ public sealed class TaskSyncSession
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
+            }
+        }
+
+        if (_outbox is not null)
+        {
+            var acknowledgements = (await _outbox.ListPendingAsync(cancellationToken).ConfigureAwait(false)).ToList();
+
+            // The same batches the tasks go in, for the same reason and one
+            // more: the service refuses a push over its limit outright, so an
+            // outbox that grew past it offline would otherwise send one
+            // request that can never be accepted, on every tick, for ever.
+            // Each batch is marked sent as it lands, so a failure part way
+            // keeps what got through and leaves the rest exactly as it was.
+            for (var start = 0; start < acknowledgements.Count; start += PushBatchSize)
+            {
+                var batch = acknowledgements.GetRange(start, Math.Min(PushBatchSize, acknowledgements.Count - start));
+                var tombstones = batch
+                    .Select(ack => new TaskChange(ack.CaptureId, ack.AcknowledgedAt, ack.AcknowledgedAt, CapturePayload(ack)))
+                    .ToList();
+
+                var response = await _client.PushAsync(tombstones, cancellationToken).ConfigureAwait(false);
+                if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
+
+                pushed += response.Value.Accepted;
+
+                await _outbox
+                    .MarkSentAsync([.. batch.Select(ack => ack.CaptureId)], cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -239,6 +290,41 @@ public sealed class TaskSyncSession
             pull.Value.Skipped,
             _time.GetUtcNow()));
     }
+
+    /// <summary>
+    /// The tombstone's payload: the capture as the service wrote it, as far as
+    /// this desktop can reconstruct one. The replica is whole-document
+    /// last-write-wins, so the tombstone has to carry a whole document, and the
+    /// three literals are the service's own — <c>capture</c>, <c>draft</c>,
+    /// <c>medium</c>. <c>SourceInboxId</c> says which end acknowledged, which
+    /// nothing reads yet and a person looking at the document may.
+    /// </summary>
+    private static TaskPayload CapturePayload(InboxCaptureAckDto ack) => new(
+        ack.Title,
+        ContentMd: string.Empty,
+        CaptureType,
+        Status: "draft",
+        Priority: "medium",
+        Order: 0,
+        Area: null,
+        ack.CapturedAt,
+        SourceInboxId: "desktop",
+        RecurrenceSourceId: null,
+        DueOn: null,
+        RemindAt: null,
+        Recurrence: null,
+        InMyDayOn: null,
+        View: null,
+        Effort: null,
+        ImportPlanId: null,
+        ImportItemId: null,
+        AttachmentPath: null,
+        Tags: [],
+        RepoIds: [],
+        DependsOn: [],
+        SubItems: [],
+        UsageEvents: [],
+        ProjectionRefs: []);
 
     /// <summary>The two answers that mean "that cursor is no longer one you can
     /// resume from", which the device recovers from by forgetting it. Neither

@@ -125,7 +125,15 @@ internal static class StorybookIndex
         new("Structure and navigation",
         [
             new("layout", "Layout", "Tabs, Card, SectionHeader, FoldControl, SplitPane."),
-            new("menus", "Menus", "TreeView, MenuList, ContextMenu, NavList, OpenFolderButton.")
+            new("menus", "Menus", "TreeView, MenuList, ContextMenu, NavList, OpenFolderButton.", Exact: true),
+
+            // Under Menus rather than a row on it, because it carries a convention
+            // of its own — one tab stop, the arrows, a menu on every row, and a
+            // rename in place — and a convention read as one of six sibling
+            // stories is a convention nobody reads. After Menus, and by the rule:
+            // it opens the ContextMenu the page above introduces, and the Badge
+            // and TextField it draws inside its rows are further up still.
+            new("menus/list-nav", "List navigation", "ListNav: fixed rows, folds of rows under headings, loose rows, each with its count — and a click, a right-click and a rename in place on every one.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says

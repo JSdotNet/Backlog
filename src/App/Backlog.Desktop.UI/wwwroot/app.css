@@ -2697,31 +2697,41 @@ h1, h2, h3 {
     background: rgba(0, 0, 0, 0.16);
 }
 
-/* --- Inbox side pane ----------------------------------------------------- */
+/* --- Inbox pane ---------------------------------------------------------- */
 
+/* The pane, and the container its own layout answers to. A To Do-style
+   three-column arrangement — lists, rows, detail — that folds down in two
+   steps as the pane narrows, because the shell draws it in a column that can
+   be 20rem wide beside the backlog or the whole row wide on its own.
+
+   container-type sits here rather than on .inbox-pane__body because a query
+   styles a container's descendants and never the container itself. Every
+   colour below is a token or a token mixed with transparent; the old block
+   carried rgba literals and .design/color-scheme.md forbids them. */
 .inbox-pane {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: var(--spacing-md);
     min-width: 0;
+    min-height: 0;
     padding: var(--spacing-lg);
-    border: var(--border-width) solid rgba(108, 117, 125, 0.42);
-    border-left: 4px solid var(--color-secondary);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-4) solid var(--color-secondary);
     border-radius: var(--border-radius-lg);
-    background: linear-gradient(180deg, rgba(108, 117, 125, 0.16), rgba(108, 117, 125, 0.04) 45%, transparent);
+    background: var(--color-background-alt);
     box-shadow: var(--shadow-md);
+    container-type: inline-size;
+    container-name: inbox-pane;
 }
 
 .inbox-pane__header,
-.inbox-pane__content {
+.inbox-pane__body {
     min-width: 0;
 }
 
 .inbox-pane__eyebrow,
 .inbox-pane__title,
-.inbox-pane__subtitle,
-.inbox-pane__empty,
-.inbox-pane__item-title,
-.inbox-pane__item-meta {
+.inbox-pane__subtitle {
     margin: 0;
 }
 
@@ -2738,177 +2748,83 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-.inbox-pane__subtitle,
-.inbox-pane__empty,
-.inbox-pane__item-meta {
+.inbox-pane__subtitle {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.inbox-pane__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+/* --- The three columns --------------------------------------------------- */
+
+/* The side menu is a fixed column; the split beside it takes the rest and
+   divides itself. min-height: 0 on the body and on both children is what lets
+   each column scroll on its own instead of the pane growing to fit the longest. */
+.inbox-pane__body {
     display: grid;
-    gap: var(--spacing-sm);
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: var(--spacing-md);
+    min-height: 0;
 }
 
-.inbox-pane__item {
+.inbox-pane__nav {
+    min-width: 0;
+    min-height: 0;
+    padding-right: var(--spacing-sm);
+    border-right: var(--border-width) solid var(--color-border);
+    overflow: auto;
+}
+
+.inbox-pane__split {
+    min-width: 0;
+    min-height: 0;
+}
+
+.inbox-pane__column {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 0 var(--spacing-sm);
+    overflow: auto;
+}
+
+/* --- Capture ------------------------------------------------------------- */
+
+.inbox-pane__capture {
     display: flex;
-    gap: var(--spacing-sm);
-    justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid rgba(108, 117, 125, 0.24);
-    border-radius: var(--border-radius-sm);
-    background: rgba(0, 0, 0, 0.16);
-}
-
-.inbox-pane__item-title {
-    font-weight: 600;
-}
-
-/* The triage action keeps to one line and its own width; the body beside it
-   is what wraps. A two-line "Open in / backlog" at pane width reads as two
-   controls. */
-.inbox-pane__item > .btn {
-    flex: none;
-    white-space: nowrap;
-}
-
-.inbox-pane__item-body {
-    display: grid;
     gap: var(--spacing-xs);
+}
+
+.inbox-pane__capture-input {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
-/* The meta line: kind, filing, and provenance, as one wrapping row of small
-   text. The kind mark and its word are one unit that never breaks apart, which
-   is what the nested inline-flex is for. */
-.inbox-pane__item-meta {
+/* --- Kind chips ---------------------------------------------------------- */
+
+.inbox-pane__filters {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
-.inbox-pane__kind {
+/* A chip is the library's toggle button wearing the pane's modifier: the mark,
+   the word, and the count as one unit. The pressed look is the toggle's own. */
+.inbox-pane__chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.3em;
-    color: var(--color-text-primary);
-    white-space: nowrap;
+    gap: 0.35em;
 }
 
-.inbox-pane__meta-separator {
-    color: var(--color-text-disabled);
-}
-
-/* The source badge is the library's dashed source family; the person beside it
-   is the library's person chip. Both are quiet on purpose: provenance is read,
-   not acted on, so neither is filled. */
-.inbox-pane__source {
-    font-size: var(--font-size-xs);
-}
-
-.inbox-pane__item-tags {
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.inbox-pane__repository {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-}
-
-/* --- PARA drawers and the lens ------------------------------------------- */
-
-.inbox-pane__toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-}
-
-.inbox-pane__toolbar-label {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.inbox-pane__drawers {
-    display: grid;
-    gap: var(--spacing-sm);
-}
-
-/* A drawer: the library's fold wearing this pane's names. The trigger reads as
-   a drawer label — the name in the primary ink, the count as a quiet pill at
-   the far end — which is what lets a queue of forty read as five drawers. The
-   region is the library's, so `hidden` is the library's rule and the fold
-   actually folds. */
-.inbox-pane__drawer {
-    min-width: 0;
-    padding-top: var(--spacing-xs);
-    border-top: var(--border-width) solid rgba(108, 117, 125, 0.24);
-}
-
-.inbox-pane__drawer-fold .fold__trigger {
-    width: 100%;
-    justify-content: flex-start;
-    color: var(--color-text-primary);
-    font-size: var(--font-size-base);
-    font-weight: 600;
-}
-
-.inbox-pane__drawer-fold > .fold__region {
-    padding-left: var(--spacing-md);
-}
-
-/* A section inside a drawer: one project, one area, one tag, one repository.
-   Quieter than the drawer above it — the drawer is the heading and this is a
-   row of the drawer that happens to fold. */
-.inbox-pane__groups {
-    display: grid;
-    gap: var(--spacing-xs);
-}
-
-.inbox-pane__group {
-    display: grid;
-    gap: var(--spacing-xs);
-    min-width: 0;
-}
-
-.inbox-pane__group-fold .fold__trigger {
-    width: 100%;
-    justify-content: flex-start;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-}
-
-.inbox-pane__group-fold > .fold__region {
-    padding-left: var(--spacing-sm);
-}
-
-.inbox-pane__drawer-fold .fold__label,
-.inbox-pane__group-fold .fold__label {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    min-width: 0;
-}
-
-.inbox-pane__group-count {
+.inbox-pane__chip-mark {
     flex: none;
-    min-width: 1.6em;
+}
+
+.inbox-pane__chip-count {
+    min-width: 1.4em;
     padding: 0 var(--spacing-xs);
     border-radius: var(--border-radius-full);
     background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
@@ -2916,6 +2832,290 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
     text-align: center;
+}
+
+/* --- Rows ---------------------------------------------------------------- */
+
+.inbox-pane__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pane__item {
+    min-width: 0;
+}
+
+/* The row is a button, and it is styled here from scratch rather than as a
+   `.btn`: the library's button brings padding, a weight and a centred label,
+   and a row is a left-aligned line of metadata. Selection is the border in
+   --color-border-focus plus the strip down the leading edge that
+   .design/interaction-guidelines.md#focus-and-selection asks for — distinct
+   from hover, which is a tint, and from focus, which is the outline. The strip
+   is an inset shadow rather than a wider border so choosing a row does not
+   move its text. */
+.inbox-pane__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid color-mix(in srgb, var(--color-text-disabled) 24%, transparent);
+    border-radius: var(--border-radius-sm);
+    background: color-mix(in srgb, var(--color-background) 40%, transparent);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.inbox-pane__row:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.inbox-pane__row:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.inbox-pane__row--selected,
+.inbox-pane__row--selected:hover {
+    border-color: var(--color-border-focus);
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+/* The kind: a mark and the word, one unit that never breaks apart. */
+.inbox-pane__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    padding-top: 0.1em;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.inbox-pane__row-body {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-pane__row-title {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+/* The meta line: provenance, tags and targets, as one wrapping row of small
+   text. Quiet on purpose — provenance is read, not acted on, so nothing here
+   is filled. */
+.inbox-pane__row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__source {
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__repository {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* An item that has been sent on: the archived tone — an outline and no fill —
+   because it is information about the row, not something to act on. */
+.inbox-pane__routed {
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__row-age {
+    flex: none;
+    padding-top: 0.1em;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* --- Empty states -------------------------------------------------------- */
+
+.inbox-pane__empty-state {
+    padding: var(--spacing-lg) var(--spacing-md);
+}
+
+/* --- Detail -------------------------------------------------------------- */
+
+.inbox-pane__detail {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.inbox-pane__detail-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pane__detail-text {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.inbox-pane__detail-eyebrow {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.inbox-pane__detail-title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__detail-actions {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+/* The routed-or-archived line and the empty-body line are the library's Alert
+   wearing the pane's names, and both are status rather than error: nothing
+   went wrong, the item is simply past deciding or arrived with only a title. */
+.inbox-pane__state,
+.inbox-pane__note {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__content {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.inbox-pane__media {
+    display: block;
+    max-width: 32rem;
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+}
+
+.inbox-pane__thumbnail,
+.inbox-pane__image {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.inbox-pane__link {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__facts {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__facts dt {
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__facts dd {
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.inbox-pane__prose {
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__pickers {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pane__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+/* --- Narrow ---------------------------------------------------------------- */
+
+/* Beside the backlog the pane is a column, not a page. The side menu goes
+   above the rows, and the list and the detail stack, which means overriding
+   the split's own three-track template: its parts are placed by column, so
+   they are re-placed into one column here and the handle — which drags a width
+   that no longer exists — is taken out of the flow. */
+@container inbox-pane (max-width: 56rem) {
+    .inbox-pane__body {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .inbox-pane__nav {
+        max-height: 14rem;
+        padding-right: 0;
+        padding-bottom: var(--spacing-sm);
+        border-right: 0;
+        border-bottom: var(--border-width) solid var(--color-border);
+    }
+
+    .inbox-pane__split {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto;
+    }
+
+    .inbox-pane__split > .split-pane__start,
+    .inbox-pane__split > .split-pane__end {
+        grid-column: 1;
+    }
+
+    .inbox-pane__split > .split-pane__separator {
+        display: none;
+    }
+
+    .inbox-pane__column {
+        height: auto;
+        max-height: 24rem;
+        padding: 0;
+    }
 }
 
 /* --- Installed tools side pane ------------------------------------------- */

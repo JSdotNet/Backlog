@@ -2,10 +2,12 @@
 
   <!--
     Cross-cutting file-system adapter: the settings, feature flags and knowledge
-    folders that genuinely are files on local disk. The tasks and the roadmap plan
-    both live in Backlog.Infrastructure.Sqlite. Implements ports declared by the
-    modules and by the shared kernel; no module may reference this project except
-    through its own port interfaces.
+    folders that genuinely are files on local disk, plus the cross-context joins
+    under Roadmap/, Dashboard/ and Inbox/ that only an adapter seeing both sides
+    may hold. The tasks, the roadmap plan and the inbox all live in
+    Backlog.Infrastructure.Sqlite. Implements ports declared by the modules and by
+    the shared kernel; no module may reference this project except through its
+    own port interfaces.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.FileSystem</RootNamespace>
@@ -33,6 +35,11 @@
          implementation is the normal direction; the module never sees this
          project. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The cross-context join under Inbox/ - an inbox item routed to the backlog
+         becomes entries, composed in Tasks' grammar from the Inbox's published
+         request shape. The published surface only: the adapter answers the Inbox's
+         port and asks Tasks through ITaskItems, and needs neither aggregate. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
     <!-- The cross-context join under Dashboard/ - the Sessions context supplies the
          assistant-session facts the Dashboard's sessions part reports on. Two
          published surfaces and no implementation: the adapter is the only thing in

@@ -183,18 +183,15 @@ public class TaskSyncEndpointTests : IDisposable
     }
 
     /// <summary>
-    /// Acknowledging takes a capture out of the inbox and leaves the task alive.
-    /// It deliberately does not write a tombstone: the replica is whole-document
-    /// last-write-wins across every device, so deleting here would delete the
-    /// task everywhere — including the version the desktop had already pulled
-    /// and turned into real work.
-    /// <para>
-    /// This test exists to fail if somebody "fixes" the acknowledgement into a
-    /// delete.
-    /// </para>
+    /// Acknowledging takes a capture out of the inbox by tombstoning it, and the
+    /// tombstone travels like any other: the desktop's next pull sees the
+    /// capture withdrawn. Safe now, where it once was not, because a capture id
+    /// names only the capture — the desktop's inbox routes an <em>item</em> to
+    /// entries with ids of their own, so nothing the desktop made shares this
+    /// id and nothing is deleted but the capture.
     /// </summary>
     [Fact]
-    public async Task Acknowledging_a_capture_keeps_the_task()
+    public async Task Acknowledging_a_capture_tombstones_it()
     {
         var device = await _service.CreateClient().RegisteredDevice("Study desktop");
 
@@ -211,18 +208,47 @@ public class TaskSyncEndpointTests : IDisposable
         Assert.Empty((await device.GetFromJsonAsync<List<InboxItem>>(
             SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation))!);
 
-        var surviving = (await device.PullTasks()).Tasks.Single(record => record.Change.Id == item.Id);
+        var withdrawn = (await device.PullTasks()).Tasks.Single(record => record.Change.Id == item.Id);
 
-        Assert.Null(surviving.Change.DeletedAt);
-        Assert.Null(surviving.Change.Task.SourceInboxId);
-        Assert.Equal("Call the dentist", surviving.Change.Task.Title);
+        Assert.NotNull(withdrawn.Change.DeletedAt);
+        Assert.Equal("capture", withdrawn.Change.Task.Type);
+        Assert.Equal("Call the dentist", withdrawn.Change.Task.Title);
+
+        // Once, and not again: a tombstone is not a capture waiting for anyone.
+        var again = await device.PostAsync(
+            SyncRoutes.AcknowledgeInboxItemFor(item.Id), content: null, Cancellation);
+
+        Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
     }
 
-    /// <summary>A capture is an ordinary task document, so the desktop receives
-    /// it through the same feed as everything else rather than through a second
-    /// path of its own.</summary>
+    /// <summary>An ordinary task is not the inbox route's to tombstone, whatever
+    /// its source says: the route is about captures, and a task carrying a
+    /// source inbox id is a task the desktop routed from one.</summary>
     [Fact]
-    public async Task A_capture_arrives_as_a_task_on_the_other_device()
+    public async Task Acknowledging_a_task_that_is_not_a_capture_is_not_found()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+        var id = Guid.CreateVersion7();
+
+        await device.PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.Tasks),
+            new PushTasksRequest([new TaskChange(id, DateTimeOffset.UtcNow, DeletedAt: null, TaskSyncClientExtensions.Payload("Routed from the inbox") with { SourceInboxId = Guid.CreateVersion7().ToString("D") })]),
+            Cancellation);
+
+        var acknowledged = await device.PostAsync(SyncRoutes.AcknowledgeInboxItemFor(id), content: null, Cancellation);
+
+        Assert.Equal(HttpStatusCode.NotFound, acknowledged.StatusCode);
+
+        var surviving = (await device.PullTasks()).Tasks.Single(record => record.Change.Id == id);
+        Assert.Null(surviving.Change.DeletedAt);
+    }
+
+    /// <summary>A capture is a task-shaped document with its own kind token, so
+    /// the desktop receives it through the same feed as everything else rather
+    /// than through a second path of its own — and can tell it from a task by
+    /// the one token, before it parses anything else.</summary>
+    [Fact]
+    public async Task A_capture_arrives_as_a_capture_document_on_the_other_device()
     {
         var (desktop, phone) = await PairedDevices();
 
@@ -233,9 +259,34 @@ public class TaskSyncEndpointTests : IDisposable
 
         Assert.Equal("Call the dentist", arrived.Change.Task.Title);
         Assert.Equal("phone", arrived.Change.Task.SourceInboxId);
-        Assert.Equal("task", arrived.Change.Task.Type);
+        Assert.Equal("capture", arrived.Change.Task.Type);
         Assert.Equal("draft", arrived.Change.Task.Status);
         Assert.Equal("medium", arrived.Change.Task.Priority);
+    }
+
+    /// <summary>
+    /// The inbox is the capture documents and nothing else. A task the desktop
+    /// routed <em>from</em> a capture carries the inbox item's id in
+    /// <c>SourceInboxId</c>, and once such tasks are pushed a predicate on that
+    /// field would list every routed task as a capture still waiting — which is
+    /// why the kind token, and not the source, is what the inbox filters on.
+    /// </summary>
+    [Fact]
+    public async Task The_inbox_lists_captures_and_not_tasks_that_came_from_one()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        await device.PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.Inbox), new CaptureRequest("Still waiting", "phone"), Cancellation);
+
+        await device.PostAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.Tasks),
+            new PushTasksRequest([new TaskChange(Guid.CreateVersion7(), DateTimeOffset.UtcNow, DeletedAt: null, TaskSyncClientExtensions.Payload("Routed from the inbox") with { SourceInboxId = Guid.CreateVersion7().ToString("D") })]),
+            Cancellation);
+
+        var inbox = (await device.GetFromJsonAsync<List<InboxItem>>(SyncRoutes.Absolute(SyncRoutes.Inbox), Cancellation))!;
+
+        Assert.Equal("Still waiting", Assert.Single(inbox).Title);
     }
 
     /// <summary>The page size is the service's decision, not the caller's: a
