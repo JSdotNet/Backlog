@@ -55,5 +55,7 @@ The intended reflex: to find the code for a feature, open
   all. Read
   `.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md` before
   treating it as an inconsistency.
-- Modules other than `Backlog` and `Roadmap` have not been carved into feature
-  slices yet.
+- Modules other than `Backlog`, `Roadmap`, and `Capture` have not been carved
+  into feature slices yet. `Capture` was born sliced — `Features/RunCapture/`
+  behind an `ICaptureRunner` facade — with its source-adapter port and no
+  adapter yet behind it.

@@ -20,6 +20,23 @@ Receive normalized Inbox Items from all Capture sources into a single shared
 queue. New items default to `unprocessed` and are ordered by capture timestamp
 (configurable).
 
+### Add by hand
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/capture/domain.md#capture-source, .domain/capture/features.md#run-capture-now]
+feature-flag: inbox-pane
+```
+
+The queue offers the two ways something gets into it from its own header:
+**Add**, for a thing the reader has in their head right now, and **Capture**,
+which runs the watched sources. Add asks for a title and, optionally, notes —
+nothing else, because the Inbox is where deciding happens and a dialog that
+asked where the item goes would be asking for triage before the item exists.
+The item arrives with the `manual` `Capture Source`, unfiled and `unprocessed`,
+in the queue the reader is filling rather than opening anywhere else.
+
 ### Read the queue as PARA drawers
 
 ```meta

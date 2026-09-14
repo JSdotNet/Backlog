@@ -130,11 +130,15 @@ are behind it — so each harness has to pair itself before exercising them:
   distinct devices under one owner rather than sharing a pairing.
 
 **The Development signing key is ephemeral** — generated fresh on process start and logged
-as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` unpairs every
-device; re-pair after any `aspire start` that restarts it. The Devices tab now says so
-itself rather than going on reporting a healthy pairing: a device the service no longer
-recognises is told, and is offered registering, pairing, and **Forget this device** on the
-spot, so re-pairing no longer means deleting a credential file by hand.
+as a warning, per `Modules:Sync:Tokens:SigningKey` — so restarting `sync` invalidates every
+outstanding device token and sync cursor. A pairing survives it: device registrations live
+in the Cosmos emulator's `devices` container, so the client exchanges its credential for a
+fresh token and drops the rejected cursor on the next sync. What does not survive is the
+emulator's own data — a `Forget this device` or a wiped emulator volume is what unpairs.
+The Devices tab says so itself rather than going on reporting a healthy pairing: a device
+the service no longer recognises is told, and is offered registering, pairing, and
+**Forget this device** on the spot, so re-pairing never means deleting a credential file
+by hand.
 
 If credentials become necessary later, record only a **pointer** here (for example the name
 of the secret store, vault, or user-secrets entry). Never place actual secrets, tokens, or
@@ -146,7 +150,7 @@ requests are created through the `pr-jsdotnet` skill.
 ## MCP Servers
 
 Authority order and fallbacks are defined in
-`.github/instructions/mcp-usage.instructions.md`, which remains the source of truth.
+`.agents/rules/mcp-usage.md`, which remains the source of truth.
 
 **Guidance no longer comes from an MCP server.** The `jsdotnet-project-guidelines` and
 `jsdotnet-project-design` servers were retired on 2026-08-27; read `.arc42/adr/guidelines/` for
@@ -181,7 +185,9 @@ checks pass:
 
 - Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
   `knowledge-chapter-metadata.instructions.md`.
-- Instruction files keep valid `applyTo` and `description` frontmatter.
+- Every rule under `.agents/rules/` keeps `name`, `description` and `paths`, and its two
+  wrappers stay derived from it: `.claude/rules/<topic>.md` copies `paths`,
+  `.github/instructions/<topic>.instructions.md` sets `applyTo` to `paths` comma-joined.
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
   `node .github/tools/knowledge-meta/build.mjs --check` passes with a clean `git diff` over
   `*_meta/*.json`.

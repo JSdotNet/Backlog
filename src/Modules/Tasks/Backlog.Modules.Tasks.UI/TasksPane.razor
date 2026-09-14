@@ -294,6 +294,7 @@
                                   SelectionEnabled="@State.SelectionMode"
                                   SelectedIds="@State.SelectedIds"
                                   SelectedIdsChanged="OnSelectionChanged"
+                                  OnDismiss="OnRowDismiss"
                                   OnSelectedTabForward="MoveFocusToDetailAsync"
                                   OnSelected="OnEntrySelectedAsync"
                                   OnToggle="OnEntryToggledAsync"
@@ -1198,6 +1199,32 @@
     }
 
     /// <summary>
+    /// Escape on a row's line: out of the mode, the way the chip is.
+    /// <para>
+    /// The list says so rather than this pane reading the key off the rows — the
+    /// two fields in a row contain their own Escape and the line does not, so
+    /// <c>TaskListView.OnDismiss</c> is already the press this mode may take and
+    /// nothing else. Backing out of a rename is not a decision about the picked
+    /// set, and it was the reason a row could not answer at all.
+    /// </para>
+    /// <para>
+    /// One press rather than the bar's two, and for the chip's reason: from a row
+    /// an open group may be scrolled out of view behind the rows, so a first press
+    /// that closed something invisible would read as a key that had not worked.
+    /// </para>
+    /// <para>
+    /// With no mode on there is nothing to leave, and Escape on a row is
+    /// deliberately not a way to close the pane beside the list. That press is the
+    /// pane's own — <see cref="OnDetailKeyDownAsync"/> — and a row that also closed
+    /// it would take the reading away from a reader who was scanning the list.
+    /// </para>
+    /// </summary>
+    private void OnRowDismiss()
+    {
+        if (State.SelectionMode) OnClearSelection();
+    }
+
+    /// <summary>
     /// Escape on the bar: the open group, and then the mode.
     /// <para>
     /// Three levels rather than two, and the innermost one is not decided here. A
@@ -1224,16 +1251,14 @@
     /// keystroke.
     /// </para>
     /// <para>
-    /// On the chip and on the bar, and deliberately not on the pane around them.
-    /// The list between the two is where a row's inline rename lives, and Escape
-    /// there already means "abandon this title" — the field raises it, does not
-    /// stop it propagating, and a pane-wide handler would therefore throw away the
-    /// reader's whole picked set every time they backed out of a rename. The list
-    /// also holds the add-entry field, whose Escape means the same for a task that
-    /// does not exist yet. Neither of those is a key this mode may take, so
-    /// Escape from a row is not offered at all rather than offered destructively;
-    /// the chip and the bar are the two surfaces that are only ever about the
-    /// selection, and both of them answer.
+    /// On the chip and on the bar — and, since the library's two task fields
+    /// contain their own Escape, on a row's line as well: see
+    /// <see cref="OnRowDismiss"/>. It could not be offered before that. A handler
+    /// covering the list would have heard the key the rename in a row answers, and
+    /// the add-entry field with it, so every abandoned title would also have thrown
+    /// away the reader's whole picked set. What changed is where the key stops
+    /// rather than what this mode wants: three surfaces answer now, and all three
+    /// are only ever about the selection.
     /// </para>
     /// </summary>
     private void OnSelectionBarKeyDown(KeyboardEventArgs e)

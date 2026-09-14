@@ -26,6 +26,13 @@
     group it was pointed at, Foundry account included. Never run it against a
     shared group; remove the sync resources by hand instead.
 
+    The sync tier needs one secret in the shell before it runs, in every mode:
+    SYNC_TOKEN_SIGNING_KEY, the base64 HMAC key (32 bytes or more) the sync service
+    signs device tokens with. azd reads it from the process environment when it
+    substitutes infra/sync/main.parameters.json. It is deliberately never passed to
+    `azd env set`, which would write it to .azure/<env>/.env on disk. Mint one as
+    docs/deployment/sync.md describes.
+
 .PARAMETER Component
     Which component to act on: foundry, sync, or all. Defaults to all.
 
@@ -157,6 +164,37 @@ interactively:
     Write-Host "Signed in as $($account.user) on '$($account.name)'." -ForegroundColor DarkGray
 }
 
+function Assert-SyncTokenSigningKey {
+    <#
+        The same check the Deploy Sync workflow's first step makes, and the same
+        rule the service enforces on start: base64, at least 32 bytes decoded. It
+        runs before azd is touched so a missing key fails with its name rather
+        than as an azd prompt that would save whatever was typed into
+        .azure/<env>/.env. Only the shape is ever reported; the value is not.
+    #>
+    $key = $env:SYNC_TOKEN_SIGNING_KEY
+    if (-not $key) {
+        throw @"
+SYNC_TOKEN_SIGNING_KEY is not set in this shell. The sync service signs device
+tokens with it and refuses to start without one. Mint a key as described in
+docs/deployment/sync.md and set it for this session only:
+
+    `$env:SYNC_TOKEN_SIGNING_KEY = '<base64 key>'
+"@
+    }
+
+    try {
+        $bytes = [Convert]::FromBase64String($key)
+    }
+    catch {
+        throw 'SYNC_TOKEN_SIGNING_KEY is not valid base64. Mint one as docs/deployment/sync.md describes.'
+    }
+
+    if ($bytes.Length -lt 32) {
+        throw "SYNC_TOKEN_SIGNING_KEY decodes to $($bytes.Length) bytes; the sync service requires at least 32. Mint one as docs/deployment/sync.md describes."
+    }
+}
+
 function Assert-ResourceGroup([string] $Name, [string] $Subscription) {
     az group show --name $Name --subscription $Subscription --output none 2>$null
     if ($LASTEXITCODE -ne 0) {
@@ -270,6 +308,9 @@ function Deploy-Sync {
     }
 
     Assert-Tool -Name 'azd' -Install 'winget install Microsoft.Azd'
+    # Every mode, the preview included: azd resolves the parameter file before
+    # it knows whether it is going to change anything.
+    Assert-SyncTokenSigningKey
     Assert-ResourceGroup -Name $SyncResourceGroup -Subscription $SubscriptionId
 
     Push-Location $repositoryRoot

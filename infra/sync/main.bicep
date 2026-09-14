@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding both replica containers.')
+@description('Cosmos DB database holding the two replica containers and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -56,6 +56,20 @@ param logRetentionInDays int = 30
 @minValue(1)
 @description('Daily ingestion cap of the Log Analytics workspace, in GB. Emergency stop against runaway logging; Azure discards further ingestion for the rest of the day once it is reached.')
 param logDailyQuotaGb int = 1
+
+// The HMAC key the service signs device tokens with (Modules:Sync:Tokens:SigningKey).
+// Outside Development the service validates it on start and refuses to come up
+// without one, so it is a required parameter with no default: a provision that
+// forgets it fails here, not as a container that restarts forever. It reaches the
+// container as a container app secret, never as a plain environment variable, and
+// ARM redacts it from deployment history because the parameter is @secure().
+// Supplied from the GitHub environment secret SYNC_TOKEN_SIGNING_KEY (or the same
+// variable in a local shell); see docs/deployment/sync.md for minting and rotation.
+// 44 characters is 32 bytes of base64, the minimum the service accepts.
+@secure()
+@minLength(44)
+@description('HMAC key the sync service signs device tokens with: base64, at least 32 bytes once decoded. azd supplies this from SYNC_TOKEN_SIGNING_KEY.')
+param tokenSigningKey string
 
 @description('Tags applied to every resource.')
 param tags object = {
@@ -156,6 +170,16 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 // Key Vault
 // ---------------------------------------------------------------------------
 
+// Provisioned because ADR 0005 lists it, and empty: nothing in the service reads
+// Key Vault today. The device-token signing key is a container app secret (see
+// tokenSigningKey above) rather than a vault secret, because the app scales to
+// zero and a vault round-trip on every cold start buys nothing while one secret
+// is all there is. The vault and the role below are reserved for the day that
+// changes — vault-managed rotation, or the webhook secrets ADR 0005 also names —
+// which would add Azure.Extensions.AspNetCore.Configuration.Secrets to the
+// service and a secret named Modules--Sync--Tokens--SigningKey here. Until then
+// the service is handed no vault endpoint, so nothing looks configured that is not.
+//
 // RBAC rather than access policies, so the sync identity's access is granted the
 // same way every other permission in this template is. Purge protection is left
 // off deliberately: this is a personal-scale deployment that has to be tearable
@@ -234,9 +258,12 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
   }
 }
 
-// Two containers, not one — ADR 0005 "Two containers, not one". Each carries its
-// own change feed, its own indexing policy and its own TTL, and under serverless
-// the second container costs nothing.
+// Two replica containers, not one — ADR 0005 "Two containers, not one". Each
+// carries its own change feed, its own indexing policy and its own TTL, and under
+// serverless the second container costs nothing. Two more beside them, `devices`
+// and `pairingCodes`, hold the registry ADR 0005 Identity describes; they are not
+// replicas — no change feed is ever read from them — and they are partitioned
+// differently, for a reason given at each one.
 
 // `tasks` — the default indexing policy, because a task is read by id and by owner
 // and nothing here knows which other field a later query will want.
@@ -324,6 +351,83 @@ resource sessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/c
           }
           {
             path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `devices` — one document per registered device, partitioned on `/id` (the
+// device id) rather than on the owner like the replicas above. The read that runs
+// on every token mint has only the device id in hand — it is the read that finds
+// out who the owner is — so on `/id` it is a point read, and on `/ownerId` it
+// would be a cross-partition query on every sync. The two owner-scoped reads
+// behind the Devices tab pay for that with a cross-partition count instead, which
+// is bounded by how many machines one person owns. Default indexing, so `ownerId`
+// is indexed for them. No TTL: a registration lasts until the device is forgotten.
+resource devicesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'devices'
+  properties: {
+    resource: {
+      id: 'devices'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `pairingCodes` — one document per live code, partitioned on `/id`, which is the
+// code's hash: a code is looked up by hash and by nothing else, so every operation
+// is a point read or a conditional replace of one document.
+//
+// defaultTtl is -1 for the same reason `tasks` has it: the TTL is stamped per
+// document, by the write that issues the code, as the code's ten-minute window
+// plus a grace. Cosmos reaps the document afterwards; the service's own expiry
+// check is what turns a stale code away in the meantime, because TTL reaping is
+// lazy. Nothing is indexed but the key — no query ever runs against this
+// container.
+resource pairingCodesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'pairingCodes'
+  properties: {
+    resource: {
+      id: 'pairingCodes'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: []
+        excludedPaths: [
+          {
+            path: '/*'
           }
         ]
       }
@@ -459,15 +563,20 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: syncIdentity.id
         }
       ]
-      // The Application Insights connection string is the one connection string
-      // this deployment still hands the service. It is a telemetry ingestion
-      // endpoint, not a data credential: it opens nothing, reads nothing, and
-      // reaches no replica. It is held as a container app secret rather than a
-      // plain environment variable all the same.
+      // Two secrets, and they are not alike. The Application Insights connection
+      // string is the one connection string this deployment still hands the
+      // service: a telemetry ingestion endpoint, not a data credential — it opens
+      // nothing, reads nothing, and reaches no replica — held as a secret rather
+      // than a plain environment variable all the same. The token signing key
+      // is a real secret: whoever holds it can mint a device token for any owner.
       secrets: [
         {
           name: 'applicationinsights-connection-string'
           value: appInsights.properties.ConnectionString
+        }
+        {
+          name: 'sync-token-signing-key'
+          value: tokenSigningKey
         }
       ]
     }
@@ -509,12 +618,24 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: sessionsContainer.name
             }
             {
+              name: 'Sync__Cosmos__DevicesContainerName'
+              value: devicesContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__PairingCodesContainerName'
+              value: pairingCodesContainer.name
+            }
+            {
               name: 'Sync__Cosmos__TaskTombstoneTtlSeconds'
               value: string(taskTombstoneTtlSeconds)
             }
+            // Double underscore is how .NET reads a ':' configuration path from
+            // an environment variable, so this lands on SyncTokenOptions as
+            // Modules:Sync:Tokens:SigningKey. No Key Vault endpoint is passed:
+            // nothing reads one (see the Key Vault section).
             {
-              name: 'Sync__KeyVault__Endpoint'
-              value: keyVault.properties.vaultUri
+              name: 'Modules__Sync__Tokens__SigningKey'
+              secretRef: 'sync-token-signing-key'
             }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

@@ -336,25 +336,92 @@ public sealed class GitHubPushFlowTests : IDisposable
     {
         var harness = Build("JSdotNet/Backlog");
 
-        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Permission denied.", TestContext.Current.CancellationToken);
+        await harness.Feedback.ReportAsync("Cannot capture", null, null, "Screenshot capture failed: Permission denied.", TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", harness.Client.CreatedRepository);
         Assert.Contains("_No details provided._", harness.Client.CreatedBody);
         Assert.Contains("Screenshot capture failed: Permission denied.", harness.Client.CreatedBody);
     }
 
+    /// <summary>
+    /// The body records the failure the caller reported, in the caller's words.
+    /// The sentence used to be written here — "Screenshot capture failed:" in
+    /// front of everything — which was true for as long as a screen capture was
+    /// the only way an image arrived. It stopped being true twice over: a
+    /// clipboard the WebView refuses is filed as a capture nobody attempted, and
+    /// the upload failure, which already says what it is, came out doubled.
+    /// </summary>
+    [Theory]
+    [InlineData("Screenshot capture failed: Permission denied.")]
+    [InlineData("Reading the clipboard failed: Clipboard access was denied.")]
+    public async Task The_body_records_the_failure_in_the_words_it_was_reported_in(string screenshotError)
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        await harness.Feedback.ReportAsync("Cannot attach", null, null, screenshotError, TestContext.Current.CancellationToken);
+
+        Assert.Contains(screenshotError, harness.Client.CreatedBody);
+        Assert.DoesNotContain($"Screenshot capture failed: {screenshotError}", harness.Client.CreatedBody);
+    }
+
+    /// <summary>The line above the embed describes the image, and a pasted one
+    /// was never captured. Nothing here can tell the two apart — the screenshot
+    /// carries no origin — so the sentence says only what is true of both.</summary>
     [Fact]
-    public async Task A_screenshot_upload_failure_still_files_the_issue()
+    public async Task The_body_does_not_call_a_pasted_image_a_capture()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var screenshot = new GitHubFeedbackScreenshot("data:image/png;base64,AAAA", "image/png", 640, 480, 24);
+
+        await harness.Feedback.ReportAsync("Broken view", null, screenshot, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("Captured", harness.Client.CreatedBody);
+        Assert.Contains("image/png, 640 x 480, 24 bytes", harness.Client.CreatedBody);
+        Assert.Contains($"![Screenshot]({FakeGitHubClient.UploadedDownloadUrl})", harness.Client.CreatedBody);
+    }
+
+    /// <summary>Both origins, because a pasted image takes the same upload and
+    /// must fall back the same way — the report is the point, the picture is
+    /// evidence.</summary>
+    [Theory]
+    [InlineData("image/jpeg")]
+    [InlineData("image/png")]
+    public async Task A_screenshot_upload_failure_still_files_the_issue(string mediaType)
     {
         var harness = Build("JSdotNet/Backlog");
         harness.Client.UploadFailure = new GitHubException("GitHub refused the request — the token may lack repo scope.");
-        var screenshot = new GitHubFeedbackScreenshot("data:image/jpeg;base64,AAAA", "image/jpeg", 800, 600, 42);
+        var screenshot = new GitHubFeedbackScreenshot($"data:{mediaType};base64,AAAA", mediaType, 800, 600, 42);
 
         var link = await harness.Feedback.ReportAsync("Broken view", "The pane is blank.", screenshot, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("JSdotNet/Backlog", link.RepoFullName);
         Assert.Contains("Screenshot upload failed:", harness.Client.CreatedBody);
+        // Once, not wrapped in a second sentence about a capture that succeeded.
+        Assert.DoesNotContain("Screenshot capture failed", harness.Client.CreatedBody);
         Assert.DoesNotContain("![Screenshot]", harness.Client.CreatedBody);
+    }
+
+    /// <summary>
+    /// The committed file is named after what it actually is. The capture path
+    /// only ever produced a JPEG, so the extension was hard-coded to match it;
+    /// a pasted image is whatever the clipboard held, and a PNG committed as
+    /// <c>.jpg</c> is a file GitHub serves under the wrong type.
+    /// </summary>
+    [Theory]
+    [InlineData("image/jpeg", ".jpg")]
+    [InlineData("image/png", ".png")]
+    [InlineData("image/webp", ".webp")]
+    [InlineData("image/gif", ".gif")]
+    public async Task The_committed_file_takes_its_extension_from_the_media_type(string mediaType, string extension)
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var screenshot = new GitHubFeedbackScreenshot($"data:{mediaType};base64,AAAA", mediaType, 640, 480, 24);
+
+        await harness.Feedback.ReportAsync("Broken view", null, screenshot, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.NotNull(harness.Client.UploadedPath);
+        Assert.EndsWith(extension, harness.Client.UploadedPath);
+        Assert.StartsWith("feedback-screenshots/", harness.Client.UploadedPath);
     }
 
     private async Task<EntryRow> WriteEntryAsync(TasksDesktopState state, string text)

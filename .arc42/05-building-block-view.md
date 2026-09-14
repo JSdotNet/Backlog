@@ -239,8 +239,10 @@ distinct devices). It holds the device's registration credential
 exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
 within two minutes of expiry, never retrying a 401), attaches the token to
 outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
-themselves (`DevicePairingClient`). The Android head uses an in-memory
-credential store pending a `SecureStorage` adapter.
+themselves (`DevicePairingClient`). The Android head keeps the same credential
+in MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) through
+`SecureValueDeviceCredentialStore`, the platform-neutral half of that adapter,
+so a force-stop does not un-pair the phone; the in-memory store is for tests.
 
 ## Mobile App
 
@@ -374,8 +376,10 @@ Task replication runs the same way, and its adapter is a fourth project:
 port against the Cosmos `tasks` container and is the only place in the solution
 that references the Cosmos SDK, so the API head depends on a port implementation
 rather than on a database driver. The device registry and pairing-code store are
-still in-memory adapters behind their own ports, so a restart forgets every
-registration; a Cosmos-backed adapter for those is the deferred slice.
+served from the same project against two more containers, `devices` and
+`pairingCodes`, so a registration survives a restart of the service; the module's
+in-memory adapters remain for the endpoint tests and for a run with no Cosmos
+configured.
 
 ```mermaid
 flowchart TB

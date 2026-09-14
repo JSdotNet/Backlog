@@ -584,6 +584,47 @@
             }
             else
             {
+                @* The dialog's fourth mode switch, and the reason this branch grew
+                   one: the mcpServers array holds two kinds of server, and which of
+                   them is being added decides what the id below even is. A .NET
+                   tool is identified by its package id and a command-registered
+                   server by its name, so a form that only ever asked for a package
+                   id could not write the second kind at all — and the entry it did
+                   write would be keyed on a property nothing reads. *@
+                <SelectField Label="Registered by"
+                             Form="true"
+                             CurrentValue="@_draftMcpMechanism.ToString()"
+                             Options="@McpMechanismOptions"
+                             HelpText="How this machine gets the server. A .NET tool is installed; a command is already there and is registered."
+                             TestId="tools-add-mcp-mechanism"
+                             OnChanged="OnDraftMcpMechanismChanged" />
+            }
+
+            @if (_draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Command)
+            {
+                @* No package id, and no Claude section either: the command is what
+                   every host this entry targets is registered with, and a section
+                   that only restated it would be a second place for it to drift. *@
+                <TextField Label="Name"
+                           Value="@_draftServerName"
+                           ValueChanged="value => _draftServerName = value"
+                           HelpText="What the server is called. It is what the row and any per-PC override are addressed by."
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-server-name" />
+                <TextField Label="Command"
+                           Value="@_draftServerCommand"
+                           ValueChanged="value => _draftServerCommand = value"
+                           HelpText="The executable that starts the server."
+                           ErrorMessage="@_draftCommandError"
+                           TestId="tools-add-server-command" />
+                <TextField Label="Command arguments"
+                           Value="@_draftServerArgs"
+                           ValueChanged="value => _draftServerArgs = value"
+                           HelpText="Optional. Separated by spaces, in the order they are passed."
+                           TestId="tools-add-server-args" />
+            }
+            else if (_draftKind is DevToolKind.McpServer)
+            {
                 <TextField Label="Package ID"
                            Value="@_draftPackageId"
                            ValueChanged="value => _draftPackageId = value"
@@ -707,6 +748,10 @@
     private string _draftSource = string.Empty;
     private string _draftPluginKind = string.Empty;
     private string _draftPackageId = string.Empty;
+    private DevToolMcpMechanism _draftMcpMechanism = DevToolMcpMechanism.DotNetTool;
+    private string _draftServerName = string.Empty;
+    private string _draftServerCommand = string.Empty;
+    private string _draftServerArgs = string.Empty;
     private string _draftDisplayName = string.Empty;
     private string _draftMarketplaceName = string.Empty;
     private string _draftClaudeName = string.Empty;
@@ -724,6 +769,7 @@
     private string? _draftIdError;
     private string? _draftSourceError;
     private string? _draftDetectError;
+    private string? _draftCommandError;
 
     private bool _importOpen;
     private string _importJson = string.Empty;
@@ -846,12 +892,20 @@
     /// never had one to look up. And a row with no mechanism behind it is not a
     /// row that failed; it is one somebody has to go and do, which is a different
     /// sentence and a different afternoon.</para>
+    ///
+    /// <para>And the newest is the MCP server that is not a .NET tool. "Install by
+    /// hand" would be the wrong afternoon entirely for it: nobody is going to
+    /// install anything, because the catalog registers it by the command it
+    /// declares. What the row is short of is a package, and the status beside it
+    /// says whether that is by design or because the mechanism it named is one
+    /// this build has never heard of.</para>
     /// </summary>
     private static string ActionNote(DevToolInfo tool) => tool switch
     {
         { ConfiguredEnabled: false } => "Disabled",
         { ConfirmedByHand: true } => tool.Acknowledged ? "Confirmed by hand" : "Not confirmed yet",
         _ when ReportsDetection(tool) => tool.Installed ? "Detected" : "Not detected",
+        { Kind: DevToolKind.McpServer, Installable: false } => "No .NET tool to install",
         { Installable: false } => HasNote(tool) ? "Install by hand — see the note" : "Install by hand",
         { AvailableVersionKnown: false } => "Version unknown",
         _ => "Up to date"
@@ -1060,6 +1114,16 @@
         new(nameof(DevToolProvider.Manual), "Nothing — confirmed by hand")
     ];
 
+    /// <summary>How an MCP server gets onto the machine. Two of the three
+    /// mechanisms, because the third is where an entry whose declared mechanism
+    /// this build does not recognise lands — a landing spot is not something to
+    /// offer somebody as a choice.</summary>
+    private static readonly IReadOnlyList<SelectorOption> McpMechanismOptions =
+    [
+        new(nameof(DevToolMcpMechanism.DotNetTool), "A .NET tool"),
+        new(nameof(DevToolMcpMechanism.Command), "A command it declares")
+    ];
+
     /// <summary>The id is a different thing per mechanism, and naming the wrong
     /// one is the mistake this form is most likely to invite: a winget id and an
     /// extension id look alike and are not interchangeable.</summary>
@@ -1253,6 +1317,26 @@
         _draftIdError = null;
         _draftSourceError = null;
         _draftDetectError = null;
+        _draftCommandError = null;
+    }
+
+    /// <summary>Which of the two kinds of MCP server is being added. Spelled out
+    /// like the kind above it and with the same fall-through, but landing on the
+    /// .NET tool: that is what every entry written before there was a choice was,
+    /// and the mechanism that writes no package id at all is not somewhere a
+    /// value nobody typed should end up.</summary>
+    private void OnDraftMcpMechanismChanged(string? value)
+    {
+        _draftMcpMechanism = value switch
+        {
+            nameof(DevToolMcpMechanism.Command) => DevToolMcpMechanism.Command,
+            _ => DevToolMcpMechanism.DotNetTool
+        };
+
+        // The id box changes with the mechanism, so an error under the one that
+        // has just left the screen would reappear over the one replacing it.
+        _draftIdError = null;
+        _draftCommandError = null;
     }
 
     private void OnDraftProviderChanged(string? value)
@@ -1287,11 +1371,17 @@
         _draftIdError = null;
         _draftSourceError = null;
         _draftDetectError = null;
+        _draftCommandError = null;
 
         var plugin = _draftKind is DevToolKind.Plugin;
         var marketplace = _draftKind is DevToolKind.Marketplace;
         var application = _draftKind is DevToolKind.Application;
         var command = application && _draftProvider is DevToolProvider.Command;
+
+        // The second mechanism the mcpServers array holds. It decides whether the
+        // id below is a package id or the server's own name, so it is read once
+        // here rather than at each of the four places that ask.
+        var registeredByCommand = _draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Command;
 
         // Spelled out per kind rather than as the two-way ternary this replaced,
         // whose else was the MCP server's package id: an application submitted
@@ -1301,7 +1391,7 @@
             DevToolKind.Plugin => _draftPluginName,
             DevToolKind.Marketplace => _draftMarketplaceName,
             DevToolKind.Application => _draftApplicationId,
-            DevToolKind.McpServer => _draftPackageId
+            DevToolKind.McpServer => registeredByCommand ? _draftServerName : _draftPackageId
         }).Trim();
 
         if (id.Length == 0)
@@ -1311,7 +1401,9 @@
                 DevToolKind.Plugin => "A plugin needs a name.",
                 DevToolKind.Marketplace => "A marketplace needs a name.",
                 DevToolKind.Application => "An application needs an id.",
-                DevToolKind.McpServer => "An MCP server needs a package id."
+                DevToolKind.McpServer => registeredByCommand
+                    ? "An MCP server registered by a command needs a name."
+                    : "An MCP server needs a package id."
             };
         }
 
@@ -1329,7 +1421,15 @@
             _draftDetectError = "A command application needs a detect command.";
         }
 
-        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null)
+        // And the same again for the server that is registered rather than
+        // installed: with no package id there is nothing to install it by, so the
+        // command is the one thing that entry cannot be written without.
+        if (registeredByCommand && string.IsNullOrWhiteSpace(_draftServerCommand))
+        {
+            _draftCommandError = "An MCP server registered by a command needs a command.";
+        }
+
+        if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null)
         {
             return;
         }
@@ -1348,9 +1448,21 @@
             Hosts = marketplace ? DevToolHosts.Claude : application ? DevToolHosts.None : _draftHosts,
             ClaudeName = plugin ? NullIfBlank(_draftClaudeName) : null,
             ClaudeMarketplace = plugin ? NullIfBlank(_draftClaudeMarketplace) : null,
-            ClaudeServerName = plugin || marketplace || application ? null : NullIfBlank(_draftClaudeServerName),
-            ClaudeCommand = plugin || marketplace || application ? null : NullIfBlank(_draftClaudeCommand),
-            ClaudeArgs = plugin || marketplace || application ? [] : SplitArgs(_draftClaudeArgs),
+            // A command-registered server is asked for no Claude section at
+            // all: its own command is what every host it targets is registered
+            // with, so a section here would be a second place for the same command
+            // to drift — and the boxes are not on screen for it to have been typed
+            // into.
+            ClaudeServerName = plugin || marketplace || application || registeredByCommand ? null : NullIfBlank(_draftClaudeServerName),
+            ClaudeCommand = plugin || marketplace || application || registeredByCommand ? null : NullIfBlank(_draftClaudeCommand),
+            ClaudeArgs = plugin || marketplace || application || registeredByCommand ? [] : SplitArgs(_draftClaudeArgs),
+
+            // Which of the two kinds of MCP server this is. Not written into the
+            // entry — the shape of what is written says it — but the port needs it
+            // to know whether the id it was handed is a package id or a name.
+            McpMechanism = _draftKind is DevToolKind.McpServer ? _draftMcpMechanism : DevToolMcpMechanism.DotNetTool,
+            ServerCommand = registeredByCommand ? NullIfBlank(_draftServerCommand) : null,
+            ServerArgs = registeredByCommand ? SplitArgs(_draftServerArgs) : [],
 
             // Written even when it is the default, unlike everything above: the
             // catalog's silence means "both hosts" and "no override" for the rest,
@@ -1471,6 +1583,10 @@
         _draftSource = string.Empty;
         _draftPluginKind = string.Empty;
         _draftPackageId = string.Empty;
+        _draftMcpMechanism = DevToolMcpMechanism.DotNetTool;
+        _draftServerName = string.Empty;
+        _draftServerCommand = string.Empty;
+        _draftServerArgs = string.Empty;
         _draftDisplayName = string.Empty;
         _draftMarketplaceName = string.Empty;
         _draftClaudeName = string.Empty;
@@ -1488,6 +1604,7 @@
         _draftIdError = null;
         _draftSourceError = null;
         _draftDetectError = null;
+        _draftCommandError = null;
     }
 
     /// <summary>Which hosts a row is for, short enough to sit beside the name.

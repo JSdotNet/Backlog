@@ -306,4 +306,172 @@ public sealed class InboxPaneTests
 
         Assert.Equal("true", again.Find("[data-testid='inbox-pane-group-tag']").GetAttribute("aria-pressed"));
     }
+
+    // --- Add and Capture --------------------------------------------------
+
+    /// <summary>Both actions sit in the header whether or not there is anything
+    /// in the queue: an empty Inbox is exactly where somebody reaches for Add.</summary>
+    [Fact]
+    public void The_header_offers_add_and_capture_when_the_inbox_is_empty()
+    {
+        using var context = new BunitContext();
+
+        var pane = Render(context);
+
+        Assert.Equal("Add", pane.Find("[data-testid='inbox-pane-add']").TextContent.Trim());
+        Assert.Equal("Capture", pane.Find("[data-testid='inbox-pane-capture']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_header_offers_add_and_capture_when_there_are_items()
+    {
+        using var context = new BunitContext();
+
+        var pane = Render(context, Video, Note);
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-capture']"));
+    }
+
+    [Fact]
+    public void Add_opens_a_dialog_with_a_title_and_notes()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = Render(context);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+
+        pane.Find("[data-testid='inbox-pane-add']").Click();
+
+        var dialog = pane.Find("[data-testid='inbox-pane-add-dialog']");
+        Assert.Equal("dialog", dialog.GetAttribute("role"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-title']"));
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-notes']"));
+    }
+
+    /// <summary>A draft cannot be saved without a title, so the dialog does not
+    /// offer to try.</summary>
+    [Fact]
+    public void Submit_is_disabled_until_a_title_is_typed()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var pane = Render(context);
+        pane.Find("[data-testid='inbox-pane-add']").Click();
+
+        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+
+        pane.Find("[data-testid='inbox-pane-add-title'] input").Input("   ");
+        Assert.True(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+
+        pane.Find("[data-testid='inbox-pane-add-title'] input").Input("Ask about the trial length");
+        Assert.False(pane.Find("[data-testid='inbox-pane-add-submit']").HasAttribute("disabled"));
+    }
+
+    /// <summary>Asserted on what the host received and on the dialog being gone,
+    /// never on a throw: bUnit swallows a handler's exception, so a submit that
+    /// did nothing would look exactly like one that threw.</summary>
+    [Fact]
+    public void Submitting_raises_OnAdd_with_the_title_and_notes_and_closes()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        InboxCapture? received = null;
+        var pane = context.Render<InboxPane>(parameters => parameters
+            .Add(p => p.Items, Array.Empty<InboxItem>())
+            .Add(p => p.OnAdd, (InboxCapture capture) => received = capture));
+
+        pane.Find("[data-testid='inbox-pane-add']").Click();
+        pane.Find("[data-testid='inbox-pane-add-title'] input").Input("  Ask about the trial length ");
+        pane.Find("[data-testid='inbox-pane-add-notes'] textarea").Input("Before Friday.\n");
+        pane.Find("[data-testid='inbox-pane-add-submit']").Click();
+
+        Assert.NotNull(received);
+        Assert.Equal("Ask about the trial length", received.Title);
+        Assert.Equal("Before Friday.", received.Notes);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+
+        // The next Add starts clean rather than with the last draft still in it.
+        pane.Find("[data-testid='inbox-pane-add']").Click();
+        Assert.Equal(string.Empty, pane.Find("[data-testid='inbox-pane-add-title'] input").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Cancel_closes_the_dialog_without_raising_OnAdd()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var raised = 0;
+        var pane = context.Render<InboxPane>(parameters => parameters
+            .Add(p => p.Items, Array.Empty<InboxItem>())
+            .Add(p => p.OnAdd, (InboxCapture _) => raised++));
+
+        pane.Find("[data-testid='inbox-pane-add']").Click();
+        pane.Find("[data-testid='inbox-pane-add-title'] input").Input("Something");
+        pane.Find("[data-testid='inbox-pane-add-cancel']").Click();
+
+        Assert.Equal(0, raised);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-add-dialog']"));
+    }
+
+    [Fact]
+    public void Capture_raises_OnCapture()
+    {
+        using var context = new BunitContext();
+
+        var raised = 0;
+        var pane = context.Render<InboxPane>(parameters => parameters
+            .Add(p => p.Items, Array.Empty<InboxItem>())
+            .Add(p => p.OnCapture, () => raised++));
+
+        pane.Find("[data-testid='inbox-pane-capture']").Click();
+
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>While a run is in flight the button is busy rather than gone,
+    /// so focus survives the round trip and a second press cannot start a
+    /// second run.</summary>
+    [Fact]
+    public void The_capture_button_is_busy_while_a_run_is_in_flight()
+    {
+        using var context = new BunitContext();
+
+        var pane = context.Render<InboxPane>(parameters => parameters
+            .Add(p => p.Items, Array.Empty<InboxItem>())
+            .Add(p => p.CaptureRunning, true));
+
+        var button = pane.Find("[data-testid='inbox-pane-capture']");
+        Assert.Equal("true", button.GetAttribute("aria-busy"));
+        Assert.True(button.HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_capture_message_is_shown_as_a_status_alert()
+    {
+        using var context = new BunitContext();
+
+        var pane = context.Render<InboxPane>(parameters => parameters
+            .Add(p => p.Items, Array.Empty<InboxItem>())
+            .Add(p => p.CaptureMessage, "YouTube: no adapter is available yet. 0 new items."));
+
+        var result = pane.Find("[data-testid='inbox-pane-capture-result']");
+        Assert.Equal("status", result.GetAttribute("role"));
+        Assert.Contains("inbox-pane__capture-result", result.ClassList);
+        Assert.Contains("no adapter", result.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void No_message_renders_no_alert()
+    {
+        using var context = new BunitContext();
+
+        var pane = Render(context, Video);
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-pane-capture-result']"));
+    }
 }
