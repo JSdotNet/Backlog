@@ -141,7 +141,7 @@ this document is proven by a real run.
 | Container app | Scale-to-zero (`minReplicas: 0`), external ingress on 8080 |
 | Container registry | Basic, admin user off |
 | Key Vault | RBAC authorization, soft delete, purge protection off |
-| Log Analytics workspace | 30-day retention |
+| Log Analytics workspace | 30-day retention, 1 GB/day ingestion cap |
 | Application Insights | Workspace-based, ingesting into that workspace |
 
 The container registry is not in ADR 0005's resource list. It is there because `azd`
@@ -238,6 +238,33 @@ quietly answer wrongly, precisely when the system is busiest.
 
 OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather
 than design.
+
+### The daily ingestion cap
+
+The workspace carries a daily ingestion cap — `workspaceCapping.dailyQuotaGb`, from the
+`logDailyQuotaGb` parameter, default 1 GB. It is an emergency stop, not a budget knob.
+
+In September 2026 a sibling project (spec-manager) paid about $688 for one month of Log
+Analytics: 23 stale container revisions each logged a full stack trace every five seconds
+after a schema change, and nothing bounded the volume. Backlog cannot reach that state
+the same way — the container app runs in `Single` revision mode, so Azure retires the
+previous revision itself, and `minReplicas: 0` keeps no replica alive without traffic —
+but the workspace should still refuse to bill an incident without limit.
+
+Once the cap is reached Azure discards everything for the rest of the day, exceptions
+included. That is intended: on such a day the volume *is* the incident, and the first
+lines already say what went wrong. 1 GB is far above a normal day for a scale-to-zero
+personal tool and bounds a repeat of that incident at roughly $3/day. There is no alert
+on reaching it; Azure records the event in the `_LogOperation` table, and an Action
+Group plus alert rule can be added if a silent day ever turns out to matter.
+
+After a provision, confirm the cap is in place:
+
+```powershell
+az monitor log-analytics workspace show --name <workspace> --resource-group <group> --query workspaceCapping
+```
+
+`dailyQuotaGb` should read `1.0`; `-1.0` means no cap.
 
 ## Local development
 
@@ -351,7 +378,8 @@ az bicep build --file infra\sync\main.bicep --stdout
 
 Indicative, at single-user volume, per ADR 0005: Cosmos serverless a few cents per
 month, Container Apps nothing while scaled to zero, Key Vault and Log Analytics inside
-the free grants. Well under €5/month.
+the free grants. Well under €5/month. The daily ingestion cap bounds the one line that
+could run away: even a day of runaway logging costs about $3, not hundreds.
 
 The container registry is the one line item ADR 0005 did not budget for — Basic is a
 small fixed monthly charge rather than a consumption one, so it is the only thing here
