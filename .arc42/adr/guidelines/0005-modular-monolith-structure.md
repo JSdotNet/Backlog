@@ -74,9 +74,10 @@ stable contract, not before.
   web frontend calling module APIs; Backlog renders module screens in-process
   inside the MAUI hosts, so a module publishes Razor components alongside its
   contracts.
-- `Inbox` and `Knowledge` have `.UI` projects (and Knowledge an `.Abstractions`)
+- `Knowledge`, `DevPc` and `Sessions` have `.UI` and `.Abstractions` projects
   but no module implementation project yet — their logic still sits in the UI
-  layer. That is the shape local ADR 0002 corrected for the Tasks module and
-  has not yet corrected here.
+  layer. That is the shape local ADR 0002 corrected for the Tasks module, and
+  that `Inbox` left on 2026-09-15 when it gained `Backlog.Modules.Inbox` and
+  `Backlog.Modules.Inbox.Abstractions` (see local ADR 0009).
 - Only `Sync` has an `.Api` project. The other modules are in-process and need no
   HTTP host.

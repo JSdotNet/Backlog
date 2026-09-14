@@ -232,6 +232,19 @@ graph TB
 Local fetch workers keep external credentials on the machine, work offline (queuing
 fetches), and give the user full control over frequency and retry behavior.
 
+**Inbox Service** is `Backlog.Modules.Inbox` since 2026-09-15 — a module with its
+own `Abstractions` project and its own tables in `backlog.db` (`inbox_items`,
+`inbox_lists`, `inbox_groups`), no longer a projection over draft tasks. It holds
+the Inbox Item, List and Group aggregates and one feature slice per action
+(intake, manual capture, tags, repositories, filing, archive, route to backlog,
+create plan, and the list/group organiser). It reaches Tasks only through the
+`IInboxBacklogTarget` port, answered by `InboxBacklogTarget` in
+`Backlog.Infrastructure.FileSystem` over Tasks' published `ITaskItems` — the one
+place an inbox item becomes entry text — and reaches the AI plan drafter through
+`IInboxPlanDrafter`, answered in `Backlog.Infrastructure.AzureFoundry`. The
+`Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
+nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.
+
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and
 both web harnesses (registered separately so the two harnesses pair as two
 distinct devices). It holds the device's registration credential
@@ -240,7 +253,13 @@ exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
 within two minutes of expiry, never retrying a 401), attaches the token to
 outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
 themselves (`DevicePairingClient`). The Android head uses an in-memory
-credential store pending a `SecureStorage` adapter.
+credential store pending a `SecureStorage` adapter. On the desktop it also
+carries the capture path: `TaskReplicaMerge` hands every `capture`-kind replica
+document to the Inbox's `IInboxIntake` port before the task merge, and
+`TaskSyncSession` drains the Inbox's `IInboxCaptureOutbox` into the ordinary
+tasks push as tombstones. Both ports are optional constructor parameters, so a
+head without an inbox store — the phone — composes unchanged and leaves captures
+on the replica.
 
 ## Mobile App
 

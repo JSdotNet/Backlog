@@ -15,40 +15,60 @@ status: draft
 ```meta
 type: term
 status: draft
-aliases: [InboxItem]
+aliases: [InboxItem, InboxItemDto, inbox_items]
 related: [.domain/inbox/domain.md#inbox-item]
 ```
 
 A captured piece of input awaiting triage. Distinct from a `Capture`: the Inbox
 Item is created on intake and carries its own `received_at`, while the original
-`captured_at` from Capture is preserved.
+`captured_at` from Capture is preserved. An item that arrived through sync
+reuses the capture's id; `inbox_items` is its table in `backlog.db`.
 
 ## Capture Source
 
 ```meta
 type: term
 status: draft
-aliases: [CaptureSource, source]
+aliases: [CaptureSource, source, channel]
 related: [.domain/inbox/domain.md#capture-source]
 ```
 
 Same published enum as the Capture context's Capture Source
 (see `.domain/capture/naming.md#capture-source`); the Inbox conforms to it
-rather than defining its own value set.
+rather than defining its own value set. In code the value is the `channel`
+string on `InboxSource`, normalised by `InboxEnumMap.NormalizeChannel` (the
+editor extension's `vscode` files as `ide`).
+
+## Capture (manual)
+
+```meta
+type: term
+status: draft
+aliases: [CaptureItemCommand, manual, ManualChannel]
+related: [.domain/inbox/domain.md#capture-source, .domain/inbox/features.md#capture-by-hand]
+```
+
+A thought typed straight into the desktop's capture field. It becomes an
+`unprocessed` Inbox Item with channel `manual` and no replica behind it —
+`CaptureItemCommand` is the slice, `InboxEnumMap.ManualChannel` the token.
+Distinct from a `Capture` in the Capture context, which arrives from a device
+through sync.
 
 ## Content Kind
 
 ```meta
 type: term
 status: draft
-aliases: [InboxItemKind, CaptureKinds, kind]
+aliases: [ContentKind, CaptureKinds, kind, KindSlug]
 related: [.domain/inbox/domain.md#content-kind]
 ```
 
 What a captured thing *is* — text, article, link, youtube, image, document,
 email, code, voice, claude-artifact — as opposed to `Capture Source`, which is
 how it arrived. The shared component library spells the same values as slugs
-(`CaptureKinds`); the Inbox's enum maps onto them.
+(`CaptureKinds`); the Inbox's `ContentKind` enum maps onto them and an item
+keeps the raw slug (`KindSlug`) so a kind this build does not know is shown as
+its own word.
 
 ## Source
 
@@ -63,45 +83,71 @@ The channel an item arrived through plus, optionally, the person who shared it
 as a stored `@name` tag. The person is provenance, not a tag: it never appears in
 an item's `Tag` set.
 
-## PARA Lean
+## List
 
 ```meta
 type: term
 status: draft
-aliases: [ParaCategory, Para, drawer]
-related: [.domain/inbox/domain.md#para-lean]
+aliases: [InboxList, InboxListDto, list_id, inbox_lists]
+related: [.domain/inbox/domain.md#inbox-list]
 ```
 
-The PARA drawer an unprocessed item is read under before triage routes it. The
-same four values as Second Brain's `PARA Category`
-(see `.domain/second-brain/naming.md`), restated because Inbox is upstream;
-"drawer" is the reader's word for one of them on screen, and "unsorted" is the
-absence of a lean.
+A named place a reader files waiting items, shown as a leaf in the pane's side
+menu with a count of the open items it holds. The fixed **Inbox** entry above
+the lists is not a list: it is the items whose `list_id` is empty.
+
+## Group
+
+```meta
+type: term
+status: draft
+aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
+related: [.domain/inbox/domain.md#inbox-group]
+```
+
+A fold in the side menu that holds lists. Membership lives on the list
+(`group_id`); ungrouping moves the lists to the top level and removes the
+group.
 
 ## Triage
 
 ```meta
 type: term
 status: draft
-aliases: [Triage]
+aliases: [Triage, RouteToBacklogCommand, CreatePlanCommand, ArchiveItemCommand]
 related: [.domain/inbox/domain.md#triage]
 ```
 
 The act of deciding an item's outcome (route, defer, or archive). A routed item
 keeps the stored status `triaged`; `Routed` is a workflow outcome, not a stored
-value (see `flow.md`).
+value (see `flow.md`). On the desktop the two routing doors are
+`RouteToBacklogCommand` and `CreatePlanCommand`.
+
+## Plan tag
+
+```meta
+type: term
+status: draft
+aliases: [PlanTag, import_plan_id]
+related: [.domain/inbox/domain.md#triage, .arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+```
+
+The `#tag` every entry of a plan drafted from an item shares, which Tasks reads
+as the plan's identity (`import_plan_id`). Shaped `{title-slug}-{last eight hex
+digits of the item id}`, at most forty characters, so it is unique per item and
+a legal tag on the metadata line.
 
 ## Routing Target
 
 ```meta
 type: term
 status: draft
-aliases: [RoutingTarget]
+aliases: [RoutingTarget, InboxRoutingDto]
 related: [.domain/inbox/domain.md#routing-target]
 ```
 
-The recorded destination (domain, optional `repo_id`) an item was routed to;
-the Inbox never embeds the target aggregate itself.
+The recorded destination (domain, `repo_ids`, `task_ids`, `routed_at`) an item
+was routed to; the Inbox never embeds the target aggregate itself.
 
 ## Inbox Status
 

@@ -19,8 +19,9 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   workspace root, with a task's content held as markdown text, and the roadmap plan
   is one document row in that same database; JSON files hold the workspace settings
   and feature flags, which are per-device and deliberately not shared. Markdown is
-  the content of a task, not the storage format. One database file, two tables with
-  an owner each — Tasks and Roadmap Planning share the file and not the schema. See
+  the content of a task, not the storage format. One database file, three owners —
+  Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`,
+  `inbox_lists`, `inbox_groups`) share the file and not the schema. See
   `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
 - **Knowledge is the other way round** — a repository's knowledge folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
@@ -32,8 +33,14 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   workspace, repo, and project levels; shared tags/relationships live in the
   workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
 - **Optional cloud sync** for multi-device, carrying three kinds of state: the
-  Task aggregate, session records, and the phone's captures. A capture is a task
-  in the making, so it travels as a task document rather than as a third shape.
+  Task aggregate, session records, and the phone's captures. A capture travels as
+  a task-shaped document in the same `tasks` container rather than as a third
+  shape, but it carries its own kind token (`type: "capture"`): on the desktop it
+  is handed to the Inbox's intake before the task merge and becomes an inbox item
+  with the capture's own id, never a task row, and the desktop acknowledges it by
+  pushing a tombstone of that document from an outbox
+  (`.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). Lists and
+  groups the Inbox organises items into stay on the machine.
   Conflict resolution for tasks: **new items always create; edits are
   last-write-wins**. Session records do not reconcile at all — only the machine
   that ran a session writes records for it, so there is never a second version to
@@ -104,8 +111,11 @@ appears.
 Tasks are one of three kinds of state that sync. Session records travel on
 different terms, covered under
 `.arc42/08-crosscutting-concepts.md#session-record-sync`; the phone's
-captures are not a third shape at all, because a capture becomes a task document
-in the same `tasks` container the moment it is pushed. What stays on the machine
+captures are not a third shape at all, because a capture is written as a
+task-shaped document in the same `tasks` container the moment it is pushed —
+distinguished by its `capture` kind token, which routes it to the desktop's Inbox
+intake instead of the task table
+(`.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). What stays on the machine
 — agent transcripts, workspace settings, feature flags, and the derived
 knowledge layer — is listed under
 `.arc42/08-crosscutting-concepts.md#storage-and-sync`.
