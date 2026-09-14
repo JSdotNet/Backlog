@@ -611,7 +611,44 @@
                             <span class="task-item__glyph" aria-hidden="true">@detail.Glyph</span>
                             <span class="sr-only">@detail.Name</span>
                         }
-                        <span>@detail.Text</span>
+                        @if (detail.Kind is TaskDetailKind.Blocked && Status is not null)
+                        {
+                            @* The one detail whose words lead somewhere. Each
+                               name the list resolved is drawn as the control that
+                               goes there, and the rest — an id nobody here answers
+                               to — stays the words it was. Separated exactly as
+                               the joined text was, so the line still reads
+                               "Waiting for Review the draft, sign-off". *@
+                            <span>
+                                @for (var i = 0; i < Status.Waiting.Count; i++)
+                                {
+                                    var dependency = Status.Waiting[i];
+
+                                    if (i > 0)
+                                    {
+                                        <text>, </text>
+                                    }
+
+                                    if (CanFollow(dependency))
+                                    {
+                                        <button type="button"
+                                                class="task-item__dependency"
+                                                aria-label="@($"Go to {dependency.Label}")"
+                                                data-testid="@Suffix($"waiting-{i}")"
+                                                @onclick="() => OnDependencySelected.InvokeAsync(dependency.Id)"
+                                                @onclick:stopPropagation="true">@dependency.Label</button>
+                                    }
+                                    else
+                                    {
+                                        <span>@dependency.Label</span>
+                                    }
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <span>@detail.Text</span>
+                        }
                     </span>
                 }
 
@@ -790,11 +827,46 @@
     [Parameter]
     public EventCallback<string> OnTagSelected { get; set; }
 
+    /// <summary>
+    /// Raised when a reader presses one of the names on the "waiting for" line:
+    /// the id of the step they want to get to.
+    /// <para>
+    /// The list wires this, not a host, because the list is the only thing that
+    /// knows where that step's row is — row element ids are minted from a
+    /// list-private prefix — and what to do when it is not drawn at all. Left
+    /// unset, the names stay words, on the same terms as every other control on
+    /// the row: nothing is offered that would do nothing.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnDependencySelected { get; set; }
+
     /// <summary>Whether the metadata line is drawn beside the row's button rather
-    /// than inside it. True exactly when there are tags and they are controls —
-    /// nothing else needs the line moved, and a row with no tags keeps the layout
-    /// every other list has.</summary>
-    private bool MetaOutside => OnTagSelected.HasDelegate && Task.TagList.Count > 0;
+    /// than inside it. True exactly when something on it is a control — tags a
+    /// host listens for, or a dependency the list can take the reader to. Nothing
+    /// else needs the line moved, and a row with neither keeps the layout every
+    /// other list has.</summary>
+    private bool MetaOutside =>
+        (OnTagSelected.HasDelegate && Task.TagList.Count > 0)
+        || (Status is not null && Status.Waiting.Any(CanFollow));
+
+    /// <summary>
+    /// Whether pressing this name would take the reader anywhere.
+    /// <para>
+    /// Three things have to be true. Somebody is listening — the list. The id
+    /// resolved to a row, since a link to nothing is worse than no link and the
+    /// verbatim id is the honest thing to show instead
+    /// (<c>interaction-guidelines.md#task-rows</c>). And there is somewhere to
+    /// go: the row is drawn in this list, so the focus can be moved to it, or a
+    /// host opens rows, so a step the list hides can still be reached by opening
+    /// it. Known to the universe alone, with nobody to open it, is a name the
+    /// reader can read and nothing more.
+    /// </para>
+    /// </summary>
+    private bool CanFollow(TaskDependency dependency) =>
+        OnDependencySelected.HasDelegate
+        && dependency.Known
+        && (dependency.InList || OnSelected.HasDelegate);
 
     /// <summary>Raised when a rename settles. Without it the row offers no way
     /// in — a pencil that opened a field nobody would save is worse than none.</summary>
@@ -1283,7 +1355,9 @@
             var details = new List<TaskDetail>();
 
             // Named, not counted. "Waiting on 2" tells the reader they are stuck
-            // without telling them what to go and do about it.
+            // without telling them what to go and do about it. The joined text is
+            // what the detail *says*; RenderMeta draws this one kind name by name
+            // so the ones that lead somewhere can be pressed.
             if (Status.Waiting.Count > 0)
             {
                 details.Add(new TaskDetail(

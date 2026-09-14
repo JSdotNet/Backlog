@@ -414,6 +414,27 @@ public sealed class TaskListTests
         Assert.DoesNotContain("px", line, StringComparison.Ordinal);
     }
 
+    /// <summary>A name on the "waiting for" line that can be followed says so at
+    /// rest, and says it with more than colour: the link ink and a dotted
+    /// underline, which is the pair inline links wear everywhere else. It is one
+    /// of the words in the sentence, so it wears no box of its own.</summary>
+    [Fact]
+    public void A_dependency_that_can_be_followed_is_marked_at_rest_and_not_by_colour_alone()
+    {
+        var css = File.ReadAllText(ComponentsCss());
+
+        var link = Rule(css, ".task-item__dependency {");
+
+        Assert.Contains("color: var(--color-text-link);", link, StringComparison.Ordinal);
+        Assert.Contains("text-decoration: underline dotted;", link, StringComparison.Ordinal);
+        Assert.Contains("font: inherit;", link, StringComparison.Ordinal);
+        Assert.Contains("padding: 0;", link, StringComparison.Ordinal);
+        Assert.Contains("border: none;", link, StringComparison.Ordinal);
+
+        var focus = Rule(css, ".task-item__dependency:focus-visible {");
+        Assert.Contains("outline: var(--border-width-2) solid var(--color-border-focus);", focus, StringComparison.Ordinal);
+    }
+
     private static string ComponentsCss()
     {
         var at = new DirectoryInfo(AppContext.BaseDirectory);
