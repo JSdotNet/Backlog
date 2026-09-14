@@ -76,9 +76,11 @@ public enum AppFeatureGroup
 /// second thing to keep in step.
 /// </para>
 /// <para>
-/// <paramref name="FormerKeys"/> is for the one case the rule "a key never
+/// <paramref name="FormerKeys"/> is for the two cases the rule "a key never
 /// changes" cannot cover: a feature that has genuinely become a different
-/// feature, such as three switches folding into one. The key is a persisted
+/// feature, such as three switches folding into one, and a context rename,
+/// where the key carried the context's old name and keeping it would have the
+/// settings file contradict every other name in the product. The key is a persisted
 /// value — it sits in the reader's settings file as a member of the enabled
 /// or disabled set — so a rename on its own would silently undo whatever
 /// they had chosen. Naming the former keys here lets the store read a choice

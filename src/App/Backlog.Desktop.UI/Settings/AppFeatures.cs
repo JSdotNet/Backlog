@@ -75,12 +75,22 @@ public static class AppFeatures
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell.", Status: AppFeatureStatus.Dev),
-        new(DevbookFeatures.DevbookSections, "Devbook sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
-        new(DevbookFeatures.RepositoryDevbook, "Repository knowledge", "Show the side pane for repository knowledge."),
+        // The four devbook keys carried the context's former name; the former keys
+        // keep a features.json written before the rename reading as it did.
+        new(
+            DevbookFeatures.DevbookSections,
+            "Devbook sections",
+            "Show design, architecture, domain, technology, and instruction sections in the Devbook pane and header.",
+            FormerKeys: ["knowledge-sections"]),
+        new(
+            DevbookFeatures.RepositoryDevbook,
+            "Devbook",
+            "Show the Devbook side pane for the selected repository.",
+            FormerKeys: ["repository-knowledge"]),
         new(
             DevbookFeatures.ArchifyDiagrams,
             "Archify diagrams",
-            "Draw a knowledge chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
+            "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
@@ -92,15 +102,17 @@ public static class AppFeatures
         new(
             DevbookFeatures.Search,
             "Devbook search",
-            "Find the chapter that answers a question across every knowledge area at once. Results name the chapter they came from, so you can open it. A repository whose knowledge index has not been generated says so instead of showing an empty list.",
+            "Find the chapter that answers a question across every devbook area at once. Results name the chapter they came from, so you can open it. A repository whose devbook database has not been generated says so instead of showing an empty list.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            Status: AppFeatureStatus.Dev,
+            FormerKeys: ["knowledge-search"]),
         new(
             DevbookFeatures.SemanticSearch,
             "Devbook search by meaning",
-            "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a knowledge index built with an embedding model; without one, searching by words still answers.",
+            "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a devbook database built with an embedding model; without one, searching by words still answers.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            Status: AppFeatureStatus.Dev,
+            FormerKeys: ["knowledge-semantic-search"]),
         new(
             DevPcFeatures.SystemTools,
             "System tools",
@@ -124,7 +136,7 @@ public static class AppFeatures
         new(
             TasksFeatures.AdditionalRepositories,
             "Additional repositories",
-            "Configure multiple repositories and switch repository-specific knowledge.",
+            "Configure multiple repositories and switch between their devbooks.",
             Group: AppFeatureGroup.CrossCutting),
         new(
             TasksFeatures.GitHubIntegration,

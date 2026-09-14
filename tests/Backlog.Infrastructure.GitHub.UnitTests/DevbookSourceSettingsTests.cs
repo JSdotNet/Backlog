@@ -218,6 +218,104 @@ public class DevbookSourceSettingsTests : IDisposable
         Assert.NotNull(store.SetDevbookSource("nothing", "main", useLocalFolder: false));
     }
 
+    // --- Files written before the context was renamed -------------------------
+
+    /// <summary>
+    /// The JSON keys are the C# property names, so renaming the context renamed
+    /// the keys, and a per-user file written under the old names must still read
+    /// as the choices it recorded. The old names are read once and dropped: after
+    /// the next save the file carries only the current names.
+    /// </summary>
+    [Fact]
+    public void A_local_file_written_under_the_knowledge_names_reads_as_the_same_choices_and_is_rewritten()
+    {
+        WriteRegistryFile("""
+            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog" } ] }
+            """);
+        WriteLocalFile("""
+            {
+              "repositories": [
+                {
+                  "id": "JSdotNet/Backlog",
+                  "useLocalKnowledgeFolder": false,
+                  "knowledgeFolders": [ { "key": ".design", "enabled": false, "path": null } ]
+                }
+              ]
+            }
+            """);
+
+        var store = Store();
+        var repository = store.Current.Find("backlog");
+
+        Assert.NotNull(repository);
+        Assert.False(repository.UseLocalDevbookFolder);
+        Assert.False(repository.DevbookFolders.Single(f => f.Key == ".design").Enabled);
+
+        Assert.Null(store.SetShowRepositoryColours(true));
+
+        var local = File.ReadAllText(LocalPath());
+        Assert.Contains("\"useLocalDevbookFolder\": false", local, StringComparison.Ordinal);
+        Assert.Contains("\"devbookFolders\"", local, StringComparison.Ordinal);
+        Assert.DoesNotContain("useLocalKnowledgeFolder", local, StringComparison.Ordinal);
+        Assert.DoesNotContain("knowledgeFolders", local, StringComparison.Ordinal);
+    }
+
+    /// <summary>The registry is the synced half, so it is the file most likely to
+    /// have been written by an install that still used the old name.</summary>
+    [Fact]
+    public void A_registry_written_under_the_knowledge_name_reads_its_branch_and_is_rewritten()
+    {
+        WriteRegistryFile("""
+            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog", "knowledgeBranch": "release/2.0" } ] }
+            """);
+
+        var store = Store();
+        Assert.Equal("release/2.0", store.Current.Find("backlog")!.DevbookBranch);
+
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+
+        var registry = File.ReadAllText(store.RegistryPath);
+        Assert.Contains("\"devbookBranch\": \"release/2.0\"", registry, StringComparison.Ordinal);
+        Assert.DoesNotContain("knowledgeBranch", registry, StringComparison.Ordinal);
+    }
+
+    /// <summary>A row carrying both names — one install wrote it before the rename
+    /// and another after — keeps the newer answer.</summary>
+    [Fact]
+    public void A_row_carrying_both_names_prefers_the_current_one()
+    {
+        WriteRegistryFile("""
+            { "repositories": [ { "id": "JSdotNet/Backlog", "alias": "backlog", "knowledgeBranch": "old", "devbookBranch": "new" } ] }
+            """);
+        WriteLocalFile("""
+            {
+              "repositories": [
+                { "id": "JSdotNet/Backlog", "useLocalKnowledgeFolder": true, "useLocalDevbookFolder": false }
+              ]
+            }
+            """);
+
+        var repository = Store().Current.Find("backlog");
+
+        Assert.NotNull(repository);
+        Assert.Equal("new", repository.DevbookBranch);
+        Assert.False(repository.UseLocalDevbookFolder);
+    }
+
+    private void WriteLocalFile(string json)
+    {
+        var path = LocalPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
+    }
+
+    private void WriteRegistryFile(string json)
+    {
+        var path = Path.Combine(WorkspaceRoot, "config", "repos.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
+    }
+
     public void Dispose()
     {
         try

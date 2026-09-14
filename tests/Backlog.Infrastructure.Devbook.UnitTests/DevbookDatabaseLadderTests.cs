@@ -207,5 +207,49 @@ public class DevbookDatabaseLadderTests
         Assert.Contains(DevbookRetrieval.BuildCommand, message, StringComparison.Ordinal);
     }
 
+    // --- The file name from before the rename ---------------------------------
+
+    /// <summary>
+    /// The database was <c>_meta/knowledge.db</c> while the context was called
+    /// Knowledge. An index built before the rename is still a current index, so a
+    /// root holding only the old file resolves to it and reads from it until the
+    /// generator writes the new name.
+    /// </summary>
+    [Fact]
+    public void A_root_with_only_the_old_database_name_resolves_and_reads_it()
+    {
+        using var temporary = new TemporaryDatabase(DevbookDatabaseLocation.LegacyFileName);
+        DevbookCorpus.Seed(temporary.DatabaseFile);
+
+        Assert.Equal(temporary.DatabaseFile, DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory));
+
+        using var database = DevbookDatabase.TryOpenForFolder(temporary.Folder(".domain"));
+        Assert.NotNull(database);
+        Assert.Equal(DevbookCorpus.ChapterText, Assert.Single(database.Chapters(DevbookCorpus.ChapterPath)).Text);
+    }
+
+    [Fact]
+    public void A_root_with_both_database_names_resolves_the_current_one()
+    {
+        using var temporary = new TemporaryDatabase();
+        File.WriteAllText(temporary.DatabaseFile, string.Empty);
+        File.WriteAllText(Path.Combine(temporary.RootDirectory, "_meta", DevbookDatabaseLocation.LegacyFileName), string.Empty);
+
+        Assert.Equal(temporary.DatabaseFile, DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory));
+    }
+
+    /// <summary>"Absent" resolves to the current name, so a caller's existence check
+    /// and the generator's target agree on where the file is going to be.</summary>
+    [Fact]
+    public void A_root_with_neither_database_name_resolves_to_the_current_one()
+    {
+        using var temporary = new TemporaryDatabase();
+
+        var resolved = DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory);
+
+        Assert.Equal(temporary.DatabaseFile, resolved);
+        Assert.EndsWith(DevbookDatabaseLocation.FileName, resolved, StringComparison.Ordinal);
+    }
+
     private static string FileFor(TemporaryDatabase temporary) => temporary.Resolve(DevbookCorpus.ChapterPath);
 }

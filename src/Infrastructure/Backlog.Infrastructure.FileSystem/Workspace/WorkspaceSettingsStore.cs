@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Devbook.Abstractions;
@@ -94,11 +95,14 @@ public sealed class WorkspaceSettingsStore
         var settings = ReadSettings();
         RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
         RootRepository = settings?.RootRepository?.ToRepository();
+        // The legacy names are consulted only when the current one is absent, so a
+        // file written before the context was renamed reads as the same choices
+        // and the next save carries them under the current names only.
         DevbookFolders = DevbookFolderSetting.Normalize(
-            settings?.DevbookFolders?.Select(folder => folder.ToSetting()).OfType<DevbookFolderSetting>() ?? []);
+            (settings?.DevbookFolders ?? settings?.KnowledgeFolders)?.Select(folder => folder.ToSetting()).OfType<DevbookFolderSetting>() ?? []);
 
-        DefaultDevbookCacheDirectory = Path.Combine(appData, DevbookCacheFolderName);
-        DevbookCacheDirectory = Clean(settings?.DevbookCacheDirectory) ?? DefaultDevbookCacheDirectory;
+        DefaultDevbookCacheDirectory = ResolveDefaultDevbookCacheDirectory(appData);
+        DevbookCacheDirectory = Clean(settings?.DevbookCacheDirectory) ?? Clean(settings?.KnowledgeCacheDirectory) ?? DefaultDevbookCacheDirectory;
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
@@ -233,6 +237,12 @@ public sealed class WorkspaceSettingsStore
     public string SessionActivityCacheDirectory { get; }
 
     private const string DevbookCacheFolderName = "devbook-cache";
+
+    /// <summary>The name the default cache folder had while the context was
+    /// called Knowledge. Still honoured as the default on a machine that has it
+    /// and no <see cref="DevbookCacheFolderName"/> beside it — see
+    /// <see cref="ResolveDefaultDevbookCacheDirectory"/>.</summary>
+    private const string LegacyDevbookCacheFolderName = "knowledge-cache";
 
     private const string ActivityCacheFolderName = "activity-cache";
 
@@ -454,6 +464,30 @@ public sealed class WorkspaceSettingsStore
         return error;
     }
 
+    /// <summary>
+    /// The folder branch snapshots go to when nobody has chosen one.
+    /// <para>
+    /// <c>devbook-cache</c>, except on a machine that already has a
+    /// <c>knowledge-cache</c> from before the rename and no <c>devbook-cache</c>
+    /// beside it — there the old folder stays the default. The snapshots inside
+    /// it are disposable, so nothing would be lost by starting a fresh folder;
+    /// what would be lost is the fetch that filled it, and a rename is not a
+    /// reason to re-download every registered repository's tree. Keeping the
+    /// old folder as the default also keeps
+    /// <see cref="IsDefaultDevbookCacheDirectory"/> true, so the settings screen
+    /// still shows the field empty rather than a path nobody typed. Once the old
+    /// folder is gone the new name takes over for good.
+    /// </para>
+    /// </summary>
+    private static string ResolveDefaultDevbookCacheDirectory(string appData)
+    {
+        var current = Path.Combine(appData, DevbookCacheFolderName);
+        if (Directory.Exists(current)) return current;
+
+        var legacy = Path.Combine(appData, LegacyDevbookCacheFolderName);
+        return Directory.Exists(legacy) ? legacy : current;
+    }
+
     private string? SaveSettings(string saveFailureMessage)
     {
         try
@@ -519,6 +553,17 @@ public sealed class WorkspaceSettingsStore
         /// folder beside this file. Absent reads as the default, which is what
         /// every settings file written before branch loading existed says.</summary>
         public string? DevbookCacheDirectory { get; init; }
+
+        /// <summary>FROZEN LEGACY FIELDS: the names <see cref="DevbookFolders"/>
+        /// and <see cref="DevbookCacheDirectory"/> were written under while the
+        /// context was called Knowledge. Read when the current name is absent,
+        /// never assigned on save, and omitted when null so the file written back
+        /// carries only the current names.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<StoreDevbookFolderSettings>? KnowledgeFolders { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? KnowledgeCacheDirectory { get; init; }
     }
 
     private sealed record StoreDevbookFolderSettings

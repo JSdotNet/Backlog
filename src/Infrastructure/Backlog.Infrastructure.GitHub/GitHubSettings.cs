@@ -1234,14 +1234,16 @@ public sealed class GitHubSettingsStore
 
                         // Machine-local, and absent stays absent rather than
                         // becoming false. Null is what lets DevbookSource read an
-                        // upgraded install as "the clone it always used".
-                        UseLocalDevbookFolder = overlay?.UseLocalDevbookFolder,
+                        // upgraded install as "the clone it always used". The
+                        // legacy name is consulted only when the current one is
+                        // absent, so a row carrying both keeps the newer answer.
+                        UseLocalDevbookFolder = overlay?.UseLocalDevbookFolder ?? overlay?.UseLocalKnowledgeFolder,
 
                         // A repository with no overlay row starts from the defaults,
                         // which is exactly where a repository registered on another
                         // install has to start.
                         DevbookFolders = DevbookFolderSetting.Normalize(
-                            (overlay?.DevbookFolders ?? []).Select(f => new DevbookFolderSetting(
+                            (overlay?.DevbookFolders ?? overlay?.KnowledgeFolders ?? []).Select(f => new DevbookFolderSetting(
                                 string.IsNullOrWhiteSpace(f.Key) ? string.Empty : f.Key!,
                                 string.Empty,
                                 string.Empty)
@@ -1571,7 +1573,7 @@ public sealed class GitHubSettingsStore
         string? DevbookBranch = null)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
-            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch);
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch);
 
         /// <summary>
         /// A stored row read as an identity, or null when its <c>id</c> is not a
@@ -1645,12 +1647,22 @@ public sealed class GitHubSettingsStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Account { get; set; }
 
-        /// <summary>The branch this repository's knowledge is read from. Omitted
+        /// <summary>The branch this repository's devbook is read from. Omitted
         /// when null, for the reason <see cref="Account"/> is: a workspace where
         /// nobody has picked a branch writes the file it always wrote, and absent
         /// reads as the repository's own default branch.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? DevbookBranch { get; set; }
+
+        /// <summary>FROZEN LEGACY FIELD: the name <see cref="DevbookBranch"/> was
+        /// written under while the context was still called Knowledge. Read so a
+        /// registry another install wrote before the rename keeps its branch, and
+        /// never written again — the next write carries the value under the
+        /// current name only. The registry is the synced half, so an install still
+        /// on the old build reads a re-saved file as "no branch chosen" until it is
+        /// upgraded; accepted, because it regains the value on its next save.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? KnowledgeBranch { get; set; }
     }
 
     private sealed class SettingsDto
@@ -1684,16 +1696,28 @@ public sealed class GitHubSettingsStore
     /// local file that also stated it would be a second answer to the one question
     /// the split exists to give one answer to.
     /// </para>
+    /// <para>
+    /// <see cref="KnowledgeFolders"/> and <see cref="UseLocalKnowledgeFolder"/>
+    /// are frozen for a different reason: they are the names
+    /// <see cref="DevbookFolders"/> and <see cref="UseLocalDevbookFolder"/> were
+    /// written under before the context was renamed. Same treatment — read when
+    /// the current name is absent, migrated onto the row, never emitted again.
+    /// </para>
     /// </summary>
     private sealed class RepositoryDto
     {
         public string? Id { get; set; }
         public string? CloneDirectory { get; set; }
         public string? Token { get; set; }
-        public List<DevbookFolderDto> DevbookFolders { get; set; } = [];
+
+        /// <summary>Nullable so that "absent" is distinguishable from "empty":
+        /// absent is what lets a file written under the old name fall through to
+        /// <see cref="KnowledgeFolders"/>. Every write sets it, so the file never
+        /// carries a null.</summary>
+        public List<DevbookFolderDto>? DevbookFolders { get; set; }
 
         /// <summary>
-        /// Whether knowledge is read out of <see cref="CloneDirectory"/> rather
+        /// Whether the devbook is read out of <see cref="CloneDirectory"/> rather
         /// than out of a branch snapshot. Machine-local, because it is only
         /// answerable where the clone is.
         /// <para>
@@ -1708,6 +1732,15 @@ public sealed class GitHubSettingsStore
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? UseLocalDevbookFolder { get; set; }
+
+        // FROZEN LEGACY FIELDS: the pre-rename names of the two properties above.
+        // Read only when the current name is absent; never assigned on a write, so
+        // the next save carries the value under the current name and drops these.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<DevbookFolderDto>? KnowledgeFolders { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? UseLocalKnowledgeFolder { get; set; }
 
         // Omitted when null rather than written as null, which is what makes the
         // reduced write actually reduced: a `"alias": null` in the file would

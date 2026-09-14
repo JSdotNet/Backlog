@@ -27,11 +27,32 @@ public static class DevbookDatabaseLocation
     /// <summary>The database's file name.</summary>
     public const string FileName = "devbook.db";
 
-    /// <summary>The database inside a repository root, whether or not it exists.</summary>
-    public static string? ForRepositoryRoot(string? repositoryRoot) =>
-        string.IsNullOrWhiteSpace(repositoryRoot)
-            ? null
-            : Path.Combine(repositoryRoot, MetaDirectory, FileName);
+    /// <summary>The file name the database had while the context was called
+    /// Knowledge. Read, never written: <c>build-database.mjs</c> writes only
+    /// <see cref="FileName"/>, so the old file is served until the next build
+    /// replaces it and is ignored from then on.</summary>
+    public const string LegacyFileName = "knowledge.db";
+
+    /// <summary>
+    /// The database inside a repository root, whether or not it exists.
+    /// <para>
+    /// <c>_meta/devbook.db</c> when it exists; else <c>_meta/knowledge.db</c> when
+    /// that exists, so an index built before the rename keeps serving until the
+    /// generator runs again; else the <c>devbook.db</c> path regardless — "absent"
+    /// still resolves to the current name, so every caller's "does it exist" check
+    /// behaves as it always did and nothing ever writes under the old one.
+    /// </para>
+    /// </summary>
+    public static string? ForRepositoryRoot(string? repositoryRoot)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryRoot)) return null;
+
+        var current = Path.Combine(repositoryRoot, MetaDirectory, FileName);
+        if (File.Exists(current)) return current;
+
+        var legacy = Path.Combine(repositoryRoot, MetaDirectory, LegacyFileName);
+        return File.Exists(legacy) ? legacy : current;
+    }
 
     /// <summary>
     /// The database for the repository a knowledge folder belongs to, found by
