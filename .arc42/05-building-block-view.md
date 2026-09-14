@@ -239,8 +239,10 @@ distinct devices). It holds the device's registration credential
 exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
 within two minutes of expiry, never retrying a 401), attaches the token to
 outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
-themselves (`DevicePairingClient`). The Android head uses an in-memory
-credential store pending a `SecureStorage` adapter.
+themselves (`DevicePairingClient`). The Android head keeps the same credential
+in MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) through
+`SecureValueDeviceCredentialStore`, the platform-neutral half of that adapter,
+so a force-stop does not un-pair the phone; the in-memory store is for tests.
 
 ## Mobile App
 
