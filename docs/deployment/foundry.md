@@ -244,14 +244,15 @@ no build or test catches it.
 ## Run locally
 
 `build/Deploy-Azure.ps1` does all of this in one command, against the same template and
-parameter file the workflow uses, with the same validate/what-if/deploy modes:
+parameter file the workflow uses, with the same validate/what-if/deploy modes. Its default
+component is `all`, so pass `-Component foundry` to leave the sync tier alone:
 
 ```powershell
-./build/Deploy-Azure.ps1 -Mode what-if
+./build/Deploy-Azure.ps1 -Component foundry -Mode what-if
 ```
 
 ```powershell
-./build/Deploy-Azure.ps1 -Mode deploy
+./build/Deploy-Azure.ps1 -Component foundry -Mode deploy
 ```
 
 After a deploy it prints the endpoint and deployment name for the desktop AI settings, and

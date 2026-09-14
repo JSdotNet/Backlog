@@ -90,6 +90,13 @@ fails and names the missing one rather than letting `azd` fail halfway.
 | `AZURE_RESOURCE_GROUP` | The group created in step 1 |
 | `AZURE_LOCATION` | Azure region, e.g. `swedencentral` |
 
+One optional variable: `AZURE_COSMOS_LOCATION` places the Cosmos account in a different
+region from everything else. It defaults to `swedencentral`, next to the Foundry account,
+because West Europe and North Europe both refuse to create new Cosmos accounts for this
+subscription ("high demand in <region>", `ServiceUnavailable`, zone redundancy off or not —
+verified 2026-09-14; the error points at a region-access request, `aka.ms/cosmosdbquota`).
+Set it to `westeurope` once that request is granted.
+
 ### 4. Set a budget alert
 
 ADR 0005 puts the expected cost well under €5/month, and the point of a budget alert
@@ -297,14 +304,21 @@ change before it changes it.
 
 ## Run locally
 
-`build/Deploy-Azure.ps1` wraps this, once the four prerequisites above are done:
+`build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so only
+prerequisite 1 applies — and the script's default `-SyncResourceGroup` is `JS-AI`, the
+group Foundry already lives in, so on the Sponsorship subscription nothing needs creating.
+Its default component is `all`; pass `-Component sync` to deploy the sync tier alone:
 
 ```powershell
-./build/Deploy-Azure.ps1 -Component sync -Mode deploy -SyncResourceGroup <resource-group>
+./build/Deploy-Azure.ps1 -Component sync -Mode deploy
 ```
 
 It selects the azd environment rather than recreating it, so it is safe to re-run. The steps
 below are what it does.
+
+Sharing the group with Foundry has one hazard: **never run `azd down`** on the
+`backlog-sync` environment. With `AZURE_RESOURCE_GROUP` set, `azd down` deletes that
+resource group — the Foundry account with it. Remove the sync resources by hand instead.
 
 Install the Azure Developer CLI (it is a separate download from the Azure CLI):
 
@@ -323,7 +337,7 @@ azd env new backlog-sync --subscription <subscription-id> --location <region>
 ```
 
 ```powershell
-azd env set AZURE_RESOURCE_GROUP <resource-group>
+azd env set AZURE_RESOURCE_GROUP JS-AI
 ```
 
 Preview, then apply:
