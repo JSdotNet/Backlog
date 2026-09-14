@@ -619,7 +619,7 @@ state for free, so no separate "Reset to default" button is needed.
 
 It is also the safer choice against the architecture tests. A hand-rolled radiogroup is
 *invisible* to `SharedControlAdoptionTests` — its container classes are app-owned, which
-is the documented blind spot at `ui-components.instructions.md:88-95` — so it would pass
+is the documented blind spot at `.agents/rules/ui-components.md:92-99` — so it would pass
 the build while being exactly the "is the library already drawing this shape?" review
 failure the instruction names. `SelectField` is the library drawing this shape.
 
