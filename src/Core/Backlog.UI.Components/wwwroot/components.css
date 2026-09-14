@@ -5365,6 +5365,18 @@ body.is-resizing-pane {
     background: var(--color-error);
 }
 
+/* The third tone the pair above did without: an answer that is neither the
+   filed issue nor a fault. A clipboard holding text is the normal state of a
+   clipboard, and painting that red says something broke. `color-info` is the
+   token declared for exactly this — "informational notices, neutral
+   announcement surfaces" — and it is a surface here under the same primary ink
+   the two above carry, which is what the token block says every semantic colour
+   is for. F8F9FA on 0A2C31 measures 14.1:1. */
+.feedback-status--info {
+    color: var(--color-text-primary);
+    background: var(--color-info);
+}
+
 /* The way back to the issue the report became, inside the line that says it
    exists. The ink is the line's own: the status surface is already painted a
    semantic tone, and a link colour of its own on top of that is a pair the

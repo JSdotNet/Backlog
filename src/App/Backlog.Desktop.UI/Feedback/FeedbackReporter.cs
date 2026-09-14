@@ -36,6 +36,11 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
     /// repository first — GitHub's markdown sanitizer strips a screenshot
     /// embedded as a <c>data:</c> URL straight in the issue body, so the only
     /// way to make it actually render is to link a real hosted file.</summary>
+    /// <param name="screenshotError">Why no screenshot is attached, as a whole
+    /// sentence. The caller writes it, not this class: only the caller knows
+    /// which origin failed, and a capture, a clipboard read and an upload are
+    /// three different sentences. Anything passed here reaches the issue body
+    /// verbatim.</param>
     public async Task<GitHubIssueLink> ReportAsync(
         string title,
         string? details,
@@ -95,13 +100,23 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
     {
         if (screenshot is null || string.IsNullOrWhiteSpace(screenshotUrl))
         {
+            // The failure is printed in the words it was reported in. The sentence
+            // used to be written here — "Screenshot capture failed:" in front of
+            // whatever arrived — which was true for as long as a screen capture
+            // was the only way an image reached a report. It stopped being true
+            // twice over: a clipboard the WebView refuses read as a capture
+            // nobody attempted, and the upload failure above, which already says
+            // what it is, came out doubled. Each origin says its own sentence now.
             return string.IsNullOrWhiteSpace(screenshotError)
                 ? "No screenshot was attached."
-                : $"Screenshot capture failed: {screenshotError.Trim()}";
+                : screenshotError.Trim();
         }
 
+        // "Attached" rather than "Captured": nothing here can tell a pasted image
+        // from a captured one — the screenshot carries no origin — so the line
+        // says only what is true of both.
         return $"""
-        Captured from the app as {screenshot.MediaType}, {screenshot.Width} x {screenshot.Height}, {screenshot.SizeBytes} bytes.
+        Attached from the app as {screenshot.MediaType}, {screenshot.Width} x {screenshot.Height}, {screenshot.SizeBytes} bytes.
 
         ![Screenshot]({screenshotUrl})
         """;

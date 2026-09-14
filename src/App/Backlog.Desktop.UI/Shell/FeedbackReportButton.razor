@@ -154,7 +154,7 @@
     private bool _feedbackSubmitting;
     private bool _feedbackCapturing;
     private bool _feedbackPasting;
-    private bool _feedbackSucceeded;
+    private FeedbackTone _feedbackTone;
     private string _feedbackTitle = string.Empty;
     private string _feedbackDetails = string.Empty;
     private string? _feedbackMessage;
@@ -176,9 +176,33 @@
     private string? FeatureStatusTitle(string featureKey) =>
         AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
 
-    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
+    /// <summary>
+    /// How the status line announces itself. Three tones rather than the
+    /// succeeded/failed pair this started as, because a clipboard holding text
+    /// is neither: it is the normal state of a clipboard, and the live-region
+    /// table in <c>.design/accessibility.md</c> keeps <c>role="alert"</c> and the
+    /// error surface for Conflict and Error. An answer that interrupts to say
+    /// nothing is wrong spends both.
+    /// </summary>
+    private enum FeedbackTone
+    {
+        // The default, and what a cleared line falls back to — nothing is drawn
+        // without a message, and every message set without saying otherwise is a
+        // failure: a missing title, a refused capture, GitHub turning the report
+        // away.
+        Error,
+        Info,
+        Ok
+    }
 
-    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
+    private string FeedbackStatusClass => $"feedback-status {_feedbackTone switch
+    {
+        FeedbackTone.Ok => "feedback-status--ok",
+        FeedbackTone.Info => "feedback-status--info",
+        _ => "feedback-status--error"
+    }}";
+
+    private string FeedbackStatusRole => _feedbackTone == FeedbackTone.Error ? "alert" : "status";
 
     /// <summary>Whether an image is on its way in. One flag for both origins,
     /// because they end in the same attachment: reading the clipboard while a
@@ -189,7 +213,7 @@
     private void OpenFeedbackDialog()
     {
         _feedbackOpen = true;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
     }
@@ -199,7 +223,7 @@
         if (_feedbackSubmitting) return;
 
         _feedbackOpen = false;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
     }
@@ -207,7 +231,7 @@
     private void OnFeedbackTitleInput(string value)
     {
         _feedbackTitle = value;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
     }
@@ -215,7 +239,7 @@
     private void OnFeedbackDetailsInput(string value)
     {
         _feedbackDetails = value;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
     }
@@ -226,7 +250,7 @@
 
         _feedbackCapturing = true;
         _feedbackScreenshotError = null;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
 
@@ -245,7 +269,10 @@
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
-            _feedbackScreenshotError = ex.Message;
+            // Named here rather than in the reporter: the reporter is handed a
+            // failure and cannot tell which of the two origins produced it, and
+            // whoever reads the filed issue was not at the machine.
+            _feedbackScreenshotError = $"Screenshot capture failed: {ex.Message}";
             _feedbackMessage = _feedbackScreenshotError;
         }
         finally
@@ -271,7 +298,7 @@
 
         _feedbackPasting = true;
         _feedbackScreenshotError = null;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
         _feedbackIssueLink = null;
 
@@ -280,6 +307,7 @@
             var screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogReadClipboardImage");
             if (screenshot is null)
             {
+                _feedbackTone = FeedbackTone.Info;
                 _feedbackMessage = "The clipboard doesn't hold an image. Copy one, or attach a screenshot instead.";
             }
             else
@@ -289,7 +317,10 @@
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
-            _feedbackScreenshotError = ex.Message;
+            // The clipboard, said so — the reporter cannot tell the two origins
+            // apart, and a refusal filed as a capture failure sends whoever reads
+            // the issue looking for a display picker nobody ever opened.
+            _feedbackScreenshotError = $"Reading the clipboard failed: {ex.Message}";
             _feedbackMessage = _feedbackScreenshotError;
         }
         finally
@@ -312,21 +343,21 @@
     {
         if (string.IsNullOrWhiteSpace(_feedbackTitle))
         {
-            _feedbackSucceeded = false;
+            _feedbackTone = FeedbackTone.Error;
             _feedbackMessage = "Add a short title before creating the issue.";
             _feedbackIssueLink = null;
             return;
         }
 
         _feedbackSubmitting = true;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = _feedbackScreenshot is null ? "Creating the GitHub issue..." : "Uploading the screenshot...";
         _feedbackIssueLink = null;
 
         try
         {
             var link = await Feedback.ReportAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenshot, _feedbackScreenshotError);
-            _feedbackSucceeded = true;
+            _feedbackTone = FeedbackTone.Ok;
             // The repository and the number are the link's own text, so the
             // sentence stops before them rather than printing them twice.
             _feedbackMessage = "Created";
@@ -338,7 +369,7 @@
         }
         catch (GitHubException ex)
         {
-            _feedbackSucceeded = false;
+            _feedbackTone = FeedbackTone.Error;
             _feedbackMessage = ex.Message;
         }
         finally

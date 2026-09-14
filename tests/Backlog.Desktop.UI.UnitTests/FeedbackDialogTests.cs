@@ -71,7 +71,17 @@ public sealed class FeedbackDialogTests
         await host.Dialog.Find("[data-testid='feedback-screenshot-paste']").ClickAsync(new());
 
         Assert.Equal(CapturedImage, host.Dialog.Find("[data-testid='feedback-screenshot-preview']").GetAttribute("src"));
-        Assert.Contains("image", host.Dialog.Find(".feedback-status").TextContent, StringComparison.OrdinalIgnoreCase);
+
+        // And says so as the answer it is. A clipboard holding text is the normal
+        // state of a clipboard, not a fault, and the live-region table in
+        // .design/accessibility.md keeps role="alert" and the error tone for
+        // Conflict and Error — an answer that interrupts to say nothing is wrong
+        // spends the one thing assertive announcement has.
+        var status = host.Dialog.Find(".feedback-status");
+        Assert.Contains("image", status.TextContent, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("status", status.GetAttribute("role"));
+        Assert.Contains("feedback-status--info", status.ClassList);
+        Assert.DoesNotContain("feedback-status--error", status.ClassList);
     }
 
     [Fact]
@@ -89,6 +99,12 @@ public sealed class FeedbackDialogTests
 
         Assert.Equal("[Feedback][Desktop app] Paste refused", host.Client.CreatedTitle);
         Assert.NotNull(host.Dialog.Find("[data-testid='feedback-issue-link']"));
+
+        // And the body names what actually failed. Whoever reads the issue was
+        // not at the machine: told the capture failed, they would look for a
+        // display picker nobody ever opened.
+        Assert.Contains("clipboard", host.Client.CreatedBody!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("capture failed", host.Client.CreatedBody!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
