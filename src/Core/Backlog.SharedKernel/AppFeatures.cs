@@ -75,6 +75,17 @@ public enum AppFeatureGroup
 /// already the one list, and a second list pairing keys with headings would be a
 /// second thing to keep in step.
 /// </para>
+/// <para>
+/// <paramref name="FormerKeys"/> is for the one case the rule "a key never
+/// changes" cannot cover: a feature that has genuinely become a different
+/// feature, such as three switches folding into one. The key is a persisted
+/// value — it sits in the reader's settings file as a member of the enabled
+/// or disabled set — so a rename on its own would silently undo whatever
+/// they had chosen. Naming the former keys here lets the store read a choice
+/// made under any of them as a choice about this feature, and write it back
+/// under the current key. The list is read and never written: once the file
+/// has been saved again the old names are gone from it.
+/// </para>
 /// </summary>
 public sealed record AppFeatureDefinition(
     string Key,
@@ -83,7 +94,8 @@ public sealed record AppFeatureDefinition(
     bool AlwaysEnabled = false,
     bool EnabledByDefault = true,
     AppFeatureStatus Status = AppFeatureStatus.Released,
-    AppFeatureGroup Group = AppFeatureGroup.Domain);
+    AppFeatureGroup Group = AppFeatureGroup.Domain,
+    IReadOnlyList<string>? FormerKeys = null);
 
 /// <summary>
 /// Which features have been switched away from their default. Two sets rather

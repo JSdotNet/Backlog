@@ -1554,19 +1554,17 @@
                 </section>
 
                 @* Only for a device that is already one: an unpaired device has no
-                   owner to replicate under, and nothing to sync. Its own feature
-                   from device pairing, because a person can have paired devices
-                   and still not want their tasks leaving the machine. And only
-                   where a host composed the loop at all - a head that registered
-                   no sync-state store hides this rather than offering a button
-                   that cannot work.
+                   owner to replicate under, and nothing to sync. And only where a
+                   host composed the loop at all - a head that registered no
+                   sync-state store hides this rather than offering a button that
+                   cannot work.
 
                    Withheld as well from a device the service has stopped
                    recognising, for the same reason as the pairing-code card
                    below it: a credential nothing will accept cannot replicate
                    anything, and the button would fail every time it was pressed.
                    The panel offers the way back instead. *@
-                @if (TaskSyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+                @if (SyncEnabled && _taskSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
                 {
                     <section class="setting" data-testid="devices-sync" aria-label="Sync tasks">
                         <h2 class="setting__title">Sync tasks</h2>
@@ -1852,7 +1850,7 @@
         // usage reports. With neither on there is nothing for the panel to say, so
         // it is not offered rather than offered empty.
         SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
-        SettingsPage.Devices => DevicePairingEnabled,
+        SettingsPage.Devices => SyncEnabled,
         _ => false
     };
 
@@ -2081,7 +2079,7 @@
         // Same reasoning: asking the sync service who this device is goes over
         // the network, so the panel draws from what is stored and fills the
         // device count in when the answer arrives.
-        if (DevicePairingEnabled && StoredDevice is not null)
+        if (SyncEnabled && StoredDevice is not null)
         {
             await RefreshDeviceStatusAsync();
             StateHasChanged();
@@ -3084,9 +3082,7 @@
     /// the screen, so a settings page left behind does not go on ticking.</summary>
     private System.Threading.Timer? _pairingCodeCountdown;
 
-    private bool DevicePairingEnabled => Features.IsEnabled(SyncFeatures.DevicePairing);
-
-    private bool TaskSyncEnabled => Features.IsEnabled(SyncFeatures.TaskSync);
+    private bool SyncEnabled => Features.IsEnabled(SyncFeatures.Sync);
 
     /// <summary>
     /// What the last exchange did, or an invitation when there has not been one.

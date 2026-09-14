@@ -35,14 +35,14 @@ public sealed class SessionSyncWorkerTests
 
     /// <summary>
     /// <strong>Off means inert, not quiet.</strong> A person who has switched
-    /// session sync off has asked for records of what their agents have been doing
+    /// sync off has asked for records of what their agents have been doing
     /// to stay on the machine, and a loop that went on exchanging — even one that
     /// discarded what it got — would be the one thing the switch exists to stop.
     /// Asserted on the wire and not on a summary, because a request that was made
     /// and thrown away has still been made.
     /// </summary>
     [Fact]
-    public void No_request_is_made_while_the_session_sync_feature_is_off()
+    public void No_request_is_made_while_the_sync_feature_is_off()
     {
         using var fixture = Fixture.Create(featureOn: false, paired: true);
 
@@ -75,13 +75,13 @@ public sealed class SessionSyncWorkerTests
         using var fixture = Fixture.Create(featureOn: false, paired: true);
 
         var first = fixture.NextCycle();
-        _ = fixture.Features.SetEnabled(SyncFeatures.SessionSync, true);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, true);
         fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
         await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, fixture.SessionsResolved);
 
-        _ = fixture.Features.SetEnabled(SyncFeatures.SessionSync, false);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, false);
         fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
 
         Assert.Equal(1, fixture.SessionsResolved);

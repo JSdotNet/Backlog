@@ -237,7 +237,7 @@ public sealed class SessionSyncWorker : IDisposable
     /// one is reason enough for the loop not to exist. This is what makes the
     /// feature inert rather than merely quiet — with it off no timer is created, so
     /// nothing reaches the wire at all.</summary>
-    private bool ShouldRun => _features.IsEnabled(SyncFeatures.SessionSync) && _credentials.Current is not null;
+    private bool ShouldRun => _features.IsEnabled(SyncFeatures.Sync) && _credentials.Current is not null;
 
     private void OnGateChanged() => ApplyGates();
 
