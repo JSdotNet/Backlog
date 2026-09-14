@@ -52,7 +52,13 @@ reaches this ground. No typed options class exists and nothing calls
   signing key fails the start rather than the first sync request. Development
   is the one carve-out — it mints and warns about an ephemeral key so no
   configuration is needed locally — and outside Development the secret is
-  never checked in, per the rule above.
+  never checked in, per the rule above. Deployed, it arrives the way the rule's
+  first option says — as an environment variable,
+  `Modules__Sync__Tokens__SigningKey`, backed by a container app secret that
+  `infra/sync/main.bicep` fills from a `@secure()` parameter — rather than
+  through a secret manager the service reads itself. That is not a deviation,
+  but it is a choice: the Key Vault the template provisions is not consulted,
+  and `docs/deployment/sync.md#the-device-token-signing-key` records why.
 - This is also the first real exercise of the section-naming convention
   (`Modules:Sync:…`); no conflict has arisen because it is still the only
   section a module owns outside what Aspire injects.
