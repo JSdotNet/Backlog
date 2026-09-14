@@ -16,7 +16,7 @@ status: draft
 type: term
 status: draft
 aliases: [KnowledgeNote, Note]
-related: [.domain/second-brain/domain.md#knowledge-note]
+related: [.domain/devbook/domain.md#knowledge-note]
 ```
 
 The durable unit of captured knowledge. "Second Brain" is the context name;
@@ -28,7 +28,7 @@ The durable unit of captured knowledge. "Second Brain" is the context name;
 type: term
 status: draft
 aliases: [PARACategory]
-related: [.domain/second-brain/domain.md#para-category]
+related: [.domain/devbook/domain.md#para-category]
 ```
 
 Organizing dimension (projects, areas, resources, archive). `archive` is the
@@ -40,7 +40,7 @@ persisted archived state for a note.
 type: term
 status: draft
 aliases: [TaskLink, task_id]
-related: [.domain/second-brain/domain.md#task-link, .domain/tasks/naming.md#task]
+related: [.domain/devbook/domain.md#task-link, .domain/tasks/naming.md#task]
 ```
 
 A reference from a note to a Task by id only, keeping the two contexts
@@ -52,7 +52,7 @@ decoupled. Uses the `task_id` alias of the Tasks context's Task.
 type: term
 status: draft
 aliases: [ProjectRef, repo_id]
-related: [.domain/second-brain/domain.md#project-ref]
+related: [.domain/devbook/domain.md#project-ref]
 ```
 
 Scopes a note to a repository/project by `repo_id`, aligned with the shared
@@ -64,7 +64,7 @@ repository identifier used across contexts.
 type: term
 status: draft
 aliases: [effort, story points, story-point estimate]
-related: [.domain/second-brain/domain.md#knowledge-note, .domain/tasks/naming.md#effort]
+related: [.domain/devbook/domain.md#knowledge-note, .domain/tasks/naming.md#effort]
 ```
 
 The size of a knowledge chapter in **story points**, carried in its `meta` block:
@@ -80,7 +80,7 @@ never sets it.
 type: term
 status: draft
 aliases: [roadmap, roadmap contribution, contributes to]
-related: [.domain/second-brain/domain.md#roadmap-contribution, .domain/roadmap/naming.md#roadmap-tag]
+related: [.domain/devbook/domain.md#roadmap-contribution, .domain/roadmap/naming.md#roadmap-tag]
 ```
 
 The [Roadmap Item](../roadmap/naming.md#roadmap-tag) tags a chapter declares
@@ -98,7 +98,7 @@ item is harmless.
 type: term
 status: draft
 aliases: [instructions, agent instructions, working instructions]
-related: [.domain/second-brain/domain.md#instruction-review, .domain/second-brain/features.md#instruction-set-inventory]
+related: [.domain/devbook/domain.md#instruction-review, .domain/devbook/features.md#instruction-set-inventory]
 ```
 
 The documents one tool reads as its instructions for a repository: the file it
@@ -113,7 +113,7 @@ repository, not to this product.
 type: term
 status: draft
 aliases: [context load, always-loaded weight]
-related: [.domain/second-brain/features.md#context-load-budget]
+related: [.domain/devbook/features.md#context-load-budget]
 ```
 
 What an instruction spends on every agent turn because it is loaded whether or not
@@ -130,7 +130,7 @@ never traded against each other silently.
 type: term
 status: draft
 aliases: [finding, proposal]
-related: [.domain/second-brain/domain.md#instruction-review]
+related: [.domain/devbook/domain.md#instruction-review]
 ```
 
 One reviewed observation about an instruction set: where it is, what kind of
@@ -144,7 +144,7 @@ recoverable.
 type: term
 status: draft
 aliases: [alignment, cross-tool alignment]
-related: [.domain/second-brain/features.md#cross-tool-alignment-validation]
+related: [.domain/devbook/features.md#cross-tool-alignment-validation]
 ```
 
 Two tools' instruction sets stating the same rule for the same repository, each in
@@ -163,7 +163,7 @@ maintained as a pair, and a change to one leaves the other unfinished.
 type: term
 status: draft
 aliases: [evidence basis]
-related: [.domain/second-brain/features.md#saving-evidence]
+related: [.domain/devbook/features.md#saving-evidence]
 ```
 
 How a claimed reduction was obtained: read from local agent activity, or measured

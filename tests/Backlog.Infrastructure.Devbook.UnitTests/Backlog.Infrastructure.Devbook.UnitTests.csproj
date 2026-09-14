@@ -7,7 +7,7 @@
     so a column renamed on the writing side fails here rather than in a panel.
   -->
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Knowledge\Backlog.Infrastructure.Knowledge.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
   </ItemGroup>
 
   <ItemGroup>

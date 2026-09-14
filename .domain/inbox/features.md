@@ -25,7 +25,7 @@ queue. New items default to `unprocessed` and are ordered by capture timestamp
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/inbox/domain.md#para-lean, .domain/inbox/domain.md#content-kind, .domain/second-brain/domain.md#para-category]
+related: [.domain/inbox/domain.md#para-lean, .domain/inbox/domain.md#content-kind, .domain/devbook/domain.md#para-category]
 feature-flag: inbox-pane
 ```
 
@@ -85,7 +85,7 @@ enrich items with links to related tasks or knowledge notes.
 type: feature
 status: draft
 depends-on: [.domain/inbox/features.md#triage-workflow]
-related: [.domain/tasks/features.md#task-creation, .domain/second-brain/features.md#knowledge-capture]
+related: [.domain/tasks/features.md#task-creation, .domain/devbook/features.md#knowledge-capture]
 ```
 
 Move a triaged item to its destination.
@@ -105,7 +105,7 @@ Create a Task draft from the item.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/features.md#knowledge-capture]
+related: [.domain/devbook/features.md#knowledge-capture]
 ```
 
 Create a Knowledge Note from the item.

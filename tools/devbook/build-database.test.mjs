@@ -21,7 +21,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { buildDatabase, DEFAULT_ROOT, GENERATOR } from './build-database.mjs';
-import { KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './knowledge-schema.mjs';
+import { KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
 import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -546,10 +546,10 @@ test("an excerpt from this repository's corpus reads as prose, not fence debris"
     const [hit] = all(`
         SELECT snippet(chapter_fts, 1, '', '', '...', 24) AS excerpt
         FROM chapter_fts JOIN chapter ON chapter.id = chapter_fts.rowid
-        WHERE chapter_fts MATCH 'durable' AND chapter.path = '.domain/second-brain/naming.md'
+        WHERE chapter_fts MATCH 'durable' AND chapter.path = '.domain/devbook/naming.md'
     `);
 
-    assert.ok(hit, 'expected .domain/second-brain/naming.md to match "durable"');
+    assert.ok(hit, 'expected .domain/devbook/naming.md to match "durable"');
     assert.match(hit.excerpt, /The durable unit of captured knowledge/);
     assert.doesNotMatch(hit.excerpt, /```/);
     assert.doesNotMatch(hit.excerpt, /\b(status|aliases|related|type):/);

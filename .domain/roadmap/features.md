@@ -110,7 +110,7 @@ thing to do rather than an accident to be prevented.
 type: feature
 status: draft
 depends-on: [.domain/roadmap/features.md#tagging-planned-work]
-related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#effort-registration, .domain/devbook/features.md#topic-and-tag-grouping]
 ```
 
 Read, for one planned item, everything that belongs to it and what it all adds up
@@ -343,7 +343,7 @@ observed downstream reaches back in and edits the plan.
 type: feature
 status: proposed
 depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
-related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#planning-lane, .domain/tasks/features.md#effort-registration, .domain/second-brain/features.md#topic-and-tag-grouping]
+related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#planning-lane, .domain/tasks/features.md#effort-registration, .domain/devbook/features.md#topic-and-tag-grouping]
 ```
 
 **An idea, written down to be argued with — not an agreed model.** This folder's

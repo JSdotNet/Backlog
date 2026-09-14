@@ -109,9 +109,9 @@ public sealed class KnowledgeAtlasDatabaseTests : IDisposable
 
         // Read from tools/knowledge/knowledge-schema.mjs rather than restated here,
         // for the reason that file's own header gives.
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "knowledge", "knowledge-schema.mjs"));
+        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
         var ddl = Regex.Match(source, @"export const KNOWLEDGE_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-        Assert.True(ddl.Success, "tools/knowledge/knowledge-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
+        Assert.True(ddl.Success, "tools/devbook/devbook-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
 
         Execute(connection, ddl.Groups["value"].Value);
         Execute(

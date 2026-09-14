@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Knowledge.UnitTests;
 /// <summary>
 /// The writing side of the contract, read from the file that owns it.
 ///
-/// <para><c>tools/knowledge/knowledge-schema.mjs</c> holds the DDL as one exported
+/// <para><c>tools/devbook/devbook-schema.mjs</c> holds the DDL as one exported
 /// string precisely so the reading side can be pinned against it instead of
 /// restating it. Every database in this suite is created from that text, so a
 /// column renamed there fails a test here — which is the whole of ADR 0004's
@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.Knowledge.UnitTests;
 /// </summary>
 internal static class KnowledgeSchemaSource
 {
-    private static readonly string[] SchemaFile = ["tools", "knowledge", "knowledge-schema.mjs"];
+    private static readonly string[] SchemaFile = ["tools", "devbook", "devbook-schema.mjs"];
 
     private static readonly Lazy<string> Text = new(() => File.ReadAllText(RepositoryRoot.File(SchemaFile)));
 

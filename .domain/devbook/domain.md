@@ -152,7 +152,7 @@ rather than living inside a single aggregate. Invocation semantics: consistency 
 ```meta
 type: domain-service
 status: draft
-related: [.domain/second-brain/features.md#instruction-optimization, .domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.domain/devbook/features.md#instruction-optimization, .domain/repository-management/features.md#repository-knowledge-folder-settings]
 ```
 
 Reviews the agent-facing instruction documents a repository carries — the

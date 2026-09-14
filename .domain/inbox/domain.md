@@ -17,7 +17,7 @@ The Inbox is the processing queue for all captured input. Items arrive from
 **what happens to items after they arrive** — triage, classification, and
 routing — deciding whether each item becomes a
 [Task](../tasks/domain.md#task), a
-[Knowledge Note](../second-brain/domain.md#knowledge-note), is
+[Knowledge Note](../devbook/domain.md#knowledge-note), is
 deferred, or is archived. It owns no capture sources.
 
 ## Inbox Item
@@ -132,7 +132,7 @@ Resources.
 ```meta
 type: enum
 status: draft
-related: [.domain/second-brain/domain.md#para-category]
+related: [.domain/devbook/domain.md#para-category]
 ```
 
 The PARA drawer an unprocessed item leans towards — `projects`, `areas`,
@@ -172,7 +172,7 @@ Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
 ```meta
 type: domain-service
 status: draft
-related: [.domain/tasks/domain.md#task, .domain/second-brain/domain.md#knowledge-note]
+related: [.domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -200,7 +200,7 @@ item's state. Invocation semantics: invoked during intake/triage or by configure
 ```meta
 type: domain-event
 status: draft
-related: [.domain/inbox/domain.md#inbox-item, .domain/tasks/domain.md#task, .domain/second-brain/domain.md#knowledge-note]
+related: [.domain/inbox/domain.md#inbox-item, .domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note]
 ```
 
 Published by `Triage` when an Inbox Item is routed out of the inbox. The route

@@ -9,7 +9,7 @@
         "capture",
         "tasks",
         "roadmap",
-        "second-brain",
+        "devbook",
         "productivity",
         "environment",
         "repository-management",
@@ -98,7 +98,7 @@
         "naming.md"
       ]
     },
-    ".domain/second-brain": {
+    ".domain/devbook": {
       "root": "domain.md",
       "order": [
         "features.md",

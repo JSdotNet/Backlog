@@ -1289,7 +1289,7 @@ public sealed class GlobalPaneMarkupTests
 
     private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
 
-    private static string FindKnowledgePane() => RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", "KnowledgePane.razor");
+    private static string FindKnowledgePane() => RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", "KnowledgePane.razor");
 
     private static string FindAppJs() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js");
 

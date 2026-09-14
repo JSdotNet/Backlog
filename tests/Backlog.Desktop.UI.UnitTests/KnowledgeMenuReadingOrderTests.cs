@@ -33,7 +33,7 @@ public sealed class KnowledgeMenuReadingOrderTests : IDisposable
     /// them — which is not the order any of them sort in.</summary>
     private static readonly string[] DomainContexts =
     [
-        "inbox", "capture", "tasks", "roadmap", "second-brain", "productivity", "environment",
+        "inbox", "capture", "tasks", "roadmap", "devbook", "productivity", "environment",
         "repository-management", "dev-pc-management", "sessions", "monitoring", "technology-stack"
     ];
 
@@ -628,10 +628,10 @@ public sealed class KnowledgeMenuReadingOrderTests : IDisposable
 
     private static string WriterSchema()
     {
-        var source = File.ReadAllText(RepositoryRootFile("tools", "knowledge", "knowledge-schema.mjs"));
+        var source = File.ReadAllText(RepositoryRootFile("tools", "devbook", "devbook-schema.mjs"));
         var match = Regex.Match(source, @"export const KNOWLEDGE_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
 
-        Assert.True(match.Success, "tools/knowledge/knowledge-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
+        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
         return match.Groups["value"].Value;
     }
 

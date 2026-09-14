@@ -171,7 +171,7 @@ planned work on purpose.
 type: term
 status: draft
 aliases: [KnowledgeRef, knowledge_refs, knowledge reference]
-related: [.domain/roadmap/domain.md#knowledge-ref, .domain/second-brain/naming.md#knowledge-note]
+related: [.domain/roadmap/domain.md#knowledge-ref, .domain/devbook/naming.md#knowledge-note]
 ```
 
 A direct `<path>#<slug>` reference from a Roadmap Item to a knowledge chapter that

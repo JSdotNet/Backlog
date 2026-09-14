@@ -39,12 +39,12 @@
          configured-folder format and the location a folder resolves to. The
          panels ask it rather than the adapter that answers it, which is what
          keeps Second Brain from having to see where the backlog is stored. -->
-    <ProjectReference Include="..\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <!-- The read side of the generated knowledge database (local ADR 0004). A
          screen may take an adapter - ModuleBoundaryTests says so in as many words -
          and this is the adapter behind the outline, the atlas, the technology stats
          and the diagram artifact lookup, all of which used to be a JSON file each. -->
-    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Knowledge\Backlog.Infrastructure.Knowledge.csproj" />
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>

@@ -47,7 +47,7 @@ import {
     REPO_SCOPE,
 } from '../../.github/tools/knowledge-meta/graph.mjs';
 import { folderKindForPath, parseDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
-import { DATABASE_PATH, KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './knowledge-schema.mjs';
+import { DATABASE_PATH, KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
 import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -56,7 +56,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
 /** What the `meta` table records as having written the file. */
-export const GENERATOR = 'tools/knowledge/build-database.mjs';
+export const GENERATOR = 'tools/devbook/build-database.mjs';
 
 /** The list-valued node attributes. These are the fields `graph.mjs` keeps as
  *  node data rather than turning into edges — `roadmap` in particular holds

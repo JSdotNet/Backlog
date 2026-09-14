@@ -37,7 +37,7 @@ public class DesktopDomainBoundaryTests
     {
         ["Inbox"] = "src/Modules/Inbox/Backlog.Modules.Inbox.UI",
         ["Tasks"] = "src/Modules/Tasks/Backlog.Modules.Tasks.UI",
-        ["Knowledge"] = "src/Modules/Knowledge/Backlog.Modules.Knowledge.UI"
+        ["Knowledge"] = "src/Modules/Devbook/Backlog.Modules.Devbook.UI"
     };
 
     /// <summary>The one area that is not a context: the Shell that composes the

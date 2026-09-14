@@ -246,15 +246,15 @@ internal static class StorybookIndex
         // which fields hold one, which is a fact about the record.
         new("Knowledge base",
         [
-            new("knowledge-base", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
-            new("knowledge-base/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),
+            new("devbook", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
+            new("devbook/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),
 
             // After State rather than before it: two of its fourteen stories are
             // the status, and a reader who has just met the vocabularies recognises
             // the word instead of taking it on trust. Its `related`, `depends-on`
             // and `implements` stories draw addresses, and what an address is is on
             // Markdown → References, above this group.
-            new("knowledge-base/fields", "Fields", "Every kind of metadata on its own: one story per field, the line an author writes, and the smallest component that draws that value."),
+            new("devbook/fields", "Fields", "Every kind of metadata on its own: one story per field, the line an author writes, and the smallest component that draws that value."),
 
             // Last of the group, and last by the rule rather than by taste: it is
             // the first page that draws a whole record rather than one field, so
@@ -268,7 +268,7 @@ internal static class StorybookIndex
             // wrote. That is the rule holding rather than bending: File header is in
             // Content, which is above this group, so the header has been introduced
             // by the time this page borrows it.
-            new("knowledge-base/chapter-and-file", "Chapter and file", "The two shapes a whole record takes: a chapter's block folded into its heading, and a file's drawn wherever the surface says which file this is — bare, and in the header it was drawn for."),
+            new("devbook/chapter-and-file", "Chapter and file", "The two shapes a whole record takes: a chapter's block folded into its heading, and a file's drawn wherever the surface says which file this is — bare, and in the header it was drawn for."),
 
             // After Chapter and file rather than beside Fields, and that is the
             // ordering rule holding rather than bending. A type marker is a field's
@@ -276,7 +276,7 @@ internal static class StorybookIndex
             // mark lands is a chapter's heading and a file's kind line, which is
             // exactly the pair the page above documents. A reader who has not met
             // both shapes would be looking at a mark with nowhere to put it.
-            new("knowledge-base/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings.")
+            new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

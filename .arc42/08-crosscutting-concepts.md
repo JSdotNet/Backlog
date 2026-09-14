@@ -231,7 +231,7 @@ rather than something anything here has shown.
 
 ```meta
 status: active
-related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/second-brain/features.md#repository-knowledge-areas"]
+related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/devbook/features.md#repository-knowledge-areas"]
 ```
 
 How every channel reads the knowledge a repository carries alongside its code.
@@ -297,7 +297,7 @@ How every channel reads the knowledge a repository carries alongside its code.
 
 ```meta
 status: proposed
-related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".domain/dev-pc-management/features.md#copilot-tool-catalog"]
+related: [".arc42/04-solution-strategy.md", ".domain/devbook/features.md#repository-knowledge-areas", ".domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 
 - **Optional capabilities are switchable per installation** — repository knowledge,
@@ -380,7 +380,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/tasks/domain.md#task", ".domain/second-brain/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/tasks/domain.md#task", ".domain/devbook/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -392,7 +392,7 @@ architectural concern:
 |---|---|
 | **InboxItem** | `.domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.domain/tasks/domain.md#task` |
-| **KnowledgeNote** | `.domain/second-brain/domain.md#knowledge-note` |
+| **KnowledgeNote** | `.domain/devbook/domain.md#knowledge-note` |
 | **ProgressSignal** | `.domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.domain/dev-pc-management/domain.md#machine-registry` |

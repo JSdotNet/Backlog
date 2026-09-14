@@ -366,7 +366,7 @@ path.
 ```meta
 type: domain-service
 status: draft
-related: [.domain/roadmap/domain.md#roadmap-plan, .domain/tasks/domain.md#task, .domain/second-brain/domain.md#knowledge-note]
+related: [.domain/roadmap/domain.md#roadmap-plan, .domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note]
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Tasks

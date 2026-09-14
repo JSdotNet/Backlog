@@ -221,10 +221,10 @@ public sealed class KnowledgeIndexDatabaseTests : IDisposable
     /// </summary>
     private static string WriterSchema()
     {
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "knowledge", "knowledge-schema.mjs"));
+        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
         var match = Regex.Match(source, @"export const KNOWLEDGE_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
 
-        Assert.True(match.Success, "tools/knowledge/knowledge-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
+        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports KNOWLEDGE_SCHEMA.");
         return match.Groups["value"].Value;
     }
 

@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/devbook/features.md#repository-knowledge-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
 issue: null
 ```
 

@@ -25,7 +25,7 @@ tags.
 ```meta
 type: feature
 status: draft
-depends-on: [.domain/second-brain/features.md#knowledge-capture]
+depends-on: [.domain/devbook/features.md#knowledge-capture]
 ```
 
 Organize notes into Projects (active, deadline), Areas (ongoing), Resources
@@ -46,7 +46,7 @@ across projects by tag.
 ```meta
 type: feature
 status: draft
-related: [.domain/second-brain/domain.md#tag, .domain/second-brain/domain.md#roadmap-contribution]
+related: [.domain/devbook/domain.md#tag, .domain/devbook/domain.md#roadmap-contribution]
 ```
 
 Group notes by topic (not just project), support cross-cutting tags, and search
@@ -179,8 +179,8 @@ and after, by the rule above.
 type: feature
 status: draft
 feature-flag: instruction-optimization
-depends-on: [.domain/second-brain/features.md#repository-knowledge-areas]
-related: [.domain/second-brain/domain.md#instruction-review, .domain/repository-management/features.md#repository-knowledge-folder-settings]
+depends-on: [.domain/devbook/features.md#repository-knowledge-areas]
+related: [.domain/devbook/domain.md#instruction-review, .domain/repository-management/features.md#repository-knowledge-folder-settings]
 ```
 
 Review the working instructions as what they are — documents whose readers are
@@ -203,7 +203,7 @@ that rather than a saving.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/naming.md#instruction-set]
+related: [.domain/devbook/naming.md#instruction-set]
 ```
 
 See every instruction document the repository carries and which tool reads it: the
@@ -218,7 +218,7 @@ rather than dropped, because the next tool arriving is a normal event.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/naming.md#context-load]
+related: [.domain/devbook/naming.md#context-load]
 ```
 
 Weigh a repository's always-loaded instruction weight against a budget and rank
@@ -232,7 +232,7 @@ a long one reached twice a month.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/naming.md#instruction-alignment]
+related: [.domain/devbook/naming.md#instruction-alignment]
 ```
 
 Surface a rule stated in more than one place — across two documents, or twice
@@ -246,7 +246,7 @@ alike are sometimes two different rules and collapsing them loses one.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/naming.md#instruction-alignment]
+related: [.domain/devbook/naming.md#instruction-alignment]
 ```
 
 Check whether the instruction sets different tools read for one repository still
@@ -291,7 +291,7 @@ settled by running the agent without it rather than by arguing about it.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/domain.md#instruction-review]
+related: [.domain/devbook/domain.md#instruction-review]
 ```
 
 Apply an accepted proposal one at a time on an explicit yes, with the previous
@@ -305,7 +305,7 @@ instruction that has to be exact.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/naming.md#saving-evidence]
+related: [.domain/devbook/naming.md#saving-evidence]
 ```
 
 State how every claimed reduction was obtained — read from this machine's own agent
@@ -318,7 +318,7 @@ is not shown.
 ```meta
 type: feature
 status: draft
-related: [.domain/second-brain/features.md#topic-and-tag-grouping, .domain/second-brain/features.md#repository-knowledge-areas, .domain/tasks/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
+related: [.domain/devbook/features.md#topic-and-tag-grouping, .domain/devbook/features.md#repository-knowledge-areas, .domain/tasks/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
 ```
 
 Find the chapter that answers a question across every area and every note at

@@ -73,7 +73,7 @@ public sealed class SelectorMarkupTests
         foreach (var panel in new[] { "Arc42KnowledgePanel.razor", "DomainKnowledgePanel.razor", "TechnologyKnowledgePanel.razor" })
         {
             var markup = NormalizeLineEndings(File.ReadAllText(
-                RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", panel)));
+                RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", panel)));
 
             // The status is a shared control either way: drawn directly by the two
             // panels that still keep a selector of their own, and reached through

@@ -16,7 +16,7 @@ status: draft
 | [Technology Stack](../technology-stack/domain.md#technology-registry) | Customer/Supplier (Repository Management = customer) | Baseline consumption (sync/read) | `.domain/technology-stack/domain.md#technology-registry` | Consumes tech/dependency baselines to flag deprecated tech and enforce versions. |
 | GitHub (external) | ACL | REST API | `.domain/repository-management/domain.md#repository-scan` | Repository metadata, issues, PRs, branch protection, and security alerts. |
 | Package registries (NuGet, npm, PyPI, etc.) | ACL | Polling | `.domain/repository-management/domain.md#repository-scan` | Latest package versions used to detect outdated dependencies. |
-| [Second Brain](../second-brain/domain.md#knowledge-note) | Customer/Supplier (Repository Management = customer) | ADR cross-link by id | `.domain/second-brain/domain.md#knowledge-note` | Architecture/technology decisions are cross-linked from repo metadata. |
+| [Second Brain](../devbook/domain.md#knowledge-note) | Customer/Supplier (Repository Management = customer) | ADR cross-link by id | `.domain/devbook/domain.md#knowledge-note` | Architecture/technology decisions are cross-linked from repo metadata. |
 
 ## Inbound dependents (known)
 

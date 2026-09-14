@@ -16,7 +16,7 @@ status: draft
 | [Dev PC Management](../dev-pc-management/domain.md#machine-registry) | Customer/Supplier (Technology Stack = customer of reports) | Consumes tool-version reports | `.domain/dev-pc-management/domain.md#machine-registry` | Machine tool inventories provide adoption counts and version distribution. |
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Technology Stack = customer of scans) | Consumes tech-stack scans | `.domain/repository-management/domain.md#repository-scan` | Repository tech stacks provide adoption data. |
 | Public package registries (npm, NuGet, PyPI) | ACL | Polling | `.domain/technology-stack/domain.md#adoption-tracking` | Latest available version information for each technology. |
-| [Second Brain](../second-brain/domain.md#knowledge-note) | Customer/Supplier (Technology Stack = customer) | ADR links by id | `.domain/second-brain/domain.md#knowledge-note` | Technology decisions link to ADRs for justification and history. |
+| [Second Brain](../devbook/domain.md#knowledge-note) | Customer/Supplier (Technology Stack = customer) | ADR links by id | `.domain/devbook/domain.md#knowledge-note` | Technology decisions link to ADRs for justification and history. |
 
 ## Inbound dependents (known)
 

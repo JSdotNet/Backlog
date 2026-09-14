@@ -2,7 +2,7 @@
 
 ```meta
 status: proposed
-related: [".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".domain/second-brain/features.md#repository-knowledge-areas"]
+related: [".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".domain/devbook/features.md#repository-knowledge-areas"]
 issue: null
 ```
 

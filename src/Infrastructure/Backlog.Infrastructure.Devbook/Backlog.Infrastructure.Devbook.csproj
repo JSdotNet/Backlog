@@ -31,11 +31,11 @@
          same reference Backlog.Infrastructure.GitHub and .FileSystem already
          take for IKnowledgeFolderSource, which is also what tells this project
          which repository's database to open. -->
-    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Backlog.Infrastructure.Knowledge.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Devbook.UnitTests" />
   </ItemGroup>
 
 </Project>

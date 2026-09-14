@@ -81,9 +81,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Inbox.UI", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inbox", "Inbox", "{6A2F9C68-303F-D1C4-5701-339E51546C38}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Knowledge", "Knowledge", "{6D397FDE-A48A-1422-DC4D-618348DCDC20}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Devbook", "Devbook", "{6D397FDE-A48A-1422-DC4D-618348DCDC20}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Knowledge.UI", "src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj", "{CBAA9A74-130C-43BB-8A7E-AD2B30A6828A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Devbook.UI", "src\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj", "{CBAA9A74-130C-43BB-8A7E-AD2B30A6828A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Roadmap", "Roadmap", "{C17DFF8F-ED22-BA99-FCA0-519CB3661A24}"
 EndProject
@@ -95,7 +95,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.DevPc.Abstr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.DevPc.UI", "src\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj", "{E2DD911A-9434-4702-A9B5-DB1977297A10}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Knowledge.Abstractions", "src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj", "{90403C24-4FE1-4EC7-BB3B-BBD0DC5C7B82}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Devbook.Abstractions", "src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj", "{90403C24-4FE1-4EC7-BB3B-BBD0DC5C7B82}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Mobile.UI.UnitTests", "tests\Backlog.Mobile.UI.UnitTests\Backlog.Mobile.UI.UnitTests.csproj", "{341190AF-76AA-40CA-8846-830B30D3C7F1}"
 EndProject
@@ -147,9 +147,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Sync
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.HostComposition.UnitTests", "tests\Backlog.HostComposition.UnitTests\Backlog.HostComposition.UnitTests.csproj", "{0ACB4DC7-3237-4B38-B15F-42361676F712}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Knowledge", "src\Infrastructure\Backlog.Infrastructure.Knowledge\Backlog.Infrastructure.Knowledge.csproj", "{241728EB-6B4E-4A48-BEAE-E1D20D0C7B0B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Devbook", "src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj", "{241728EB-6B4E-4A48-BEAE-E1D20D0C7B0B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Knowledge.UnitTests", "tests\Backlog.Infrastructure.Knowledge.UnitTests\Backlog.Infrastructure.Knowledge.UnitTests.csproj", "{0B46744B-FEF4-4D82-883F-BC85D554D7EE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.Devbook.UnitTests", "tests\Backlog.Infrastructure.Devbook.UnitTests\Backlog.Infrastructure.Devbook.UnitTests.csproj", "{0B46744B-FEF4-4D82-883F-BC85D554D7EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

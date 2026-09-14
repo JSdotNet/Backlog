@@ -144,7 +144,7 @@ public static class KnowledgeRetrieval
 {
     /// <summary>The command that builds the database, named wherever its absence
     /// is reported so the answer to "search is unavailable" is one line away.</summary>
-    public const string BuildCommand = "node tools/knowledge/build-database.mjs";
+    public const string BuildCommand = "node tools/devbook/build-database.mjs";
 
     /// <summary>
     /// The tier available from an open database, or
