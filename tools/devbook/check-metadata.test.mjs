@@ -69,7 +69,7 @@ test('the repository corpus passes', async () => {
     assert.equal(
         result.blocking.length,
         0,
-        `The knowledge corpus has blocking metadata findings:\n${blockingText(result)}`
+        `The devbook corpus has blocking metadata findings:\n${blockingText(result)}`
     );
     assert.ok(result.files > 0, 'The check scanned no files at all, so it is passing on nothing.');
     assert.ok(

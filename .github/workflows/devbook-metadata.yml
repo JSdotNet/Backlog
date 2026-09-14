@@ -1,9 +1,9 @@
-name: Knowledge metadata blocks
+name: Devbook metadata blocks
 
-# The metadata half of the knowledge gate, and repo-native on purpose.
+# The metadata half of the devbook gate, and repo-native on purpose.
 #
 # `knowledge-meta.yml` beside this file is an installed copy of the
-# knowledge-base plugin's workflow — CLAUDE.md says to re-sync those and never
+# devbook plugin's workflow — CLAUDE.md says to re-sync those and never
 # edit them here — and its "Check references and metadata blocks" step runs
 # `build.mjs --check`, which resolves references and nothing else. The
 # `validateDocument` export that knows each folder's `status` ladder, its `type`
@@ -13,7 +13,7 @@ name: Knowledge metadata blocks
 # `tools/devbook/check-metadata.mjs` is that caller, written beside the
 # repository's own tooling rather than inside the installed copy, and this
 # workflow is where it blocks a pull request. Upstream runs the same validation
-# from the knowledge-graph canvas and the `knowledge-base-validate` skill rather
+# from the knowledge-graph canvas and the `devbook-check` skill rather
 # than from `--check`, so this is a third consumer of an exported seam, not a
 # fork of the tool.
 #
@@ -34,7 +34,7 @@ on:
       - '.github/tools/knowledge-meta/**'
       - 'tools/devbook/**'
       - '_reading-order.json'
-      - '.github/workflows/knowledge-metadata.yml'
+      - '.github/workflows/devbook-metadata.yml'
   pull_request:
     branches:
       - main
@@ -47,14 +47,14 @@ on:
       - '.github/tools/knowledge-meta/**'
       - 'tools/devbook/**'
       - '_reading-order.json'
-      - '.github/workflows/knowledge-metadata.yml'
+      - '.github/workflows/devbook-metadata.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: knowledge-metadata-${{ github.ref }}
+  group: devbook-metadata-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -78,7 +78,7 @@ jobs:
         run: node --test tools/devbook/check-metadata.test.mjs
 
   database:
-    name: Build the knowledge database
+    name: Build the devbook database
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

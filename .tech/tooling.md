@@ -306,7 +306,7 @@ indexes.
   the generator rather than trusting `--check`, because `--check` misses
   line-number drift. `--check` says nothing about the *values* in a `meta` block,
   though, so a second hard failure covers those:
-  `.github/workflows/knowledge-metadata.yml` runs
+  `.github/workflows/devbook-metadata.yml` runs
   `tools/devbook/check-metadata.mjs`, this repository's own caller of the
   generator's exported `validateDocument`, and a status outside a folder's ladder,
   an unknown `.domain` `type` or a field no schema defines fails the pull request.
@@ -352,7 +352,7 @@ SQLite database.
   committed `_reading-order.json`, which is the one thing the installed outline
   builder cannot supply, because it reads that order back out of the very
   `index.json` this decision removed. `node:sqlite` provides SQLite and FTS5 with
-  no dependency added. `.github/workflows/knowledge-metadata.yml` runs its tests
+  no dependency added. `.github/workflows/devbook-metadata.yml` runs its tests
   and then builds it against the real corpus as a **blocking** step — which a
   committed artifact could never be, and an uncommitted one can.
 - **Caveat** — the schema is written here and read from C#, which is a contract

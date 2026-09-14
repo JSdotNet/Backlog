@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// check-metadata.mjs — the metadata half of the knowledge gate.
+// check-metadata.mjs — the metadata half of the devbook gate.
 //
 //   node tools/devbook/check-metadata.mjs [--root <path>]
 //
@@ -14,14 +14,14 @@
 //
 // This is the missing caller, and it is deliberately a separate file rather
 // than an edit to the generator: everything under
-// `.github/tools/knowledge-meta/` is an installed copy of the devbook-base
+// `.github/tools/knowledge-meta/` is an installed copy of the devbook
 // plugin's tooling, which CLAUDE.md says to re-sync and never edit here. The
 // same rule covers `build/Update-KnowledgeIndex.ps1` and both `knowledge-meta*`
 // workflows, so the CI wiring is repo-native too:
-// `.github/workflows/knowledge-metadata.yml`.
+// `.github/workflows/devbook-metadata.yml`.
 //
-// Upstream runs this validation from the devbook-graph canvas and the
-// `devbook-base-validate` skill rather than from `--check`. CI is a third
+// Upstream runs this validation from the knowledge-graph canvas (now `devbook-canvas`) and the
+// `devbook-check` skill rather than from `--check`. CI is a third
 // consumer of the same exported seam, not a fork of it.
 
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -71,7 +71,7 @@ const STALE_TECH_KIND = /is missing required `kind` for the tech folder[.]$/;
  *  `index`/`number` on file-level blocks; the installed copy allows only
  *  `related, issue, effort, roadmap` plus a few folder extras. The chapter
  *  authors of this repository are told to write the *current* schema — the
- *  devbook-base skills and `knowledge-chapter-metadata.instructions.md` come
+ *  devbook skills and `knowledge-chapter-metadata.instructions.md` come
  *  from the plugin, not from here — so blocking on these would fail a pull
  *  request for metadata that is correct.
  *

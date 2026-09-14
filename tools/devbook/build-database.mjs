@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// build-database.mjs — writes `_meta/devbook.db`, the generated knowledge index.
+// build-database.mjs — writes `_meta/devbook.db`, the generated devbook database.
 //
 //   node tools/devbook/build-database.mjs              # write _meta/devbook.db
 //   node tools/devbook/build-database.mjs --check      # build it, report, write nothing
@@ -15,7 +15,7 @@
 //
 // This is repo-native tooling, and deliberately not an edit to
 // `.github/tools/knowledge-meta/build.mjs`: everything under that folder is an
-// installed copy of the devbook-base plugin's tooling, which CLAUDE.md says to
+// installed copy of the devbook plugin's tooling, which CLAUDE.md says to
 // re-sync and never edit here. So this file *imports* the installed generator's
 // exported seam the way `check-metadata.mjs` already does — `buildGraph` for the
 // nodes and edges, `parseDocument` for the chapters, `folderKindForPath` for the
@@ -399,7 +399,7 @@ async function insertArchify(db, repoRoot, folders, problems) {
 }
 
 /**
- * Build the knowledge database for `repoRoot` at `target`.
+ * Build the devbook database for `repoRoot` at `target`.
  *
  * Writes a temporary file beside the target and renames over it, so a reader
  * never opens a half-built database — SQLite's own atomicity covers a

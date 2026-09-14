@@ -1,7 +1,7 @@
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The knowledge gate has two halves and they are wired in two different places.
+/// The devbook gate has two halves and they are wired in two different places.
 ///
 /// <para><c>build.mjs --check</c> resolves the references between chapters. It
 /// says nothing about the values inside a <c>meta</c> block, even though the
@@ -12,7 +12,7 @@ namespace Backlog.ArchitectureTests;
 /// metadata blocks" (issue #241).</para>
 ///
 /// <para><c>tools/devbook/check-metadata.mjs</c> is the missing caller and
-/// <c>.github/workflows/knowledge-metadata.yml</c> is where it blocks a pull
+/// <c>.github/workflows/devbook-metadata.yml</c> is where it blocks a pull
 /// request. Both are repo-native on purpose: everything under
 /// <c>.github/tools/knowledge-meta/</c>, both <c>knowledge-meta*</c> workflows and
 /// <c>build/Update-KnowledgeIndex.ps1</c> are installed copies of the
@@ -27,7 +27,7 @@ public class DevbookMetadataGateTests
 
     /// <summary>The workflow that runs it.</summary>
     private static readonly string[] GateWorkflow =
-        [".github", "workflows", "knowledge-metadata.yml"];
+        [".github", "workflows", "devbook-metadata.yml"];
 
     /// <summary>The installed workflow it sits beside, which stays untouched.</summary>
     private static readonly string[] InstalledWorkflow =
@@ -165,7 +165,7 @@ public class DevbookMetadataGateTests
     {
         var chapter = File.ReadAllText(RepositoryRoot.File(".tech", "tooling.md"));
 
-        foreach (var mention in new[] { "tools/devbook/check-metadata.mjs", "knowledge-metadata.yml" })
+        foreach (var mention in new[] { "tools/devbook/check-metadata.mjs", "devbook-metadata.yml" })
         {
             Assert.True(
                 chapter.Contains(mention, StringComparison.Ordinal),

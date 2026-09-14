@@ -10,7 +10,7 @@
 #
 # `**/_meta/*.json` used to be pinned beside it, for the staleness check in
 # .github/workflows/knowledge-meta.yml. Local ADR 0004 took the derived knowledge
-# layer out of version control entirely -- it is `_meta/knowledge.db` now, a build
+# layer out of version control entirely -- it is `_meta/devbook.db` now, a build
 # output listed in .gitignore -- so no tracked file is left for that rule to apply
 # to, and a phantom diff needs something committed to be a diff against.
 #

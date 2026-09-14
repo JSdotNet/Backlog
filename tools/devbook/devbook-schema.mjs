@@ -35,7 +35,7 @@ export const SCHEMA_VERSION = 2;
 export const DATABASE_PATH = '_meta/devbook.db';
 
 /**
- * Every table, virtual table and index of the knowledge database.
+ * Every table, virtual table and index of the devbook database.
  *
  * Notes on the columns that are not self-evident:
  *
