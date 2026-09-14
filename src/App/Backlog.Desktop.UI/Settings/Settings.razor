@@ -1484,6 +1484,56 @@
     @if (IsSettingsPageAvailable(SettingsPage.Devices))
     {
         <TabPanel Id="devices" Title="Devices" Element="section" BaseClass="setting" aria-label="Device settings">
+            @* Where the cards below send their traffic. First, because when it is
+               wrong nothing under it works and the only other sign is a DNS error
+               naming a host called "sync". Under the AppHost the field stays blank
+               and the line says so; the installed app has no AppHost and needs
+               the URL from here or from the environment. *@
+            @if (_syncService is not null && _syncServiceEndpoint is not null)
+            {
+                <section class="setting" data-testid="sync-service-settings" aria-label="Sync service">
+                    <h2 class="setting__title">Sync service</h2>
+                    <p class="setting__body">
+                        The service this device pairs through and replicates to. Leave it
+                        blank when the app is started from the Aspire AppHost, which finds
+                        that run's own service by itself.
+                    </p>
+
+                    <TextField Bare="true"
+                               LabelCssClass="setting__label"
+                               InputCssClass="setting__input"
+                               Label="Service URL"
+                               Id="sync-service-url"
+                               data-testid="sync-service-url-input"
+                               Type="url"
+                               spellcheck="false"
+                               autocomplete="off"
+                               Placeholder="https://backlog-sync.example.azurecontainerapps.io"
+                               Value="@_draftSyncServiceUrl"
+                               ValueChanged="value => _draftSyncServiceUrl = value"
+                               @onchange="ApplySyncServiceUrlAsync"
+                               @onkeydown="OnSyncServiceKeyDownAsync" />
+
+                    <p class="setting__status @(_syncServiceFailed ? "setting__status--error" : null)"
+                       data-testid="sync-service-status"
+                       role="@(_syncServiceFailed ? "alert" : "status")">
+                        @if (_syncServiceMessage is not null)
+                        {
+                            <span>@_syncServiceMessage</span>
+                        }
+                        else
+                        {
+                            <span>@SyncServiceStatusLine</span>
+                        }
+                    </p>
+
+                    <p class="setting__note">
+                        Kept in <code>@_syncService.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                        <code>@SyncServiceEndpoint.EnvironmentVariable</code> in the environment is used when this is blank.
+                    </p>
+                </section>
+            }
+
             @* A device is in one of two states and each has exactly one thing to do
                next, so the cards come in pairs: unpaired offers register and redeem,
                paired offers the code that lets the next device in. *@
@@ -2031,6 +2081,11 @@
     {
         _devicePairing = Services.GetService<DevicePairingClient>();
         _deviceCredentials = Services.GetService<IDeviceCredentialStore>();
+        // Optional the way the pairing client is: a head that composes the sync
+        // clients against a fixed address has no URL to offer and hides the field.
+        _syncService = Services.GetService<SyncServiceSettingsStore>();
+        _syncServiceEndpoint = Services.GetService<SyncServiceEndpoint>();
+        _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();
@@ -3020,6 +3075,11 @@
     private const string DeviceUnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
 
     private DevicePairingClient? _devicePairing;
+    private SyncServiceSettingsStore? _syncService;
+    private SyncServiceEndpoint? _syncServiceEndpoint;
+    private string _draftSyncServiceUrl = string.Empty;
+    private string? _syncServiceMessage;
+    private bool _syncServiceFailed;
 
     /// <summary>Optional on purpose: the panel works without it, and the unit
     /// tests that predate the credential-rejected state compose the pairing
@@ -3424,6 +3484,65 @@
     /// a question rather than a retry.
     /// </para>
     /// </summary>
+    /// <summary>One sentence for where the sync traffic goes and why there,
+    /// so "No such host is known" has its explanation next to the fix.</summary>
+    private string SyncServiceStatusLine
+    {
+        get
+        {
+            if (_syncServiceEndpoint is null) return string.Empty;
+
+            var resolved = _syncServiceEndpoint.Resolve();
+            return resolved.Source switch
+            {
+                SyncServiceAddressSource.Settings => $"Talking to {resolved.Address} - the URL entered here.",
+                SyncServiceAddressSource.EnvironmentVariable => $"Talking to {resolved.Address} - from {SyncServiceEndpoint.EnvironmentVariable}.",
+                SyncServiceAddressSource.ServiceDiscovery => "Started from the Aspire AppHost: talking to this run's own sync service.",
+                _ => $"No sync service is configured. Enter its URL above, or set {SyncServiceEndpoint.EnvironmentVariable} before starting the app."
+            };
+        }
+    }
+
+    private async Task ApplySyncServiceUrlAsync()
+    {
+        if (_syncService is null) return;
+
+        // Enter arrives twice - once as the key and once as the change the
+        // browser commits behind it - so an unchanged draft is a no-op rather
+        // than a second save and a second status call. A refused value is the
+        // exception: it stays in the field with its message, so the second
+        // arrival repeats the same refusal instead of clearing it.
+        var stored = _syncService.Current.ServiceUrl ?? string.Empty;
+        if (_syncServiceMessage is null && string.Equals(_draftSyncServiceUrl, stored, StringComparison.Ordinal)) return;
+
+        var error = _syncService.SetServiceUrl(_draftSyncServiceUrl);
+        _syncServiceFailed = error is not null;
+        _syncServiceMessage = error;
+        if (error is not null) return;
+
+        _draftSyncServiceUrl = _syncService.Current.ServiceUrl ?? string.Empty;
+
+        // The next client the factory hands out already points at the new
+        // address - but the one this page resolved when it opened does not, its
+        // HttpClient was configured then. So ask for a fresh one (typed clients
+        // are transient) before asking the card above to check again, which is
+        // how a person finds out they typed it right.
+        _devicePairing = Services.GetService<DevicePairingClient>();
+        _devicesMessage = null;
+        await RefreshDeviceStatusAsync();
+    }
+
+    private async Task OnSyncServiceKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ApplySyncServiceUrlAsync();
+        else if (e.Key == "Escape")
+        {
+            _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
+            _syncServiceMessage = null;
+            _syncServiceFailed = false;
+        }
+    }
+
     private async Task RefreshDeviceStatusAsync()
     {
         if (_devicePairing is null || StoredDevice is null)
