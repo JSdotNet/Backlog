@@ -145,6 +145,12 @@ the same terms as completing those tasks one at a time.
 A selected task that leaves the current view — because a filter changed, or
 because the change itself moved it out — leaves the selection with it.
 
+The selection can also be deleted as a whole. The act is offered beside the
+field changes, names how many tasks it will take, and applies as directly as
+deleting one task does; the outcome is reported on the same terms as a field
+change, so a task the store refuses is counted rather than the batch abandoned.
+Deleting everything selected empties the selection.
+
 ## Effort registration
 
 ```meta
