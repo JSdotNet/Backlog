@@ -24,3 +24,9 @@
 @using Backlog.Modules.DevPc.Abstractions
 @using Backlog.Modules.Roadmap.Abstractions
 @using Backlog.Modules.Sessions.Abstractions
+@* Capture's published surface, and the one exception to "constants only": the
+   Inbox's Capture button is answered here, by calling the module's runner and
+   writing its result into a sentence for the pane. The pane itself stays free
+   of these types. *@
+@using Backlog.Modules.Capture.Abstractions.DataTransferObjects
+@using Backlog.Modules.Capture.Abstractions.Services

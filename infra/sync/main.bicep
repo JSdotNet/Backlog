@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding both replica containers.')
+@description('Cosmos DB database holding the two replica containers and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -258,9 +258,12 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
   }
 }
 
-// Two containers, not one — ADR 0005 "Two containers, not one". Each carries its
-// own change feed, its own indexing policy and its own TTL, and under serverless
-// the second container costs nothing.
+// Two replica containers, not one — ADR 0005 "Two containers, not one". Each
+// carries its own change feed, its own indexing policy and its own TTL, and under
+// serverless the second container costs nothing. Two more beside them, `devices`
+// and `pairingCodes`, hold the registry ADR 0005 Identity describes; they are not
+// replicas — no change feed is ever read from them — and they are partitioned
+// differently, for a reason given at each one.
 
 // `tasks` — the default indexing policy, because a task is read by id and by owner
 // and nothing here knows which other field a later query will want.
@@ -348,6 +351,83 @@ resource sessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/c
           }
           {
             path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `devices` — one document per registered device, partitioned on `/id` (the
+// device id) rather than on the owner like the replicas above. The read that runs
+// on every token mint has only the device id in hand — it is the read that finds
+// out who the owner is — so on `/id` it is a point read, and on `/ownerId` it
+// would be a cross-partition query on every sync. The two owner-scoped reads
+// behind the Devices tab pay for that with a cross-partition count instead, which
+// is bounded by how many machines one person owns. Default indexing, so `ownerId`
+// is indexed for them. No TTL: a registration lasts until the device is forgotten.
+resource devicesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'devices'
+  properties: {
+    resource: {
+      id: 'devices'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `pairingCodes` — one document per live code, partitioned on `/id`, which is the
+// code's hash: a code is looked up by hash and by nothing else, so every operation
+// is a point read or a conditional replace of one document.
+//
+// defaultTtl is -1 for the same reason `tasks` has it: the TTL is stamped per
+// document, by the write that issues the code, as the code's ten-minute window
+// plus a grace. Cosmos reaps the document afterwards; the service's own expiry
+// check is what turns a stale code away in the meantime, because TTL reaping is
+// lazy. Nothing is indexed but the key — no query ever runs against this
+// container.
+resource pairingCodesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'pairingCodes'
+  properties: {
+    resource: {
+      id: 'pairingCodes'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: []
+        excludedPaths: [
+          {
+            path: '/*'
           }
         ]
       }
@@ -536,6 +616,14 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__SessionsContainerName'
               value: sessionsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__DevicesContainerName'
+              value: devicesContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__PairingCodesContainerName'
+              value: pairingCodesContainer.name
             }
             {
               name: 'Sync__Cosmos__TaskTombstoneTtlSeconds'

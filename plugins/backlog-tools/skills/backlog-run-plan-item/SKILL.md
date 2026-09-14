@@ -1,6 +1,6 @@
 ---
 name: backlog-run-plan-item
-description: Run one item of a Backlog import plan that the user pasted into the chat. Use whenever a message contains a line beginning "Backlog plan item `" — the marker backlog-import-plan writes into every entry — or a plan entry that opens with "Add the plan name `…` to this session's title", even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
+description: Run one item of a Backlog import plan that the user pasted into the chat. Use whenever a message contains a line beginning "Backlog plan item `" — the marker backlog-import-plan writes into every prompt entry — or a plan entry that opens with "Add the plan name `…` to this session's title", even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
 ---
 
 # Run a Backlog plan item
@@ -18,8 +18,9 @@ marker's exact shape, `## Sub-item conventions` what the item's `##` headings me
 1. **Parse.** Title is the first line (`# ` optional). A backtick metadata line, when
    present, wins for `id:`, `#tag`, `repo:` and `after:`; otherwise read them off the
    marker. An entry carrying only the session-name line yields the tag alone — say so and
-   continue. The body is the instructions; `## Setup:`, `## Manual:`, the knowledge/devbook
-   reminder and `- [ ]` lines are its steps.
+   continue. The body is the instructions; `## Setup:`, the knowledge/devbook reminder and
+   `- [ ]` lines are its steps. A `task` type on the metadata line — or a body with neither
+   marker nor session-name line — is the user's own work, not a prompt: say so and stop.
 2. **Session and place.** Add the plan tag to the session title where the host allows it.
    Confirm the current repository is one the item names; if not, stop and say which it wants.
 3. **Still outstanding?** Never assume it is. Gather evidence in this order and stop at the
@@ -32,17 +33,19 @@ marker's exact shape, `## Sub-item conventions` what the item's `##` headings me
    Verdict **done** → report the evidence and stop, no work. **Partly done** → list what
    remains and do only that. **Not started** → continue. Unsure → ask before touching anything.
 4. **Prerequisites.** Look for the same evidence for every `after:` id. One missing → warn
-   and ask whether to proceed; never silently build on a step that has not landed.
+   and ask whether to proceed; never silently build on a step that has not landed. An
+   `after:` id that names a `task` the user does leaves no trace in the repository — ask
+   whether it is done instead of searching for it.
 5. **Do it.** `Setup:` sub-items first, in order. Then the instructions, exactly the way the
    repository's own instructions say work is done there — its orchestration gate, review and
-   validation rules; this skill adds no execution path of its own. `Manual:` sub-items are
-   the user's: list them, never attempt them. Tick `- [ ]` lines as they land.
+   validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as
+   they land.
 6. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
    knowledge skills. Then report `(tag, id)`, what was done, the evidence behind anything
-   skipped as already done, the `Manual:` steps still open, and that the item's status in
-   Backlog has to be set by hand until the feedback loop exists.
+   skipped as already done, and that the item's status in Backlog has to be set by hand
+   until the feedback loop exists.
 
 ## Never
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
-- Execute a `Manual:` step, open a pull request, or mark anything done in Backlog unasked.
+- Run a `task` entry, open a pull request, or mark anything done in Backlog unasked.
