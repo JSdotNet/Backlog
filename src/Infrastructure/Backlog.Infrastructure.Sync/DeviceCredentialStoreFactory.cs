@@ -13,8 +13,8 @@ namespace Backlog.Infrastructure.Sync;
 /// </para>
 /// <para>
 /// Development only. The shipped heads register their own store: the desktop
-/// head takes DPAPI directly, and the Android head takes the in-memory store
-/// until its SecureStorage adapter lands.
+/// head takes DPAPI directly, and the Android head wraps MAUI SecureStorage in
+/// <see cref="SecureValueDeviceCredentialStore"/>.
 /// </para>
 /// </summary>
 public static class DeviceCredentialStoreFactory

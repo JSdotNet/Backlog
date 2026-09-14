@@ -6,8 +6,11 @@
     and the two browser harnesses — puts in front of it:
       IDeviceCredentialStore    where the long-lived registration credential is
                                 kept, with the DPAPI adapter ADR 0005 names as
-                                "the OS credential store" and an in-memory one
-                                for the Android head and for tests
+                                "the OS credential store", the platform-neutral
+                                half of the Android head's SecureStorage adapter
+                                (SecureValueDeviceCredentialStore over the
+                                ISecureValueStore port), and an in-memory one
+                                for tests
       SyncTokenProvider         trades that credential for a short-lived access
                                 token and caches it until just before it expires
       SyncAuthenticationHandler puts the token on an outgoing request

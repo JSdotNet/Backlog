@@ -8,11 +8,11 @@
 {
     @if (Inline)
     {
-        <span class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</span>
+        <span class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent</span>
     }
     else
     {
-        <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message</p>
+        <p class="@CssClassValue" id="@Id" data-testid="@TestId" role="@Role">@Message@ChildContent</p>
     }
 }
 
@@ -49,6 +49,27 @@
     /// </summary>
     [Parameter]
     public bool Inline { get; set; }
+
+    /// <summary>
+    /// What follows the message inside the same line — usually a link to the
+    /// thing the message is about.
+    /// <para>
+    /// Inside the element rather than beside it, because the element is the live
+    /// region: a host that wrote its own paragraph next to this one would either
+    /// have the addition go unannounced or get the line read out twice. The
+    /// feedback dialog's "Created" line is the case that asked for it — a filed
+    /// issue's number is only a way back if a reader can follow it.
+    /// </para>
+    /// <para>
+    /// It qualifies a message and does not replace one: the guard above still
+    /// reads <see cref="Message"/> alone, so an alert with content and nothing to
+    /// say is still nothing at all. No space is written between the two — the
+    /// gap belongs to whatever the host puts here, so every call site that
+    /// predates this parameter renders the text it always did.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
 
     [Parameter]
     public string? TestId { get; set; }

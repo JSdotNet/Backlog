@@ -36,6 +36,11 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
     /// repository first — GitHub's markdown sanitizer strips a screenshot
     /// embedded as a <c>data:</c> URL straight in the issue body, so the only
     /// way to make it actually render is to link a real hosted file.</summary>
+    /// <param name="screenshotError">Why no screenshot is attached, as a whole
+    /// sentence. The caller writes it, not this class: only the caller knows
+    /// which origin failed, and a capture, a clipboard read and an upload are
+    /// three different sentences. Anything passed here reaches the issue body
+    /// verbatim.</param>
     public async Task<GitHubIssueLink> ReportAsync(
         string title,
         string? details,
@@ -57,7 +62,7 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
             {
                 var uploaded = await gitHub.UploadFileAsync(
                     repository,
-                    ScreenshotPath(),
+                    ScreenshotPath(screenshot.MediaType),
                     ScreenshotBranch,
                     DecodeDataUrl(screenshot.DataUrl),
                     $"Add feedback screenshot for \"{title.Trim()}\"",
@@ -95,23 +100,56 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
     {
         if (screenshot is null || string.IsNullOrWhiteSpace(screenshotUrl))
         {
+            // The failure is printed in the words it was reported in. The sentence
+            // used to be written here — "Screenshot capture failed:" in front of
+            // whatever arrived — which was true for as long as a screen capture
+            // was the only way an image reached a report. It stopped being true
+            // twice over: a clipboard the WebView refuses read as a capture
+            // nobody attempted, and the upload failure above, which already says
+            // what it is, came out doubled. Each origin says its own sentence now.
             return string.IsNullOrWhiteSpace(screenshotError)
                 ? "No screenshot was attached."
-                : $"Screenshot capture failed: {screenshotError.Trim()}";
+                : screenshotError.Trim();
         }
 
+        // "Attached" rather than "Captured": nothing here can tell a pasted image
+        // from a captured one — the screenshot carries no origin — so the line
+        // says only what is true of both.
         return $"""
-        Captured from the app as {screenshot.MediaType}, {screenshot.Width} x {screenshot.Height}, {screenshot.SizeBytes} bytes.
+        Attached from the app as {screenshot.MediaType}, {screenshot.Width} x {screenshot.Height}, {screenshot.SizeBytes} bytes.
 
         ![Screenshot]({screenshotUrl})
         """;
     }
 
-    private static string ScreenshotPath() =>
-        $"feedback-screenshots/{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.jpg";
+    private static string ScreenshotPath(string mediaType) =>
+        $"feedback-screenshots/{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{ExtensionFor(mediaType)}";
+
+    /// <summary>The extension for the media type the reader reports. It used to
+    /// be a literal <c>.jpg</c>, which was true for as long as a screen capture
+    /// was the only origin — a file committed under the wrong extension is one
+    /// GitHub serves under the wrong type, and the embed in the issue body then
+    /// does not render.
+    /// <para>
+    /// In practice today that type is <c>image/jpeg</c> or <c>image/webp</c>:
+    /// <c>backlogScreenshotMediaType</c> in <c>app.js</c> re-encodes anything
+    /// else, because <c>toDataURL</c> takes a quality only for those two and
+    /// quality is how the size budget is met. The other arms are what keeps this
+    /// honest if that ever changes, and the committed test pins all four.
+    /// </para></summary>
+    private static string ExtensionFor(string mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "image/png" => ".png",
+        "image/webp" => ".webp",
+        "image/gif" => ".gif",
+        // JPEG included: it is what the capture path produces, and it is the
+        // fallback the reader re-encodes an unknown type into.
+        _ => ".jpg"
+    };
 
     /// <summary>The bytes behind a <c>data:image/...;base64,...</c> URL — the
-    /// shape <c>backlogCaptureScreenshot</c> in <c>app.js</c> always returns.</summary>
+    /// shape <c>backlogCaptureScreenshot</c> and <c>backlogReadClipboardImage</c>
+    /// in <c>app.js</c> both always return.</summary>
     private static byte[] DecodeDataUrl(string dataUrl)
     {
         var comma = dataUrl.IndexOf(',');

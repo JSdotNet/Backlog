@@ -252,14 +252,16 @@ distinct devices). It holds the device's registration credential
 exchanges it for a device token and caches it (`SyncTokenProvider`, refreshing
 within two minutes of expiry, never retrying a 401), attaches the token to
 outbound requests (`SyncAuthenticationHandler`), and drives the pairing calls
-themselves (`DevicePairingClient`). The Android head uses an in-memory
-credential store pending a `SecureStorage` adapter. On the desktop it also
-carries the capture path: `TaskReplicaMerge` hands every `capture`-kind replica
-document to the Inbox's `IInboxIntake` port before the task merge, and
-`TaskSyncSession` drains the Inbox's `IInboxCaptureOutbox` into the ordinary
-tasks push as tombstones. Both ports are optional constructor parameters, so a
-head without an inbox store — the phone — composes unchanged and leaves captures
-on the replica.
+themselves (`DevicePairingClient`). The Android head keeps the same credential
+in MAUI `SecureStorage` (Keystore-wrapped `EncryptedSharedPreferences`) through
+`SecureValueDeviceCredentialStore`, the platform-neutral half of that adapter,
+so a force-stop does not un-pair the phone; the in-memory store is for tests.
+On the desktop it also carries the capture path: `TaskReplicaMerge` hands every
+`capture`-kind replica document to the Inbox's `IInboxIntake` port before the
+task merge, and `TaskSyncSession` drains the Inbox's `IInboxCaptureOutbox` into
+the ordinary tasks push as tombstones. Both ports are optional constructor
+parameters, so a head without an inbox store — the phone — composes unchanged
+and leaves captures on the replica.
 
 ## Mobile App
 
