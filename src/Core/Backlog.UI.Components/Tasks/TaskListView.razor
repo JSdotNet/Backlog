@@ -1630,14 +1630,16 @@
     /// was: a drag nobody released is not a drop, and committing one would put a
     /// move the reader abandoned into the host's undo stack.
     /// <para>
-    /// The Escape half of that arrives from <c>components.js</c>, and it is the one
-    /// thing in the product that depended on Escape climbing out of this list's two
-    /// text fields — a drag can be in flight while the caret sits in a rename. Both
-    /// fields contain the key now (see <c>TaskItem.OnRenameKeyAsync</c>), so that
-    /// listener is registered in the capture phase and no longer relies on the
-    /// bubble. Anything else added here that wants a key pressed inside one of
-    /// those fields has the same option and no other; a bubble-phase listener would
-    /// simply never hear it.
+    /// The Escape half of that arrives from <c>components.js</c>, and a drag can
+    /// be in flight while the caret sits in a rename — so it is worth saying why
+    /// this list's two text fields containing the key (see
+    /// <c>TaskItem.OnRenameKeyAsync</c>) does not take that way out away. The
+    /// containment is Blazor's: it ends the framework's own walk to the
+    /// <c>@onkeydown</c> handlers above the field, and never calls the event's
+    /// <c>stopPropagation</c>. A document listener added in script is not on that
+    /// walk at all, so it hears the key in either phase. This one is registered in
+    /// the capture phase so it runs before the rest, which is a choice about order
+    /// and not a requirement — a bubble-phase listener here would work too.
     /// </para></summary>
     [JSInvokable]
     public void PointerDragCancel()

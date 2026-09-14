@@ -11,13 +11,15 @@
 
    It is the shape of a real host and not an invention for a test, and it covers
    both sides of the arrangement. The live one: in the Tasks pane the div around
-   an opened entry's detail (TasksPane.razor:1813) carries a keydown handler, and
-   the step list sits inside it (:2051) — that is the host whose Escape closed the
-   pane on top of an abandoned step title until this boundary went in. The other
-   side is a handler above a list of the pane's own rows, which the pane does not
-   have: its keydown handlers are on the filter chip group (:182), the selection
-   bar (:236) and the four bulk controls (:938, :963, :1009, :1077), and none of
-   them is above the entry list (:290). It is one wrapper element away, though,
+   an opened entry's detail carries a keydown handler — OnDetailKeyDownAsync, on
+   div.entry-detail — and the step list sits inside it: that is the host whose
+   Escape closed the pane on top of an abandoned step title until this boundary
+   went in. The other side is a handler above a list of the pane's own rows, which
+   the pane does not have: its keydown handlers are OnSelectionChipKeyDown on the
+   filter chip group, OnSelectionBarKeyDown on the selection bar, and the four
+   backlog-bulk__controls boundaries, and none of them is above the entry list.
+   Named rather than numbered, because the line numbers this comment first carried
+   were stale one rebase later. It is one wrapper element away, though,
    and it is what a pane-level way out of the selection mode would have been — the
    thing that could not be offered while an abandoned rename discarded the picked
    set with it, and that the list's OnDismiss hook offers instead. *@

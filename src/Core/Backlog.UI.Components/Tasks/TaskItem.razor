@@ -1609,10 +1609,16 @@
     /// a group's trigger and the controls it opens.
     /// </para>
     /// <para>
-    /// One thing did depend on the key climbing out of here: the pointer drag's
-    /// Escape-cancels-it listener in <c>components.js</c>, which is why that one
-    /// is registered in the capture phase. Anything else that wants a key pressed
-    /// in this field has the same option and no other.
+    /// What stops here is Blazor's dispatch and not the browser's propagation.
+    /// The framework walks the ancestors itself and this flag ends that walk; it
+    /// never calls the event's own <c>stopPropagation</c>, where
+    /// <c>:preventDefault</c> does call its opposite number. So the boundary is
+    /// exactly as wide as the <c>@onkeydown</c> handlers above it, and a
+    /// listener added in script — the pointer drag's Escape-cancels-it one in
+    /// <c>components.js</c>, on the document — hears this key whatever this
+    /// wrapper says, in either phase. That listener is in the capture phase to
+    /// run before the rest, which is a choice about order rather than a way
+    /// round this.
     /// </para>
     /// </summary>
     private async Task OnRenameKeyAsync(KeyboardEventArgs e)
