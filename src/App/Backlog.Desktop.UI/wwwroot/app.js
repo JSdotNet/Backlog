@@ -150,7 +150,7 @@ function backlogEncodeScreenshot(source, sourceWidth, sourceHeight, requestedMed
 
 window.backlogCaptureScreenshot = async () => {
     if (!navigator.mediaDevices?.getDisplayMedia) {
-        throw new Error('Screenshot capture is not available in this WebView.');
+        throw new Error('This WebView does not offer screen capture.');
     }
 
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
@@ -192,7 +192,7 @@ window.backlogCaptureScreenshot = async () => {
 // clipboard holding text does, which is most clipboards.
 window.backlogReadClipboardImage = async () => {
     if (!navigator.clipboard?.read) {
-        throw new Error('Reading the clipboard is not available in this WebView.');
+        throw new Error('This WebView does not offer clipboard reading.');
     }
 
     const items = await navigator.clipboard.read();
