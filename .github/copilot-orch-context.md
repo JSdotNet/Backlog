@@ -121,7 +121,7 @@ No external secret is required. Backlog is local-first, but the sync service now
 a bearer token on every call — `/api/sync/devices/me` and every `/api/sync/inbox` endpoint
 are behind it — so each harness has to pair itself before exercising them:
 
-- On `desktop-web-harness`: Settings → Features → turn on `device-pairing` → Settings →
+- On `desktop-web-harness`: Settings → Features → turn on `sync` → Settings →
   Devices → **Register this device**, or **Pair with a code** copied from the other
   harness's pairing code.
 - On `mobile-web-harness`: the Inbox pane shows a pairing-code entry while unpaired.
