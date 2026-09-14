@@ -3,6 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
+using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Knowledge;
 using Backlog.Desktop.UI.AppUpdate;
@@ -16,10 +17,15 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Inbox;
+using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
@@ -40,6 +46,12 @@ using Backlog.Aspire.ServiceDefaults;
 // own rather than sharing a general-purpose one whose timeout is set for
 // request-response calls.
 const string GitHubArchiveHttpClient = "github-archive";
+
+// The deployment and API key the harness seeds for the local azure-foundry-test
+// service. The key is a marker, not a credential: it is how a later session
+// recognises a stored configuration as its own seed rather than a person's.
+const string LocalAzureFoundryDeployment = "local-ai";
+const string LocalAzureFoundryApiKeyMarker = "local-development";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -129,6 +141,22 @@ builder.Services.AddCaptureModule();
 // services the modules register as Scoped, so they are Scoped too — registered in
 // one place both hosts share so the lifetimes cannot drift apart.
 builder.Services.AddRoadmapCrossContextAdapters();
+
+// The same arrangement for the inbox: the Inbox module brings its use cases, and
+// the host picks the adapter — three tables in the same database the tasks use,
+// following the same folder. One rooted store answers both of the module's
+// repository ports, registered once and handed out under each.
+builder.Services.AddSingleton<RootedSqliteInboxRepository>(sp =>
+    new RootedSqliteInboxRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+builder.Services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+builder.Services.AddInboxModule();
+
+// The cross-context join routing takes part in: the Inbox's backlog target,
+// answered by an adapter over Tasks' published port because only an adapter may
+// see both contexts. Scoped, for the reason the roadmap adapters are, and after
+// AddTasksModule() for the same reason.
+builder.Services.AddInboxCrossContextAdapters();
 // The same arrangement the desktop host makes: the shared registry follows the
 // workspace root, and moving the workspace re-reads it.
 builder.Services.AddSingleton(sp =>
@@ -200,6 +228,10 @@ builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+// The Inbox's plan drafter over the same chat client. Scoped, like the other
+// port adapters the Inbox module takes: the handler that asks for it is
+// scoped, and the typed client behind it is transient either way.
+builder.Services.AddScoped<IInboxPlanDrafter, AzureFoundryInboxPlanDrafter>();
 // The embedding deployment beside the chat one. Registered and never called in
 // this change: local ADR 0004's semantic tier is wired and dormant, and the
 // thing that would join it up - writing vectors into _meta/knowledge.db -
@@ -296,6 +328,10 @@ builder.Services.AddSingleton<KnowledgeUpdateService>();
 // branch list somebody fetched in one is already there in the other.
 builder.Services.AddSingleton<KnowledgeSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The Inbox pane's state, on the same terms as TasksDesktopState and for the
+// same reason: it captures the module's scoped IInboxItems, and a singleton over
+// a scoped service is a captive dependency validate-on-build refuses.
+builder.Services.AddScoped<InboxDesktopState>();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
 // host has one circuit per visitor, a singleton forwarding to a scoped
@@ -446,6 +482,14 @@ static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore
     return settings;
 }
 
+// Every git worktree shares one Backlog.Debug workspace and therefore one
+// Azure Foundry settings file, while the azure-foundry-test service binds a
+// fresh dynamic port per Aspire session. A seed left behind by an earlier
+// session (any worktree) therefore points at a port nobody listens on any
+// more, and "Create plan" fails with a connection refused. The seed is told
+// apart from a person's own configuration by its API key: the marker below
+// is never a real key, so a stored configuration carrying it is ours to
+// overwrite with this session's endpoint, and anything else is left alone.
 static void SeedLocalAzureFoundrySettings(AzureFoundrySettingsStore settings)
 {
     var localEndpoint = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT");
@@ -454,17 +498,24 @@ static void SeedLocalAzureFoundrySettings(AzureFoundrySettingsStore settings)
         return;
     }
 
-    var error = settings.SetConnection(localEndpoint, "local-ai", "local-development", AzureFoundrySettingsStore.DefaultApiVersion);
+    var error = settings.SetConnection(localEndpoint, LocalAzureFoundryDeployment, LocalAzureFoundryApiKeyMarker, AzureFoundrySettingsStore.DefaultApiVersion);
     if (error is not null)
     {
         throw new InvalidOperationException(error);
     }
 }
 
+// A configuration is the user's own unless its API key is the local seed's
+// marker. An endpoint or deployment with no key at all is still the user's:
+// a half-entered form is not something the harness gets to finish for them.
 static bool HasUserConfiguredAzureFoundry(AzureFoundrySettings settings) =>
-    !string.IsNullOrWhiteSpace(settings.Endpoint)
-    || !string.IsNullOrWhiteSpace(settings.Deployment)
-    || !string.IsNullOrWhiteSpace(settings.ApiKey);
+    !IsLocalAzureFoundrySeed(settings)
+    && (!string.IsNullOrWhiteSpace(settings.Endpoint)
+        || !string.IsNullOrWhiteSpace(settings.Deployment)
+        || !string.IsNullOrWhiteSpace(settings.ApiKey));
+
+static bool IsLocalAzureFoundrySeed(AzureFoundrySettings settings) =>
+    string.Equals(settings.ApiKey, LocalAzureFoundryApiKeyMarker, StringComparison.Ordinal);
 
 
 static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string contentRootPath)

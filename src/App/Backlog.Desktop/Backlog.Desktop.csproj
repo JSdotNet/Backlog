@@ -82,6 +82,9 @@
          AddRoadmapModule() means seeing both sides of the Roadmap module, which only
          an executable head does. -->
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
+    <!-- The Inbox module implementation, for AddInboxModule() and its two
+         repository ports; the pane asks through the abstractions project. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <!-- The Capture module implementation, for AddCaptureModule(); the same
          reasoning as the Roadmap line above. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />

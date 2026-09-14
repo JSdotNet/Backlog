@@ -47,8 +47,8 @@ public interface ITaskReplica
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The owner's live captures — documents that are not tombstoned and still
-    /// carry a source inbox id — newest first by the task's own creation time.
+    /// The owner's live captures — documents that are not tombstoned and carry
+    /// the capture kind token — newest first by the task's own creation time.
     /// The inbox is the one view the service answers out of the replica, and it
     /// reads exactly two fields of the payload to do it.
     /// </summary>

@@ -1,3 +1,5 @@
+using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
@@ -80,10 +82,35 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// ever again. The service side already takes this stance in
 /// <c>TaskDocumentFactory.ToRecord</c>; this is the device half of it.
 /// </para>
+/// <para>
+/// <b>A capture is not a task, and never reaches the task store.</b> A document
+/// whose kind token is <c>capture</c> is handed to the Inbox's intake whole,
+/// before the local task is read and before <see cref="ShouldApply"/> is
+/// consulted: the intake decides by id and status, and it never parses a
+/// token, so a capture with a status this build cannot read still lands. A
+/// head composed without an intake — the phone — holds captures on the replica
+/// rather than writing them anywhere, which is what a head without an inbox
+/// store should do with one.
+/// </para>
 /// </summary>
-public sealed class TaskReplicaMerge(ITaskRepository tasks, ILogger<TaskReplicaMerge>? log = null)
+public sealed class TaskReplicaMerge(
+    ITaskRepository tasks,
+    IInboxIntake? inbox = null,
+    ILogger<TaskReplicaMerge>? log = null)
 {
+    /// <summary>The kind token the service writes on a capture document. Three
+    /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
+    /// writes it, its two replicas filter on it, and this reads it — and the
+    /// reason they are literals rather than one constant is the reason that
+    /// handler gives: the Sync module may not reference the task domain, and this
+    /// project seeing the service's implementation would be the reverse leak.</summary>
+    private const string CaptureType = "capture";
+
     private readonly ITaskRepository _tasks = tasks ?? throw new ArgumentNullException(nameof(tasks));
+
+    /// <summary>Optional by construction, not by omission: a head without an
+    /// inbox store leaves it null and captures stay on the replica.</summary>
+    private readonly IInboxIntake? _inbox = inbox;
 
     /// <summary>Optional so a test can build one in a line, and defaulted rather
     /// than left null so the skip path below cannot itself be the thing that
@@ -347,6 +374,51 @@ public sealed class TaskReplicaMerge(ITaskRepository tasks, ILogger<TaskReplicaM
         DateTimeOffset pushWatermark,
         CancellationToken cancellationToken)
     {
+        // Only a document carrying the capture kind token takes this branch. A
+        // capture written before the token existed — a `task` document with the
+        // phone's name in sourceInboxId, which is what the mobile head wrote
+        // until this change — is not recognised here and goes down the task
+        // path below, landing as the draft task it claims to be with "mobile"
+        // kept as its source. Accepted as a one-time behaviour rather than
+        // special-cased: one user, both ends upgraded together, and the handful
+        // of such documents are a draft each to tidy in the backlog, where a
+        // rule to tell them apart would be carried by every merge for ever.
+        if (IsCapture(record.Change))
+        {
+            // Held rather than Unreadable on a head without an intake: nothing
+            // is wrong with the document, this head simply has nowhere to put it.
+            if (_inbox is null) return ApplyOutcome.Held;
+
+            InboxIntakeOutcome outcome;
+
+            try
+            {
+                outcome = await _inbox.ReceiveAsync(ToCapture(record), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception failure) when (failure is FormatException or ArgumentException)
+            {
+                // The intake decides by id and status and parses no token, but
+                // the aggregate behind it still has invariants — a title, for
+                // one — and the push endpoint validates nothing. Refused here
+                // means skipped, for the reason the task path gives: a throw
+                // would leave the cursor on this page and replay it for ever.
+                _log.LogWarning(
+                    failure,
+                    "Skipping capture {CaptureId} from the replica: the inbox could not take the document. "
+                    + "It will be offered again the next time the replica hands it out.",
+                    record.Change.Id);
+
+                return ApplyOutcome.Unreadable;
+            }
+
+            // Received and Withdrawn wrote something; AlreadyKnown and Ignored
+            // are the capture's echo or replay, and a replayed page writes
+            // nothing — the same idempotency the task path keeps below.
+            return outcome is InboxIntakeOutcome.Received or InboxIntakeOutcome.Withdrawn
+                ? ApplyOutcome.Written
+                : ApplyOutcome.Held;
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -378,6 +450,21 @@ public sealed class TaskReplicaMerge(ITaskRepository tasks, ILogger<TaskReplicaM
 
         return ApplyOutcome.Written;
     }
+
+    private static bool IsCapture(TaskChange change) =>
+        string.Equals(change.Task.Type, CaptureType, StringComparison.Ordinal);
+
+    /// <summary>The capture as the Inbox wants it: the document's id, title,
+    /// source and stamps, and nothing of the task shape around them. The
+    /// tombstone stamp travels as <c>WithdrawnAt</c>; a source the service did
+    /// not record is filed as unknown rather than dropped.</summary>
+    private static InboxCaptureDto ToCapture(TaskChangeRecord record) => new(
+        record.Change.Id,
+        record.Change.Task.Title,
+        record.Change.Task.SourceInboxId ?? "unknown",
+        record.Change.Task.CreatedAt,
+        record.Change.UpdatedAt,
+        record.Change.DeletedAt);
 
     /// <summary>The apply-against-local decision on its own, by the rule in
     /// <see cref="ApplyOneAsync"/>'s remarks.</summary>

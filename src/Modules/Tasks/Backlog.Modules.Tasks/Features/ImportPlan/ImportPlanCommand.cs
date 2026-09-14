@@ -38,10 +38,19 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// registered, the ordinary way. A person having looked at a name is the
 /// strongest signal there is about what it means, which is why this is consulted
 /// before the registry rather than after it.</param>
+/// <param name="SourceInboxId">The inbox item this plan was drafted from, or
+/// null for a plan pasted or uploaded by hand. Stamped on the entries this run
+/// <em>creates</em> and on nothing else: an entry already under way keeps the
+/// provenance it was born with, because the aggregate holds the field as
+/// constructor-only and a re-import is not a second birth. The entries it is
+/// stamped on are born Draft whatever their text says — see
+/// <c>CreateEntry</c> for why a model's plan about captured content gets no
+/// Ready without a person's look.</param>
 public sealed record ImportPlanCommand(
     string RawText,
     string? DefaultRepo = null,
-    IReadOnlyDictionary<string, string>? RepoMatches = null);
+    IReadOnlyDictionary<string, string>? RepoMatches = null,
+    string? SourceInboxId = null);
 
 public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
     : ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>
@@ -129,7 +138,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             {
                 // The prompt as this version of the plan writes it: either new,
                 // or written again in place of the copy just cleared.
-                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++)));
+                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, command.SourceInboxId)));
             }
             else if (match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
@@ -267,11 +276,24 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     /// this fills a gap, it never overrides. Kept here rather than in
     /// <see cref="TaskEntryFields.CreateFrom"/> because that helper is shared
     /// with the hand-typed path, whose default stays Draft.
+    /// </para>
+    /// <para>
+    /// <b>Except for a plan drafted from an inbox item</b>, which is born
+    /// Draft whatever its text says. Nobody agreed that plan: a model wrote it
+    /// about captured content — an article, a forwarded mail, a page somebody
+    /// else made — and an entry born Ready is a prompt an agent may pick up
+    /// without a person having read it. The provenance is the signal, so the
+    /// rule keys on <paramref name="sourceInboxId"/> and on nothing the text
+    /// can say; the drafter is asked for <c>!draft</c> too, so the two agree,
+    /// but the prompt is a request and this is the guarantee.
     /// </para></summary>
-    private static TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order)
+    private static TaskItem CreateEntry(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId)
     {
-        var entry = TaskEntryFields.CreateFrom(parsed, order);
-        if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready);
+        var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
+
+        if (sourceInboxId is not null) entry.SetStatus(EntryStatus.Draft);
+        else if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready);
+
         return entry;
     }
 

@@ -113,7 +113,10 @@ at a synced folder is a file a sync product will conflict, and the plan would
 otherwise have needed a second sync protocol of its own. It is one document row in
 `backlog.db` now — its own `roadmap_plan` table, owned by Roadmap Planning, sharing
 the file with `tasks` and not the schema. The reasoning above survives; the example
-does not.
+does not. The Inbox's `inbox_items`, `inbox_lists` and `inbox_groups` tables joined
+the same file on 2026-09-15 under the same rule — owned by their module, created by
+the same idempotent `IF NOT EXISTS` DDL on every open, and never touched by another
+module's adapter (local ADR 0009).
 
 ### No migration
 

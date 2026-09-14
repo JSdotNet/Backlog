@@ -40,20 +40,25 @@ migration at startup is prohibited.
   `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. A task's content
   is markdown text inside it.
 - `src/Infrastructure/Backlog.Infrastructure.Sqlite` holds the repository
-  implementations (`SqliteTaskRepository`, `RootedSqliteTaskRepository`, and under
+  implementations (`SqliteTaskRepository`, `RootedSqliteTaskRepository`; under
   `Roadmap/` since 2026-09-05 `SqliteRoadmapPlanRepository` and
-  `RootedSqliteRoadmapPlanRepository`) and the persistence-only mapping types
-  (`TaskPayloads`, `EnumMap`, `RoadmapPlanDocument`).
-- **Two modules persist in that one database, and each owns its own table.** Tasks
-  owns `tasks`; Roadmap Planning owns `roadmap_plan`. Neither adapter reads, writes
-  or creates the other's table, and each runs only its own bootstrap DDL — which is
-  what keeps "persistence belongs to the module that owns the data" true of a shared
-  file. It is also the deviation below made literal: the shared adapter project
-  serves the modules that persist locally, rather than each growing a `Data.*` of
-  its own.
+  `RootedSqliteRoadmapPlanRepository`; under `Inbox/` since 2026-09-15
+  `SqliteInboxRepository` and `RootedSqliteInboxRepository`) and the
+  persistence-only mapping types (`TaskPayloads`, `EnumMap`,
+  `RoadmapPlanDocument`, `InboxPayloads`).
+- **Three modules persist in that one database, and each owns its own tables.**
+  Tasks owns `tasks`; Roadmap Planning owns `roadmap_plan`; the Inbox owns
+  `inbox_items`, `inbox_lists` and `inbox_groups`. No adapter reads, writes or
+  creates another module's table, and each runs only its own bootstrap DDL —
+  which is what keeps "persistence belongs to the module that owns the data" true
+  of a shared file. It is also the deviation below made literal: the shared
+  adapter project serves the modules that persist locally, rather than each
+  growing a `Data.*` of its own.
 - Repository **ports** stay in the module (`ITaskRepository` at the root of
   `Backlog.Modules.Tasks`, `IRoadmapPlanRepository` at the root of
-  `Backlog.Modules.Roadmap`), exactly as the decision requires.
+  `Backlog.Modules.Roadmap`, `IInboxItemRepository` and
+  `IInboxOrganizerRepository` at the root of `Backlog.Modules.Inbox`), exactly
+  as the decision requires.
 - Domain models are persistence-agnostic: no ORM attributes anywhere in a module
   project.
 

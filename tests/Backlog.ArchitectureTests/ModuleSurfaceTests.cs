@@ -10,6 +10,11 @@ public class ModuleSurfaceTests
     private const string Module = "Backlog.Modules.Tasks";
     private const string Abstractions = "Backlog.Modules.Tasks.Abstractions";
 
+    /// <summary>The second module the desktop hosts compose beside Tasks. Named
+    /// here rather than discovered, because the rule is about the two contexts
+    /// whose stores live in <c>backlog.db</c> and not about every module folder.</summary>
+    private const string InboxModule = "Backlog.Modules.Inbox";
+
     /// <summary>
     /// A module library exists to be called, so it has to publish a contract. An
     /// <c>.Api</c> project is the opposite: a host that exposes the module over HTTP
@@ -19,12 +24,13 @@ public class ModuleSurfaceTests
     /// across a boundary, so there is no contract for it to publish either.
     ///
     /// <para>Read what is left carefully: this asks that a module <em>that exists</em>
-    /// publishes a contract, not that every context folder holds a module. Inbox,
-    /// Second Brain, Roadmap and Dev PC Management currently have a
-    /// <c>.UI</c> project and no domain module at all, and that is a statement about
-    /// how far each context has been built rather than a boundary violation. This
-    /// rule stays silent about it on purpose; demanding an abstractions project for
-    /// a module nobody has written yet would only produce empty ones.</para>
+    /// publishes a contract, not that every context folder holds a module. Second
+    /// Brain and Dev PC Management currently have a <c>.UI</c> project and no
+    /// domain module at all, and that is a statement about how far each context
+    /// has been built rather than a boundary violation. This rule stays silent
+    /// about it on purpose; demanding an abstractions project for a module nobody
+    /// has written yet would only produce empty ones. Inbox and Roadmap used to be
+    /// on that list; each now has a module and publishes one.</para>
     /// </summary>
     [Fact]
     public void Every_module_publishes_an_abstractions_project()
@@ -127,17 +133,20 @@ public class ModuleSurfaceTests
 
     /// <summary>
     /// Composition is a host's job — picking the storage adapter and calling
-    /// AddTasksModule() means seeing both sides, which only the executable
-    /// heads do.
+    /// AddTasksModule() or AddInboxModule() means seeing both sides, which only
+    /// the executable heads do. One row per host per module that keeps its own
+    /// store in <c>backlog.db</c>.
     /// </summary>
     [Theory]
-    [InlineData("App", "Backlog.Desktop.csproj")]
-    [InlineData("Harness", "Backlog.Desktop.WebHarness.csproj")]
-    public void The_hosts_compose_the_module(string folder, string project)
+    [InlineData("App", "Backlog.Desktop.csproj", Module)]
+    [InlineData("Harness", "Backlog.Desktop.WebHarness.csproj", Module)]
+    [InlineData("App", "Backlog.Desktop.csproj", InboxModule)]
+    [InlineData("Harness", "Backlog.Desktop.WebHarness.csproj", InboxModule)]
+    public void The_hosts_compose_the_module(string folder, string project, string module)
     {
         var host = Repository.ProjectsUnder("src", folder)
             .Single(p => p.Name.Equals(project, StringComparison.OrdinalIgnoreCase));
 
-        Assert.Contains(Module, Repository.ReferencedProjectNames(host));
+        Assert.Contains(module, Repository.ReferencedProjectNames(host));
     }
 }

@@ -212,11 +212,14 @@ internal sealed class CosmosTaskReplica : ITaskReplica
     {
         var key = ReplicaDocumentSerialization.Key(owner.Value);
 
-        // Nulls are not written, so "not tombstoned" and "still a capture" are
-        // both questions about whether the property is there at all.
+        // Nulls are not written, so "not tombstoned" is a question about whether
+        // the property is there at all. "A capture" is the document's kind token,
+        // the literal the service writes in CaptureInboxItemCommandHandler and
+        // the desktop reads in TaskReplicaMerge — duplicated as a literal here
+        // for the reason that handler gives.
         var query = new QueryDefinition(
             "SELECT * FROM c WHERE c.ownerId = @owner AND NOT IS_DEFINED(c.deletedAt) "
-            + "AND IS_DEFINED(c.task.sourceInboxId) ORDER BY c.task.createdAt DESC")
+            + "AND c.task.type = 'capture' ORDER BY c.task.createdAt DESC")
             .WithParameter("@owner", key);
 
         // The partition key on the request, as well as the predicate on the

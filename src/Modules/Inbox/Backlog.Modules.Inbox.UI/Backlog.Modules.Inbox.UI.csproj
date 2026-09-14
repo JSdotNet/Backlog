@@ -1,10 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Inbox context's UI: what has been captured but not yet decided on.
-    Upstream of Tasks and Second Brain (.domain/context-map.md), so
-    it references nothing but the shared control library — anything more would be
-    the Inbox reading back from a context it publishes to.
+    The Inbox context's UI: what has been captured but not yet decided on, read
+    as a To Do-style pane — lists down the side, rows in the middle, the chosen
+    item on the right. Upstream of Tasks and Second Brain
+    (.domain/context-map.md), so it sees its own module's published surface and
+    the shared control library and nothing of the two contexts it routes to:
+    the join to the backlog is a port in Inbox.Abstractions that an adapter
+    under src/Infrastructure answers, never a reference from here.
   -->
   <PropertyGroup>
     <!--
@@ -15,7 +18,8 @@
       the repository root: inside Backlog.Modules.Inbox.UI a sibling project's
       "Backlog.UI.Components.Buttons" would bind to Backlog.Modules.* and fail
       with CS0234. Keeping the types in Backlog.Desktop.UI.Inbox also means the
-      move to this project changed no using, @using or namespace line anywhere.
+      move to this project changed no using, @using or namespace line anywhere,
+      and DesktopDomainBoundaryTests reads the contexts by that namespace.
     -->
     <RootNamespace>Backlog.Desktop.UI.Inbox</RootNamespace>
   </PropertyGroup>
@@ -25,7 +29,23 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The state's derived views — which rows a slice holds, the counts on the
+         side menu, the kind chips — are worth asserting without a DOM. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface only: DTOs, the enums and their tokens,
+         and the IInboxItems port. The aggregate, its repositories and the
+         handlers stay behind that line — the host wires them, the pane asks. -->
+    <ProjectReference Include="..\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- For the repository picker: which repositories exist is the settings
+         store's answer, the same store the Tasks pane and the Repositories
+         screen read, so a repository chosen here is one the backlog can route
+         to. The same adapter Tasks.UI takes for the same reason. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
   </ItemGroup>
 
 </Project>

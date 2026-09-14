@@ -1,7 +1,11 @@
 ﻿@page "/"
 @implements IAsyncDisposable
 @using Backlog.Infrastructure.FileSystem
+@using Backlog.Infrastructure.Sync
+@using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
 @inject TasksDesktopState State
+@inject InboxDesktopState InboxState
+@inject IServiceProvider Services
 @inject IToastChannel Toasts
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
@@ -541,7 +545,7 @@
             <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" OnAdd="AddInboxItemAsync" OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                    <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                 }
 
                 @if (TasksPaneVisible)
@@ -575,7 +579,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" OnAdd="AddInboxItemAsync" OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                            <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                         }
 
                         @if (KnowledgePaneVisible)
@@ -666,7 +670,15 @@
         }
 
         State.Changed += HandleStateChanged;
+        InboxState.Changed += HandleStateChanged;
+        InboxState.Routed += HandleInboxRouted;
         Features.Changed += HandleFeaturesChanged;
+
+        // Optional, the way Settings resolves it: a host without task sync
+        // composes no worker, and a test rendering this page should not have to.
+        _taskSync = ResolveTaskSync();
+        if (_taskSync is not null) _taskSync.Changed += HandleTaskSyncChanged;
+
         await State.InitializeAsync();
         SynchronizePaneAvailability();
     }
@@ -684,6 +696,18 @@
             {
                 // Without the interop the separator still resizes by keyboard.
             }
+        }
+
+        // The Inbox loads the first time its pane is on screen rather than when
+        // this page does, because the pane ships behind a flag and is closed by
+        // default — a store read for a pane nobody opened is a store read wasted.
+        // After every render rather than on a toggle handler, because there are
+        // three ways the pane opens (its own toggle, a restored selection, and
+        // the feature switching on) and one place to notice is better than three.
+        if (InboxPaneVisible && !_inboxInitialized)
+        {
+            _inboxInitialized = true;
+            await InboxState.InitializeAsync();
         }
 
         // The two branches below run on every render, not only the first: a
@@ -916,44 +940,70 @@
         StateHasChanged();
     });
 
-    /// <summary>What the Inbox has to show, in the Inbox's own contract. The
-    /// shell only passes it along; the projection itself belongs to the context
-    /// that owns the entries.</summary>
-    private IReadOnlyList<InboxItem> InboxItems => TasksDrafts.ForInbox(State.Rows);
+    /// <summary>Whether the Inbox has been told to load. Once per page: the
+    /// state itself outlives the page and keeps what it loaded, so a second
+    /// Home — Settings and back — asks again and gets a fresh read, which is
+    /// the cheap and correct answer for a store another device may have
+    /// written to meanwhile.</summary>
+    private bool _inboxInitialized;
 
-    /// <summary>How the reader last asked the Inbox to fold. Held here rather than
-    /// in the pane because the pane is drawn in one of two slots depending on
-    /// which other panes are open, and moving slots re-mounts it: triage opens the
-    /// backlog beside the Inbox, and a choice held in the pane would reset to a
-    /// flat list at exactly that moment.</summary>
-    private InboxGrouping _inboxGrouping;
+    /// <summary>The replication loop, or null in a host that composes none. The
+    /// Inbox listens to it here rather than itself because the Inbox's UI may
+    /// not see the sync adapter — the shell may, and forwarding one event is
+    /// the whole of what it does with it.</summary>
+    private TaskSyncWorker? _taskSync;
 
-    /// <summary>Whether a capture run is in flight, and what the last one said.
-    /// Held here rather than in the pane for the reason <see cref="_inboxGrouping"/>
-    /// is: the pane re-mounts when it changes slot, and a run's result dropping
-    /// at that moment would leave the reader with a button that did nothing.</summary>
-    private bool _captureRunning;
-    private string? _captureMessage;
-
-    /// <summary>
-    /// The Inbox's Add, answered: the title and notes become a backlog draft.
-    /// <para>
-    /// A draft, and not a selected one — <see cref="TasksDesktopState.AddDraftAsync"/>
-    /// says why it is not <c>NewRow</c>. The Inbox shows drafts, so the new one
-    /// appears in the queue the reader is filling rather than opening in the
-    /// backlog beside it. A refusal is a toast: the dialog has closed by the time
-    /// it arrives, and there is nowhere in the pane for a one-off failure to sit.
-    /// </para>
-    /// </summary>
-    private async Task AddInboxItemAsync(InboxCapture capture)
+    private TaskSyncWorker? ResolveTaskSync()
     {
-        var result = await State.AddDraftAsync(capture.Title, capture.Notes);
-
-        if (result.IsFailure)
+        try
         {
-            Toasts.Publish(ToastMessage.Error(result.Error.Message, "inbox-add-error"));
+            return Services.GetService<TaskSyncWorker>();
+        }
+        catch (InvalidOperationException)
+        {
+            // Registered but not constructible here — the same case Settings
+            // reads as "this host does not replicate".
+            return null;
         }
     }
+
+    /// <summary>A pull may have delivered a capture. Reloading the Inbox is a
+    /// database read, and only worth it once the pane has loaded at all — before
+    /// that the first load will read whatever arrived.
+    /// <para>
+    /// The task is not awaited — the event is synchronous and the renderer's
+    /// dispatcher owns the continuation — so a failure inside it has nowhere
+    /// to go but the toast. The catch is on this side of <c>InvokeAsync</c> so
+    /// an unobserved exception cannot take the circuit down for a read the
+    /// reader never asked for.
+    /// </para></summary>
+    private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
+    {
+        if (!_inboxInitialized) return;
+
+        try
+        {
+            await InboxState.ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a sync: {ex.Message}", InboxReloadErrorTestId));
+        }
+    });
+
+    /// <summary>Where the two discarded reloads report a failure, for a test
+    /// to find and a reader to read.</summary>
+    private const string InboxReloadErrorTestId = "inbox-reload-error";
+    private const string TasksReloadErrorTestId = "tasks-reload-error";
+
+    /// <summary>Whether a capture run is in flight, and what the last one said.
+    /// Held here rather than in the pane for the reason the Inbox's own view
+    /// state lives in <see cref="InboxDesktopState"/>: the pane re-mounts when
+    /// it changes slot, and a run's result dropping at that moment would leave
+    /// the reader with a button that did nothing. The Inbox's Add is not
+    /// answered here at all — the pane files it through its own module.</summary>
+    private bool _captureRunning;
+    private string? _captureMessage;
 
     /// <summary>
     /// The Inbox's Capture, answered: one run over the sources switched on in
@@ -1090,30 +1140,39 @@
         PersistPaneSelection();
     }
 
-    /// <summary>Triage: the Inbox hands back the item it was asked to open, and
-    /// the shell shows it where work actually happens.
+    /// <summary>Triage: the Inbox turned an item into backlog entries, and the
+    /// shell shows them where work actually happens.
     /// <para>
     /// Alongside rather than a switch: this is the shell opening a pane on the
-    /// reader's behalf, and closing the Inbox they just picked the item from would
-    /// take away the list they were working through.
+    /// reader's behalf, and closing the Inbox they just routed the item from
+    /// would take away the queue they were working through.
     /// </para>
     /// <para>
-    /// Selects the entry rather than opening an editor on it. The raw-markdown
-    /// escape hatch stays behind Ctrl+Shift+M, because that is what makes it the
-    /// hatch `.design/content-editing.md#raw-markdown-escape-hatch` describes
-    /// rather than "the primary surface #editing-model rules out" — and the hatch
-    /// is the <em>selected</em> row being the row with an editor open, so asking
-    /// for one without selecting put nothing on screen at all. The same fix the
-    /// new-entry path took; see <c>TasksDesktopState.NewRow</c>.
+    /// The Tasks pane is reloaded from the store rather than told what changed.
+    /// The Inbox's module wrote the entries through a port an adapter answers,
+    /// so as far as the Tasks state is concerned somebody else wrote its
+    /// database — which is exactly the case its store reload already handles.
+    /// The shell knows both panes exist and nothing about what either holds.
     /// </para></summary>
-    private async Task OpenInboxItemAsync(InboxItem item)
+    private void HandleInboxRouted(InboxRoutedDto routed) => _ = InvokeAsync(async () =>
     {
-        if (TasksDrafts.Find(State.Rows, item) is not { } row) return;
-
         _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
         PersistPaneSelection();
-        await State.SelectAsync(row);
-    }
+
+        try
+        {
+            await State.ReloadFromStoreAsync();
+        }
+        catch (Exception ex)
+        {
+            // The entries were made — the Inbox said so — and only the pane
+            // beside it failed to show them. Said on a toast, for the reason
+            // HandleTaskSyncChanged gives: nothing awaits this.
+            Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after routing: {ex.Message}", TasksReloadErrorTestId));
+        }
+
+        StateHasChanged();
+    });
 
     /// <summary>The repository scope is global: it narrows the backlog list and,
     /// through the alias handed to the pane, what knowledge is read beside it.</summary>
@@ -1213,7 +1272,10 @@
     public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+        InboxState.Changed -= HandleStateChanged;
+        InboxState.Routed -= HandleInboxRouted;
         Features.Changed -= HandleFeaturesChanged;
+        if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
 
         // Unregistered before the reference is disposed, so the map can never hold
         // one that is already dead. The other order leaves a window between the two

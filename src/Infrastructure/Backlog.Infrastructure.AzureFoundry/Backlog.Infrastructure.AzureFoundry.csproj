@@ -3,10 +3,18 @@
   <!--
     Cross-cutting Azure Foundry adapter. Keeps model endpoint settings,
     API-key storage, and chat-completion HTTP details out of UI and modules.
+    It also answers the Inbox's plan-drafter port, which is why it sees that
+    module's published surface: an adapter looking at an abstractions project
+    is the ordinary direction, and the abstractions see nothing back.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.AzureFoundry</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />

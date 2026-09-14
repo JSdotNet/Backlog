@@ -146,6 +146,12 @@ has rows, which cannot answer for the rows that predate it; this column shipped 
 its table, so no row has ever been without one. That is also why it needs no seeding
 statement of the kind `tasks` required.
 
+The Inbox's three tables — `inbox_items`, `inbox_lists`, `inbox_groups`, in
+`backlog.db` since 2026-09-15 (local ADR 0009) — sit on the same seam: their
+creation is ADR 0003's `IF NOT EXISTS` DDL, their `updated_at` is `NOT NULL` for
+the reason `roadmap_plan`'s is, and any column added to them later takes one of
+the three shapes above through the adapter's `EnsureColumnAsync`.
+
 ## Consequences
 
 Positive:

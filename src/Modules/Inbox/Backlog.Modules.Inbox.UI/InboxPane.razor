@@ -1,37 +1,44 @@
+@implements IDisposable
+@inject InboxDesktopState State
+
 @*
-    The Inbox pane: what has been captured but not yet decided on. It renders
-    InboxItem and nothing else — the pane has no idea a backlog row exists, which
-    is what keeps triage a decision the Inbox owns rather than a view of someone
-    else's list.
+    The Inbox pane: what has been captured but not yet decided on, read the way
+    a To Do app reads — lists down the side, the rows of the open list in the
+    middle, the chosen row's detail on the right. The pane has no idea a backlog
+    row exists: "Move to backlog" is an act the Inbox's own module performs
+    through a port, and the shell hears about it afterwards through the state's
+    Routed event. That is what keeps triage a decision the Inbox owns rather
+    than a view of someone else's list.
 
-    PARA is the structure, not a view. The queue is always read as drawers —
-    Projects, Areas, Resources, Archive, and the Unsorted that PARA does not
-    name — each a fold carrying its count, so a queue of forty reads as five
-    drawers rather than forty rows. Inside a drawer the rows are sectioned by
-    what the drawer is made of: Projects per project, Areas per area. The
-    "Split by" switch is a lens over that — by tag, or by repository — and never
-    replaces the drawers, because a tag is something an item has and a drawer is
-    where it goes.
+    Lists and groups are the structure, and they are the reader's: a starter set
+    is seeded on first start and everything after that is made, renamed, filed
+    and deleted from the side menu's own context menu. The fixed "Inbox" row is
+    the one list nobody made — what has been captured and not yet filed.
 
-    Each row says three things before its title: what kind of thing it is (a
-    mark and the word — never the mark alone), where it came from (the channel
-    as a dashed source badge, and the person who shared it as a person chip),
-    and what it is filed under.
+    Kinds are a filter, never a section. A queue of forty is read as forty rows
+    newest first, and the chips above them narrow it to the videos, or the
+    articles, or both. A kind is a fact about a capture; a list is where it goes.
 
-    The structure is computed in InboxGroups rather than here, so the drawers,
-    sections and counts can be asserted without a DOM. What this file owns is
-    only the fold state: which drawers and sections are closed. Drawer folds are
-    keyed by drawer alone, so switching lenses does not reopen a drawer the
-    reader shut; section folds are keyed by lens as well, so switching from tags
-    to repositories and back finds the sections where they were left.
+    Three child components rather than one file, split where the state splits:
+    the side menu draws lists and groups and owns the menus that change them;
+    the item list draws the slice and the chips; the detail draws one item and
+    the acts on it. All three read the one state object the shell registers,
+    which is what lets the pane be re-mounted in another slot without
+    forgetting what was open — the same bargain TasksDesktopState makes.
 
     The header offers the two ways something gets into the queue: Add, for a
     thing the reader has in their head right now, and Capture, for the sources
-    they have asked to be watched. Both are raised to the host and nothing more
-    — the pane holds the Add dialog's two fields and the Capture button's busy
-    state, and has no idea what a draft is stored as or what a run reads. The
-    run's outcome comes back as a sentence, so the pane never learns the
-    Capture context's types either.
+    they have asked to be watched. Add is the pane's own: the dialog's title and
+    notes go through the state into the Inbox's module as an item, body and all,
+    and nothing outside the Inbox learns of it. Capture is raised to the host
+    and nothing more — which sources, and what a run is, belongs to the Capture
+    context, and the run's outcome comes back as a sentence so the pane never
+    learns that context's types either.
+
+    The old pane took its items from the shell, which is why the shell knew what
+    an inbox item looked like. This one asks its own module; the three
+    parameters it does take are the Capture button's, and the shell renders it
+    with those alone.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
@@ -47,7 +54,7 @@
                    Eyebrow="Global pane"
                    TitleId="inbox-pane-title"
                    Title="Inbox"
-                   Description="Capture and triage drafts before they settle into the backlog and knowledge lanes.">
+                   Description="Capture, file and triage what arrived before it settles into the backlog.">
         <Actions>
             @* The id is for the dialog to hand focus back to on close; it is
                named rather than captured so it survives the header re-rendering
@@ -68,120 +75,44 @@
         </Actions>
     </SectionHeader>
 
-    <div class="inbox-pane__content">
-        @* What the last run said, wearing this pane's own class. A status rather
-           than an alert: a run that found nothing new is the ordinary result, and
-           the line is replaced by the next run rather than stacked. Alert renders
-           nothing at all for an empty message, so there is no branch here. *@
-        <Alert Message="@CaptureMessage"
-               BaseClass="inbox-pane__capture-result"
-               Role="status"
-               TestId="inbox-pane-capture-result" />
+    @* What the last run said, wearing this pane's own class. A status rather
+       than an alert: a run that found nothing new is the ordinary result, and
+       the line is replaced by the next run rather than stacked. Alert renders
+       nothing at all for an empty message, so there is no branch here — and
+       the pane is a flex column for that reason, so an absent line leaves no
+       gap behind. *@
+    <Alert Message="@CaptureMessage"
+           BaseClass="inbox-pane__capture-result"
+           Role="status"
+           TestId="inbox-pane-capture-result" />
 
-        @* The library's alert wearing this pane's own class. An Alert rather than an
-           EmptyState, even though the mobile head draws this same fact as one: the
-           desktop pane's line is a sentence in the pane's own body copy, and an
-           EmptyState brings a title, a body and an action wrapper that this pane has
-           no icon, no action and no second line to fill. Adopting it here would be a
-           visual change dressed as an adoption. What the two heads owe each other is
-           the same words, not the same block. *@
-        @if (Items.Count == 0)
-        {
-            <Alert Message="Inbox is empty. New drafts appear here as soon as they are captured."
-                   BaseClass="inbox-pane__empty"
-                   Role="status" />
-        }
-        else
-        {
-            @* The lens: one control, three pressed states. A ButtonGroup of
-               ToggleButtons rather than a select, because the reader flips
-               between tags and repositories while scanning, and a dropdown costs
-               a click to see the choices every time. *@
-            <div class="inbox-pane__toolbar">
-                <span class="inbox-pane__toolbar-label" id="inbox-pane-group-label">Split by</span>
-                <ButtonGroup AriaLabel="Split each drawer by" CssClass="inbox-pane__group-by" TestId="inbox-pane-group-by">
-                    @foreach (var choice in Choices)
-                    {
-                        <ToggleButton Pressed="@(Effective == choice.Grouping)"
-                                      PressedChanged="_ => SetGrouping(choice.Grouping)"
-                                      CssClass="btn--small inbox-pane__group-choice"
-                                      TestId="@($"inbox-pane-group-{choice.Slug}")"
-                                      Title="@choice.Title">@choice.Label</ToggleButton>
-                    }
-                </ButtonGroup>
-            </div>
+    <div class="inbox-pane__body" data-testid="inbox-pane-body">
+        <InboxSideMenu State="State" />
 
-            <div class="inbox-pane__drawers" data-testid="inbox-pane-drawers">
-                @foreach (var drawer in Drawers)
-                {
-                    <div class="inbox-pane__drawer" data-inbox-drawer="@drawer.Key" data-testid="inbox-pane-drawer">
-                        @* The library's fold owns the region here, so `hidden` is
-                           the library's rule and not one this pane has to restate. *@
-                        <FoldControl CssClass="inbox-pane__drawer-fold"
-                                     Expanded="@IsDrawerExpanded(drawer)"
-                                     ExpandedChanged="value => SetDrawerExpanded(drawer, value)"
-                                     AriaLabel="@($"{drawer.Name}, {Counted(drawer.Items.Count)}")"
-                                     TestId="inbox-pane-drawer-toggle">
-                            <LabelContent>
-                                <span class="inbox-pane__drawer-name">@drawer.Name</span>
-                                @* The library's badge wearing this pane's count class, the same way
-                                   the tools and sessions panes wear theirs. It was a hand-rolled
-                                   span, and the stylesheet under it is a badge in every respect —
-                                   a full-radius pill with a tint and a minimum width. Kind is
-                                   empty because this count has no state to colour. *@
-                                <Badge BaseClass="inbox-pane__group-count" Kind="" TestId="inbox-pane-drawer-count">@drawer.Items.Count</Badge>
-                            </LabelContent>
-                            <ChildContent>
-                                @if (drawer.IsSectioned)
-                                {
-                                    <div class="inbox-pane__groups" data-testid="inbox-pane-groups">
-                                        @foreach (var section in drawer.Sections)
-                                        {
-                                            <div class="inbox-pane__group" data-inbox-group="@section.Key" data-testid="inbox-pane-group">
-                                                <FoldControl CssClass="inbox-pane__group-fold"
-                                                             Expanded="@IsSectionExpanded(section)"
-                                                             ExpandedChanged="value => SetSectionExpanded(section, value)"
-                                                             AriaLabel="@($"{section.Name}, {Counted(section.Items.Count)}")"
-                                                             TestId="inbox-pane-group-toggle">
-                                                    <LabelContent>
-                                                        <span class="inbox-pane__group-name">@section.Name</span>
-                                                        <Badge BaseClass="inbox-pane__group-count" Kind="" TestId="inbox-pane-group-count">@section.Items.Count</Badge>
-                                                    </LabelContent>
-                                                    <ChildContent>
-                                                        <ul class="inbox-pane__list inbox-pane__list--grouped" aria-label="@section.Name" data-testid="inbox-pane-list">
-                                                            @foreach (var item in section.Items)
-                                                            {
-                                                                @Row(item)
-                                                            }
-                                                        </ul>
-                                                    </ChildContent>
-                                                </FoldControl>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <ul class="inbox-pane__list" aria-label="@drawer.Name" data-testid="inbox-pane-list">
-                                        @foreach (var item in drawer.Items)
-                                        {
-                                            @Row(item)
-                                        }
-                                    </ul>
-                                }
-                            </ChildContent>
-                        </FoldControl>
-                    </div>
-                }
-            </div>
-        }
+        @* The list is the fixed pane and the detail takes the rest: a row is a
+           line of metadata that fits a known width, and a detail is a page that
+           wants whatever is left. Anchored at the start for that reason. *@
+        <SplitPane CssClass="inbox-pane__split"
+                   Anchor="SplitPaneAnchor.Start"
+                   FixedWidthRem="28"
+                   MinRem="18"
+                   AriaLabel="Inbox list width"
+                   TestId="inbox-pane-split"
+                   SeparatorTestId="inbox-pane-split-handle">
+            <Start>
+                <InboxItemList State="State" />
+            </Start>
+            <End>
+                <InboxItemDetail State="State" />
+            </End>
+        </SplitPane>
     </div>
 
     @* The Add dialog: a title and, optionally, some notes. The shared Modal
        brings the focus handling and Escape; this pane brings two fields and a
-       rule — nothing is raised without a title, because nothing downstream can
-       be saved without one, and a dialog that offered to try would be offering
-       an error. *@
+       rule — nothing is filed without a title, because the module refuses an
+       item without one, and a dialog that offered to try would be offering an
+       error. *@
     <Modal Open="@_addOpen"
            OpenChanged="v => _addOpen = v"
            Title="Add to Inbox"
@@ -217,19 +148,6 @@
 </section>
 
 @code {
-    [Parameter]
-    public IReadOnlyList<InboxItem> Items { get; set; } = [];
-
-    /// <summary>Raised when somebody picks an item up. Where it goes next is the
-    /// receiving context's business, not the Inbox's.</summary>
-    [Parameter]
-    public EventCallback<InboxItem> OnOpen { get; set; }
-
-    /// <summary>Raised with what was typed into the Add dialog. What it is
-    /// stored as is the host's business; the pane only promises a title.</summary>
-    [Parameter]
-    public EventCallback<InboxCapture> OnAdd { get; set; }
-
     /// <summary>Raised when Capture is pressed. Which sources, and what a run
     /// is, the pane does not know.</summary>
     [Parameter]
@@ -250,6 +168,11 @@
     private string _title = string.Empty;
     private string _notes = string.Empty;
 
+    protected override void OnInitialized()
+    {
+        State.Changed += HandleStateChanged;
+    }
+
     private void OpenAdd() => _addOpen = true;
 
     private void CloseAdd()
@@ -259,136 +182,27 @@
         _notes = string.Empty;
     }
 
+    /// <summary>Closes first, then files. The state's refusal — the only one
+    /// the module has is a blank title, which the button already guards — is a
+    /// toast, and the item lands selected so the detail opens on it.</summary>
     private async Task SubmitAddAsync()
     {
         // The button is disabled for a blank title, so reaching here with one
         // means the caller went around it; refusing is still cheaper than
-        // raising a capture nothing can store.
+        // asking the module to store nothing.
         if (string.IsNullOrWhiteSpace(_title)) return;
 
         var capture = new InboxCapture(_title.Trim(), _notes.Trim());
         CloseAdd();
-        await OnAdd.InvokeAsync(capture);
+        await State.CaptureAsync(capture);
     }
 
-    /// <summary>The lens over the drawers. None by default, which is each
-    /// drawer's own subdivision rather than no subdivision.
-    /// <para>Bindable, and the shell binds it, because the shell draws this pane
-    /// in one of two slots depending on which other panes are open and moving
-    /// slots is a re-mount. A choice held only here would reset the moment
-    /// triage opened the backlog beside it — the reader's lens dropping as a
-    /// side effect of picking something out of a drawer.</para></summary>
-    [Parameter]
-    public InboxGrouping Grouping { get; set; } = InboxGrouping.None;
+    /// <summary>The state raises from whichever thread finished the store call;
+    /// the render is marshalled onto the renderer's.</summary>
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
-    [Parameter]
-    public EventCallback<InboxGrouping> GroupingChanged { get; set; }
-
-    private sealed record Choice(InboxGrouping Grouping, string Slug, string Label, string Title);
-
-    private static readonly Choice[] Choices =
-    [
-        new(InboxGrouping.None, "none", "None", "Each drawer as it is: projects per project, areas per area"),
-        new(InboxGrouping.Tag, "tag", "Tag", "One section per tag inside every drawer"),
-        new(InboxGrouping.Repository, "repo", "Repo", "One section per repository inside every drawer")
-    ];
-
-    private InboxGrouping? _grouping;
-
-    /// <summary>Which drawers and sections are folded shut. Open is the default,
-    /// so the set holds the exceptions.</summary>
-    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal);
-
-    /// <summary>The lens in force: what was pressed here since the last render
-    /// the parent set, else what the parent set. A host that does not bind
-    /// still gets a working switch.</summary>
-    private InboxGrouping Effective => _grouping ?? Grouping;
-
-    private IReadOnlyList<InboxDrawer> Drawers => InboxGroups.Build(Items, Effective);
-
-    private Task SetGrouping(InboxGrouping grouping)
+    public void Dispose()
     {
-        _grouping = grouping;
-        return GroupingChanged.InvokeAsync(grouping);
+        State.Changed -= HandleStateChanged;
     }
-
-    private bool IsDrawerExpanded(InboxDrawer drawer) => !_collapsed.Contains(DrawerKey(drawer));
-
-    private void SetDrawerExpanded(InboxDrawer drawer, bool expanded) => SetExpanded(DrawerKey(drawer), expanded);
-
-    private bool IsSectionExpanded(InboxGroup section) => !_collapsed.Contains(SectionKey(section));
-
-    private void SetSectionExpanded(InboxGroup section, bool expanded) => SetExpanded(SectionKey(section), expanded);
-
-    private void SetExpanded(string key, bool expanded)
-    {
-        if (expanded) _collapsed.Remove(key);
-        else _collapsed.Add(key);
-    }
-
-    /// <summary>A drawer's fold outlives the lens: shutting Archive is a decision
-    /// about Archive, whichever way its rows are split.</summary>
-    private static string DrawerKey(InboxDrawer drawer) => "drawer:" + drawer.Key;
-
-    private string SectionKey(InboxGroup section) => $"{Effective}:{section.Key}";
-
-    private static string Counted(int count) => count == 1 ? "1 item" : $"{count} items";
-
-    private static string Filed(InboxItem item) => string.IsNullOrWhiteSpace(item.Area) ? "Unfiled" : item.Area;
-
-    /// <summary>One row. The same row wherever it sits, so a reader who splits a
-    /// drawer does not learn a second layout — and so the triage button is the
-    /// first button in every row, which is what the shell's tests reach for.</summary>
-    private RenderFragment Row(InboxItem item) => @<li class="inbox-pane__item" @key="item.Key" data-inbox-kind="@InboxItemKinds.Slug(item.Kind)">
-        <div class="inbox-pane__item-body">
-            <p class="inbox-pane__item-title">@(string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title)</p>
-            <p class="inbox-pane__item-meta">
-                @* The kind: a mark and the word. The mark is aria-hidden because
-                   the word is right beside it, and the word is never dropped
-                   because shape alone is not a carrier. *@
-                <span class="inbox-pane__kind" data-testid="inbox-pane-item-kind">
-                    <CaptureKindMarker Value="@InboxItemKinds.Slug(item.Kind)" CssClass="inbox-pane__kind-mark" />
-                    <span class="inbox-pane__kind-label">@InboxItemKinds.Label(item.Kind)</span>
-                </span>
-                <span class="inbox-pane__meta-separator" aria-hidden="true">·</span>
-                <span class="inbox-pane__filed">@Filed(item)</span>
-                @if (item.Source is { } source)
-                {
-                    <span class="inbox-pane__meta-separator" aria-hidden="true">·</span>
-                    <Badge Kind="source"
-                           Slug="@source.Channel"
-                           CssClass="inbox-pane__source"
-                           Title="@($"Captured via {source.ChannelLabel}")"
-                           TestId="inbox-pane-item-source">@source.ChannelLabel</Badge>
-                    @if (!string.IsNullOrWhiteSpace(source.Person))
-                    {
-                        @* Not clickable, so the chip's Label has nowhere to go; the
-                           tooltip rides as a plain title on the chip itself. *@
-                        <TagChip Text="@TagText.Display(source.Person)"
-                                 CssClass="inbox-pane__person"
-                                 title="@($"Shared by {TagText.Display(source.Person)}")"
-                                 TestId="inbox-pane-item-person" />
-                    }
-                }
-            </p>
-            @if (item.Tags.Count > 0 || !string.IsNullOrWhiteSpace(item.Repository))
-            {
-                <p class="inbox-pane__item-tags">
-                    @if (!string.IsNullOrWhiteSpace(item.Repository))
-                    {
-                        <Badge Kind="kind"
-                               Slug="repository"
-                               CssClass="inbox-pane__repository"
-                               Title="@($"Repository: {item.Repository}")"
-                               TestId="inbox-pane-item-repository">@item.Repository</Badge>
-                    }
-                    @foreach (var tag in item.Tags)
-                    {
-                        <TagChip Text="@TagText.Display(tag)" CssClass="inbox-pane__tag" TestId="inbox-pane-item-tag" />
-                    }
-                </p>
-            }
-        </div>
-        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OnOpen.InvokeAsync(item)">Open in backlog</AppButton>
-    </li>;
 }

@@ -1,0 +1,662 @@
+@*
+    A column of lists to open: a few fixed at the top, then folds of them under
+    group headings, then the rest. Every list carries how much is in it. It is
+    the side navigation a To Do-style pane keeps on its left edge, and it owns
+    nothing but the drawing — which row is selected, which groups are open and
+    which row is being renamed are all the host's, asked for through a parameter
+    and changed through a callback, so a host keeps whatever state model it
+    already has. TreeView was not bent into this because a tree of chapters and a
+    column of lists are two conventions, and one component telling both stories
+    would tell neither well: this one has counts, a rename, a menu on every row
+    and no folder to open.
+
+    The rows are buttons, and Enter and Space are deliberately not handled in the
+    keydown below: a button's own activation is the click handler, and a second
+    copy of it on the key would select twice and — worse — fold a group open and
+    closed again in one press. The keys this component does own are the ones a
+    button has no answer for: the arrows walk the visible rows, Home and End jump
+    to the ends, Right and Left open and close a group or step out of one, and F2
+    asks the host to start a rename.
+
+    Shift+F10 and the ContextMenu key are not in that list either, on purpose.
+    A browser answers both with the same `contextmenu` event a right-click sends,
+    dispatched at the focused row's own position, so one handler hears every way
+    of asking for a menu and reports the same target with the same coordinates.
+    A keydown copy would have opened the menu twice in every browser that does
+    this, which is all of them.
+
+    One tab stop. The selected row is the tabbable one, or the last row the
+    keyboard visited, or the first row when neither applies — a column of ten
+    lists that cost ten Tabs to cross would be ten stops between the reader and
+    the content beside it.
+
+    Groups fold with their own header rather than through FoldControl. The
+    header is a row like any other — it takes the roving tabindex, the arrows,
+    F2, and a right-click — and it turns into a rename field when asked, none of
+    which a trigger owned by another component can be handed. What FoldControl
+    would have given is drawn here on its own terms: aria-expanded on the
+    header, aria-controls to the list it folds, and the list kept in the DOM and
+    hidden rather than removed, so a fold does not throw away the rows a host may
+    be measuring or anchoring into.
+
+    A rename is a field in the row's place, not inside its button — an input
+    inside a button is not markup any browser agrees on. Enter and blur commit,
+    Escape cancels, and an unchanged or empty name is reported as a cancel rather
+    than as a rename to the same thing, so a host never has to ask whether a
+    commit meant anything. The field is focused with its text selected, which is
+    what renaming means everywhere else in this library.
+*@
+
+@inject IJSRuntime Js
+
+<nav class="@ClassValue"
+     aria-label="@AriaLabel"
+     data-testid="@TestId"
+     @oncontextmenu="OnRootContextMenuAsync"
+     @oncontextmenu:preventDefault="true"
+     @attributes="AdditionalAttributes">
+
+    @if (Fixed.Count > 0)
+    {
+        <ul class="@ListClassValue" data-testid="@Suffix("fixed")">
+            @foreach (var entry in Fixed)
+            {
+                @RenderEntry(entry, null)
+            }
+        </ul>
+    }
+
+    @for (var i = 0; i < Groups.Count; i++)
+    {
+        @RenderGroup(Groups[i], i)
+    }
+
+    @if (Ungrouped.Count > 0)
+    {
+        <ul class="@ListClassValue" data-testid="@Suffix("ungrouped")">
+            @foreach (var entry in Ungrouped)
+            {
+                @RenderEntry(entry, null)
+            }
+        </ul>
+    }
+</nav>
+
+@code {
+    private readonly string _id = "list-nav-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The element behind every row, by id, for the focus moves. Pruned
+    /// to the rows the parameters still name on every parameter set, because a
+    /// row a host deletes never renders again and its reference would otherwise
+    /// stay here for the life of the component.</summary>
+    private readonly Dictionary<string, ElementReference> _rows = [];
+
+    /// <summary>How many row references are being held, for the test that pins
+    /// the pruning; nothing else reads it.</summary>
+    internal int TrackedRowCount => _rows.Count;
+
+    /// <summary>The row the keyboard last stood on, which is the row Tab comes
+    /// back to. Set by focus rather than by the arrows alone so a row reached
+    /// with the mouse counts too.</summary>
+    private string? _activeId;
+
+    /// <summary>A row to focus once the render that made it tabbable has been
+    /// applied. Asked for in the key handler, done after the render, for the
+    /// reason GraphAtlasIndex gives: the element the focus is meant for is only
+    /// certainly there once the batch is.</summary>
+    private string? _focusRequestId;
+
+    /// <summary>Which row the open field belongs to, remembered so a change of
+    /// <see cref="EditingId"/> can be told apart from a re-render with the same
+    /// one — the draft is seeded once per rename, not once per render.</summary>
+    private string? _editingFor;
+
+    private string _draft = string.Empty;
+
+    /// <summary>The field has just been rendered and has not been focused yet.
+    /// Once per opening: a re-render mid-typing must not drag the caret back over
+    /// the name.</summary>
+    private bool _focusRename;
+
+    /// <summary>Enter or Escape has already settled the open rename, so the blur
+    /// the browser may send as the field is taken away says nothing new. Without
+    /// it a rename committed on Enter could be committed again as the host closed
+    /// the field, and a rename abandoned on Escape could be committed on its way
+    /// out.</summary>
+    private bool _settled;
+
+    /// <summary>The rows above every group: the lists a host always shows, in
+    /// the order given.</summary>
+    [Parameter]
+    public IReadOnlyList<ListNavEntry> Fixed { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<ListNavGroup> Groups { get; set; } = [];
+
+    /// <summary>The rows under every group: lists filed under no heading.</summary>
+    [Parameter]
+    public IReadOnlyList<ListNavEntry> Ungrouped { get; set; } = [];
+
+    /// <summary>The entry the pane is showing. Selection is the host's state,
+    /// which is why this is a value and <see cref="OnSelect"/> is how it
+    /// changes; the component marks the row and never decides which.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    /// <summary>Whether a group is open, asked per group. Closed for every group
+    /// until a host says otherwise.</summary>
+    [Parameter]
+    public Func<string, bool> IsGroupExpanded { get; set; } = static _ => false;
+
+    [Parameter]
+    public EventCallback<string> OnSelect { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnToggleGroup { get; set; }
+
+    /// <summary>A menu was asked for: on a row, on a group heading, or on the
+    /// empty area under the rows — the root, where "new list" lives. The
+    /// coordinates are the pointer's, or the row's own when the keyboard asked,
+    /// ready to hand to a ContextMenu as they are.</summary>
+    [Parameter]
+    public EventCallback<(ListNavTarget Target, double X, double Y)> OnContextMenu { get; set; }
+
+    /// <summary>F2 on a row. The component does not open the field itself:
+    /// whether a row may be renamed at all is the host's rule, and it answers by
+    /// setting <see cref="EditingId"/>.</summary>
+    [Parameter]
+    public EventCallback<string> OnRenameRequested { get; set; }
+
+    /// <summary>The entry or group whose name is a field right now, or null. A
+    /// value naming no row renders no field.</summary>
+    [Parameter]
+    public string? EditingId { get; set; }
+
+    /// <summary>A rename settled on a new, non-empty name. The name is trimmed.</summary>
+    [Parameter]
+    public EventCallback<(string Id, string Name)> OnRenameCommitted { get; set; }
+
+    /// <summary>The rename ended with nothing to apply: Escape, or a commit whose
+    /// name was empty or the one the row already had. The host closes the field
+    /// on either, which is why the two are one callback.</summary>
+    [Parameter]
+    public EventCallback OnRenameCancelled { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav</c> on the nav, and the stem every inner
+    /// class is built on.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "list-nav";
+
+    /// <summary>Lands on the nav. Every row gets <c>{TestId}-{id}</c>, every
+    /// count <c>{TestId}-{id}-count</c>, the open rename field
+    /// <c>{TestId}-rename</c>, and the two loose lists <c>{TestId}-fixed</c> and
+    /// <c>{TestId}-ungrouped</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Replaces <c>list-nav__list</c> on every list of rows.</summary>
+    [Parameter]
+    public string? ListCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__item</c> on the element holding a row.</summary>
+    [Parameter]
+    public string? ItemCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__row</c> on an entry's button.</summary>
+    [Parameter]
+    public string? RowCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__row list-nav__row--selected</c> on the
+    /// selected entry's button.</summary>
+    [Parameter]
+    public string? SelectedRowCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__group</c> on the element holding a group's
+    /// header and its list.</summary>
+    [Parameter]
+    public string? GroupCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__row list-nav__row--group</c> on a group's
+    /// header button.</summary>
+    [Parameter]
+    public string? GroupHeaderCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__icon</c> on an entry's glyph.</summary>
+    [Parameter]
+    public string? IconCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__label</c> on every row's text.</summary>
+    [Parameter]
+    public string? LabelCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__count</c> on every count. The count is a
+    /// Badge with this as its base class, so a host's own badge naming lands on
+    /// exactly the element it expects.</summary>
+    [Parameter]
+    public string? CountCssClass { get; set; }
+
+    /// <summary>Replaces <c>list-nav__rename</c> on the open rename field's input.</summary>
+    [Parameter]
+    public string? RenameCssClass { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Base => string.IsNullOrWhiteSpace(BaseClass) ? "list-nav" : BaseClass;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? Base : $"{Base} {CssClass}";
+
+    private string ListClassValue => string.IsNullOrWhiteSpace(ListCssClass) ? Base + "__list" : ListCssClass;
+
+    private string ItemClassValue => string.IsNullOrWhiteSpace(ItemCssClass) ? Base + "__item" : ItemCssClass;
+
+    private string RowClassValue => string.IsNullOrWhiteSpace(RowCssClass) ? Base + "__row" : RowCssClass;
+
+    private string SelectedRowClassValue => string.IsNullOrWhiteSpace(SelectedRowCssClass)
+        ? $"{Base}__row {Base}__row--selected"
+        : SelectedRowCssClass;
+
+    private string GroupClassValue => string.IsNullOrWhiteSpace(GroupCssClass) ? Base + "__group" : GroupCssClass;
+
+    private string GroupHeaderClassValue => string.IsNullOrWhiteSpace(GroupHeaderCssClass)
+        ? $"{Base}__row {Base}__row--group"
+        : GroupHeaderCssClass;
+
+    private string IconClassValue => string.IsNullOrWhiteSpace(IconCssClass) ? Base + "__icon" : IconCssClass;
+
+    private string LabelClassValue => string.IsNullOrWhiteSpace(LabelCssClass) ? Base + "__label" : LabelCssClass;
+
+    private string CountClassValue => string.IsNullOrWhiteSpace(CountCssClass) ? Base + "__count" : CountCssClass;
+
+    private string RenameClassValue => string.IsNullOrWhiteSpace(RenameCssClass) ? Base + "__rename" : RenameCssClass;
+
+    private string EditingRowClassValue => $"{RowClassValue} {Base}__row--editing";
+
+    private string ChevronClass(bool expanded) =>
+        expanded ? $"{Base}__chevron {Base}__chevron--open" : Base + "__chevron";
+
+    private string RenameFieldId => _id + "-rename";
+
+    private string HeaderId(int index) => $"{_id}-group-{index}";
+
+    private string RegionId(int index) => $"{_id}-region-{index}";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private bool IsSelected(ListNavEntry entry) =>
+        SelectedId is not null && string.Equals(entry.Id, SelectedId, StringComparison.Ordinal);
+
+    private bool IsEditing(string id) =>
+        EditingId is not null && string.Equals(id, EditingId, StringComparison.Ordinal);
+
+    /// <summary>One row of the walk the arrows take: what it is and, for an
+    /// entry under a heading, which heading — so Left knows where to step out to.</summary>
+    private readonly record struct Row(string Id, bool IsGroup, string? GroupId);
+
+    /// <summary>The rows in reading order, minus the ones a closed group hides.
+    /// Recomputed per key press rather than cached: it is a handful of records,
+    /// and a cache would be one more thing to invalidate when a host folds a
+    /// group between two presses.</summary>
+    private List<Row> VisibleRows
+    {
+        get
+        {
+            var rows = new List<Row>();
+
+            foreach (var entry in Fixed) rows.Add(new Row(entry.Id, false, null));
+
+            foreach (var group in Groups)
+            {
+                rows.Add(new Row(group.Id, true, null));
+
+                if (!IsGroupExpanded(group.Id)) continue;
+
+                foreach (var entry in group.Entries) rows.Add(new Row(entry.Id, false, group.Id));
+            }
+
+            foreach (var entry in Ungrouped) rows.Add(new Row(entry.Id, false, null));
+
+            return rows;
+        }
+    }
+
+    /// <summary>The one row Tab lands on. The keyboard's last row while it is
+    /// still on screen, else the selected row, else the first — each a fallback
+    /// for the one above it going out of view when a group folds.</summary>
+    private string? TabbableId
+    {
+        get
+        {
+            var rows = VisibleRows;
+            if (rows.Count == 0) return null;
+
+            if (_activeId is { } active && rows.Any(row => row.Id == active)) return active;
+            if (SelectedId is { } selected && rows.Any(row => row.Id == selected)) return selected;
+
+            return rows[0].Id;
+        }
+    }
+
+    private int TabIndexOf(string id) => string.Equals(id, TabbableId, StringComparison.Ordinal) ? 0 : -1;
+
+    private string? LabelOf(string id)
+    {
+        foreach (var entry in Fixed) if (entry.Id == id) return entry.Label;
+
+        foreach (var group in Groups)
+        {
+            if (group.Id == id) return group.Label;
+            foreach (var entry in group.Entries) if (entry.Id == id) return entry.Label;
+        }
+
+        foreach (var entry in Ungrouped) if (entry.Id == id) return entry.Label;
+
+        return null;
+    }
+
+    protected override void OnParametersSet()
+    {
+        PruneRows();
+
+        if (string.Equals(EditingId, _editingFor, StringComparison.Ordinal)) return;
+
+        // The field that was open is closing, or another is opening in its
+        // place. Either way the row the closed one stood in gets the focus back
+        // — it is the trigger a rename was dismissed from, and a dismissal that
+        // left the focus on nothing would strand a keyboard reader at the top of
+        // the page. Nothing to do when that row is gone: a rename can end with a
+        // delete, and a reference to a removed element is not worth chasing.
+        if (_editingFor is { } closing && EditingId is null)
+        {
+            _activeId = closing;
+            _focusRequestId = closing;
+        }
+
+        _editingFor = EditingId;
+        _settled = false;
+        _draft = EditingId is null ? string.Empty : LabelOf(EditingId) ?? string.Empty;
+        _focusRename = EditingId is not null;
+    }
+
+    /// <summary>Drops the reference of every row the parameters no longer
+    /// name. The rows that remain are re-captured by the render that follows,
+    /// so nothing the focus needs is lost.</summary>
+    private void PruneRows()
+    {
+        if (_rows.Count == 0) return;
+
+        var current = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var entry in Fixed) current.Add(entry.Id);
+
+        foreach (var group in Groups)
+        {
+            current.Add(group.Id);
+            foreach (var entry in group.Entries) current.Add(entry.Id);
+        }
+
+        foreach (var entry in Ungrouped) current.Add(entry.Id);
+
+        foreach (var id in _rows.Keys.Where(id => !current.Contains(id)).ToList())
+        {
+            _rows.Remove(id);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusRename)
+        {
+            _focusRename = false;
+            await QuickEditField.FocusAsync(Js, RenameFieldId);
+        }
+
+        if (_focusRequestId is not { } id) return;
+
+        _focusRequestId = null;
+
+        if (!_rows.TryGetValue(id, out var row)) return;
+
+        try
+        {
+            await row.FocusAsync();
+        }
+        catch (JSException)
+        {
+            // The row this reference pointed at is no longer in the document.
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away between the key press and the render.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering: there is no element to focus yet.
+        }
+    }
+
+    private Task OnRootContextMenuAsync(MouseEventArgs e) =>
+        OnContextMenu.InvokeAsync((ListNavTarget.Root, e.ClientX, e.ClientY));
+
+    private Task OnRowContextMenuAsync(MouseEventArgs e, ListNavTarget target) =>
+        OnContextMenu.InvokeAsync((target, e.ClientX, e.ClientY));
+
+    private void RequestFocus(List<Row> rows, int index)
+    {
+        if (rows.Count == 0) return;
+
+        var target = rows[Math.Clamp(index, 0, rows.Count - 1)].Id;
+        _activeId = target;
+        _focusRequestId = target;
+    }
+
+    private async Task OnRowKeyDownAsync(KeyboardEventArgs e, Row row)
+    {
+        var rows = VisibleRows;
+        var index = rows.FindIndex(candidate => candidate.Id == row.Id);
+        if (index < 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                RequestFocus(rows, index + 1);
+                break;
+
+            case "ArrowUp":
+                RequestFocus(rows, index - 1);
+                break;
+
+            case "Home":
+                RequestFocus(rows, 0);
+                break;
+
+            case "End":
+                RequestFocus(rows, rows.Count - 1);
+                break;
+
+            case "ArrowRight":
+                // On a heading, Right opens; on an open heading it steps onto the
+                // first row inside, if there is one — the tree convention, and
+                // the one a reader who has met TreeView already expects.
+                if (!row.IsGroup) break;
+
+                if (!IsGroupExpanded(row.Id))
+                {
+                    await OnToggleGroup.InvokeAsync(row.Id);
+                }
+                else if (index + 1 < rows.Count && rows[index + 1].GroupId == row.Id)
+                {
+                    RequestFocus(rows, index + 1);
+                }
+
+                break;
+
+            case "ArrowLeft":
+                // Left closes an open heading, and from a row inside a group
+                // steps back out to its heading. On any other row it is nothing.
+                if (row.IsGroup)
+                {
+                    if (IsGroupExpanded(row.Id)) await OnToggleGroup.InvokeAsync(row.Id);
+                }
+                else if (row.GroupId is { } groupId)
+                {
+                    RequestFocus(rows, rows.FindIndex(candidate => candidate.Id == groupId));
+                }
+
+                break;
+
+            case "F2":
+                await OnRenameRequested.InvokeAsync(row.Id);
+                break;
+        }
+    }
+
+    private Task OnRenameKeyDownAsync(KeyboardEventArgs e) => e.Key switch
+    {
+        "Enter" => CommitRenameAsync(),
+        "Escape" => CancelRenameAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>The blur's commit, which is the only one the settled flag
+    /// guards. Enter is not guarded by it: a host that refuses a name and keeps
+    /// the field open has to be able to hear the next Enter.</summary>
+    private Task OnRenameBlurAsync() => _settled ? Task.CompletedTask : CommitRenameAsync();
+
+    private async Task CommitRenameAsync()
+    {
+        if (_editingFor is not { } id) return;
+
+        _settled = true;
+
+        var name = _draft.Trim();
+
+        if (name.Length == 0 || string.Equals(name, LabelOf(id), StringComparison.Ordinal))
+        {
+            await OnRenameCancelled.InvokeAsync();
+            return;
+        }
+
+        await OnRenameCommitted.InvokeAsync((id, name));
+    }
+
+    private async Task CancelRenameAsync()
+    {
+        if (_editingFor is null) return;
+
+        _settled = true;
+        await OnRenameCancelled.InvokeAsync();
+    }
+
+    private RenderFragment RenderEntry(ListNavEntry entry, string? groupId) => @<li class="@ItemClassValue">
+        @if (IsEditing(entry.Id))
+        {
+            @RenderRename(entry.Id, entry.Icon, entry.Count)
+        }
+        else
+        {
+            var selected = IsSelected(entry);
+            var row = new Row(entry.Id, false, groupId);
+
+            <button type="button"
+                    class="@(selected ? SelectedRowClassValue : RowClassValue)"
+                    data-testid="@Suffix(entry.Id)"
+                    aria-current="@(selected ? "true" : null)"
+                    tabindex="@TabIndexOf(entry.Id)"
+                    @ref="_rows[entry.Id]"
+                    @onclick="() => OnSelect.InvokeAsync(entry.Id)"
+                    @onfocus="() => _activeId = entry.Id"
+                    @onkeydown="e => OnRowKeyDownAsync(e, row)"
+                    @oncontextmenu="e => OnRowContextMenuAsync(e, ListNavTarget.Entry(entry.Id))"
+                    @oncontextmenu:preventDefault="true"
+                    @oncontextmenu:stopPropagation="true">
+                @if (!string.IsNullOrWhiteSpace(entry.Icon))
+                {
+                    <span class="@IconClassValue" aria-hidden="true">@entry.Icon</span>
+                }
+                <span class="@LabelClassValue">@entry.Label</span>
+                @RenderCount(entry.Id, entry.Count)
+            </button>
+        }
+    </li>;
+
+    private RenderFragment RenderGroup(ListNavGroup group, int index) => @<div class="@GroupClassValue" data-testid="@Suffix(group.Id + "-group")">
+        @{
+            var expanded = IsGroupExpanded(group.Id);
+            var row = new Row(group.Id, true, null);
+        }
+        @if (IsEditing(group.Id))
+        {
+            @RenderRename(group.Id, null, null)
+        }
+        else
+        {
+            <button type="button"
+                    class="@GroupHeaderClassValue"
+                    id="@HeaderId(index)"
+                    data-testid="@Suffix(group.Id)"
+                    aria-expanded="@(expanded ? "true" : "false")"
+                    aria-controls="@RegionId(index)"
+                    tabindex="@TabIndexOf(group.Id)"
+                    @ref="_rows[group.Id]"
+                    @onclick="() => OnToggleGroup.InvokeAsync(group.Id)"
+                    @onfocus="() => _activeId = group.Id"
+                    @onkeydown="e => OnRowKeyDownAsync(e, row)"
+                    @oncontextmenu="e => OnRowContextMenuAsync(e, ListNavTarget.Group(group.Id))"
+                    @oncontextmenu:preventDefault="true"
+                    @oncontextmenu:stopPropagation="true">
+                <span class="@ChevronClass(expanded)" aria-hidden="true">&#9656;</span>
+                <span class="@LabelClassValue">@group.Label</span>
+            </button>
+        }
+        @* Kept in the DOM and hidden, rather than removed, so a host that
+           measures or anchors into the list does not lose it on every fold. *@
+        <ul class="@ListClassValue" id="@RegionId(index)" aria-labelledby="@HeaderId(index)" hidden="@(!expanded)">
+            @foreach (var entry in group.Entries)
+            {
+                @RenderEntry(entry, group.Id)
+            }
+        </ul>
+    </div>;
+
+    /// <summary>The count, as a Badge wearing this component's own class. A
+    /// count that stays on a row being renamed is deliberate: the number is a
+    /// fact about the list, not about its name.</summary>
+    private RenderFragment RenderCount(string id, int count) =>
+        @<Badge BaseClass="@CountClassValue"
+                Kind=""
+                CssClass="@(count == 0 ? CountClassValue + "--zero" : null)"
+                TestId="@Suffix(id + "-count")">@count</Badge>;
+
+    /// <summary>The row with a field where its name was. The right-click is
+    /// stopped here and not prevented: a menu asked for inside a field is the
+    /// browser's cut-and-paste menu, which is the one the reader wants there.</summary>
+    private RenderFragment RenderRename(string id, string? icon, int? count) => @<div class="@EditingRowClassValue"
+             data-testid="@Suffix(id + "-editing")"
+             @oncontextmenu:stopPropagation="true">
+        @if (!string.IsNullOrWhiteSpace(icon))
+        {
+            <span class="@IconClassValue" aria-hidden="true">@icon</span>
+        }
+        <TextField Value="@_draft"
+                   ValueChanged="value => _draft = value"
+                   AriaLabel="@($"Rename {LabelOf(id)}")"
+                   Bare="true"
+                   Compact="true"
+                   InputCssClass="@RenameClassValue"
+                   Id="@RenameFieldId"
+                   TestId="@Suffix("rename")"
+                   @onkeydown="OnRenameKeyDownAsync"
+                   @onblur="OnRenameBlurAsync" />
+        @if (count is { } value)
+        {
+            @RenderCount(id, value)
+        }
+    </div>;
+}

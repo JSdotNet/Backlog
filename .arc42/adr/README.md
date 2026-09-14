@@ -34,6 +34,7 @@ between inherited ADRs 0005 and 0009.
 - **[0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)** *(proposed)*
 - **[0007 — Import reuses the entry text grammar; a plan is multi-task entry text](0007-import-reuses-the-entry-text-grammar.md)** *(proposed)*
 - **[0008 — Knowledge reads from a cached branch snapshot when there is no clone; only a clone is editable](0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md)** *(proposed)*
+- **[0009 — Captures are a document kind on the replica; the desktop acknowledges by tombstone](0009-captures-are-a-document-kind-on-the-replica.md)** *(accepted)*
 
 ## Inherited decisions
 

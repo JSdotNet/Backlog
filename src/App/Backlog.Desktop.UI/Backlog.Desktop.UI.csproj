@@ -62,6 +62,9 @@
          two-groups-of-four display it is written in are the service's, shared
          rather than restated. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+    <!-- Inbox's published surface, for one record: the shell hears that an item
+         was routed and reloads the Tasks pane on it. It reads nothing else. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
          the GitHub repository/knowledge-folder settings plus the local clone

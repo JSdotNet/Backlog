@@ -1043,64 +1043,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             + $"{value.Skipped} skipped, {value.Removed} removed.";
     }
 
-    /// <summary>
-    /// Saves a draft somebody has already finished writing — the Inbox's Add —
-    /// without opening the list on it.
-    /// <para>
-    /// Not <see cref="NewRow"/>, deliberately. That appends an unsaved row,
-    /// selects it and points the caret at its title, which is right for somebody
-    /// about to type into the list and wrong for somebody who has just typed into
-    /// a dialog: the Inbox is being filled, and the entry opening in the backlog
-    /// beside it would pull the reader out of that into editing the one thing
-    /// they just put down. So this goes straight to the store, through the same
-    /// grammar every entry uses, and reloads the rows the way
-    /// <see cref="ImportPlanAsync"/> does — the new draft is not a row this list
-    /// already holds.
-    /// </para>
-    /// <para>
-    /// The reader's active <c>repo:</c> scope is not stamped on it either. A
-    /// capture is a thing that arrived, not a decision about where it goes; that
-    /// decision is triage, and triage happens in the Inbox.
-    /// </para>
-    /// </summary>
-    public async Task<Result> AddDraftAsync(string title, string? notes = null)
-    {
-        var heading = (title ?? string.Empty).Trim();
-        if (heading.Length == 0)
-        {
-            return Result.Failure(Error.Validation("entry.title_required", "Give it a title first."));
-        }
-
-        var body = string.IsNullOrWhiteSpace(notes) ? string.Empty : $"\n{notes.Trim()}\n";
-        var text = $"# {heading}\n`task` `*medium` `!draft`\n{body}";
-
-        SetSaveState(AppSaveState.Saving);
-
-        Result<SavedTaskDto> saved;
-        try
-        {
-            saved = await WritingToStoreAsync(() => _entryUseCases.SaveFromTextAsync(null, text, Rows.Count));
-        }
-        catch (Exception ex)
-        {
-            SetSaveState(AppSaveState.Error);
-            return Result.Failure(Error.Unexpected("entry.save_failed", ex.Message));
-        }
-
-        if (saved.IsFailure)
-        {
-            SetSaveState(AppSaveState.Error);
-            return Result.Failure(saved.Error);
-        }
-
-        SetSaveState(AppSaveState.Saved);
-
-        await ReloadRowsAsync();
-        Changed?.Invoke();
-
-        return Result.Success();
-    }
-
     // --- Editing ---------------------------------------------------------
 
     /// <summary>Swaps a row from its rendered form to raw markdown.</summary>
@@ -1900,6 +1842,37 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 return _pollTimer is not null;
             }
         }
+    }
+
+    /// <summary>
+    /// Starts over from the store because something else in this process wrote
+    /// to it — the Inbox routing an item into entries is the caller today, and
+    /// the shell is what calls, because only the shell sees both panes.
+    /// <para>
+    /// The poll below would notice the same write on its next tick, but the poll
+    /// can be switched off, and its first tick after start records the baseline
+    /// without reloading. Somebody who has just pressed "Move to backlog" should
+    /// see the entry now rather than a tick later or never, so this reloads
+    /// without asking whether the timestamp moved.
+    /// </para>
+    /// <para>
+    /// The one guard it keeps is the poll's: a reload replaces every row, and
+    /// doing that under a live caret or a save still on its way to the store
+    /// would take typed text off the screen. In that case the write is left for
+    /// the next tick, which sees the timestamp and reloads once the caret is
+    /// gone — the same bargain the poll makes.
+    /// </para>
+    /// </summary>
+    public async Task ReloadFromStoreAsync()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+        if (EditingRow is not null || SaveIsPending) return;
+
+        await ReloadRowsAsync();
+
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        Changed?.Invoke();
     }
 
     /// <summary>

@@ -49,6 +49,10 @@ flowchart LR
     Sessions[Sessions]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
+    %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
+    %% the Inbox's Abstractions) answered by an infrastructure adapter over
+    %% Tasks' published ITaskItems — not an async event. See
+    %% .domain/inbox/dependencies.md.
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Brain
     Tasks <-->|Partnership<br/>Cross-link by id| Brain
@@ -120,6 +124,14 @@ flowchart LR
   that has no task yet — which is why the plan is stored rather than projected.
   This supersedes the earlier reading, in which the roadmap was a view over
   Tasks.
+- `Inbox` publishes `ItemTriaged` and `Tasks` conforms to it, but the edge is
+  carried in-process rather than by an asynchronous event: the payload is a DTO
+  in the Inbox's Abstractions, handed over a port (`IInboxBacklogTarget`) that an
+  infrastructure adapter answers over Tasks' published `ITaskItems`. Neither
+  module references the other, and the adapter is the only place an inbox item
+  becomes entry text. A capture reaches the Inbox from another device as a
+  `capture`-kind document on the sync replica
+  (`.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`).
 - `Tasks` and `Second Brain` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.

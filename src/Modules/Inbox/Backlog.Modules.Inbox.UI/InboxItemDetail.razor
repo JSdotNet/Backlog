@@ -1,0 +1,432 @@
+@*
+    The right column: one item, read by its kind, and the acts on it.
+
+    The header is the library's SectionHeader with the acts in its Actions slot:
+    file it, dismiss it, send it to the backlog, or have a plan drafted about
+    it. Four acts is the toolbar budget in
+    .design/interaction-guidelines.md#action-density-and-overflow exactly, so
+    there is no overflow menu — and "Create plan" stays on screen when it cannot
+    run, disabled with its reason on the title, because unavailability never
+    hides an act. Once an item has been routed or archived the acts go except
+    "Move to list": filing is not triage and is allowed in every state.
+
+    What the body shows depends on the kind. A video gets its thumbnail and the
+    link; an article or a link gets the link and whatever excerpt was captured;
+    an email its sender, subject and body; code a code block; an image the
+    picture; a document its attachment; everything else its text as markdown.
+    Today's captures mostly carry a title and nothing more, so the empty-body
+    line is written to read well rather than as an error — it is the ordinary
+    case, not a broken one.
+
+    The pickers write through the state, and the state reloads: a tag or a
+    repository is a decision the module records, not something this component
+    holds. Repositories come from the settings store — the same list the Tasks
+    pane and the Repositories screen read — so what is chosen here is something
+    the backlog can actually target.
+*@
+
+<div class="inbox-pane__column inbox-pane__column--detail" data-testid="inbox-pane-column-detail">
+    @if (State.SelectedItem is not { } item)
+    {
+        <EmptyState Title="Choose an item."
+                    Description="What it is, where it came from and what you can do with it appear here."
+                    BaseClass="empty-state inbox-pane__empty-state"
+                    TestId="inbox-detail-empty" />
+    }
+    else
+    {
+        var open = item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
+        var repos = item.RepoIds.Count;
+
+        <article class="inbox-pane__detail" aria-labelledby="inbox-detail-title" data-inbox-kind="@item.KindSlug" data-testid="inbox-detail">
+            <SectionHeader BaseClass="inbox-pane__detail-header"
+                           TextCssClass="inbox-pane__detail-text"
+                           EyebrowCssClass="inbox-pane__detail-eyebrow"
+                           TitleCssClass="inbox-pane__detail-title"
+                           ActionsCssClass="inbox-pane__detail-actions"
+                           Level="3"
+                           TitleId="inbox-detail-title"
+                           Eyebrow="@Eyebrow(item)"
+                           Title="@Title(item)"
+                           TestId="inbox-detail-header">
+                <Actions>
+                    <ButtonGroup AriaLabel="Item actions" CssClass="inbox-pane__action-row" TestId="inbox-detail-action-row">
+                        <AppButton Size="ButtonSize.Small"
+                                   Disabled="@Busy"
+                                   OnClick="() => _moveOpen = true"
+                                   TestId="inbox-move-to-list">Move to list…</AppButton>
+                        @if (open)
+                        {
+                            <AppButton Size="ButtonSize.Small"
+                                       Disabled="@Busy"
+                                       OnClick="State.ArchiveAsync"
+                                       TestId="inbox-archive">Archive</AppButton>
+                            <AppButton Size="ButtonSize.Small"
+                                       Variant="ButtonVariant.Primary"
+                                       Disabled="@State.PlanRunning"
+                                       Busy="@State.RouteRunning"
+                                       BusyLabel="Moving to backlog"
+                                       Title="@RouteTitle(repos)"
+                                       OnClick="State.RouteToBacklogAsync"
+                                       TestId="inbox-move-to-backlog">@RouteLabel(repos)</AppButton>
+                            <AppButton Size="ButtonSize.Small"
+                                       Disabled="@(!Availability.Available || State.RouteRunning)"
+                                       Busy="@State.PlanRunning"
+                                       BusyLabel="Drafting a plan"
+                                       Title="@(Availability.Available ? "Ask the AI for an import plan and add it to the backlog" : Availability.Reason)"
+                                       OnClick="State.CreatePlanAsync"
+                                       TestId="inbox-create-plan">Create plan</AppButton>
+                        }
+                    </ButtonGroup>
+                </Actions>
+            </SectionHeader>
+
+            @if (!open)
+            {
+                <Alert BaseClass="inbox-pane__state"
+                       Role="status"
+                       Message="@StateLine(item)"
+                       TestId="inbox-detail-state" />
+            }
+
+            <div class="inbox-pane__content" data-testid="@($"inbox-detail-kind-{item.KindSlug}")">
+                @switch (item.Kind)
+                {
+                    case ContentKind.YouTube:
+                        @if (YouTubeVideoId(item.SourceUrl) is { } videoId)
+                        {
+                            <a class="inbox-pane__media" href="@item.SourceUrl" target="_blank" rel="noopener noreferrer" data-testid="inbox-detail-thumbnail-link">
+                                <img class="inbox-pane__thumbnail"
+                                     src="@($"https://img.youtube.com/vi/{videoId}/hqdefault.jpg")"
+                                     alt="@($"Video thumbnail: {Title(item)}")"
+                                     loading="lazy"
+                                     data-testid="inbox-detail-thumbnail" />
+                            </a>
+                        }
+                        @Link(item.SourceUrl)
+                        @Prose(item, "Only the title and the link were captured.")
+                        break;
+
+                    case ContentKind.Article:
+                    case ContentKind.Link:
+                        @Link(item.SourceUrl)
+                        @Prose(item, "Only the title and the link were captured; open it to read.")
+                        break;
+
+                    case ContentKind.Email:
+                        <dl class="inbox-pane__facts">
+                            <dt>From</dt>
+                            <dd data-testid="inbox-detail-sender">
+                                @if (string.IsNullOrWhiteSpace(item.Person))
+                                {
+                                    <span>Unknown sender</span>
+                                }
+                                else
+                                {
+                                    <TagChip Text="@TagText.Display(item.Person)" CssClass="inbox-pane__person" />
+                                }
+                            </dd>
+                            <dt>Subject</dt>
+                            <dd data-testid="inbox-detail-subject">@Title(item)</dd>
+                        </dl>
+                        @Prose(item, "The message body was not captured.")
+                        break;
+
+                    case ContentKind.ClaudeArtifact:
+                        @Link(item.SourceUrl)
+                        @Prose(item, "No summary was captured with the artifact.")
+                        break;
+
+                    case ContentKind.Code:
+                        @if (string.IsNullOrWhiteSpace(item.BodyMd))
+                        {
+                            @Note("No code was captured with the title.")
+                        }
+                        else
+                        {
+                            <CodeView Source="@item.BodyMd"
+                                      Language="@CodeLanguage(item.BodyMd)"
+                                      AriaLabel="Captured code"
+                                      CssClass="inbox-pane__code"
+                                      TestId="inbox-detail-code" />
+                        }
+                        @Link(item.SourceUrl)
+                        break;
+
+                    case ContentKind.Image:
+                        @if (!string.IsNullOrWhiteSpace(item.SourceUrl))
+                        {
+                            <a class="inbox-pane__media" href="@item.SourceUrl" target="_blank" rel="noopener noreferrer" data-testid="inbox-detail-image-link">
+                                <img class="inbox-pane__image" src="@item.SourceUrl" alt="@Title(item)" loading="lazy" data-testid="inbox-detail-image" />
+                            </a>
+                        }
+                        @Attachment(item.SourceUrl)
+                        @Prose(item, null)
+                        break;
+
+                    case ContentKind.Document:
+                        @Attachment(item.SourceUrl)
+                        @Prose(item, "Only the title and the attachment were captured.")
+                        break;
+
+                    case ContentKind.Voice:
+                        @Prose(item, "No transcript was captured with the memo.")
+                        @Link(item.SourceUrl)
+                        break;
+
+                    default:
+                        @Prose(item, "Only the title was captured.")
+                        @Link(item.SourceUrl)
+                        break;
+                }
+            </div>
+
+            <div class="inbox-pane__pickers">
+                @if (open)
+                {
+                    <TagMultiSelect Label="Tags"
+                                    Options="@State.TagOptions"
+                                    SelectedValues="@TagNames(item)"
+                                    SelectedValuesChanged="tags => State.SetTagsAsync(tags)"
+                                    AllowCreate="true"
+                                    Placeholder="Add a tag"
+                                    CssClass="inbox-pane__picker"
+                                    TestId="inbox-detail-tags" />
+                    <TagMultiSelect Label="Repositories"
+                                    Options="@State.RepositoryOptions"
+                                    SelectedValues="@item.RepoIds"
+                                    SelectedValuesChanged="repos => State.AssignRepositoriesAsync(repos)"
+                                    Placeholder="Add a repository"
+                                    CssClass="inbox-pane__picker"
+                                    TestId="inbox-detail-repos" />
+                    @if (State.RepositoryOptions.Count == 0)
+                    {
+                        <Alert BaseClass="inbox-pane__note"
+                               Role="status"
+                               Message="No repositories are configured in Settings, so the entry will not be targeted at one."
+                               TestId="inbox-detail-no-repos" />
+                    }
+                }
+                else if (item.Tags.Count > 0 || item.RepoIds.Count > 0)
+                {
+                    @* Read-only once decided: the tags and repositories are what the
+                       entries were made with, and editing them here would edit nothing. *@
+                    <p class="inbox-pane__chips" data-testid="inbox-detail-chips">
+                        @foreach (var tag in item.Tags)
+                        {
+                            <TagChip Text="@TagText.Display(tag.Name)" CssClass="inbox-pane__tag" />
+                        }
+                        @foreach (var repoId in item.RepoIds)
+                        {
+                            <Badge Kind="kind" Slug="repository" CssClass="inbox-pane__repository" Title="@($"Repository: {repoId}")">@State.RepositoryAlias(repoId)</Badge>
+                        }
+                    </p>
+                }
+            </div>
+        </article>
+
+        <Modal Open="@_moveOpen"
+               OpenChanged="open => _moveOpen = open"
+               Title="Move to list"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-move-list-dialog">
+            <ChildContent>
+                <MenuList Items="@MoveTargets(item)"
+                          AriaLabel="Lists"
+                          TestId="inbox-move-list"
+                          OnItemSelected="OnMoveTargetAsync" />
+            </ChildContent>
+        </Modal>
+    }
+</div>
+
+@code {
+    private const string InboxTarget = "inbox";
+
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    private bool _moveOpen;
+
+    private bool Busy => State.PlanRunning || State.RouteRunning;
+
+    private (bool Available, string? Reason) Availability => State.PlanDrafterAvailability;
+
+    private static string Title(InboxItemDto item) =>
+        string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;
+
+    /// <summary>"Video · YouTube": the kind and the channel, which are two facts
+    /// — a video arrives from the monitor, from the phone, or by hand.</summary>
+    private static string Eyebrow(InboxItemDto item) =>
+        $"{InboxLabels.Kind(item.KindSlug)} · {InboxLabels.Channel(item.Channel)}";
+
+    private static IReadOnlyList<string> TagNames(InboxItemDto item) =>
+        [.. item.Tags.Select(tag => tag.Name)];
+
+    /// <summary>The label says how many entries the act makes when repositories
+    /// are chosen: one per repository. With none chosen it makes one untargeted
+    /// entry, and the label does not need to say so.</summary>
+    private static string RouteLabel(int repos) =>
+        repos == 0 ? "Move to backlog" : $"Move to backlog → {InboxDesktopState.Counted(repos, "task", "tasks")}";
+
+    private static string RouteTitle(int repos) => repos switch
+    {
+        0 => "Create one backlog entry from this item",
+        1 => "Create one backlog entry targeted at the chosen repository",
+        _ => $"Create {repos} backlog entries, one per chosen repository"
+    };
+
+    private string StateLine(InboxItemDto item) => item switch
+    {
+        { Status: InboxStatus.Archived } => "Archived.",
+        { Routing: { } routing } =>
+            $"Routed to {InboxDesktopState.Counted(routing.TaskIds.Count, "task", "tasks")} on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
+        _ => InboxLabels.Status(item.Status) + "."
+    };
+
+    // --- Kind blocks -------------------------------------------------------
+
+    // Razor templates rather than hand-written builder calls, so the sequence
+    // numbers are the compiler's: several of these render one after another
+    // inside one block, and hand-numbered fragments that each start at zero
+    // give the differ a sequence that runs backwards between them.
+
+    /// <summary>The body as markdown, or the kind's own line for an item that
+    /// arrived with only a title — the ordinary case for a synced capture, so it
+    /// reads as a fact rather than a fault. Null says the kind has nothing to
+    /// say about an empty body.</summary>
+    private static RenderFragment Prose(InboxItemDto item, string? emptyLine) => @<text>
+        @if (string.IsNullOrWhiteSpace(item.BodyMd))
+        {
+            @if (emptyLine is not null)
+            {
+                @Note(emptyLine)
+            }
+        }
+        else
+        {
+            <div class="inbox-pane__prose" data-testid="inbox-detail-body">
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(item.BodyMd)" />
+            </div>
+        }
+    </text>;
+
+    private static RenderFragment Note(string line) =>
+        @<Alert BaseClass="inbox-pane__note" Role="status" Message="@line" TestId="inbox-detail-no-body" />;
+
+    private static RenderFragment Link(string? url) => @<text>
+        @if (!string.IsNullOrWhiteSpace(url))
+        {
+            <a class="inbox-pane__link" href="@url" target="_blank" rel="noopener noreferrer" data-testid="inbox-detail-link">@url</a>
+        }
+    </text>;
+
+    private static RenderFragment Attachment(string? url) => @<text>
+        @if (!string.IsNullOrWhiteSpace(url))
+        {
+            <a class="inbox-pane__link inbox-pane__link--attachment" href="@url" target="_blank" rel="noopener noreferrer" data-testid="inbox-detail-attachment">@AttachmentName(url)</a>
+        }
+    </text>;
+
+    /// <summary>The file name at the end of the URL, which is what a reader
+    /// recognises an attachment by; the whole URL when there is no path to cut.</summary>
+    private static string AttachmentName(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            var name = Uri.UnescapeDataString(uri.Segments[^1].Trim('/'));
+            if (name.Length > 0) return name;
+        }
+
+        return url;
+    }
+
+    /// <summary>The video id, from either spelling of a YouTube URL, or null
+    /// when the URL is not one — a video captured from elsewhere gets a link
+    /// and no thumbnail rather than a broken image.</summary>
+    internal static string? YouTubeVideoId(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
+
+        var host = uri.Host.ToLowerInvariant();
+
+        if (host is "youtu.be" or "www.youtu.be")
+        {
+            return Clean(uri.AbsolutePath.Trim('/'));
+        }
+
+        if (host is "youtube.com" or "www.youtube.com" or "m.youtube.com")
+        {
+            if (uri.AbsolutePath.StartsWith("/watch", StringComparison.Ordinal))
+            {
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                return Clean(query["v"]);
+            }
+
+            var segments = uri.AbsolutePath.Trim('/').Split('/');
+            if (segments.Length >= 2 && segments[0] is "shorts" or "embed" or "live")
+            {
+                return Clean(segments[1]);
+            }
+        }
+
+        return null;
+
+        static string? Clean(string? id) =>
+            string.IsNullOrWhiteSpace(id) || id.Any(c => !(char.IsLetterOrDigit(c) || c is '-' or '_')) ? null : id;
+    }
+
+    /// <summary>The language a fenced block names, so the code view highlights
+    /// it; null for a bare fence or none, which the view reads as plain.</summary>
+    private static string? CodeLanguage(string body)
+    {
+        var firstLine = body.TrimStart().Split('\n')[0].Trim();
+        if (!firstLine.StartsWith("```", StringComparison.Ordinal)) return null;
+
+        var language = firstLine[3..].Trim();
+        return language.Length == 0 ? null : language;
+    }
+
+    // --- Move to list ------------------------------------------------------
+
+    /// <summary>Every list but the one the item is in, with its group's name
+    /// in front so two lists called "Reading" in two groups can be told apart,
+    /// and the inbox itself when the item is filed somewhere.</summary>
+    private IReadOnlyList<MenuItem> MoveTargets(InboxItemDto item)
+    {
+        var items = new List<MenuItem>();
+
+        if (item.ListId is not null)
+        {
+            items.Add(new MenuItem(InboxTarget, "Inbox", "✉"));
+        }
+
+        var lists = State.Lists
+            .Where(list => list.Id != item.ListId)
+            .OrderBy(list => list.GroupId is { } groupId ? State.FindGroup(groupId)?.Order ?? int.MaxValue : -1)
+            .ThenBy(list => list.Order);
+
+        foreach (var list in lists)
+        {
+            var group = list.GroupId is { } groupId ? State.FindGroup(groupId)?.Name : null;
+            var label = group is null ? list.Name : $"{group} / {list.Name}";
+            items.Add(new MenuItem(InboxDesktopState.ListNavId(list.Id), label));
+        }
+
+        return items;
+    }
+
+    private async Task OnMoveTargetAsync(MenuItem target)
+    {
+        _moveOpen = false;
+
+        if (target.Id == InboxTarget)
+        {
+            await State.MoveToListAsync(null);
+        }
+        else if (InboxDesktopState.TryParseListId(target.Id, out var listId))
+        {
+            await State.MoveToListAsync(listId);
+        }
+    }
+}

@@ -45,11 +45,6 @@
     <ProjectReference Include="..\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
-    <!-- Deliberate, and the one context-to-context edge .domain/context-map.md
-         allows: TasksDrafts converts repository rows into the Inbox's
-         published InboxItem contract. Tasks conforms to what the
-         Inbox publishes; the Inbox never reads back. -->
-    <ProjectReference Include="..\..\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
   </ItemGroup>
 
 </Project>

@@ -17,7 +17,8 @@
         "0005-azure-hosted-task-replica-for-multi-device-sync.md",
         "0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
         "0007-import-reuses-the-entry-text-grammar.md",
-        "0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md"
+        "0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md",
+        "0009-captures-are-a-document-kind-on-the-replica.md"
       ]
     },
     ".arc42/adr/guidelines": {

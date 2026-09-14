@@ -2,12 +2,21 @@
    .domain/context-map.md): it publishes what it triaged and never reads the
    other two back. Now that the Inbox is its own project these imports are the
    project's own rather than inherited from the desktop app, so the control
-   namespaces its pane renders have to be named here. Still deliberately free of
-   every context namespace — every line beyond the shared library would be a
-   boundary crossed. *@
+   namespaces its pane renders have to be named here, and so does its own
+   module's published surface. Still deliberately free of every other context
+   namespace — every line beyond the shared library and Inbox.Abstractions
+   would be a boundary crossed. *@
+@using Microsoft.AspNetCore.Components.Web
+@using Backlog.Modules.Inbox.Abstractions
+@using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
 @using Backlog.UI.Components.Badges
 @using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Code
 @using Backlog.UI.Components.Feedback
 @using Backlog.UI.Components.Inputs
 @using Backlog.UI.Components.Layout
+@using Backlog.UI.Components.Markdown
+@using Backlog.UI.Components.Menus
+@* Modal for "Move to list" and "Move to group", ConfirmDialog for deleting a list. *@
 @using Backlog.UI.Components.Overlays
+@using Backlog.UI.Components.Selects

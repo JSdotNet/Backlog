@@ -1,0 +1,288 @@
+@*
+    The side menu: the fixed Inbox row, the groups with their lists folded
+    under them, the lists filed under no group — each with how many items are
+    still waiting in it. Drawn by the library's ListNav from a model built off
+    the state, so this file owns no row markup at all; what it owns is the
+    three menus a row can open and the two questions those menus ask.
+
+    Ids are the state's, prefixed: "inbox" for the fixed row, "list:{guid}" and
+    "group:{guid}" for the rest. ListNav addresses every row by one string and
+    a list and a group must never share one.
+
+    The context menu is one ContextMenu whose items depend on what was clicked.
+    "Move to group" is not a submenu — ContextMenu has none — so it opens a
+    small MenuList in a Modal instead, and "Delete" asks first, because the
+    items in the list are not deleted with it and the reader should hear that
+    before rather than after.
+
+    A rename is the row turning into a field. ListNav draws the field when the
+    state names the row; Enter and blur commit through the state, Escape
+    cancels, and a refused name keeps the field open with the reason on a toast.
+*@
+
+<div class="inbox-pane__nav" data-testid="inbox-pane-nav">
+    <ListNav Fixed="Fixed"
+             Groups="GroupModel"
+             Ungrouped="Ungrouped"
+             SelectedId="@State.SelectedSliceId"
+             IsGroupExpanded="IsGroupExpanded"
+             EditingId="@State.EditingId"
+             OnSelect="id => State.SelectSlice(id)"
+             OnToggleGroup="OnToggleGroup"
+             OnContextMenu="OpenMenu"
+             OnRenameRequested="id => State.BeginRename(id)"
+             OnRenameCommitted="OnRenameCommittedAsync"
+             OnRenameCancelled="() => State.CancelRename()"
+             AriaLabel="Inbox lists"
+             CssClass="inbox-pane__list-nav"
+             TestId="inbox-nav" />
+</div>
+
+<ContextMenu Open="@_menuOpen"
+             OpenChanged="open => _menuOpen = open"
+             X="@_menuX"
+             Y="@_menuY"
+             Items="@MenuItemsFor(_menuTarget)"
+             AriaLabel="List actions"
+             TestId="inbox-nav-menu"
+             OnItemSelected="OnMenuItemAsync" />
+
+@* The groups a list can move to. A group the list is already in is not
+   offered, and "No group" only when there is one to leave — a menu that offers
+   the reader what they already have is a menu that does nothing when pressed. *@
+<Modal Open="@(_moveListId is not null)"
+       OpenChanged="open => { if (!open) _moveListId = null; }"
+       Title="Move to group"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-move-group-dialog">
+    <ChildContent>
+        <MenuList Items="@MoveTargets()"
+                  AriaLabel="Groups"
+                  TestId="inbox-move-group"
+                  OnItemSelected="OnMoveTargetAsync" />
+    </ChildContent>
+</Modal>
+
+@* No OpenChanged handler on purpose: the dialog raises it before OnConfirm,
+   and clearing the list id there would leave the confirm with nothing to
+   delete. Both ways out — confirm, and every kind of cancel — end in one of
+   the two callbacks below, which is where the id is cleared. *@
+<ConfirmDialog Open="@(_deleteListId is not null)"
+               Title="Delete this list?"
+               Message="@DeleteMessage"
+               ConfirmText="Delete list"
+               Destructive="true"
+               OnConfirm="OnDeleteConfirmedAsync"
+               OnCancel="() => _deleteListId = null"
+               TestId="inbox-delete-list-dialog"
+               ConfirmTestId="inbox-delete-list-confirm"
+               CancelTestId="inbox-delete-list-cancel" />
+
+@code {
+    private const string NewList = "new-list";
+    private const string NewGroup = "new-group";
+    private const string RenameGroup = "rename-group";
+    private const string NewListInGroup = "new-list-in-group";
+    private const string Ungroup = "ungroup";
+    private const string RenameList = "rename-list";
+    private const string MoveToGroup = "move-to-group";
+    private const string DeleteList = "delete-list";
+    private const string NoGroup = "none";
+
+    private static readonly IReadOnlyList<MenuItem> RootItems =
+    [
+        new(NewList, "New list", "+"),
+        new(NewGroup, "New group", "⊞")
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> GroupItems =
+    [
+        new(RenameGroup, "Rename group", "✎"),
+        new(NewListInGroup, "New list here", "+"),
+        MenuItem.Divider("sep"),
+        new(Ungroup, "Ungroup", "⊟")
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> ListItems =
+    [
+        new(RenameList, "Rename", "✎"),
+        new(MoveToGroup, "Move to group…", "⇢"),
+        MenuItem.Divider("sep"),
+        new(DeleteList, "Delete", "🗑", Destructive: true)
+    ];
+
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    private bool _menuOpen;
+    private double _menuX;
+    private double _menuY;
+    private ListNavTarget? _menuTarget;
+
+    /// <summary>The list "Move to group" was opened on, or null when the dialog
+    /// is closed. One field rather than a flag and an id, so the two cannot
+    /// disagree.</summary>
+    private Guid? _moveListId;
+
+    /// <summary>The list "Delete" was asked on, or null when nothing is being
+    /// asked.</summary>
+    private Guid? _deleteListId;
+
+    private IReadOnlyList<ListNavEntry> Fixed =>
+        [new(InboxDesktopState.InboxSliceId, "Inbox", State.InboxCount, "✉")];
+
+    private IReadOnlyList<ListNavGroup> GroupModel =>
+        [.. State.Groups
+            .OrderBy(group => group.Order)
+            .Select(group => new ListNavGroup(
+                InboxDesktopState.GroupNavId(group.Id),
+                group.Name,
+                [.. State.Lists
+                    .Where(list => list.GroupId == group.Id)
+                    .OrderBy(list => list.Order)
+                    .Select(Entry)]))];
+
+    private IReadOnlyList<ListNavEntry> Ungrouped =>
+        [.. State.Lists
+            .Where(list => list.GroupId is null)
+            .OrderBy(list => list.Order)
+            .Select(Entry)];
+
+    private ListNavEntry Entry(InboxListDto list) =>
+        new(InboxDesktopState.ListNavId(list.Id), list.Name, State.ListCount(list.Id));
+
+    private bool IsGroupExpanded(string navId) =>
+        InboxDesktopState.TryParseGroupId(navId, out var groupId) && State.IsGroupExpanded(groupId);
+
+    private void OnToggleGroup(string navId)
+    {
+        if (InboxDesktopState.TryParseGroupId(navId, out var groupId)) State.ToggleGroup(groupId);
+    }
+
+    private Task OnRenameCommittedAsync((string Id, string Name) rename) =>
+        State.CommitRenameAsync(rename.Id, rename.Name);
+
+    // --- The context menu ----------------------------------------------------
+
+    private void OpenMenu((ListNavTarget Target, double X, double Y) request)
+    {
+        _menuTarget = request.Target;
+        _menuX = request.X;
+        _menuY = request.Y;
+        _menuOpen = true;
+    }
+
+    /// <summary>What the menu offers on what was clicked. The fixed Inbox row
+    /// is not a list — it cannot be renamed, moved or deleted — so it offers the
+    /// root's items, which is where a new list comes from.</summary>
+    private static IReadOnlyList<MenuItem> MenuItemsFor(ListNavTarget? target) => target switch
+    {
+        { Kind: ListNavTargetKind.Group } => GroupItems,
+        { Kind: ListNavTargetKind.Entry, Id: { } id } when InboxDesktopState.TryParseListId(id, out _) => ListItems,
+        _ => RootItems
+    };
+
+    private async Task OnMenuItemAsync(MenuItem item)
+    {
+        var target = _menuTarget;
+        _menuOpen = false;
+
+        Guid? listId = target is { Kind: ListNavTargetKind.Entry, Id: { } entryId }
+            && InboxDesktopState.TryParseListId(entryId, out var parsedList) ? parsedList : null;
+        Guid? groupId = target is { Kind: ListNavTargetKind.Group, Id: { } groupNavId }
+            && InboxDesktopState.TryParseGroupId(groupNavId, out var parsedGroup) ? parsedGroup : null;
+
+        switch (item.Id)
+        {
+            case NewList:
+                await State.CreateListAsync(groupId: null);
+                break;
+
+            case NewGroup:
+                await State.CreateGroupAsync();
+                break;
+
+            case NewListInGroup when groupId is { } group:
+                await State.CreateListAsync(group);
+                break;
+
+            case RenameGroup when target?.Id is { } groupRow:
+                State.BeginRename(groupRow);
+                break;
+
+            case Ungroup when groupId is { } group:
+                await State.UngroupAsync(group);
+                break;
+
+            case RenameList when target?.Id is { } listRow:
+                State.BeginRename(listRow);
+                break;
+
+            case MoveToGroup when listId is { } list:
+                _moveListId = list;
+                break;
+
+            case DeleteList when listId is { } list:
+                _deleteListId = list;
+                break;
+        }
+    }
+
+    // --- Move to group ---------------------------------------------------------
+
+    private IReadOnlyList<MenuItem> MoveTargets()
+    {
+        if (_moveListId is not { } listId || State.FindList(listId) is not { } list) return [];
+
+        var items = State.Groups
+            .Where(group => group.Id != list.GroupId)
+            .OrderBy(group => group.Order)
+            .Select(group => new MenuItem(InboxDesktopState.GroupNavId(group.Id), group.Name))
+            .ToList();
+
+        if (list.GroupId is not null)
+        {
+            if (items.Count > 0) items.Add(MenuItem.Divider("sep"));
+            items.Add(new MenuItem(NoGroup, "No group"));
+        }
+
+        return items;
+    }
+
+    private async Task OnMoveTargetAsync(MenuItem item)
+    {
+        if (_moveListId is not { } listId) return;
+
+        _moveListId = null;
+
+        Guid? groupId = InboxDesktopState.TryParseGroupId(item.Id, out var parsed) ? parsed : null;
+        if (groupId is null && item.Id != NoGroup) return;
+
+        await State.MoveListToGroupAsync(listId, groupId);
+    }
+
+    // --- Delete list -----------------------------------------------------------
+
+    private string DeleteMessage
+    {
+        get
+        {
+            if (_deleteListId is not { } listId) return string.Empty;
+
+            var name = State.FindList(listId)?.Name ?? "this list";
+            var count = State.ListCount(listId);
+
+            return count == 0
+                ? $"\"{name}\" is empty. Deleting it cannot be undone."
+                : $"{InboxDesktopState.Counted(count, "item", "items")} in \"{name}\" return to Inbox. Deleting the list cannot be undone.";
+        }
+    }
+
+    private async Task OnDeleteConfirmedAsync()
+    {
+        if (_deleteListId is not { } listId) return;
+
+        _deleteListId = null;
+        await State.DeleteListAsync(listId);
+    }
+}

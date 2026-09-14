@@ -15,10 +15,12 @@ public sealed record ListInboxQuery(OwnerScope Scope);
 /// Projects the owner's live capture documents onto the inbox contract the
 /// phone, the desktop pane, and the editor extension already read.
 /// <para>
-/// A capture is not a separate kind of record — it is a task document that
-/// still carries a source inbox id. That is what lets the desktop pull it as an
-/// ordinary task, triage it, and have it stop being a capture without anything
-/// being deleted (see <c>AcknowledgeInboxItemCommand</c>).
+/// A capture is a task-shaped document with its own kind token
+/// (<c>CaptureInboxItemCommandHandler.CaptureType</c>). That is what lets the
+/// desktop pull it through the ordinary task feed and hand it to its inbox
+/// rather than its task table, and what lets acknowledging one be a tombstone
+/// (see <c>AcknowledgeInboxItemCommand</c>): the id names the capture and
+/// nothing the desktop made from it.
 /// </para>
 /// <para>
 /// The two fields this reads out of the payload, <c>Title</c> and

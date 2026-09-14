@@ -106,7 +106,9 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Tasks/Backlog.Modules.Tasks` | Tasks module — domain model (`TaskItem`, sub-items, lifecycle rules), the `ITaskRepository` port, and vertical-slice features |
 | `src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions` | The Tasks module's published surface — DTOs, the entry text format, and `ITaskItems` |
 | `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks's desktop face — the task pane, its state, and the GitHub and Copilot CLI projections |
-| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — what has been captured but not decided on |
+| `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
+| `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget` and `IInboxPlanDrafter` ports |
+| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions` | Second Brain's published surface — `IKnowledgeFolderSource`, the configured-folder format, and the location a folder resolves to |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain's desktop face — the knowledge menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
@@ -157,8 +159,8 @@ rather than a folder inside the shell. The split follows
 
 | Project | Bounded context / role |
 |---|---|
-| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Publishes `InboxItem`; reads nothing back |
-| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane, its drafts, and its GitHub and Copilot CLI projections |
+| `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Tasks only through a port its own module publishes |
+| `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane and its GitHub and Copilot CLI projections |
 | `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
@@ -167,12 +169,14 @@ rather than a folder inside the shell. The split follows
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
-the Inbox references nothing but the shared control library, Tasks
-and Second Brain each reference only their own module's Abstractions, the Dashboard
-references its own Abstractions plus the two adapters it reads providers through
-and no sibling context at all, and the one context-to-context edge the context map
-allows — Tasks conforming to the Inbox's published `InboxItem` — is a
-project reference somebody had to write down. `DesktopDomainBoundaryTests` covers what the graph alone cannot.
+the Inbox, Tasks and Second Brain each reference only their own module's
+Abstractions, the Dashboard references its own Abstractions plus the two adapters
+it reads providers through and no sibling context at all, and no context
+references another. Where two contexts have to meet — the Inbox routing an item
+into the backlog — the join is a port in the supplier's Abstractions
+(`IInboxBacklogTarget`) answered by an adapter in `Backlog.Infrastructure.FileSystem`
+that may see both, never a project reference between them.
+`DesktopDomainBoundaryTests` covers what the graph alone cannot.
 
 There used to be a `Backlog.Desktop.Workspace` project underneath the contexts
 holding where the backlog lives, which repositories are configured and which
