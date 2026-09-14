@@ -311,9 +311,9 @@ builder.Services.AddAgentSessionSource();
 // pushes from: it reads this machine's sessions through the port that call
 // registers and contributes a second source to the same port for what the other
 // environments reported. Both lines are lazy factories, so the order is for
-// whoever reads this file rather than for the container. Its own call and its own
-// feature key, because a person can want their tasks on both machines and still
-// not want a list of what their agents have been doing leaving either one.
+// whoever reads this file rather than for the container. Its own call because a
+// head can have a task database and no session readers; it answers to the same
+// Sync switch as the task loop.
 builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
 // What a transcript's parsed runs are kept in, so an activity read parses only the

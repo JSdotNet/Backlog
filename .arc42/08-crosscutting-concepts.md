@@ -189,9 +189,13 @@ list a person already reads rather than shown apart from it.
 The same two qualifications apply as above, and a third this half carries alone.
 Nothing is provisioned in Azure
 (`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
-is a `Dev`-status feature flag that is off by default — its own flag rather than
-`task-sync`, because wanting one backlog on two machines is not the same as
-wanting a record of what the assistants did to leave either of them. The third is
+is behind the one `Dev`-status `sync` feature flag, off by default, that also
+gates pairing and the task loop. Until 2026-09-14 it had a flag of its own,
+`session-sync`, on the argument that wanting one backlog on two machines is not
+the same as wanting a record of what the assistants did to leave either of them;
+the three switches were folded into one because the question a person actually
+answers is whether this machine takes part in sync at all, and the sanitization
+boundary above is what makes that one answer safe to give. The third is
 that two behaviours here rest on a store nothing local has exercised: the change
 feed the pull reads needs a real Cosmos, emulator or deployed, and the unit suite
 runs against an in-memory replica standing in for one; the twelve-month container

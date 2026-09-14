@@ -242,10 +242,9 @@ public static class SyncClientRegistration
     /// <strong>Opt-in, and only a head that has sessions may opt in.</strong> It
     /// is a separate call from <see cref="AddTaskSyncClient"/> and not a part of
     /// it, because the two answer different questions: a head can have a task
-    /// database and no session readers, and the mobile heads have neither. It is
-    /// also gated on its own feature key rather than on <c>task-sync</c>, because
-    /// a person can want their tasks on both machines and still not want a list of
-    /// what their agents have been doing leaving either one.
+    /// database and no session readers, and the mobile heads have neither. Both
+    /// loops answer to the one <c>sync</c> feature key: the split in composition
+    /// is about what a head has, not about what a person wants replicated.
     /// </para>
     /// <para>
     /// <strong>What a caller owes it.</strong> An

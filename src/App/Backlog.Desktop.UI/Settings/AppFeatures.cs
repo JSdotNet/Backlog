@@ -113,23 +113,12 @@ public static class AppFeatures
             Status: AppFeatureStatus.Dev),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost.", Status: AppFeatureStatus.Dev),
         new(
-            SyncFeatures.DevicePairing,
-            "Device pairing",
-            "Pair this device with the cloud sync service and keep a short-lived token for it.",
+            SyncFeatures.Sync,
+            "Sync",
+            "Pair this device with the cloud sync service, push this machine's task changes and Claude and Copilot session records to the cloud replica, and pull back what the other devices changed and reported. Session records travel as metadata only: never a prompt, a transcript, a working folder, or a session's title.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
-        new(
-            SyncFeatures.TaskSync,
-            "Task sync",
-            "Push this machine's task changes to the cloud replica and pull back what the other devices changed.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
-        new(
-            SyncFeatures.SessionSync,
-            "Session sync",
-            "Push this machine's Claude and Copilot session records to the cloud replica and pull back what the other environments reported. Only the metadata: never a prompt, a transcript, a working folder, or a session's title.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            Status: AppFeatureStatus.Dev,
+            FormerKeys: ["device-pairing", "task-sync", "session-sync"]),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

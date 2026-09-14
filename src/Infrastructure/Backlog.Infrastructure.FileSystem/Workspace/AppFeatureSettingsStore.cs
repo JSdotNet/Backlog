@@ -139,10 +139,23 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
             var dto = JsonSerializer.Deserialize<FeatureSettingsDto>(File.ReadAllText(_path), JsonOptions);
             if (dto is null) return new AppFeatureSettings();
 
+            var disabled = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase);
+            var enabled = new HashSet<string>(dto.EnabledFeatures, StringComparer.OrdinalIgnoreCase);
+
+            // A choice recorded under a key the feature used to have is the same
+            // choice. Done before Normalize, which would otherwise drop the old
+            // key as unknown and lose the choice with it; the old key itself is
+            // then dropped there, so the next save writes only the current one.
+            foreach (var feature in _features.Where(f => f.FormerKeys is { Count: > 0 }))
+            {
+                if (feature.FormerKeys!.Any(disabled.Contains)) disabled.Add(feature.Key);
+                if (feature.FormerKeys!.Any(enabled.Contains)) enabled.Add(feature.Key);
+            }
+
             return Normalize(new AppFeatureSettings
             {
-                DisabledFeatures = new HashSet<string>(dto.DisabledFeatures, StringComparer.OrdinalIgnoreCase),
-                EnabledFeatures = new HashSet<string>(dto.EnabledFeatures, StringComparer.OrdinalIgnoreCase)
+                DisabledFeatures = disabled,
+                EnabledFeatures = enabled
             });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

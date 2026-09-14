@@ -38,11 +38,11 @@ public sealed class TaskSyncWorkerTests
 
     // --- The two gates --------------------------------------------------------
 
-    /// <summary>A person who has switched task sync off has asked for their tasks
+    /// <summary>A person who has switched sync off has asked for their tasks
     /// to stay on the machine, and a loop that went on exchanging would be the
     /// one thing the switch exists to stop.</summary>
     [Fact]
-    public void No_cycle_runs_while_the_task_sync_feature_is_off()
+    public void No_cycle_runs_while_the_sync_feature_is_off()
     {
         using var fixture = Fixture.Create(featureOn: false, paired: true);
 
@@ -62,13 +62,13 @@ public sealed class TaskSyncWorkerTests
         using var fixture = Fixture.Create(featureOn: false, paired: true);
 
         var first = fixture.NextCycle();
-        _ = fixture.Features.SetEnabled(SyncFeatures.TaskSync, true);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, true);
         fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
         await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, fixture.SessionsResolved);
 
-        _ = fixture.Features.SetEnabled(SyncFeatures.TaskSync, false);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, false);
         fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
 
         Assert.Equal(1, fixture.SessionsResolved);
@@ -299,8 +299,8 @@ public sealed class TaskSyncWorkerTests
 
         // And neither store can put it back: a disposed worker still subscribed
         // to either of these would build itself a new timer out of them.
-        _ = fixture.Features.SetEnabled(SyncFeatures.TaskSync, false);
-        _ = fixture.Features.SetEnabled(SyncFeatures.TaskSync, true);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, false);
+        _ = fixture.Features.SetEnabled(SyncFeatures.Sync, true);
         fixture.Credentials.Save(Paired);
         fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
 

@@ -35,7 +35,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void The_devices_tab_is_not_offered_until_the_feature_is_on()
     {
-        using var context = RenderSettings(devicePairingEnabled: false);
+        using var context = RenderSettings(syncEnabled: false);
 
         Assert.DoesNotContain("Devices", SettingsTabs(context.Component));
     }
@@ -43,7 +43,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void An_unpaired_device_is_offered_registering_and_pairing_but_not_a_code_to_hand_out()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         Assert.Contains("Devices", SettingsTabs(context.Component));
         OpenDevicesTab(context.Component);
@@ -63,7 +63,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void The_status_card_says_where_the_credential_would_be_kept_before_there_is_one()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -76,7 +76,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Registering_stores_the_credential_and_the_status_card_says_who_this_device_is()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -110,7 +110,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Generating_a_code_shows_it_grouped_with_the_time_it_has_left()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -127,7 +127,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Pairing_sends_the_code_normalized_and_stores_what_comes_back()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -156,7 +156,7 @@ public sealed class SettingsDevicesTests
     public void A_code_that_was_already_used_says_so_and_leaves_the_device_unpaired()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             respond: (_, _) => Problem(HttpStatusCode.Conflict, SyncErrorCodes.PairingCodeUsed, "That code has already paired a device."));
 
         OpenDevicesTab(context.Component);
@@ -181,28 +181,12 @@ public sealed class SettingsDevicesTests
 
     // --- Task sync ----------------------------------------------------------
 
-    /// <summary>
-    /// Its own feature from device pairing, because a person can have paired
-    /// devices and still not want their tasks leaving the machine.
-    /// </summary>
-    [Fact]
-    public void The_sync_section_is_not_offered_until_the_task_sync_feature_is_on()
-    {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: false);
-
-        OpenDevicesTab(context.Component);
-        context.Component.WaitForAssertion(() =>
-            Assert.Single(context.Component.FindAll("[data-testid='devices-status']")));
-
-        Assert.Empty(context.Component.FindAll("[data-testid='devices-sync']"));
-    }
-
     /// <summary>An unpaired device has no owner to replicate under, so there is
     /// nothing for the section to do.</summary>
     [Fact]
     public void An_unpaired_device_is_not_offered_the_sync_section()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: false, taskSyncEnabled: true);
+        using var context = RenderSettings(syncEnabled: true, paired: false);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -218,7 +202,7 @@ public sealed class SettingsDevicesTests
     public void A_host_without_a_session_hides_the_section_rather_than_failing()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true, paired: true, taskSyncEnabled: true, registerTaskSync: false);
+            syncEnabled: true, paired: true, registerTaskSync: false);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -238,7 +222,7 @@ public sealed class SettingsDevicesTests
     public void A_session_that_cannot_be_constructed_hides_the_section_rather_than_failing()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true, paired: true, taskSyncEnabled: true, sessionMissingItsStore: true);
+            syncEnabled: true, paired: true, sessionMissingItsStore: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -250,7 +234,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Syncing_reports_what_the_exchange_did()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -282,9 +266,8 @@ public sealed class SettingsDevicesTests
     public void A_replica_that_is_not_reachable_says_so_and_leaves_the_line_alone()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
-            taskSyncEnabled: true,
             respond: (request, _) => request.RequestUri!.AbsolutePath.EndsWith("/tasks", StringComparison.Ordinal)
                 ? Problem(HttpStatusCode.ServiceUnavailable, SyncErrorCodes.ReplicaUnavailable, "The replica is not reachable yet.")
                 : Token());
@@ -319,7 +302,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Starting_over_is_asked_before_it_is_done()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -352,7 +335,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Republishing_resets_the_push_watermark()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -373,7 +356,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Rehydrating_clears_the_pull_cursor()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true, taskSyncEnabled: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -402,7 +385,7 @@ public sealed class SettingsDevicesTests
     public void A_device_the_service_no_longer_knows_is_told_so_and_offered_a_way_back()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             withTokenPipeline: true,
             respond: (request, _) => IsTokenRequest(request)
@@ -443,7 +426,7 @@ public sealed class SettingsDevicesTests
     public void A_service_that_cannot_be_reached_leaves_the_device_paired()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             withTokenPipeline: true,
             respond: (_, _) => throw new HttpRequestException("No route to host."));
@@ -468,7 +451,7 @@ public sealed class SettingsDevicesTests
     public void A_status_call_that_says_the_device_is_gone_offers_a_way_back()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             respond: (_, _) => Problem(
                 HttpStatusCode.Unauthorized,
@@ -492,7 +475,7 @@ public sealed class SettingsDevicesTests
     public void A_status_call_that_merely_fails_does_not_unpair_anything()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             respond: (_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
@@ -514,7 +497,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Forgetting_this_device_asks_first_and_then_unpairs_it()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -542,7 +525,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Forgetting_this_device_can_be_called_off()
     {
-        using var context = RenderSettings(devicePairingEnabled: true, paired: true);
+        using var context = RenderSettings(syncEnabled: true, paired: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -568,7 +551,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void An_unpaired_device_is_not_offered_a_credential_to_forget()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -593,7 +576,7 @@ public sealed class SettingsDevicesTests
     public void A_stale_token_is_chased_back_to_the_credential_that_minted_it()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             withTokenPipeline: true,
             respond: (_, index) => index switch
@@ -631,7 +614,7 @@ public sealed class SettingsDevicesTests
     public void A_stale_token_chased_to_a_service_that_is_gone_leaves_the_device_paired()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             paired: true,
             withTokenPipeline: true,
             respond: (_, index) => index switch
@@ -688,7 +671,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void With_no_sync_service_configured_the_devices_tab_says_so_and_how_to_fix_it()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -704,7 +687,7 @@ public sealed class SettingsDevicesTests
     public void Under_the_apphost_the_devices_tab_says_the_service_is_found_by_discovery()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             environment: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["services__sync__https__0"] = "https://localhost:5555"
@@ -720,7 +703,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void Entering_a_sync_service_url_stores_it_and_the_status_line_names_it()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
 
         OpenDevicesTab(context.Component);
         context.Component.WaitForAssertion(() =>
@@ -742,7 +725,7 @@ public sealed class SettingsDevicesTests
     [Fact]
     public void A_sync_service_url_that_is_not_one_is_refused_and_the_stored_value_kept()
     {
-        using var context = RenderSettings(devicePairingEnabled: true);
+        using var context = RenderSettings(syncEnabled: true);
         context.SyncSettings!.SetServiceUrl("https://kept.example.test");
 
         OpenDevicesTab(context.Component);
@@ -770,7 +753,7 @@ public sealed class SettingsDevicesTests
     public void Clearing_the_sync_service_url_falls_back_to_the_environment()
     {
         using var context = RenderSettings(
-            devicePairingEnabled: true,
+            syncEnabled: true,
             environment: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 [SyncServiceEndpoint.EnvironmentVariable] = "https://env.example.test"
@@ -795,9 +778,8 @@ public sealed class SettingsDevicesTests
     }
 
     private static SettingsRenderContext RenderSettings(
-        bool devicePairingEnabled,
+        bool syncEnabled,
         bool paired = false,
-        bool taskSyncEnabled = false,
         bool registerTaskSync = true,
         bool sessionMissingItsStore = false,
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
@@ -811,8 +793,7 @@ public sealed class SettingsDevicesTests
         _ = features.SetEnabled(TasksFeatures.GitHubIntegration, false);
         _ = features.SetEnabled(AppFeatures.AiAssistant, false);
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
-        _ = features.SetEnabled(SyncFeatures.DevicePairing, devicePairingEnabled);
-        _ = features.SetEnabled(SyncFeatures.TaskSync, taskSyncEnabled);
+        _ = features.SetEnabled(SyncFeatures.Sync, syncEnabled);
 
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
