@@ -262,6 +262,7 @@ related: [".design/accessibility.md#focus-visibility"]
 | Logical order | Focus order MUST follow reading order; modals/drawers trap focus and restore it to the trigger on close. |
 | Selection distinct from focus | Selected list items use `color-border-focus` border + optional `color-primary` accent strip; selection MUST be visually distinct from hover and from focus. |
 | Multi-select | Bulk selection shows a bulk-action bar with a live count ("3 items selected") and a clear-selection control; "Select all" uses the indeterminate state for partial selection. |
+| Modifier-click scope | A scope strip of pressable chips is single-select on a plain press (this one, or none when it was already alone) and additive with Ctrl (Cmd on macOS) held — the file-manager convention. When one consumer of the scope can take only one value (the knowledge pane reads one repository), it follows the **anchor**: the first chip taken, which stays put while others join. The anchor carries `aria-current="true"` and a layout-neutral mark, only while a second chip is pressed; the chip's tooltip names the modifier, since nothing else on screen does. A plural scope exists only while a surface that can show several values is on screen: when that surface leaves (the Tasks pane closes or is trimmed by width), the scope collapses to the anchor and the modifier stops applying. |
 | Reorder focus retention | After a keyboard reorder, focus MUST stay on the moved item's handle. |
 
 ## Empty, Loading, and Error States

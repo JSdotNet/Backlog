@@ -163,6 +163,22 @@ Lead is placement, not styling. A footer is a flex row that pushes its children 
         <p class="sb-state" data-testid="host-toggle-value">Pressed = @_scoped</p>
     </Story>
 
+    <Story Name="One of many, or one more"
+           Description="OnClick hands the host the press itself, modifiers and all, beside the new state. A strip that is single-select on a plain press and additive with Ctrl (Cmd on a Mac) held reads the modifier from here — the same event a keyboard activation synthesises, so Ctrl+Space works without a keydown handler. Pressed stays the host's: it sets it from its own selection on the next render."
+           Code="@ModifierCode">
+        <div class="sb-row">
+            @foreach (var repository in ScopeRepositories)
+            {
+                <ToggleButton BaseClass="sb-chip"
+                              PressedCssClass="sb-chip--on"
+                              Pressed="_scope.Contains(repository)"
+                              OnClick="args => ScopeTo(repository, args)"
+                              TestId="scope-toggle">@repository</ToggleButton>
+            }
+        </div>
+        <p class="sb-state" data-testid="scope-toggle-value">In scope: @(_scope.Count == 0 ? "everything" : string.Join(", ", _scope))</p>
+    </Story>
+
     <Story Name="Inside something clickable"
            Description="StopPropagation keeps the click off the region around the button. It has to be a parameter, because the onclick:stopPropagation directive attribute only works on an element — writing it on a component is a compile error, so without this a button inside a click-to-edit card could not be one of these."
            Code="@StopPropagationCode">
@@ -227,6 +243,24 @@ The second sample puts words on the button instead. There is no glyph to swap, s
     private string? _invoked;
     private bool _scoped = true;
     private int _regionClicks;
+
+    private static readonly string[] ScopeRepositories = ["backlog", "docs", "site"];
+    private readonly List<string> _scope = ["backlog"];
+
+    /// <summary>A plain press is one-of-many — or none, pressing the one already
+    /// alone in the scope. With Ctrl or Cmd held it adds or removes one.</summary>
+    private void ScopeTo(string repository, MouseEventArgs args)
+    {
+        if (args.CtrlKey || args.MetaKey)
+        {
+            if (!_scope.Remove(repository)) _scope.Add(repository);
+            return;
+        }
+
+        var alone = _scope.Count == 1 && _scope[0] == repository;
+        _scope.Clear();
+        if (!alone) _scope.Add(repository);
+    }
 
     private void Invoke(Tool tool)
     {
@@ -349,6 +383,18 @@ The second sample puts words on the button instead. There is no glyph to swap, s
         <AppButton BaseClass="chip" Variant="ButtonVariant.None">Plain host chip</AppButton>
         <ToggleButton BaseClass="chip" PressedCssClass="chip--active"
                       Pressed="_scoped" PressedChanged="v => _scoped = v">Scoped</ToggleButton>
+        """;
+
+    private const string ModifierCode = """
+        <ToggleButton BaseClass="chip" PressedCssClass="chip--active"
+                      Pressed="_scope.Contains(repository)"
+                      OnClick="args => ScopeTo(repository, args)">@repository</ToggleButton>
+
+        private void ScopeTo(string repository, MouseEventArgs args)
+        {
+            if (args.CtrlKey || args.MetaKey) { /* add or remove */ }
+            else { /* this one, or none when it was alone */ }
+        }
         """;
 
     private const string StopPropagationCode = """
