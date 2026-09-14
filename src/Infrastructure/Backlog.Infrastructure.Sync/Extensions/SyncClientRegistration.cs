@@ -45,12 +45,26 @@ public static class SyncClientRegistration
     /// </summary>
     public static IServiceCollection AddSyncClient(this IServiceCollection services, Uri baseAddress)
     {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        return services.AddSyncClient(_ => baseAddress);
+    }
+
+    /// <summary>
+    /// The same registration with the address asked for per client rather than
+    /// fixed at composition — the shape a head takes when the answer can change
+    /// while it runs, which is <see cref="SyncServiceEndpoint"/>'s: a URL saved
+    /// on the Settings page reaches the next client the factory creates. The
+    /// callback runs inside <c>IHttpClientFactory</c>'s configure step, so it
+    /// must not throw; see that type for how it declines a bad value instead.
+    /// </summary>
+    public static IServiceCollection AddSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(baseAddress);
 
         // The token endpoint's own client, with no authentication handler on it.
         // See SyncTokenProvider for why it cannot be the same one.
-        services.AddHttpClient(SyncTokenProvider.HttpClientName, client => client.BaseAddress = baseAddress);
+        services.AddHttpClient(SyncTokenProvider.HttpClientName, (sp, client) => client.BaseAddress = baseAddress(sp));
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<SyncTokenProvider>();
@@ -60,7 +74,7 @@ public static class SyncClientRegistration
         // devices/codes and devices/me are bearer — one client covers both,
         // because sending no Authorization header when this device has no token
         // is exactly what an unpaired device should do.
-        services.AddHttpClient<DevicePairingClient>(client => client.BaseAddress = baseAddress)
+        services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddHttpMessageHandler<SyncAuthenticationHandler>();
 
         return services;
@@ -117,6 +131,14 @@ public static class SyncClientRegistration
     /// </summary>
     public static IServiceCollection AddTaskSyncClient(this IServiceCollection services, Uri baseAddress)
     {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        return services.AddTaskSyncClient(_ => baseAddress);
+    }
+
+    /// <summary>The per-client-address form of <see cref="AddTaskSyncClient(IServiceCollection, Uri)"/>;
+    /// pass the same callback <see cref="AddSyncClient(IServiceCollection, Func{IServiceProvider, Uri})"/> got.</summary>
+    public static IServiceCollection AddTaskSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(baseAddress);
 
@@ -124,7 +146,7 @@ public static class SyncClientRegistration
         // the token. Its own typed client rather than the pairing client's: the
         // two have different retry and timeout profiles waiting to be set, and
         // sharing one would mean choosing between them.
-        services.AddHttpClient<TaskSyncClient>(client => client.BaseAddress = baseAddress)
+        services.AddHttpClient<TaskSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddHttpMessageHandler<SyncAuthenticationHandler>();
 
         // Transient rather than singleton, because both take the typed client
@@ -258,6 +280,14 @@ public static class SyncClientRegistration
     /// </summary>
     public static IServiceCollection AddSessionSyncClient(this IServiceCollection services, Uri baseAddress)
     {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        return services.AddSessionSyncClient(_ => baseAddress);
+    }
+
+    /// <summary>The per-client-address form of <see cref="AddSessionSyncClient(IServiceCollection, Uri)"/>;
+    /// pass the same callback <see cref="AddSyncClient(IServiceCollection, Func{IServiceProvider, Uri})"/> got.</summary>
+    public static IServiceCollection AddSessionSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(baseAddress);
 
@@ -265,7 +295,7 @@ public static class SyncClientRegistration
         // carries the token. Its own typed client rather than the task one's: they
         // have different batch sizes and different failure codes waiting to be
         // retried differently, and sharing one would mean choosing between them.
-        services.AddHttpClient<SessionSyncClient>(client => client.BaseAddress = baseAddress)
+        services.AddHttpClient<SessionSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddHttpMessageHandler<SyncAuthenticationHandler>();
 
         // Optional by construction. GetService rather than GetRequiredService is

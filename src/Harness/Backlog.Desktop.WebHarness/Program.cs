@@ -171,12 +171,23 @@ builder.Services.AddSessionSyncStores(
     Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
         ? sessionSyncFolder
         : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
-// "https+http://sync" is resolved by Aspire service discovery, so the harness
-// always talks to the sync service of this AppHost run. Task replication is the
-// second call and not part of the first: it needs the ITaskRepository above, and
-// a host without one composes only the pairing surface.
-builder.Services.AddSyncClient(new Uri("https+http://sync"));
-builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
+// Where the sync service is, resolved the way the desktop head resolves it so the
+// Settings page behaves the same here: a URL entered there, then BACKLOG_SYNC_URL,
+// then "https+http://sync", which Aspire service discovery rewrites to this
+// AppHost run's sync resource. Under Aspire with nothing entered that is the
+// address this harness always used. The settings file is this harness's own,
+// under its content root and with an override variable of its own, for the
+// reason the credential above is: a shared file would point both harnesses at
+// whatever one of them was told. Task replication is the second call and not
+// part of the first: it needs the ITaskRepository above, and a host without one
+// composes only the pairing surface.
+builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SYNC_SERVICE_SETTINGS_PATH") is { Length: > 0 } syncSettingsPath
+        ? syncSettingsPath
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "sync-service.json")));
+builder.Services.AddSingleton<SyncServiceEndpoint>();
+builder.Services.AddSyncClient(SyncServiceAddress);
+builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 // The embedding deployment beside the chat one. Registered and never called in
@@ -303,7 +314,7 @@ builder.Services.AddAgentSessionSource();
 // whoever reads this file rather than for the container. Its own call and its own
 // feature key, because a person can want their tasks on both machines and still
 // not want a list of what their agents have been doing leaving either one.
-builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
 // What a transcript's parsed runs are kept in, so an activity read parses only the
 // transcripts that have changed. Beside the per-user settings and never under the
@@ -406,6 +417,11 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
 
     return settings;
 }
+
+// The base-address callback the three sync registrations share, so they cannot
+// disagree about which service this harness is talking to.
+static Uri SyncServiceAddress(IServiceProvider services) =>
+    services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
 static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore(string contentRootPath)
 {

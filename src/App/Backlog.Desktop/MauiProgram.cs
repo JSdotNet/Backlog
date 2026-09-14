@@ -193,14 +193,21 @@ public static class MauiProgram
         builder.Services.AddSessionSyncStores(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog"));
-        // "https+http://sync" is resolved by Aspire service discovery, which
-        // AddServiceDefaults above wired up, so the desktop always talks to the sync
-        // service of this AppHost run. Ports are dynamic; a literal one would be
-        // wrong by the next launch. Task replication is the second call and not
-        // part of the first: it needs the ITaskRepository this head registers,
-        // and a head without one composes only the pairing surface.
-        builder.Services.AddSyncClient(new Uri("https+http://sync"));
-        builder.Services.AddTaskSyncClient(new Uri("https+http://sync"));
+        // Where the sync service is, asked per client rather than fixed here.
+        // Under the AppHost it is "https+http://sync", which the service discovery
+        // AddServiceDefaults wired up rewrites to this run's sync resource - ports
+        // are dynamic and a literal one would be wrong by the next launch. The
+        // installed app is never launched that way, and for it that name is a DNS
+        // lookup that fails; so the URL on the Settings page comes first, then
+        // BACKLOG_SYNC_URL, and the discovery name is what is left. The settings
+        // file sits beside the credential above, per machine and never in the
+        // workspace. Task replication is the second call and not part of the
+        // first: it needs the ITaskRepository this head registers, and a head
+        // without one composes only the pairing surface.
+        builder.Services.AddSingleton<SyncServiceSettingsStore>();
+        builder.Services.AddSingleton<SyncServiceEndpoint>();
+        builder.Services.AddSyncClient(SyncServiceAddress);
+        builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
         // The embedding deployment beside the chat one. Registered and never
@@ -332,7 +339,7 @@ public static class MauiProgram
         // its own call and its own feature key, because a person can want their
         // tasks on both machines and still not want a list of what their agents
         // have been doing leaving either one.
-        builder.Services.AddSessionSyncClient(new Uri("https+http://sync"));
+        builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
         // What a transcript's parsed runs are kept in, so an activity read parses only
         // the transcripts that have changed. Beside the per-user settings and never
@@ -394,6 +401,11 @@ public static class MauiProgram
 
         return app;
     }
+
+    /// <summary>The base-address callback the three sync registrations share, so
+    /// they cannot disagree about which service this head is talking to.</summary>
+    private static Uri SyncServiceAddress(IServiceProvider services) =>
+        services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
     private static void ConfigureWebView2RemoteDebugging()
     {

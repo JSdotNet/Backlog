@@ -681,6 +681,119 @@ public sealed class SettingsDevicesTests
                 "application/problem+json")
         };
 
+    /// <summary>
+    /// The installed app with nothing set: the error the person sees otherwise
+    /// is "No such host is known (sync:443)", and this line is what explains it.
+    /// </summary>
+    [Fact]
+    public void With_no_sync_service_configured_the_devices_tab_says_so_and_how_to_fix_it()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='sync-service-settings']")));
+
+        var status = context.Component.Find("[data-testid='sync-service-status']").TextContent;
+        Assert.Contains("No sync service", status, StringComparison.Ordinal);
+        Assert.Contains(SyncServiceEndpoint.EnvironmentVariable, status, StringComparison.Ordinal);
+        Assert.Contains(context.SyncSettings!.SettingsPath, context.Component.Find("[data-testid='sync-service-settings']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Under_the_apphost_the_devices_tab_says_the_service_is_found_by_discovery()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            environment: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["services__sync__https__0"] = "https://localhost:5555"
+            });
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='sync-service-status']")));
+
+        Assert.Contains("Aspire", context.Component.Find("[data-testid='sync-service-status']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Entering_a_sync_service_url_stores_it_and_the_status_line_names_it()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='sync-service-url-input']")));
+
+        var input = context.Component.Find("[data-testid='sync-service-url-input']");
+        input.Input("https://sync.example.test/");
+        input.Change();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains("https://sync.example.test", context.Component.Find("[data-testid='sync-service-status']").TextContent, StringComparison.Ordinal));
+        Assert.Equal("https://sync.example.test", context.SyncSettings!.Current.ServiceUrl);
+
+        // And the page is holding a client made after the change, not the one it
+        // opened with - the base address lives on the client, not the setting.
+        Assert.Equal(2, context.PairingClientsResolved!.Value);
+    }
+
+    [Fact]
+    public void A_sync_service_url_that_is_not_one_is_refused_and_the_stored_value_kept()
+    {
+        using var context = RenderSettings(devicePairingEnabled: true);
+        context.SyncSettings!.SetServiceUrl("https://kept.example.test");
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='sync-service-url-input']")));
+
+        var input = context.Component.Find("[data-testid='sync-service-url-input']");
+        input.Input("sync.example.test");
+        input.Change();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains("http", context.Component.Find("[data-testid='sync-service-status']").TextContent, StringComparison.Ordinal));
+        Assert.Contains("setting__status--error", context.Component.Find("[data-testid='sync-service-status']").ClassName, StringComparison.Ordinal);
+        Assert.Equal("https://kept.example.test", context.SyncSettings.Current.ServiceUrl);
+
+        // What was typed stays put with the message beside it, so it can be
+        // fixed rather than typed again - and a second commit of the same
+        // text, which Enter produces, repeats the refusal rather than clearing it.
+        Assert.Equal("sync.example.test", context.Component.Find("[data-testid='sync-service-url-input']").GetAttribute("value"));
+        input.Change();
+        Assert.Contains("setting__status--error", context.Component.Find("[data-testid='sync-service-status']").ClassName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clearing_the_sync_service_url_falls_back_to_the_environment()
+    {
+        using var context = RenderSettings(
+            devicePairingEnabled: true,
+            environment: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [SyncServiceEndpoint.EnvironmentVariable] = "https://env.example.test"
+            });
+        context.SyncSettings!.SetServiceUrl("https://typed.example.test");
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='sync-service-url-input']")));
+
+        var input = context.Component.Find("[data-testid='sync-service-url-input']");
+        input.Input("");
+        input.Change();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var status = context.Component.Find("[data-testid='sync-service-status']").TextContent;
+            Assert.Contains("https://env.example.test", status, StringComparison.Ordinal);
+            Assert.Contains(SyncServiceEndpoint.EnvironmentVariable, status, StringComparison.Ordinal);
+        });
+        Assert.Null(context.SyncSettings.Current.ServiceUrl);
+    }
+
     private static SettingsRenderContext RenderSettings(
         bool devicePairingEnabled,
         bool paired = false,
@@ -688,7 +801,8 @@ public sealed class SettingsDevicesTests
         bool registerTaskSync = true,
         bool sessionMissingItsStore = false,
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
-        bool withTokenPipeline = false)
+        bool withTokenPipeline = false,
+        Dictionary<string, string>? environment = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devices-tests", Guid.NewGuid().ToString("n"));
 
@@ -757,8 +871,24 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
         testContext.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
-        testContext.Services.AddSingleton(new DevicePairingClient(http, credentials));
+        // Transient, the way AddSyncClient registers it, and counted: the page
+        // has to ask for a fresh one after the service URL changes, because the
+        // one it opened with keeps the base address it was configured with.
+        var pairingClientsResolved = new Counter();
+        testContext.Services.AddTransient(_ =>
+        {
+            pairingClientsResolved.Value++;
+            return new DevicePairingClient(http, credentials);
+        });
         if (tokens is not null) testContext.Services.AddSingleton(tokens);
+
+        // Where the service is, as the installed app sees it: a settings file of
+        // this test's own and an environment the test controls, so the status
+        // line can be asserted against each rung of the resolution.
+        var syncSettings = new SyncServiceSettingsStore(Path.Combine(root, "sync", "sync-service.json"));
+        var environmentLookup = environment ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        testContext.Services.AddSingleton(syncSettings);
+        testContext.Services.AddSingleton(new SyncServiceEndpoint(syncSettings, name => environmentLookup.GetValueOrDefault(name)));
 
         // Somewhere for the session to keep a watermark, and something for the
         // two starting-over actions to be asserted against. Seeded with progress
@@ -799,7 +929,12 @@ public sealed class SettingsDevicesTests
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
-            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices);
+            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved);
+    }
+
+    private sealed class Counter
+    {
+        public int Value { get; set; }
     }
 
     private sealed record SettingsRenderContext(
@@ -811,7 +946,9 @@ public sealed class SettingsDevicesTests
         HttpClient Http,
         ForgetfulTaskSyncStateStore SyncState,
         SyncTokenProvider? Tokens = null,
-        ServiceProvider? TokenServices = null) : IDisposable
+        ServiceProvider? TokenServices = null,
+        SyncServiceSettingsStore? SyncSettings = null,
+        Counter? PairingClientsResolved = null) : IDisposable
     {
         public void Dispose()
         {
