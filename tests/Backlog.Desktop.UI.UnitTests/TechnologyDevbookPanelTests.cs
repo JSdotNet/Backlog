@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Technology is the area with no chapter selection to inherit: it is not in the
-/// knowledge menu, so nothing hands it a path. Its own layer tabs are the
+/// Devbook menu, so nothing hands it a path. Its own layer tabs are the
 /// selection instead, and these tests are about that substitution holding — the
 /// node grid follows the active tab.
 /// <para>

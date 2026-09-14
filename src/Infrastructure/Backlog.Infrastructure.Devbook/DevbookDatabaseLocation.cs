@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// Where a repository's knowledge database is, given what a consumer actually
+/// Where a repository's devbook database is, given what a consumer actually
 /// holds.
 ///
 /// <para>Every knowledge consumer in this app is handed a *folder* — the absolute

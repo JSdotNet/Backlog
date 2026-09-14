@@ -67,10 +67,10 @@ window.backlogDiagrams.renderTechnologyAtlas = async (element, id, graph, dotnet
     window.backlogGraphAtlas.render(element, id, backlogTechnologyAtlasModel(graph), dotnet);
 };
 
-// The knowledge atlas hands over a model that is already in the renderer's shape:
+// The Devbook atlas hands over a model that is already in the renderer's shape:
 // the folders' own graphs carry groups, degrees and tones, and C# reads them. So
 // there is nothing for this app to translate — it passes the model through and is
-// here only so the knowledge atlas has a renderer name of its own, which is what
+// here only so the Devbook atlas has a renderer name of its own, which is what
 // lets the two atlases be told apart in a test and in a trace.
 window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) => {
     window.backlogGraphAtlas.render(element, id, graph, dotnet);

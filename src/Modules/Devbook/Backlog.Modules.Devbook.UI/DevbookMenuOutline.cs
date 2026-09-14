@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// What the knowledge menu needs to know about a folder before it draws a row:
+/// What the Devbook menu needs to know about a folder before it draws a row:
 /// the order its directories are meant to be read in, and the real title of the
 /// chapter behind each one.
 ///

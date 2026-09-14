@@ -80,7 +80,7 @@
         the way you read them, so it is behind a button and the button is quiet.
     *@
     <Story Name="Opened on request"
-           Description="A devbook-shaped model — many small clusters, mostly `related` links — behind the quiet toggle the knowledge pane uses. Press it to draw the map; press it again to put it away."
+           Description="A devbook-shaped model — many small clusters, mostly `related` links — behind the quiet toggle the Devbook pane uses. Press it to draw the map; press it again to put it away."
            Code="@RevealCode">
         <div class="sb-stack">
             <ToggleButton BaseClass="sb-atlas-toggle"
@@ -96,7 +96,7 @@
                 <GraphAtlas Title=""
                             Data="LibraryModel"
                             Nodes="LibraryNodes"
-                            AriaLabel="Library knowledge atlas"
+                            AriaLabel="Library devbook atlas"
                             IndexLabel="Library, grouped"
                             CssClass="sb-atlas" />
             }
@@ -116,7 +116,7 @@
 
         @if (_atlasShown)
         {
-            <GraphAtlas Data="LibraryModel" Nodes="LibraryNodes" AriaLabel="Library knowledge atlas" />
+            <GraphAtlas Data="LibraryModel" Nodes="LibraryNodes" AriaLabel="Library devbook atlas" />
         }
         """;
 

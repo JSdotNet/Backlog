@@ -131,7 +131,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         // A host that holds no selection still gets a chapter. This panel used to
         // answer that state with a list of every chapter beside the open one — the
-        // left column of a standalone page nobody built — and the knowledge pane,
+        // left column of a standalone page nobody built — and the Devbook pane,
         // its only host, never produced the state anyway. What is left is the file,
         // which is what a panel with no picker of its own owes its host.
         var component = harness.Render(selectedPath: null);

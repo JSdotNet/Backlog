@@ -300,7 +300,7 @@ public sealed class TabsTests
     }
 
     /// <summary>Both slots at once put the tabs between them, which is the whole
-    /// arrangement the knowledge pane wants: the source it is reading, the
+    /// arrangement the Devbook pane wants: the source it is reading, the
     /// sections, and the update control.</summary>
     [Fact]
     public void Both_slots_put_the_tablist_between_them()

@@ -93,7 +93,7 @@ public static class DevbookInlineTargets
     /// an omission. Serving it would make this a file server with a root to pin
     /// and a traversal rule to get right, and inlining it would put a synchronous
     /// disk read inside a render pass; both belong to a decision about whether the
-    /// knowledge pane displays pictures at all, which is not a decision a
+    /// Devbook pane displays pictures at all, which is not a decision a
     /// rendering rule gets to make on its own.</para>
     /// </summary>
     private static RenderFragment? Draw(

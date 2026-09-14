@@ -6,7 +6,7 @@ namespace Backlog.UI.Components.Devbook;
 /// <para>
 /// Both keys travel, because neither is enough on its own. The block index is
 /// what the view knows and what it anchors everything else by; the heading is
-/// what a host knows the chapter as — a knowledge panel addresses a chapter's
+/// what a host knows the chapter as — a Devbook panel addresses a chapter's
 /// status by the section anchor it derived from that heading, and it has no way
 /// back from a block index to one. A host uses whichever of the two it holds.
 /// </para>

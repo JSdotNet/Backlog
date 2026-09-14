@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// The read side of <c>_meta/devbook.db</c> — the generated knowledge index
+/// The read side of <c>_meta/devbook.db</c> — the generated devbook database
 /// local ADR 0004 puts the derived layer in.
 ///
 /// <para><b>This never writes.</b> The Node generator creates the schema and is

@@ -437,7 +437,7 @@ public sealed class MarkdownViewMetaFenceTests
     }
 
     /// <summary>
-    /// The three knowledge panes get this from the one rule, because none of them
+    /// The three Devbook panes get this from the one rule, because none of them
     /// has a rule of its own.
     ///
     /// <para><c>Arc42DevbookPanel</c>, <c>DomainDevbookPanel</c> and

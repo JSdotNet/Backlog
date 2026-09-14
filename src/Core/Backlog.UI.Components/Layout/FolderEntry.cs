@@ -12,7 +12,7 @@ public enum FolderEntryKind
 /// <summary>
 /// One thing inside a folder, as <see cref="FolderView"/> needs to know it.
 /// <para>
-/// This is the shape the desktop's knowledge menu grew into, with the vocabulary
+/// This is the shape the desktop's Devbook menu grew into, with the vocabulary
 /// taken back out. That menu knew about areas, repository aliases and which
 /// chapter of arc42 sorts before which — none of which a folder has. What is left
 /// is what any folder anywhere has: a path, a name, whether it is a folder, what

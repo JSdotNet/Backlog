@@ -65,7 +65,7 @@
     public bool IsLoading { get; set; }
 
     [Parameter]
-    public string LoadingMessage { get; set; } = "Loading knowledge menu...";
+    public string LoadingMessage { get; set; } = "Loading devbook menu...";
 
     [Parameter]
     public string EmptyMessage { get; set; } = "No chapters are available for this area.";
@@ -87,7 +87,7 @@
     /// <para>
     /// A function returning a fragment rather than a <c>RenderFragment&lt;TreeNode&gt;</c>,
     /// so a host can answer "nothing for this row" and have nothing rendered — not
-    /// even the wrapper. Half the rows in a knowledge menu are folders with no mark
+    /// even the wrapper. Half the rows in a Devbook menu are folders with no mark
     /// to draw, and an empty span on each of them would be a column of nothing that
     /// every existing markup expectation would have to grow to accommodate.
     /// </para>

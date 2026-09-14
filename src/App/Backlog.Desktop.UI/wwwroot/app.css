@@ -1193,7 +1193,7 @@ h1, h2, h3 {
 /*
   Pushing and re-checking are actions, not metadata, so they read as controls
   sitting among the badges rather than as badges themselves. Shared with the
-  domain knowledge panel, which carries the same classes for the same reason.
+  domain Devbook panel, which carries the same classes for the same reason.
 */
 .entry-doc__actions {
     display: inline-flex;
@@ -4409,9 +4409,9 @@ h1, h2, h3 {
     margin-bottom: var(--spacing-md);
 }
 
-/* .devbook-pane__eyebrow was here until the knowledge panels stopped opening
+/* .devbook-pane__eyebrow was here until the Devbook panels stopped opening
    with a "Devbook" line and a title of their own. The tab strip names the
-   section and the knowledge menu heads its column with the same word, so the
+   section and the Devbook menu heads its column with the same word, so the
    eyebrow labelled a pane the reader was already standing in. Nothing renders
    the class now. */
 .devbook-pane__subtitle,
@@ -4897,13 +4897,13 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
-/* --- Integrated repository knowledge stack -------------------------------- */
+/* --- Integrated repository Devbook stack -------------------------------- */
 
 
 .devbook-stack__header,
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-knowledge,
-.devbook-stack__section > .domain-knowledge {
+.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .domain-devbook {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
@@ -4922,8 +4922,8 @@ h1, h2, h3 {
 }
 
 .devbook-stack__nav,
-.design-knowledge__nav,
-.domain-knowledge__contexts,
+.design-devbook__nav,
+.domain-devbook__contexts,
 .devbook-chapters {
     display: flex;
     flex-wrap: wrap;
@@ -4969,7 +4969,7 @@ h1, h2, h3 {
 
 .devbook-stack__nav a,
 .devbook-stack__nav-item,
-.design-knowledge__nav-link,
+.design-devbook__nav-link,
 .domain-context-tab,
 .devbook-chapter {
     display: inline-flex;
@@ -4992,8 +4992,8 @@ h1, h2, h3 {
 .devbook-stack__nav-item:hover,
 .devbook-stack__nav-item:focus-visible,
 .devbook-stack__nav-item--active,
-.design-knowledge__nav-link:hover,
-.design-knowledge__nav-link:focus-visible,
+.design-devbook__nav-link:hover,
+.design-devbook__nav-link:focus-visible,
 .domain-context-tab:hover,
 .domain-context-tab:focus-visible,
 .domain-context-tab[aria-pressed="true"],
@@ -5005,8 +5005,8 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-knowledge,
-.devbook-stack__section > .domain-knowledge {
+.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .domain-devbook {
     position: static;
     max-height: none;
     overflow: visible;
@@ -5014,9 +5014,9 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane--arc42,
-.devbook-stack__section > .instructions-knowledge,
-.devbook-stack__section > .design-knowledge--chapter,
-.devbook-stack__section > .domain-knowledge {
+.devbook-stack__section > .instructions-devbook,
+.devbook-stack__section > .design-devbook--chapter,
+.devbook-stack__section > .domain-devbook {
     display: flex;
     flex-direction: column;
     max-height: 100%;
@@ -5030,8 +5030,8 @@ h1, h2, h3 {
    Only for a chapter: the folder overview is a stack of documents with no file
    view under it, and capping that would clip the folder against a height nobody
    would be able to scroll. */
-.design-knowledge--chapter .design-knowledge__documents,
-.design-knowledge--chapter .design-document {
+.design-devbook--chapter .design-devbook__documents,
+.design-devbook--chapter .design-document {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5044,7 +5044,7 @@ h1, h2, h3 {
    asks for when it is the only child, and next to a sibling it is a request for
    more room than there is — which the column then answers by squeezing the file
    to nothing. */
-.design-knowledge--chapter .file-view--fill {
+.design-devbook--chapter .file-view--fill {
     flex: 1 1 auto;
     min-height: 12rem;
     height: auto;
@@ -5066,8 +5066,8 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane--arc42 .devbook-document,
-.devbook-stack__section > .domain-knowledge > .domain-context,
-.devbook-stack__section > .domain-knowledge > .domain-document {
+.devbook-stack__section > .domain-devbook > .domain-context,
+.devbook-stack__section > .domain-devbook > .domain-document {
     flex: 1 1 auto;
     max-height: 100%;
     min-height: 0;
@@ -5080,7 +5080,7 @@ h1, h2, h3 {
    body. It used to stop at a fraction of the viewport
    instead, which made the panel taller than the section that was already
    scrolling it and put two scrollbars on the same edge. */
-.instructions-knowledge__repository {
+.instructions-devbook__repository {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5099,21 +5099,21 @@ h1, h2, h3 {
    flex column by default would change every one of them to fix this one. The
    technology pane threads the same three rules the same way for the same
    reason. */
-.instructions-knowledge__repository > .tabs {
+.instructions-devbook__repository > .tabs {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
 }
 
-.instructions-knowledge .tabs__panels {
+.instructions-devbook .tabs__panels {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
 }
 
-.instructions-knowledge .tabs__panel {
+.instructions-devbook .tabs__panel {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5123,18 +5123,18 @@ h1, h2, h3 {
 /* The comparison is the panel's whole content, so it takes the height and
    scrolls itself - the table is longer than the pane whenever the folder has
    more than a handful of files in it. */
-.instructions-knowledge .instruction-reach {
+.instructions-devbook .instruction-reach {
     flex: 1 1 auto;
 }
 
-.instructions-knowledge .instructions-layout {
+.instructions-devbook .instructions-layout {
     flex: 1 1 auto;
     min-height: 0;
 }
 
 /* The document list is navigation beside the file, so it scrolls itself rather
    than growing the panel past the file it sits next to. */
-.instructions-knowledge .instructions-list {
+.instructions-devbook .instructions-list {
     min-height: 0;
     overflow: auto;
 }
@@ -5150,13 +5150,13 @@ h1, h2, h3 {
    query adds no specificity, and the rules above are no less specific than these.
    Same reason the arc42 and domain rules sit where they do. */
 @media (max-width: 72rem) {
-    .devbook-stack__section > .instructions-knowledge,
-    .instructions-knowledge__repository {
+    .devbook-stack__section > .instructions-devbook,
+    .instructions-devbook__repository {
         max-height: none;
         overflow: visible;
     }
 
-    .instructions-knowledge .file-view__body {
+    .instructions-devbook .file-view__body {
         max-height: min(72vh, 52rem);
     }
 }
@@ -5271,11 +5271,11 @@ h1, h2, h3 {
         max-height: none;
     }
 }
-.design-knowledge,
-.design-knowledge__documents,
+.design-devbook,
+.design-devbook__documents,
 .design-document,
 .design-section,
-.domain-knowledge,
+.domain-devbook,
 .domain-context,
 .domain-context__documents,
 .domain-document,
@@ -5290,14 +5290,14 @@ h1, h2, h3 {
    is the one knowledge view that does: every other one puts the file through the
    file view, whose body is a scroll box and so is never wider than the pane it is
    in. Without one of its own, the widest thing in a `.design` file sets the width
-   of the whole knowledge pane — a table, or a code span like
+   of the whole Devbook pane — a table, or a code span like
    `DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`,
    which has nowhere to break and is twice the docked pane. Each subject scrolls
    its own overflow instead, which is the answer the file view already gives this
    same content one level down; the tracks are told they may shrink, because a
    grid track floors at its content's minimum otherwise and the scroll box would
    never get the chance. */
-.design-knowledge__documents,
+.design-devbook__documents,
 .design-document,
 .design-section {
     grid-template-columns: minmax(0, 1fr);
@@ -5345,7 +5345,7 @@ h1, h2, h3 {
 /* The domain document header gave its title and path to the file view that now
    shows the chapter, so for a selected chapter it is left holding only its
    controls — and space-between pins a lone child to the start, which would have
-   walked every state control in the knowledge panes from the right edge to the
+   walked every state control in the Devbook panes from the right edge to the
    left. They stay where the reader has always found them. A header that still
    names its document has two children and is untouched.
 
@@ -5369,7 +5369,7 @@ h1, h2, h3 {
 .domain-section__header h4 {
     margin: 0;
 }
-.domain-knowledge__actions {
+.domain-devbook__actions {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
@@ -5457,7 +5457,7 @@ h1, h2, h3 {
 /* Bare error text, with no error surface behind it to carry the meaning, so the
    colour is the only thing saying this failed. That is the case color-error-text
    exists for, and the gap the comment here used to describe. */
-.domain-knowledge__action-error {
+.domain-devbook__action-error {
     color: var(--color-error-text);
     font-size: var(--font-size-xs);
 }
@@ -5467,7 +5467,7 @@ h1, h2, h3 {
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
 .design-document__file,
-.domain-knowledge__eyebrow {
+.domain-devbook__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
     font-size: var(--font-size-xs);
@@ -5476,11 +5476,11 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-/* .design-knowledge__source and .design-document__summary were here until the
+/* .design-devbook__source and .design-document__summary were here until the
    design pane stopped introducing itself: the first printed an absolute folder
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
-.domain-knowledge__state,
+.domain-devbook__state,
 .domain-document__summary {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -5494,7 +5494,7 @@ h1, h2, h3 {
 
 /* .devbook-document was a card here until the architecture chapter moved into
    the file view, which draws its own edge. The article stayed — it is the scroll
-   container the knowledge stack sizes and the anchor the knowledge menu jumps to
+   container the Devbook stack sizes and the anchor the Devbook menu jumps to
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
 .design-section,
@@ -5525,7 +5525,7 @@ h1, h2, h3 {
 
    Done in the stylesheet and never in the DOM. The file is called "Context Map:
    Backlog" and that is what a screen reader must read, what a copy takes away,
-   and what the heading the knowledge menu matches on still says — text-transform
+   and what the heading the Devbook menu matches on still says — text-transform
    changes the drawing and leaves all three alone. Uppercase loses the shapes a
    reader tracks words by, so the letter-spacing goes back some of what the caps
    took. */
@@ -6299,7 +6299,7 @@ h1, h2, h3 {
     line-height: var(--line-height-normal);
 }
 
-/* The toggle and the "All knowledge" button sit at the end of the section
+/* The toggle and the "Whole devbook" button sit at the end of the section
    strip and are deliberately quiet: text and a hairline, no fill. The map is
    offered, not advertised. The search toggle wears the same pill for the reason
    the version control does: three differently shaped buttons on one line would

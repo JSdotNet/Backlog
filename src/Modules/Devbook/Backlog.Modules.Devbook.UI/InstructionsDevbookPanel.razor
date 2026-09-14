@@ -5,7 +5,7 @@
 
 @*
     The eyebrow, the title and the subtitle are all gone. The tab strip says
-    Instructions and the knowledge menu heads its column with it, so a third copy
+    Instructions and the Devbook menu heads its column with it, so a third copy
     here named the section to a reader who had just picked it — and the sentence
     under it described the collection rather than anything in it, which is a thing
     to read once and then re-read on every file you open. The tree beside this
@@ -13,7 +13,7 @@
     region's label for a screen reader (.design/accessibility.md, "Names & roles").
 *@
 
-<aside class="devbook-pane instructions-knowledge" data-testid="instructions-devbook-panel" aria-label="Instructions knowledge">
+<aside class="devbook-pane instructions-devbook" data-testid="instructions-devbook-panel" aria-label="Instructions devbook">
     @if (!_repositories.Any())
     {
         <EmptyState BaseClass="devbook-empty"
@@ -37,7 +37,7 @@
                it. Nothing is lost when there is nothing to read either: discovery
                puts the reason in the record's message, and the empty state below
                is what shows it. *@
-            <section class="instructions-knowledge__repository" data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
+            <section class="instructions-devbook__repository" data-testid="instructions-repository" aria-label="@($"{activeRepository.Repository.FullName} instructions")">
                 @if (activeRepository.Message is not null && SelectedDocument is null)
                 {
                     <EmptyState BaseClass="devbook-empty"
@@ -73,7 +73,7 @@
                        agent and scope used to sit in the other, drawn when no
                        document had been asked for — the left column of the
                        standalone <c>/instructions</c> page, which still has its
-                       own. This panel's only host is the knowledge pane, and the
+                       own. This panel's only host is the Devbook pane, and the
                        pane names a document from its first render, so that column
                        could not be reached; the pane's menu is the list, and the
                        agent and scope of the document on screen are on the file
@@ -276,7 +276,7 @@
             Discover();
         }
 
-        // A file picked in the knowledge menu is a request to read that file, so
+        // A file picked in the Devbook menu is a request to read that file, so
         // the comparison steps aside for it — the move the arc42 panel makes when
         // a chapter is chosen while the C4 tab is the one up.
         if (!string.IsNullOrWhiteSpace(SelectedPath)) _tab = FilesTab;

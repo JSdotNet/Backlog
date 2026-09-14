@@ -16,7 +16,7 @@ namespace Backlog.ArchitectureTests;
 /// request. Both are repo-native on purpose: everything under
 /// <c>.github/tools/knowledge-meta/</c>, both <c>knowledge-meta*</c> workflows and
 /// <c>build/Update-KnowledgeIndex.ps1</c> are installed copies of the
-/// devbook-base plugin's tooling, which CLAUDE.md says to re-sync and never edit
+/// devbook plugin's tooling, which CLAUDE.md says to re-sync and never edit
 /// here. The rules below are what stops the next change putting the gate back
 /// inside the installed copy, where the next re-sync would silently drop it.</para>
 /// </summary>

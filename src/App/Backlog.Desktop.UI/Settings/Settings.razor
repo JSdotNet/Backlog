@@ -532,7 +532,7 @@
                 <div class="devbook-folders" data-testid="devbook-cache-settings">
                     <h3 class="devbook-folders__title">Branch snapshot folder</h3>
                     <p class="setting__note">
-                        Where knowledge fetched from a repository branch is cached. Clear it to return to the
+                        Where the devbook fetched from a repository branch is cached. Clear it to return to the
                         default. Changing this leaves the old folder alone; the new one refills on the next fetch.
                     </p>
                     <TextField Bare="true"
@@ -554,10 +554,10 @@
                 </div>
 
                 <div class="devbook-folders" data-testid="storage-devbook-folder-settings">
-                    <h3 class="devbook-folders__title">Devbook-base sections</h3>
+                    <h3 class="devbook-folders__title">Devbook sections</h3>
                     <p class="setting__note">
                         Storage knowledge folders default to their conventional paths under the storage folder.
-                        Clear an override to return to the default, or turn a section off for global knowledge.
+                        Clear an override to return to the default, or turn a section off for the global devbook.
                         Instructions are on/off only and use Backlog's standard folder discovery.
                     </p>
 
@@ -1285,7 +1285,7 @@
                                     <SelectField @key="@($"{activeRepo.Alias}:{DevbookSource.HasBranches(activeRepo.Alias)}")"
                                                  LabelCssClass="setting__label"
                                                  SelectCssClass="setting__input"
-                                                 Label="Read knowledge from"
+                                                 Label="Read the devbook from"
                                                  Id="@($"devbook-source-{activeRepo.Alias}")"
                                                  TestId="repo-devbook-source-select"
                                                  CurrentValue="@DevbookSource.CurrentValue(activeRepo.Alias)"
@@ -1381,7 +1381,7 @@
                             </div>
 
                             <div class="devbook-folders" data-testid="devbook-folder-settings">
-                                <h4 class="devbook-folders__title">Devbook-base sections</h4>
+                                <h4 class="devbook-folders__title">Devbook sections</h4>
                                 <p class="setting__note">
                                     Repository knowledge folders default to their conventional paths.
                                     Clear an override to return to the default, or turn a section off for this repository.
@@ -1463,7 +1463,7 @@
                                                         @* The space is written out because Razor drops whitespace-only
                                                            text between elements, and these two spans are one sentence
                                                            apiece: without it the line reads "at the repository
-                                                           root.Architecture knowledge folder was not found at ...". *@
+                                                           root.Architecture devbook folder was not found at ...". *@
                                                         @(" ")
                                                         <span class="devbook-folder__status--error">@location.Message</span>
                                                     }

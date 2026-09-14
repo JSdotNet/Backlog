@@ -10,7 +10,7 @@ namespace Backlog.ArchitectureTests;
 /// <c>meta.animation</c> is an <c>enum ["trace", "none"]</c> in all five of
 /// Archify's schemas and its default is static, so a specification that says
 /// nothing renders a diagram that never moves. That default is the opposite of
-/// what this repository wants — the knowledge pane shows these artifacts because
+/// what this repository wants — the Devbook pane shows these artifacts because
 /// a traced edge is how a reader follows a flow — and nothing else notices the
 /// difference: a static artifact is a valid, complete, nine-of-nine-checks
 /// artifact. It renders, it exports, it passes every gate Archify has. It just

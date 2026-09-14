@@ -53,7 +53,7 @@ public sealed class DevbookChapterWriter
         // plain record anybody can construct, and this is the last place before
         // a file is replaced.
         var filePath = DevbookChapterPaths.ResolveWithin(chapter.RootPath, chapter.RelativePath)
-            ?? throw new InvalidOperationException($"Devbook chapter path escapes the knowledge root: {chapter.RelativePath}");
+            ?? throw new InvalidOperationException($"Devbook chapter path escapes the devbook root: {chapter.RelativePath}");
 
         // The same last-place reasoning, for the same reason. A chapter read out
         // of a branch snapshot is a copy of a commit: writing it would succeed,

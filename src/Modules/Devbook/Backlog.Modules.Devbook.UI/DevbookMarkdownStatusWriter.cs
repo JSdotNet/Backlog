@@ -78,7 +78,7 @@ internal static class DevbookMarkdownStatusWriter
         var normalizedRoot = Path.GetFullPath(folderRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!filePath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException($"Devbook item path escapes the knowledge root: {itemPath}");
+            throw new InvalidOperationException($"Devbook item path escapes the devbook root: {itemPath}");
         }
 
         if (!File.Exists(filePath)) throw new FileNotFoundException($"Devbook item file was not found: {relativePath}", filePath);

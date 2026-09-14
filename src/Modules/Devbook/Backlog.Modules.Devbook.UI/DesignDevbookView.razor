@@ -3,7 +3,7 @@
 
 @*
     Neither branch opens with a "Devbook" eyebrow and a title any more: the
-    tab strip says Design and the knowledge menu heads its column with it, so the
+    tab strip says Design and the Devbook menu heads its column with it, so the
     panel repeating it was the third copy of one word. The name survives as this
     region's label for a screen reader (.design/accessibility.md, "Names &
     roles"), the same trade the documents below already made when the file view
@@ -18,17 +18,17 @@
     there is no file view to hand it to, so the pane keeps growing and the
     section keeps scrolling it.
 *@
-<section class="@RootClass" aria-label="Design knowledge" data-testid="design-devbook-view">
+<section class="@RootClass" aria-label="Design devbook" data-testid="design-devbook-view">
     @if (_model is null)
     {
-        <Alert Message="Loading design knowledge..." BaseClass="design-knowledge__message" Role="status" />
+        <Alert Message="Loading the design devbook..." BaseClass="design-devbook__message" Role="status" />
     }
     else if (!_model.IsAvailable)
     {
         @* Unavailable is only ever constructed with a reason, so this never
            takes the alert's hidden shape. *@
-        <Alert Message="@_model.Message" BaseClass="design-knowledge__message" Role="status" />
-        <a class="design-knowledge__settings" href="settings">Open repository settings</a>
+        <Alert Message="@_model.Message" BaseClass="design-devbook__message" Role="status" />
+        <a class="design-devbook__settings" href="settings">Open repository settings</a>
     }
     else
     {
@@ -40,23 +40,23 @@
         @* A status the reader picked and this pane could not write. It belongs
            above the documents rather than beside the control: it is the pane's
            failed attempt at the file, not anything the file says, and the same
-           trade the other knowledge panes make with their save errors. *@
+           trade the other Devbook panes make with their save errors. *@
         @if (_statusError is { } statusError)
         {
-            <Alert Message="@statusError" BaseClass="design-knowledge__message" />
+            <Alert Message="@statusError" BaseClass="design-devbook__message" />
         }
 
         @* The nav shows whenever the overview below is what is on screen, which is
            the same question the documents ask and so cannot disagree with them. It
            used to ask whether a path had been handed in, and that made the whole
-           overview unreachable from the knowledge pane: the pane always hands one
+           overview unreachable from the Devbook pane: the pane always hands one
            in. A path naming the folder rather than a file in it is how the pane
            asks for this view, and a path naming a document that has since been
            renamed away lands here too — on the folder, which is a way out, rather
            than on whichever file happened to be first. *@
         @if (SelectedFile is null)
         {
-            <nav class="design-knowledge__nav" aria-label="Design knowledge documents">
+            <nav class="design-devbook__nav" aria-label="Design devbook documents">
                 @foreach (var file in _model.Files)
                 {
                     @* A link to a document is a different subject from the
@@ -66,7 +66,7 @@
                        in different folders and this one is `.design`; drawn as
                        nothing at all for a file that states no status, which the
                        badge it replaced could not do. *@
-                    <a href="#@FileAnchor(file)" class="design-knowledge__nav-link">
+                    <a href="#@FileAnchor(file)" class="design-devbook__nav-link">
                         <span>@file.Title</span>
                         <DevbookStatusPill Status="@file.Meta.Status" Folder="DevbookFolder.Design" />
                     </a>
@@ -74,7 +74,7 @@
             </nav>
         }
 
-        <div class="design-knowledge__documents">
+        <div class="design-devbook__documents">
             @foreach (var file in VisibleFiles())
             {
                 <article class="design-document" id="@FileAnchor(file)">
@@ -176,7 +176,7 @@
                            Fields off for the reason the overview turns them off:
                            the file is right there, and the fence is in it.
 
-                           No BodyContent at all, unlike the other knowledge panes:
+                           No BodyContent at all, unlike the other Devbook panes:
                            they draw the file view whatever the read returned and
                            need a fallback for a chapter with no text. Here the
                            chapter is the branch's own condition — EditableChapter
@@ -515,8 +515,8 @@
     /// nothing to hand the scroll to.</summary>
     private string RootClass =>
         _model is { IsAvailable: true } && VisibleFiles().Any(file => EditableChapter(file) is not null)
-            ? "design-knowledge design-knowledge--chapter"
-            : "design-knowledge";
+            ? "design-devbook design-devbook--chapter"
+            : "design-devbook";
 
     /// <summary>The chapter as a buffer, and nothing else: no title, because the
     /// file view's header above it already names the file, and Bare because that
@@ -593,7 +593,7 @@
     /// render, so this and <see cref="VisibleFiles"/> answer in one direction: a
     /// selection matching no file is no document, and no document is the overview.
     /// A path the folder does not have is the ordinary case now rather than the
-    /// odd one — the knowledge pane names the folder itself to ask for this view.
+    /// odd one — the Devbook pane names the folder itself to ask for this view.
     /// </para>
     /// </summary>
     private DesignDevbookFile? SelectedFile =>

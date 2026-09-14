@@ -7,7 +7,7 @@ namespace Backlog.ArchitectureTests;
 /// that composes them.
 /// <para>
 /// They used to be three folders in one project, and that is why this class was
-/// written: a folder stops nothing, so nothing kept a knowledge panel from
+/// written: a folder stops nothing, so nothing kept a Devbook panel from
 /// injecting the backlog list except somebody noticing. The split made those
 /// boundaries project references, and a project reference the compiler will not
 /// let you forge. <see cref="ModuleBoundaryTests"/> and

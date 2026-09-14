@@ -97,7 +97,7 @@ public class DevbookFolderSourceBranchTests : IDisposable
         var location = Source(settings, new StubSnapshotCache(snapshot, fetched: true)).Resolve(".design", "backlog");
 
         Assert.False(location.Available);
-        Assert.Contains("has no Design knowledge folder", location.Message, StringComparison.Ordinal);
+        Assert.Contains("has no Design devbook folder", location.Message, StringComparison.Ordinal);
     }
 
     // --- Reading a clone ------------------------------------------------------

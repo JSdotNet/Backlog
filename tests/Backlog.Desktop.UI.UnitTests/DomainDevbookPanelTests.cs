@@ -96,7 +96,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // workspace, not about the chapter on screen. What the reader does need —
         // which file this is — the file view's header says, and it says it as the
         // file's own path.
-        Assert.Empty(component.FindAll(".domain-knowledge__source"));
+        Assert.Empty(component.FindAll(".domain-devbook__source"));
         Assert.Equal(ContextMapPath, component.Find(".file-view__path").TextContent);
     }
 
@@ -105,7 +105,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        // Picked out of the knowledge menu, which is the route that used to lose
+        // Picked out of the Devbook menu, which is the route that used to lose
         // the modifier: the folder view names it when nothing is selected, and the
         // per-kind lookup had no entry for it. The stylesheet hangs the map's own
         // treatment off this class, so both routes have to carry it.
@@ -130,7 +130,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // borders around one chapter is the "document inside a document" this was
         // reported as. Asserted as the modifier rather than as the element's
         // absence, because the article has to stay — it is the scroll container
-        // the knowledge stack sizes, the anchor the knowledge menu jumps to, and
+        // the Devbook stack sizes, the anchor the Devbook menu jumps to, and
         // what holds the chapter's controls and sections together.
         var article = component.Find("[data-testid='domain-document']");
         Assert.Contains("domain-document--chapter", article.GetAttribute("class") ?? string.Empty, StringComparison.Ordinal);
@@ -652,11 +652,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// <summary>
     /// The row of bounded contexts — the one screen in this product that shows the
     /// context list as the store built it: the display names, the order, and the
-    /// status beside each, all of which come from the generated knowledge database
+    /// status beside each, all of which come from the generated devbook database
     /// (local ADR 0004) with the drift check applied per file.
     ///
     /// <para>It had no test of its own for as long as it had no route into it from
-    /// the knowledge pane. These two pin the contract the pane now relies on: the
+    /// the Devbook pane. These two pin the contract the pane now relies on: the
     /// row draws the list it is given, and a selection naming a context rather than
     /// a file opens that context.</para>
     /// </summary>
@@ -682,7 +682,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        // The path the knowledge menu carries for a bounded-context folder: the
+        // The path the Devbook menu carries for a bounded-context folder: the
         // folder, not a file in it. No document answers to it, and that is the
         // panel's cue to show the context whole.
         var component = harness.RenderView(ContextsView(), selectedPath: "capture");

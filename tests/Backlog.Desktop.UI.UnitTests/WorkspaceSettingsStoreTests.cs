@@ -262,7 +262,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>
-    /// A settings file written while <c>.backlog</c> was still a devbook-base
+    /// A settings file written while <c>.backlog</c> was still a devbook
     /// section must keep opening the app. The row names a section that no longer
     /// exists, so it is dropped — silently, because there is nothing the reader
     /// could usefully do about a setting for a section they can no longer see.

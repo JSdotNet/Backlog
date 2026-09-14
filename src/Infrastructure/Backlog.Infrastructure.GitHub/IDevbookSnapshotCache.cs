@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// contract phrased in terms of a <see cref="GitHubRepositoryRef"/> belongs
 /// where that type is, while the half that decides where bytes land on disk
 /// belongs with the workspace. Declaring it here is also what keeps the
-/// dependency out of the knowledge panels' project, which already sees this
+/// dependency out of the Devbook panels' project, which already sees this
 /// adapter and would otherwise need a second one.
 /// </para>
 /// <para>

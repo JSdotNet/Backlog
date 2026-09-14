@@ -82,7 +82,7 @@ public sealed class AzureFoundryEmbeddingsClient(HttpClient httpClient, AzureFou
         // be this client inheriting a requirement that is not its own.
         if (string.IsNullOrWhiteSpace(settings.Endpoint) || string.IsNullOrWhiteSpace(settings.ApiKey))
         {
-            throw new AzureFoundryException("Configure Azure Foundry in Settings before embedding knowledge.");
+            throw new AzureFoundryException("Configure Azure Foundry in Settings before embedding the devbook.");
         }
 
         if (!Uri.TryCreate(settings.Endpoint, UriKind.Absolute, out var endpoint))

@@ -211,7 +211,7 @@
     /// gutter beside it — is decided before the call and none of it travels
     /// down. What does travel down is the reading: whether a <c>meta</c> fence is
     /// a record, which folder it was read from, and the inline hook. So a block
-    /// drawn here and the same block drawn by a knowledge panel differ in the
+    /// drawn here and the same block drawn by a Devbook panel differ in the
     /// classes they wear and in nothing else.</para>
     ///
     /// <para>Headings come through here too, including the one a chapter head
@@ -752,7 +752,7 @@
     ///
     /// <para>Handing it over also says this <em>is</em> a knowledge document, which
     /// is why it opens the inline hook on its own. The instruction files are read
-    /// in the knowledge pane and carry no <c>meta</c> fence at all, so
+    /// in the Devbook pane and carry no <c>meta</c> fence at all, so
     /// <see cref="RenderDevbookMetadata"/> — a question about fences — has
     /// nothing to say about them. Both signals stay opt-in and an entry's body
     /// gives neither, which is what keeps a path in one a path being quoted.</para>
@@ -816,7 +816,7 @@
     /// remark and being handed one to react to were never the same request.
     /// <para>
     /// Checked on every parameter set rather than once on add, because this view
-    /// does not control how a host stores its comments: a knowledge panel mutates
+    /// does not control how a host stores its comments: a Devbook panel mutates
     /// the same list in place and a storybook page replaces it wholesale, and
     /// both have to be noticed the same way. Cheap enough to ask every render —
     /// the list a document carries is never long.

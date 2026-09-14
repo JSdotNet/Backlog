@@ -11,11 +11,11 @@ namespace Backlog.ArchitectureTests;
 /// <c>core.autocrlf=true</c> — the Windows default, and what this repository is
 /// developed on — git hands the working copy back as CRLF, the generator's next run
 /// rewrites it as LF, and <c>git status</c> reports a file whose content did not
-/// change. The rule was written for the knowledge index and the Archify half was
+/// change. The rule was written for the devbook database and the Archify half was
 /// missing, so fourteen index files showed as modified after every re-render while
 /// <c>git diff</c> showed nothing.</para>
 ///
-/// <para>The knowledge index is no longer one of these. Local ADR 0004 made the
+/// <para>The devbook database is no longer one of these. Local ADR 0004 made the
 /// derived knowledge layer a generated <c>_meta/devbook.db</c> that
 /// <c>.gitignore</c> covers, so <c>**/_meta/*.json</c> matches nothing git tracks
 /// and there is nothing left for a phantom diff to be a diff against. That is why

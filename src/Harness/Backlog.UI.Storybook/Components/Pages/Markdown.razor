@@ -45,7 +45,7 @@ The set is closed and small on purpose. It covers the markdown people actually w
     <Story Name="One block, reachable on its own"
            Description="`MarkdownView` draws a document. `MarkdownBlockView` draws one block of it, and it is the same switch — the read view calls it for every block it lays out, so there is one rendering of a paragraph in this product rather than one per surface.
 
-The split is what let the knowledge panels stop hand-rolling that switch. They parse their own records, map each onto the block record it is a subset of, and hand it over wearing `knowledge-*` names. Each class parameter replaces the class on one element and nothing else; passing null drops that attribute entirely, which is the difference between adopting the component and keeping a copy — a knowledge bullet carries no class, and a read view&#39;s carries the single space between two empty modifier slots.
+The split is what let the Devbook panels stop hand-rolling that switch. They parse their own records, map each onto the block record it is a subset of, and hand it over wearing `knowledge-*` names. Each class parameter replaces the class on one element and nothing else; passing null drops that attribute entirely, which is the difference between adopting the component and keeping a copy — a knowledge bullet carries no class, and a read view&#39;s carries the single space between two empty modifier slots.
 
 What is deliberately not here is everything one block cannot know: the `meta` fence paired with the heading above it, the chapter&#39;s copy button, the comment gutter. Those are facts about a block&#39;s neighbours, and they stay in `MarkdownView`."
            Code="@BlockViewCode"
@@ -76,7 +76,7 @@ What is deliberately not here is everything one block cannot know: the `meta` fe
                    quote has no rule and the divider is barely a line. What the
                    column shows is which names the elements carry, not what the
                    panel looks like — the panel is where that is reviewed. *@
-                <p class="sb-state">Unstyled on purpose: the harness loads no knowledge stylesheet, so this column is the same markup under other names rather than the panel&#39;s own look.</p>
+                <p class="sb-state">Unstyled on purpose: the harness loads no devbook stylesheet, so this column is the same markup under other names rather than the panel&#39;s own look.</p>
             </div>
         </div>
     </Story>
@@ -141,7 +141,7 @@ Both columns below are handed the same list. Only the left one is listening, so 
                 <p class="sb-state" data-testid="markdown-list-view-toggle">@ToggleHeard</p>
             </div>
             <div class="sb-stack">
-                <p class="sb-label">Dressed as a knowledge list — no item class, so no `class=&quot; &quot;`</p>
+                <p class="sb-label">Dressed as a devbook list — no item class, so no `class=&quot; &quot;`</p>
                 <MarkdownListView List="@HookList"
                                   ListCssClass="devbook-list"
                                   ItemCssClass="@NoItemClass" />

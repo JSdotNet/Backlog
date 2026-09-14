@@ -2,7 +2,7 @@
 @inject DevbookAtlasService DevbookAtlas
 
 @*
-    The knowledge base as a map, for any one folder or for all of it at once.
+    The devbook as a map, for any one folder or for all of it at once.
 
     This is the generic sibling of the technology atlas. Technology earns a tab of
     its own because a stack of choices *is* a graph — that is what `.tech` is for.
@@ -43,7 +43,7 @@
                     Nodes="@AtlasNodes"
                     JsFunction="backlogDiagrams.renderDevbookAtlas"
                     StatusText="@($"Rendering the {Scope.Label} atlas...")"
-                    AriaLabel="@($"{Scope.Label} knowledge atlas")"
+                    AriaLabel="@($"{Scope.Label} devbook atlas")"
                     IndexLabel="@($"{Scope.Label}, grouped")"
                     SelectedId="@_selectedId"
                     SelectedIdChanged="SelectAsync"
@@ -246,7 +246,7 @@
                 isBoundary = node.OutOfScope
             }).ToArray(),
             edges = _view.Edges.Select(edge => new { source = edge.Source, target = edge.Target }).ToArray(),
-            emptyMessage = "This part of the knowledge base has nothing linked yet."
+            emptyMessage = "This part of the devbook has nothing linked yet."
         };
     }
 

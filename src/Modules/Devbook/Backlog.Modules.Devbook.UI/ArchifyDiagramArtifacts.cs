@@ -193,7 +193,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// Listed rather than guessed at, which is the point: the filename carries
     /// the type and the quality, and both are choices an author makes that no
     /// default can predict. The generator surfaces two competing specifications
-    /// as an error; here the alphabetically first wins instead. A knowledge pane
+    /// as an error; here the alphabetically first wins instead. A Devbook pane
     /// must not fail to draw a chapter because somebody left a stray file beside
     /// it, and picking by sort order at least makes the wrong answer the same
     /// wrong answer every time.
@@ -724,7 +724,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         catch (Exception)
         {
             // An unreadable index is the same answer as no index: mermaid, with an
-            // offer. A knowledge pane must not fail to draw a chapter because a
+            // offer. A Devbook pane must not fail to draw a chapter because a
             // generated file beside it is malformed.
             return [];
         }

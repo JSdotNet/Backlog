@@ -121,7 +121,7 @@ public sealed class InstructionsDevbookPanelTests
         // editor writes the whole buffer back, so a buffer built from the
         // discovery pass would put the old text back over this. The selection
         // arrives as a parameter because the host holds it — the panel's own
-        // picker is gone, and this is the move the knowledge menu makes.
+        // picker is gone, and this is the move the Devbook menu makes.
         File.WriteAllText(claude, "# Claude\n\nChanged on disk after the list was built.\n");
         component.Render(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog")
@@ -409,7 +409,7 @@ public sealed class InstructionsDevbookPanelTests
 
     /// <summary>
     /// The files are what the section opens with. The comparison is a step away
-    /// and not the landing surface: a reader coming here from the knowledge menu
+    /// and not the landing surface: a reader coming here from the Devbook menu
     /// asked for a file.
     /// </summary>
     [Fact]

@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// that bounds it, and where it sits beneath that folder.
 /// <para>
 /// The bounding folder travels with the path rather than being looked up again
-/// at write time, because "inside the knowledge root" only means anything
+/// at write time, because "inside the devbook root" only means anything
 /// against the root the chapter was resolved under — a repository can point an
 /// area anywhere, and the same relative path is a different file under a
 /// different root. A ref is therefore the whole answer to "which file", and a

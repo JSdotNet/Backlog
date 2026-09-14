@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// The half of the knowledge database's contract this side is allowed to state:
+/// The half of the devbook database's contract this side is allowed to state:
 /// the version it understands, where the file is, and the names of the tables it
 /// reads.
 ///

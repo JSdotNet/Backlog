@@ -8,7 +8,7 @@
 
 @*
     The pane above already says which section this is — the tab strip names it and
-    the knowledge menu heads its column with it — so this panel no longer opens
+    the Devbook menu heads its column with it — so this panel no longer opens
     with a "Devbook" eyebrow and a title repeating the same word a third
     time. It names itself to a screen reader instead, the way every other labelled
     region in this product does (.design/accessibility.md, "Names & roles"). The
@@ -16,16 +16,16 @@
     header gives up kind, title and path to the file view that says all three.
 *@
 
-<section class="domain-knowledge @(Compact ? "domain-knowledge--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain knowledge">
+<section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain devbook">
     @if (_view is null)
     {
-        <Alert Message="Loading domain knowledge..." BaseClass="domain-knowledge__state" Role="status" />
+        <Alert Message="Loading the domain devbook..." BaseClass="domain-devbook__state" Role="status" />
     }
     else if (_view.Error is not null)
     {
         @* The library's empty state, in its error shape: a reason and the way out
            of it. This was a hand-rolled div, and its class styled nothing at all —
-           there is no `.domain-knowledge__empty` rule anywhere in the product — so
+           there is no `.domain-devbook__empty` rule anywhere in the product — so
            what the reader got was an error sentence and a link as loose flow text
            while every other dead end in the app is drawn as a block. The class goes
            with the div rather than being carried over: a name that dresses nothing
@@ -35,12 +35,12 @@
            link class and the one documented exception to wearing it, because the
            library ships no link component; putting it in the action slot adopts the
            block without quietly changing the one thing that was already decided. *@
-        <EmptyState Title="Domain knowledge is unavailable"
+        <EmptyState Title="Domain devbook is unavailable"
                     Description="@_view.Error"
                     TestId="domain-devbook-error"
                     role="status">
             <Action>
-                <a class="md-link" href="settings">Configure repository knowledge folders</a>
+                <a class="md-link" href="settings">Configure repository devbook folders</a>
             </Action>
         </EmptyState>
     }
@@ -53,13 +53,13 @@
         @* The row shows whenever there is no chapter on screen, which is the same
            question the body below asks and so cannot disagree with it. It used to
            ask whether a path had been handed in, and that made the row unreachable
-           from the knowledge pane: the pane always hands one in. A path naming a
+           from the Devbook pane: the pane always hands one in. A path naming a
            bounded context rather than a file is how the pane asks for this view,
            and a path naming a chapter that has since been renamed away lands here
            too — with the tabs, which is a way out, instead of on a dead end. *@
         @if (SelectedDocument is null)
         {
-            <nav class="domain-knowledge__contexts" aria-label="Bounded contexts">
+            <nav class="domain-devbook__contexts" aria-label="Bounded contexts">
                 <ToggleButton BaseClass="domain-context-tab"
                               PressedCssClass="domain-context-tab--active"
                               Pressed="@IsContextSelected(null)"
@@ -92,7 +92,7 @@
                 <SectionHeader Level="3"
                                BaseClass="domain-context__header"
                                TextCssClass=""
-                               EyebrowCssClass="domain-knowledge__eyebrow"
+                               EyebrowCssClass="domain-devbook__eyebrow"
                                TitleCssClass=""
                                ActionsCssClass=""
                                Eyebrow="Bounded context"
@@ -244,7 +244,7 @@
             : [.. _c4.Views.Where(view => view.Documented(document.Path))];
 
     /// <summary>Hands the view to the host as an arc42 target. The pane switches section
-    /// and opens it there, because a C4 view is not a file in the knowledge menu and
+    /// and opens it there, because a C4 view is not a file in the Devbook menu and
     /// this section has nowhere to draw one.</summary>
     private Task NavigateToC4ViewAsync(C4ViewEntry view) =>
         DevbookChapterLink.From(view.Reference) is { } target
@@ -576,7 +576,7 @@
         {
             GitFileAtRevisionState.Committed => (result.Content, (string?)null),
             GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
-            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The knowledge folder is not inside a git repository."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The devbook folder is not inside a git repository."),
             _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
         };
     }
@@ -794,7 +794,7 @@
     /// <summary>The modifier a document's article wears, so a stylesheet can tell
     /// one kind of knowledge file from another. The context map is on the list
     /// because it is reachable two ways — as the folder's own view when nothing is
-    /// selected, and as a document somebody picked out of the knowledge menu — and
+    /// selected, and as a document somebody picked out of the Devbook menu — and
     /// it has to be the same document both times. It used to fall through to
     /// nothing on the second route, which meant the map lost the treatment that
     /// says it is the map.</summary>
@@ -831,7 +831,7 @@
     @* The chapter's article gives up its card, because the file view inside it
        draws one and a card inside a card reads as a document inside a document —
        which is what was reported. The article itself stays: it is the scroll
-       container the knowledge stack sizes, the anchor the knowledge menu jumps to,
+       container the Devbook stack sizes, the anchor the Devbook menu jumps to,
        and the only thing holding the chapter's controls, metadata and sections
        together. Every other document in the pane is still a card, since a list of
        files needs its entries told apart. *@
@@ -1012,7 +1012,7 @@
        until something reloaded. Conditional on the file and not on the mode — a
        chapter that states no status has no record for the file view to draw, and
        the only way to give it one is still this select. *@
-    private RenderFragment RenderDevbookActions(DevbookActionItem item, bool showStatus = true) => @<div class="domain-knowledge__actions" aria-label="Devbook item actions">
+    private RenderFragment RenderDevbookActions(DevbookActionItem item, bool showStatus = true) => @<div class="domain-devbook__actions" aria-label="Devbook item actions">
         @* Read from a branch, the state is still shown — it is part of what the
            chapter says — but as the badge rather than the select, which is the
            same substitution MetadataView makes when a status cannot honestly be
@@ -1082,11 +1082,11 @@
            place and both of these are the same alert every other failure is. *@
         @if (_statusErrors.TryGetValue(item.Path, out var statusError))
         {
-            <Alert Message="@statusError" BaseClass="domain-knowledge__action-error" Role="status" Inline />
+            <Alert Message="@statusError" BaseClass="domain-devbook__action-error" Role="status" Inline />
         }
         @if (_copilotErrors.TryGetValue(item.Path, out var error))
         {
-            <Alert Message="@error" BaseClass="domain-knowledge__action-error" Role="status" Inline />
+            <Alert Message="@error" BaseClass="domain-devbook__action-error" Role="status" Inline />
         }
     </div>;
 

@@ -259,7 +259,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
 
         // Handled here rather than handed up: the host selects chapters by path and a
-        // view is not a file in the knowledge menu.
+        // view is not a file in the Devbook menu.
         Assert.Empty(asked);
     }
 
@@ -506,7 +506,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         /// </summary>
         public void Settle(IRenderedComponent<Arc42DevbookPanel> component) =>
             component.WaitForAssertion(() =>
-                Assert.DoesNotContain("Loading architecture knowledge", component.Markup, StringComparison.Ordinal));
+                Assert.DoesNotContain("Loading the architecture devbook", component.Markup, StringComparison.Ordinal));
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }

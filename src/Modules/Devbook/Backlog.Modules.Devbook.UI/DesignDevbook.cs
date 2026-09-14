@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// Loads the repository's `.design` knowledge folder for the desktop wide-screen
-/// knowledge pane. The Markdown files remain canonical; this service only builds
+/// Devbook pane. The Markdown files remain canonical; this service only builds
 /// a read model for display.
 /// </summary>
 public sealed class DesignDevbookProvider(IDevbookFolderSource source)
@@ -37,7 +37,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         var location = source.Resolve(".design", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DesignDevbookModel.Unavailable(location.Message ?? "Design knowledge is unavailable."));
+            return Task.FromResult(DesignDevbookModel.Unavailable(location.Message ?? "Design devbook is unavailable."));
         }
 
         var folderPath = location.FullPath;
@@ -48,7 +48,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         if (files.Count == 0)
         {
             return Task.FromResult(DesignDevbookModel.Unavailable(
-                $"No Markdown design knowledge files were found at {folderPath}."));
+                $"No Markdown files were found in the design devbook folder at {folderPath}."));
         }
 
         files = OrderFiles(files, folderPath);
@@ -73,7 +73,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".design", repositoryAlias);
-        var folderPath = location.WritablePath("Design knowledge");
+        var folderPath = location.WritablePath("Design");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".design/", status);
         return Task.CompletedTask;
@@ -94,7 +94,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".design", repositoryAlias);
-        var folderPath = location.WritablePath("Design knowledge");
+        var folderPath = location.WritablePath("Design");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".design/");
         return Task.CompletedTask;

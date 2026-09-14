@@ -232,7 +232,7 @@ public sealed class ArchifyDiagramArtifactsTests
 
     /// <summary>
     /// Two specifications for one diagram is an authoring mistake, and the
-    /// generator says so and refuses. Here it must not: a knowledge pane that
+    /// generator says so and refuses. Here it must not: a Devbook pane that
     /// threw would fail to draw the whole chapter because of a stray file beside
     /// it. The alphabetically first wins, so the wrong answer is at least the
     /// same wrong answer on every machine and in every process.

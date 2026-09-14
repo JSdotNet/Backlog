@@ -248,7 +248,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// A scope of its own rather than a value <see cref="SelectedRepositoryAlias"/>
     /// could hold, because "no repository" is not a repository and every reader of
     /// that alias would have to be taught the exception. A sentinel there would be
-    /// handed to the knowledge pane, which answers an unresolvable alias with
+    /// handed to the Devbook pane, which answers an unresolvable alias with
     /// "select a configured repository"; written into a new draft as
     /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
     /// next pass, which resolves an alias against settings and finds nothing. A bool

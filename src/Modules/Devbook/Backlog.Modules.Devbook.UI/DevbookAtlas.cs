@@ -189,7 +189,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 }
 
 /// <summary>
-/// One reading of the knowledge base: a single folder, or all of it.
+/// One reading of the devbook: a single folder, or all of it.
 /// </summary>
 /// <param name="Key">Stable identity, and what a host stores when it remembers a choice.</param>
 /// <param name="Label">The scope's name, as a reader sees it.</param>
@@ -198,7 +198,7 @@ public sealed record DevbookAtlasScope(string Key, string Label, string? FolderK
 {
     /// <summary>Every knowledge folder at once, read from the repository's own
     /// root index.</summary>
-    public static DevbookAtlasScope All { get; } = new("all", "All knowledge", null);
+    public static DevbookAtlasScope All { get; } = new("all", "Whole devbook", null);
 
     /// <summary>The scope for one knowledge area, named as that area is named in
     /// the section strip so the two cannot drift apart.</summary>
@@ -294,7 +294,7 @@ internal static class DevbookAtlasReader
 
         if (!root.TryGetProperty("elements", out var elements))
         {
-            return DevbookAtlasGraph.Unavailable(scope, "The knowledge index has no graph in it.");
+            return DevbookAtlasGraph.Unavailable(scope, "The devbook database has no graph in it.");
         }
 
         return Read(scope, ReadEntries(elements), ReadRawEdges(elements));
@@ -329,7 +329,7 @@ internal static class DevbookAtlasReader
 
         if (entries.Count == 0)
         {
-            return DevbookAtlasGraph.Unavailable(scope, "The knowledge index names no documents yet.");
+            return DevbookAtlasGraph.Unavailable(scope, "The devbook database names no documents yet.");
         }
 
         var edges = DrawnEdges(rawEdges, entries);

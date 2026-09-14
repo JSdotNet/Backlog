@@ -177,7 +177,7 @@ public sealed class DevbookTypeMarkerTests
     {
         // Both halves at once, which is the whole point and the thing neither an
         // accessible-name test nor a textContent test proves on its own. The shape
-        // is the one the knowledge panel draws: mark first, named, tooltip off,
+        // is the one the Devbook panel draws: mark first, named, tooltip off,
         // title hard against it.
         using var context = new BunitContext();
 

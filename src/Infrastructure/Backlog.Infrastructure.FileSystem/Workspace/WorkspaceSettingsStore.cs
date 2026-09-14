@@ -167,7 +167,7 @@ public sealed class WorkspaceSettingsStore
     public string DefaultDevbookCacheDirectory { get; }
 
     /// <summary>
-    /// Where knowledge fetched from a repository branch is cached.
+    /// Where the devbook fetched from a repository branch is cached.
     /// <para>
     /// Configurable, and beside the per-user settings by default rather than
     /// inside the backlog folder, because a snapshot is neither the workspace's
@@ -380,11 +380,11 @@ public sealed class WorkspaceSettingsStore
 
     public string? SetDevbookFolder(string key, bool enabled, string? path)
     {
-        if (string.IsNullOrWhiteSpace(key)) return "Choose a knowledge folder before saving.";
+        if (string.IsNullOrWhiteSpace(key)) return "Choose a devbook folder before saving.";
 
         var folders = DevbookFolderSetting.Normalize(DevbookFolders).ToList();
         var index = folders.FindIndex(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (index < 0) return $"Unknown knowledge folder '{key}'.";
+        if (index < 0) return $"Unknown devbook folder '{key}'.";
 
         folders[index] = folders[index] with
         {

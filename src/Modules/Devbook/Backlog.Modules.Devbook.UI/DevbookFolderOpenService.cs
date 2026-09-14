@@ -12,13 +12,13 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         var location = source.Resolve(FolderKey(areaKey), repositoryAlias);
         if (!location.Available || string.IsNullOrWhiteSpace(location.FullPath))
         {
-            throw new DevbookFolderOpenException(location.Message ?? $"{AreaLabel(areaKey)} knowledge is unavailable.");
+            throw new DevbookFolderOpenException(location.Message ?? $"{AreaLabel(areaKey)} devbook is unavailable.");
         }
 
         var folderPath = ResolveFolderPath(location.FullPath, areaKey, nodePath);
         if (!Directory.Exists(folderPath))
         {
-            throw new DevbookFolderOpenException($"The knowledge folder was not found at {folderPath}.");
+            throw new DevbookFolderOpenException($"The devbook folder was not found at {folderPath}.");
         }
 
         try
@@ -49,7 +49,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         if (!fullPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase)
             && !fullPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
         {
-            throw new DevbookFolderOpenException("The selected knowledge folder is outside the configured knowledge root.");
+            throw new DevbookFolderOpenException("The selected devbook folder is outside the configured devbook root.");
         }
 
         if (Directory.Exists(fullPath))
@@ -121,7 +121,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
 /// <summary>
 /// The one failure a knowledge screen has to handle: everything
 /// <see cref="DevbookFolderOpenService"/> can go wrong on — an unconfigured
-/// area, a folder that is not there, a path outside the knowledge root, and the
+/// area, a folder that is not there, a path outside the devbook root, and the
 /// editor launch itself — arrives as this, so the panes catch one type and show
 /// its message.
 /// </summary>

@@ -42,7 +42,7 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture knowledge");
+        var folderPath = location.WritablePath("Architecture");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".arc42/", status);
         return Task.CompletedTask;
@@ -63,7 +63,7 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture knowledge");
+        var folderPath = location.WritablePath("Architecture");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
         return Task.CompletedTask;

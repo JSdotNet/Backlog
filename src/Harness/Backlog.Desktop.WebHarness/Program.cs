@@ -282,7 +282,7 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
 builder.Services.AddSingleton<DevbookScope>();
 builder.Services.AddSingleton<DevbookUpdateService>();
 
-// Shared by the knowledge pane and the settings screen, and a singleton so the
+// Shared by the Devbook pane and the settings screen, and a singleton so the
 // branch list somebody fetched in one is already there in the other.
 builder.Services.AddSingleton<DevbookSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();

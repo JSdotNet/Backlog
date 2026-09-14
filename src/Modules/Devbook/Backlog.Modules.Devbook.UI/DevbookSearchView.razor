@@ -22,7 +22,7 @@
     and its message is the model this one follows.
 *@
 
-<section class="devbook-search" data-testid="devbook-search" aria-label="Search this knowledge base">
+<section class="devbook-search" data-testid="devbook-search" aria-label="Search this devbook">
     <header class="devbook-search__header">
         <div class="devbook-search__heading">
             <p class="devbook-search__kicker">Search</p>
@@ -32,7 +32,7 @@
                    ValueChanged="RunAsync"
                    CssClass="devbook-search__box"
                    Placeholder="Words a chapter would use"
-                   AriaLabel="Search knowledge chapters"
+                   AriaLabel="Search devbook chapters"
                    TestId="devbook-search-input" />
     </header>
 
@@ -109,12 +109,12 @@
 
     /// <summary>What the scope is called, for the heading.</summary>
     [Parameter]
-    public string ScopeLabel { get; set; } = "All knowledge";
+    public string ScopeLabel { get; set; } = "Whole devbook";
 
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
-    private string Heading => string.IsNullOrWhiteSpace(ScopeLabel) ? "All knowledge" : ScopeLabel;
+    private string Heading => string.IsNullOrWhiteSpace(ScopeLabel) ? "Whole devbook" : ScopeLabel;
 
     /// <summary>
     /// Asks once with nothing typed, and again whenever the repository or the

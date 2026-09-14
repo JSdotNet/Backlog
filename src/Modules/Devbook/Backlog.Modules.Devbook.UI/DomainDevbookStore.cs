@@ -32,12 +32,12 @@ public sealed class DomainDevbookStore
         var location = source.Resolve(".domain", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DomainDevbookView.Unavailable(location.Message ?? "Domain knowledge is unavailable."));
+            return Task.FromResult(DomainDevbookView.Unavailable(location.Message ?? "Domain devbook is unavailable."));
         }
 
         var root = location.FullPath;
         var contextMapPath = Path.Combine(root, "context-map.md");
-        if (!File.Exists(contextMapPath)) return Task.FromResult(DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
+        if (!File.Exists(contextMapPath)) return Task.FromResult(DomainDevbookView.Unavailable($"Domain devbook folder at {root} has no context-map.md."));
 
         // The context map is what the panel opens on, so it is the one document
         // worth reading up front. Everything else waits until a context is
@@ -63,7 +63,7 @@ public sealed class DomainDevbookStore
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".domain", repositoryAlias);
-        var folderPath = location.WritablePath("Domain knowledge");
+        var folderPath = location.WritablePath("Domain");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".domain/", status);
         return Task.CompletedTask;
@@ -85,7 +85,7 @@ public sealed class DomainDevbookStore
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
         var location = source.Resolve(".domain", repositoryAlias);
-        var folderPath = location.WritablePath("Domain knowledge");
+        var folderPath = location.WritablePath("Domain");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".domain/");
         return Task.CompletedTask;
@@ -306,7 +306,7 @@ public sealed class DomainDevbookStore
 
     /// <summary>
     /// What a <c>.domain</c> file is, read off its name. Internal rather than
-    /// private because the knowledge menu asks the same question of the same
+    /// private because the Devbook menu asks the same question of the same
     /// filenames — a tree row is a file, and the mark it carries has to be the one
     /// the panel would draw for that file. Two copies of this list would be two
     /// answers the moment either gained a filename.

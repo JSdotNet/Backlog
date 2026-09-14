@@ -2,7 +2,7 @@
     One block of a document, drawn as whatever that block record says it is.
 
     This switch used to live inside MarkdownView as a private fragment, which
-    made it unreachable from anywhere else — and the knowledge panels draw the
+    made it unreachable from anywhere else — and the Devbook panels draw the
     same blocks. Both had grown a copy of it wearing `knowledge-*` classes, and
     the copies had already drifted apart from each other and from this one: a
     paragraph was identical in all three, a diagram was not, and a list item was
@@ -20,7 +20,7 @@
     Only the class hooks the library or a host actually needs are here. A table's
     and a footnote list's inner names are on MarkdownTableView and
     MarkdownFootnotesView instead: nothing renders a knowledge table through this
-    switch — the knowledge panels' tables are different structures rather than an
+    switch — the Devbook panels' tables are different structures rather than an
     MdTable with other class names — so forwarding those hooks would be
     parameters nobody sets on the component every block goes through.
 *@

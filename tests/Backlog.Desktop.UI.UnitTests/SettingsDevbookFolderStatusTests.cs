@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The repository's devbook-base sections used to restate the configured path
+/// The repository's devbook sections used to restate the configured path
 /// and stop there, which reads as confirmation: a section pointed at a folder
 /// that was never in the clone looked exactly like one that was.
 /// <para>
@@ -78,7 +78,7 @@ public sealed class SettingsDevbookFolderStatusTests
         // The space between the two clauses is asserted, not just each clause: Razor
         // drops whitespace-only text between elements, so the sentences run together
         // unless the separator is written out.
-        Assert.Contains("at the repository root. Architecture knowledge folder was not found at", status.TextContent, StringComparison.Ordinal);
+        Assert.Contains("at the repository root. Architecture devbook folder was not found at", status.TextContent, StringComparison.Ordinal);
         Assert.Contains(Path.Combine(settings.CloneDirectory!, ".arc42"), status.TextContent, StringComparison.Ordinal);
     }
 

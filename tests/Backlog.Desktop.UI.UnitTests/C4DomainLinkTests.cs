@@ -16,7 +16,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// It is asserted as a hand-off rather than as a picture, because that is what it is.
-/// A C4 view is not a file in the knowledge menu, so this panel cannot open one; it
+/// A C4 view is not a file in the Devbook menu, so this panel cannot open one; it
 /// names the view to the host, which switches to the architecture section and opens it
 /// there. What the panel owes is a control that carries the right target.
 /// </para>

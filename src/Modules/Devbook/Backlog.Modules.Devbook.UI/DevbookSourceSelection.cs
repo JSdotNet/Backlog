@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// The "where is this repository's knowledge read from?" control, as one answer
 /// two surfaces share.
 /// <para>
-/// The knowledge pane and the settings screen both offer the choice, and they
+/// The Devbook pane and the settings screen both offer the choice, and they
 /// have to offer the same one: the same options, in the same order, spelling the
 /// local folder the same way. Two copies of that would drift the first time a
 /// case was added to one of them — a branch that no longer exists, a repository
@@ -101,7 +101,7 @@ public sealed class DevbookSourceSelection(
             options.Add(new SelectorOption(
                 LocalFolderValue,
                 "Local clone",
-                "The only source you can edit knowledge in"));
+                "The only source you can edit the devbook in"));
         }
 
         // Offered rather than done on render, because listing branches is a

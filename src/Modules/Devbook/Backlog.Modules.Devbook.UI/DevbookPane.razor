@@ -13,7 +13,7 @@
     than reading backlog state, so nothing here knows an entry exists.
 *@
 
-<section @key=@("devbook-pane") class="devbook-stack" id="repository-devbook-pane" data-testid="devbook-stack" aria-label="Repository knowledge base">
+<section @key=@("devbook-pane") class="devbook-stack" id="repository-devbook-pane" data-testid="devbook-stack" aria-label="Repository devbook">
     @* No repository line above the strip. The repository was chosen by the scope
        strip over the workspace and is named there, and every file this pane opens
        carries its own path, so a third copy of the name only cost the sections a
@@ -111,7 +111,7 @@
             <AppButton BaseClass="devbook-stack__search-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-search-toggle"
-                       title="@(_searchOpen ? "Close search" : "Search every knowledge area at once")"
+                       title="@(_searchOpen ? "Close search" : "Search every devbook area at once")"
                        aria-expanded="@(_searchOpen ? "true" : "false")"
                        OnClick="ToggleSearch">
                 @(_searchOpen ? "Hide search" : "Search")
@@ -124,7 +124,7 @@
                 <AppButton BaseClass="devbook-stack__atlas-all"
                            Variant="ButtonVariant.None"
                            TestId="devbook-atlas-all"
-                           title="See the whole knowledge base at once"
+                           title="See the whole devbook at once"
                            OnClick="ShowAllDevbook">
                     All knowledge
                 </AppButton>
@@ -132,7 +132,7 @@
             <AppButton BaseClass="devbook-stack__atlas-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-atlas-toggle"
-                       title="@(_atlasOpen ? "Close the atlas" : "See how this knowledge links together")"
+                       title="@(_atlasOpen ? "Close the atlas" : "See how this devbook links together")"
                        aria-expanded="@(_atlasOpen ? "true" : "false")"
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
@@ -662,8 +662,8 @@
     private string? BehindLabel => DevbookUpdatePresentation.BehindLabel(_updateState);
 
     private string UpdateActionTitle => _updateState.CanPull
-        ? "Pull the latest version of this knowledge into the local clone"
-        : "Check whether this knowledge is on the latest version";
+        ? "Pull the latest version of this devbook into the local clone"
+        : "Check whether this devbook is on the latest version";
 
     /// <summary>
     /// The one button. Its label already told the reader which of the two things
@@ -851,7 +851,7 @@
             "domain" => @<DomainDevbookPanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
-            _ => @<Alert Message="Turn on knowledge sections in Settings to read repository knowledge here." BaseClass="devbook-empty" Role="status" />
+            _ => @<Alert Message="Turn on Devbook sections in Settings to read the repository's devbook here." BaseClass="devbook-empty" Role="status" />
         };
     }
 }

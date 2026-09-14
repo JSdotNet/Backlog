@@ -5,7 +5,7 @@ using Backlog.UI.Components.Devbook;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The knowledge atlas reads the graphs the metadata generator writes rather than
+/// The Devbook atlas reads the graphs the metadata generator writes rather than
 /// the Markdown behind them, so what is worth pinning is the arranging: which
 /// edges are drawn, which are only used to work out where a chapter belongs, and
 /// how a folder shaped like <c>.domain</c> and one shaped like <c>.design</c> both

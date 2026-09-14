@@ -125,7 +125,7 @@ public class DevbookDatabaseLadderTests
     /// <summary>
     /// Not a database at all: a half-written file, a text file somebody put there,
     /// a rebuild caught mid-rename. SQLite answers with an error and the reader
-    /// answers with the Markdown path, which is what a knowledge panel did before
+    /// answers with the Markdown path, which is what a Devbook panel did before
     /// any index existed.
     /// </summary>
     [Fact]

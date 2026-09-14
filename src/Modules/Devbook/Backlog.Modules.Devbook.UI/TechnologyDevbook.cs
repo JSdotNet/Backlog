@@ -31,7 +31,7 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return Task.FromResult(TechnologyDevbookView.Unavailable(
-                location with { Message = $"Technology knowledge could not be read: {ex.Message}" }));
+                location with { Message = $"Technology devbook could not be read: {ex.Message}" }));
         }
     }
 
@@ -42,7 +42,7 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
         var location = source.Resolve(".tech", repositoryAlias);
-        var folderPath = location.WritablePath("Technology knowledge");
+        var folderPath = location.WritablePath("Technology");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".tech/", status);
         return Task.CompletedTask;
@@ -63,8 +63,8 @@ public sealed record TechnologyDevbookView(
 
     public static TechnologyDevbookView Unavailable(DevbookFolderLocation location) => new(
         location,
-        "Technology knowledge",
-        location.Message ?? "Technology knowledge is unavailable.",
+        "Technology devbook",
+        location.Message ?? "Technology devbook is unavailable.",
         [],
         [],
         [],

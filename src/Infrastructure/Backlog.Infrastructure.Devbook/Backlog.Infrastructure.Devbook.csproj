@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The read side of the generated knowledge database (local ADR 0004).
+    The read side of the generated devbook database (local ADR 0004).
 
     Its own project rather than a folder inside Backlog.Infrastructure.Sqlite,
     which is the canonical local task store. This is a different file with a

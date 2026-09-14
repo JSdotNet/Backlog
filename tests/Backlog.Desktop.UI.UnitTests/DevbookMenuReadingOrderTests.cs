@@ -8,7 +8,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The knowledge pane's left rail against the authored reading order.
+/// The Devbook pane's left rail against the authored reading order.
 ///
 /// <para>The rail used to enumerate the directory and sort it alphabetically, so
 /// the order <c>_reading-order.json</c> declares for <c>.domain</c> and

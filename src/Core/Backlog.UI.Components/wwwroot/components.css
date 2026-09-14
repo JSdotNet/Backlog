@@ -4992,7 +4992,7 @@ button.task-panel__check:focus-visible {
 }
 
 /* The badges sit together on the right of the header. Wrapping rather than
-   shrinking, because in a narrow knowledge pane the title is the thing worth
+   shrinking, because in a narrow Devbook pane the title is the thing worth
    keeping on one line. */
 .diagram-view__badges {
     display: flex;
@@ -7020,7 +7020,7 @@ select.field__input {
    padding and the scrollbar gutter above are no less specific than a modifier,
    so a modifier that withdrew them from further up would lose to them and the
    editor would keep the inset it is trying to give back. Same reason the fill
-   rules for the knowledge panels sit where they do in the app's stylesheet. */
+   rules for the Devbook panels sit where they do in the app's stylesheet. */
 /* And the room goes on down to whatever the host put inside. A column with one
    stretching child rather than a height on the child itself: the host's body is
    an editor, an editor is a toolbar over a surface, and only the surface may
@@ -7349,7 +7349,7 @@ select.field__input {
 }
 
 /* Which version is being compared against — the same segmented shape the
-   knowledge panes use for their context tabs, because it is the same question:
+   Devbook panes use for their context tabs, because it is the same question:
    one of these, and you can see which. */
 .file-view__baseline {
     padding: var(--spacing-2xs) var(--spacing-xs);

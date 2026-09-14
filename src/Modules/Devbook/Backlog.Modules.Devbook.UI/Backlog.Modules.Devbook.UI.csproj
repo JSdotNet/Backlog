@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Devbook context's UI: the knowledge menu, the panels for .arc42,
+    The Devbook context's UI: the Devbook menu, the panels for .arc42,
     .domain, .design, .tech and the instruction sources, and the markdown and
     graph views they render. Its own project so it can sit on the workspace
     without sharing one with Tasks or the Shell.
@@ -40,7 +40,7 @@
          panels ask it rather than the adapter that answers it, which is what
          keeps Devbook from having to see where the backlog is stored. -->
     <ProjectReference Include="..\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
-    <!-- The read side of the generated knowledge database (local ADR 0004). A
+    <!-- The read side of the generated devbook database (local ADR 0004). A
          screen may take an adapter - ModuleBoundaryTests says so in as many words -
          and this is the adapter behind the outline, the atlas, the technology stats
          and the diagram artifact lookup, all of which used to be a JSON file each. -->

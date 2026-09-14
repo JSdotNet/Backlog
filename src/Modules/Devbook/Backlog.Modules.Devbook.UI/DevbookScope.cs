@@ -31,14 +31,14 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
         folders.Folders(repositoryAlias);
 
     /// <summary>The sections that actually have something behind them, or none
-    /// at all while knowledge sections are turned off.</summary>
+    /// at all while Devbook sections are turned off.</summary>
     public IReadOnlyList<DevbookArea> VisibleAreas(string? repositoryAlias) =>
         features.IsEnabled(DevbookFeatures.DevbookSections)
             ? DevbookAreaCatalog.VisibleAreas(Folders(repositoryAlias))
             : [];
 
     /// <summary>
-    /// Whether the pane offers to search this knowledge base.
+    /// Whether the pane offers to search this devbook.
     /// <para>
     /// Asked here rather than by the pane reading the feature settings itself, for
     /// the reason this whole class exists: the pane's question is "is there

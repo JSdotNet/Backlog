@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Widening the atlas back to the whole knowledge base, from the pane that owns
+/// Widening the atlas back to the whole devbook, from the pane that owns
 /// the section strip.
 ///
 /// <para>
@@ -65,7 +65,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         // Widening the scope does not close the map — it is still the map, just
         // showing more of it.
         component.WaitForAssertion(() =>
-            Assert.Equal("All knowledge", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
+            Assert.Equal("Whole devbook", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
         Assert.Equal("Hide atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim());
     }
 

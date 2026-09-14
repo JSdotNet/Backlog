@@ -22,7 +22,7 @@ namespace Backlog.ArchitectureTests;
 /// <para>The second half exists because the first was fully held and the drift
 /// went on anyway: a repository-wide search for raw controls returns nothing,
 /// while the shell had hand-rolled the save-state indicator down to its dot and
-/// its modifiers, and two knowledge panels had hand-rolled badges. None of it
+/// its modifiers, and two Devbook panels had hand-rolled badges. None of it
 /// was a raw control, so no rule saw it.</para>
 ///
 /// <para>Both halves are deliberately narrow. A raw element is only a finding
@@ -153,7 +153,7 @@ public class SharedControlAdoptionTests
     /// count beside a title (<c>Badge</c>).
     ///
     /// <para>Matched as whole words after splitting on <c>-</c>, so
-    /// <c>domain-knowledge__action-error</c> is a finding and
+    /// <c>domain-devbook__action-error</c> is a finding and
     /// <c>tools-inventory__meta</c> is not. Read off the modifier as well as the
     /// element, because the highest-value copies in this repository are written as
     /// modifiers rather than elements — <c>setting__status--error</c> is the

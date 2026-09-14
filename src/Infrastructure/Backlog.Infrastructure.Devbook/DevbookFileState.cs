@@ -65,7 +65,7 @@ public sealed record DevbookFileState(string Path, long Size, long Mtime, string
     /// row records it, asked from the <c>stat</c> alone.
     ///
     /// <para><see cref="HasDrifted"/> without the hash, for the one caller that
-    /// must not read a Markdown file to answer: the knowledge menu's rail. A file
+    /// must not read a Markdown file to answer: the Devbook menu's rail. A file
     /// whose modification time moved without its length changing is reported as
     /// stale here, where <see cref="HasDrifted"/> would hash it and often find
     /// nothing changed. So this over-reports drift and never under-reports it —
@@ -166,7 +166,7 @@ public static class DevbookRetrieval
     public static string UnavailableMessage(string surface) =>
         string.Format(
             CultureInfo.InvariantCulture,
-            "{0} needs the generated knowledge index, which has not been written yet. Run {1} to build it.",
+            "{0} needs the generated devbook database, which has not been written yet. Run {1} to build it.",
             surface,
             BuildCommand);
 }

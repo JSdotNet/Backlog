@@ -3,7 +3,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// Opens the knowledge database for a repository scope, given only the port every
+/// Opens the devbook database for a repository scope, given only the port every
 /// knowledge consumer already has.
 ///
 /// <para>The awkwardness this absorbs is real and is not going away: a consumer

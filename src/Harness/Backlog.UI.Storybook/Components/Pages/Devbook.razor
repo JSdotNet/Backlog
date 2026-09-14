@@ -19,7 +19,7 @@ The status is a control here because this sample is read as `.tech`, and a folde
         <MarkdownStory Source="@SharedTechSample"
                        RenderDevbookMetadata="true"
                        DevbookFolder="DevbookFolder.Tech"
-                       TestId="devbook-base-document" />
+                       TestId="devbook-document" />
     </Story>
 
     <Story Name="One block, every field, drawn"
@@ -29,19 +29,19 @@ A field the schema has never heard of — `owner` here — is kept under Extra a
 
 No file writes a block like this one; it is assembled so every shape is on screen at once. A block that states nothing draws nothing: `MetadataView` renders no element at all, and `related: []` or `issue: null` read back as absent."
            Code="@RecordCode">
-        <div class="sb-columns" data-testid="devbook-base-record">
+        <div class="sb-columns" data-testid="devbook-record">
             <div class="sb-stack">
                 <p class="sb-label">The fence body</p>
-                <CodeView Source="@EveryFieldBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-record-source" />
+                <CodeView Source="@EveryFieldBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-record-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">MetadataView over the record it parsed to</p>
                 <MetadataView Metadata="@EveryFieldMetadata"
                                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                    AriaLabel="Chapter metadata"
-                                   TestId="devbook-base-record-view" />
-                <p class="sb-state" data-testid="devbook-base-record-plain">@PlainStringSummary</p>
-                <p class="sb-state" data-testid="devbook-base-record-extra">@ReferenceAndExtraSummary</p>
+                                   TestId="devbook-record-view" />
+                <p class="sb-state" data-testid="devbook-record-plain">@PlainStringSummary</p>
+                <p class="sb-state" data-testid="devbook-record-extra">@ReferenceAndExtraSummary</p>
             </div>
         </div>
     </Story>
@@ -53,10 +53,10 @@ In a document they are: the status closes the heading it describes and the rows 
 
 Nothing here knows which of the two it is in. The order of the rows and the question each one asks about emptiness are `MetadataView`&#39;s, moved rather than rewritten, so a record renders the same rows in either host — and `HasAny` is asked by the host before it commits to the element that would wrap them, because an empty `dl` is a gap with a gap&#39;s spacing around it."
            Code="@FieldsCode">
-        <div class="sb-stack" data-testid="devbook-base-fields">
+        <div class="sb-stack" data-testid="devbook-fields">
             <p class="sb-label">MetadataFields over the same record, with no status and no wrapper</p>
-            <MetadataFields Metadata="@EveryFieldMetadata" TestId="devbook-base-fields-view" />
-            <p class="sb-state" data-testid="devbook-base-fields-state">@FieldsSummary</p>
+            <MetadataFields Metadata="@EveryFieldMetadata" TestId="devbook-fields-view" />
+            <p class="sb-state" data-testid="devbook-fields-state">@FieldsSummary</p>
         </div>
     </Story>
 
@@ -71,7 +71,7 @@ The last row draws no visible name. Some values say which field they came from w
 
 The bottom pair is the same two rows pointed at names that are not the library&#39;s, which is the whole of what adopting it costs."
            Code="@FieldCode">
-        <div class="sb-stack" data-testid="devbook-base-field-rows">
+        <div class="sb-stack" data-testid="devbook-field-rows">
             <dl class="devbook-fields">
                 <MetadataField Label="depends-on">
                     <DevbookReferenceLink Reference="@FieldReference" />
@@ -82,10 +82,10 @@ The bottom pair is the same two rows pointed at names that are not the library&#
                 <MetadataField Label="effort">
                     <Badge Kind="effort">5 pts</Badge>
                 </MetadataField>
-                <MetadataField Label="feature-flag" TestId="devbook-base-field-flag">
+                <MetadataField Label="feature-flag" TestId="devbook-field-flag">
                     <Badge Kind="feature">inbox-pane</Badge>
                 </MetadataField>
-                <MetadataField Label="version" ShowLabel="false" TestId="devbook-base-field-bare">
+                <MetadataField Label="version" ShowLabel="false" TestId="devbook-field-bare">
                     <code class="devbook-value">v10.0</code>
                 </MetadataField>
             </dl>
@@ -107,7 +107,7 @@ The bottom pair is the same two rows pointed at names that are not the library&#
            Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms.
 
 The middle column is the one that catches people. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that are never parsed. Every row carries the line as a file actually writes it: a scalar takes its value bare, and both list kinds take a list.">
-        <dl class="sb-grid" data-testid="devbook-base-fields">
+        <dl class="sb-grid" data-testid="devbook-fields">
             @foreach (var field in Fields)
             {
                 <div class="sb-stack">
@@ -115,7 +115,7 @@ The middle column is the one that catches people. Three fields hold references �
                     <dd class="sb-stack">
                         <p class="sb-state">@field.Shape — @field.Folders</p>
                         <CodeView Source="@field.Line" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
-                                  TestId="@($"devbook-base-field-{field.Name}-source")" />
+                                  TestId="@($"devbook-field-{field.Name}-source")" />
                         <p>@field.Meaning</p>
                     </dd>
                 </div>
@@ -130,21 +130,21 @@ The default is off, which is the whole compatibility story: most text in this pr
 
 The seam is one test in front of branches that already existed. An `MdCode` block has three answers where it had two — a metadata record, a diagram where the language names one, and otherwise the code block it always was — and the metadata test runs first, gated on the opt-in."
            Code="@OptInCode">
-        <div class="sb-stack" data-testid="devbook-base-opt-in">
+        <div class="sb-stack" data-testid="devbook-opt-in">
             <div class="sb-stack">
                 <p class="sb-label">The document both columns render</p>
-                <CodeView Source="@ChapterSample.Trim()" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-opt-in-source" />
+                <CodeView Source="@ChapterSample.Trim()" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-opt-in-source" />
             </div>
             <div class="sb-columns">
                 <div class="sb-stack">
                     <p class="sb-label">Default — the fence is a fence</p>
-                    <div data-testid="devbook-base-opt-in-off">
+                    <div data-testid="devbook-opt-in-off">
                         <MarkdownView Blocks="@ChapterBlocks" />
                     </div>
                 </div>
                 <div class="sb-stack">
                     <p class="sb-label">Opted in — the fence is a record</p>
-                    <div data-testid="devbook-base-opt-in-on">
+                    <div data-testid="devbook-opt-in-on">
                         <MarkdownView Blocks="@ChapterBlocks"
                                       RenderDevbookMetadata="true"
                                       DevbookFolder="DevbookFolder.Tech" />
@@ -161,17 +161,17 @@ The two are branches kept apart rather than layered, so asking for nothing new g
 
 Both are fed from the same block above. The typed status is a control where the legacy one is a word, because naming the folder names the values it may take, so the record offers a `StatusSelector` — drawn as the same badge a read-only status is. `OnStatusChanged` carries the choice out; the line under it reports the last status this page was told about."
            Code="@CompatibilityCode">
-        <div class="sb-stack" data-testid="devbook-base-compatibility">
+        <div class="sb-stack" data-testid="devbook-compatibility">
             <div class="sb-stack">
                 <p class="sb-label">The block both badges were read from</p>
-                <CodeView Source="@RoadmapBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-compatibility-source" />
+                <CodeView Source="@RoadmapBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-compatibility-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Two parameters — frozen markup, the old capsule, deliberately not updated</p>
                 <MetadataBadge Status="@RoadmapMetadata.Status"
                                Related="@LegacyRelated"
                                AriaLabel="Entry metadata"
-                               TestId="devbook-base-legacy-badge" />
+                               TestId="devbook-legacy-badge" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">The same fields, typed — deliberately the application status badge instead, folder-aware and listened to</p>
@@ -179,8 +179,8 @@ Both are fed from the same block above. The typed status is a control where the 
                                Folder="DevbookFolder.Backlog"
                                OnStatusChanged="HearStatus"
                                AriaLabel="Entry metadata"
-                               TestId="devbook-base-typed-badge" />
-                <p class="sb-state" data-testid="devbook-base-status-heard">@StatusHeard</p>
+                               TestId="devbook-typed-badge" />
+                <p class="sb-state" data-testid="devbook-status-heard">@StatusHeard</p>
             </div>
         </div>
     </Story>
@@ -190,10 +190,10 @@ Both are fed from the same block above. The typed status is a control where the 
 
 Two widths, one sample. At full width the heading fits; at a navigation pane's width it wraps, and what to look for is that the status does not move — it stays on the first line at the right edge. Three things do that together: the line does not wrap, the heading may shrink below its own longest word so it is the item that gives, and the row aligns on first baselines."
            Code="@ComponentCode">
-        <div class="sb-stack" data-testid="devbook-base-heading">
+        <div class="sb-stack" data-testid="devbook-heading">
             <div class="sb-stack">
                 <p class="sb-label">The chapter as it is written on disk</p>
-                <CodeView Source="@HowToSource" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-heading-source" />
+                <CodeView Source="@HowToSource" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-heading-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Full width — the heading fits</p>
@@ -201,7 +201,7 @@ Two widths, one sample. At full width the heading fits; at a navigation pane's w
                                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                    CssClass="sb-metadata-panel"
                                    AriaLabel="Chapter metadata"
-                                   TestId="devbook-base-heading-wide">
+                                   TestId="devbook-heading-wide">
                     <Heading>
                         <p class="md-heading md-heading--2" role="heading" aria-level="2">@ChapterHeading</p>
                     </Heading>
@@ -213,7 +213,7 @@ Two widths, one sample. At full width the heading fits; at a navigation pane's w
                                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                    CssClass="sb-metadata-panel"
                                    AriaLabel="Chapter metadata"
-                                   TestId="devbook-base-heading-narrow">
+                                   TestId="devbook-heading-narrow">
                     <Heading>
                         <p class="md-heading md-heading--2" role="heading" aria-level="2">@LongChapterHeading</p>
                     </Heading>
@@ -221,7 +221,7 @@ Two widths, one sample. At full width the heading fits; at a navigation pane's w
             </div>
             <div class="sb-stack">
                 <p class="sb-label">The stylesheet rule that holds the line together</p>
-                <CodeView Source="@WrapCode" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-heading-css" />
+                <CodeView Source="@WrapCode" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-heading-css" />
             </div>
         </div>
     </Story>
@@ -233,16 +233,16 @@ It is hand-rolled rather than handed to a YAML library: this library carries no 
 
 Parse once per block and keep the result; `MarkdownView` holds a small dictionary keyed by block for exactly that. The source beside this story is the whole fence, opening line included, because that line is what `ParseFence` is given."
            Code="@ParseFenceCode">
-        <div class="sb-columns" data-testid="devbook-base-fence">
+        <div class="sb-columns" data-testid="devbook-fence">
             <div class="sb-stack">
                 <p class="sb-label">The fence, language and all</p>
-                <CodeView Source="@FencedTechBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-base-fence-source" />
+                <CodeView Source="@FencedTechBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fence-source" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">ParseFence over that language and that body</p>
                 <MetadataView Metadata="@MetadataReader.ParseFence(MetadataReader.FenceLanguage, TechBlock)"
-                                   TestId="devbook-base-fence-view" />
-                <p class="sb-state" data-testid="devbook-base-fence-state">@FenceSummary</p>
+                                   TestId="devbook-fence-view" />
+                <p class="sb-state" data-testid="devbook-fence-state">@FenceSummary</p>
             </div>
         </div>
     </Story>

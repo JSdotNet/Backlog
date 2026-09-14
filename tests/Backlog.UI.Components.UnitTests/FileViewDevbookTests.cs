@@ -6,7 +6,7 @@
 /// heading that names the chapter, and the remarks somebody left in the margin.
 ///
 /// <para>The point of asking for these here rather than around the outside is
-/// that the pane parses the file once. The knowledge panes used to parse the same
+/// that the pane parses the file once. The Devbook panes used to parse the same
 /// text a second time to draw them, which is why a chapter's diagrams appeared
 /// below the file that contained them.</para>
 /// </summary>

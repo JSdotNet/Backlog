@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The reading order the knowledge panes ask for, and the four ways it can fail
+/// The reading order the Devbook panes ask for, and the four ways it can fail
 /// to arrive.
 ///
 /// <para>Three panes call <c>ForFolder</c> and all three treat an empty list as

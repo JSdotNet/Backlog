@@ -215,7 +215,7 @@ public sealed class DevbookIndexDocument
     ///
     /// <para>ADR 0004's ladder lets a panel spend one file's parse to serve
     /// current content, which is why <see cref="IsStale"/> hashes a file whose
-    /// modification time moved. The knowledge menu's rail cannot: it asks this of
+    /// modification time moved. The Devbook menu's rail cannot: it asks this of
     /// every row it draws, so a branch switch would turn one tab click into a
     /// hash of the whole corpus on the thread that is drawing. It therefore takes
     /// the coarse answer — anything the <c>stat</c> cannot vouch for is stale —

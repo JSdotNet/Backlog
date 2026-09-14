@@ -31,7 +31,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// is part of what the author wrote; nothing scrolls to it yet.</param>
 public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anchor)
 {
-    /// <summary>The same file as the knowledge menu spells it: beneath the area's
+    /// <summary>The same file as the Devbook menu spells it: beneath the area's
     /// own folder and without the area prefix, which is what a menu node carries
     /// and what a selection is remembered by.</summary>
     public string RelativePath => Path[(Path.IndexOf('/') + 1)..];
@@ -41,7 +41,7 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// chapter.
     /// <para>
     /// Worth telling apart at the point of use, because the two are followed
-    /// differently: a chapter is selected through the knowledge menu, and a C4 view
+    /// differently: a chapter is selected through the Devbook menu, and a C4 view
     /// is not in the menu at all — it is one view of one workspace, selected inside
     /// the panel that draws the architecture chapters. A caller that cannot follow
     /// the second should render it as text rather than as a control that goes

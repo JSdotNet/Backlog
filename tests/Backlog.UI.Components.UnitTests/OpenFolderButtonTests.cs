@@ -127,7 +127,7 @@ public sealed class OpenFolderButtonTests
     [Fact]
     public void A_tree_that_does_stand_for_a_folder_still_offers_it()
     {
-        // The desktop's knowledge menu, unchanged: the button keeps the class its
+        // The desktop's Devbook menu, unchanged: the button keeps the class its
         // stylesheet already knows.
         using var context = new BunitContext();
 

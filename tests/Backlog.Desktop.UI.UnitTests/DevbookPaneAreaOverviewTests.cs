@@ -83,17 +83,17 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         // The section opens on a chapter, which is the pane's own rule and stays
         // one: the overview is what it shows *instead* of a chapter, never beside.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
-        Assert.Empty(component.FindAll("nav[aria-label='Design knowledge documents']"));
+        Assert.Empty(component.FindAll("nav[aria-label='Design devbook documents']"));
 
         MenuItem(component, "All documents").Click();
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design knowledge documents']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design devbook documents']")));
 
         // Every file, not the first of them, and each subject carrying the status
         // its own fence states. That is the reading the folder is opened for, and
         // it is the one thing in this section the menu cannot give.
         Assert.Equal(2, component.FindAll(".design-document").Count);
-        Assert.Equal(2, component.FindAll(".design-knowledge__nav-link").Count);
+        Assert.Equal(2, component.FindAll(".design-devbook__nav-link").Count);
         Assert.NotEmpty(component.FindAll(".design-section .devbook-record__headline .badge--status"));
         Assert.Empty(component.FindAll("[data-testid='design-chapter-file']"));
     }
@@ -108,7 +108,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
         MenuItem(component, "All documents").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design knowledge documents']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design devbook documents']")));
 
         component.Find("#tab-arc42").Click();
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
@@ -119,7 +119,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         // The row's path is the folder's own, and the folder is in the tree, so
         // that pass leaves it alone — without which coming back would silently
         // swap the reader's overview for a chapter they did not pick.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design knowledge documents']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design devbook documents']")));
         Assert.Empty(component.FindAll("[data-testid='design-chapter-file']"));
     }
 
@@ -133,14 +133,14 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
         MenuItem(component, "All documents").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design knowledge documents']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design devbook documents']")));
 
         MenuItem(component, "Colors").Click();
 
         // The way out is the way in reversed, so the overview is not a mode a
         // reader can get stuck in.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
-        Assert.Empty(component.FindAll("nav[aria-label='Design knowledge documents']"));
+        Assert.Empty(component.FindAll("nav[aria-label='Design devbook documents']"));
     }
 
     [Fact]

@@ -25,7 +25,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para><b>Two surfaces, and both are asserted here.</b> The panel draws a
 /// document two ways: a summary card assembled from its own parse, for a document
 /// nobody opened, and — for the one document that <em>is</em> open — the file
-/// itself, handed whole to the file view. Opening a file from the knowledge tree
+/// itself, handed whole to the file view. Opening a file from the Devbook tree
 /// always produces the second, so that is the surface a reader reads, and the
 /// first shipping with marks while the second had none is exactly how this went
 /// out wrong the first time. The tests below say <c>Card</c> or <c>Opened</c> in
@@ -365,7 +365,7 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
             .First(name => name.StartsWith("devbook-type-marker--", StringComparison.Ordinal))
             ["devbook-type-marker--".Length..];
 
-    /// <summary>A `.domain` folder as the knowledge menu builds one: the context
+    /// <summary>A `.domain` folder as the Devbook menu builds one: the context
     /// map at the root and one bounded context's seven files under it.</summary>
     private static DevbookMenuNode DomainMenu()
     {
@@ -433,7 +433,7 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
 
     /// <summary>
     /// The panel with a real `.domain` folder behind it and a file selected — which
-    /// is what the knowledge tree produces on every open, and the branch the first
+    /// is what the Devbook tree produces on every open, and the branch the first
     /// pass at these marks never reached.
     /// <para>A folder on disk rather than a view handed in, because that is what it
     /// takes: the panel only treats a document as the open one once it has read the
@@ -528,7 +528,7 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
     }
 
     /// <summary>The panel reading a real folder, with one file selected — the branch
-    /// every route through the knowledge tree lands on.</summary>
+    /// every route through the Devbook tree lands on.</summary>
     private sealed record OpenHarness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
     {
         public IRenderedComponent<DomainDevbookPanel> Open(string selectedPath)

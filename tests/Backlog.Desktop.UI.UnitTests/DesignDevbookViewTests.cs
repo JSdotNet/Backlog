@@ -92,7 +92,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         Assert.Empty(component.FindAll(".design-document__header"));
         Assert.Empty(component.FindAll(".design-document__file"));
         Assert.Empty(component.FindAll(".design-document__summary"));
-        Assert.Empty(component.FindAll(".design-knowledge__source"));
+        Assert.Empty(component.FindAll(".design-devbook__source"));
 
         // The token strip goes with them. Colors carries a token table, so this
         // is a strip that would have rendered — and its values are in the file
@@ -113,7 +113,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         // what makes the file view take that height and scroll its own body. A
         // body with a max-height instead would grow the pane past the section
         // already scrolling it, which is the second scrollbar this removed.
-        Assert.Single(component.FindAll(".design-knowledge--chapter"));
+        Assert.Single(component.FindAll(".design-devbook--chapter"));
         Assert.Contains("file-view--fill", component.Find("[data-testid='design-chapter-file']").ClassName, StringComparison.Ordinal);
     }
 
@@ -280,7 +280,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         // Every part of the overview, one assertion each: the nav across files,
         // the token strip, the per-section blocks and the per-section status
         // badge. An editing surface here would have replaced the last two.
-        Assert.Equal(2, component.FindAll(".design-knowledge__nav-link").Count);
+        Assert.Equal(2, component.FindAll(".design-devbook__nav-link").Count);
         Assert.NotEmpty(component.FindAll(".design-token"));
         Assert.NotEmpty(component.FindAll(".design-section"));
         Assert.NotEmpty(component.FindAll(".design-section .devbook-record__headline .badge--status"));
@@ -394,7 +394,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         // re-read the file the write landed in.
         component.WaitForAssertion(() => Assert.Contains(
             "deprecated",
-            component.FindAll(".design-knowledge__nav-link")[0].TextContent,
+            component.FindAll(".design-devbook__nav-link")[0].TextContent,
             StringComparison.Ordinal));
     }
 

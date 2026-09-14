@@ -20,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 ///
 /// <para>That mattered beyond the markup. The context list, its order and the
 /// status beside each name are what <c>DomainDevbookStore</c> builds from the
-/// generated knowledge database, and the per-file drift check in local ADR 0004 is
+/// generated devbook database, and the per-file drift check in local ADR 0004 is
 /// what keeps them honest between refreshes. None of it was on screen in the pane,
 /// so none of it could be validated by running the app.</para>
 ///
@@ -68,7 +68,7 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
 
         // The whole list, in the order the store built it, with the map ahead of
         // the contexts. This row is the only screen in the product that shows the
-        // context list the knowledge database answers with.
+        // context list the devbook database answers with.
         Assert.Equal(
             ["Context map", "Sessions", "Tasks"],
             component.FindAll("button.domain-context-tab").Select(tab => tab.TextContent.Trim()));

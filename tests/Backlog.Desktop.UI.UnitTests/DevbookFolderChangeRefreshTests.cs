@@ -524,7 +524,7 @@ file sealed class DevbookWorkspace : IDisposable
         Assert.Null(RepositorySettings.SetDevbookFolder(Alias, key, enabled, null));
 
     /// <summary>The feature settings the pane's scope is gated on, so a test can
-    /// take the knowledge sections away and leave the pane with no panels of its
+    /// take the Devbook sections away and leave the pane with no panels of its
     /// own inside it.</summary>
     public AppFeatureSettingsStore Features { get; }
 
@@ -579,7 +579,7 @@ status: draft
 > The {name} context map.
 """);
 
-        // A chapter named after the folder it is in, so the knowledge menu built
+        // A chapter named after the folder it is in, so the Devbook menu built
         // from one repository is told apart from the menu built from the other by
         // the node labels alone — the context map is in both and would look the
         // same in a tree either way.

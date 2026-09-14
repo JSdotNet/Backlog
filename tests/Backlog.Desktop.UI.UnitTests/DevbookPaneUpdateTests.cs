@@ -272,7 +272,7 @@ public sealed class DevbookPaneUpdateTests
     }
 
     /// <summary>
-    /// Enough of a knowledge base for every section to resolve and for the
+    /// Enough of a devbook for every section to resolve and for the
     /// instructions tree — the section the pane opens on — to have something in it.
     /// </summary>
     private static void WriteDevbookFolders(string clone)

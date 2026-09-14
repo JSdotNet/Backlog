@@ -87,7 +87,7 @@ public sealed class HomeDevbookPaneTests
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
         context.Services.AddSingleton<Arc42DevbookStore>();
-        // Every knowledge panel now renders its selected chapter through the
+        // Every Devbook panel now renders its selected chapter through the
         // shared editing surface, and that surface writes. A host that composes
         // the pane composes the writer with it.
         context.Services.AddSingleton<DevbookChapterWriter>();

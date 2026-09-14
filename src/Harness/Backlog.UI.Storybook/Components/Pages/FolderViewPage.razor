@@ -65,9 +65,9 @@ The icon is `aria-hidden` and the accessible name is the words: a screen reader 
     </Story>
 
     <Story Name="Where it came from"
-           Description="This component is the desktop's knowledge menu with the vocabulary taken back out. That menu knew about areas, repository aliases, which chapter of arc42 sorts before which, and where an index.md hides — none of which a folder has. What was left when those went is what any folder anywhere has, and that is FolderEntry: a path, a name, whether it is a folder, what is inside, and whether it can be read at all.
+           Description="This component is the desktop's Devbook menu with the vocabulary taken back out. That menu knew about areas, repository aliases, which chapter of arc42 sorts before which, and where an index.md hides — none of which a folder has. What was left when those went is what any folder anywhere has, and that is FolderEntry: a path, a name, whether it is a folder, what is inside, and whether it can be read at all.
 
-Sorting stayed with the caller on purpose. Which files matter and in what order is the one thing about a folder that is never generic — the knowledge menu floats adr and tdr into the middle of a numbered sequence, and no component could have guessed that.">
+Sorting stayed with the caller on purpose. Which files matter and in what order is the one thing about a folder that is never generic — the Devbook menu floats adr and tdr into the middle of a numbered sequence, and no component could have guessed that.">
         <dl class="sb-grid" data-testid="folder-view-model">
             @foreach (var part in Model)
             {
@@ -100,7 +100,7 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
     </Story>
 
     <Story Name="Beside the file it opens"
-           Description="The pair the knowledge pane is made of, and the reason both components have the same header: a folder on the left, the file it selected on the right. Nothing here loads anything — the storybook has no file system — but the shape is the shape, and it is composition rather than a third component. Fill on both, so the column decides the height and each body scrolls inside it."
+           Description="The pair the Devbook pane is made of, and the reason both components have the same header: a folder on the left, the file it selected on the right. Nothing here loads anything — the storybook has no file system — but the shape is the shape, and it is composition rather than a third component. Fill on both, so the column decides the height and each body scrolls inside it."
            Code="@PairCode">
         <div class="sb-tall">
             <div class="sb-pane-pair" data-testid="folder-view-pair">

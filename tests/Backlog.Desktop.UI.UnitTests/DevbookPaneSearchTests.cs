@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The search surface in the knowledge pane, and the one state local ADR 0004's
+/// The search surface in the Devbook pane, and the one state local ADR 0004's
 /// degradation ladder shows a user.
 ///
 /// <para>Every other knowledge consumer degrades quietly: no index means it reads

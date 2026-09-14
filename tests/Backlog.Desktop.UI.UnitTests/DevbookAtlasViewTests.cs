@@ -38,7 +38,7 @@ public sealed class DevbookAtlasViewTests : IDisposable
     }
 
     /// <summary>The scope is the host's to drive — see the section strip's own
-    /// "All knowledge" button in <c>DevbookPane</c> — and this view just follows
+    /// "Whole devbook" button in <c>DevbookPane</c> — and this view just follows
     /// whatever it is handed.</summary>
     [Fact]
     public void Changing_the_scope_parameter_reads_that_one()
@@ -52,7 +52,7 @@ public sealed class DevbookAtlasViewTests : IDisposable
         component.Render(parameters => parameters.Add(view => view.Scope, DevbookAtlasScope.All));
 
         component.WaitForAssertion(() =>
-            Assert.Equal("All knowledge", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
+            Assert.Equal("Whole devbook", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
     }
 
     /// <summary>Selecting a document opens the sheet on it, with the group as the

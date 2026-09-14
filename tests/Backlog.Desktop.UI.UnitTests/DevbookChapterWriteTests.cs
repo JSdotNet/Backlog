@@ -443,7 +443,7 @@ public sealed class DevbookChapterWriteTests : IDisposable
     /// buffer at the moment the buffer was loaded.</summary>
     private static DevbookChapterStatus Baseline(string buffer) => DevbookChapterStatus.Read(buffer);
 
-    /// <summary>A chapter file in its own knowledge root, plus the ref that names
+    /// <summary>A chapter file in its own devbook root, plus the ref that names
     /// it — the pairing every one of these tests starts from. The text goes out
     /// through an explicit encoding rather than the default one, because whether
     /// the file carries a byte-order mark is part of what is under test.</summary>

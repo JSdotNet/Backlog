@@ -33,7 +33,7 @@ public static class DevbookAreaCatalog
     /// product reads.
     /// <para>
     /// The leading segment is a knowledge folder key, so it goes through the same
-    /// folder-key-to-section map the knowledge menu is built from rather than
+    /// folder-key-to-section map the Devbook menu is built from rather than
     /// through a second one written here; the answer is then only handed back when
     /// it names a section on this list. A reference into <c>.github</c> resolves to
     /// nothing, which is the honest answer: there is no section to send a reader

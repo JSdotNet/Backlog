@@ -44,7 +44,7 @@ public sealed class DevbookStackLayoutTests
 
         var rule = css[ruleStart..ruleEnd];
 
-        Assert.Contains(".devbook-stack__section > .domain-knowledge", rule, StringComparison.Ordinal);
+        Assert.Contains(".devbook-stack__section > .domain-devbook", rule, StringComparison.Ordinal);
         Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);
         Assert.Contains("overflow: hidden;", rule, StringComparison.Ordinal);
@@ -64,7 +64,7 @@ public sealed class DevbookStackLayoutTests
 
         var rule = css[ruleStart..ruleEnd];
 
-        Assert.Contains(".devbook-stack__section > .domain-knowledge > .domain-document", rule, StringComparison.Ordinal);
+        Assert.Contains(".devbook-stack__section > .domain-devbook > .domain-document", rule, StringComparison.Ordinal);
         Assert.Contains("flex: 1 1 auto;", rule, StringComparison.Ordinal);
         Assert.Contains("max-height: 100%;", rule, StringComparison.Ordinal);
         Assert.Contains("min-height: 0;", rule, StringComparison.Ordinal);

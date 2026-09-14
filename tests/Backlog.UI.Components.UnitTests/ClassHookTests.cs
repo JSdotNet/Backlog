@@ -174,12 +174,12 @@ public sealed class ClassHookTests
     }
 
     /// <summary>
-    /// The knowledge panels reach the same state through their vocabulary, and
+    /// The Devbook panels reach the same state through their vocabulary, and
     /// that is the third caller rather than a side effect.
     /// <para>
     /// <c>MetadataStatusVocabulary.SlugFor</c> answers the empty string for a
     /// status nobody stated — deliberately, so a file with no status cannot be
-    /// painted as <c>draft</c> — and both knowledge panels hand that answer
+    /// painted as <c>draft</c> — and both Devbook panels hand that answer
     /// straight to <c>Slug</c>. So a chapter or a record that states no status now
     /// draws the outline too, which is the same "no value recorded" fact the bulk
     /// bar's status is showing and the same reason it must not read as a filled
@@ -200,7 +200,7 @@ public sealed class ClassHookTests
     {
         var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Design);
 
-        // The half the knowledge panels rely on: no status, no modifier.
+        // The half the Devbook panels rely on: no status, no modifier.
         Assert.Equal(string.Empty, vocabulary.SlugFor(status));
 
         using var context = new BunitContext();
@@ -581,14 +581,14 @@ public sealed class ClassHookTests
 
         var alert = context.Render<Alert>(parameters => parameters
             .Add(a => a.Message, "Blocked is not reachable from Done")
-            .Add(a => a.BaseClass, "domain-knowledge__action-error")
+            .Add(a => a.BaseClass, "domain-devbook__action-error")
             .Add(a => a.Role, "status")
             .Add(a => a.Inline, true));
 
         var element = alert.Find("span");
 
         Assert.Empty(alert.FindAll("p"));
-        Assert.Equal("domain-knowledge__action-error", element.GetAttribute("class"));
+        Assert.Equal("domain-devbook__action-error", element.GetAttribute("class"));
         Assert.Equal("status", element.GetAttribute("role"));
     }
 

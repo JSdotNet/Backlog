@@ -411,7 +411,7 @@ internal static class IntegrationFixtures
         "proposal-rewrite-1",
         AiProposalKind.Rewrite,
         "The badge markup is improvised on every surface that shows it, so a state "
-        + "reads one way on the entry list and another in the knowledge pane. Absorbing "
+        + "reads one way on the entry list and another in the Devbook pane. Absorbing "
         + "it into one family is what makes the two agree.",
         Timestamp: "16 Aug, 09:41",
         Original: "The badge markup is a bit messy in places and should probably be tidied up "

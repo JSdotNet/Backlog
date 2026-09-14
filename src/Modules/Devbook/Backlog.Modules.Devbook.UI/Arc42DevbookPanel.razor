@@ -5,7 +5,7 @@
 
 @*
     No "Devbook" eyebrow and no title of its own: the tab strip above this
-    panel already says Architecture and the knowledge menu heads its column with
+    panel already says Architecture and the Devbook menu heads its column with
     the same word, so a third copy here was the section announcing itself to a
     reader who had just clicked it. The name survives for a screen reader as this
     region's label (.design/accessibility.md, "Names & roles"). The chapter count
@@ -13,10 +13,10 @@
     a line above that list saying how many there were was the list counting itself.
 *@
 
-<aside class="devbook-pane devbook-pane--arc42" data-testid="arc42-devbook-panel" aria-label="Architecture knowledge">
+<aside class="devbook-pane devbook-pane--arc42" data-testid="arc42-devbook-panel" aria-label="Architecture devbook">
     @if (_loading)
     {
-        <Alert Message="Loading architecture knowledge..." BaseClass="devbook-empty" Role="status" />
+        <Alert Message="Loading the architecture devbook..." BaseClass="devbook-empty" Role="status" />
     }
     else if (_catalog is null || !_catalog.Exists)
     {
@@ -67,7 +67,7 @@
         @* One column, holding the chapter. There was a second one beside it — a
            list of every chapter with its status and diagram count — drawn when no
            chapter had been asked for. That was the left column of a standalone
-           architecture page, and no such page was ever built: the knowledge pane
+           architecture page, and no such page was ever built: the Devbook pane
            is this panel's only host and it names a chapter from its first render,
            so the list could not be reached. The pane's menu is that list, and
            nothing the list said is missing without it — a chapter's status is in
@@ -76,7 +76,7 @@
             @* No longer a card. This article always holds a file view now, and the
                file view draws its own edge, so a card here framed a framed
                document — the nesting that was reported. It stays as an element
-               because it is what the knowledge stack scrolls and what holds the
+               because it is what the Devbook stack scrolls and what holds the
                chapter together; it simply draws nothing of its own. *@
             <article class="devbook-document" data-testid="arc42-document" aria-label="@_selected.Title">
                 @* The panel's own header, its state select, its relation count and
@@ -306,7 +306,7 @@
     /// <para>
     /// How a reference from outside this section arrives: a <c>.domain</c> chapter
     /// naming an arc42 C4 view has nowhere to send the reader except here, and the
-    /// host cannot select it through the knowledge menu because a view is not a file
+    /// host cannot select it through the Devbook menu because a view is not a file
     /// in it. So the host names the view and this panel opens it.
     /// </para>
     /// </summary>
@@ -592,7 +592,7 @@
     private Task NavigateDevbookReferenceAsync(DevbookReference reference)
     {
         // A reference into this section's own C4 model is followed here rather than
-        // handed up. The host selects by path in the knowledge menu and a view is not
+        // handed up. The host selects by path in the Devbook menu and a view is not
         // a file in it, so asking the host would be asking for something it cannot
         // do — and the reference would read as a control that goes nowhere.
         if (_c4.Find(reference?.Raw) is { } view)

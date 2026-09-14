@@ -153,7 +153,7 @@ Everything else on this pane is a reading being passed down: each chapter's stat
 
 The remarks themselves take four callbacks: `OnAddComment` for the affordance on a block, `OnEditComment` and `OnResolveComment` for an existing remark's own buttons, and `OnDeleteComment` for taking one away outright. Press the affordance and the new remark opens straight into its own textarea — the host answers with an empty body, and an empty body is what tells the view this is a fresh draft rather than something to read. Cancel on that draft calls `OnDeleteComment` too, so an abandoned remark does not linger as a blank note in the margin."
            Code="@ChapterCode">
-        <div class="sb-tall" data-testid="file-view-knowledge">
+        <div class="sb-tall" data-testid="file-view-devbook">
             <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
                       Path=".domain/tasks/domain.md"
@@ -196,7 +196,7 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
     <Story Name="A control nobody would gain anything by pressing"
            Description="The same arbitration, from the other side. Compare is absent here, and that is the story: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at. The pane knows because the pane holds the baselines and does the aligning; the header is simply told there is nothing to offer.
 
-The rest of this pane is what the knowledge panes ask for. `RenderDevbookMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnDevbookNavigate` — press one and this story reports it."
+The rest of this pane is what the Devbook panes ask for. `RenderDevbookMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnDevbookNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
             <FileView Name="Domain: Tasks"
