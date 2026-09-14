@@ -16,6 +16,8 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Roadmap;
@@ -112,6 +114,14 @@ builder.Services.AddTasksModule();
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
     new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
+
+// The same arrangement for capture: the module brings the run, and the host picks
+// where the monitored sources are kept. Scoped to the content root like the
+// harness's other settings files, so a session here never rewrites the real
+// per-user choice.
+builder.Services.AddSingleton<ICaptureSourceSettings>(
+    _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddCaptureModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
 // see both contexts: the backlog's tag picker offers the plan's tags, and a roadmap
@@ -472,6 +482,17 @@ static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore
     }
 
     return new WorkingHoursSettingsStore(settingsPath);
+}
+
+static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_CAPTURE_SOURCES_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "capture-sources.settings.json");
+    }
+
+    return new CaptureSourcesSettingsStore(settingsPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

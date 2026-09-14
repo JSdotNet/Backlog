@@ -8,6 +8,10 @@
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject KnowledgeScope Knowledge
 @inject ShellNavigationStore ShellNavigation
+@* Injected hard rather than resolved: the Inbox's Capture button is on screen
+   whenever the Inbox is, and a host that composes the Inbox without the module
+   behind it should fail at startup rather than quietly offer a dead button. *@
+@inject ICaptureRunner CaptureRunner
 
 @*
     This page. It owns the header and the AI panel, and decides which surface sits
@@ -537,7 +541,7 @@
             <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" OnAdd="AddInboxItemAsync" OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
                 }
 
                 @if (TasksPaneVisible)
@@ -571,7 +575,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" OnAdd="AddInboxItemAsync" OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
                         }
 
                         @if (KnowledgePaneVisible)
@@ -923,6 +927,79 @@
     /// backlog beside the Inbox, and a choice held in the pane would reset to a
     /// flat list at exactly that moment.</summary>
     private InboxGrouping _inboxGrouping;
+
+    /// <summary>Whether a capture run is in flight, and what the last one said.
+    /// Held here rather than in the pane for the reason <see cref="_inboxGrouping"/>
+    /// is: the pane re-mounts when it changes slot, and a run's result dropping
+    /// at that moment would leave the reader with a button that did nothing.</summary>
+    private bool _captureRunning;
+    private string? _captureMessage;
+
+    /// <summary>
+    /// The Inbox's Add, answered: the title and notes become a backlog draft.
+    /// <para>
+    /// A draft, and not a selected one — <see cref="TasksDesktopState.AddDraftAsync"/>
+    /// says why it is not <c>NewRow</c>. The Inbox shows drafts, so the new one
+    /// appears in the queue the reader is filling rather than opening in the
+    /// backlog beside it. A refusal is a toast: the dialog has closed by the time
+    /// it arrives, and there is nowhere in the pane for a one-off failure to sit.
+    /// </para>
+    /// </summary>
+    private async Task AddInboxItemAsync(InboxCapture capture)
+    {
+        var result = await State.AddDraftAsync(capture.Title, capture.Notes);
+
+        if (result.IsFailure)
+        {
+            Toasts.Publish(ToastMessage.Error(result.Error.Message, "inbox-add-error"));
+        }
+    }
+
+    /// <summary>
+    /// The Inbox's Capture, answered: one run over the sources switched on in
+    /// Settings, reported back as a sentence the pane can print.
+    /// <para>
+    /// The runner never throws for a source — each answers for itself in the
+    /// result — so a throw here is the run itself failing to start, and that is
+    /// reported in the same line rather than left to the console.
+    /// </para>
+    /// </summary>
+    private async Task RunCaptureAsync()
+    {
+        if (_captureRunning) return;
+
+        _captureRunning = true;
+        _captureMessage = null;
+
+        try
+        {
+            _captureMessage = Describe(await CaptureRunner.RunAsync());
+        }
+        catch (Exception ex)
+        {
+            _captureMessage = $"Capture could not run: {ex.Message}";
+        }
+        finally
+        {
+            _captureRunning = false;
+        }
+    }
+
+    /// <summary>A run's result in one line. Nothing enabled points at the tab
+    /// that would change that; otherwise each source's own sentence, and the
+    /// total, so a run that found nothing still says it looked.</summary>
+    private static string Describe(CaptureRunResultDto run)
+    {
+        if (run.NothingEnabled)
+        {
+            return "No capture sources are enabled. Turn one on under Settings › Capture.";
+        }
+
+        var sources = string.Join(" · ", run.Sources.Select(source => source.Message));
+        var total = run.TotalNewItems == 1 ? "1 new item." : $"{run.TotalNewItems} new items.";
+
+        return $"{sources} {total}";
+    }
 
     private void SynchronizePaneAvailability()
     {

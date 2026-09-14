@@ -2716,13 +2716,43 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The header's text and its actions side by side, the way the tools pane lays
+   its header out; the actions keep their width and the text takes the rest. */
+.inbox-pane__header {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.inbox-pane__header-actions {
+    display: flex;
+    flex: none;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
 .inbox-pane__eyebrow,
 .inbox-pane__title,
 .inbox-pane__subtitle,
 .inbox-pane__empty,
+.inbox-pane__capture-result,
 .inbox-pane__item-title,
 .inbox-pane__item-meta {
     margin: 0;
+}
+
+/* What the last run said: a line in the pane's own body copy, above whatever
+   the queue holds, with room below it so it does not sit on the first drawer. */
+.inbox-pane__capture-result {
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__add-form {
+    display: grid;
+    gap: var(--spacing-md);
 }
 
 .inbox-pane__eyebrow {

@@ -13,6 +13,8 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Roadmap;
@@ -129,6 +131,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
+
+        // The same arrangement for capture: the module brings the run, and the host
+        // decides where the monitored sources are kept — its own per-user file
+        // beside the choices above, for the same reason theirs are not in
+        // settings.json. No source adapter is registered because none ships yet;
+        // the run says so per enabled source rather than needing one to exist.
+        builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddCaptureModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
         // owns and an adapter here answers because only an adapter may see both
