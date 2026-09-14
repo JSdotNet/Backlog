@@ -314,7 +314,7 @@ public sealed class TaskSyncWorker : IDisposable
     /// credential has no owner to replicate under, and a paired device with the
     /// feature off has asked for its tasks to stay on the machine; either one is
     /// reason enough for the loop not to exist.</summary>
-    private bool ShouldRun => _features.IsEnabled(SyncFeatures.TaskSync) && _credentials.Current is not null;
+    private bool ShouldRun => _features.IsEnabled(SyncFeatures.Sync) && _credentials.Current is not null;
 
     private void OnGateChanged() => ApplyGates();
 

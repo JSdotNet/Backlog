@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
     The sync service: the one HTTP surface in the product. It is a host, not a
@@ -8,6 +8,7 @@
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Sync.Api</RootNamespace>
+    <UserSecretsId>98bfd847-3884-49f0-aebf-b11e1e89fcb1</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

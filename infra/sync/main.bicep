@@ -16,6 +16,15 @@ param environmentName string
 @description('Azure region for every resource. azd supplies this from AZURE_LOCATION.')
 param location string = resourceGroup().location
 
+// West Europe and North Europe both refuse new Cosmos accounts for this subscription
+// ("high demand in <region>", ServiceUnavailable, zone redundancy off or not; the fix each
+// offers is a region-access request), so the account lives next to the Foundry account
+// instead. Cross-region latency from the container app is a few milliseconds on a store
+// that is written by a sync round-trip, not a request path.
+@minLength(1)
+@description('Azure region for the Cosmos account. azd supplies this from AZURE_COSMOS_LOCATION; defaults to swedencentral.')
+param cosmosLocation string = 'swedencentral'
+
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
@@ -188,7 +197,7 @@ resource keyVaultSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01
 // arrive as an Entra principal holding a data-plane role.
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
   name: cosmosAccountName
-  location: location
+  location: cosmosLocation
   kind: 'GlobalDocumentDB'
   tags: allTags
   properties: {
@@ -203,7 +212,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     }
     locations: [
       {
-        locationName: location
+        locationName: cosmosLocation
         failoverPriority: 0
         isZoneRedundant: false
       }

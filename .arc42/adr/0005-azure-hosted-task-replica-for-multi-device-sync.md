@@ -74,7 +74,8 @@ is still on screen.
 > machine is stamped from the caller's token rather than accepted from the body,
 > so a device can address nothing outside its own. **Built is not in service** here
 > either — same unprovisioned Azure, and its own `Dev` flag, off by default and
-> separate from `task-sync`. The twelve-month container TTL is unverifiable
+> separate from `task-sync` (as of 2026-09-14 the two, and `device-pairing`, are
+> one `sync` flag). The twelve-month container TTL is unverifiable
 > locally for the reason the 180-day one is.
 >
 > **Not built, and not to be read into either of the above.** The sparse rank key
