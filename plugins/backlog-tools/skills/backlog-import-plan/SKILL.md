@@ -33,10 +33,16 @@ mechanics; do not invent syntax beyond it.
    of this plan — clearing the entries nobody has started yet — instead of a second plan.
 3. Break the work into ordered entries, one per repository-scoped unit of work. For each
    entry, in this order:
-   - **Session name first.** One opening body line telling whoever runs the prompt to add
-     the plan name to their session's title, so every session spawned from this plan is
-     recognizable as belonging to it: ``Add the plan name `<tag>` to this session's title
-     before you start.`` Every entry carries it, worded the same way.
+   - **Marker first.** One opening body line in the exact shape of the grammar's
+     `## Plan item marker`, restating the entry's `id`, the plan tag, every `repo:` and every
+     `after:` — Backlog's copy button drops the metadata line, so this is how an entry pasted
+     back out of the app is still recognized and run by `backlog-run-plan-item`. Every entry
+     carries it; write the metadata line first and derive the marker from it, so the two
+     never disagree.
+   - **Session name second.** One body line telling whoever runs the prompt to add the plan
+     name to their session's title, so every session spawned from this plan is recognizable
+     as belonging to it: ``Add the plan name `<tag>` to this session's title before you
+     start.`` Every entry carries it, worded the same way.
    - **Instructions next.** The rest of the body — concise, no padding — is the entry's
      primary content.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
@@ -62,7 +68,7 @@ mechanics; do not invent syntax beyond it.
    transitively — and `repo:` once per repository the plan targeted. Its body asks whoever
    runs it to read the source material against what actually landed: every entry done, and
    nothing dropped, deferred or left half-finished along the way; anything still outstanding
-   is written up as a new entry rather than noted and forgotten. It opens with the
+   is written up as a new entry rather than noted and forgotten. It opens with the marker and
    session-name line like every other entry and carries a `Manual: ...` sign-off sub-item,
    but no knowledge/devbook reminder — it changes no repository of its own. Never omit it,
    however small the plan.
@@ -78,7 +84,7 @@ mechanics; do not invent syntax beyond it.
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
 - Every entry states a type, `!ready`, an `effort:`, `repo:`, an `id:`, and the plan's
-  shared `#tag`, and opens with the session-name line.
+  shared `#tag`, and opens with the marker line, then the session-name line.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
   dependencies.
 - The last entry is the plan review, waiting on every leaf of that order.

@@ -1,11 +1,14 @@
 # Backlog Import Plan Grammar
 
-Reference for `skills/backlog-import-plan`. Restates the grammar a generated plan must
-match — nothing here is invented; it mirrors Backlog's own decision
-(`.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its entry-text rules
-(`.design/content-editing.md#scheduling-and-dependency-tokens`) in the Backlog product
-repository. A plan is not a file format of its own — it is the same Backlog Entry text
-grammar, with more than one entry in the document.
+Reference for `skills/backlog-import-plan`, which writes plans, and
+`skills/backlog-run-plan-item`, which runs one entry of a plan pasted back out of Backlog.
+Restates the grammar a generated plan must match — nothing here is invented; it mirrors
+Backlog's own decision (`.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its
+entry-text rules (`.design/content-editing.md#scheduling-and-dependency-tokens`) in the
+Backlog product repository. A plan is not a file format of its own — it is the same
+Backlog Entry text grammar, with more than one entry in the document. The one thing this
+file adds on top of that grammar is the [plan item marker](#plan-item-marker): a body-prose
+convention of these two skills, not a token Backlog parses.
 
 ## Document shape
 
@@ -55,6 +58,8 @@ back.
 
 `prompt` `*high` `!ready` `@repos` `#vscode-desktop-rollout` `id:add-command` `repo:backlog-desktop` `effort:5`
 
+Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop` — run it with the `backlog-run-plan-item` skill.
+
 Add the plan name `vscode-desktop-rollout` to this session's title before you start.
 
 Add an export command to the command palette that serializes the current view to Markdown.
@@ -69,6 +74,8 @@ Add an export command to the command palette that serializes the current view to
 
 `prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
 
+Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `add-command` — run it with the `backlog-run-plan-item` skill.
+
 Add the plan name `vscode-desktop-rollout` to this session's title before you start.
 
 Wire the command from the previous prompt into the toolbar as a button.
@@ -79,6 +86,8 @@ Wire the command from the previous prompt into the toolbar as a button.
 
 `prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
 
+Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `backlog-run-plan-item` skill.
+
 Add the plan name `vscode-desktop-rollout` to this session's title before you start.
 
 Read the material this plan came from against what actually landed: every entry done, and
@@ -87,6 +96,30 @@ outstanding as a new entry.
 
 ## Manual: sign off that the plan is complete
 ```
+
+## Plan item marker
+
+The first body line of every entry. It exists because of what Backlog's copy button hands
+over: the entry's title, a blank line, and its body — never the metadata line, which
+Backlog treats as its own bookkeeping. An entry copied out of the app and pasted into a
+chat has therefore lost its `id:`, `#tag`, `repo:` and `after:` unless the body restates
+them, and the marker is that restatement, in the one shape `backlog-run-plan-item`
+recognizes:
+
+```
+Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<id>`[, `<id>`…]] — run it with the `backlog-run-plan-item` skill.
+```
+
+- Clauses in exactly that order; the `after` clause is omitted when the entry waits on
+  nothing. Every value is the same slug the metadata line carries, so `(tag, id)` in the
+  marker is the pair Backlog itself matches an entry by across plan versions.
+- The tag is written bare, not as `#tag`: a `#`-sigil in body prose is scanned as a tag
+  by the parser, and the entry already carries the plan tag on its metadata line.
+- The line is prose with backtick values in it, never backtick tokens alone. A body line
+  made only of backtick tokens would be read as a metadata line the moment a copied entry
+  — title, blank, body — is pasted back into Backlog.
+- It goes before the session-name line, which stays: the marker is what a tool keys on,
+  the session-name line is an instruction a person can follow without one.
 
 ## Sub-item conventions
 

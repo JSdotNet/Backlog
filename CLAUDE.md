@@ -47,9 +47,12 @@ which is a pull-request workflow rather than an orchestration.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
 auto-enabled — see `plugins/backlog-tools/README.md` for install steps in either Claude
-Code or GitHub Copilot CLI, which it ships manifests for. Its `backlog-import-plan` skill
-is user-invoked (`disable-model-invocation: true`) and one-shot, so it does not change the
-paragraph above: it is not an orchestration entrypoint and does not go through the gate.
+Code or GitHub Copilot CLI, which it ships manifests for. Neither of its skills changes the
+paragraph above: `backlog-import-plan` is user-invoked (`disable-model-invocation: true`)
+and one-shot, so it is not an orchestration entrypoint and does not go through the gate;
+`backlog-run-plan-item` is model-invoked when a plan item is pasted in, but it runs the
+item's instructions *through* the gate — the matching `orch-*` skill — rather than adding
+an execution path beside it.
 
 Changes confined to `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, `.design/`, `.github/`,
 or `README.md` are documentation work and do not pass through the code gate. See
@@ -183,3 +186,5 @@ orchestration dashboard.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.
+- `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a
+  plan pasted back out of the Backlog app, after checking it is still outstanding.
