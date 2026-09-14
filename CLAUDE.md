@@ -38,7 +38,7 @@ does not exempt code changes from the gate — treat this paragraph as the reque
 Routing (which category maps to which `orch-*` skill) comes from the `claude-desktop`
 plugin's `SessionStart` hook. If that routing context is not present in your session,
 treat this file as the source of the gate and pick the skill by category from
-`.github/instructions/context-loading.instructions.md`.
+`.agents/rules/context-loading.md`.
 
 This repository ships no repo-native `orch-*` skills. Every entrypoint is plugin-provided:
 the knowledge-folder orchestrations come from `knowledge-base`, and the rest — `orch-fallback`
@@ -150,7 +150,7 @@ the library — `BaseClass`, `CssClass`, `Bare`, or a per-part class parameter u
 already exists — rather than hand-rolling a second implementation.
 
 `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces this and holds the
-documented exceptions. See `.github/instructions/ui-components.instructions.md` for the full
+documented exceptions. See `.agents/rules/ui-components.md` for the full
 rule, including what the test cannot see.
 
 ## Authoritative guidance
@@ -176,13 +176,17 @@ orchestration dashboard.
 
 ## Further guidance
 
-- `.github/instructions/context-loading.instructions.md` — the full gate and the policy on
+Path-scoped rules are authored once under `.agents/rules/` and wrapped per host —
+`.claude/rules/<topic>.md` (`paths`) for Claude Code, `.github/instructions/<topic>.instructions.md`
+(`applyTo`) for Copilot. `.agents/rules/README.md` is the convention.
+
+- `.agents/rules/context-loading.md` — the full gate and the policy on
   which knowledge folders a workflow may load.
-- `.github/instructions/ui-components.instructions.md` — shared component adoption in the
+- `.agents/rules/ui-components.md` — shared component adoption in the
   application screens.
-- `.github/instructions/storybook.instructions.md` — authoring a storybook page and a
+- `.agents/rules/storybook.md` — authoring a storybook page and a
   story; the rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook`.
-- `.github/instructions/mcp-usage.instructions.md` — guidance authority order and which MCP servers remain in use.
+- `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.

@@ -137,7 +137,7 @@ themselves.
 - **Not used for guidance.** The `jsdotnet-project-guidelines` and
   `jsdotnet-project-design` servers were retired on 2026-08-27; their content was
   imported into `.arc42/adr/guidelines/` and `.design/`, which are the authority
-  `.github/instructions/mcp-usage.instructions.md` now names and need no server
+  `.agents/rules/mcp-usage.md` now names and need no server
   to read.
 
 ## Orchestration Dashboard
@@ -173,9 +173,11 @@ The standing brief an agent loads at session start, plus the scoped instruction
 files it pulls in per task.
 
 - **Used for** — `CLAUDE.md` and `.github/copilot-instructions.md` carry the
-  orchestration gate and the repository rules, one per harness. The four scoped
-  files under `.github/instructions/` (`context-loading`, `mcp-usage`, `naming`,
-  `ui-components`) carry the detail, and `.claude/orch-context.md` and
+  orchestration gate and the repository rules, one per harness. The five scoped
+  rules under `.agents/rules/` (`context-loading`, `mcp-usage`, `naming`,
+  `storybook`, `ui-components`) carry the detail — authored once, applied per
+  harness through a `paths` wrapper in `.claude/rules/` and an `applyTo` wrapper
+  in `.github/instructions/` — and `.claude/orch-context.md` and
   `.github/copilot-orch-context.md` carry the runtime facts — how to start the
   AppHost, which harness resources to validate against, and the default QA
   depth.

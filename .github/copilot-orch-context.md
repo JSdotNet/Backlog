@@ -151,7 +151,7 @@ requests are created through the `pr-jsdotnet` skill.
 ## MCP Servers
 
 Authority order and fallbacks are defined in
-`.github/instructions/mcp-usage.instructions.md`.
+`.agents/rules/mcp-usage.md`.
 
 **Guidance no longer comes from an MCP server.** The `jsdotnet-project-guidelines` and
 `jsdotnet-project-design` servers were retired on 2026-08-27, and their relevant content now
@@ -183,7 +183,9 @@ checks pass:
 
 - Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
   `knowledge-chapter-metadata.instructions.md`.
-- Instruction files keep valid `applyTo` and `description` frontmatter.
+- Every rule under `.agents/rules/` keeps `name`, `description` and `paths`, and its two
+  wrappers stay derived from it: `.claude/rules/<topic>.md` copies `paths`,
+  `.github/instructions/<topic>.instructions.md` sets `applyTo` to `paths` comma-joined.
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
   `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
   `_meta/` is committed any more, so there is no `git diff` to be clean: what
