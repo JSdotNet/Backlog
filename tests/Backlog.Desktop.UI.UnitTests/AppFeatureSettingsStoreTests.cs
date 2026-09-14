@@ -90,9 +90,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
-                SyncFeatures.DevicePairing,
-                SyncFeatures.TaskSync,
-                SyncFeatures.SessionSync,
+                SyncFeatures.Sync,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,
@@ -227,6 +225,95 @@ public sealed class AppFeatureSettingsStoreTests
 
             Assert.True(store.IsEnabled(TasksFeatures.Tasks));
             Assert.Equal([TasksFeatures.GitHubIntegration], store.Current.DisabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A feature whose key had to change still remembers what the reader chose
+    /// under the old one. Sync used to be three opt-in switches - device pairing,
+    /// task sync, session sync - and a file written while any of them was on
+    /// must come up with Sync on, or the rename would silently switch off the
+    /// very thing the person had asked for. The catalog names the former keys;
+    /// the store knows nothing about Sync itself.
+    /// </summary>
+    [Theory]
+    [InlineData("device-pairing")]
+    [InlineData("task-sync")]
+    [InlineData("session-sync")]
+    public void A_feature_stays_on_when_it_was_switched_on_under_a_former_key(string formerKey)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new { enabledFeatures = new[] { formerKey } }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.True(store.IsEnabled(SyncFeatures.Sync));
+            Assert.Equal([SyncFeatures.Sync], store.Current.EnabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>The former key is a way in, not a second name: once the choice
+    /// has been read it is kept under the current key and the old one is not
+    /// written back, and switching the feature off afterwards clears it for good
+    /// rather than leaving the old key behind to switch it on again at the next
+    /// start.</summary>
+    [Fact]
+    public void A_former_key_is_rewritten_under_the_current_one_on_the_next_save()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new { enabledFeatures = new[] { "task-sync" } }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+            store.SetEnabled(SyncFeatures.Sync, enabled: false);
+
+            var restarted = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.False(restarted.IsEnabled(SyncFeatures.Sync));
+            Assert.DoesNotContain("task-sync", File.ReadAllText(path));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>An opt-out feature reads its former key from the disabled set, the
+    /// same way round.</summary>
+    [Fact]
+    public void An_opt_out_feature_stays_off_when_it_was_switched_off_under_a_former_key()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new { disabledFeatures = new[] { "old-key" } }));
+
+            IReadOnlyList<AppFeatureDefinition> catalog =
+            [
+                new("new-key", "Renamed", "An opt-out feature that changed its key.", FormerKeys: ["old-key"])
+            ];
+
+            var store = new AppFeatureSettingsStore(catalog, path);
+
+            Assert.False(store.IsEnabled("new-key"));
+            Assert.Equal(["new-key"], store.Current.DisabledFeatures);
         }
         finally
         {
