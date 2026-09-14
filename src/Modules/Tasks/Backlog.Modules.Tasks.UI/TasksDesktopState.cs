@@ -1195,6 +1195,27 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (row.IsReadOnly) return;
 
+        if ((await DeleteOneAsync(row)).IsFailure) return;
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// Takes one row out of the store and the list, and nothing after that: no
+    /// renumbering and no refilter, because those are per batch and this is per
+    /// row. <see cref="DeleteRowAsync"/> is one row and the batch work;
+    /// <see cref="BulkDeleteAsync"/> is N of these and the batch work once.
+    /// <para>
+    /// A store that throws comes back as a value rather than out of here, so a
+    /// batch can carry on past it and say which row it was (guideline 0004). The
+    /// single-row path reads the same value and stops, which is what it did when
+    /// the catch was inline. A row that was never saved has nothing in the store
+    /// to refuse and simply leaves the list.
+    /// </para>
+    /// </summary>
+    private async Task<Result> DeleteOneAsync(EntryRow row)
+    {
         CancelDebounce(row);
 
         if (ReferenceEquals(EditingRow, row))
@@ -1217,22 +1238,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 _entries.Remove(id);
                 SetSaveState(AppSaveState.Saved);
             }
-            catch
+            catch (Exception exception)
             {
                 SetSaveState(AppSaveState.Error);
-                return;
+                return Result.Failure(Error.Unexpected("entry.delete_failed", exception.Message));
             }
-
-            Rows.Remove(row);
-            await NormalizeOrderAsync();
-            ApplyFilter();
-            return;
         }
 
         Rows.Remove(row);
-
-        await NormalizeOrderAsync();
-        ApplyFilter();
+        return Result.Success();
     }
 
     // --- Reordering ------------------------------------------------------
@@ -1731,6 +1745,62 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             row.RawText,
             row.PreviewMetadataTags.Where(existing =>
                 !string.Equals(existing, removed, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    /// <summary>
+    /// Deletes every picked entry.
+    /// <para>
+    /// The one bulk act that is not a rewrite, so it does not go through
+    /// <see cref="ApplyToSelectionAsync"/> — but it answers in the same shape,
+    /// because the caller's question is the same: how many went, how many were
+    /// left alone, which ones the store refused. <c>Updated</c> is the count
+    /// deleted; <c>Unchanged</c> is the read-only rows, skipped exactly as the
+    /// rewrites skip them.
+    /// </para>
+    /// <para>
+    /// Per row it is <see cref="DeleteOneAsync"/>, the same steps the single-row
+    /// bin takes; per batch the renumber and the refilter happen once at the end
+    /// rather than N times, and the refilter is what empties the selection — a
+    /// picked row that is no longer in view is no longer picked, so the bar goes
+    /// away on its own rather than being told to.
+    /// </para>
+    /// <para>
+    /// No transaction, for the reason <see cref="ApplyToSelectionAsync"/> gives:
+    /// a refusal on one row does not undo the rows before it and does not stop
+    /// the rows after it. It is counted and named instead.
+    /// </para>
+    /// </summary>
+    public async Task<BulkEditOutcome> BulkDeleteAsync()
+    {
+        // Snapshotted for the same reason ApplyToSelectionAsync snapshots: the
+        // rows leave the list as they go, and the live selection with them.
+        var rows = SelectedRows;
+
+        if (rows.Count == 0) return BulkEditOutcome.Nothing;
+
+        var deleted = 0;
+        var skipped = 0;
+        var failures = new List<BulkEditFailure>();
+
+        foreach (var row in rows)
+        {
+            if (row.IsReadOnly)
+            {
+                skipped++;
+                continue;
+            }
+
+            var removed = await DeleteOneAsync(row);
+
+            if (removed.IsSuccess) deleted++;
+            else failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, removed.Error));
+        }
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+        Changed?.Invoke();
+
+        return new BulkEditOutcome(deleted, skipped, failures);
     }
 
     /// <summary>

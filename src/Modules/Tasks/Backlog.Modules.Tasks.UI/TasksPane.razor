@@ -846,8 +846,9 @@
     // --- The bulk bar ------------------------------------------------------
 
     /// <summary>
-    /// The eight fields a reader can change across a whole selection, as one band
-    /// of five acts across the width of the bar.
+    /// The eight fields a reader can change across a whole selection, and the one
+    /// thing they can do to it that is not a change, as one band across the width
+    /// of the bar: five acts and a delete.
     /// <para>
     /// Every one of them is a control the library already ships and the pane
     /// already uses elsewhere — nothing here is a second implementation of a
@@ -877,9 +878,10 @@
     /// <para>
     /// What is here now is the same pane in <c>Band</c>, which flows the groups
     /// across the width, plus one act per group rather than one act per field. The
-    /// resting bar is five triggers on a single line — My Day, Repository,
-    /// Classification, Scheduling, Tags — which is the "short row" the density
-    /// rule asks for and near enough its budget of four to argue about. Pressing
+    /// resting bar is five triggers and a delete on a single line — My Day,
+    /// Repository, Classification, Scheduling, Tags, Delete — which is the "short
+    /// row" the density rule asks for and near enough its budget of four to argue
+    /// about. Pressing
     /// one opens that group's controls beside its trigger, wrapping the band to a
     /// second line; pressing another puts the first away. Nine controls in a row
     /// would have used the width just as well and would have been the first
@@ -940,6 +942,19 @@
     /// different questions, and neither is "replace what is there". The removal
     /// options are scoped to what the selection actually wears — an option that
     /// could not remove anything is an option that does nothing.
+    /// </para>
+    /// <para>
+    /// Delete is last, and is the library's <c>DeleteButton</c> rather than a
+    /// <c>TaskAction</c>: the one destructive act on the bar is the one that
+    /// should not look like the five beside it, and the red slab is how every
+    /// other delete in this product looks. It applies on the press, like My Day
+    /// and like the single-row bin — it began as a disclosure whose second press
+    /// was the confirmation, and that was taken out on review: two presses for
+    /// what one row does in one is a bar that trusts the reader less than the row
+    /// does, and the count on the button already says what the press will take.
+    /// Last rather than first, because the row footer's argument for leading with
+    /// the bin — keep it away from the button that commits — points the other way
+    /// on a bar whose only other end is the count.
     /// </para>
     /// </summary>
     private RenderFragment RenderBulkActions() =>
@@ -1156,6 +1171,17 @@
                                          OnChanged="OnBulkRemoveTagAsync" />
                         </span>
                     }
+                </TaskActionGroup>
+
+                @* The library's one destructive button, wearing the count so the
+                   reader is looking at the number before the act. Live: a row
+                   unticked takes one off the button too. *@
+                <TaskActionGroup Label="Delete" TestId="bulk-group-delete">
+                    <DeleteButton Size="ButtonSize.Small"
+                                  Label="@($"Delete {State.SelectionCount} {TaskWord(State.SelectionCount)}")"
+                                  AriaLabel="@($"Delete the {State.SelectionCount} selected {TaskWord(State.SelectionCount)}")"
+                                  TestId="bulk-delete"
+                                  OnClick="OnBulkDeleteAsync" />
                 </TaskActionGroup>
             </Groups>
         </TaskActionPane>;
@@ -1390,9 +1416,19 @@
             ? Task.CompletedTask
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
+    private Task OnBulkDeleteAsync() =>
+        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted");
+
     /// <summary>Runs one bulk change and says what it did. Nothing selected says
-    /// nothing at all rather than raising a toast about no rows.</summary>
-    private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
+    /// nothing at all rather than raising a toast about no rows.
+    /// <para>The verbs are the sentence's, not the outcome's: an outcome counts
+    /// rows either way, and a delete that reported "2 tasks updated" would be
+    /// true in the outcome's terms and a lie in the reader's.</para></summary>
+    private async Task ApplyBulkAsync(
+        Func<Task<BulkEditOutcome>> change,
+        string did = "updated",
+        string none = "No tasks changed",
+        string refused = "could not be saved")
     {
         // The group that opened these controls has had its answer, so it closes —
         // the same close-on-commit the detail pane's own date and select handlers
@@ -1408,7 +1444,7 @@
         // sentence still leads with what landed, but a reader who asked for one
         // field on twenty rows and got it on eight needs the longer dwell to read
         // the rest of it.
-        var message = BulkMessage(outcome);
+        var message = BulkMessage(outcome, did, none, refused);
 
         Toasts.Publish(outcome.Failures.Count > 0
             ? ToastMessage.Warning(message, BulkResultTestId)
@@ -1425,17 +1461,17 @@
     /// the count of what <em>did</em> land never goes missing behind an error.
     /// </para>
     /// </summary>
-    private static string BulkMessage(BulkEditOutcome outcome)
+    private static string BulkMessage(BulkEditOutcome outcome, string did, string none, string refused)
     {
         var clauses = new List<string>
         {
             outcome.Updated > 0
-                ? $"{outcome.Updated} {TaskWord(outcome.Updated)} updated"
-                : "No tasks changed"
+                ? $"{outcome.Updated} {TaskWord(outcome.Updated)} {did}"
+                : none
         };
 
         if (outcome.Unchanged > 0) clauses.Add($"{outcome.Unchanged} already up to date");
-        if (outcome.Failures.Count > 0) clauses.Add($"{outcome.Failures.Count} could not be saved");
+        if (outcome.Failures.Count > 0) clauses.Add($"{outcome.Failures.Count} {refused}");
 
         return string.Join(", ", clauses) + ".";
     }
