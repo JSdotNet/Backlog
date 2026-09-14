@@ -3,11 +3,11 @@ namespace Backlog.Infrastructure.Sync;
 /// <summary>
 /// A credential store that forgets on exit.
 /// <para>
-/// Two hosts want one. The Android head has no DPAPI and its own secure storage
-/// adapter is a slice of its own, so until that lands a phone pairs once per
-/// run — which is honest about what it can keep rather than writing the secret
-/// to a plain file and calling it stored. Tests want one because the thing under
-/// test is usually the token provider or a screen, not the envelope.
+/// Tests want one because the thing under test is usually the token provider
+/// or a screen, not the envelope. The development harnesses fall back to one on
+/// a platform without DPAPI, which is honest about what they can keep rather
+/// than writing the secret to a plain file and calling it stored. The Android
+/// head used to be the third taker, until its SecureStorage adapter landed.
 /// </para>
 /// </summary>
 public sealed class InMemoryDeviceCredentialStore : IDeviceCredentialStore
