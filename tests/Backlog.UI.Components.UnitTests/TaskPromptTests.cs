@@ -477,6 +477,176 @@ public sealed class TaskPromptTests
             withUniverse.Select(status => (status.Id, status.Readiness, status.InCycle)));
     }
 
+    // --- Following a dependency ---------------------------------------------
+    //
+    // "Waiting for Review the draft" names the step, and a reader who does not
+    // know where that step is was still stuck. Each name the list can resolve is
+    // a control that goes there; an id it cannot resolve stays what it was —
+    // words — because a link to nothing is worse than no link.
+
+    [Fact]
+    public void The_chain_says_whether_a_dependency_is_drawn_here_or_only_known()
+    {
+        // Two different answers for the row: a step in this list can be reached
+        // by moving to it, a step only in the universe cannot, and the row has
+        // to know which before it offers either.
+        IReadOnlyList<TaskRow> tasks =
+        [
+            new("here", "In view", DependsOn: ["also-here", "elsewhere", "nowhere"]),
+            new("also-here", "Also in view")
+        ];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view")];
+
+        var status = TaskChain.Resolve(tasks, universe)[0];
+
+        Assert.Equal(
+            [("also-here", true, true), ("elsewhere", true, false), ("nowhere", false, false)],
+            status.Waiting.Select(dependency => (dependency.Id, dependency.Known, dependency.InList)));
+    }
+
+    [Fact]
+    public void A_known_dependency_is_a_control_and_an_unknown_one_stays_words()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, (TaskRow[])[.. Chain, new("ship", "Ship it", DependsOn: ["publish", "sign-off"])])
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-ship'] .task-item__detail--blocked");
+
+        // One control per step the list can find, named for where it goes.
+        var link = Assert.Single(waiting.QuerySelectorAll("button.task-item__dependency"));
+        Assert.Equal("button", link.GetAttribute("type"));
+        Assert.Equal("Publish it", link.TextContent);
+        Assert.Equal("Go to Publish it", link.GetAttribute("aria-label"));
+
+        // The id nobody here answers to is said verbatim, and it is not a button.
+        Assert.Contains("sign-off", waiting.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("sign-off", string.Concat(waiting.QuerySelectorAll("button").Select(b => b.TextContent)), StringComparison.Ordinal);
+
+        // Still one line, still read as "Waiting for Publish it, sign-off".
+        Assert.Equal("Waiting for", waiting.QuerySelector(".sr-only")!.TextContent);
+        Assert.Contains("Publish it, sign-off", waiting.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Following_a_dependency_moves_the_focus_to_its_row_and_opens_it()
+    {
+        // The row is a different element from the link, so "go there" is a focus
+        // move — the id is the handle that survives — and a host that opens rows
+        // is told the same thing a click on that row would have told it.
+        //
+        // In that order, and the order is asserted: focus first, as a click's
+        // mousedown does, then the selection. A host that closes an open entry
+        // when the focus leaves it reads the other order as the reader walking
+        // away from the row it just opened — which is what the desktop did.
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
+
+        string? selected = null;
+        var focusedBeforeSelecting = false;
+
+        context.JSInterop.SetupVoid("backlogFocus", _ => true).SetVoidResult();
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Chain)
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.OnSelected, id =>
+            {
+                focusedBeforeSelecting = context.JSInterop.Invocations["backlogFocus"].Count == 1;
+                selected = id;
+            })
+            .Add(l => l.TestId, "list"));
+
+        var target = view.Find("[data-testid='list-review-open']").GetAttribute("id");
+
+        view.Find("[data-testid='list-publish'] .task-item__dependency").Click();
+
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogFocus"]);
+        Assert.Equal(target, Assert.Single(invocation.Arguments) as string);
+        Assert.Equal("review", selected);
+        Assert.True(focusedBeforeSelecting, "The focus should move before the host is told to open the row.");
+    }
+
+    [Fact]
+    public void Following_a_dependency_the_list_does_not_draw_hands_it_to_the_host()
+    {
+        // A repo-scoped view names a step the filter hid. There is no row to move
+        // to, so the only way there is the host's: open it. Nothing is focused,
+        // because there is nothing here to put the focus on.
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view")];
+
+        string? selected = null;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.OnSelected, id => selected = id)
+            .Add(l => l.TestId, "list"));
+
+        view.Find("[data-testid='list-here'] .task-item__dependency").Click();
+
+        Assert.Equal("elsewhere", selected);
+        Assert.Empty(context.JSInterop.Invocations["backlogFocus"]);
+    }
+
+    [Fact]
+    public void A_dependency_nobody_can_follow_is_not_offered_as_a_control()
+    {
+        // Known, but only to the universe, and no host listening: pressing it
+        // would do nothing, so it is not a button — the same rule as the circle
+        // and the pencil.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        IReadOnlyList<TaskRow> tasks = [new("here", "In view", DependsOn: ["elsewhere"])];
+        IReadOnlyList<TaskRow> universe = [.. tasks, new("elsewhere", "Out of view")];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.Universe, universe)
+            .Add(l => l.TestId, "list"));
+
+        var waiting = view.Find("[data-testid='list-here'] .task-item__detail--blocked");
+
+        Assert.Empty(waiting.QuerySelectorAll("button"));
+        Assert.Contains("Out of view", waiting.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_row_with_a_dependency_to_follow_draws_its_line_beside_the_button()
+    {
+        // A button cannot hold a button, so the line takes the route tags-as-
+        // controls already take out of it — and a row with nothing to follow
+        // keeps the line where every other list draws it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, (TaskRow[])[.. Chain, new("ship", "Ship it", DependsOn: ["sign-off"])])
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        var publish = view.Find("[data-testid='list-publish']");
+        Assert.NotNull(publish.QuerySelector(".task-item__line"));
+        Assert.Empty(publish.QuerySelectorAll(".task-item__body button"));
+        Assert.NotNull(publish.QuerySelector(".task-item__line > .task-item__meta .task-item__dependency"));
+
+        var ship = view.Find("[data-testid='list-ship']");
+        Assert.Null(ship.QuerySelector(".task-item__line"));
+        Assert.NotNull(ship.QuerySelector(".task-item__body .task-item__detail--blocked"));
+    }
+
     // --- Cycles ------------------------------------------------------------
 
     [Fact]

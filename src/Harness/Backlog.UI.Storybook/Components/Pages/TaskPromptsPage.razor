@@ -120,6 +120,24 @@ Its metadata line names what it is waiting for, by title, at the front."
         </div>
     </Story>
 
+    <Story Name="Finding what a row is waiting for"
+           Description="Each name on the “waiting for” line that the list can resolve is a control: press it and the focus moves to that row, and a host listening on `OnSelected` hears the step's id as if the row itself had been clicked. The line leaves the row's button to hold them, the way it does when tags are controls.
+
+The last row waits on a step that is in the `Universe` but not in `Tasks` — a repository filter hid it, say. There is no row to move to, so following it is the host's: `OnSelected` fires and the host opens it. Without a host listening, a name like that stays words."
+           Code="@FollowCode">
+        <div class="sb-menu-wide" data-testid="prompt-follow">
+            <TaskListView Tasks="@Follow"
+                          Universe="@FollowUniverse"
+                          BodyLabel="Prompt"
+                          OnToggle="_ => { }"
+                          OnSelected="id => _followed = id"
+                          GroupCompleted="false"
+                          AriaLabel="Steps whose dependencies can be followed"
+                          TestId="follow" />
+        </div>
+        <p class="sb-state" data-testid="prompt-follow-opened">OnSelected: @(_followed ?? "(nothing yet)")</p>
+    </Story>
+
     <Story Name="An id that names nothing here"
            Description="The last row waits on `sign-off`, and no row in this list has that id. It stays blocked and says `sign-off` verbatim rather than dropping the dependency — only the reader can tell whether the step is filtered out of this view or the id is misspelt, and either way the string they need is on the row."
            Code="@DanglingCode">
@@ -351,6 +369,24 @@ Order and dependency are independent facts about the same pair of rows, so one g
         new("rank", "Rank them by severity", Group: "Prompts", DependsOn: ["collect"]),
         new("send", "Send the summary", Group: "Prompts", DependsOn: ["collect", "rank"])
     ];
+
+    /// <summary>What the follow story draws: a chain whose last step also waits
+    /// on one the list does not show. The universe below is where that one is.</summary>
+    private static readonly IReadOnlyList<TaskRow> Follow =
+    [
+        new("collect", "Collect the findings", Group: "Prompts"),
+        new("rank", "Rank them by severity", Group: "Prompts", DependsOn: ["collect"]),
+        new("send", "Send the summary", Group: "Prompts", DependsOn: ["collect", "rank", "sign-off"])
+    ];
+
+    private static readonly IReadOnlyList<TaskRow> FollowUniverse =
+    [
+        .. Follow,
+        new("sign-off", "Get the summary signed off", Group: "Elsewhere")
+    ];
+
+    /// <summary>The last id the follow story's host was told to open.</summary>
+    private string? _followed;
 
     private static readonly IReadOnlyList<TaskRow> Dangling =
     [
@@ -621,6 +657,24 @@ Order and dependency are independent facts about the same pair of rows, so one g
         @* OnToggle is supplied and the blocked row still renders state, not a
            control. A blocked row has nothing honest to offer. *@
         <TaskListView Tasks="@_tasks" OnToggle="Toggle" />
+        """;
+
+    private const string FollowCode = """
+        @* "send" waits on two rows in this list and one the list does not draw.
+           The universe is where that last id is looked up. *@
+        private IReadOnlyList<TaskRow> _tasks =
+        [
+            new("collect", "Collect the findings"),
+            new("rank",    "Rank them by severity",  DependsOn: ["collect"]),
+            new("send",    "Send the summary",       DependsOn: ["collect", "rank", "sign-off"])
+        ];
+
+        private IReadOnlyList<TaskRow> _universe = [.. _tasks, new("sign-off", "Get the summary signed off")];
+
+        @* Nothing to wire for the names in this list: the list moves the focus
+           itself. OnSelected is what lets a name the list does not draw be
+           followed — the host opens it. *@
+        <TaskListView Tasks="@_tasks" Universe="@_universe" OnSelected="Open" />
         """;
 
     private const string DanglingCode = """

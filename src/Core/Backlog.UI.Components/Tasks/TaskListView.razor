@@ -468,6 +468,7 @@
                    OnSelected="OnSelected"
                    OnRename="OnRename"
                    OnTagSelected="OnTagSelected"
+                   OnDependencySelected="FollowDependencyAsync"
                    DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
                    Actions="@RowActions"
@@ -1732,6 +1733,53 @@
             // Guarded exactly as the post-move focus below is: the row is still
             // there and still usable without its focus ring.
         }
+    }
+
+    /// <summary>
+    /// Takes the reader to the step a blocked row named.
+    /// <para>
+    /// Two halves, and a press gets whichever apply. When the step's row is drawn
+    /// here the focus moves to it — focus is what scrolls it into view and puts
+    /// the ring on it, and the id is the handle that survives every re-render,
+    /// exactly as it is after a keyboard move. And whether or not it is drawn,
+    /// the host hears <see cref="OnSelected"/> for it, which is what a click on
+    /// that row would have said: a host that opens rows opens this one, and that
+    /// is the only way to a step the host's own filter has hidden from the list.
+    /// </para>
+    /// <para>
+    /// Focus first, selection second, and the order is load-bearing. It is the
+    /// order a click on the row has — the browser focuses the row on mousedown
+    /// and the click changes the selection after — and a host that closes an
+    /// open entry when the focus leaves it tells the two apart by exactly that:
+    /// a focus that moves while the selection is still the old row is a switch
+    /// in progress, a focus that moves after the selection already changed reads
+    /// as the reader walking away from the entry they just opened. Deferring the
+    /// focus to the next render, as the keyboard move does, put it on the wrong
+    /// side of that line and closed the desktop's detail pane on the very row
+    /// this had just opened. Rows are keyed, so the element the ring lands on is
+    /// the one the host's re-render keeps.
+    /// </para>
+    /// <para>
+    /// The row already declined to draw the control when neither half would do
+    /// anything — see <c>TaskItem.CanFollow</c> — so nothing here has to.
+    /// </para>
+    /// </summary>
+    private async Task FollowDependencyAsync(string id)
+    {
+        if (Tasks.Any(task => string.Equals(task.Id, id, StringComparison.Ordinal)))
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", RowElementId(id));
+            }
+            catch (Exception)
+            {
+                // Guarded as every other focus move here is: the row is still
+                // there, the reader just does not get the ring.
+            }
+        }
+
+        if (OnSelected.HasDelegate) await OnSelected.InvokeAsync(id);
     }
 
     /// <summary>An id an HTML document will accept. Task ids are the host's and
