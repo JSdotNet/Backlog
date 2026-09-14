@@ -3525,6 +3525,37 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-primary);
 }
 
+/* A name on that line the list can take the reader to. It is a button wearing
+   the line's own text — no box, no padding, the line's font — because it is one
+   of the words in "Waiting for Review the draft" and a chip there would break
+   the sentence. It says it can be followed at rest, and not by colour alone: the
+   link ink plus a dotted underline, the pair inline links wear everywhere else
+   in the product, with the underline going solid under the pointer. The dotted
+   line is the whole difference between a step you can reach and an id the list
+   could not resolve, which sits beside it in the same ink as plain words. */
+.task-item__dependency {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    color: var(--color-text-link);
+    text-decoration: underline dotted;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.task-item__dependency:hover {
+    text-decoration: underline;
+}
+
+.task-item__dependency:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+    border-radius: var(--border-radius-sm);
+}
+
 /* A cycle is not a state a chain passes through; it is a mistake in the data
    that only the host can fix. It gets the soft error surface — painted on, with
    the text at full strength on top of it, which is what these semantic tokens

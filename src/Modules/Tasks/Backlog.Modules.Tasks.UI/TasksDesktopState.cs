@@ -806,6 +806,75 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Widens whichever scopes are hiding <paramref name="row"/> until it is in
+    /// view, and says whether anything had to change.
+    /// <para>
+    /// Exactly the scopes that hide it and no other. A reader who followed a
+    /// "waiting for" name off a blocked row asked to see one entry; they did not
+    /// ask to lose the tag or the status they were working in, so a scope the
+    /// entry already satisfies is left pressed. Each scope is asked the same
+    /// question <see cref="ApplyFilter"/> asks of it, so the two cannot disagree
+    /// about whether a row is in.
+    /// </para>
+    /// <para>
+    /// Here rather than in the pane because the answer has to be given in the
+    /// store's own terms — selection follows the list, so an entry the pane opens
+    /// must be one the list draws — and because the pane has no way to clear a
+    /// scope without also raising <see cref="Changed"/> per scope. One pass, one
+    /// <see cref="ApplyFilter"/>, and the caller raises nothing until it has also
+    /// selected the row.
+    /// </para>
+    /// <para>
+    /// The row being edited and an unsaved draft are pinned into view by
+    /// <see cref="ApplyFilter"/> whatever the scopes say, so a row already in
+    /// <see cref="FilteredRows"/> for any reason costs nothing here.
+    /// </para>
+    /// </summary>
+    public bool Reveal(EntryRow row)
+    {
+        if (FilteredRows.Any(visible => ReferenceEquals(visible, row))) return false;
+
+        var widened = false;
+
+        if (SelectedRepositoryAlias.Length > 0 && !RowBelongsToSelectedRepository(row))
+        {
+            SelectedRepositoryAlias = string.Empty;
+            widened = true;
+        }
+
+        if (MyDayOn is { } myDay && row.PreviewInMyDayOn != myDay)
+        {
+            MyDayOn = null;
+            widened = true;
+        }
+
+        if (NoRepositoryOnly && RepositoryFor(row) is not null)
+        {
+            NoRepositoryOnly = false;
+            widened = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire)
+            && StatusWire(row.PreviewStatus) != SelectedStatusFilterWire)
+        {
+            SelectedStatusFilterWire = string.Empty;
+            widened = true;
+        }
+
+        if (_selectedTags.Count > 0
+            && !((row.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
+                || row.PreviewTags.Any(_selectedTags.Contains)))
+        {
+            _selectedTags.Clear();
+            widened = true;
+        }
+
+        if (widened) ApplyFilter();
+
+        return widened;
+    }
+
     /// <summary>Appends a new, unsaved draft row at the end of the list and opens
     /// it in the detail pane, on its title. It is only persisted once a title line
     /// exists (the domain requires a title), so what is typed before that is held

@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "grep -q 'Backlog plan item `' && printf '%s\\n' 'This prompt carries a Backlog plan item marker: invoke the backlog-run-plan-item skill before doing anything else with it.' || true"
+          }
+        ]
+      }
+    ]
+  }
+}

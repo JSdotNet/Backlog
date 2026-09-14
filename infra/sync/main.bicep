@@ -43,6 +43,20 @@ param sessionRetentionSeconds int = 31536000
 @description('Days Log Analytics keeps ingested telemetry. Application observability only — no domain data reaches this workspace.')
 param logRetentionInDays int = 30
 
+// An emergency stop, not a budget knob. In September 2026 a sibling project
+// (spec-manager) paid ~$688 for one month of Log Analytics after stale container
+// revisions logged a stack trace every five seconds with nothing capping the
+// volume. Backlog cannot reach that state the same way — the sync app runs in
+// Single revision mode and scales to zero — but the workspace should still refuse
+// to bill an incident without limit. Once the quota is hit Azure drops everything
+// for the rest of the day, exceptions included; that is intended: on such a day
+// the volume is the incident, and the first lines already say what went wrong.
+// 1 GB is far above a normal day for a scale-to-zero personal tool and bounds a
+// repeat of that incident at roughly $3/day.
+@minValue(1)
+@description('Daily ingestion cap of the Log Analytics workspace, in GB. Emergency stop against runaway logging; Azure discards further ingestion for the rest of the day once it is reached.')
+param logDailyQuotaGb int = 1
+
 @description('Tags applied to every resource.')
 param tags object = {
   workload: 'Backlog'
@@ -113,6 +127,9 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
       name: 'PerGB2018'
     }
     retentionInDays: logRetentionInDays
+    workspaceCapping: {
+      dailyQuotaGb: logDailyQuotaGb
+    }
     features: {
       enableLogAccessUsingOnlyResourcePermissions: true
     }

@@ -533,6 +533,13 @@
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusRevealedRow)
+        {
+            _focusRevealedRow = false;
+            await FocusSelectedRowAsync();
+            return;
+        }
+
         switch (State.PendingCaret)
         {
             case PendingCaret.RawMarkdown when State.RawHatchOpen:
@@ -544,6 +551,41 @@
                 State.PendingCaret = PendingCaret.None;
                 await _panel.EditTitleAsync();
                 return;
+        }
+    }
+
+    /// <summary>Set when a followed dependency had to be revealed, so the focus can
+    /// be put on its row once the row exists — after the render, not before it.
+    /// See <see cref="OnEntrySelectedAsync"/>.</summary>
+    private bool _focusRevealedRow;
+
+    /// <summary>
+    /// True while this pane is itself moving the focus onto the open row.
+    /// <para>
+    /// That move raises a focusout like any other, and it lands outside the detail
+    /// half, so <see cref="OnPaneFocusOutAsync"/> would read it as the reader
+    /// leaving the entry that was just opened for them and close it. The guard
+    /// there cannot tell the two apart by where the focus went — a row is a row —
+    /// so it is told here that this one is the pane's own doing. Held only for the
+    /// duration of the move: the focusout reaches the pane before the move reports
+    /// back, which is the order the browser raises them in.
+    /// </para>
+    /// </summary>
+    private bool _focusingSelectedRow;
+
+    private async Task FocusSelectedRowAsync()
+    {
+        if (_list is null) return;
+
+        _focusingSelectedRow = true;
+
+        try
+        {
+            await _list.FocusSelectedAsync();
+        }
+        finally
+        {
+            _focusingSelectedRow = false;
         }
     }
 
@@ -1412,11 +1454,28 @@
     private string? RepositoryMark(TaskRow task) =>
         EntryFor(task.Id) is { } row ? State.RepositoryMarkClass(row) : null;
 
+    /// <summary>
+    /// A row asked to be opened — clicked, or named on another row's "waiting for"
+    /// line and followed.
+    /// <para>
+    /// A clicked row is in view by definition. A followed one need not be: the
+    /// repository picker, a status chip, a tag or My Day may be hiding the very
+    /// entry the blocked row is waiting on, and opening it while the list went on
+    /// not showing it read as the pane having opened something unrelated. So the
+    /// scopes that hide it are widened first — only those, see
+    /// <see cref="TasksDesktopState.Reveal"/> — and once the row is drawn the
+    /// focus is put on it after the render, which is what the list would have done
+    /// itself had the row been there to focus when the name was pressed.
+    /// </para>
+    /// </summary>
     private async Task OnEntrySelectedAsync(string id)
     {
         if (EntryFor(id) is not { } row) return;
 
         ClosePicker();
+
+        if (State.Reveal(row)) _focusRevealedRow = true;
+
         await State.SelectAsync(row);
     }
 
@@ -2746,6 +2805,9 @@
     private async Task OnPaneFocusOutAsync()
     {
         if (State.SelectedRow is not { } openedRow) return;
+
+        // The pane's own move onto the open row, not the reader's. See the field.
+        if (_focusingSelectedRow) return;
 
         bool left;
 

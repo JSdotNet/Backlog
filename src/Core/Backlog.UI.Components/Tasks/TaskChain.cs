@@ -33,7 +33,13 @@ public enum TaskReadiness
 /// list carries it. Null is the answer rather than a failed lookup, and it is
 /// why the row goes on to say the id verbatim instead of a title it does not
 /// have.</param>
-public sealed record TaskDependency(string Id, string? Title)
+/// <param name="InList">Whether the row it resolved to is one of the rows being
+/// drawn, as opposed to one the universe knows about and the list does not show.
+/// A different fact from <see cref="Known"/>, and the row needs both: a step
+/// drawn here can be reached by moving the focus to it, a step only the universe
+/// holds cannot — the only way there is for a host to open it. False whenever
+/// nothing resolved, since there is no row to be in the list.</param>
+public sealed record TaskDependency(string Id, string? Title, bool InList = false)
 {
     /// <summary>Whether this list holds the row that was named.</summary>
     public bool Known => Title is not null;
@@ -133,6 +139,10 @@ public static class TaskChain
         var byId = new Dictionary<string, TaskRow>(StringComparer.Ordinal);
         foreach (var task in universe) byId.TryAdd(task.Id, task);
 
+        // Which of those the list is actually drawing. When no universe was handed
+        // over this is every id there is, and the extra set costs one pass.
+        var drawn = new HashSet<string>(tasks.Select(task => task.Id), StringComparer.Ordinal);
+
         var cycled = CycleMembers(tasks, byId);
         var statuses = new List<TaskChainStatus>(tasks.Count);
 
@@ -151,7 +161,7 @@ public static class TaskChain
             {
                 if (byId.TryGetValue(id, out var row))
                 {
-                    if (!row.Done) waiting.Add(new TaskDependency(id, row.Title));
+                    if (!row.Done) waiting.Add(new TaskDependency(id, row.Title, drawn.Contains(id)));
                 }
                 else
                 {
