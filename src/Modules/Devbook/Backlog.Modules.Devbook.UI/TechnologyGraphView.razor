@@ -58,12 +58,12 @@
                             @DependentCount(node) here @(node.InDegree == 1 ? "depends" : "depend") on it.
                         </p>
 
-                        @if (KnowledgeReference.Parse(node.Id) is { } reference)
+                        @if (DevbookReference.Parse(node.Id) is { } reference)
                         {
                             <div class="tech-atlas-relations">
                                 <span class="tech-atlas-relations__label">Documented in</span>
                                 <div>
-                                    <KnowledgeReferenceLink Reference="@reference"
+                                    <DevbookReferenceLink Reference="@reference"
                                                             Text="@reference.Label"
                                                             OnNavigate="NavigateAsync" />
                                 </div>
@@ -121,12 +121,12 @@
     private TechnologyGraphData? _projected;
 
     [Parameter, EditorRequired]
-    public TechnologyKnowledgeView View { get; set; } = null!;
+    public TechnologyDevbookView View { get; set; } = null!;
 
     /// <summary>Raised when a reader follows a reference off a technology onto a
     /// chapter in another knowledge folder.</summary>
     [Parameter]
-    public EventCallback<KnowledgeChapterLink> OnNavigateToChapter { get; set; }
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
     /// <summary>Raised when a reader picks a different state for a technology. The
     /// panel owns writing it, because it owns the folder.</summary>
@@ -208,7 +208,7 @@
         // The folder's own vocabulary, not a list of this view's own. A status the
         // file already holds is kept even when the vocabulary does not name it, so
         // opening the select never silently offers to correct it.
-        var values = KnowledgeStatus.Values(KnowledgeFolder.Tech);
+        var values = DevbookStatus.Values(DevbookFolder.Tech);
         var options = values.Contains(status, StringComparer.OrdinalIgnoreCase) ? values : [.. values, status];
         return [.. options.Select(value => new SelectorOption(value, value))];
     }
@@ -243,8 +243,8 @@
             ? Task.CompletedTask
             : OnStatusChanged.InvokeAsync(new TechnologyStatusChange(node.Id, node.Status, status));
 
-    private Task NavigateAsync(KnowledgeReference reference) =>
-        KnowledgeChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
 
     /// <summary>One reference list, drawn through the shared reference control so a
     /// relation reads and behaves the way one does everywhere else. An empty list
@@ -259,9 +259,9 @@
                 <div>
                     @foreach (var value in references)
                     {
-                        @if (KnowledgeReference.Parse(value) is { } reference)
+                        @if (DevbookReference.Parse(value) is { } reference)
                         {
-                            <KnowledgeReferenceLink Reference="@reference"
+                            <DevbookReferenceLink Reference="@reference"
                                                     Text="@reference.Label"
                                                     OnNavigate="NavigateAsync" />
                         }

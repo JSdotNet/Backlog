@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.Knowledge;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -67,7 +67,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     /// </summary>
     private IReadOnlyList<KnowledgeGraphNode>? ReadDatabaseNodes()
     {
-        using var database = KnowledgeDatabase.TryOpen(KnowledgeDatabaseLocation.ForRepositoryRoot(_rootDirectory()));
+        using var database = DevbookDatabase.TryOpen(DevbookDatabaseLocation.ForRepositoryRoot(_rootDirectory()));
         if (database is null) return null;
 
         var roadmap = database.Attributes(RoadmapAttribute);

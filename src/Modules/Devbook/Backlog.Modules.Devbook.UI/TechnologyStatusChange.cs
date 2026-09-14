@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// A reader picked a different state for a technology in the atlas.

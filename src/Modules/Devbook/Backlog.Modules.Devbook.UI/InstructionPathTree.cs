@@ -1,6 +1,6 @@
 using Backlog.UI.Components.Menus;
 
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// The repository as a pickable tree, for asking the comparison what an

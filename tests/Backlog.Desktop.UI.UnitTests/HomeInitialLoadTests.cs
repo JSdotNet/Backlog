@@ -53,8 +53,8 @@ public sealed class HomeInitialLoadTests
         foreach (var feature in new[]
                  {
                      AppFeatures.InboxPane,
-                     KnowledgeFeatures.KnowledgeSections,
-                     KnowledgeFeatures.RepositoryKnowledge,
+                     DevbookFeatures.DevbookSections,
+                     DevbookFeatures.RepositoryDevbook,
                      DevPcFeatures.SystemTools,
                      AppFeatures.AiAssistant,
                      AppFeatures.FeedbackReporting,
@@ -65,7 +65,7 @@ public sealed class HomeInitialLoadTests
         }
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -77,7 +77,7 @@ public sealed class HomeInitialLoadTests
         context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
+        context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -88,20 +88,20 @@ public sealed class HomeInitialLoadTests
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

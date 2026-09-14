@@ -3,7 +3,7 @@
 
     `version`, an `alternatives` entry and every value of a key the schema does not
     define are this shape: a single word or number the author typed, with nothing
-    behind it to follow. `knowledge-value` is the quiet treatment that says "this is
+    behind it to follow. `devbook-value` is the quiet treatment that says "this is
     the value" and promises no destination — a scalar dressed as a link would invite
     a click nothing is waiting for.
 
@@ -52,7 +52,7 @@
     /// <summary>The class the value wears. Null drops the attribute, for a host
     /// laying values out under names of its own.</summary>
     [Parameter]
-    public string? ValueCssClass { get; set; } = "knowledge-value";
+    public string? ValueCssClass { get; set; } = "devbook-value";
 
     [Parameter]
     public string? TestId { get; set; }

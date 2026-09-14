@@ -262,7 +262,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>
-    /// A settings file written while <c>.backlog</c> was still a knowledge-base
+    /// A settings file written while <c>.backlog</c> was still a devbook-base
     /// section must keep opening the app. The row names a section that no longer
     /// exists, so it is dropped — silently, because there is nothing the reader
     /// could usefully do about a setting for a section they can no longer see.
@@ -275,7 +275,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Directory.CreateDirectory(appData);
         File.WriteAllText(settingsPath, """
             {
-              "knowledgeFolders": [
+              "devbookFolders": [
                 { "key": ".backlog", "enabled": true, "path": "docs/.backlog" },
                 { "key": ".domain", "enabled": false, "path": "docs/.domain" }
               ]
@@ -284,8 +284,8 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
 
         var store = new WorkspaceSettingsStore(appData, settingsPath);
 
-        Assert.DoesNotContain(".backlog", store.KnowledgeFolders.Select(folder => folder.Key));
-        var domain = store.KnowledgeFolders.Single(folder => folder.Key == ".domain");
+        Assert.DoesNotContain(".backlog", store.DevbookFolders.Select(folder => folder.Key));
+        var domain = store.DevbookFolders.Single(folder => folder.Key == ".domain");
         Assert.False(domain.Enabled);
         Assert.Equal("docs/.domain", domain.EffectivePath);
     }

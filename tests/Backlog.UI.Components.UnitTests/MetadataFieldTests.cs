@@ -17,10 +17,10 @@ public sealed class MetadataFieldTests
 
         var field = context.Render<MetadataField>(parameters => parameters
             .Add(row => row.Label, "depends-on")
-            .Add(row => row.ChildContent, "<code class=\"knowledge-value\">dotnet</code>"));
+            .Add(row => row.ChildContent, "<code class=\"devbook-value\">dotnet</code>"));
 
-        Assert.Equal("depends-on", field.Find("div.knowledge-fields__row > dt.knowledge-fields__label").TextContent);
-        Assert.NotNull(field.Find("div.knowledge-fields__row > dd.knowledge-fields__value > code.knowledge-value"));
+        Assert.Equal("depends-on", field.Find("div.devbook-fields__row > dt.devbook-fields__label").TextContent);
+        Assert.NotNull(field.Find("div.devbook-fields__row > dd.devbook-fields__value > code.devbook-value"));
 
         // Most rows are found by their label, so the value cell carries no test id
         // unless a field asks for one.
@@ -34,11 +34,11 @@ public sealed class MetadataFieldTests
 
         var field = context.Render<MetadataField>(parameters => parameters
             .Add(row => row.Label, "feature-flag")
-            .Add(row => row.TestId, "knowledge-feature-flag-tags"));
+            .Add(row => row.TestId, "devbook-feature-flag-tags"));
 
         // On the cell holding the values, not on the row: what a caller wants to
         // reach is the badges.
-        Assert.Equal("knowledge-feature-flag-tags", field.Find("dd").GetAttribute("data-testid"));
+        Assert.Equal("devbook-feature-flag-tags", field.Find("dd").GetAttribute("data-testid"));
         Assert.Null(field.Find("div").GetAttribute("data-testid"));
     }
 
@@ -56,12 +56,12 @@ public sealed class MetadataFieldTests
 
         var label = field.Find("dt");
         Assert.Equal("version", label.TextContent);
-        Assert.Equal("knowledge-fields__label sr-only", label.GetAttribute("class"));
+        Assert.Equal("devbook-fields__label sr-only", label.GetAttribute("class"));
 
         // The modifier is what lets the stylesheet hand the value the column the
         // hidden label is no longer holding.
         Assert.Equal(
-            "knowledge-fields__row knowledge-fields__row--bare",
+            "devbook-fields__row devbook-fields__row--bare",
             field.Find("div").GetAttribute("class"));
     }
 
@@ -102,8 +102,8 @@ public sealed class MetadataFieldTests
         var field = context.Render<MetadataField>(parameters => parameters
             .Add(row => row.Label, "aliases"));
 
-        Assert.Equal("knowledge-fields__label", field.Find("dt").GetAttribute("class"));
-        Assert.Equal("knowledge-fields__row", field.Find("div").GetAttribute("class"));
+        Assert.Equal("devbook-fields__label", field.Find("dt").GetAttribute("class"));
+        Assert.Equal("devbook-fields__row", field.Find("div").GetAttribute("class"));
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public sealed class MetadataFieldTests
         Assert.Equal("spec__row spec__row--wide", dressed.Find("div").GetAttribute("class"));
         Assert.Equal("spec__label", dressed.Find("dt").GetAttribute("class"));
         Assert.Equal("spec__value", dressed.Find("dd").GetAttribute("class"));
-        Assert.Empty(dressed.FindAll(".knowledge-fields__row"));
+        Assert.Empty(dressed.FindAll(".devbook-fields__row"));
 
         var bare = context.Render<MetadataField>(parameters => parameters
             .Add(row => row.Label, "kind")
@@ -145,7 +145,7 @@ public sealed class MetadataFieldTests
             .Add(row => row.Label, "effort"));
 
         Assert.Equal(string.Empty, field.Find("dd").InnerHtml);
-        Assert.NotNull(field.Find("div.knowledge-fields__row"));
+        Assert.NotNull(field.Find("div.devbook-fields__row"));
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class MetadataFieldTests
                 feature-flag: [inbox-pane]
                 owner: platform
                 """))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         // Every row is the same three elements, so the description list stays
         // paired however many fields the schema grows. The status is not among
@@ -171,10 +171,10 @@ public sealed class MetadataFieldTests
         // still one of these, which is why `kind` and `effort` are in this list.
         Assert.Equal(
             ["related", "kind", "effort", "feature-flag", "owner"],
-            record.FindAll("dl.knowledge-fields > div.knowledge-fields__row > dt").Select(label => label.TextContent));
+            record.FindAll("dl.devbook-fields > div.devbook-fields__row > dt").Select(label => label.TextContent));
 
         Assert.Equal(
-            record.FindAll("div.knowledge-fields__row").Count,
+            record.FindAll("div.devbook-fields__row").Count,
             record.FindComponents<MetadataField>().Count);
     }
 }

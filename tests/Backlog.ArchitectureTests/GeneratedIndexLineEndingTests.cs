@@ -16,7 +16,7 @@ namespace Backlog.ArchitectureTests;
 /// <c>git diff</c> showed nothing.</para>
 ///
 /// <para>The knowledge index is no longer one of these. Local ADR 0004 made the
-/// derived knowledge layer a generated <c>_meta/knowledge.db</c> that
+/// derived knowledge layer a generated <c>_meta/devbook.db</c> that
 /// <c>.gitignore</c> covers, so <c>**/_meta/*.json</c> matches nothing git tracks
 /// and there is nothing left for a phantom diff to be a diff against. That is why
 /// the pathspecs below are one generator's rather than two, and why the guard on

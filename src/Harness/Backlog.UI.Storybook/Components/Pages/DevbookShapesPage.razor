@@ -3,7 +3,7 @@
 <PageTitle>Chapter and file metadata — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Chapter and file"
-           Summary="A subpage of Knowledge base: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. Every story shows the `meta` fence its record was parsed from."
+           Summary="A subpage of Devbook: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. Every story shows the `meta` fence its record was parsed from."
            Guidelines="@Rules">
 
     <Story Name="One record, both shapes"
@@ -19,22 +19,22 @@ The fence is in the disclosure below rather than beside the two columns, and tha
            Code="@BothCode"
            Source="@SharedBlock"
            SourceLabel="The fence body both shapes were given">
-        <div class="sb-columns" data-testid="knowledge-shapes-both">
+        <div class="sb-columns" data-testid="devbook-shapes-both">
             <div class="sb-stack">
                 <p class="sb-label">Chapter — MetadataChapterView, the heading folded in</p>
                 <MetadataChapterView Metadata="@SharedRecord"
-                                     Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                     Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                      AriaLabel="The Runtime metadata"
-                                     TestId="knowledge-shapes-chapter"
+                                     TestId="devbook-shapes-chapter"
                                      Heading="@ChapterHeading" />
             </div>
             <div class="sb-stack">
                 <p class="sb-label">File — MetadataFileView, the name and its details as the headline</p>
                 <MetadataFileView Metadata="@SharedRecord"
-                                  Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                  Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                   AriaLabel="shared.md metadata"
                                   CssClass="file-view__record"
-                                  TestId="knowledge-shapes-file"
+                                  TestId="devbook-shapes-file"
                                   Heading="@FileHeading"
                                   HeadingAlone="@FileIdentity" />
             </div>
@@ -50,42 +50,42 @@ The status is held to the right edge of the heading's line, and the row never wr
 
 The source is beside the first example rather than folded away below, because *where the fence sits* is the shape being documented. A `meta` block directly under a `##`, before any prose, is a chapter's block; the same lines three paragraphs down are a record standing on its own. That is two lines of markdown doing the whole of the work, and a reader should not have to open a disclosure to see them."
            Code="@ChapterCode">
-        <div class="sb-stack" data-testid="knowledge-shapes-chapter-detail">
+        <div class="sb-stack" data-testid="devbook-shapes-chapter-detail">
             <div class="sb-columns">
                 <div class="sb-stack">
                     <p class="sb-label">What an author writes</p>
-                    <CodeView Source="@ChapterMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-shapes-chapter-source" />
+                    <CodeView Source="@ChapterMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-shapes-chapter-source" />
                 </div>
                 <div class="sb-stack">
                     <p class="sb-label">The heading and the record it was paired with</p>
                     <MetadataChapterView Metadata="@SharedRecord"
-                                         Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                         Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                          AriaLabel="The Runtime metadata"
-                                         TestId="knowledge-shapes-chapter-paired"
+                                         TestId="devbook-shapes-chapter-paired"
                                          Heading="@ChapterHeading" />
                 </div>
             </div>
 
             <p class="sb-label">A chapter, whole</p>
             <MetadataChapterView Metadata="@SharedRecord"
-                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                  AriaLabel="The Runtime metadata"
-                                 TestId="knowledge-shapes-chapter-whole"
+                                 TestId="devbook-shapes-chapter-whole"
                                  Heading="@ChapterHeading" />
 
             <p class="sb-label">A heading long enough to wrap, with the status still on its first line</p>
             <MetadataChapterView Metadata="@StatusOnly"
-                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                  AriaLabel="Long chapter metadata"
-                                 TestId="knowledge-shapes-chapter-long"
+                                 TestId="devbook-shapes-chapter-long"
                                  Heading="@LongChapterHeading" />
 
             <p class="sb-label">The same chapter with the fields off — the status, and the heading it belongs to</p>
             <MetadataChapterView Metadata="@SharedRecord"
-                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                  ShowFields="false"
                                  AriaLabel="The Runtime status"
-                                 TestId="knowledge-shapes-chapter-reading"
+                                 TestId="devbook-shapes-chapter-reading"
                                  Heading="@ChapterHeading" />
         </div>
     </Story>
@@ -99,11 +99,11 @@ Two heading fragments, because the two cases are not the same markup. Inside the
 
 The first pair is the point of the story and reads left to right. On the left, the fence as an author writes it, under the `#` title — inline rather than folded away, because the whole claim here is that a block written at the top of the body is drawn somewhere else entirely, and a reader cannot check that against a disclosure they have not opened. In the middle, `FileHeader` — the component that actually draws it, with the name, the path and the detail line the record wraps around. On the right, `MetadataFileView` alone: the same record with the header taken away, which is what the rest of this page is about. The bare one is the shape; the header is where a reader meets it."
            Code="@FileCode">
-        <div class="sb-stack" data-testid="knowledge-shapes-file-detail">
+        <div class="sb-stack" data-testid="devbook-shapes-file-detail">
             <div class="sb-columns">
                 <div class="sb-stack">
                     <p class="sb-label">What an author writes, under the title</p>
-                    <CodeView Source="@FileMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-shapes-file-source" />
+                    <CodeView Source="@FileMarkdown" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-shapes-file-source" />
                 </div>
                 <div class="sb-stack">
                     <p class="sb-label">Where a reader meets it — FileHeader, the pane's own header</p>
@@ -112,16 +112,16 @@ The first pair is the point of the story and reads left to right. On the left, t
                                 Source=".tech"
                                 Kind="Technology stack"
                                 Metadata="@SharedRecord"
-                                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
-                                TestId="knowledge-shapes-file-header" />
+                                Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                TestId="devbook-shapes-file-header" />
                 </div>
                 <div class="sb-stack">
                     <p class="sb-label">The shape on its own — MetadataFileView, no header around it</p>
                     <MetadataFileView Metadata="@SharedRecord"
-                                      Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                                       AriaLabel="shared.md metadata"
                                       CssClass="file-view__record"
-                                      TestId="knowledge-shapes-file-alone"
+                                      TestId="devbook-shapes-file-alone"
                                       Heading="@FileHeading"
                                       HeadingAlone="@FileIdentity" />
                 </div>
@@ -129,29 +129,29 @@ The first pair is the point of the story and reads left to right. On the left, t
 
             <p class="sb-label">A file, whole</p>
             <MetadataFileView Metadata="@SharedRecord"
-                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                               AriaLabel="shared.md metadata"
                               CssClass="file-view__record"
-                              TestId="knowledge-shapes-file-whole"
+                              TestId="devbook-shapes-file-whole"
                               Heading="@FileHeading"
                               HeadingAlone="@FileIdentity" />
 
             <p class="sb-label">The same file with the fields off, which is what a narrow header asks for</p>
             <MetadataFileView Metadata="@SharedRecord"
-                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                               ShowFields="false"
                               AriaLabel="shared.md status"
                               CssClass="file-view__record"
-                              TestId="knowledge-shapes-file-reading"
+                              TestId="devbook-shapes-file-reading"
                               Heading="@FileHeading"
                               HeadingAlone="@FileIdentity" />
 
             <p class="sb-label">A file with no block of its own — the name, and no record around it</p>
             <MetadataFileView Metadata="@MetadataRecord.Empty"
-                              Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)"
+                              Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
                               AriaLabel="notes.md metadata"
                               CssClass="file-view__record"
-                              TestId="knowledge-shapes-file-bare"
+                              TestId="devbook-shapes-file-bare"
                               Heading="@BareFileHeading"
                               HeadingAlone="@BareFileIdentity" />
 
@@ -164,10 +164,10 @@ The first pair is the point of the story and reads left to right. On the left, t
                because the difference between them is the whole convention. *@
             <p class="sb-label">The same absence in <code>.design</code>, where stating no status is an answer — the record stays, and offers it</p>
             <MetadataChapterView Metadata="@StatuslessDesignRecord"
-                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)"
+                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)"
                                  AriaLabel="Keyboard Navigation metadata"
                                  CssClass="file-view__record"
-                                 TestId="knowledge-shapes-chapter-statusless"
+                                 TestId="devbook-shapes-chapter-statusless"
                                  Heading="@StatuslessDesignHeading" />
         </div>
     </Story>
@@ -263,7 +263,7 @@ The first pair is the point of the story and reads left to right. On the left, t
     /// pairing decided by MarkdownView over a real file — is the parent page's
     /// first story. What matters for the layout is that the heading arrives as one
     /// element with block margins of its own, which is exactly what
-    /// <c>.knowledge-record__headline .md-heading</c> exists to flatten.</para>
+    /// <c>.devbook-record__headline .md-heading</c> exists to flatten.</para>
     /// </summary>
     private readonly RenderFragment ChapterHeading =
         @<p class="md-heading md-heading--2" role="heading" aria-level="2">The Runtime</p>;
@@ -310,11 +310,11 @@ The first pair is the point of the story and reads left to right. On the left, t
         @* One record, two shapes. Which one a host draws is a fact about where
            the block was written, not about what it says. *@
         <MetadataChapterView Metadata="@chapter.Metadata"
-                             Vocabulary="@KnowledgeStatus.Vocabulary(folder)"
+                             Vocabulary="@DevbookStatus.Vocabulary(folder)"
                              Heading="@RenderHeading(chapter)" />
 
         <MetadataFileView Metadata="@file?.Metadata"
-                          Vocabulary="@KnowledgeStatus.Vocabulary(folder)"
+                          Vocabulary="@DevbookStatus.Vocabulary(folder)"
                           Heading="@NameLine"
                           HeadingAlone="@NameLine" />
         """;
@@ -325,8 +325,8 @@ The first pair is the point of the story and reads left to right. On the left, t
         @if (PairedMetaFence(index) is { } fence)
         {
             <MetadataChapterView Metadata="@MetadataOf(fence)"
-                                 Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                                 ShowFields="@RenderKnowledgeMetadataFields"
+                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                                 ShowFields="@RenderDevbookMetadataFields"
                                  OnStatusChanged="status => ReportStatusAsync(index, status)"
                                  Heading="@RenderChapterHead(heading, index)" />
         }
@@ -344,8 +344,8 @@ The first pair is the point of the story and reads left to right. On the left, t
         <FileHeader Name="@Name"
                     Path="@Path"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                    ShowMetadataFields="@RenderKnowledgeMetadataFields"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                    ShowMetadataFields="@RenderDevbookMetadataFields"
                     OnStatusChanged="ReportFileStatusAsync" />
 
         @* What the header draws with it — the name and its detail line wrapped as
@@ -353,7 +353,7 @@ The first pair is the point of the story and reads left to right. On the left, t
            heading is a row because the path is on it, so with no record the
            identity column is made the row instead. *@
         <MetadataFileView Metadata="@Metadata"
-                          Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                          Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                           ShowFields="@ShowMetadataFields"
                           OnStatusChanged="@OnStatusChanged"
                           AriaLabel="@($"{Name} metadata")"

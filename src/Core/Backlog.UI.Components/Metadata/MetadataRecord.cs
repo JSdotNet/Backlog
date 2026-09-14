@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Devbook;
 
 namespace Backlog.UI.Components.Metadata;
 
@@ -14,19 +14,19 @@ namespace Backlog.UI.Components.Metadata;
 public sealed record MetadataRecord
 {
     /// <summary>Lifecycle state. The allowed values are folder-specific; see
-    /// <see cref="KnowledgeStatus"/>.</summary>
+    /// <see cref="DevbookStatus"/>.</summary>
     public string? Status { get; init; }
 
     /// <summary>References this chapter or file points at for context, without a
     /// hard dependency. Available in every folder.</summary>
-    public IReadOnlyList<KnowledgeReference> Related { get; init; } = [];
+    public IReadOnlyList<DevbookReference> Related { get; init; } = [];
 
     /// <summary>References that must land first — features, backlog items, and
     /// technologies use this where <c>related</c> would understate the order.</summary>
-    public IReadOnlyList<KnowledgeReference> DependsOn { get; init; } = [];
+    public IReadOnlyList<DevbookReference> DependsOn { get; init; } = [];
 
     /// <summary>What a backlog item delivers, as references into the domain.</summary>
-    public IReadOnlyList<KnowledgeReference> Implements { get; init; } = [];
+    public IReadOnlyList<DevbookReference> Implements { get; init; } = [];
 
     /// <summary>The tracking issue: a URL, or the <c>owner/repo#number</c>
     /// shorthand. Stored exactly as authored — the shorthand is not a reference
@@ -59,7 +59,7 @@ public sealed record MetadataRecord
     /// <summary>Roadmap item tag slugs this chapter or file contributes to.
     /// Plain strings by design — like <see cref="Aliases"/>, the values name
     /// roadmap items by their tag rather than addressing a chapter, so they are
-    /// never read as <see cref="KnowledgeReference"/>s and never become
+    /// never read as <see cref="DevbookReference"/>s and never become
     /// links.</summary>
     public IReadOnlyList<string> Roadmap { get; init; } = [];
 
@@ -167,7 +167,7 @@ public sealed record MetadataRecord
     /// the authored form. One target named by two fields is one edge in the
     /// graph, and a caller walking references should not visit it twice.
     /// </summary>
-    public IReadOnlyList<KnowledgeReference> References
+    public IReadOnlyList<DevbookReference> References
     {
         get
         {

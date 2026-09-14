@@ -622,7 +622,7 @@
 
     /// <summary>The repositories an entry may be filed against. Without the
     /// additional-repositories feature there is only ever the first one.</summary>
-    private IReadOnlyList<GitHubRepositoryRef> KnowledgeRepositories
+    private IReadOnlyList<GitHubRepositoryRef> DevbookRepositories
     {
         get
         {
@@ -637,7 +637,7 @@
         AdditionalRepositoriesEnabled ? State.RepositoryFor(row) : GitHub.Repositories.FirstOrDefault();
 
     private IReadOnlyList<SelectorOption> RepositoryOptions() =>
-        [.. KnowledgeRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
+        [.. DevbookRepositories.Select(repository => new SelectorOption(repository.Alias, repository.Alias))];
 
     /// <summary>The split's classes, and with nothing selected the modifier that
     /// gives the list the whole width. A class rather than a different component:
@@ -824,7 +824,7 @@
     /// </summary>
     private RenderFragment RenderRowPickers(EntryRow row, string title) =>
         @<span class="entry-row__pickers">
-            @if (KnowledgeRepositories.Count > 0)
+            @if (DevbookRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's
                    picker uses, so the additional-repositories feature is honoured
@@ -961,7 +961,7 @@
                 @* One field, and a group anyway: the caption is what a reader who
                    cannot see the band gets instead of the gaps in it, and "Filing"
                    is the word that says a repository is not a classification. *@
-                @if (KnowledgeRepositories.Count > 0)
+                @if (DevbookRepositories.Count > 0)
                 {
                     <TaskActionGroup Label="Filing" TestId="bulk-group-filing">
                         <TaskAction Icon="🗂"
@@ -2258,7 +2258,7 @@
                    something matters is a decision, and this strip is where the
                    entry's classification is stated. *@
 
-                @if (KnowledgeRepositories.Count > 0)
+                @if (DevbookRepositories.Count > 0)
                 {
                     <RepositorySelector CurrentValue="@(RepositoryFor(row)?.Alias ?? string.Empty)"
                                         Options="@RepositoryOptions()"

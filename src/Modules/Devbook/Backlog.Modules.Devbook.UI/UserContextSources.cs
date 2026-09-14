@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>Whether a user-level location is there, and whether it holds
 /// anything. Absent and empty are different claims and the view says so: a

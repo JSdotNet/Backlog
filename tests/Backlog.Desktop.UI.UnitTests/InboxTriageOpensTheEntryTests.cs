@@ -338,8 +338,8 @@ public sealed class InboxTriageOpensTheEntryTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, false);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, false);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, false);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
@@ -357,29 +357,29 @@ public sealed class InboxTriageOpensTheEntryTests
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(gitHubSettings, store));
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings, store));
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
             TasksTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // Home publishes its transient results on this, and injects it hard rather
         // than resolving it: a screen that silently lost the reader's only feedback

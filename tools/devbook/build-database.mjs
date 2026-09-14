@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// build-database.mjs — writes `_meta/knowledge.db`, the generated knowledge index.
+// build-database.mjs — writes `_meta/devbook.db`, the generated knowledge index.
 //
-//   node tools/knowledge/build-database.mjs              # write _meta/knowledge.db
-//   node tools/knowledge/build-database.mjs --check      # build it, report, write nothing
-//   node tools/knowledge/build-database.mjs --root ../other-repo
+//   node tools/devbook/build-database.mjs              # write _meta/devbook.db
+//   node tools/devbook/build-database.mjs --check      # build it, report, write nothing
+//   node tools/devbook/build-database.mjs --root ../other-repo
 //
 // ADR 0004 replaces the twelve committed `_meta/*.json` artifacts with one
 // SQLite file per repository. A scope is `WHERE folder = ?` rather than a
@@ -15,7 +15,7 @@
 //
 // This is repo-native tooling, and deliberately not an edit to
 // `.github/tools/knowledge-meta/build.mjs`: everything under that folder is an
-// installed copy of the knowledge-base plugin's tooling, which CLAUDE.md says to
+// installed copy of the devbook-base plugin's tooling, which CLAUDE.md says to
 // re-sync and never edit here. So this file *imports* the installed generator's
 // exported seam the way `check-metadata.mjs` already does — `buildGraph` for the
 // nodes and edges, `parseDocument` for the chapters, `folderKindForPath` for the
@@ -47,12 +47,12 @@ import {
     REPO_SCOPE,
 } from '../../.github/tools/knowledge-meta/graph.mjs';
 import { folderKindForPath, parseDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
-import { DATABASE_PATH, KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
+import { DATABASE_PATH, DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
 import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** The repository root, two levels up from `tools/knowledge/`. */
+/** The repository root, two levels up from `tools/devbook/`. */
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
 /** What the `meta` table records as having written the file. */
@@ -189,7 +189,7 @@ function proseText(lines, fenced, start, end) {
  *
  * Each slice comes back twice: `text` verbatim, and `searchText` as prose. The
  * second is what `chapter_fts` indexes and therefore what a reader is shown as
- * an excerpt — see `knowledge-schema.mjs` for why a fenced block never counts as
+ * an excerpt — see `devbook-schema.mjs` for why a fenced block never counts as
  * prose here.
  */
 function chapterSlices(markdown, chapters) {
@@ -227,7 +227,7 @@ function insertGraph(db, graph) {
             data.line ?? null,
             data.status ?? null,
             // A node outside the knowledge folders altogether: a reference
-            // target that resolves to no chapter here. See knowledge-schema.mjs.
+            // target that resolves to no chapter here. See devbook-schema.mjs.
             data.folder ? 0 : 1,
             typeof data.effort === 'number' ? data.effort : null,
             data.kind ?? null,
@@ -438,7 +438,7 @@ export async function buildDatabase(repoRoot, target) {
     let counts;
     try {
         db.exec('PRAGMA journal_mode = WAL');
-        db.exec(KNOWLEDGE_SCHEMA);
+        db.exec(DEVBOOK_SCHEMA);
         db.exec('BEGIN');
 
         const problems = [];

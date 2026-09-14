@@ -6,7 +6,7 @@
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAzureFoundryChatClient AzureFoundryChat
-@inject KnowledgeScope Knowledge
+@inject DevbookScope Devbook
 @inject ShellNavigationStore ShellNavigation
 
 @*
@@ -29,7 +29,7 @@
     page's single <main> landmark.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
-    Management, Second Brain, Roadmap, Dev PC Management, Sessions and the
+    Management, Devbook, Roadmap, Dev PC Management, Sessions and the
     Dashboard each render themselves from their own project, and the only thing
     that crosses between them here is the repository scope handed to the knowledge
     pane and the triaged item handed back from the inbox.
@@ -324,33 +324,33 @@
                     </ToggleButton>
                 </span>
 
-                @if (KnowledgePaneOptionVisible)
+                @if (DevbookPaneOptionVisible)
                 {
                     <span class="header-group__pane">
                         <ToggleButton BaseClass="header-group__pin"
                                       PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Knowledge)"
-                                      TestId="knowledge-pane-pin"
-                                      aria-controls="repository-knowledge-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Knowledge)"
-                                      AriaLabel="@PinLabel(GlobalPane.Knowledge, "Knowledge")"
-                                      Title="@PinTitle(GlobalPane.Knowledge, "Knowledge")"
-                                      PressedChanged="ToggleKnowledgePin">
+                                      Pressed="@PanePinned(GlobalPane.Devbook)"
+                                      TestId="devbook-pane-pin"
+                                      aria-controls="repository-devbook-pane"
+                                      Disabled="@PinToggleDisabled(GlobalPane.Devbook)"
+                                      AriaLabel="@PinLabel(GlobalPane.Devbook, "Devbook")"
+                                      Title="@PinTitle(GlobalPane.Devbook, "Devbook")"
+                                      PressedChanged="ToggleDevbookPin">
                             <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
                         </ToggleButton>
 
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="KnowledgePaneVisible"
-                                      id="knowledge-pane-option"
-                                      TestId="knowledge-pane-option"
-                                      aria-controls="repository-knowledge-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Knowledge)"
-                                      PressedChanged="ToggleKnowledgePane">
-                            Knowledge
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(KnowledgeFeatures.RepositoryKnowledge)"
-                                                Title="@FeatureStatusTitle(KnowledgeFeatures.RepositoryKnowledge)"
-                                                TestId="knowledge-feature-status" />
+                                      Pressed="DevbookPaneVisible"
+                                      id="devbook-pane-option"
+                                      TestId="devbook-pane-option"
+                                      aria-controls="repository-devbook-pane"
+                                      Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
+                                      PressedChanged="ToggleDevbookPane">
+                            Devbook
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
+                                                Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
+                                                TestId="devbook-feature-status" />
                         </ToggleButton>
                     </span>
                 }
@@ -534,7 +534,7 @@
             @* The pane row. It was the <main> itself until the band arrived above
                it; the class, the width variable and the test id are unchanged,
                because the resizer's JavaScript finds the layout by that test id. *@
-            <div class="knowledge-layout @((TasksPaneVisible && RightSidePaneVisible) ? "knowledge-layout--side-open" : "knowledge-layout--side-closed") @(InboxBeforeTasksVisible ? "knowledge-layout--inbox-before-backlog" : string.Empty)" style="--knowledge-panel-width: @_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="knowledge-layout">
+            <div class="devbook-layout @((TasksPaneVisible && RightSidePaneVisible) ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxBeforeTasksVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
                 @if (InboxBeforeTasksVisible)
                 {
                     <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
@@ -560,7 +560,7 @@
                              aria-label="Side pane width"
                              aria-valuemin="@MinSidePaneWidthRem"
                              aria-valuemax="@_maxSidePaneWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                             aria-valuenow="@_knowledgePanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                             aria-valuenow="@_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                              tabindex="0"
                              @onkeydown="OnResizerKeyDown"
                              @onkeydown:preventDefault="true">
@@ -574,9 +574,9 @@
                             <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
                         }
 
-                        @if (KnowledgePaneVisible)
+                        @if (DevbookPaneVisible)
                         {
-                            <KnowledgePane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                            <DevbookPane RepositoryAlias="@State.SelectedRepositoryAlias" />
                         }
                     </aside>
                 }
@@ -589,14 +589,14 @@
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
     private bool _aiExpanded;
     private GlobalPaneSelection _globalPanes = new();
-    private double _knowledgePanelWidthRem = SidePaneWidth.DefaultRem;
+    private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
 
     // Whether the roadmap band is on screen. Session-only and deliberately so:
     // WorkspaceSettingsStore scopes itself to where the backlog lives, which GitHub
     // repository backs that folder and which knowledge folders are configured —
     // three settings that are one decision, and what the reader currently has in
     // view is not that decision. The precedent for shell view state is
-    // _knowledgePanelWidthRem above, which is session-only for the same reason. It
+    // _devbookPanelWidthRem above, which is session-only for the same reason. It
     // is not a feature flag either: the flag decides whether a band exists at all,
     // this decides whether the one that exists is showing, so nothing here is reset
     // when the flag changes.
@@ -869,20 +869,20 @@
 
     private bool InboxPaneVisible => InboxPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Inbox);
 
-    /// <summary>Whether there is any knowledge to offer. The shell asks Second
-    /// Brain rather than working it out from folder settings itself.</summary>
-    private bool KnowledgePaneOptionVisible =>
-        IsFeatureEnabled(KnowledgeFeatures.RepositoryKnowledge)
-        && Knowledge.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
+    /// <summary>Whether there is any knowledge to offer. The shell asks Devbook
+    /// rather than working it out from folder settings itself.</summary>
+    private bool DevbookPaneOptionVisible =>
+        IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+        && Devbook.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
 
-    private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
+    private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 
     private bool InboxBeforeTasksVisible => TasksPaneVisible && InboxPaneVisible;
 
     /// <summary>Whether the side stack has anything in it. Tools used to count
     /// here; it no longer lives in the stack at all, so a stack holding only the
     /// tools pane can no longer happen and the split cannot open for it.</summary>
-    private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !TasksPaneVisible);
+    private bool RightSidePaneVisible => DevbookPaneVisible || (InboxPaneVisible && !TasksPaneVisible);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -928,7 +928,7 @@
     {
         _globalPanes.TrySetAvailable(GlobalPane.Tasks, available: true);
         _globalPanes.TrySetAvailable(GlobalPane.Inbox, InboxPaneOptionVisible);
-        _globalPanes.TrySetAvailable(GlobalPane.Knowledge, KnowledgePaneOptionVisible);
+        _globalPanes.TrySetAvailable(GlobalPane.Devbook, DevbookPaneOptionVisible);
         PersistPaneSelection();
     }
 
@@ -971,9 +971,9 @@
         PersistPaneSelection();
     }
 
-    private void ToggleKnowledgePane()
+    private void ToggleDevbookPane()
     {
-        _globalPanes.Toggle(GlobalPane.Knowledge);
+        _globalPanes.Toggle(GlobalPane.Devbook);
         PersistPaneSelection();
     }
 
@@ -1007,9 +1007,9 @@
         PersistPaneSelection();
     }
 
-    private void ToggleKnowledgePin()
+    private void ToggleDevbookPin()
     {
-        _globalPanes.TogglePin(GlobalPane.Knowledge);
+        _globalPanes.TogglePin(GlobalPane.Devbook);
         PersistPaneSelection();
     }
 
@@ -1086,9 +1086,9 @@
     public Task SetSidePaneWidthAsync(double widthRem)
     {
         var clamped = SidePaneWidth.Clamp(widthRem, _maxSidePaneWidthRem);
-        if (Math.Abs(clamped - _knowledgePanelWidthRem) < 0.001) return Task.CompletedTask;
+        if (Math.Abs(clamped - _devbookPanelWidthRem) < 0.001) return Task.CompletedTask;
 
-        _knowledgePanelWidthRem = clamped;
+        _devbookPanelWidthRem = clamped;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -1099,14 +1099,14 @@
     public Task SetSidePaneMaxWidthAsync(double maxRem)
     {
         var clamped = SidePaneWidth.Clamp(maxRem, SidePaneWidth.MaxRem);
-        var width = Math.Min(_knowledgePanelWidthRem, clamped);
-        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _knowledgePanelWidthRem) < 0.001)
+        var width = Math.Min(_devbookPanelWidthRem, clamped);
+        if (Math.Abs(clamped - _maxSidePaneWidthRem) < 0.001 && Math.Abs(width - _devbookPanelWidthRem) < 0.001)
         {
             return Task.CompletedTask;
         }
 
         _maxSidePaneWidthRem = clamped;
-        _knowledgePanelWidthRem = width;
+        _devbookPanelWidthRem = width;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -1126,7 +1126,7 @@
     // The drag lives in JavaScript because pointer capture does; the keyboard
     // equivalent stays here so the separator has one clamped source of truth.
     private void OnResizerKeyDown(KeyboardEventArgs e) =>
-        _knowledgePanelWidthRem = SidePaneWidth.Adjust(_knowledgePanelWidthRem, e.Key, _maxSidePaneWidthRem);
+        _devbookPanelWidthRem = SidePaneWidth.Adjust(_devbookPanelWidthRem, e.Key, _maxSidePaneWidthRem);
 
     // Asynchronous, because leaving the shell has an interop call to make on the
     // way out. The resizer holds a map of owners and invokes every one of them on

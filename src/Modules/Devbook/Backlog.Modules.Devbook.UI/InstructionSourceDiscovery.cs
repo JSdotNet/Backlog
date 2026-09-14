@@ -1,7 +1,7 @@
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Infrastructure.GitHub;
 
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 public sealed class InstructionSourceDiscovery
 {
@@ -32,7 +32,7 @@ public sealed class InstructionSourceDiscovery
     /// <paramref name="folders"/> is how a repository read from a branch finds
     /// its root. Instructions are the one area whose folder <em>is</em> the
     /// repository root — the setting carries an empty relative path — so the
-    /// knowledge-folder port already answers exactly the question this needed to
+    /// devbook-folder port already answers exactly the question this needed to
     /// ask, and asking it is what stops this from being a second, independent
     /// clone-directory gate that branch loading silently walks past. Omitting it
     /// falls back to the clone, which is what every caller did before branch
@@ -41,14 +41,14 @@ public sealed class InstructionSourceDiscovery
     /// </summary>
     public IReadOnlyList<InstructionRepositoryView> Discover(
         IEnumerable<GitHubRepositoryRef> repositories,
-        IKnowledgeFolderSource? folders = null) =>
+        IDevbookFolderSource? folders = null) =>
     [
         .. repositories.Select(repository => DiscoverRepository(repository, folders))
     ];
 
-    private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository, IKnowledgeFolderSource? folders)
+    private static InstructionRepositoryView DiscoverRepository(GitHubRepositoryRef repository, IDevbookFolderSource? folders)
     {
-        var instructions = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+        var instructions = DevbookFolderSetting.Normalize(repository.DevbookFolders)
             .FirstOrDefault(folder => string.Equals(folder.Key, "instructions", StringComparison.OrdinalIgnoreCase));
         if (instructions is { Enabled: false })
         {
@@ -60,7 +60,7 @@ public sealed class InstructionSourceDiscovery
         }
 
         var location = folders?.Resolve("instructions", repository.Alias);
-        var fromBranch = location?.Source is KnowledgeSourceKind.Branch;
+        var fromBranch = location?.Source is DevbookSourceKind.Branch;
 
         if (fromBranch && location is not { Available: true })
         {

@@ -1,6 +1,6 @@
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Desktop.UI.Shell;
@@ -8,7 +8,7 @@ using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -26,7 +26,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.Knowledge;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
@@ -64,7 +64,7 @@ public static class MauiProgram
         // neither context has to see the other's settings.
         builder.Services.AddSingleton<WorkspaceSettingsStore>();
 
-        // Knowledge read from a repository branch, for a repository nobody has
+        // Devbook read from a repository branch, for a repository nobody has
         // cloned. The download half lives in the GitHub adapter and the disk
         // half here; the cache root arrives as a delegate rather than as the
         // workspace store, because the GitHub adapter may not see this one.
@@ -75,15 +75,15 @@ public static class MauiProgram
             sp.GetRequiredService<IGitHubCredentialResolver>(),
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
             () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
-        builder.Services.AddSingleton<IKnowledgeSnapshotCache>(sp => new KnowledgeSnapshotCache(
-            () => sp.GetRequiredService<WorkspaceSettingsStore>().KnowledgeCacheDirectory,
+        builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
             sp.GetRequiredService<IGitHubArchiveClient>(),
             sp.GetRequiredService<IGitHubBranchCatalog>()));
 
-        builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
+        builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>(),
-            sp.GetRequiredService<IKnowledgeSnapshotCache>()));
+            sp.GetRequiredService<IDevbookSnapshotCache>()));
         builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
         // How often the list re-reads a store somebody else may have written to.
@@ -213,7 +213,7 @@ public static class MauiProgram
         // The embedding deployment beside the chat one. Registered and never
         // called in this change: local ADR 0004's semantic tier is wired and
         // dormant, and the thing that would join it up - writing vectors into
-        // _meta/knowledge.db - belongs to the Node generator, which is the only
+        // _meta/devbook.db - belongs to the Node generator, which is the only
         // writer that file has.
         builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -268,33 +268,33 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
-        builder.Services.AddSingleton<DesignKnowledgeProvider>();
-        builder.Services.AddSingleton<TechnologyKnowledgeService>();
-        builder.Services.AddSingleton<KnowledgeAtlasService>();
+        builder.Services.AddSingleton<DesignDevbookProvider>();
+        builder.Services.AddSingleton<TechnologyDevbookService>();
+        builder.Services.AddSingleton<DevbookAtlasService>();
         // Retrieval, both tiers. Adapters over the generated database rather than
         // over the Markdown: search is the one capability ADR 0004's ladder does
         // not let degrade to a corpus scan, so where there is no database these
         // report that in words instead of answering slowly or answering nothing.
-        builder.Services.AddSingleton<IKnowledgeSearch>(sp =>
-            new KnowledgeFullTextSearch(sp.GetRequiredService<IKnowledgeFolderSource>()));
-        builder.Services.AddSingleton<IKnowledgeVectorSearch>(sp =>
-            new KnowledgeSemanticSearch(sp.GetRequiredService<IKnowledgeFolderSource>(), KnowledgeEmbeddingModel.Default));
+        builder.Services.AddSingleton<IDevbookSearch>(sp =>
+            new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
+        builder.Services.AddSingleton<IDevbookVectorSearch>(sp =>
+            new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
         builder.Services.AddSingleton<InstructionSourceDiscovery>();
-        builder.Services.AddSingleton<KnowledgeMenu>();
+        builder.Services.AddSingleton<DevbookMenu>();
         builder.Services.AddSingleton<ICopilotCliLauncher, ProcessCopilotCliLauncher>();
         builder.Services.AddSingleton<TasksCopilotCli>();
-        builder.Services.AddSingleton<KnowledgeCopilotCli>();
+        builder.Services.AddSingleton<DevbookCopilotCli>();
         // The shared diagram component asks for this optionally, so registering it
         // is what switches Archify artifacts on for the app at all. Everything it
         // answers — the flag, which clone the chapters came from, whether a CLI is
         // installed — is the host's to know, which is why the library only asks.
         builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
-        builder.Services.AddSingleton<KnowledgeScope>();
-        builder.Services.AddSingleton<KnowledgeUpdateService>();
+        builder.Services.AddSingleton<DevbookScope>();
+        builder.Services.AddSingleton<DevbookUpdateService>();
 
         // Shared by the knowledge pane and the settings screen, and a singleton so
         // the branch list somebody fetched in one is already there in the other.
-        builder.Services.AddSingleton<KnowledgeSourceSelection>();
+        builder.Services.AddSingleton<DevbookSourceSelection>();
         builder.Services.AddSingleton<TasksDesktopState>();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the
@@ -307,15 +307,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<ToastChannel>();
         builder.Services.AddSingleton<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
         builder.Services.AddSingleton<IFolderEditorLauncher, VsCodeFolderEditorLauncher>();
-        builder.Services.AddSingleton<KnowledgeFolderOpenService>();
-        builder.Services.AddSingleton<Arc42KnowledgeStore>();
+        builder.Services.AddSingleton<DevbookFolderOpenService>();
+        builder.Services.AddSingleton<Arc42DevbookStore>();
         // The C4 model beside the architecture chapters. Registered next to the
         // arc42 store because it answers the same scope question against the same
         // clone; it reads its own feature key and hands back nothing when that key
         // is off, so registering it does not turn it on.
-        builder.Services.AddSingleton<C4KnowledgeStore>();
-        builder.Services.AddSingleton<KnowledgeChapterWriter>();
-        builder.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        builder.Services.AddSingleton<C4DevbookStore>();
+        builder.Services.AddSingleton<DevbookChapterWriter>();
+        builder.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is

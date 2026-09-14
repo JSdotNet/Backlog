@@ -63,11 +63,11 @@ What is deliberately not here is everything one block cannot know: the `meta` fe
                 @foreach (var block in DressBlocks)
                 {
                     <MarkdownBlockView Block="@block"
-                                       ParagraphCssClass="knowledge-p"
-                                       QuoteCssClass="knowledge-quote"
-                                       CodeCssClass="knowledge-code"
-                                       DividerCssClass="knowledge-divider"
-                                       ListCssClass="knowledge-list"
+                                       ParagraphCssClass="devbook-p"
+                                       QuoteCssClass="devbook-quote"
+                                       CodeCssClass="devbook-code"
+                                       DividerCssClass="devbook-divider"
+                                       ListCssClass="devbook-list"
                                        ListItemCssClass="@NoItemClass" />
                 }
                 @* Said here rather than left to be discovered: the column looks
@@ -143,7 +143,7 @@ Both columns below are handed the same list. Only the left one is listening, so 
             <div class="sb-stack">
                 <p class="sb-label">Dressed as a knowledge list — no item class, so no `class=&quot; &quot;`</p>
                 <MarkdownListView List="@HookList"
-                                  ListCssClass="knowledge-list"
+                                  ListCssClass="devbook-list"
                                   ItemCssClass="@NoItemClass" />
             </div>
         </div>
@@ -539,11 +539,11 @@ Reached directly, as below, the marks are not on the page, so the back-links poi
         @* One block, dressed in the host's own names. Null drops an
            attribute the read view always writes. *@
         <MarkdownBlockView Block="@block"
-                           ParagraphCssClass="knowledge-p"
-                           QuoteCssClass="knowledge-quote"
-                           CodeCssClass="knowledge-code"
-                           DividerCssClass="knowledge-divider"
-                           ListCssClass="knowledge-list"
+                           ParagraphCssClass="devbook-p"
+                           QuoteCssClass="devbook-quote"
+                           CodeCssClass="devbook-code"
+                           DividerCssClass="devbook-divider"
+                           ListCssClass="devbook-list"
                            ListItemCssClass="@null" />
         """;
 

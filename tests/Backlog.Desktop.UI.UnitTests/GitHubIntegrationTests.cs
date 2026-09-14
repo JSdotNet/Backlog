@@ -13,23 +13,23 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GitHubSettingsTests
 {
     [Fact]
-    public void Knowledge_folder_defaults_place_instructions_first()
+    public void Devbook_folder_defaults_place_instructions_first()
     {
-        Assert.Equal("instructions", KnowledgeFolderSetting.Defaults().First().Key);
+        Assert.Equal("instructions", DevbookFolderSetting.Defaults().First().Key);
     }
 
     /// <summary>A default carrying a path would be an override of itself, and the
     /// settings screen would read it as a choice somebody made.</summary>
     [Fact]
-    public void Knowledge_folder_defaults_carry_no_path_override()
+    public void Devbook_folder_defaults_carry_no_path_override()
     {
-        Assert.All(KnowledgeFolderSetting.Defaults(), folder => Assert.Null(folder.Path));
+        Assert.All(DevbookFolderSetting.Defaults(), folder => Assert.Null(folder.Path));
     }
 
     [Fact]
     public void The_architecture_section_is_named_for_what_it_holds_not_for_the_template()
     {
-        var architecture = KnowledgeFolderSetting.Defaults().Single(f => f.Key == ".arc42");
+        var architecture = DevbookFolderSetting.Defaults().Single(f => f.Key == ".arc42");
 
         Assert.Equal("Architecture", architecture.DisplayName);
         Assert.Equal(".arc42", architecture.DefaultRelativePath);
@@ -48,8 +48,8 @@ public sealed class GitHubSettingsTests
     [InlineData(".ARC42")]
     public void An_override_naming_the_conventional_folder_is_not_an_override(string configured)
     {
-        var normalized = KnowledgeFolderSetting.Normalize(
-            [new KnowledgeFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
+        var normalized = DevbookFolderSetting.Normalize(
+            [new DevbookFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
 
         Assert.Null(normalized.Single(f => f.Key == ".arc42").Path);
     }
@@ -63,8 +63,8 @@ public sealed class GitHubSettingsTests
     [InlineData(@"D:\Repos\Other\.arc42", @"D:\Repos\Other\.arc42")]
     public void An_override_naming_somewhere_else_is_kept(string configured, string expected)
     {
-        var normalized = KnowledgeFolderSetting.Normalize(
-            [new KnowledgeFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
+        var normalized = DevbookFolderSetting.Normalize(
+            [new DevbookFolderSetting(".arc42", string.Empty, string.Empty) { Path = configured }]);
 
         Assert.Equal(expected, normalized.Single(f => f.Key == ".arc42").Path);
     }
@@ -89,7 +89,7 @@ public sealed class GitHubSettingsTests
                   "alias": "backlog",
                   "owner": "JSdotNet",
                   "name": "Backlog",
-                  "knowledgeFolders": [
+                  "devbookFolders": [
                     { "key": ".arc42", "enabled": true, "path": ".arc42" }
                   ]
                 }
@@ -99,13 +99,13 @@ public sealed class GitHubSettingsTests
             """);
 
             var store = new GitHubSettingsStore(path);
-            var architecture = store.Current.Find("backlog")!.KnowledgeFolders.Single(f => f.Key == ".arc42");
+            var architecture = store.Current.Find("backlog")!.DevbookFolders.Single(f => f.Key == ".arc42");
             Assert.Null(architecture.Path);
             Assert.Equal(".arc42", architecture.EffectivePath);
 
             Assert.Null(store.SetCloneDirectory("backlog", @"D:\Repos\Backlog"));
 
-            Assert.All(StoredKnowledgeFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
+            Assert.All(StoredDevbookFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
         }
         finally
         {
@@ -124,8 +124,8 @@ public sealed class GitHubSettingsTests
             var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
             Assert.Null(store.SetRepositories(repositories));
 
-            Assert.All(store.Current.Repositories[0].KnowledgeFolders, folder => Assert.Null(folder.Path));
-            Assert.All(StoredKnowledgeFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
+            Assert.All(store.Current.Repositories[0].DevbookFolders, folder => Assert.Null(folder.Path));
+            Assert.All(StoredDevbookFolderPaths(path), stored => Assert.Equal(JsonValueKind.Null, stored.ValueKind));
         }
         finally
         {
@@ -136,14 +136,14 @@ public sealed class GitHubSettingsTests
     /// <summary>The <c>path</c> of every knowledge folder of every repository as the
     /// settings file itself holds it, rather than as the store re-normalizes it on
     /// the way back in.</summary>
-    private static List<JsonElement> StoredKnowledgeFolderPaths(string settingsPath)
+    private static List<JsonElement> StoredDevbookFolderPaths(string settingsPath)
     {
         using var document = JsonDocument.Parse(File.ReadAllText(settingsPath));
 
         return
         [
             .. document.RootElement.GetProperty("repositories").EnumerateArray()
-                .SelectMany(repository => repository.GetProperty("knowledgeFolders").EnumerateArray())
+                .SelectMany(repository => repository.GetProperty("devbookFolders").EnumerateArray())
                 .Select(folder => folder.GetProperty("path").Clone())
         ];
     }
@@ -293,18 +293,18 @@ public sealed class GitHubSettingsTests
             var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\ndocs = JSdotNet/Backlog-docs");
             store.SetRepositories(repositories);
             store.SetCloneDirectory("docs", @"D:\Repos\Backlog-docs");
-            store.SetKnowledgeFolder("docs", ".tech", enabled: false, path: null);
-            store.SetKnowledgeFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
-            store.SetKnowledgeFolder("docs", "instructions", enabled: false, path: @"custom\instructions");
+            store.SetDevbookFolder("docs", ".tech", enabled: false, path: null);
+            store.SetDevbookFolder("docs", ".domain", enabled: true, path: @"knowledge\domain");
+            store.SetDevbookFolder("docs", "instructions", enabled: false, path: @"custom\instructions");
 
             var reopened = new GitHubSettingsStore(path);
             var docs = reopened.Current.Find("docs")!;
 
             Assert.Equal(@"D:\Repos\Backlog-docs", docs.CloneDirectory);
-            Assert.False(docs.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
-            Assert.Equal(@"knowledge\domain", docs.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
-            Assert.Equal(".arc42", docs.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
-            var instructions = docs.KnowledgeFolders.Single(f => f.Key == "instructions");
+            Assert.False(docs.DevbookFolders.Single(f => f.Key == ".tech").Enabled);
+            Assert.Equal(@"knowledge\domain", docs.DevbookFolders.Single(f => f.Key == ".domain").Path);
+            Assert.Equal(".arc42", docs.DevbookFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            var instructions = docs.DevbookFolders.Single(f => f.Key == "instructions");
             Assert.False(instructions.Enabled);
             Assert.Null(instructions.Path);
         }
@@ -323,16 +323,16 @@ public sealed class GitHubSettingsTests
         try
         {
             var store = new WorkspaceSettingsStore(directory, settingsPath);
-            store.SetKnowledgeFolder(".tech", enabled: false, path: null);
-            store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
-            store.SetKnowledgeFolder("instructions", enabled: false, path: @"custom\instructions");
+            store.SetDevbookFolder(".tech", enabled: false, path: null);
+            store.SetDevbookFolder(".domain", enabled: true, path: @"knowledge\domain");
+            store.SetDevbookFolder("instructions", enabled: false, path: @"custom\instructions");
 
             var reopened = new WorkspaceSettingsStore(directory, settingsPath);
 
-            Assert.False(reopened.KnowledgeFolders.Single(f => f.Key == ".tech").Enabled);
-            Assert.Equal(@"knowledge\domain", reopened.KnowledgeFolders.Single(f => f.Key == ".domain").Path);
-            Assert.Equal(".arc42", reopened.KnowledgeFolders.Single(f => f.Key == ".arc42").EffectivePath);
-            var instructions = reopened.KnowledgeFolders.Single(f => f.Key == "instructions");
+            Assert.False(reopened.DevbookFolders.Single(f => f.Key == ".tech").Enabled);
+            Assert.Equal(@"knowledge\domain", reopened.DevbookFolders.Single(f => f.Key == ".domain").Path);
+            Assert.Equal(".arc42", reopened.DevbookFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            var instructions = reopened.DevbookFolders.Single(f => f.Key == "instructions");
             Assert.False(instructions.Enabled);
             Assert.Null(instructions.Path);
         }
@@ -375,8 +375,8 @@ public sealed class GitHubSettingsTests
         {
             Directory.CreateDirectory(Path.Combine(directory, "knowledge", "domain"));
             var store = new WorkspaceSettingsStore(directory, settingsPath);
-            store.SetKnowledgeFolder(".domain", enabled: true, path: @"knowledge\domain");
-            var source = new KnowledgeFolderSource(new GitHubSettingsStore(githubPath), store);
+            store.SetDevbookFolder(".domain", enabled: true, path: @"knowledge\domain");
+            var source = new DevbookFolderSource(new GitHubSettingsStore(githubPath), store);
 
             var location = source.Resolve(".domain");
 

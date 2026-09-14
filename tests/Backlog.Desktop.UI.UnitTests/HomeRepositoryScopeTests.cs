@@ -286,8 +286,8 @@ public sealed class HomeRepositoryScopeTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
@@ -302,14 +302,14 @@ public sealed class HomeRepositoryScopeTests
             .. repositories.Select(repository => repository with
             {
                 CloneDirectory = RepositoryRoot.Root.FullName,
-                KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+                DevbookFolders = DevbookFolderSetting.Defaults()
             })
         ]));
 
         configureRepositories?.Invoke(gitHubSettings);
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -327,7 +327,7 @@ public sealed class HomeRepositoryScopeTests
         // only worked with rows in it would fail here, which is the point.
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
+        context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -338,22 +338,22 @@ public sealed class HomeRepositoryScopeTests
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

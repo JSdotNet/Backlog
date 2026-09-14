@@ -3,7 +3,7 @@
   <!--
     The Tasks context's UI: the pane, its state, and the adapters
     that read and write repository-authored entries. Its own project so it can
-    sit on the workspace without sharing one with Second Brain or the Shell.
+    sit on the workspace without sharing one with Devbook or the Shell.
   -->
   <PropertyGroup>
     <!--

@@ -1073,7 +1073,7 @@
     const BACKLOG_SINGLE_PANE_MAX_REM = 72;
     const BACKLOG_THREE_PANE_MIN_REM = 96;
     // The app's own knowledge layout, or any SplitPane the library renders.
-    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="knowledge-layout"], [data-pane-split]';
+    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="devbook-layout"], [data-pane-split]';
 
     /**
      * Who to tell when a drag settles, one entry per resizable layout.
@@ -1241,7 +1241,7 @@
             width = backlogPaneWidthAt(layout, move.clientX);
             // Both names are set so the app's knowledge layout and the library's
             // SplitPane each read the one their stylesheet knows.
-            layout.style.setProperty('--knowledge-panel-width', `${width}rem`);
+            layout.style.setProperty('--devbook-panel-width', `${width}rem`);
             layout.style.setProperty('--split-pane-fixed', `${width}rem`);
             handle.setAttribute('aria-valuenow', String(width));
         };

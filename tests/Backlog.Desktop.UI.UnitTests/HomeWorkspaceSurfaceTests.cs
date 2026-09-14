@@ -39,7 +39,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='tools-panel']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
@@ -62,7 +62,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
@@ -85,7 +85,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
@@ -245,9 +245,9 @@ public sealed class HomeWorkspaceSurfaceTests
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
 
-            component.Find("[data-testid='knowledge-pane-option']").Click();
+            component.Find("[data-testid='devbook-pane-option']").Click();
 
-            component.WaitForAssertion(() => Assert.Equal(["Knowledge"], shellNavigation.LastEnabledPanes));
+            component.WaitForAssertion(() => Assert.Equal(["Devbook"], shellNavigation.LastEnabledPanes));
         }
         finally
         {
@@ -271,14 +271,14 @@ public sealed class HomeWorkspaceSurfaceTests
         try
         {
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["Knowledge"], []);
+            shellNavigation.SetLastPanes(["Devbook"], []);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
                 Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
             });
         }
@@ -300,7 +300,7 @@ public sealed class HomeWorkspaceSurfaceTests
         try
         {
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["Backlog", "Knowledge"], ["Backlog"]);
+            shellNavigation.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
@@ -308,7 +308,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-                Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
                 Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
             });
         }
@@ -344,7 +344,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A non-default pane selection has to survive a takeover. Knowledge is turned
+    /// A non-default pane selection has to survive a takeover. Devbook is turned
     /// on first precisely so the assertion is about the reader's choice rather than
     /// about the default the shell would fall back to anyway.
     /// <para>
@@ -360,21 +360,21 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-pane-option']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
         component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
 
         component.Find("[data-testid='tools-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
         });
 
         // The in-surface ✕ and the header toggle both close it; this is the ✕.
@@ -383,12 +383,12 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='tools-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
 
             // Both panes are back, which is only true because opening the surface
             // never disabled either of them.
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
@@ -407,12 +407,12 @@ public sealed class HomeWorkspaceSurfaceTests
 
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band-content']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
 
         // The band above, the panes below — the order the layout depends on.
         var bandAt = component.Markup.IndexOf("data-testid=\"roadmap-band\"", StringComparison.Ordinal);
-        var panesAt = component.Markup.IndexOf("data-testid=\"knowledge-layout\"", StringComparison.Ordinal);
+        var panesAt = component.Markup.IndexOf("data-testid=\"devbook-layout\"", StringComparison.Ordinal);
 
         Assert.True(bandAt >= 0 && panesAt > bandAt);
     }
@@ -438,7 +438,7 @@ public sealed class HomeWorkspaceSurfaceTests
             var workspace = component.Find("[data-testid='workspace']");
             Assert.Contains("workspace--no-roadmap", workspace.GetAttribute("class"));
 
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
     }
 
@@ -451,7 +451,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
     }
 
@@ -475,7 +475,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
             // The other takeover in the same context is untouched: one flag, one area.
             Assert.NotEmpty(component.FindAll("[data-testid='tools-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
     }
 
@@ -497,7 +497,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
     }
 
@@ -590,7 +590,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.False(option.HasAttribute("disabled"));
 
             // The panes are untouched: the band was never competing with them.
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
@@ -684,7 +684,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_global_pane_enum_still_describes_three_panes_and_no_band()
     {
-        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge];
+        GlobalPane[] expected = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook];
 
         Assert.Equal(expected, Enum.GetValues<GlobalPane>());
     }
@@ -815,7 +815,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>A released feature is the ordinary case and the header stays quiet
     /// about it — otherwise the flag would be wallpaper rather than a warning.
-    /// Knowledge is the released one of the four enabled here; the other three
+    /// Devbook is the released one of the four enabled here; the other three
     /// were moved to Dev and are the control group.</summary>
     [Fact]
     public void A_released_feature_adds_no_flag_to_the_header()
@@ -826,8 +826,8 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             // Present and unflagged.
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-pane-option']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-feature-status']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
@@ -850,11 +850,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
 
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.Equal("false", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
         });
@@ -872,11 +872,11 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
             Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed")));
 
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
         });
@@ -894,9 +894,9 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
         component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
 
         component.Find("[data-testid='backlog-pane-pin']").Click();
 
@@ -906,7 +906,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
             // Still both on screen: the pin only ever spoke about the next switch.
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
@@ -932,7 +932,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 "header-group--sections",
                 component.Find("[data-testid='global-pane-multiselect']").ClassList);
 
-            foreach (var pane in new[] { "inbox", "backlog", "knowledge" })
+            foreach (var pane in new[] { "inbox", "backlog", "devbook" })
             {
                 var pin = component.Find($"[data-testid='{pane}-pane-pin']");
 
@@ -1033,7 +1033,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var strip = component.Find("[data-testid='global-pane-multiselect']");
 
-            foreach (var pane in new[] { "inbox", "backlog", "knowledge" })
+            foreach (var pane in new[] { "inbox", "backlog", "devbook" })
             {
                 var pin = component.Find($"[data-testid='{pane}-pane-pin']");
 
@@ -1067,15 +1067,15 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.True(component.Find("[data-testid='knowledge-pane-pin']").HasAttribute("disabled"));
+            Assert.True(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
             Assert.False(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
         });
 
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.False(component.Find("[data-testid='knowledge-pane-pin']").HasAttribute("disabled"));
+            Assert.False(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
 
             // Backlog was replaced by the switch, so its pin is the closed one now.
             Assert.True(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
@@ -1101,7 +1101,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.True(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
-            Assert.True(component.Find("[data-testid='knowledge-pane-pin']").HasAttribute("disabled"));
+            Assert.True(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
         });
 
         await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(3));
@@ -1123,9 +1123,9 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
         component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
 
         component.Find("[data-testid='backlog-pane-option']").Click();
 
@@ -1152,12 +1152,12 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
         component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='knowledge-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
 
         await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
@@ -1165,7 +1165,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Empty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
@@ -1298,8 +1298,8 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
@@ -1314,12 +1314,12 @@ public sealed class HomeWorkspaceSurfaceTests
         var configuredRepository = repository with
         {
             CloneDirectory = RepositoryRoot.Root.FullName,
-            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+            DevbookFolders = DevbookFolderSetting.Defaults()
         };
         Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -1337,7 +1337,7 @@ public sealed class HomeWorkspaceSurfaceTests
         // only worked with rows in it would fail here, which is the point.
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
+        context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -1348,22 +1348,22 @@ public sealed class HomeWorkspaceSurfaceTests
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

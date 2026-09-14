@@ -1,4 +1,4 @@
-// Tests for build-database.mjs, run with `node --test tools/knowledge`.
+// Tests for build-database.mjs, run with `node --test tools/devbook`.
 //
 // Two kinds of case, following check-metadata.test.mjs. Most build a throwaway
 // knowledge corpus in a temp directory, because a fixture is the only way to
@@ -21,7 +21,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { buildDatabase, DEFAULT_ROOT, GENERATOR } from './build-database.mjs';
-import { KNOWLEDGE_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
+import { DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
 import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -136,7 +136,7 @@ const FIXTURE = {
 
 /** Write the fixture corpus to a fresh temp directory and return its root. */
 async function writeFixture() {
-    const root = await mkdtemp(join(tmpdir(), 'knowledge-db-'));
+    const root = await mkdtemp(join(tmpdir(), 'devbook-db-'));
     for (const [relPath, content] of Object.entries(FIXTURE)) {
         const file = join(root, ...relPath.split('/'));
         await mkdir(dirname(file), { recursive: true });
@@ -158,7 +158,7 @@ async function writeFixture() {
  */
 async function withFixture(body) {
     const root = await writeFixture();
-    const target = join(root, '_meta', 'knowledge.db');
+    const target = join(root, '_meta', 'devbook.db');
     try {
         const counts = await buildDatabase(root, target);
         const db = new DatabaseSync(target, { readOnly: true });
@@ -177,7 +177,7 @@ test('the database builds when _meta does not exist yet', async () => {
     try {
         assert.equal(await exists(join(root, '_meta')), false);
 
-        const target = join(root, '_meta', 'knowledge.db');
+        const target = join(root, '_meta', 'devbook.db');
         await buildDatabase(root, target);
 
         assert.equal(await exists(target), true);
@@ -188,7 +188,7 @@ test('the database builds when _meta does not exist yet', async () => {
 
 test('the schema applies — every table, virtual table and index in the DDL exists', async () => {
     await withFixture(({ all }) => {
-        const declared = [...KNOWLEDGE_SCHEMA.matchAll(/CREATE (?:VIRTUAL )?(TABLE|INDEX) (\w+)/g)]
+        const declared = [...DEVBOOK_SCHEMA.matchAll(/CREATE (?:VIRTUAL )?(TABLE|INDEX) (\w+)/g)]
             .map((match) => match[2])
             .sort();
         const actual = all("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE 'chapter_fts_%'")
@@ -453,7 +453,7 @@ test('chapter_embedding is created and left empty', async () => {
 test('the build leaves no temporary file and no journal sidecar behind', async () => {
     await withFixture(async ({ root }) => {
         const written = await readdir(join(root, '_meta'));
-        assert.deepEqual(written.sort(), ['knowledge.db']);
+        assert.deepEqual(written.sort(), ['devbook.db']);
     });
 });
 
@@ -474,11 +474,11 @@ test('the resolver reads the same order the database records', async () => {
 });
 
 test("this repository's own corpus builds", async () => {
-    // Built into a temp file rather than over `_meta/knowledge.db`: a test suite
+    // Built into a temp file rather than over `_meta/devbook.db`: a test suite
     // that replaces the database the desktop is reading would be a side effect
     // nobody asked for, on a file that is a build output either way.
-    const scratch = await mkdtemp(join(tmpdir(), 'knowledge-db-repo-'));
-    const target = join(scratch, 'knowledge.db');
+    const scratch = await mkdtemp(join(tmpdir(), 'devbook-db-repo-'));
+    const target = join(scratch, 'devbook.db');
     try {
         const counts = await buildDatabase(DEFAULT_ROOT, target);
 
@@ -517,11 +517,11 @@ let repositoryCorpus = null;
 
 function withRepositoryCorpus() {
     repositoryCorpus ??= (async () => {
-        // Into a temp file rather than over `_meta/knowledge.db`, for the reason
+        // Into a temp file rather than over `_meta/devbook.db`, for the reason
         // the case above gives: a suite that replaces the database the desktop is
         // reading is a side effect nobody asked for.
-        const scratch = await mkdtemp(join(tmpdir(), 'knowledge-db-corpus-'));
-        const target = join(scratch, 'knowledge.db');
+        const scratch = await mkdtemp(join(tmpdir(), 'devbook-db-corpus-'));
+        const target = join(scratch, 'devbook.db');
         await buildDatabase(DEFAULT_ROOT, target);
         const db = new DatabaseSync(target, { readOnly: true });
         return { scratch, db, all: (sql, ...p) => db.prepare(sql).all(...p) };

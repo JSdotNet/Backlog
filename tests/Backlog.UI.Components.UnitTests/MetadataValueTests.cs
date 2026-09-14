@@ -24,7 +24,7 @@ public sealed class MetadataValueTests
         var scalar = context.Render<MetadataScalar>(parameters => parameters
             .Add(value => value.Value, "framework"));
 
-        Assert.Equal("framework", scalar.Find("code.knowledge-value").TextContent);
+        Assert.Equal("framework", scalar.Find("code.devbook-value").TextContent);
         Assert.Empty(scalar.FindAll("a"));
     }
 
@@ -81,7 +81,7 @@ public sealed class MetadataValueTests
             .Add(value => value.Prefix, "v")
             .Add(value => value.Title, "version: 10.0"));
 
-        Assert.Equal("v10.0", version.Find("code.knowledge-value").TextContent);
+        Assert.Equal("v10.0", version.Find("code.devbook-value").TextContent);
         Assert.Equal("version: 10.0", version.Find("code").GetAttribute("title"));
     }
 
@@ -137,7 +137,7 @@ public sealed class MetadataValueTests
 
         Assert.Equal(
             ["Azure Functions", "Controller-based ASP.NET Core"],
-            list.FindAll("code.knowledge-value").Select(value => value.TextContent));
+            list.FindAll("code.devbook-value").Select(value => value.TextContent));
 
         Assert.Equal(2, list.FindComponents<MetadataScalar>().Count);
         Assert.DoesNotContain(",", list.Markup);
@@ -182,12 +182,12 @@ public sealed class MetadataValueTests
         var list = context.Render<MetadataReferenceList>(parameters => parameters
             .Add(references => references.References,
             [
-                KnowledgeReference.Parse(".tech/shared.md#markdown")!,
-                KnowledgeReference.Parse(".arc42/02-constraints.md")!
+                DevbookReference.Parse(".tech/shared.md#markdown")!,
+                DevbookReference.Parse(".arc42/02-constraints.md")!
             ])
             .Add(references => references.HrefFor, reference => "/knowledge/" + reference.Path));
 
-        var links = list.FindAll("a.knowledge-ref--link");
+        var links = list.FindAll("a.devbook-ref--link");
         Assert.Equal(2, links.Count);
         Assert.Equal("/knowledge/.tech/shared.md", links[0].GetAttribute("href"));
         Assert.Equal(".tech/shared.md#markdown", links[0].TextContent);
@@ -204,14 +204,14 @@ public sealed class MetadataValueTests
         var list = context.Render<MetadataReferenceList>(parameters => parameters
             .Add(references => references.References,
             [
-                KnowledgeReference.Parse(".tech/shared.md")!,
-                KnowledgeReference.Parse(".domain/context-map.md")!
+                DevbookReference.Parse(".tech/shared.md")!,
+                DevbookReference.Parse(".domain/context-map.md")!
             ])
             .Add(references => references.HrefFor,
                 reference => reference.Path.StartsWith(".tech") ? "/tech" : null));
 
-        Assert.Single(list.FindAll("a.knowledge-ref--link"));
-        Assert.Single(list.FindAll("code.knowledge-ref--inert"));
+        Assert.Single(list.FindAll("a.devbook-ref--link"));
+        Assert.Single(list.FindAll("code.devbook-ref--inert"));
     }
 
     [Fact]
@@ -235,7 +235,7 @@ public sealed class MetadataValueTests
             .Add(effort => effort.Effort, 5));
 
         Assert.Equal("5 pts", badge.Find(".badge--effort").TextContent);
-        Assert.Equal("knowledge-effort-badge", badge.Find(".badge").GetAttribute("data-testid"));
+        Assert.Equal("devbook-effort-badge", badge.Find(".badge").GetAttribute("data-testid"));
 
         // The row this sits in hides its label, so the field name has to reach a
         // pointer user from the badge itself.
@@ -584,7 +584,7 @@ public sealed class MetadataValueTests
 
         Assert.Equal(
             ["owner", "related"],
-            extra.FindAll("div.knowledge-fields__row > dt").Select(label => label.TextContent));
+            extra.FindAll("div.devbook-fields__row > dt").Select(label => label.TextContent));
 
         Assert.Equal(2, extra.FindComponents<MetadataField>().Count);
 
@@ -593,7 +593,7 @@ public sealed class MetadataValueTests
         Assert.Empty(extra.FindAll("a"));
         Assert.Equal(
             ["platform-team", "not an address"],
-            extra.FindAll("code.knowledge-value").Select(value => value.TextContent));
+            extra.FindAll("code.devbook-value").Select(value => value.TextContent));
     }
 
     [Fact]

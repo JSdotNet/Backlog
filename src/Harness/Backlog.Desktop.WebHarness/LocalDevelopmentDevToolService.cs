@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 

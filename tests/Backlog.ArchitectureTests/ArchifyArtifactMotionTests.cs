@@ -37,7 +37,7 @@ public class ArchifyArtifactMotionTests
     /// <c>KNOWLEDGE_FOLDERS</c> in <c>tools/diagrams/archify-artifacts.mjs</c>.
     /// <c>.design</c> has no artifacts today and is listed anyway, so the first
     /// one authored there is covered without anybody remembering this file.</summary>
-    private static readonly string[] KnowledgeFolders = [".arc42", ".domain", ".tech", ".design"];
+    private static readonly string[] DevbookFolders = [".arc42", ".domain", ".tech", ".design"];
 
     /// <summary>The artifact folder beside a chapter.</summary>
     private const string ArtifactFolder = "_archify";
@@ -432,7 +432,7 @@ public class ArchifyArtifactMotionTests
     /// artifacts rendered from them.</summary>
     private static IEnumerable<DirectoryInfo> ArtifactFolders()
     {
-        foreach (var knowledge in KnowledgeFolders)
+        foreach (var knowledge in DevbookFolders)
         {
             var root = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, knowledge));
             if (!root.Exists) continue;

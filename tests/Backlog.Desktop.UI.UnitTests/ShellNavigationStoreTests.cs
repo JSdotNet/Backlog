@@ -40,11 +40,11 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Knowledge"], []);
+            store.SetLastPanes(["Devbook"], []);
 
             var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal(["Knowledge"], restarted.LastEnabledPanes);
+            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
             Assert.Empty(restarted.LastPinnedPanes);
         }
         finally
@@ -62,11 +62,11 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Backlog", "Knowledge"], ["Backlog"]);
+            store.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
 
             var restarted = new ShellNavigationStore(path);
 
-            Assert.Equal(["Backlog", "Knowledge"], restarted.LastEnabledPanes);
+            Assert.Equal(["Backlog", "Devbook"], restarted.LastEnabledPanes);
             Assert.Equal(["Backlog"], restarted.LastPinnedPanes);
         }
         finally
@@ -90,25 +90,25 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Knowledge"], []);
+            store.SetLastPanes(["Devbook"], []);
             store.SetLastSurface("Dashboard");
 
             Assert.Equal("Dashboard", store.LastSurface);
-            Assert.Equal(["Knowledge"], store.LastEnabledPanes);
+            Assert.Equal(["Devbook"], store.LastEnabledPanes);
 
             var restarted = new ShellNavigationStore(path);
 
             Assert.Equal("Dashboard", restarted.LastSurface);
-            Assert.Equal(["Knowledge"], restarted.LastEnabledPanes);
+            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
 
             restarted.SetLastSurface("Workspace");
 
-            Assert.Equal(["Knowledge"], restarted.LastEnabledPanes);
+            Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
 
             var restartedAgain = new ShellNavigationStore(path);
 
             Assert.Equal("Workspace", restartedAgain.LastSurface);
-            Assert.Equal(["Knowledge"], restartedAgain.LastEnabledPanes);
+            Assert.Equal(["Devbook"], restartedAgain.LastEnabledPanes);
         }
         finally
         {
@@ -124,11 +124,11 @@ public sealed class ShellNavigationStoreTests
         try
         {
             var store = new ShellNavigationStore(path);
-            store.SetLastPanes(["Knowledge"], []);
+            store.SetLastPanes(["Devbook"], []);
 
             var changes = 0;
             store.Changed += () => changes++;
-            store.SetLastPanes(["Knowledge"], []);
+            store.SetLastPanes(["Devbook"], []);
 
             Assert.Equal(0, changes);
         }
@@ -253,13 +253,13 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
             store.SetLastSurface("Tools");
-            store.SetLastPanes(["Backlog", "Knowledge"], ["Backlog"]);
+            store.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
 
             Assert.Equal("Tools", document.RootElement.GetProperty("lastSurface").GetString());
             Assert.Equal(
-                ["Backlog", "Knowledge"],
+                ["Backlog", "Devbook"],
                 document.RootElement.GetProperty("lastEnabledPanes").EnumerateArray().Select(e => e.GetString()));
             Assert.Equal(
                 ["Backlog"],

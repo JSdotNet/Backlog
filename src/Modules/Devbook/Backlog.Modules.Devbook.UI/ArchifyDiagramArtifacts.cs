@@ -3,12 +3,12 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.Knowledge;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Infrastructure.Devbook;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Diagrams;
 
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// Answers <see cref="IDiagramArtifactSource"/> from the repository clone the
@@ -67,7 +67,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     };
 
     private readonly IAppFeatureSettings _features;
-    private readonly IKnowledgeFolderSource _folders;
+    private readonly IDevbookFolderSource _folders;
     private readonly GitHubSettingsStore _repositories;
     private readonly ICopilotCliLauncher _launcher;
     private readonly TimeProvider _clock;
@@ -79,7 +79,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
 
     public ArchifyDiagramArtifacts(
         IAppFeatureSettings features,
-        IKnowledgeFolderSource folders,
+        IDevbookFolderSource folders,
         GitHubSettingsStore repositories,
         ICopilotCliLauncher launcher)
         : this(features, folders, repositories, launcher, TimeProvider.System)
@@ -91,7 +91,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// waiting out two real seconds.</summary>
     internal ArchifyDiagramArtifacts(
         IAppFeatureSettings features,
-        IKnowledgeFolderSource folders,
+        IDevbookFolderSource folders,
         GitHubSettingsStore repositories,
         ICopilotCliLauncher launcher,
         TimeProvider clock)
@@ -110,7 +110,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     }
 
     /// <summary>Whether starting an agent is possible on this machine, which is
-    /// the same question Second Brain's other CLI affordances ask. False hides the
+    /// the same question Devbook's other CLI affordances ask. False hides the
     /// offer rather than letting somebody press a button that reports a missing
     /// CLI.</summary>
     public bool CanAuthor => _features.IsEnabled(AppFeatureKeys.CopilotCli);
@@ -129,7 +129,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     public DiagramArtifact? Find(string? source, string? language)
     {
         if (!DiagramView.CanRender(language)) return null;
-        if (!_features.IsEnabled(KnowledgeFeatures.ArchifyDiagrams)) return null;
+        if (!_features.IsEnabled(DevbookFeatures.ArchifyDiagrams)) return null;
         if (Diagram(source) is not { } diagram) return null;
 
         var entries = ReadIndex(diagram);
@@ -429,7 +429,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         lock (_gate)
         {
             // A chapter edited on disk has to be noticed, and nothing raises an
-            // event when one is: IKnowledgeFolderSource.Changed fires when a
+            // event when one is: IDevbookFolderSource.Changed fires when a
             // folder moves, not when a file inside it is saved. Without this the
             // edited fence hashes to something the cached map has never heard of,
             // Find returns null, and the reader gets plain mermaid with no drift
@@ -533,7 +533,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             foreach (var key in DiagramFolderKeys)
             {
-                KnowledgeFolderLocation location;
+                DevbookFolderLocation location;
                 try
                 {
                     location = _folders.Resolve(key, alias);
@@ -678,7 +678,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// </summary>
     private Dictionary<string, IndexEntry>? ReadDatabaseIndex(ChapterDiagram diagram)
     {
-        using var database = KnowledgeDatabase.TryOpen(KnowledgeDatabaseLocation.ForRepositoryRoot(diagram.RootPath));
+        using var database = DevbookDatabase.TryOpen(DevbookDatabaseLocation.ForRepositoryRoot(diagram.RootPath));
         if (database is null) return null;
 
         var directory = Path.GetRelativePath(diagram.RootPath, Path.GetDirectoryName(diagram.ChapterFile)!)

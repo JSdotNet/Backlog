@@ -120,7 +120,7 @@ public sealed class OpenFolderButtonTests
             .Add(t => t.RootFolder, new TreeNode("root", "Chapters", TreeNodeKind.Folder))
             .Add(t => t.ShowOpenButton, false));
 
-        Assert.Empty(view.FindAll("button.knowledge-menu__open-vscode"));
+        Assert.Empty(view.FindAll("button.devbook-menu__open-vscode"));
         Assert.Single(view.FindAll("[role='treeitem']"));
     }
 
@@ -138,7 +138,7 @@ public sealed class OpenFolderButtonTests
 
         var button = view.Find("[data-testid='tree-open']");
 
-        Assert.Contains("knowledge-menu__open-vscode", button.ClassList);
+        Assert.Contains("devbook-menu__open-vscode", button.ClassList);
         Assert.Equal("Open .arc42 in VS Code", button.GetAttribute("aria-label"));
     }
 }

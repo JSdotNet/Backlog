@@ -68,7 +68,7 @@ Both of these are the inline shape wearing nothing but the component's own class
            Code="@SelectSectionCode">
         <SelectField CurrentValue="@_source"
                      Options="Sources"
-                     Label="Knowledge source"
+                     Label="Devbook source"
                      TestId="select-source"
                      OnChanged="v => _source = v ?? string.Empty" />
         <p class="sb-state" data-testid="select-source-value">Source = @Show(_source)</p>
@@ -266,7 +266,7 @@ It is outlined rather than filled, and that is the component's own answer rather
     ];
 
     /// <summary>The knowledge source picker's list, as
-    /// <c>KnowledgeSourceSelection</c> builds it: one section holding the branches,
+    /// <c>DevbookSourceSelection</c> builds it: one section holding the branches,
     /// and three entries of other kinds around it. The two below the section are the
     /// point — they are last because they are the least likely thing to want, and a
     /// control that hoisted the unsectioned entries would invert that.</summary>
@@ -291,7 +291,7 @@ It is outlined rather than filled, and that is the component's own answer rather
     private static readonly IReadOnlyList<SelectorOption> Repositories =
     [
         new("backlog", "Backlog"),
-        new("knowledge-base", "Knowledge base"),
+        new("devbook", "Devbook"),
         new("aspire-harness", "Aspire harness")
     ];
 
@@ -303,7 +303,7 @@ It is outlined rather than filled, and that is the component's own answer rather
     [
         new("1", "Carve the shared components out", null, "backlog"),
         new("2", "Storybook for Backlog.UI.Components", null, "backlog"),
-        new("3", "Refresh the knowledge indexes", null, "knowledge-base"),
+        new("3", "Refresh the knowledge indexes", null, "devbook"),
         new("4", "Pin the Aspire version", null, "aspire-harness"),
         new("5", "Decide where the harness lives", null, "Unfiled")
     ];
@@ -353,7 +353,7 @@ It is outlined rather than filled, and that is the component's own answer rather
         // "Local clone" below the branches stays below them.
         new SelectorOption("main", "main", null, "Branches")
 
-        <SelectField CurrentValue="@_source" Options="Sources" Label="Knowledge source"
+        <SelectField CurrentValue="@_source" Options="Sources" Label="Devbook source"
                      OnChanged="v => _source = v ?? string.Empty" />
         """;
 

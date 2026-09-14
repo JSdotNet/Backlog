@@ -15,7 +15,7 @@ Counts come for free and stand in for Kind when the caller gave none: how much i
             <FolderView Name=".arc42"
                         Path="D:\Repos\Backlog\.arc42"
                         Source="Repository"
-                        Entries="@KnowledgeFolder"
+                        Entries="@DevbookFolder"
                         OnOpenFolder="OpenArc42"
                         TestId="folder-view-arc42" />
         </div>
@@ -216,7 +216,7 @@ Sorting stayed with the caller on purpose. Which files matter and in what order 
         new("Message", "Why it is unavailable, or anything worth saying on hover.")
     ];
 
-    private static readonly IReadOnlyList<FolderEntry> KnowledgeFolder =
+    private static readonly IReadOnlyList<FolderEntry> DevbookFolder =
     [
         FolderEntry.File("index.md", "Index", 1_204),
         FolderEntry.Folder("adr", "ADR",

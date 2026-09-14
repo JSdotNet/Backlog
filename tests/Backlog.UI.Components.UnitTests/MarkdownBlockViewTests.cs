@@ -68,21 +68,21 @@ public sealed class MarkdownBlockViewTests
 
         var paragraph = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, new MdParagraph(MarkdownPreview.ParseInlines("Words.")))
-            .Add(view => view.ParagraphCssClass, "knowledge-p"));
+            .Add(view => view.ParagraphCssClass, "devbook-p"));
 
-        Assert.Equal("knowledge-p", paragraph.Find("p").GetAttribute("class"));
+        Assert.Equal("devbook-p", paragraph.Find("p").GetAttribute("class"));
 
         var quote = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, new MdQuote(MarkdownPreview.ParseInlines("Words.")))
-            .Add(view => view.QuoteCssClass, "knowledge-quote"));
+            .Add(view => view.QuoteCssClass, "devbook-quote"));
 
-        Assert.Equal("knowledge-quote", quote.Find("blockquote").GetAttribute("class"));
+        Assert.Equal("devbook-quote", quote.Find("blockquote").GetAttribute("class"));
 
         var code = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, new MdCode("var x = 1;", "csharp"))
-            .Add(view => view.CodeCssClass, "knowledge-code"));
+            .Add(view => view.CodeCssClass, "devbook-code"));
 
-        Assert.Equal("knowledge-code", code.Find("pre").GetAttribute("class"));
+        Assert.Equal("devbook-code", code.Find("pre").GetAttribute("class"));
 
         // The `code` inside a `pre` has never carried a class, and dressing the
         // `pre` must not give it one.
@@ -90,15 +90,15 @@ public sealed class MarkdownBlockViewTests
 
         var divider = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, new MdDivider())
-            .Add(view => view.DividerCssClass, "knowledge-divider"));
+            .Add(view => view.DividerCssClass, "devbook-divider"));
 
-        Assert.Equal("knowledge-divider", divider.Find("hr").GetAttribute("class"));
+        Assert.Equal("devbook-divider", divider.Find("hr").GetAttribute("class"));
 
         var list = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, new MdList(false, [new MdListItem(null, MarkdownPreview.ParseInlines("A bullet"), null)]))
-            .Add(view => view.ListCssClass, "knowledge-list"));
+            .Add(view => view.ListCssClass, "devbook-list"));
 
-        Assert.Equal("knowledge-list", list.Find("ul").GetAttribute("class"));
+        Assert.Equal("devbook-list", list.Find("ul").GetAttribute("class"));
         Assert.Empty(list.FindAll(".md-list"));
     }
 
@@ -166,11 +166,11 @@ public sealed class MarkdownBlockViewTests
 
         var record = context.Render<MarkdownBlockView>(parameters => parameters
             .Add(view => view.Block, fence)
-            .Add(view => view.RenderKnowledgeMetadata, true)
-            .Add(view => view.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(view => view.RenderDevbookMetadata, true)
+            .Add(view => view.DevbookFolder, DevbookFolder.Tech));
 
         Assert.Empty(record.FindAll("pre.md-code"));
-        Assert.NotNull(record.Find(".knowledge-record"));
+        Assert.NotNull(record.Find(".devbook-record"));
     }
 
     [Fact]

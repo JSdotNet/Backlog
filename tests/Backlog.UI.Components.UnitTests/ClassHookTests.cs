@@ -198,7 +198,7 @@ public sealed class ClassHookTests
     [InlineData("   ")]
     public void A_status_no_file_stated_draws_the_unset_outline(string? status)
     {
-        var vocabulary = KnowledgeStatus.Vocabulary(KnowledgeFolder.Design);
+        var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Design);
 
         // The half the knowledge panels rely on: no status, no modifier.
         Assert.Equal(string.Empty, vocabulary.SlugFor(status));
@@ -559,12 +559,12 @@ public sealed class ClassHookTests
 
         var alert = context.Render<Alert>(parameters => parameters
             .Add(a => a.Message, "Could not open the folder")
-            .Add(a => a.BaseClass, "knowledge-menu__error")
-            .Add(a => a.CssClass, "knowledge-menu__error--open"));
+            .Add(a => a.BaseClass, "devbook-menu__error")
+            .Add(a => a.CssClass, "devbook-menu__error--open"));
 
         var element = alert.Find("p");
 
-        Assert.Equal("knowledge-menu__error knowledge-menu__error--open", element.GetAttribute("class"));
+        Assert.Equal("devbook-menu__error devbook-menu__error--open", element.GetAttribute("class"));
         Assert.Equal("alert", element.GetAttribute("role"));
     }
 

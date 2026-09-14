@@ -6,7 +6,7 @@ internal enum GlobalPane
 {
     Inbox,
     Tasks,
-    Knowledge
+    Devbook
 }
 
 /// <summary>
@@ -22,12 +22,16 @@ internal enum GlobalPane
 /// </summary>
 internal sealed class GlobalPaneSelection
 {
-    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge];
+    private static readonly GlobalPane[] KnownPaneOrder = [GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook];
     private static readonly HashSet<GlobalPane> KnownPanes = [.. KnownPaneOrder];
 
     /// <summary>The name <see cref="GlobalPane.Tasks"/> was stored under before the
     /// Backlog bounded context was renamed to Tasks.</summary>
     private const string LegacyTasksPaneName = "Backlog";
+
+    /// <summary>The name <see cref="GlobalPane.Devbook"/> was stored under before the
+    /// Knowledge bounded context was renamed to Devbook.</summary>
+    private const string LegacyDevbookPaneName = "Knowledge";
 
     private readonly HashSet<GlobalPane> _enabled;
     private readonly HashSet<GlobalPane> _available = [.. KnownPanes];
@@ -41,13 +45,13 @@ internal sealed class GlobalPaneSelection
 
     /// <summary>
     /// Reads a persisted pane name, accepting the name a pane was stored under
-    /// before the rename.
+    /// before its context was renamed.
     /// <para>
     /// The shell writes its open and pinned panes to <c>shell-navigation.json</c> as
     /// <c>ToString()</c> values, so a member name here is a stored value and not only
     /// an identifier. A plain <see cref="Enum.TryParse{TEnum}(string, out TEnum)"/>
-    /// returns <see langword="false"/> for a layout saved as "Backlog", and the pane
-    /// would be dropped on restore — the reader would lose the arrangement they left
+    /// returns <see langword="false"/> for a layout saved as "Backlog" or "Knowledge",
+    /// and the pane would be dropped on restore — the reader would lose the arrangement they left
     /// the app in, which reads as the app forgetting rather than as a rename.
     /// </para>
     /// </summary>
@@ -56,6 +60,12 @@ internal sealed class GlobalPaneSelection
         if (string.Equals(name, LegacyTasksPaneName, StringComparison.Ordinal))
         {
             pane = GlobalPane.Tasks;
+            return true;
+        }
+
+        if (string.Equals(name, LegacyDevbookPaneName, StringComparison.Ordinal))
+        {
+            pane = GlobalPane.Devbook;
             return true;
         }
 

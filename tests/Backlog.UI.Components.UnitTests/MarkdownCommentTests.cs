@@ -215,7 +215,7 @@ public sealed class MarkdownCommentTests
         // The explicit re-render after the click stands in for what a real host
         // does on its own: OnAddComment's receiver is the host, so invoking it
         // re-renders the host and pushes the grown list back down as a
-        // parameter — see DomainKnowledgePanel. bUnit has no such host above the
+        // parameter — see DomainDevbookPanel. bUnit has no such host above the
         // component under test, so the test plays that part.
         using var context = new BunitContext();
         var comments = new List<MarkdownComment>();

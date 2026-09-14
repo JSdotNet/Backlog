@@ -10,7 +10,7 @@ namespace Backlog.UI.Components.UnitTests;
 ///
 /// <para>Opt-in throughout, like every other reading of the file's own text in
 /// this component. The tests that pin "nothing changed for a caller that asked
-/// for nothing" live in <see cref="FileViewKnowledgeTests"/> and
+/// for nothing" live in <see cref="FileViewDevbookTests"/> and
 /// <see cref="FileViewBodyTests"/>; the first two here are this feature's own
 /// half of that bargain.</para>
 /// </summary>

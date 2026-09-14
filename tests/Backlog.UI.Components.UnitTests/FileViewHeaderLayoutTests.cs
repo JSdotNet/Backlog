@@ -19,7 +19,7 @@ public sealed class FileViewHeaderLayoutTests
     /// <summary>A knowledge file as the convention writes one: the title with the
     /// file's own record under it, which is what puts a status in the header at
     /// all.</summary>
-    private const string Knowledge = """
+    private const string Devbook = """
         # Shared Technologies
 
         ```meta
@@ -49,9 +49,9 @@ public sealed class FileViewHeaderLayoutTests
         var view = context.Render<FileView>(parameters => parameters
             .Add(v => v.Name, "shared-technologies.md")
             .Add(v => v.Path, ".tech/shared-technologies.md")
-            .Add(v => v.Body, Knowledge)
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(v => v.Body, Devbook)
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookFolder, DevbookFolder.Tech));
 
         var header = view.Find(".file-view__header");
 
@@ -63,7 +63,7 @@ public sealed class FileViewHeaderLayoutTests
         // that happen to read left to right. The row is what holds the alignment:
         // the status takes its right edge, and the path is the item that grows into
         // whatever the name leaves.
-        var row = view.Find(".file-view__record .knowledge-record__headline");
+        var row = view.Find(".file-view__record .devbook-record__headline");
 
         Assert.Equal(["name", "path", "status"], row.Children.Select(Role).ToList());
     }
@@ -91,7 +91,7 @@ public sealed class FileViewHeaderLayoutTests
         var identity = view.Find(".file-view__identity");
 
         Assert.Empty(view.FindAll(".badge--status"));
-        Assert.Empty(identity.QuerySelectorAll(".knowledge-record"));
+        Assert.Empty(identity.QuerySelectorAll(".devbook-record"));
 
         // The column is the row: the name's wrapper and the path, in that order,
         // with nothing between them and nothing wrapping either.
@@ -189,7 +189,7 @@ public sealed class FileViewHeaderLayoutTests
         // and the identity column itself when there is no record to draw one.
         var grows = Rule(".file-view__identity > .file-view__path,");
 
-        Assert.Contains(".knowledge-record__headline > .file-view__path", grows, StringComparison.Ordinal);
+        Assert.Contains(".devbook-record__headline > .file-view__path", grows, StringComparison.Ordinal);
         Assert.True(
             Regex.IsMatch(grows, @"flex\s*:\s*1\s+1\s"),
             "The path is the line's flexible middle: it has to grow into what the name leaves, or "
@@ -249,10 +249,10 @@ public sealed class FileViewHeaderLayoutTests
             .Add(v => v.Name, "shared-technologies.md")
             .Add(v => v.Path, ".tech/shared-technologies.md")
             .Add(v => v.Kind, "Technology stack")
-            .Add(v => v.Body, Knowledge)
+            .Add(v => v.Body, Devbook)
             .Add(v => v.AllowCopy, true)
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookFolder, DevbookFolder.Tech));
 
         var header = view.Find(".file-view__header");
 
@@ -443,7 +443,7 @@ public sealed class FileViewHeaderLayoutTests
     [Fact]
     public void The_files_status_is_as_wide_as_its_word_and_not_a_column()
     {
-        const string selector = ".file-view__header .knowledge-record__headline > .badge--status";
+        const string selector = ".file-view__header .devbook-record__headline > .badge--status";
 
         var pill = Rule(selector);
 
@@ -467,7 +467,7 @@ public sealed class FileViewHeaderLayoutTests
         // there — untouched here, so a narrower pill still closes the line.
         Assert.Contains(
             "margin-inline-start: auto",
-            Rule(".knowledge-record__headline > .badge--status:not(:first-child)"),
+            Rule(".devbook-record__headline > .badge--status:not(:first-child)"),
             StringComparison.Ordinal);
 
         // And the selector reaches both forms of the status this header can draw:
@@ -478,16 +478,16 @@ public sealed class FileViewHeaderLayoutTests
 
         var reading = context.Render<FileView>(parameters => parameters
             .Add(v => v.Name, "shared-technologies.md")
-            .Add(v => v.Body, Knowledge)
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.Body, Devbook)
+            .Add(v => v.RenderDevbookMetadata, true));
 
         Assert.Equal("adopted", reading.Find(selector).TextContent);
 
         var editing = context.Render<FileView>(parameters => parameters
             .Add(v => v.Name, "shared-technologies.md")
-            .Add(v => v.Body, Knowledge)
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(v => v.Body, Devbook)
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookFolder, DevbookFolder.Tech));
 
         Assert.Contains("status-editor", editing.Find(selector).ClassList);
     }

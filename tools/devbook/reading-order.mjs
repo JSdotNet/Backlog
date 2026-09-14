@@ -16,7 +16,7 @@
 //
 // It is deliberately a sibling of `check-metadata.mjs` rather than an edit to
 // `outline.mjs`: everything under `.github/tools/knowledge-meta/` is an
-// installed copy of the knowledge-base plugin's tooling, which CLAUDE.md says to
+// installed copy of the devbook-base plugin's tooling, which CLAUDE.md says to
 // re-sync and never edit here. Like that file, this one *imports* the installed
 // generator's exported seam — `parseDocument` and `folderKindForPath` — so
 // titles, statuses and folder kinds are read by exactly the code the generator

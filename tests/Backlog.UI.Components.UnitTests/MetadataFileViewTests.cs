@@ -63,7 +63,7 @@ public sealed class MetadataFileViewTests
 
         var file = fileContext.Render<MetadataFileView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse(Block))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.ShowFields, showFields)
             .Add(view => view.AriaLabel, "shared.md metadata")
             .Add(view => view.CssClass, "file-view__record")
@@ -73,7 +73,7 @@ public sealed class MetadataFileViewTests
 
         var record = recordContext.Render<MetadataView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse(Block))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.ShowFields, showFields)
             .Add(view => view.AriaLabel, "shared.md metadata")
             .Add(view => view.CssClass, "file-view__record")
@@ -96,7 +96,7 @@ public sealed class MetadataFileViewTests
             .Add(view => view.Heading, Headline)
             .Add(view => view.HeadingAlone, Alone));
 
-        Assert.Empty(file.FindAll(".knowledge-record"));
+        Assert.Empty(file.FindAll(".devbook-record"));
         Assert.Equal("shared.md", file.Find("h3").TextContent);
 
         // The unwrapped fragment, because there is no row here to be an item of.
@@ -134,11 +134,11 @@ public sealed class MetadataFileViewTests
 
         var file = context.Render<MetadataFileView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.Heading, Headline)
             .Add(view => view.HeadingAlone, Alone));
 
-        var headline = file.Find(".knowledge-record__headline");
+        var headline = file.Find(".devbook-record__headline");
         Assert.Equal(["div", "label"], headline.Children.Select(child => child.LocalName));
         Assert.Contains("file-view__headline", headline.Children[0].ClassList);
     }
@@ -154,12 +154,12 @@ public sealed class MetadataFileViewTests
 
         var file = context.Render<MetadataFileView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string?>(this, status => reported = status))
             .Add(view => view.Heading, Headline)
             .Add(view => view.HeadingAlone, Alone));
 
-        file.Find(".knowledge-record__headline .status-editor select").Change("retired");
+        file.Find(".devbook-record__headline .status-editor select").Change("retired");
 
         Assert.Equal("retired", reported);
     }

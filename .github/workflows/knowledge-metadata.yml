@@ -10,7 +10,7 @@ name: Knowledge metadata blocks
 # vocabulary and its allowed fields had no caller at all, so a chapter carrying
 # `status: idea` passed every run (issue #241).
 #
-# `tools/knowledge/check-metadata.mjs` is that caller, written beside the
+# `tools/devbook/check-metadata.mjs` is that caller, written beside the
 # repository's own tooling rather than inside the installed copy, and this
 # workflow is where it blocks a pull request. Upstream runs the same validation
 # from the knowledge-graph canvas and the `knowledge-base-validate` skill rather
@@ -32,7 +32,7 @@ on:
       - '.tech/**'
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
-      - 'tools/knowledge/**'
+      - 'tools/devbook/**'
       - '_reading-order.json'
       - '.github/workflows/knowledge-metadata.yml'
   pull_request:
@@ -45,7 +45,7 @@ on:
       - '.tech/**'
       - '.design/**'
       - '.github/tools/knowledge-meta/**'
-      - 'tools/knowledge/**'
+      - 'tools/devbook/**'
       - '_reading-order.json'
       - '.github/workflows/knowledge-metadata.yml'
   workflow_dispatch:
@@ -69,13 +69,13 @@ jobs:
       # `type`, a field the schema does not list, and every other error the
       # installed `validateDocument` reports.
       - name: Check metadata blocks
-        run: node tools/knowledge/check-metadata.mjs
+        run: node tools/devbook/check-metadata.mjs
 
       # The check's own tests, which is what keeps its one suppression honest:
       # the stale `.tech` `kind`/`type` rename is waved through by exact message
       # and everything else in that folder still blocks.
       - name: Test the check
-        run: node --test tools/knowledge/check-metadata.test.mjs
+        run: node --test tools/devbook/check-metadata.test.mjs
 
   database:
     name: Build the knowledge database
@@ -85,7 +85,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test the writer
-        run: node --test "tools/knowledge/*.test.mjs"
+        run: node --test "tools/devbook/*.test.mjs"
 
       # This step blocks, and that is the point rather than an oversight.
       #
@@ -97,4 +97,4 @@ jobs:
       # to be about except the build actually being broken. Local ADR 0004 buys
       # exactly this back — a derived artifact that CI may enforce again.
       - name: Build it on the real corpus
-        run: node tools/knowledge/build-database.mjs
+        run: node tools/devbook/build-database.mjs

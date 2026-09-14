@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 using Backlog.UI.Components.Markdown;
 
-namespace Backlog.Desktop.UI.Knowledge;
+namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// How much of a host's attention one instruction file gets. Ordinal, and the

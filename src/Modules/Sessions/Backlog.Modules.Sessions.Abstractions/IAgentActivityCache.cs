@@ -20,7 +20,7 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// <para>
 /// The port is declared here and implemented in
 /// <c>Backlog.Infrastructure.FileSystem</c>, the arrangement
-/// <c>IPullRequestDetailCache</c> and <c>IKnowledgeSnapshotCache</c> already live on
+/// <c>IPullRequestDetailCache</c> and <c>IDevbookSnapshotCache</c> already live on
 /// either side of and for the same reason: a contract phrased in
 /// <see cref="AgentActivityRun"/>s belongs where that type is, while the half that
 /// decides where bytes land on disk belongs with the workspace that owns the root.

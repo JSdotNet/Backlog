@@ -14,7 +14,7 @@ namespace Backlog.UI.Components.Badges;
 /// <para>Recognition is what the caller's fallback hangs off. A value set that
 /// grows must never make a page look broken, so an unrecognised value draws no
 /// glyph at all and the caller goes on showing the plain word — the same rule
-/// <c>KnowledgeTypeMarker</c> keeps, for the same reason.</para>
+/// <c>DevbookTypeMarker</c> keeps, for the same reason.</para>
 /// </summary>
 public static class CaptureKinds
 {

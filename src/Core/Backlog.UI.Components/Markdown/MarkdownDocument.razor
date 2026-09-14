@@ -15,7 +15,7 @@
     @* Only when the bar has something to put in it.
 
        A host whose own header carries the title, the copy and the way into
-       editing hands this none of the three — see KnowledgeChapterEditor.Bare —
+       editing hands this none of the three — see DevbookChapterEditor.Bare —
        and the row was drawn all the same: an empty strip two rems tall between
        that header and the first line of the file. Room taken from the body by
        controls that are not there. *@
@@ -69,14 +69,14 @@
                changes. *@
             <MarkdownView Blocks="@_blocks"
                           Source="@_blockSource"
-                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                          CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
-                          KnowledgeFolder="@KnowledgeFolder"
-                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
-                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
-                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                          KnowledgeHrefFor="@KnowledgeHrefFor"
+                          RenderDevbookMetadata="@RenderDevbookMetadata"
+                          RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
+                          CanEditDevbookStatus="@CanEditDevbookStatus"
+                          DevbookFolder="@DevbookFolder"
+                          DevbookDocumentPath="@DevbookDocumentPath"
+                          OnDevbookStatusChanged="@OnDevbookStatusChanged"
+                          OnDevbookNavigate="@OnDevbookNavigate"
+                          DevbookHrefFor="@DevbookHrefFor"
                           Comments="@Comments"
                           OnAddComment="OnAddComment"
                           OnResolveComment="OnResolveComment"
@@ -215,7 +215,7 @@
     /// heading instead of as the four lines of YAML that say it.
     ///
     /// <para>It travels through here for the same reason
-    /// <see cref="KnowledgeDocumentPath"/> does: this is the read view of every
+    /// <see cref="DevbookDocumentPath"/> does: this is the read view of every
     /// knowledge chapter an area lets a reader write, and a chapter that opens
     /// with a record was showing that record as a code fence. Off by default —
     /// most markdown in this product is an entry body, where a <c>meta</c> fence
@@ -225,7 +225,7 @@
     /// at the fence itself, and the blocks a record is folded into do not exist in
     /// the editor.</para></summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Whether a record draws everything under the status as well.
     /// Forwarded verbatim to the read view, which explains what a host with
@@ -233,13 +233,13 @@
     /// default, so a host that asks for records and says nothing else gets all of
     /// them.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+    public bool RenderDevbookMetadataFields { get; set; } = true;
 
     /// <summary>Whether a chapter's status may be changed from this document.
     /// Passed straight to the read view; false draws the badge in place of the
     /// select.</summary>
     [Parameter]
-    public bool CanEditKnowledgeStatus { get; set; } = true;
+    public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the text was read from, forwarded so a
     /// status can be checked against that folder's vocabulary — which is what
@@ -247,7 +247,7 @@
     /// the read view is folder-blind and draws the word, which is right for every
     /// body that is not a chapter of a knowledge folder.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>The repository-relative path of the knowledge document this text
     /// came from, forwarded to the read view so a relative link in it resolves to
@@ -259,29 +259,29 @@
     /// chapter through this. Left unset — which is every entry body and every
     /// other surface — nothing about the rendering changes.</para></summary>
     [Parameter]
-    public string? KnowledgeDocumentPath { get; set; }
+    public string? DevbookDocumentPath { get; set; }
 
     /// <summary>Raised when a reader picked a different status beside a chapter's
-    /// heading. It travels with <see cref="KnowledgeFolder"/> and not apart from
+    /// heading. It travels with <see cref="DevbookFolder"/> and not apart from
     /// it: naming the folder is what turns the status pill into a list to pick
     /// from, so a host that names one and does not listen offers a choice this
     /// component then drops. Nothing here writes it — which file, which fence, and
     /// what happens when the file has moved on stays the host's.</summary>
     [Parameter]
-    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+    public EventCallback<DevbookStatusChange> OnDevbookStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader followed out of the read view.
     /// Only the host knows what "go there" means, so nothing here moves.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>Resolves a reference in a record to a link target, forwarded so a
     /// host that can address a chapter by URL gets a real link rather than a
     /// button it has to handle. Unset — and it is unset wherever there is no such
-    /// address — the reference stays what <see cref="OnKnowledgeNavigate"/> makes
+    /// address — the reference stays what <see cref="OnDevbookNavigate"/> makes
     /// it.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

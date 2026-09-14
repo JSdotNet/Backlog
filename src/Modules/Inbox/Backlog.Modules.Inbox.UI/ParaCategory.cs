@@ -2,8 +2,8 @@ namespace Backlog.Desktop.UI.Inbox;
 
 /// <summary>
 /// The PARA bucket an inbox item leans towards — the <c>PARA Category</c> of
-/// <c>.domain/second-brain/domain.md</c>, restated here because the Inbox sits
-/// upstream of Second Brain and may not reference it.
+/// <c>.domain/devbook/domain.md</c>, restated here because the Inbox sits
+/// upstream of Devbook and may not reference it.
 /// <para>
 /// A lean and not a filing. The Inbox owns triage, and triage is where an item
 /// is actually routed; this only says which drawer a reader would reach for

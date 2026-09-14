@@ -1,4 +1,4 @@
-// knowledge-schema.mjs — the DDL of `_meta/knowledge.db`, as one string.
+// devbook-schema.mjs — the DDL of `_meta/devbook.db`, as one string.
 //
 // One exported constant rather than a list of statements, and one file rather
 // than a literal inside `build-database.mjs`, for a single reason: ADR 0004's
@@ -8,7 +8,7 @@
 // asserts against this string and against `SCHEMA_VERSION` below, so a column
 // renamed here fails a test rather than a panel.
 //
-// Read `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` before
+// Read `.arc42/adr/0004-devbook-index-is-a-generated-local-database.md` before
 // changing anything here. Two rules from it govern this file:
 //
 //   * The Node generator is the only writer. Nothing in C# creates a table,
@@ -25,14 +25,14 @@
 // of the file the writer produces, not of the shape the reader is pinned to, and
 // mixing them in would make the pinned text depend on how it was applied.
 
-/** Bumped for any change to `KNOWLEDGE_SCHEMA` a reader could notice.
+/** Bumped for any change to `DEVBOOK_SCHEMA` a reader could notice.
  *
  *  2 — `chapter.search_text` was added and `chapter_fts` moved onto it, so the
  *  full-text index holds prose instead of the chapter's raw Markdown. */
 export const SCHEMA_VERSION = 2;
 
 /** The file the writer produces, relative to the repository root. */
-export const DATABASE_PATH = '_meta/knowledge.db';
+export const DATABASE_PATH = '_meta/devbook.db';
 
 /**
  * Every table, virtual table and index of the knowledge database.
@@ -73,7 +73,7 @@ export const DATABASE_PATH = '_meta/knowledge.db';
  * *Every* fenced block goes, not only the two that are certainly not chapter
  * content — the ```meta block that carries the chapter's metadata, and the
  * ```annotation block a `.domain` chapter may carry, which holds open questions
- * about the chapter rather than the chapter, and which the knowledge-folder
+ * about the chapter rather than the chapter, and which the devbook-folder
  * convention says to skip when reading a chapter as content. The rest of the
  * fences in this corpus are mermaid diagram source, and `stateDiagram-v2` or
  * `Created --> Organized` is no more readable in an excerpt than `status: draft`
@@ -100,8 +100,8 @@ export const DATABASE_PATH = '_meta/knowledge.db';
  * packed with no header — byte for byte what a `Float32Array` serialises to,
  * which is why this writer needs no encoder of its own. That layout is a
  * cross-language agreement like every other column here, so it is written down
- * rather than left to whichever side wrote first: `KnowledgeDatabase.ReadVector`
- * decodes exactly this and `KnowledgeVectorEncodingTests` pins it. `model` is
+ * rather than left to whichever side wrote first: `DevbookDatabase.ReadVector`
+ * decodes exactly this and `DevbookVectorEncodingTests` pins it. `model` is
  * what produced the vector, and a reader configured for a different one ignores
  * the row rather than comparing across coordinate spaces.
  *
@@ -115,7 +115,7 @@ export const DATABASE_PATH = '_meta/knowledge.db';
  * that lists the same reference twice in one field would abort a build that
  * insisted on it — for a label, not for data anything joins on.
  */
-export const KNOWLEDGE_SCHEMA = `
+export const DEVBOOK_SCHEMA = `
 CREATE TABLE meta (
     key   TEXT PRIMARY KEY,
     value TEXT

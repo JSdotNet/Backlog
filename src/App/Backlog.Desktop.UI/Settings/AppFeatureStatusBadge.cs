@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// use — and they are the same fact about the same feature. This is the one
 /// place that turns <see cref="AppFeatureStatus"/> into what the badge renders,
 /// so the two cannot drift the way the knowledge status pill and its select once
-/// did before <c>KnowledgeStatusBadge</c> was written for the same reason.
+/// did before <c>DevbookStatusBadge</c> was written for the same reason.
 /// </para>
 /// <para>
 /// It lives here rather than in the component library because the library is

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Second Brain context's UI: the knowledge menu, the panels for .arc42,
+    The Devbook context's UI: the knowledge menu, the panels for .arc42,
     .domain, .design, .tech and the instruction sources, and the markdown and
     graph views they render. Its own project so it can sit on the workspace
     without sharing one with Tasks or the Shell.
@@ -19,7 +19,7 @@
       published namespace meant the move here changed no using, @using or
       namespace line anywhere.
     -->
-    <RootNamespace>Backlog.Desktop.UI.Knowledge</RootNamespace>
+    <RootNamespace>Backlog.Desktop.UI.Devbook</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The knowledge-folder parsers and the menu they build are worth testing
+    <!-- The devbook-folder parsers and the menu they build are worth testing
          directly rather than only through the panels that render them. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
@@ -35,10 +35,10 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
-    <!-- This context's own published surface: the knowledge-folder port, the
+    <!-- This context's own published surface: the devbook-folder port, the
          configured-folder format and the location a folder resolves to. The
          panels ask it rather than the adapter that answers it, which is what
-         keeps Second Brain from having to see where the backlog is stored. -->
+         keeps Devbook from having to see where the backlog is stored. -->
     <ProjectReference Include="..\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <!-- The read side of the generated knowledge database (local ADR 0004). A
          screen may take an adapter - ModuleBoundaryTests says so in as many words -

@@ -34,9 +34,9 @@
     moment it was used.
 
     The vocabulary arrives from the caller and is not looked up here. It used to be
-    a KnowledgeFolder, which made this component — and the two shapes over it —
+    a DevbookFolder, which made this component — and the two shapes over it —
     unusable by anything outside the five knowledge folders, for one field's sake.
-    A knowledge caller passes `KnowledgeStatus.Vocabulary(folder)` and gets exactly
+    A knowledge caller passes `DevbookStatus.Vocabulary(folder)` and gets exactly
     what it got before; anything else passes its own words. Nothing else about the
     record was ever folder-shaped: a field nobody writes is simply absent, which
     MetadataRecord already models.
@@ -72,7 +72,7 @@
 @if (RendersAnything)
 {
     <div class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
-        <div class="knowledge-record__headline">
+        <div class="devbook-record__headline">
             @Heading
             @if (StatusIsSelectable)
             {
@@ -110,7 +110,7 @@
     /// different things in different places, so a tone or a warning guessed
     /// without a vocabulary would be wrong as often as right.
     ///
-    /// <para>A knowledge surface passes <c>KnowledgeStatus.Vocabulary(folder)</c>.
+    /// <para>A knowledge surface passes <c>DevbookStatus.Vocabulary(folder)</c>.
     /// This used to be the folder itself, which is what made the whole record
     /// unavailable to a caller outside those five folders — see the note at the top
     /// of this file.</para></summary>
@@ -130,13 +130,13 @@
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     /// <summary>Resolves a reference to a link target. The host owns the mapping
     /// from repository path to route; returning null leaves that reference as
     /// plain text or a button rather than a broken link.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+    public Func<DevbookReference, string?>? HrefFor { get; set; }
 
     /// <summary>Whether the secondary tier — everything that is not the status —
     /// is drawn at all. On by default, so a host that says nothing gets the whole
@@ -146,7 +146,7 @@
     public bool ShowFields { get; set; } = true;
 
     [Parameter]
-    public string AriaLabel { get; set; } = "Knowledge metadata";
+    public string AriaLabel { get; set; } = "Devbook metadata";
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -250,7 +250,7 @@
         }
     }
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "knowledge-record" : $"knowledge-record {CssClass}";
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "devbook-record" : $"devbook-record {CssClass}";
 
     /// <summary>
     /// Whether there is a record here at all.

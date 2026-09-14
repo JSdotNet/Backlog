@@ -1,0 +1,487 @@
+@implements IAsyncDisposable
+@inject DevbookChapterWriter Writer
+
+@*
+    The one editing surface every knowledge area shares.
+
+    Five areas, one component, because the debounce, the flush triggers, the save
+    indicator and the status race are the only genuinely new behaviour in editing
+    a chapter — and five copies of that would be five chances to get the race
+    wrong, four of them found by whoever edited that area last. What the areas
+    actually differ in is how they name the file, and that is the Chapter
+    parameter: a panel hands one over and gets the whole of this.
+
+    There is no save button here and there never will be one:
+    .design/interaction-guidelines.md#auto-save-no-save-buttons forbids it and
+    mandates the 750 ms debounce with a flush on blur and on navigation, which is
+    what the triggers below are. Chapter is null means the selection could not be
+    placed on disk, so the body renders read-only rather than offering an edit
+    that would fail on the first keystroke.
+*@
+
+<div class="@ClassValue" data-testid="devbook-chapter-surface">
+    <div class="devbook-chapter-editor__state">
+        <SaveIndicator State="@_saveState" TestId="devbook-chapter-save-state" />
+        <Alert Message="@_error" TestId="devbook-chapter-save-error" Role="status" />
+    </div>
+
+    <MarkdownDocument Value="@_buffer"
+                      ValueChanged="OnTextChanged"
+                      Editing="@(Bare || _editing)"
+                      EditingChanged="OnEditingChangedAsync"
+                      Title="@Title"
+                      CanEdit="@(!Bare && Chapter is not null)"
+                      AllowCopy="@(!Bare)"
+                      HideFrontmatter="@HideFrontmatter"
+                      Fill="@Fill"
+                      BareEditor="@Bare"
+                      DevbookDocumentPath="@DevbookDocumentPath"
+                      OnDevbookNavigate="@OnDevbookNavigate"
+                      OnBlur="FlushAsync"
+                      TestId="devbook-chapter" />
+</div>
+
+@code {
+    /// <summary>The debounce the interaction guidelines recommend, and the one
+    /// the backlog list already uses. Same number in both places on purpose: two
+    /// surfaces that saved on different rhythms would teach two habits.</summary>
+    private const int DebounceMilliseconds = 750;
+
+    /// <summary>One write at a time. Two writes racing on one file would land in
+    /// whatever order the file system finished them in, and the loser is the
+    /// newer text — so the second waits rather than overtaking. Held around the
+    /// write and nothing else: <see cref="OnSaved"/> re-parses a whole knowledge
+    /// folder and can come back through this component, and a gate held across
+    /// that is a deadlock.</summary>
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+
+    private Timer? _debounce;
+    private DevbookChapterRef? _loadedChapter;
+    private string _buffer = string.Empty;
+    private string? _seenInitialText;
+    private string? _error;
+    private SaveState _saveState = SaveState.Idle;
+    private bool _editing;
+    private bool _pendingSave;
+    private bool _disposed;
+
+    /// <summary>
+    /// The statuses the buffer was loaded carrying, which is what the writer merges
+    /// against — without them, "still says draft" and "was changed to draft" are
+    /// the same string.
+    /// <para>
+    /// It is read in <see cref="ReadBaseline"/>, updated in
+    /// <see cref="AdoptWrite"/>, and handed over in <see cref="SaveAsync"/>, and
+    /// nowhere else. Deliberately so: which fields the merge needs and how many
+    /// fences a chapter turned out to have are the writer's business, and this
+    /// surface only has to carry the answer from one read to the next write.
+    /// </para>
+    /// </summary>
+    private DevbookChapterStatus? _baseline;
+
+    private static DevbookChapterStatus ReadBaseline(string markdown) => DevbookChapterStatus.Read(markdown);
+
+    /// <summary>The wrapper's classes. The grid is the block and stays the block:
+    /// the state row above the document is what it is for, and that arrangement
+    /// is the same whichever height this is taking. The modifier only changes
+    /// where the height comes from.</summary>
+    private string ClassValue =>
+        Fill ? "devbook-chapter-editor devbook-chapter-editor--fill" : "devbook-chapter-editor";
+
+    /// <summary>Which chapter is being edited, or null when the selection could
+    /// not be resolved to a file. Null is not an error state — it is a body that
+    /// can be read and not written.</summary>
+    [Parameter]
+    public DevbookChapterRef? Chapter { get; set; }
+
+    /// <summary>The chapter as it is on disk right now. Read once, for the
+    /// selected chapter only: the stores stay as they are rather than widening to
+    /// carry raw text, which would hold every chapter of every area in memory to
+    /// serve the one on screen.</summary>
+    [Parameter]
+    public string? InitialText { get; set; }
+
+    /// <summary>
+    /// What to put on the document bar, when anything. Optional, and every
+    /// knowledge area now leaves it out.
+    /// <para>
+    /// Each of them sits under something that has already named the file — a file
+    /// view's header in four areas, the layer header in tech — and this bar is
+    /// directly below it, so a title here read as the same file announced a second
+    /// time. It stays a parameter because a host with nothing above it would still
+    /// need one; with no title the bar is the actions alone.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Give up the document bar: no way in and out of editing, no copy button, just
+    /// the buffer.
+    /// <para>
+    /// For a host whose own header carries those — the file view's does now — and
+    /// where this surface is only on screen because the reader already asked to
+    /// write. Keeping the bar there would put a second Edit button directly under
+    /// the first, and its read view would render the chapter a second time
+    /// underneath the one the host is already showing.
+    /// </para>
+    /// <para>
+    /// The editor's own frame goes with the bar, for the same reason: a host that
+    /// carries the controls is a host that drew the edge they sit on, and an
+    /// editor keeping its border inside that one draws two lines a pixel apart.
+    /// </para>
+    /// <para>
+    /// What this surface is actually for is untouched by it: the buffer, the 750 ms
+    /// debounce, the flush triggers, the save indicator and the status merge are the
+    /// same either way.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
+    /// <summary>
+    /// Whether the read view leaves out the file's leading YAML frontmatter,
+    /// because the panel above it is already showing it.
+    /// <para>
+    /// For the instructions area, whose files open with one: the file view's
+    /// frontmatter strip draws the description and the globs as facts, and the
+    /// read view directly under it would otherwise draw the same four lines again
+    /// as a divider and a run-together paragraph.
+    /// </para>
+    /// <para>
+    /// It changes what is rendered and nothing else. The buffer is still the whole
+    /// file — frontmatter and all — and so is what a save writes back: this
+    /// surface is written over the source, and a buffer missing the first four
+    /// lines would save the file without them.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool HideFrontmatter { get; set; }
+
+    /// <summary>
+    /// Whether this surface takes the height its host gives it rather than being
+    /// as tall as its own content.
+    /// <para>
+    /// For the panels whose file view header carries the Edit that put this on
+    /// screen: the pane there is already exactly as tall as it means to be, and
+    /// a surface sized by a textarea's row count leaves the reader a short box
+    /// with the rest of the pane empty underneath it. With this on the wrapper
+    /// gives up its content height, the save row keeps its own, and the document
+    /// takes what is left — which it passes on to the editor in turn.
+    /// </para>
+    /// <para>
+    /// Off by default, because a host with no definite height has nothing to
+    /// fill: the areas that render this under something other than a file view
+    /// still want the grid they have, and get it unchanged.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool Fill { get; set; }
+
+    /// <summary>The repository-relative path of the chapter being written, carrying
+    /// its area folder, for the read half of this surface.
+    ///
+    /// <para>Separate from <see cref="Chapter"/> even though both name the file,
+    /// because they name it in different terms: a ref is a root plus a path
+    /// relative to that root, which is what a writer needs and not what a link in
+    /// the prose resolves against. Three of the five areas show a chapter through
+    /// this surface rather than through the file view, so without it their links
+    /// would be the only ones in the product still opening a browser.</para></summary>
+    [Parameter]
+    public string? DevbookDocumentPath { get; set; }
+
+    /// <summary>Raised with the reference a reader followed in the read view. The
+    /// panel owns nothing about the selection either — it passes the request on to
+    /// the pane — so this is a relay and not a move.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
+
+    /// <summary>Raised after a write lands, so a panel can re-read whatever it
+    /// derived from the chapter — a status badge, a heading list, a diagram.</summary>
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    /// <summary>
+    /// Raised when a save failed after this surface stopped being able to say so
+    /// itself — the pane closed, or the panel swapped the editor out from under a
+    /// write in flight. A failure while the editor is still on screen is reported
+    /// where it belongs, beside the indicator, and does not come through here.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnSaveFailed { get; set; }
+
+    /// <summary>
+    /// Writes a pending save now, and is the canonical answer to "the body goes
+    /// first".
+    /// <para>
+    /// Public because a panel's status handler has to get the body to disk before
+    /// it writes the status line. Both are read-modify-writes on one file, and the
+    /// buffer here still carries the status line as it was read — so while the
+    /// writer's merge protects the field either way, only flushing first keeps the
+    /// body from being written back out of a buffer that predates the status
+    /// change. A panel calling this needs no more explanation than a line saying
+    /// which order it is keeping and why it is this one.
+    /// </para>
+    /// </summary>
+    public async Task FlushAsync()
+    {
+        CancelDebounce();
+        if (!_pendingSave) return;
+
+        await SaveAsync();
+        if (!_disposed) StateHasChanged();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsSameChapter(_loadedChapter, Chapter))
+        {
+            // A panel that reloaded after a status change hands the same chapter
+            // back with fresh text. Adopting it mid-sentence would take the
+            // caret's line away, so it is adopted only when there is nothing
+            // pending to lose — and it is compared against what was last handed
+            // in rather than against the buffer, because after a save the buffer
+            // is legitimately ahead of a panel that has not re-read yet.
+            if (!string.Equals(_seenInitialText, InitialText, StringComparison.Ordinal))
+            {
+                _seenInitialText = InitialText;
+                if (!_editing && !_pendingSave) LoadBuffer();
+            }
+
+            return;
+        }
+
+        // Navigating to another chapter is a flush trigger like blur is: the
+        // pending save belongs to the chapter that is leaving, and the writer
+        // still has the ref that names it, so it goes to disk before the buffer
+        // points anywhere else.
+        await FlushAsync();
+
+        _loadedChapter = Chapter;
+        _editing = false;
+        LoadBuffer();
+    }
+
+    /// <summary>Takes the chapter as it is on disk, and remembers the status it
+    /// arrived with. That baseline is what makes the writer's merge decidable
+    /// later: without it, "still says draft" and "was changed to draft" are the
+    /// same string.</summary>
+    private void LoadBuffer()
+    {
+        _buffer = InitialText ?? string.Empty;
+        _seenInitialText = InitialText;
+        _baseline = ReadBaseline(_buffer);
+        _saveState = SaveState.Idle;
+        _error = null;
+        _pendingSave = false;
+    }
+
+    private void OnTextChanged(string value)
+    {
+        _buffer = value;
+        if (_loadedChapter is null) return;
+
+        _pendingSave = true;
+        ScheduleDebouncedSave();
+    }
+
+    /// <summary>Done leaves the editor and flushes, which is the whole of what it
+    /// does — it is not a save button, because by the time it is pressed the text
+    /// has been persisting on its own for as long as it was being typed.</summary>
+    private async Task OnEditingChangedAsync(bool editing)
+    {
+        _editing = editing;
+        if (!editing) await FlushAsync();
+    }
+
+    private void ScheduleDebouncedSave()
+    {
+        CancelDebounce();
+        _debounce = new Timer(_ => _ = OnDebounceElapsedAsync(), null, DebounceMilliseconds, Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// The debounce's own save, and the only save path with no caller to hand a
+    /// failure back to.
+    /// <para>
+    /// Every other trigger — blur, Done, navigation, disposal — is awaited by
+    /// somebody. This one is started and let go, so an exception that
+    /// <see cref="SaveAsync"/> did not anticipate would be observed by nothing at
+    /// all: the indicator would sit on "Saving..." and the reason would never
+    /// reach a screen. It is caught here for that reason and for no other, and it
+    /// lands where every save failure lands.
+    /// </para>
+    /// </summary>
+    private async Task OnDebounceElapsedAsync()
+    {
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await SaveAsync();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The pane closed while the debounce was in flight. DisposeAsync has
+            // already written whatever was pending, so there is nothing to save
+            // and nothing left to render it into.
+        }
+        catch (Exception ex)
+        {
+            await ReportSaveFailureAsync(ex);
+        }
+    }
+
+    private void CancelDebounce()
+    {
+        _debounce?.Dispose();
+        _debounce = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_loadedChapter is null || !_pendingSave) return;
+
+        _pendingSave = false;
+        _saveState = SaveState.Saving;
+        _error = null;
+        if (!_disposed) StateHasChanged();
+
+        // Captured before the write, because all three can move while it is in
+        // flight: nothing stops the author typing on, and nothing stops another
+        // save queueing behind this one.
+        var chapter = _loadedChapter;
+        var written = _buffer;
+        var baseline = _baseline;
+
+        try
+        {
+            var result = await WriteSerializedAsync(chapter, written, baseline);
+
+            AdoptWrite(written, result);
+            _saveState = SaveState.Saved;
+
+            if (!_disposed) await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            // Never silently: the indicator says "Could not save" and the reason
+            // is shown beside it, because the alternative is an editor that looks
+            // saved and is not.
+            await ReportSaveFailureAsync(ex);
+        }
+    }
+
+    /// <summary>
+    /// Writes with every other write on this surface waiting its turn. The gate is
+    /// released before <see cref="OnSaved"/> is raised, so a panel that comes back
+    /// through here while reloading finds it open.
+    /// <para>
+    /// No cancellation token is passed, and that is a decision rather than an
+    /// omission. The only lifetime this surface has to offer is its own, and the
+    /// one moment it ends is the moment the last save matters most — a token
+    /// cancelled on disposal would abandon exactly the write that closing the pane
+    /// depends on. Nothing else here has a reason to stop a write half way.
+    /// </para>
+    /// </summary>
+    private async Task<DevbookChapterWriteResult> WriteSerializedAsync(DevbookChapterRef chapter, string text, DevbookChapterStatus? baseline)
+    {
+        await _writeGate.WaitAsync().ConfigureAwait(true);
+        try
+        {
+            return await Writer.WriteAsync(chapter, text, baseline);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Takes the text that actually landed, which is how a status the file won
+    /// comes back into the editor instead of being re-proposed, stale, by the next
+    /// keystroke.
+    /// <para>
+    /// The invariant: a completed write may only update the buffer if the buffer
+    /// is still the text that was written. A write is a file read, a merge and a
+    /// replacing move, and an author does not stop typing for it — nor does the
+    /// next debounce wait, when a panel's reload has held one save open long
+    /// enough for another to start. A write that lands on a buffer that has moved
+    /// on would put its own text back over newer typing, and the save after that
+    /// would persist the reverted body.
+    /// </para>
+    /// </summary>
+    private void AdoptWrite(string written, DevbookChapterWriteResult result)
+    {
+        if (!string.Equals(_buffer, written, StringComparison.Ordinal)) return;
+
+        _buffer = result.Text;
+        _seenInitialText = result.Text;
+        _baseline = result.Status;
+    }
+
+    /// <summary>
+    /// The one place a failed save becomes visible.
+    /// <para>
+    /// While the editor is on screen that is the indicator and the alert beside
+    /// it. Once it is not — the pane closed, or the panel swapped it out mid-write
+    /// — there is nothing here left to render into, so the host is told instead
+    /// and can put it somewhere that still exists.
+    /// </para>
+    /// </summary>
+    private async Task ReportSaveFailureAsync(Exception ex)
+    {
+        _saveState = SaveState.Failed;
+        _error = ex.Message;
+
+        if (!_disposed)
+        {
+            try
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposed between the check and the dispatch. The host callback
+                // below is then the only route left, and it is taken next.
+                _disposed = true;
+            }
+        }
+
+        if (_disposed && OnSaveFailed.HasDelegate) await OnSaveFailed.InvokeAsync(ex.Message);
+    }
+
+    private static bool IsSameChapter(DevbookChapterRef? left, DevbookChapterRef? right)
+    {
+        if (left is null || right is null) return left is null && right is null;
+
+        return string.Equals(left.AreaKey, right.AreaKey, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(left.FullPath, right.FullPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Closing the pane must not be the one gesture that loses the last 750 ms of
+    /// typing, so disposal is a flush trigger too — awaited, which is why this is
+    /// IAsyncDisposable rather than IDisposable.
+    /// <para>
+    /// It is also the one save nobody can be shown the failure of: the indicator
+    /// and the alert are going away with the component. So it reports through
+    /// <see cref="OnSaveFailed"/> instead, which reaches a host only when the host
+    /// outlives this editor — a chapter or layer switch, or a panel refresh that
+    /// swapped the surface out. When the whole pane is closing there is no such
+    /// host, and a write the file system refused is then lost with nothing to show
+    /// for it; what this will not do is claim it succeeded.
+    /// </para>
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        CancelDebounce();
+        _disposed = true;
+
+        if (_pendingSave) await SaveAsync();
+
+        _writeGate.Dispose();
+    }
+}

@@ -16,7 +16,7 @@ namespace Backlog.Infrastructure.AzureFoundry;
 /// and an embedding call that quietly used the chat deployment would fail with a
 /// message about a model rather than about a configuration. The caller knows
 /// which model its vectors are pinned to — see
-/// <c>KnowledgeEmbeddingModel.Default</c> — and says so.
+/// <c>DevbookEmbeddingModel.Default</c> — and says so.
 /// </para></param>
 /// <param name="Inputs">The texts, in the order the vectors come back in.</param>
 public sealed record AzureFoundryEmbeddingRequest(string Deployment, IReadOnlyList<string> Inputs);
@@ -41,7 +41,7 @@ public sealed record AzureFoundryEmbeddingResponse(string Model, IReadOnlyList<f
 /// because <b>the Node generator is the only writer</b>. If embeddings are ever
 /// computed for the corpus, the generator computes them and writes them; this
 /// client existing does not make the app a second writer of
-/// <c>_meta/knowledge.db</c>, and nothing here opens that file at all.</para>
+/// <c>_meta/devbook.db</c>, and nothing here opens that file at all.</para>
 ///
 /// <para>The shape follows <see cref="AzureFoundryChatClient"/> deliberately —
 /// same settings store, same <c>api-key</c> header, same api-version, same

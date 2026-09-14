@@ -8,7 +8,7 @@ namespace Backlog.UI.Components.Compare;
 ///
 /// <para>
 /// One folder rather than three. The repository files by subject where a feature
-/// is a set — <c>Knowledge/</c>, <c>Roadmap/</c>, <c>Diagrams/</c> — and by
+/// is a set — <c>Devbook/</c>, <c>Roadmap/</c>, <c>Diagrams/</c> — and by
 /// widget kind only where a widget is genuinely generic — <c>Buttons/</c>,
 /// <c>Inputs/</c>. Splitting the picker into <c>Menus/</c>, the file list into
 /// <c>Layout/</c> and the view into <c>Markdown/</c> would scatter one chapter

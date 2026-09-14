@@ -44,10 +44,10 @@ public sealed class PaneResizerScopeTests
     /// belongs to.
     /// <para>
     /// A child combinator rather than a descendant one, because the split's separator
-    /// is also inside <c>.knowledge-layout</c> — two levels down, through the tasks
+    /// is also inside <c>.devbook-layout</c> — two levels down, through the tasks
     /// workspace — so a descendant selector would hide exactly what this is scoped to
     /// spare. The sheet already writes the layout's own children this way; see
-    /// <c>.knowledge-layout--inbox-before-backlog &gt; .inbox-pane</c>.
+    /// <c>.devbook-layout--inbox-before-backlog &gt; .inbox-pane</c>.
     /// </para>
     /// </summary>
     [Fact]
@@ -55,7 +55,7 @@ public sealed class PaneResizerScopeTests
     {
         var narrow = Block(Css(), NarrowStep);
 
-        Assert.Contains(".knowledge-layout > .pane-resizer {", narrow, StringComparison.Ordinal);
+        Assert.Contains(".devbook-layout > .pane-resizer {", narrow, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -132,7 +132,7 @@ public sealed class PaneResizerScopeTests
     }
 
     /// <summary>Each selector in the block, one per comma, trimmed — so that
-    /// <c>.knowledge-layout &gt; .pane-resizer</c> and <c>.pane-resizer</c> are told
+    /// <c>.devbook-layout &gt; .pane-resizer</c> and <c>.pane-resizer</c> are told
     /// apart rather than both matching a substring search.</summary>
     private static IEnumerable<string> SelectorLists(string block)
     {

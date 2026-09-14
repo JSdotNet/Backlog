@@ -15,7 +15,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// is what fixes the sequence:
 /// <list type="number">
 /// <item><b>Parts.</b> Input and action, Structure and navigation, Feedback,
-/// Content, Knowledge base — the components that compose into everything
+/// Content, Devbook — the components that compose into everything
 /// else.</item>
 /// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Dashboard — a set of
 /// components that only mean something together, each its own chapter because
@@ -154,7 +154,7 @@ internal static class StorybookIndex
         //
         // The file pane is in Content rather than Combined usage because a reader
         // looking for how to show a file looks here. What it composes below the
-        // page's own markup — a metadata record from the Knowledge base chapter, a
+        // page's own markup — a metadata record from the Devbook chapter, a
         // comparison from Combined usage — is drawn inside FileHeader and
         // FileContent rather than by the pages, so the order test does not see it
         // and it is noted here rather than listed as a bend.
@@ -187,7 +187,7 @@ internal static class StorybookIndex
 
             // Two more subpages of Markdown, about two inlines the parser gives a
             // class of this product's own rather than a plain element. They are
-            // here and not under Knowledge base because neither is a metadata
+            // here and not under Devbook because neither is a metadata
             // subject: a tag and a reference are both things an author writes in
             // the middle of a sentence, and the record is only the other place one
             // of them turns up.
@@ -195,8 +195,8 @@ internal static class StorybookIndex
             // Tags before References, and by the rule: everything the Tags page
             // draws — TagChip, TagMultiSelect, the markdown inline itself — is in
             // Input and action or on the parent page above. References is a
-            // recorded bend. It is the page that introduces KnowledgeReferenceLink,
-            // but it also draws a MetadataView, and the Knowledge base chapter that
+            // recorded bend. It is the page that introduces DevbookReferenceLink,
+            // but it also draws a MetadataView, and the Devbook chapter that
             // introduces the record is two groups below. The page is about the
             // inline, not about the field, and somebody who has just read what an
             // inline renders as looks for what a path in a sentence renders as in
@@ -235,7 +235,7 @@ internal static class StorybookIndex
         // a time, and last the two shapes a whole record is assembled into — so
         // they are read as a chapter and not picked out of a list. That is also
         // why the group is named for its subject rather than for a job, and why the
-        // parent page is not named "Knowledge base" a second time: the group title
+        // parent page is not named "Devbook" a second time: the group title
         // sits uppercased directly above it, and the same words twice in two type
         // styles read as a rendering fault.
         //
@@ -244,7 +244,7 @@ internal static class StorybookIndex
         // of a chapter is the same reference drawn by the same component, and the
         // page that says so belongs beside the other inlines. What stays here is
         // which fields hold one, which is a fact about the record.
-        new("Knowledge base",
+        new("Devbook",
         [
             new("devbook", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
             new("devbook/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),

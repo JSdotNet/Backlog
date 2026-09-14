@@ -3,7 +3,7 @@
     state, and how it disagrees with what we believe locally.
 
     What it renders depends on what the host can do with it, not on what it is —
-    the tri-state KnowledgeReferenceLink already draws, copied rather than
+    the tri-state DevbookReferenceLink already draws, copied rather than
     re-derived. Given a URL it is an anchor, given a callback it is a button,
     given neither it is inert text. The argument is the one recorded there: an
     anchor can be middle-clicked, copied and opened in a new window and a button
@@ -15,7 +15,7 @@
     callback and renders as a button — and a fourth renderer invented for that
     case is precisely the drift this family exists to prevent.
 
-    The inert shape is a span rather than KnowledgeReferenceLink's code element.
+    The inert shape is a span rather than DevbookReferenceLink's code element.
     A pull request number is a number, not a path: the existing `.badge--gh`
     already sets tabular-nums rather than putting it in the mono face, and this
     follows what the product already does with these.

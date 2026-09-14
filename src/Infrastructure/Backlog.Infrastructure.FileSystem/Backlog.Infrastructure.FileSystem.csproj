@@ -42,8 +42,8 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
-         settings file: Tasks' ITaskStore and Second Brain's
-         IKnowledgeFolderSource. Answering them needs the GitHub repository
+         settings file: Tasks' ITaskStore and Devbook's
+         IDevbookFolderSource. Answering them needs the GitHub repository
          settings as well as the local root, and holding that join is exactly
          what an adapter is for — it is what keeps either context from having to
          see the other. -->

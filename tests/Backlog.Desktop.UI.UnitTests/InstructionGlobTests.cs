@@ -18,7 +18,7 @@ public sealed class InstructionGlobTests
         Assert.True(InstructionGlob.Matches(glob, path));
 
     [Theory]
-    [InlineData("src/App/**", "src/Modules/Knowledge/Thing.cs")]
+    [InlineData("src/App/**", "src/Modules/Devbook/Thing.cs")]
     [InlineData("src/Harness/Backlog.UI.Storybook/**", "src/Harness/Backlog.Desktop.WebHarness/Program.cs")]
     [InlineData("*.md", "docs/guide.md")]
     [InlineData("src/*.cs", "src/App/Program.cs")]
@@ -54,7 +54,7 @@ public sealed class InstructionGlobTests
     {
         string[] globs = ["src/App/**", "src/Modules/**", "src/Core/Backlog.UI.Components/**"];
 
-        Assert.True(InstructionGlob.Matches(globs, "src/Modules/Knowledge/Thing.razor"));
+        Assert.True(InstructionGlob.Matches(globs, "src/Modules/Devbook/Thing.razor"));
         Assert.False(InstructionGlob.Matches(globs, "tests/Backlog.ArchitectureTests/Thing.cs"));
     }
 

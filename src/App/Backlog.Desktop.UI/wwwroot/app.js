@@ -17,7 +17,7 @@
 // No colours. They used to be here, four raw hex values that matched nothing in
 // the palette and that `DesignTokenTests` could not see because they were in
 // JavaScript. A node's colour now comes from its tone — which C# reads off the
-// same `KnowledgeStatus` vocabulary the badges use — and the renderer resolves a
+// same `DevbookStatus` vocabulary the badges use — and the renderer resolves a
 // tone to a token. Neither this file nor that one holds a colour any more.
 
 // `.tech` writes one word and `.arc42` sometimes writes another for the same
@@ -72,7 +72,7 @@ window.backlogDiagrams.renderTechnologyAtlas = async (element, id, graph, dotnet
 // there is nothing for this app to translate — it passes the model through and is
 // here only so the knowledge atlas has a renderer name of its own, which is what
 // lets the two atlases be told apart in a test and in a trace.
-window.backlogDiagrams.renderKnowledgeAtlas = async (element, id, graph, dotnet) => {
+window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) => {
     window.backlogGraphAtlas.render(element, id, graph, dotnet);
 };
 

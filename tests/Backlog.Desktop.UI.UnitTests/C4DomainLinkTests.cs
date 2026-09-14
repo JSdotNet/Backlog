@@ -86,7 +86,7 @@ public sealed class C4DomainLinkTests : IDisposable
     {
         await using var harness = CreateHarness(references: DocumentsTheContextMap);
 
-        var asked = new List<KnowledgeChapterLink>();
+        var asked = new List<DevbookChapterLink>();
         var component = harness.Render(".domain/context-map.md", asked);
 
         // Waited for on the link itself rather than on the chapter beside it, so a
@@ -153,15 +153,15 @@ public sealed class C4DomainLinkTests : IDisposable
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
 
-        var c4 = Path.Combine(root, ".arc42", C4KnowledgeStore.WorkspaceDirectory);
+        var c4 = Path.Combine(root, ".arc42", C4DevbookStore.WorkspaceDirectory);
         Directory.CreateDirectory(c4);
         File.WriteAllText(Path.Combine(c4, "backlog.dsl"), Workspace);
-        File.WriteAllText(Path.Combine(c4, C4KnowledgeStore.ReferenceFile), references);
+        File.WriteAllText(Path.Combine(c4, C4DevbookStore.ReferenceFile), references);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
-        if (c4Enabled) Assert.Null(features.SetEnabled(KnowledgeFeatures.C4Diagrams, true));
+        if (c4Enabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
 
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
         Assert.Empty(errors);
@@ -169,32 +169,32 @@ public sealed class C4DomainLinkTests : IDisposable
         var repository = Assert.Single(repositories) with
         {
             CloneDirectory = root,
-            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+            DevbookFolders = DevbookFolderSetting.Defaults()
         };
         Assert.Null(gitHub.SetRepositories([repository]));
 
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var folders = new KnowledgeFolderSource(gitHub, settings);
+        var folders = new DevbookFolderSource(gitHub, settings);
         context.Services.AddSingleton(settings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<IKnowledgeFolderSource>(folders);
-        context.Services.AddSingleton(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
-        context.Services.AddSingleton<KnowledgeChapterWriter>();
+        context.Services.AddSingleton<IDevbookFolderSource>(folders);
+        context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookChapterWriter>();
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
 
-        if (registerStore) context.Services.AddSingleton<C4KnowledgeStore>();
+        if (registerStore) context.Services.AddSingleton<C4DevbookStore>();
 
         return new Harness(context, repository.Alias);
     }
 
     private sealed record Harness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
     {
-        public IRenderedComponent<DomainKnowledgePanel> Render(string? selectedPath, List<KnowledgeChapterLink>? asked = null) =>
-            Context.Render<DomainKnowledgePanel>(parameters =>
+        public IRenderedComponent<DomainDevbookPanel> Render(string? selectedPath, List<DevbookChapterLink>? asked = null) =>
+            Context.Render<DomainDevbookPanel>(parameters =>
             {
                 parameters
                     .Add(panel => panel.RepositoryAlias, RepositoryAlias)
@@ -202,13 +202,13 @@ public sealed class C4DomainLinkTests : IDisposable
 
                 if (asked is not null)
                 {
-                    parameters.Add(panel => panel.OnNavigateToChapter, EventCallback.Factory.Create<KnowledgeChapterLink>(this, asked.Add));
+                    parameters.Add(panel => panel.OnNavigateToChapter, EventCallback.Factory.Create<DevbookChapterLink>(this, asked.Add));
                 }
             });
 
         /// <summary>The folder read and the workspace read are both asynchronous, so the
         /// chapter arrives on a later render than the first.</summary>
-        public void Settle(IRenderedComponent<DomainKnowledgePanel> component) =>
+        public void Settle(IRenderedComponent<DomainDevbookPanel> component) =>
             component.WaitForAssertion(() =>
                 Assert.NotEmpty(component.FindAll("[data-testid='domain-chapter-file']")));
 

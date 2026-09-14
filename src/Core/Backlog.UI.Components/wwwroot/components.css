@@ -1805,19 +1805,19 @@ button.md-check {
     color: var(--code-attribute);
 }
 
-/* --- Knowledge metadata -------------------------------------------------- */
+/* --- Devbook metadata -------------------------------------------------- */
 
-.knowledge-meta {
+.devbook-meta {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
-.knowledge-meta:empty {
+.devbook-meta:empty {
     display: none;
 }
 
-.knowledge-meta__chip {
+.devbook-meta__chip {
     display: inline-flex;
     gap: var(--spacing-xs);
     align-items: center;
@@ -1829,7 +1829,7 @@ button.md-check {
     font-size: var(--font-size-xs);
 }
 
-.knowledge-meta__chip span {
+.devbook-meta__chip span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1837,22 +1837,22 @@ button.md-check {
 
 /* The typed badge wraps exactly one record, and a record is a stacked block
    rather than one more chip in this row. */
-.knowledge-meta > .knowledge-record {
+.devbook-meta > .devbook-record {
     flex: 1 1 100%;
 }
 
-/* `.knowledge-related` is the legacy strip's chip and only that now: the typed
-   record draws its references as links (`.knowledge-ref`) and its plain strings
-   as values (`.knowledge-value`). It shares the pill rule below because the two
+/* `.devbook-related` is the legacy strip's chip and only that now: the typed
+   record draws its references as links (`.devbook-ref`) and its plain strings
+   as values (`.devbook-value`). It shares the pill rule below because the two
    parameter callers are entitled to the markup and the look they were written
    against — see MetadataBadgeCompatibilityTests. */
-.knowledge-related,
-.knowledge-status {
+.devbook-related,
+.devbook-status {
     font-family: var(--font-family-mono);
 }
 
-.knowledge-status,
-.knowledge-related {
+.devbook-status,
+.devbook-related {
     display: inline-flex;
     align-items: center;
     min-height: 1.5rem;
@@ -1884,7 +1884,7 @@ button.md-check {
    One class, against `.badge--status` and its modifiers which are one class
    each: equal specificity, and this is declared after all of them, so it wins
    without needing any help. */
-.knowledge-status--unrecognised {
+.devbook-status--unrecognised {
     border-color: var(--color-border-strong);
     border-style: dashed;
     color: var(--color-text-primary);
@@ -1912,7 +1912,7 @@ button.md-check {
    each row measuring itself.
 */
 
-.knowledge-record {
+.devbook-record {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2xs);
@@ -1948,7 +1948,7 @@ button.md-check {
    status sits on line one, level with the words, rather than drifting down
    beside the last one.
 */
-.knowledge-record__headline {
+.devbook-record__headline {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
@@ -1956,7 +1956,7 @@ button.md-check {
     min-width: 0;
 }
 
-.knowledge-record__headline > :not(.badge--status) {
+.devbook-record__headline > :not(.badge--status) {
     min-width: 0;
 }
 
@@ -1965,7 +1965,7 @@ button.md-check {
    both, because both are the same application status badge; it took two before,
    one per form, which is what let the two drift apart. Neither ever shrinks: it
    is the short, fixed thing on the line, and the heading is what gives. */
-.knowledge-record__headline > .badge--status {
+.devbook-record__headline > .badge--status {
     flex: 0 0 auto;
 }
 
@@ -1978,7 +1978,7 @@ button.md-check {
 
    The auto margin also overrides `.badge--status`'s own `margin-left`, which is
    spacing for a badge in a row of badges and not for one holding an edge. */
-.knowledge-record__headline > .badge--status:not(:first-child) {
+.devbook-record__headline > .badge--status:not(:first-child) {
     margin-inline-start: auto;
 }
 
@@ -1993,11 +1993,11 @@ button.md-check {
 /* The heading arrives with the block margins it has as a block of its own.
    Left alone they push the pill off the line and reopen the gap this row exists
    to close. */
-.knowledge-record__headline .md-heading {
+.devbook-record__headline .md-heading {
     margin: 0;
 }
 
-.knowledge-fields {
+.devbook-fields {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: baseline;
@@ -2013,7 +2013,7 @@ button.md-check {
     position: relative;
 }
 
-.knowledge-fields__row {
+.devbook-fields__row {
     display: contents;
 }
 
@@ -2034,7 +2034,7 @@ button.md-check {
    grid item at all. Left to auto-placement the value would take the label's own
    column, which is sized to the widest label in the list and would squeeze it.
 */
-.knowledge-fields__row--bare .knowledge-fields__value {
+.devbook-fields__row--bare .devbook-fields__value {
     grid-column: 1 / -1;
 }
 
@@ -2043,21 +2043,21 @@ button.md-check {
    the cell's own gap already provides that, and the margin does one thing only:
    pushes the first key a step right of every other row's value, out of the column
    they all share. */
-.knowledge-fields__value .badge--feature {
+.devbook-fields__value .badge--feature {
     margin-left: 0;
 }
 
 /* The dimmest thing in the record. A field name is scaffolding for the value
    beside it — worth reading once to know which field this is, and never the
    thing being looked at. */
-.knowledge-fields__label {
+.devbook-fields__label {
     margin: 0;
     color: var(--color-text-disabled);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
 }
 
-.knowledge-fields__value {
+.devbook-fields__value {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs) var(--spacing-sm);
@@ -2069,7 +2069,7 @@ button.md-check {
 /*
    A reference, as a link and not as a badge.
 
-   All three shapes used to carry `knowledge-related` and so inherited the status
+   All three shapes used to carry `devbook-related` and so inherited the status
    pill's rule: border, full radius, filled surface, bold. That turned a row of
    references into a row of badges, which both invited a click the inert form
    does not answer and out-shouted the single pill on the headline that really is
@@ -2077,7 +2077,7 @@ button.md-check {
    same default underline — so a reference reads as what it is.
 */
 
-.knowledge-ref {
+.devbook-ref {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     min-width: 0;
@@ -2087,7 +2087,7 @@ button.md-check {
     overflow-wrap: anywhere;
 }
 
-.knowledge-ref--link {
+.devbook-ref--link {
     color: var(--color-text-link);
 }
 
@@ -2095,7 +2095,7 @@ button.md-check {
    font, a surface, a border and padding of its own, and whether the host routes
    a reference in-process or lets the browser navigate is not something a reader
    should be able to see. */
-.knowledge-ref--action {
+.devbook-ref--action {
     appearance: none;
     margin: 0;
     padding: 0;
@@ -2110,22 +2110,22 @@ button.md-check {
     cursor: pointer;
 }
 
-.knowledge-ref--link:hover,
-.knowledge-ref--action:hover {
+.devbook-ref--link:hover,
+.devbook-ref--action:hover {
     color: var(--color-primary-light);
 }
 
 /* Resetting the chrome must not take the focus ring with it: this is the one
    control in the record, and a keyboard has to be able to see where it is. */
-.knowledge-ref--link:focus-visible,
-.knowledge-ref--action:focus-visible {
+.devbook-ref--link:focus-visible,
+.devbook-ref--action:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--spacing-2xs);
 }
 
 /* Nobody can follow this one, so it is not painted as though they could. Quiet
    secondary text: readable, copyable, and making no promise. */
-.knowledge-ref--inert {
+.devbook-ref--inert {
     color: var(--color-text-secondary);
 }
 
@@ -2133,7 +2133,7 @@ button.md-check {
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
    references it sits among so the column still scans as one. */
-.knowledge-value {
+.devbook-value {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
@@ -2141,16 +2141,16 @@ button.md-check {
     overflow-wrap: anywhere;
 }
 
-/* --- Knowledge menu ------------------------------------------------------ */
+/* --- Devbook menu ------------------------------------------------------ */
 
-.knowledge-menu__message,
+.devbook-menu__message,
 .folder-tree__message {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.knowledge-menu__row,
+.devbook-menu__row,
 .folder-tree__row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2158,7 +2158,7 @@ button.md-check {
     gap: var(--spacing-2xs);
 }
 
-.knowledge-menu__open-vscode {
+.devbook-menu__open-vscode {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2175,18 +2175,18 @@ button.md-check {
     cursor: pointer;
 }
 
-.knowledge-menu__open-vscode:hover:not(:disabled),
-.knowledge-menu__open-vscode:focus-visible {
+.devbook-menu__open-vscode:hover:not(:disabled),
+.devbook-menu__open-vscode:focus-visible {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 24%, transparent);
 }
 
-.knowledge-menu__open-vscode:focus-visible {
+.devbook-menu__open-vscode:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.knowledge-menu__open-vscode:disabled {
+.devbook-menu__open-vscode:disabled {
     cursor: default;
     opacity: 0.58;
 }
@@ -2205,10 +2205,10 @@ button.md-check {
     font-size: var(--font-size-xs);
 }
 
-.knowledge-menu,
+.devbook-menu,
 .folder-tree,
 .folder-tree__children,
-.knowledge-menu__children {
+.devbook-menu__children {
     display: grid;
     gap: var(--spacing-2xs);
     margin: 0;
@@ -2216,7 +2216,7 @@ button.md-check {
     list-style: none;
 }
 
-.knowledge-menu__item,
+.devbook-menu__item,
 .folder-tree__item {
     display: flex;
     align-items: center;
@@ -2235,17 +2235,17 @@ button.md-check {
 
 /* Depth is a custom property TreeView writes per row, named after its own class
    prefix — so the indent rule is the one thing the two trees cannot share. */
-.knowledge-menu__item {
-    padding-left: calc(var(--spacing-sm) + (var(--knowledge-menu-depth, 0) * var(--spacing-md)));
+.devbook-menu__item {
+    padding-left: calc(var(--spacing-sm) + (var(--devbook-menu-depth, 0) * var(--spacing-md)));
 }
 
 .folder-tree__item {
     padding-left: calc(var(--spacing-sm) + (var(--folder-tree-depth, 0) * var(--spacing-md)));
 }
 
-.knowledge-menu__item:hover,
-.knowledge-menu__item:focus-visible,
-.knowledge-menu__item--active,
+.devbook-menu__item:hover,
+.devbook-menu__item:focus-visible,
+.devbook-menu__item--active,
 .folder-tree__item:hover,
 .folder-tree__item:focus-visible,
 .folder-tree__item--active {
@@ -2265,7 +2265,7 @@ button.md-check {
    Twice the fill and a solid bar down the edge. The bar is an inset shadow
    rather than a wider border because a border would move the label a pixel every
    time a row was chosen. */
-.knowledge-menu__item--active,
+.devbook-menu__item--active,
 .folder-tree__item--active {
     background: color-mix(in srgb, var(--color-primary) 28%, transparent);
     box-shadow: inset 3px 0 0 var(--color-primary);
@@ -2273,14 +2273,14 @@ button.md-check {
 
 /* The active row and the focused row are not the same row, so the fill cannot
    speak for both. */
-.knowledge-menu__item:focus-visible,
+.devbook-menu__item:focus-visible,
 .folder-tree__item:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.knowledge-menu__item--unavailable,
-.knowledge-menu__item:disabled,
+.devbook-menu__item--unavailable,
+.devbook-menu__item:disabled,
 .folder-tree__item--unavailable,
 .folder-tree__item:disabled {
     color: var(--color-text-secondary);
@@ -2291,7 +2291,7 @@ button.md-check {
 /* A row without children draws no twisty at all, so its label starts at the
    row's padding edge rather than behind an empty gutter. The width keeps the
    glyph a fixed column on the rows that do have one. */
-.knowledge-menu__twisty,
+.devbook-menu__twisty,
 .folder-tree__twisty {
     display: inline-flex;
     flex: 0 0 1rem;
@@ -2299,7 +2299,7 @@ button.md-check {
     color: var(--color-text-secondary);
 }
 
-.knowledge-menu__label,
+.devbook-menu__label,
 .folder-tree__label {
     min-width: 0;
     overflow: hidden;
@@ -2310,7 +2310,7 @@ button.md-check {
 /* A row's leading mark. A fixed column like the twisty rather than a shrinking
    one, so the labels of a folder's files start on the same vertical line whether
    or not the row above drew a mark. */
-.knowledge-menu__mark,
+.devbook-menu__mark,
 .folder-tree__mark {
     display: inline-flex;
     flex: none;
@@ -2318,7 +2318,7 @@ button.md-check {
     color: var(--color-text-secondary);
 }
 
-/* --- Knowledge type marker ------------------------------------------------ */
+/* --- Devbook type marker ------------------------------------------------ */
 /*
    The eighteen domain-type glyphs. Sized in em by the component so the mark
    scales with the heading level it leads, which is also what makes this rule
@@ -2331,7 +2331,7 @@ button.md-check {
    the component's header for why the four families it groups into are not
    allowed to become four hues.
 */
-.knowledge-type-marker {
+.devbook-type-marker {
     display: inline-block;
     flex: none;
     vertical-align: baseline;
@@ -2343,7 +2343,7 @@ button.md-check {
    and the heading's text has to stay exactly what it was. So the gap is drawn
    rather than typed, and it is in em for the same reason the mark is: it holds at
    every heading level. */
-.knowledge-type-marker--leads {
+.devbook-type-marker--leads {
     margin-right: 0.38em;
 }
 
@@ -2591,7 +2591,7 @@ button.md-check {
    this the pill would be pushed in by the strip reserved *for* it, ending a
    column's width short of the edge with nothing but air beside it. Both shapes
    take the same rule: what differs is which element paid the padding. */
-.md-view--status-column .knowledge-record__headline {
+.md-view--status-column .devbook-record__headline {
     margin-inline-end: calc(-1 * var(--md-status-column));
 }
 
@@ -4095,7 +4095,7 @@ button.task-panel__check:focus-visible {
        `.sr-only` is absolutely positioned, so without a positioned ancestor its
        containing block is the page: the hidden sentence then lands at page
        coordinates and can drag a scrolled pane's width out with it, invisibly.
-       `.knowledge-fields` carries the same note for the same reason. Nothing
+       `.devbook-fields` carries the same note for the same reason. Nothing
        moves — the copy has no offsets to resolve against. */
     position: relative;
     min-height: calc(
@@ -6714,14 +6714,14 @@ select.field__input {
    body that is the top of a document — the one place a reader has already
    scrolled past by the time they think to ask whether any of it is still
    current — so the record is drawn around the name instead, on the part of the
-   pane that stays put. The record itself is the same `knowledge-record` the
+   pane that stays put. The record itself is the same `devbook-record` the
    chapters wear; these rules only say how it sits in a header that already has
    a right-hand column.
 
    The identity column takes the header's free space. Unfilled, the column is as
    wide as its content: the status would sit against the name's last word and the
    path would sit against the status, and the right edge is the whole point of
-   both alignments (see .knowledge-record__headline). The aside keeps its own
+   both alignments (see .devbook-record__headline). The aside keeps its own
    content width, so growing here takes free space and nothing the actions were
    using.
 
@@ -6792,7 +6792,7 @@ select.field__input {
 /*
    The name's line, when there is no record to be the row.
 
-   With a record, MetadataView draws .knowledge-record__headline and the row is
+   With a record, MetadataView draws .devbook-record__headline and the row is
    that: the wrapped name, the path, the status. Without one, MetadataFileView
    draws the heading and nothing around it, and the column holds those same two
    items directly — so the column is the row. One arrangement, two elements
@@ -6827,7 +6827,7 @@ select.field__input {
    gives, and the values wrap, so the strip stays a strip rather than growing the
    header at the body's expense
    (.design/design-principles.md#low-chrome-content-first). */
-.file-view__record .knowledge-fields {
+.file-view__record .devbook-fields {
     grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
 }
 
@@ -6868,7 +6868,7 @@ select.field__input {
    select is as wide as the longest word it offers, since that is what a control
    holding a choice has to fit. Both are content, and neither clips.
 */
-.file-view__header .knowledge-record__headline > .badge--status {
+.file-view__header .devbook-record__headline > .badge--status {
     width: auto;
     min-width: 0;
 }
@@ -6920,7 +6920,7 @@ select.field__input {
    the record's headline, and the identity column itself when there is no record.
 */
 .file-view__identity > .file-view__path,
-.knowledge-record__headline > .file-view__path {
+.devbook-record__headline > .file-view__path {
     flex: 1 1 auto;
 }
 
@@ -7091,8 +7091,8 @@ select.field__input {
        So the pane hands the scrolling up. Whatever the pane sits in is what
        scrolls, the prose and its margin move together because they are one grid,
        and the gutter never has a bar of its own. That is already how every
-       surface in this product that draws remarks behaves — Arc42KnowledgePanel
-       and DomainKnowledgePanel both pass no MaxHeight and say in as many words
+       surface in this product that draws remarks behaves — Arc42DevbookPanel
+       and DomainDevbookPanel both pass no MaxHeight and say in as many words
        that the pane around them is what decides — so this makes the rule true
        wherever a margin is drawn, rather than true wherever the caller
        remembered.
@@ -10894,7 +10894,7 @@ select.field__input {
 /* --- One reference ------------------------------------------------------- */
 
 /* A reference is a link, so it looks like every other link in this product
-   rather than like a badge — the same correction KnowledgeReferenceLink already
+   rather than like a badge — the same correction DevbookReferenceLink already
    made when its three shapes were all wearing the status pill rule. */
 .integration-link {
     display: inline-flex;

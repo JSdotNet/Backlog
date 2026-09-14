@@ -1,0 +1,147 @@
+@*
+    An arc42 document's blocks, drawn as the shared library draws every block.
+
+    The switch that used to be here was the third copy of MarkdownView's: a
+    paragraph, a list, a quote, a code fence, a diagram and a rule, in
+    `knowledge-*` clothes. Each of those records is now mapped onto the shared
+    block record it is a subset of and handed to MarkdownBlockView, which wears
+    this panel's class names through its per-part hooks. No class changed and no
+    stylesheet rule moved.
+
+    Two arms stay. A heading here is a whole section — a real `h2`-`h5`, a title,
+    and a metadata line under it — and folding it into MetadataView would
+    change that markup rather than rename it. An arc42 table is a `div role="table"`
+    of single-cell rows, which is not an MdTable with other names either. Both are
+    worth revisiting; neither is a class rename.
+*@
+
+@foreach (var block in Blocks)
+{
+    switch (block)
+    {
+        case DevbookHeadingBlock heading:
+            <section class="devbook-heading devbook-heading--@heading.Level">
+                @RenderHeading(heading)
+                @* A stated status, or a reference, is worth a line. This used to
+                   read `!= "draft"`, because an absent status was parsed as
+                   "draft" and the two could not be told apart — which meant an
+                   explicitly drafted chapter went unmarked to hide the ones that
+                   had simply said nothing. Absent is now absent, so the test is
+                   what it always meant: did this chapter state a status at all. *@
+                @if (!string.IsNullOrWhiteSpace(heading.Metadata.Status) || heading.Metadata.Related.Count > 0)
+                {
+                    <p class="devbook-meta-line">
+                        <StatusBadge BaseClass="devbook-status" Kind="" Status="@heading.Metadata.Status" />
+                        @foreach (var related in heading.Metadata.Related)
+                        {
+                            @* The relation as the rest of the product draws one.
+                               It used to be a hand-rolled anchor whose href was
+                               `DevbookHref`, and that method answered "#" for
+                               everything that was not an http URL — which is
+                               every reference a `related` field has ever held. So
+                               every relation this view drew was a link back to
+                               the top of the page. *@
+                            @if (DevbookReference.Parse(related) is { } reference)
+                            {
+                                <DevbookReferenceLink Reference="@reference"
+                                                        OnNavigate="@OnDevbookNavigate" />
+                            }
+                        }
+                    </p>
+                }
+            </section>
+            break;
+        case DevbookTableBlock table:
+            <div class="devbook-table" role="table">
+                @for (var rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+                {
+                    var row = table.Rows[rowIndex];
+                    <div class="devbook-table__row @(rowIndex == 0 ? "devbook-table__row--head" : string.Empty)" role="row">
+                        <span role="@(rowIndex == 0 ? "columnheader" : "cell")">@MarkdownRender.Inlines(row, InlineTarget)</span>
+                    </div>
+                }
+            </div>
+            break;
+        default:
+            // Everything else is the shared record wearing this panel's names.
+            // The diagram question is answered from the record the parser
+            // produced, not from a language list: this parser reads every `c4*`
+            // fence as a diagram and the library's own vocabulary does not, so a
+            // c4 block asked the library would come back a code listing.
+            if (AsSharedBlock(block) is { } shared)
+            {
+                <MarkdownBlockView Block="@shared"
+                                   InlineTarget="@InlineTarget"
+                                   ParagraphCssClass="devbook-p"
+                                   QuoteCssClass="devbook-quote"
+                                   CodeCssClass="devbook-code"
+                                   DividerCssClass="devbook-divider"
+                                   ListCssClass="devbook-list"
+                                   ListItemCssClass="@NoItemClass"
+                                   DiagramTitle="@DiagramName"
+                                   IsDiagram="@(_ => block is DevbookDiagramBlock)" />
+            }
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DevbookBlock> Blocks { get; set; } = [];
+
+    /// <summary>How a reference written in this prose is drawn, built by the panel
+    /// through <c>DevbookInlineTargets</c>. Passing nothing left every link here
+    /// an anchor on a repository path, which is a browser window and not a
+    /// chapter.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>Raised with the reference a reader followed, whether out of the
+    /// prose or off a heading's relation list. Without a handler both fall back to
+    /// the inert form, which is the honest rendering of a reference nobody can
+    /// follow — and the state this view is in on the standalone page.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
+
+    /// <summary>What a drawn diagram is captioned with, which is
+    /// <c>DiagramView</c>'s own default. A <c>DevbookDiagramBlock</c> carries a
+    /// title of its own — read out of the fence's `title` line — and it has never
+    /// reached the caption. Forwarding it is a visible change to every
+    /// architecture diagram and belongs to whoever decides that, not to moving
+    /// markup into the library.</summary>
+    private const string DiagramName = "Diagram";
+
+    /// <summary>A list item here carries no class, so the hook is handed null
+    /// rather than left at the read view's default — which is an empty string and
+    /// would put a `class=" "` on every bullet in the document.</summary>
+    private const string? NoItemClass = null;
+
+    /// <summary>
+    /// This document's block as the shared block record it is a subset of.
+    ///
+    /// <para>A mapping rather than a shared type: the parsers stay as they are,
+    /// and <c>DevbookListBlock</c> holds bare inline runs where <c>MdList</c>
+    /// holds items that may be tasks and may nest. Null for a record drawn above,
+    /// so an arm that is not mapped draws nothing rather than falling through to a
+    /// paragraph.</para>
+    /// </summary>
+    private static MdBlock? AsSharedBlock(DevbookBlock block) => block switch
+    {
+        DevbookParagraphBlock paragraph => new MdParagraph(paragraph.Content),
+        DevbookListBlock list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
+        DevbookQuoteBlock quote => new MdQuote(quote.Content),
+        DevbookCodeBlock code => new MdCode(code.Text, code.Language),
+        DevbookDiagramBlock diagram => new MdCode(diagram.Text, diagram.Language),
+        DevbookDividerBlock => new MdDivider(),
+        _ => null
+    };
+
+    private RenderFragment RenderHeading(DevbookHeadingBlock heading) => builder =>
+    {
+        var element = heading.Level switch { 1 => "h2", 2 => "h3", 3 => "h4", _ => "h5" };
+        builder.OpenElement(0, element);
+        builder.AddAttribute(1, "class", "devbook-title devbook-title--" + heading.Level);
+        builder.AddContent(2, heading.Text);
+        builder.CloseElement();
+    };
+}

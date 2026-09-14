@@ -16,7 +16,7 @@ public sealed class FileViewFileMetadataTests
     /// <summary>A knowledge file as the convention writes one: the title with the
     /// file's own record under it, and a chapter carrying a record of its
     /// own.</summary>
-    private const string Knowledge = """
+    private const string Devbook = """
         # Shared Technologies
 
         ```meta
@@ -64,7 +64,7 @@ public sealed class FileViewFileMetadataTests
     private static IRenderedComponent<FileView> Render(
         BunitContext context,
         Action<ComponentParameterCollectionBuilder<FileView>> extra,
-        string body = Knowledge) =>
+        string body = Devbook) =>
         context.Render<FileView>(parameters =>
         {
             parameters
@@ -80,15 +80,15 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var headline = view.Find(".file-view__header .knowledge-record__headline");
+        var headline = view.Find(".file-view__header .devbook-record__headline");
 
         Assert.Equal("shared-technologies.md", headline.QuerySelector("h3.file-view__name")!.TextContent);
         Assert.Equal("adopted", headline.QuerySelector(".badge--status")!.TextContent);
 
         // Named for the file, because the header already holds several groups and
-        // "Knowledge metadata" on its own does not say which file's.
+        // "Devbook metadata" on its own does not say which file's.
         Assert.Equal(
             "shared-technologies.md metadata",
             view.Find("[data-testid='file-file-metadata']").GetAttribute("aria-label"));
@@ -105,7 +105,7 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
         var body = view.Find(".file-view__body");
 
@@ -113,7 +113,7 @@ public sealed class FileViewFileMetadataTests
 
         // One record in the body, and it is the chapter's: the file's own is not
         // drawn a second time down here.
-        var record = Assert.Single(body.QuerySelectorAll(".knowledge-record"));
+        var record = Assert.Single(body.QuerySelectorAll(".devbook-record"));
         Assert.Equal("Hosting", record.QuerySelector("p.md-heading")!.TextContent);
 
         // The title is still in the body, as the plain heading it is.
@@ -126,9 +126,9 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var headline = view.Find(".file-view__body .knowledge-record__headline");
+        var headline = view.Find(".file-view__body .devbook-record__headline");
 
         Assert.Equal("Hosting", headline.QuerySelector("p.md-heading")!.TextContent);
         Assert.Equal("trial", headline.QuerySelector(".badge--status")!.TextContent);
@@ -147,7 +147,7 @@ public sealed class FileViewFileMetadataTests
             "status: adopted",
             view.Find(".file-view__body pre.md-code code").TextContent,
             StringComparison.Ordinal);
-        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll(".devbook-record"));
         Assert.Empty(view.FindAll("[data-testid='file-file-metadata']"));
     }
 
@@ -160,13 +160,13 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.RenderDevbookMetadata, true)
             .Add(v => v.Source, "GitHub Copilot"), ChaptersOnly);
 
         var identity = view.Find(".file-view__identity");
 
         Assert.Equal("shared-technologies.md", identity.QuerySelector("h3.file-view__name")!.TextContent);
-        Assert.Empty(identity.QuerySelectorAll(".knowledge-record"));
+        Assert.Empty(identity.QuerySelectorAll(".devbook-record"));
 
         // The details are on the header's second line rather than under the name in
         // this column, which is what holds the header to two lines — see
@@ -175,7 +175,7 @@ public sealed class FileViewFileMetadataTests
         Assert.Equal("GitHub Copilot", view.Find(".file-view__summary p.file-view__meta").TextContent);
 
         // And the chapter that does state one still has it.
-        Assert.Equal("trial", view.Find(".file-view__body .knowledge-record__headline .badge--status").TextContent);
+        Assert.Equal("trial", view.Find(".file-view__body .devbook-record__headline .badge--status").TextContent);
     }
 
     [Fact]
@@ -184,11 +184,11 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderKnowledgeMetadataFields, false));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderDevbookMetadataFields, false));
 
         Assert.Equal("adopted", view.Find(".file-view__header .badge--status").TextContent);
-        Assert.Empty(view.FindAll(".file-view__header dl.knowledge-fields"));
+        Assert.Empty(view.FindAll(".file-view__header dl.devbook-fields"));
     }
 
     /// <summary>
@@ -207,14 +207,14 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
         Assert.Equal(
             ".tech/technology-graph.md",
-            view.Find(".file-view__record-fields dl.knowledge-fields .knowledge-ref").TextContent);
+            view.Find(".file-view__record-fields dl.devbook-fields .devbook-ref").TextContent);
 
         // And nowhere inside the header, which is the whole point of the move.
-        Assert.Empty(view.FindAll(".file-view__header dl.knowledge-fields"));
+        Assert.Empty(view.FindAll(".file-view__header dl.devbook-fields"));
 
         // The status stays in the header. It is one badge on a line that already
         // exists, and it is the question a reader asks of a file first.
@@ -230,7 +230,7 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true), StatusOnly);
+            .Add(v => v.RenderDevbookMetadata, true), StatusOnly);
 
         Assert.Equal("adopted", view.Find(".file-view__header .badge--status").TextContent);
         Assert.Empty(view.FindAll(".file-view__record-fields"));
@@ -243,12 +243,12 @@ public sealed class FileViewFileMetadataTests
         // the record moved into the header, the fence it was read from did not
         // move at all, and block 0 is what the rest of the view anchors by.
         using var context = new BunitContext();
-        var changes = new List<KnowledgeStatusChange>();
+        var changes = new List<DevbookStatusChange>();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech)
-            .Add(v => v.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add)));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookFolder, DevbookFolder.Tech)
+            .Add(v => v.OnDevbookStatusChanged, EventCallback.Factory.Create<DevbookStatusChange>(this, changes.Add)));
 
         view.Find(".file-view__header .status-editor select").Change("retired");
 
@@ -270,7 +270,7 @@ public sealed class FileViewFileMetadataTests
         using var context = new BunitContext();
 
         var view = Render(context, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.RenderDevbookMetadata, true)
             .Add(v => v.CanEdit, true)
             .Add(v => v.Editing, true)
             .Add(v => v.EditBodyContent, (RenderFragment)(builder => builder.AddMarkupContent(0, "<textarea></textarea>"))));
@@ -289,11 +289,11 @@ public sealed class FileViewFileMetadataTests
 
         var view = Render(
             context,
-            parameters => parameters.Add(v => v.RenderKnowledgeMetadata, true),
+            parameters => parameters.Add(v => v.RenderDevbookMetadata, true),
             "# Shared Technologies\n\n```meta\n```\n\nWhat the technologies are.\n");
 
         Assert.Equal("shared-technologies.md", view.Find(".file-view__identity h3.file-view__name").TextContent);
-        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll(".devbook-record"));
     }
 
     [Fact]
@@ -308,9 +308,9 @@ public sealed class FileViewFileMetadataTests
             .Add(v => v.Name, "Program.cs")
             .Add(v => v.Body, "# not a title\n\n```meta\nstatus: adopted\n```\n")
             .Add(v => v.TestId, "file")
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll(".devbook-record"));
         Assert.Equal("Program.cs", view.Find(".file-view__identity h3.file-view__name").TextContent);
     }
 }

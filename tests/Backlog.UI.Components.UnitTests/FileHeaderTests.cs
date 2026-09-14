@@ -90,10 +90,10 @@ public sealed class FileHeaderTests
         using var context = new BunitContext();
         var cut = Render(context, parameters => parameters
             .Add(header => header.Metadata, MetadataReader.Parse(Block))
-            .Add(header => header.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(header => header.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Contains("file-view__identity--record", cut.Find(".file-view__identity").ClassName);
-        Assert.NotNull(cut.Find(".knowledge-record"));
+        Assert.NotNull(cut.Find(".devbook-record"));
     }
 
     [Theory]
@@ -111,7 +111,7 @@ public sealed class FileHeaderTests
             .Add(header => header.Metadata, empty ? MetadataRecord.Empty : null));
 
         Assert.DoesNotContain("file-view__identity--record", cut.Find(".file-view__identity").ClassName);
-        Assert.Empty(cut.FindAll(".knowledge-record"));
+        Assert.Empty(cut.FindAll(".devbook-record"));
         Assert.Equal("shared.md", cut.Find(".file-view__name").TextContent);
     }
 

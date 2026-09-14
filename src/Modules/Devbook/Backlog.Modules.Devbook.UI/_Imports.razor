@@ -1,14 +1,13 @@
-@* Second Brain. It is scoped by a repository alias handed in as a parameter,
+@* Devbook. It is scoped by a repository alias handed in as a parameter,
    never by reading backlog state, so nothing here imports Tasks —
-   not even to find out where the storage folder is, which the knowledge-folder
+   not even to find out where the storage folder is, which the devbook-folder
    port answers instead.
    Now that the context is its own project these imports are the project's own
    rather than inherited from the desktop app, so what the panels need is named
    here and nothing more. *@
-@using Backlog.Modules.Knowledge.Abstractions
+@using Backlog.Modules.Devbook.Abstractions
 @using Backlog.SharedKernel
 @using Backlog.Infrastructure.GitHub
-@using Backlog.UI.Components.Knowledge
 @using Backlog.UI.Components.Devbook
 @using Backlog.UI.Components.Metadata
 @using Backlog.UI.Components.Markdown

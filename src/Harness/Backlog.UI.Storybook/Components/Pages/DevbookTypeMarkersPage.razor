@@ -3,7 +3,7 @@
 <PageTitle>Domain type markers — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Type markers"
-           Summary="A subpage of Knowledge base: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words. The four families the stories are grouped under are headings on this page and nothing in the product: every mark is drawn in currentColor, and what tells one family from another is shape."
+           Summary="A subpage of Devbook: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words. The four families the stories are grouped under are headings on this page and nothing in the product: every mark is drawn in currentColor, and what tells one family from another is shape."
            Guidelines="@Rules">
 
     <Story Name="Structure"
@@ -77,9 +77,9 @@ The stories above this one are specimens: a heading assembled by hand so the mar
            Source="@DocumentSample"
            SourceLabel="The file on disk">
         <MarkdownStory Source="@DocumentSample"
-                       RenderKnowledgeMetadata="true"
-                       KnowledgeFolder="KnowledgeFolder.Domain"
-                       KnowledgeDocumentPath=".domain/inbox/domain.md"
+                       RenderDevbookMetadata="true"
+                       DevbookFolder="DevbookFolder.Domain"
+                       DevbookDocumentPath=".domain/inbox/domain.md"
                        TestId="type-markers-document" />
     </Story>
 
@@ -91,21 +91,21 @@ The mark contributes no text node, and it is still named. Those are two paramete
         <div class="sb-stack" data-testid="type-markers-heading">
             <p class="sb-label">An h3, as a document's own chapter</p>
             <div class="sb-row">
-                <h3 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h3>
-                <KnowledgeStatusPill Status="draft" Folder="KnowledgeFolder.Domain" />
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="aggregate" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h3>
+                <DevbookStatusPill Status="draft" Folder="DevbookFolder.Domain" />
             </div>
 
             <p class="sb-label">The same chapter one level down, at an h4</p>
             <div class="sb-row">
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
-                <KnowledgeStatusPill Status="draft" Folder="KnowledgeFolder.Domain" />
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="aggregate" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <DevbookStatusPill Status="draft" Folder="DevbookFolder.Domain" />
             </div>
 
             <p class="sb-label">A term, a domain event and a sub-feature at the same level, so the shapes can be compared in place</p>
             <div class="sb-row">
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="term" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Capture Source</h4>
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="domain-event" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Entry Completed</h4>
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="sub-feature" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Deferred Re-entry</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="term" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Capture Source</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="domain-event" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Entry Completed</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="sub-feature" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Deferred Re-entry</h4>
             </div>
         </div>
     </Story>
@@ -126,7 +126,7 @@ Drawn as a mark in the heading, the strip is left holding only its pointers — 
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Proposed</p>
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="aggregate" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="aggregate" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
                 <div class="sb-row sb-strip">
                     <span><strong>related</strong> <code>.domain/capture/model.md#capture</code></span>
                 </div>
@@ -137,19 +137,19 @@ Drawn as a mark in the heading, the strip is left holding only its pointers — 
     <Story Name="A type nobody drew"
            Description="The vocabulary grows, and a value set that grows must never make a page look broken. An unrecognised value renders no element at all — not an empty box, not a fallback glyph, not a question mark — and the caller goes on showing the plain word exactly as it does today.
 
-That is why `KnowledgeTypeMarkers.IsRecognised` is published beside the component: a caller deciding whether to keep its own row has to be able to ask, and asking is not the same as keeping a second copy of the list."
+That is why `DevbookTypeMarkers.IsRecognised` is published beside the component: a caller deciding whether to keep its own row has to be able to ask, and asking is not the same as keeping a second copy of the list."
            Code="@FallbackCode">
         <div class="sb-columns" data-testid="type-markers-fallback">
             <div class="sb-stack">
                 <p class="sb-label">A value the set knows — the mark, and the row gone</p>
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="entity" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="entity" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
                 <div class="sb-row sb-strip">
                     <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
                 </div>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">A value it does not — no glyph, and the row it would have replaced stays</p>
-                <h4 class="sb-heading-sample"><KnowledgeTypeMarker Value="policy-fragment" CssClass="knowledge-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-unknown" />Retention Policy</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="policy-fragment" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-unknown" />Retention Policy</h4>
                 <div class="sb-row sb-strip">
                     <span><strong>type</strong> policy-fragment</span>
                     <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
@@ -164,7 +164,7 @@ That is why `KnowledgeTypeMarkers.IsRecognised` is published beside the componen
 Here the mark is sized in px rather than in em, which is the one case that needs saying: a menu is fixed-density chrome, and every mark in the column has to be the same mark whatever type scale a row's label inherits. These marks are also decorative, unlike the heading's: a row's visible label already says which file it is, and an icon beside a label is hidden rather than read out twice. The heading earned a name because the metadata row that stated its type was taken away; in the tree nothing was, so the mark is reinforcement for the eye and the row reads out exactly as it did before. The library's tree knows nothing about `.domain`; what a mark means is decided by the host handing the fragment in."
            Code="@TreeCode">
         <div class="sb-menu" data-testid="type-markers-tree">
-            <TreeView ClassPrefix="knowledge-menu"
+            <TreeView ClassPrefix="devbook-menu"
                       HeadingLabel="Domain"
                       ShowOpenButton="false"
                       Nodes="@DomainRows"
@@ -228,7 +228,7 @@ Here the mark is sized in px rather than in em, which is the one case that needs
 
     private RenderFragment Specimen(TypeMark mark) => @<div class="sb-stack" data-testid="@($"type-marker-{mark.Value}")">
         <div class="sb-row">
-            <KnowledgeTypeMarker Value="@mark.Value" Size="22px" Labelled="true" />
+            <DevbookTypeMarker Value="@mark.Value" Size="22px" Labelled="true" />
             <code>@mark.Value</code>
         </div>
         <p>@mark.Says</p>
@@ -258,8 +258,8 @@ Here the mark is sized in px rather than in em, which is the one case that needs
     {
         var type = System.IO.Path.GetFileNameWithoutExtension(node.Id);
 
-        return KnowledgeTypeMarkers.FileTypes.Contains(type, StringComparer.OrdinalIgnoreCase)
-            ? @<KnowledgeTypeMarker Value="@type" Size="13px" />
+        return DevbookTypeMarkers.FileTypes.Contains(type, StringComparer.OrdinalIgnoreCase)
+            ? @<DevbookTypeMarker Value="@type" Size="13px" />
             : null;
     }
 
@@ -267,7 +267,7 @@ Here the mark is sized in px rather than in em, which is the one case that needs
         @* Labelled, because this page has taken the word off the line beside it,
            and with the tooltip the default leaves on. A mark drawn next to its own
            text label — a document header beside its kind — passes neither. *@
-        <KnowledgeTypeMarker Value="aggregate" Size="22px" Labelled="true" />
+        <DevbookTypeMarker Value="aggregate" Size="22px" Labelled="true" />
         """;
 
     /// <summary>A `.domain` file as the convention writes one, cut down to four
@@ -318,18 +318,18 @@ Here the mark is sized in px rather than in em, which is the one case that needs
            out of the strip — and the folder is what says these eighteen values are
            the vocabulary in play, so a `.tech` file's own `type` is untouched. *@
         <MarkdownView Blocks="@Blocks"
-                      RenderKnowledgeMetadata="true"
-                      KnowledgeFolder="KnowledgeFolder.Domain"
-                      KnowledgeDocumentPath=".domain/inbox/domain.md" />
+                      RenderDevbookMetadata="true"
+                      DevbookFolder="DevbookFolder.Domain"
+                      DevbookDocumentPath=".domain/inbox/domain.md" />
         """;
 
     private const string HeadingCode = """
         @* Named, tooltip off, no space before the title. The aria-label is an
            attribute and the title would have been a text node, so the heading is
            announced with its type and its textContent is exactly what it was. The
-           gap is drawn by .knowledge-type-marker--leads. *@
-        <h4><KnowledgeTypeMarker Value="@MarkedType(section.Metadata)"
-                                 CssClass="knowledge-type-marker--leads"
+           gap is drawn by .devbook-type-marker--leads. *@
+        <h4><DevbookTypeMarker Value="@MarkedType(section.Metadata)"
+                                 CssClass="devbook-type-marker--leads"
                                  Labelled="true"
                                  ShowTooltip="false" />@section.Title</h4>
         """;
@@ -338,25 +338,25 @@ Here the mark is sized in px rather than in em, which is the one case that needs
         @* The row is dropped only when the value is one the set knows. *@
         private static bool IsMarkedTypeRow(KeyValuePair<string, string> pair) =>
             string.Equals(pair.Key.Trim(), "type", StringComparison.OrdinalIgnoreCase)
-            && KnowledgeTypeMarkers.IsRecognised(pair.Value);
+            && DevbookTypeMarkers.IsRecognised(pair.Value);
         """;
 
     private const string FallbackCode = """
         @* Both of these are written unconditionally. The first renders nothing at
            all, which is what makes writing it beside a word the caller is still
            showing safe. *@
-        <KnowledgeTypeMarker Value="policy-fragment" />
-        <KnowledgeTypeMarker Value="entity" />
+        <DevbookTypeMarker Value="policy-fragment" />
+        <DevbookTypeMarker Value="entity" />
         """;
 
     private const string TreeCode = """
         @* A function per node returning a fragment or nothing, so a row with no
            mark renders no wrapper. What a mark means is the host's. *@
-        <TreeView ClassPrefix="knowledge-menu" Nodes="@Nodes" NodeMark="@FileMark" />
+        <TreeView ClassPrefix="devbook-menu" Nodes="@Nodes" NodeMark="@FileMark" />
 
         private static RenderFragment? FileMark(TreeNode node) =>
-            DomainKnowledgeFileTypes.Of(Path.GetFileName(node.Path)) is { } type
-                ? @<KnowledgeTypeMarker Value="@type" Size="13px" />
+            DomainDevbookFileTypes.Of(Path.GetFileName(node.Path)) is { } type
+                ? @<DevbookTypeMarker Value="@type" Size="13px" />
                 : null;
         """;
 }

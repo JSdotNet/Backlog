@@ -81,7 +81,7 @@ else
     /// <summary>The status words this file's surface allows, which is what turns
     /// the status from a word into a value out of a list. See
     /// <see cref="MetadataView.Vocabulary"/>. A knowledge surface passes
-    /// <c>KnowledgeStatus.Vocabulary(folder)</c>.</summary>
+    /// <c>DevbookStatus.Vocabulary(folder)</c>.</summary>
     [Parameter]
     public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
 
@@ -93,12 +93,12 @@ else
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     /// <summary>Resolves a reference to a link target; null leaves that reference
     /// as text rather than a broken link.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+    public Func<DevbookReference, string?>? HrefFor { get; set; }
 
     /// <summary>Whether everything but the status is drawn. On by default; a header
     /// with room for one line turns it off and keeps the status.</summary>
@@ -115,7 +115,7 @@ else
     /// naming for the file — several panes may be open at once — so a host passes
     /// the file's name in; the default is the record's own.</summary>
     [Parameter]
-    public string AriaLabel { get; set; } = "Knowledge metadata";
+    public string AriaLabel { get; set; } = "Devbook metadata";
 
     [Parameter]
     public string? CssClass { get; set; }

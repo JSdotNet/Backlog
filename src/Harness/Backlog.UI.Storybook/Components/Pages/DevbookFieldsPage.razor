@@ -3,7 +3,7 @@
 <PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Fields"
-           Summary="A subpage of Knowledge base: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eleven stories share nine shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
+           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eleven stories share nine shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
            Guidelines="@Rules">
 
     <Story Name="kind"
@@ -35,14 +35,14 @@ The unit is spelled out, and that is also why this row needs no visible label: �
 
 Zero is an estimate and draws its badge; absent draws nothing. Nobody has sized this and sized and found to be nothing are different answers.
 
-**This field is not defined by knowledge-base 0.4.0, and no file in this repository writes it.** It is this repository's own extension to the schema, not plugin convention."
+**This field is not defined by devbook-base 0.4.0, and no file in this repository writes it.** It is this repository's own extension to the schema, not plugin convention."
            Code="@EffortCode">
         @Field("effort", "effort: 5", "This repository's own addition. No folder writes it today.", "MetadataEffortBadge",
             @<MetadataEffortBadge Effort="5" />, showLabel: false)
-        <div class="sb-stack" data-testid="knowledge-fields-effort-zero">
+        <div class="sb-stack" data-testid="devbook-fields-effort-zero">
             <p class="sb-label">An estimate of zero, which is not the same as no estimate</p>
-            <dl class="knowledge-fields">
-                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="0" TestId="knowledge-fields-effort-zero-badge" /></MetadataField>
+            <dl class="devbook-fields">
+                <MetadataField Label="effort" ShowLabel="false"><MetadataEffortBadge Effort="0" TestId="devbook-fields-effort-zero-badge" /></MetadataField>
             </dl>
         </div>
     </Story>
@@ -58,24 +58,24 @@ Only `http` and `https` become links. Any other scheme in a knowledge file is ei
            Code="@IssueCode">
         @Field("issue", "issue: JSdotNet/Backlog#118", ".backlog items, .arc42 decisions.", "MetadataIssueLink",
             @<MetadataIssueLink Issue="JSdotNet/Backlog#118" />)
-        <div class="sb-stack" data-testid="knowledge-fields-issue-url">
+        <div class="sb-stack" data-testid="devbook-fields-issue-url">
             <p class="sb-label">The same issue as a URL — the same label, and now followable</p>
-            <CodeView Source="issue: https://github.com/JSdotNet/Backlog/issues/118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-issue-url-source" />
-            <dl class="knowledge-fields">
-                <MetadataField Label="issue"><MetadataIssueLink Issue="https://github.com/JSdotNet/Backlog/issues/118" TestId="knowledge-fields-issue-url-link" /></MetadataField>
+            <CodeView Source="issue: https://github.com/JSdotNet/Backlog/issues/118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-issue-url-source" />
+            <dl class="devbook-fields">
+                <MetadataField Label="issue"><MetadataIssueLink Issue="https://github.com/JSdotNet/Backlog/issues/118" TestId="devbook-fields-issue-url-link" /></MetadataField>
             </dl>
         </div>
-        <div class="sb-stack" data-testid="knowledge-fields-issue-malformed">
+        <div class="sb-stack" data-testid="devbook-fields-issue-malformed">
             <p class="sb-label">A value neither form parses is drawn whole — a malformed issue is a typo, and a typo is only useful once it is visible</p>
-            <CodeView Source="issue: backlog-118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-issue-malformed-source" />
-            <dl class="knowledge-fields">
-                <MetadataField Label="issue"><MetadataIssueLink Issue="backlog-118" TestId="knowledge-fields-issue-malformed-link" /></MetadataField>
+            <CodeView Source="issue: backlog-118" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-issue-malformed-source" />
+            <dl class="devbook-fields">
+                <MetadataField Label="issue"><MetadataIssueLink Issue="backlog-118" TestId="devbook-fields-issue-malformed-link" /></MetadataField>
             </dl>
         </div>
     </Story>
 
     <Story Name="related"
-           Description="The general-purpose relation, available in every folder: what this chapter points at for context, with no claim about order. Entries are addresses, which is what makes them followable — `MetadataReferenceList` loops over them and `KnowledgeReferenceLink` draws each one as whatever the host can actually do with it. What an address is, and the other place one is written, is Markdown → References.
+           Description="The general-purpose relation, available in every folder: what this chapter points at for context, with no claim about order. Entries are addresses, which is what makes them followable — `MetadataReferenceList` loops over them and `DevbookReferenceLink` draws each one as whatever the host can actually do with it. What an address is, and the other place one is written, is Markdown → References.
 
 Both entries resolve here, because that is what a reading surface with a route table looks like: a field of two addresses is two links. `HrefFor` is still asked once per reference rather than once per field — only the host knows which of them it can route to — and the case where it cannot is a state worth seeing, so it gets its own example below rather than one dead entry sitting in a list of two.
 
@@ -84,18 +84,18 @@ An entry that will not parse as an address does not vanish either — it lands u
         @Field("related", "related: [\".tech/shared.md#markdown\", \".arc42/02-constraints.md\"]",
             "Every folder.", "MetadataReferenceList",
             @<MetadataReferenceList References="@RelatedReferences" HrefFor="@ResolveAll" />)
-        <div class="sb-stack" data-testid="knowledge-fields-related-unresolved">
+        <div class="sb-stack" data-testid="devbook-fields-related-unresolved">
             <p class="sb-label">The same field on a host that could not resolve either address — inert text, not a link to nowhere</p>
-            <dl class="knowledge-fields">
-                <MetadataField Label="related" TestId="knowledge-fields-related-unresolved-value"><MetadataReferenceList References="@RelatedReferences" /></MetadataField>
+            <dl class="devbook-fields">
+                <MetadataField Label="related" TestId="devbook-fields-related-unresolved-value"><MetadataReferenceList References="@RelatedReferences" /></MetadataField>
             </dl>
         </div>
-        <div class="sb-stack" data-testid="knowledge-fields-related-action">
+        <div class="sb-stack" data-testid="devbook-fields-related-action">
             <p class="sb-label">And on a host that routes in-process instead of by address: a button, doing the same job</p>
-            <dl class="knowledge-fields">
-                <MetadataField Label="related" TestId="knowledge-fields-related-action-value"><MetadataReferenceList References="@RelatedReferences" OnNavigate="@Follow" /></MetadataField>
+            <dl class="devbook-fields">
+                <MetadataField Label="related" TestId="devbook-fields-related-action-value"><MetadataReferenceList References="@RelatedReferences" OnNavigate="@Follow" /></MetadataField>
             </dl>
-            <p class="sb-state" data-testid="knowledge-fields-related-followed">@Followed</p>
+            <p class="sb-state" data-testid="devbook-fields-related-followed">@Followed</p>
         </div>
     </Story>
 
@@ -131,13 +131,13 @@ Followable where a host can resolve one, and only then — which is the split ag
         @Field("aliases", "aliases: [TaskItem, backlog_entry_id, backlog_item_id]",
             ".domain naming — the one file per context that names terms. 90 uses across the folder.", "MetadataAliasList",
             @<MetadataAliasList Aliases="@Aliases" />)
-        <div class="sb-stack" data-testid="knowledge-fields-aliases-linked">
+        <div class="sb-stack" data-testid="devbook-fields-aliases-linked">
             <p class="sb-label">On a host with a naming index: an anchor per alias it can place, and the one it cannot left alone</p>
-            <dl class="knowledge-fields">
-                <MetadataField Label="aliases" TestId="knowledge-fields-aliases-linked-value"><MetadataAliasList Aliases="@Aliases" HrefFor="@ResolveKnownAlias" /></MetadataField>
+            <dl class="devbook-fields">
+                <MetadataField Label="aliases" TestId="devbook-fields-aliases-linked-value"><MetadataAliasList Aliases="@Aliases" HrefFor="@ResolveKnownAlias" /></MetadataField>
             </dl>
         </div>
-        <div class="sb-stack" data-testid="knowledge-fields-aliases-inline">
+        <div class="sb-stack" data-testid="devbook-fields-aliases-inline">
             <p class="sb-label">Against the term it qualifies, which is where the top alignment is for</p>
             <p>The canonical term is <strong>Backlog Entry</strong><MetadataAliasList Aliases="@InlineAlias" HrefFor="@ResolveKnownAlias" />, and the badge rides above the word rather than beside it.</p>
         </div>
@@ -169,11 +169,11 @@ Twelve `.domain` chapters write it today. A key the reader does not model lands 
         @Field("feature-flag", "feature-flag: [inbox-pane, inbox-filters]",
             ".domain features.md Feature and Sub-feature chapters. Twelve write it today.", "MetadataKeyList",
             @<MetadataKeyList Keys="@FeatureFlags" />)
-        <div class="sb-stack" data-testid="knowledge-fields-feature-flag-single">
+        <div class="sb-stack" data-testid="devbook-fields-feature-flag-single">
             <p class="sb-label">One flag, which is how most of the twelve write it</p>
-            <CodeView Source="feature-flag: inbox-pane" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-feature-flag-single-source" />
-            <dl class="knowledge-fields">
-                <MetadataField Label="feature-flag" TestId="knowledge-fields-feature-flag-single-keys"><MetadataKeyList Keys="@SingleFeatureFlag" /></MetadataField>
+            <CodeView Source="feature-flag: inbox-pane" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-feature-flag-single-source" />
+            <dl class="devbook-fields">
+                <MetadataField Label="feature-flag" TestId="devbook-fields-feature-flag-single-keys"><MetadataKeyList Keys="@SingleFeatureFlag" /></MetadataField>
             </dl>
         </div>
     </Story>
@@ -187,15 +187,15 @@ It is also where a `related` entry that will not parse as an address lands, unde
 
 A key the reader recognises and deliberately drops never arrives here. `order` is the one of those: it is read, recognised and dropped, because a directory's reading order is not metadata about the chapter whose fence it happens to share. Leaving it out of the reader's known-field set would not remove it, it would move it into this list."
            Code="@ExtraCode">
-        <div class="sb-stack" data-testid="knowledge-fields-extra">
+        <div class="sb-stack" data-testid="devbook-fields-extra">
             <p class="sb-label">The lines an author writes</p>
-            <CodeView Source="@ExtraBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="knowledge-fields-extra-source" />
+            <CodeView Source="@ExtraBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-extra-source" />
             <p class="sb-state">No folder. Anything the reader does not recognise, under whatever name it was written.</p>
             <p class="sb-state">Drawn by <code>MetadataExtraFields</code> over what that block parsed to</p>
-            <dl class="knowledge-fields">
+            <dl class="devbook-fields">
                 <MetadataExtraFields Extra="@ExtraMetadata.Extra" />
             </dl>
-            <p class="sb-state" data-testid="knowledge-fields-extra-state">@ExtraSummary</p>
+            <p class="sb-state" data-testid="devbook-fields-extra-state">@ExtraSummary</p>
         </div>
     </Story>
 
@@ -231,10 +231,10 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
         string component,
         RenderFragment value,
         bool showLabel = true) =>
-        @<div class="sb-stack" data-testid="@($"knowledge-fields-{label}")">
+        @<div class="sb-stack" data-testid="@($"devbook-fields-{label}")">
             <p class="sb-label">The line an author writes</p>
             <CodeView Source="@line" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
-                      TestId="@($"knowledge-fields-{label}-source")" />
+                      TestId="@($"devbook-fields-{label}-source")" />
             <p class="sb-state">@folders</p>
             @* `sb-label` uppercases, and a component name put through that comes
                out as KNOWLEDGEKEYLIST — the word boundaries a reader needs to
@@ -242,25 +242,25 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
                name is a code span in a state line instead, which is also what it
                is: a fact about the rendering rather than a heading over it. *@
             <p class="sb-state">Drawn by <code>@component</code>, inside the row the record wraps every field in@(showLabel ? "" : " — with the label hidden, not dropped")</p>
-            <dl class="knowledge-fields">
-                <MetadataField Label="@label" ShowLabel="@showLabel" TestId="@($"knowledge-fields-{label}-value")">@value</MetadataField>
+            <dl class="devbook-fields">
+                <MetadataField Label="@label" ShowLabel="@showLabel" TestId="@($"devbook-fields-{label}-value")">@value</MetadataField>
             </dl>
         </div>;
 
-    private static readonly IReadOnlyList<KnowledgeReference> RelatedReferences =
+    private static readonly IReadOnlyList<DevbookReference> RelatedReferences =
     [
-        KnowledgeReference.Parse(".tech/shared.md#markdown")!,
-        KnowledgeReference.Parse(".arc42/02-constraints.md")!
+        DevbookReference.Parse(".tech/shared.md#markdown")!,
+        DevbookReference.Parse(".arc42/02-constraints.md")!
     ];
 
-    private static readonly IReadOnlyList<KnowledgeReference> DependsOnReferences =
+    private static readonly IReadOnlyList<DevbookReference> DependsOnReferences =
     [
-        KnowledgeReference.Parse(".tech/shared.md#net-runtime")!,
-        KnowledgeReference.Parse(".tech/shared.md#c-language")!
+        DevbookReference.Parse(".tech/shared.md#net-runtime")!,
+        DevbookReference.Parse(".tech/shared.md#c-language")!
     ];
 
-    private static readonly IReadOnlyList<KnowledgeReference> ImplementsReferences =
-        [KnowledgeReference.Parse(".domain/tasks/features.md#feature-roadmap-planning")!];
+    private static readonly IReadOnlyList<DevbookReference> ImplementsReferences =
+        [DevbookReference.Parse(".domain/tasks/features.md#feature-roadmap-planning")!];
 
     /// <summary>Answers for every reference it is asked about, which is what a
     /// reading surface with a route table does. The earlier version of this resolved
@@ -268,7 +268,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
     /// side by side — it read as a bug rather than as a demonstration, because a
     /// reader has no way to tell a deliberately unanswered address from a broken
     /// one. The unresolved state has its own example under `related` instead.</summary>
-    private static string? ResolveAll(KnowledgeReference reference) => "#knowledge-fields-target";
+    private static string? ResolveAll(DevbookReference reference) => "#devbook-fields-target";
 
     /// <summary>Answers for the alias a naming index would hold and not for the two
     /// column names beside it, which is the honest shape of this resolver: the claim
@@ -276,7 +276,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
     /// name and the next a legacy database column, and a host that can place one and
     /// not the other tells the truth by saying so.</summary>
     private static string? ResolveKnownAlias(string alias) =>
-        alias is "TaskItem" ? "#knowledge-fields-target" : null;
+        alias is "TaskItem" ? "#devbook-fields-target" : null;
 
     private static readonly IReadOnlyList<string> Aliases = ["TaskItem", "backlog_entry_id", "backlog_item_id"];
 
@@ -291,13 +291,13 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
 
     private static readonly IReadOnlyList<string> SingleFeatureFlag = ["inbox-pane"];
 
-    private KnowledgeReference? _followed;
+    private DevbookReference? _followed;
 
     private string Followed => _followed is null
         ? "Nothing followed yet. Press one of the buttons above."
         : $"OnNavigate last reported: {_followed.Raw}.";
 
-    private void Follow(KnowledgeReference reference) => _followed = reference;
+    private void Follow(DevbookReference reference) => _followed = reference;
 
     /// <summary>Two unrecognised keys of the two kinds that reach Extra: one the
     /// schema has never heard of, and one entry of a field it does define that will
@@ -375,7 +375,7 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
 
         @* What each entry becomes is still the link component's answer: an href
            makes it a link, a handler makes it a button, neither leaves it text. *@
-        <KnowledgeReferenceLink Reference="@reference" Href="@href" OnNavigate="@Follow" />
+        <DevbookReferenceLink Reference="@reference" Href="@href" OnNavigate="@Follow" />
         """;
 
     private const string AliasCode = """

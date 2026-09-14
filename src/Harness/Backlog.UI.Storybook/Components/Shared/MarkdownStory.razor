@@ -19,11 +19,11 @@
 
 <div class="sb-stack" data-testid="@TestId">
     <MarkdownView Blocks="Blocks"
-                  RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                  KnowledgeFolder="@KnowledgeFolder"
-                  KnowledgeDocumentPath="@KnowledgeDocumentPath"
-                  OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                  KnowledgeHrefFor="@KnowledgeHrefFor" />
+                  RenderDevbookMetadata="@RenderDevbookMetadata"
+                  DevbookFolder="@DevbookFolder"
+                  DevbookDocumentPath="@DevbookDocumentPath"
+                  OnDevbookNavigate="@OnDevbookNavigate"
+                  DevbookHrefFor="@DevbookHrefFor" />
 </div>
 
 @code {
@@ -38,11 +38,11 @@
     /// <summary>Passed straight to <c>MarkdownView</c>. Off here for the same
     /// reason it is off there: most markdown is not a knowledge document.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Which knowledge folder the sample is pretending to come from.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>Where the sample is pretending to be, which is what a link in its
     /// prose resolves against. Forwarded for the same reason the folder is: it is
@@ -50,15 +50,15 @@
     /// document, and the story about references in prose has nothing to show without
     /// it.</summary>
     [Parameter]
-    public string? KnowledgeDocumentPath { get; set; }
+    public string? DevbookDocumentPath { get; set; }
 
     /// <summary>Raised with the reference a reader activated in a metadata block.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     // Parsed when the source changes rather than on every render. These are
     // constants in practice, so this parses once.

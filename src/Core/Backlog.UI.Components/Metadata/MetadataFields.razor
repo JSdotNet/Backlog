@@ -28,7 +28,7 @@
     diff in shipped markup should mean somebody changed the markup.
 *@
 
-            <dl class="knowledge-fields" data-testid="@TestId">
+            <dl class="devbook-fields" data-testid="@TestId">
                 @RenderReferences("related", Metadata.Related)
                 @RenderReferences("depends-on", Metadata.DependsOn)
                 @RenderReferences("implements", Metadata.Implements)
@@ -38,8 +38,8 @@
                 @RenderVersion()
                 @RenderIssue()
                 @RenderEffort()
-                @RenderKeys("roadmap", Metadata.Roadmap, "knowledge-roadmap-tags")
-                @RenderKeys("feature-flag", Metadata.FeatureFlag, "knowledge-feature-flag-tags")
+                @RenderKeys("roadmap", Metadata.Roadmap, "devbook-roadmap-tags")
+                @RenderKeys("feature-flag", Metadata.FeatureFlag, "devbook-feature-flag-tags")
 
                 @* Fields the schema does not define are shown as themselves. A
                    viewer that dropped them would make a genuine schema addition
@@ -69,7 +69,7 @@
     // The value component is written hard against the row's opening tag. Razor
     // emits the whitespace between an element's tag and a child element as
     // content, so a newline there would add it to every value cell in the product.
-    private RenderFragment RenderReferences(string label, IReadOnlyList<KnowledgeReference> references) =>
+    private RenderFragment RenderReferences(string label, IReadOnlyList<DevbookReference> references) =>
         @<text>
             @if (references.Count > 0)
             {
@@ -97,7 +97,7 @@
     // a qualifier: a badge set above the baseline and a step smaller than the text
     // it belongs to.
     //
-    // The record wires no resolver. HrefFor answers for a KnowledgeReference and an
+    // The record wires no resolver. HrefFor answers for a DevbookReference and an
     // alias is not one — an alias is a word, which is the whole reason the field
     // holds plain strings — so there is nothing here to hand down. What a host would
     // resolve an alias *to* is a question no file in this repository answers today,
@@ -180,12 +180,12 @@
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     /// <summary>Resolves a reference to a link target; null leaves that reference
     /// as text rather than a broken link.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+    public Func<DevbookReference, string?>? HrefFor { get; set; }
 
     /// <summary>The list's own test id. Null leaves the attribute off, which is
     /// what <see cref="MetadataView"/> wants — the record it is inside is already

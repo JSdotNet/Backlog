@@ -174,15 +174,15 @@
             <MarkdownView Blocks="@Blocks"
                           Source="@MarkdownSource"
                           AllowChapterCopy="@AllowChapterCopy"
-                          RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                          RenderFileKnowledgeMetadata="false"
-                          RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                          CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
-                          KnowledgeFolder="@KnowledgeFolder"
-                          KnowledgeDocumentPath="@KnowledgeDocumentPath"
-                          OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
-                          OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                          KnowledgeHrefFor="@KnowledgeHrefFor"
+                          RenderDevbookMetadata="@RenderDevbookMetadata"
+                          RenderFileDevbookMetadata="false"
+                          RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
+                          CanEditDevbookStatus="@CanEditDevbookStatus"
+                          DevbookFolder="@DevbookFolder"
+                          DevbookDocumentPath="@DevbookDocumentPath"
+                          OnDevbookStatusChanged="@OnDevbookStatusChanged"
+                          OnDevbookNavigate="@OnDevbookNavigate"
+                          DevbookHrefFor="@DevbookHrefFor"
                           Comments="@Comments"
                           Layout="@BodyCommentLayout"
                           OnAddComment="@OnAddComment"
@@ -324,41 +324,41 @@
     /// view. The file's own block is not among them: the pane has taken it into
     /// the header and tells the read view to leave it out.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Whether a chapter's record draws the fields under the status too.
     /// Passed straight to the read view.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+    public bool RenderDevbookMetadataFields { get; set; } = true;
 
     /// <summary>Whether a chapter's status may be changed here. Passed straight
     /// to the read view; false draws the badge in place of the select.</summary>
     [Parameter]
-    public bool CanEditKnowledgeStatus { get; set; } = true;
+    public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the file was read from, so a chapter's
     /// status can be checked against that folder's vocabulary.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>The repository-relative path of the knowledge document being
     /// shown, which is what a relative link in the body resolves against.</summary>
     [Parameter]
-    public string? KnowledgeDocumentPath { get; set; }
+    public string? DevbookDocumentPath { get; set; }
 
     /// <summary>Raised when a reader picked a different status beside a chapter's
     /// heading. Nothing here writes it.</summary>
     [Parameter]
-    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+    public EventCallback<DevbookStatusChange> OnDevbookStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated in a chapter's
     /// record.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     /// <summary>Remarks against the file's blocks. Empty — the default — renders
     /// the file exactly as it did before comments existed.</summary>

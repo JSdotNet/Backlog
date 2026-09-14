@@ -1,4 +1,4 @@
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -60,11 +60,11 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     public string? Account { get; init; }
 
     /// <summary>The knowledge folders configured for this repository. The type
-    /// is Second Brain's published language rather than this adapter's: a
+    /// is Devbook's published language rather than this adapter's: a
     /// repository is one place those folders can live, not the thing that
     /// defines them. That is why this project references that module's
     /// abstractions and not the reverse.</summary>
-    public List<KnowledgeFolderSetting> KnowledgeFolders { get; init; } = KnowledgeFolderSetting.Defaults();
+    public List<DevbookFolderSetting> DevbookFolders { get; init; } = DevbookFolderSetting.Defaults();
 
     /// <summary>
     /// The branch this repository's knowledge is read from. Null means "whatever
@@ -83,12 +83,12 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// duplicate detection are all left alone.
     /// </para>
     /// </summary>
-    public string? KnowledgeBranch { get; init; }
+    public string? DevbookBranch { get; init; }
 
     /// <summary>
     /// Whether to read this repository's knowledge out of
     /// <see cref="CloneDirectory"/> rather than out of a snapshot of
-    /// <see cref="KnowledgeBranch"/>.
+    /// <see cref="DevbookBranch"/>.
     /// <para>
     /// Machine-local, unlike the branch, and deliberately so: it is only ever
     /// answerable on a machine that has the clone. A workspace shared with a
@@ -96,7 +96,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// to read a folder they do not have.
     /// </para>
     /// <para>
-    /// Null is "nobody has chosen", not "no" — see <see cref="KnowledgeSource"/>
+    /// Null is "nobody has chosen", not "no" — see <see cref="DevbookSource"/>
     /// for what it resolves to and why the distinction is load-bearing on
     /// upgrade.
     /// </para>
@@ -107,7 +107,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// branch may be named, and branches may be named anything.
     /// </para>
     /// </summary>
-    public bool? UseLocalKnowledgeFolder { get; init; }
+    public bool? UseLocalDevbookFolder { get; init; }
 
     /// <summary>
     /// Where this repository's knowledge actually comes from, once the
@@ -116,7 +116,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// Two rules, in order. A repository with no clone here reads from the
     /// branch whatever it was configured to do, which is the whole point of
     /// branch loading: knowledge that still opens on a machine that never cloned
-    /// anything. Otherwise an unanswered <see cref="UseLocalKnowledgeFolder"/>
+    /// anything. Otherwise an unanswered <see cref="UseLocalDevbookFolder"/>
     /// reads as the clone.
     /// </para>
     /// <para>
@@ -127,10 +127,10 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// have turned all of them read-only on upgrade, silently.
     /// </para>
     /// </summary>
-    public KnowledgeSourceKind KnowledgeSource =>
-        !string.IsNullOrWhiteSpace(CloneDirectory) && (UseLocalKnowledgeFolder ?? true)
-            ? KnowledgeSourceKind.LocalFolder
-            : KnowledgeSourceKind.Branch;
+    public DevbookSourceKind DevbookSource =>
+        !string.IsNullOrWhiteSpace(CloneDirectory) && (UseLocalDevbookFolder ?? true)
+            ? DevbookSourceKind.LocalFolder
+            : DevbookSourceKind.Branch;
 
     /// <summary>
     /// Reads one configured line. Accepted forms:

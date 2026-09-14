@@ -80,7 +80,7 @@ Tab into the body and the arrow keys scroll it. That the region is a tab stop at
 
 Which of the two a block is, is a reading, and the reading is the container's: the pane parses the file once, hands the first block to the header, and tells the body to leave it out. Drawn once — not left in the body as a second record, and not falling back to the raw fence either. The title under it is a title again.
 
-No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the chapters are read with, and `RenderKnowledgeMetadataFields` governs the header's second tier exactly as it governs a chapter's — the pair of panes below is that one flag, set both ways over the same file. Scroll either of them: the chapters' records leave with their chapters, and the file's does not."
+No new parameter buys this. `RenderDevbookMetadata` is the same opt-in the chapters are read with, and `RenderDevbookMetadataFields` governs the header's second tier exactly as it governs a chapter's — the pair of panes below is that one flag, set both ways over the same file. Scroll either of them: the chapters' records leave with their chapters, and the file's does not."
            Code="@FileMetadataCode"
            Source="@FileFixtures.TwoLevelFile">
         <div class="sb-stack" data-testid="file-view-file-metadata">
@@ -94,9 +94,9 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
                               MaxHeight="22rem"
                               TestId="file-view-two-level"
                               AllowCopy="true"
-                              RenderKnowledgeMetadata="true"
-                              KnowledgeFolder="KnowledgeFolder.Tech"
-                              OnKnowledgeStatusChanged="HearFileStatus" />
+                              RenderDevbookMetadata="true"
+                              DevbookFolder="DevbookFolder.Tech"
+                              OnDevbookStatusChanged="HearFileStatus" />
                 </div>
                 <div class="sb-stack">
                     <p class="sb-label">Reading it — the status alone, at both levels</p>
@@ -106,9 +106,9 @@ No new parameter buys this. `RenderKnowledgeMetadata` is the same opt-in the cha
                               Body="@FileFixtures.TwoLevelFile"
                               MaxHeight="22rem"
                               TestId="file-view-two-level-reading"
-                              RenderKnowledgeMetadata="true"
-                              RenderKnowledgeMetadataFields="false"
-                              KnowledgeFolder="KnowledgeFolder.Tech" />
+                              RenderDevbookMetadata="true"
+                              RenderDevbookMetadataFields="false"
+                              DevbookFolder="DevbookFolder.Tech" />
                 </div>
             </div>
 
@@ -162,9 +162,9 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
                       TestId="file-view-domain"
                       AllowCopy="true"
                       AllowChapterCopy="true"
-                      RenderKnowledgeMetadata="true"
-                      KnowledgeFolder="KnowledgeFolder.Domain"
-                      OnKnowledgeStatusChanged="OnStatusChanged"
+                      RenderDevbookMetadata="true"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookStatusChanged="OnStatusChanged"
                       Comments="@_remarks"
                       OnAddComment="AddRemark"
                       OnResolveComment="ResolveRemark"
@@ -196,7 +196,7 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
     <Story Name="A control nobody would gain anything by pressing"
            Description="The same arbitration, from the other side. Compare is absent here, and that is the story: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at. The pane knows because the pane holds the baselines and does the aligning; the header is simply told there is nothing to offer.
 
-The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnKnowledgeNavigate` — press one and this story reports it."
+The rest of this pane is what the knowledge panes ask for. `RenderDevbookMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnDevbookNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
             <FileView Name="Domain: Tasks"
@@ -207,10 +207,10 @@ The rest of this pane is what the knowledge panes ask for. `RenderKnowledgeMetad
                       TestId="file-view-reading-example"
                       AllowCopy="true"
                       AllowChapterCopy="true"
-                      RenderKnowledgeMetadata="true"
-                      RenderKnowledgeMetadataFields="false"
-                      KnowledgeFolder="KnowledgeFolder.Domain"
-                      OnKnowledgeNavigate="reference => _followed = reference.Raw"
+                      RenderDevbookMetadata="true"
+                      RenderDevbookMetadataFields="false"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="reference => _followed = reference.Raw"
                       CompareBaselines="@UnchangedBaseline" />
 
             <Alert Message="@(_followed is null ? null : $"Asked to open {_followed}.")" Role="status" />
@@ -281,7 +281,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
     // the callback fired.
     private string? _fileStatus;
 
-    private void HearFileStatus(KnowledgeStatusChange change) => _fileStatus = change.Status;
+    private void HearFileStatus(DevbookStatusChange change) => _fileStatus = change.Status;
 
     private const string FileMetadataCode = """
         @* One opt-in, two placements: the pane reads the file once and knows which
@@ -293,9 +293,9 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   Body="@markdown"
                   MaxHeight="22rem"
                   AllowCopy="true"
-                  RenderKnowledgeMetadata="true"
-                  KnowledgeFolder="KnowledgeFolder.Tech"
-                  OnKnowledgeStatusChanged="HearStatus" />
+                  RenderDevbookMetadata="true"
+                  DevbookFolder="DevbookFolder.Tech"
+                  OnDevbookStatusChanged="HearStatus" />
         """;
 
     // The one piece of state on this page: the hosted-body story is only worth
@@ -347,7 +347,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
     /// <summary>A status change reports the block it came from and the chapter
     /// title, which is what lets a host find the file's own heading again. Written
     /// into the text here so the story keeps telling the truth about itself.</summary>
-    private void OnStatusChanged(KnowledgeStatusChange change) =>
+    private void OnStatusChanged(DevbookStatusChange change) =>
         _domain = _domain.Replace($"status: {StatusOf(change.Heading)}", $"status: {change.Status}", StringComparison.Ordinal);
 
     /// <summary>What the fence under a heading currently says, so the replacement
@@ -435,9 +435,9 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   Fill="true"
                   AllowCopy="true"
                   AllowChapterCopy="true"
-                  RenderKnowledgeMetadata="true"
-                  KnowledgeFolder="KnowledgeFolder.Domain"
-                  OnKnowledgeStatusChanged="OnStatusChanged"
+                  RenderDevbookMetadata="true"
+                  DevbookFolder="DevbookFolder.Domain"
+                  OnDevbookStatusChanged="OnStatusChanged"
                   Comments="@remarks"
                   OnAddComment="Add"
                   OnResolveComment="Resolve"
@@ -465,10 +465,10 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   Fill="true"
                   AllowCopy="true"
                   AllowChapterCopy="true"
-                  RenderKnowledgeMetadata="true"
-                  RenderKnowledgeMetadataFields="false"
-                  KnowledgeFolder="KnowledgeFolder.Domain"
-                  OnKnowledgeNavigate="Open"
+                  RenderDevbookMetadata="true"
+                  RenderDevbookMetadataFields="false"
+                  DevbookFolder="DevbookFolder.Domain"
+                  OnDevbookNavigate="Open"
                   CompareBaselines="@baselines" />
         """;
 

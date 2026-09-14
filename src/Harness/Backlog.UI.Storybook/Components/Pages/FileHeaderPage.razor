@@ -116,7 +116,7 @@ Narrow enough that the name still gives: it truncates the way the path beside it
 
 `FileViewHeaderLayoutTests` pins the width, and pins that it is scoped here — a status stacked under another status is still a column, so the chapters in the body and the rows of a backlog keep the width they have."
            Code="@PaneCode">
-        <div class="sb-knowledge-pane">
+        <div class="sb-devbook-pane">
             <div class="sb-frame" data-testid="file-header-pane-frame">
                 <FileHeader Name="0002-backlog-module-owns-the-entry-text-language.md"
                             Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
@@ -339,10 +339,10 @@ Press it — the toggle reports the state it is asking for, and the pane is what
 
     /// <summary>The `.tech` vocabulary, held rather than resolved in the markup: a
     /// fresh object is a changed parameter, and the record would re-render on every
-    /// pass. `KnowledgeStatus.Vocabulary` already returns one instance per folder,
+    /// pass. `DevbookStatus.Vocabulary` already returns one instance per folder,
     /// so this is a name for it rather than a second copy.</summary>
     private static readonly MetadataStatusVocabulary TechVocabulary =
-        KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech);
+        DevbookStatus.Vocabulary(DevbookFolder.Tech);
 
     /// <summary>The file's own block, as a `.tech` chapter writes one. Parsed here
     /// rather than hand-built, because what the header is handed is what
@@ -386,7 +386,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         <FileHeader Name="@file.Name"
                     Path="@file.Path"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)" />
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)" />
         """;
 
     private const string LongPathCode = """
@@ -405,7 +405,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         <FileHeader Name="@file.Name"
                     Path="@file.Path"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     ShowMetadataFields="false" />
         """;
 
@@ -416,7 +416,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
                     Path="@Path"
                     Kind="@KindValue"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     OnStatusChanged="ReportFileStatusAsync" />
         """;
 
@@ -426,8 +426,8 @@ Press it — the toggle reports the state it is asking for, and the pane is what
            it, and the rest is the fence read back as rows. *@
         <FileHeader Name="@Name"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                    ShowMetadataFields="@RenderKnowledgeMetadataFields" />
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                    ShowMetadataFields="@RenderDevbookMetadataFields" />
         """;
 
     private const string EmptyCode = """
@@ -444,7 +444,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
            own words. *@
         <FileHeader Name="@Name"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     OnStatusChanged="ReportFileStatusAsync" />
         """;
 

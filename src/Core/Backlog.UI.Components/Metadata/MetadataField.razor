@@ -55,7 +55,7 @@
     /// <summary>The class on the row. Null drops it, for a host laying the pair
     /// out with its own grid.</summary>
     [Parameter]
-    public string? BaseClass { get; set; } = "knowledge-fields__row";
+    public string? BaseClass { get; set; } = "devbook-fields__row";
 
     /// <summary>A modifier on top of <see cref="BaseClass"/>, for a row that is
     /// drawn differently from its siblings.</summary>
@@ -63,10 +63,10 @@
     public string? CssClass { get; set; }
 
     [Parameter]
-    public string? LabelCssClass { get; set; } = "knowledge-fields__label";
+    public string? LabelCssClass { get; set; } = "devbook-fields__label";
 
     [Parameter]
-    public string? ValueCssClass { get; set; } = "knowledge-fields__value";
+    public string? ValueCssClass { get; set; } = "devbook-fields__value";
 
     /// <summary>A test id on the value cell, where the values are. Absent on most
     /// rows: a row is found by its label, and only the fields whose values are

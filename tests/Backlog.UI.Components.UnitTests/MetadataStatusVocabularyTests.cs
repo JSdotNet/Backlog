@@ -4,8 +4,8 @@ namespace Backlog.UI.Components.UnitTests;
 /// The status words a surface allows, taken out of the knowledge folder they used
 /// to be locked behind.
 ///
-/// <para><c>MetadataView</c> took a <c>KnowledgeFolder</c> and asked
-/// <c>KnowledgeStatus</c> both of the questions a record actually has — which words
+/// <para><c>MetadataView</c> took a <c>DevbookFolder</c> and asked
+/// <c>DevbookStatus</c> both of the questions a record actually has — which words
 /// may be offered, and what each of them looks like — so no caller outside
 /// <c>.arc42</c>, <c>.domain</c>, <c>.design</c>, <c>.backlog</c> and <c>.tech</c>
 /// could draw a record at all. Nothing else about the record was ever
@@ -20,14 +20,14 @@ public sealed class MetadataStatusVocabularyTests
 {
     /// <summary>The knowledge folders, so a claim about "every vocabulary" is made
     /// against all five and not against the one that happened to be handy.</summary>
-    private static readonly KnowledgeFolder[] Folders = Enum.GetValues<KnowledgeFolder>();
+    private static readonly DevbookFolder[] Folders = Enum.GetValues<DevbookFolder>();
 
     [Fact]
     public void A_folders_vocabulary_is_the_folders_words_in_the_folders_order()
     {
         foreach (var folder in Folders)
         {
-            Assert.Equal(KnowledgeStatus.Values(folder), KnowledgeStatus.Vocabulary(folder).Values);
+            Assert.Equal(DevbookStatus.Values(folder), DevbookStatus.Vocabulary(folder).Values);
         }
     }
 
@@ -37,7 +37,7 @@ public sealed class MetadataStatusVocabularyTests
     /// <para>A fresh object is a changed parameter to Blazor, so a folder resolved
     /// in a render expression would re-render every record on every pass — and the
     /// call sites that resolve one <em>are</em> render expressions:
-    /// <c>Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"</c> is what the
+    /// <c>Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"</c> is what the
     /// header, the read view and the block view all write.</para>
     /// </summary>
     [Fact]
@@ -45,13 +45,13 @@ public sealed class MetadataStatusVocabularyTests
     {
         foreach (var folder in Folders)
         {
-            Assert.Same(KnowledgeStatus.Vocabulary(folder), KnowledgeStatus.Vocabulary(folder));
+            Assert.Same(DevbookStatus.Vocabulary(folder), DevbookStatus.Vocabulary(folder));
         }
     }
 
     /// <summary>Every word of every folder wears the badge that folder's tone maps
     /// onto, and a word in no folder wears the flag — which is
-    /// <c>KnowledgeStatusBadge</c>'s whole former contents, asked of the vocabulary
+    /// <c>DevbookStatusBadge</c>'s whole former contents, asked of the vocabulary
     /// instead. Asserted against the tone rather than against a copy of the
     /// mapping: a second table here would be the thing it is checking.</summary>
     [Fact]
@@ -59,9 +59,9 @@ public sealed class MetadataStatusVocabularyTests
     {
         foreach (var folder in Folders)
         {
-            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+            var vocabulary = DevbookStatus.Vocabulary(folder);
 
-            foreach (var status in KnowledgeStatus.Values(folder))
+            foreach (var status in DevbookStatus.Values(folder))
             {
                 Assert.True(vocabulary.Offers(status));
                 Assert.True(vocabulary.Recognises(status));
@@ -84,7 +84,7 @@ public sealed class MetadataStatusVocabularyTests
     [Fact]
     public void A_word_the_vocabulary_does_not_have_is_flagged_and_the_expectation_named()
     {
-        var vocabulary = KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech);
+        var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Tech);
 
         Assert.True(vocabulary.IsUnrecognised("adoptd"));
         Assert.Equal("archived", vocabulary.SlugFor("adoptd"));
@@ -95,12 +95,12 @@ public sealed class MetadataStatusVocabularyTests
 
     /// <summary>No vocabulary is "nobody said", not "nothing is allowed". So it
     /// flags nothing, offers nothing, and leaves the plain badge — which is exactly
-    /// the "no opinion" it means, and what <c>KnowledgeFolder.Unknown</c> has always
+    /// the "no opinion" it means, and what <c>DevbookFolder.Unknown</c> has always
     /// produced.</summary>
     [Fact]
     public void No_vocabulary_judges_nothing()
     {
-        foreach (var vocabulary in new[] { MetadataStatusVocabulary.None, KnowledgeStatus.Vocabulary(KnowledgeFolder.Unknown) })
+        foreach (var vocabulary in new[] { MetadataStatusVocabulary.None, DevbookStatus.Vocabulary(DevbookFolder.Unknown) })
         {
             Assert.True(vocabulary.IsEmpty);
             Assert.False(vocabulary.Offers("adopted"));
@@ -125,7 +125,7 @@ public sealed class MetadataStatusVocabularyTests
     [Fact]
     public void A_stray_capital_is_recognised_and_still_not_offered()
     {
-        var vocabulary = KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech);
+        var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Tech);
 
         Assert.True(vocabulary.Recognises(" Adopted "));
         Assert.False(vocabulary.IsUnrecognised(" Adopted "));
@@ -178,11 +178,11 @@ public sealed class MetadataStatusVocabularyTests
         // piece of writing is there is a resting value that needs no saying, and
         // where it is a rating on a ladder or a work state every value is a claim
         // the reader needs.
-        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42).AllowsNone);
-        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain).AllowsNone);
-        Assert.True(KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).AllowsNone);
-        Assert.False(KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech).AllowsNone);
-        Assert.False(KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog).AllowsNone);
+        Assert.True(DevbookStatus.Vocabulary(DevbookFolder.Arc42).AllowsNone);
+        Assert.True(DevbookStatus.Vocabulary(DevbookFolder.Domain).AllowsNone);
+        Assert.True(DevbookStatus.Vocabulary(DevbookFolder.Design).AllowsNone);
+        Assert.False(DevbookStatus.Vocabulary(DevbookFolder.Tech).AllowsNone);
+        Assert.False(DevbookStatus.Vocabulary(DevbookFolder.Backlog).AllowsNone);
         Assert.False(MetadataStatusVocabulary.None.AllowsNone);
     }
 
@@ -191,7 +191,7 @@ public sealed class MetadataStatusVocabularyTests
     {
         foreach (var folder in Folders)
         {
-            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+            var vocabulary = DevbookStatus.Vocabulary(folder);
 
             // Never offered — a browser matches option values literally and no
             // folder lists a blank among its words.
@@ -210,7 +210,7 @@ public sealed class MetadataStatusVocabularyTests
     {
         foreach (var folder in Folders)
         {
-            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+            var vocabulary = DevbookStatus.Vocabulary(folder);
             foreach (var value in vocabulary.Values)
             {
                 Assert.True(vocabulary.Selectable(value));
@@ -227,15 +227,15 @@ public sealed class MetadataStatusVocabularyTests
     {
         Assert.Equal(
             ["No status", "draft", "active", "deprecated"],
-            KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).Options().Select(option => option.Label));
+            DevbookStatus.Vocabulary(DevbookFolder.Design).Options().Select(option => option.Label));
 
         // Value empty, because that is what a browser hands back for an option
         // with no value — there is no sentinel to translate out of later.
-        Assert.Equal(string.Empty, KnowledgeStatus.Vocabulary(KnowledgeFolder.Design).Options()[0].Value);
+        Assert.Equal(string.Empty, DevbookStatus.Vocabulary(DevbookFolder.Design).Options()[0].Value);
 
         Assert.Equal(
-            KnowledgeStatus.Values(KnowledgeFolder.Tech),
-            KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech).Options().Select(option => option.Value).ToList());
+            DevbookStatus.Values(DevbookFolder.Tech),
+            DevbookStatus.Vocabulary(DevbookFolder.Tech).Options().Select(option => option.Value).ToList());
     }
 
     [Fact]
@@ -248,7 +248,7 @@ public sealed class MetadataStatusVocabularyTests
         // moment a cleared chapter drew its control, "no status" looked retired.
         foreach (var folder in Folders)
         {
-            var vocabulary = KnowledgeStatus.Vocabulary(folder);
+            var vocabulary = DevbookStatus.Vocabulary(folder);
 
             Assert.False(vocabulary.IsUnrecognised(string.Empty));
             Assert.False(vocabulary.IsUnrecognised(null));

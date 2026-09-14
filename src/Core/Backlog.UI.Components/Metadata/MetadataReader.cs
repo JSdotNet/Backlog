@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Knowledge;
+using Backlog.UI.Components.Devbook;
 
 namespace Backlog.UI.Components.Metadata;
 
@@ -72,16 +72,16 @@ public static class MetadataReader
             extra[key] = values;
         }
 
-        var references = new Dictionary<string, IReadOnlyList<KnowledgeReference>>(StringComparer.Ordinal);
+        var references = new Dictionary<string, IReadOnlyList<DevbookReference>>(StringComparer.Ordinal);
         foreach (var field in ReferenceFields)
         {
             if (!fields.TryGetValue(field, out var values)) continue;
 
-            var parsed = new List<KnowledgeReference>();
+            var parsed = new List<DevbookReference>();
             var rejected = new List<string>();
             foreach (var value in values)
             {
-                if (KnowledgeReference.TryParse(value, out var reference) && reference is not null)
+                if (DevbookReference.TryParse(value, out var reference) && reference is not null)
                 {
                     parsed.Add(reference);
                 }

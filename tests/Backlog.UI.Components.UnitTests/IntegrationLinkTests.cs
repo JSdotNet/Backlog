@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The tri-state, copied from KnowledgeReferenceLink rather than re-derived, and
+/// The tri-state, copied from DevbookReferenceLink rather than re-derived, and
 /// the two chips a reference can carry.
 /// </summary>
 public sealed class IntegrationLinkTests

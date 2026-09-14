@@ -376,11 +376,11 @@ public sealed class MarkdownDocumentTests
         using var context = new BunitContext();
 
         var view = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true));
+            .Add(d => d.RenderDevbookMetadata, true));
 
-        Assert.NotNull(view.Find("dl.knowledge-fields"));
-        Assert.Equal("Shared Technologies", view.Find(".knowledge-record__headline p.md-heading").TextContent);
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.NotNull(view.Find("dl.devbook-fields"));
+        Assert.Equal("Shared Technologies", view.Find(".devbook-record__headline p.md-heading").TextContent);
+        Assert.Equal("adopted", view.Find(".devbook-record__headline .badge--status").TextContent);
         Assert.Empty(view.FindAll("pre.md-code"));
     }
 
@@ -393,10 +393,10 @@ public sealed class MarkdownDocumentTests
         using var context = new BunitContext();
 
         var known = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true)
-            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(d => d.RenderDevbookMetadata, true)
+            .Add(d => d.DevbookFolder, DevbookFolder.Tech));
 
-        var select = known.Find(".knowledge-record__headline .status-editor select");
+        var select = known.Find(".devbook-record__headline .status-editor select");
 
         Assert.Equal("adopted", select.GetAttribute("value"));
         Assert.Equal(
@@ -406,7 +406,7 @@ public sealed class MarkdownDocumentTests
         // Folder-blind is still the default, and a status with no vocabulary
         // behind it is a word rather than a choice.
         var blind = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true));
+            .Add(d => d.RenderDevbookMetadata, true));
 
         Assert.Empty(blind.FindAll("select"));
         Assert.Equal("badge badge--status", blind.Find(".badge--status").GetAttribute("class"));
@@ -419,16 +419,16 @@ public sealed class MarkdownDocumentTests
         // callback that carries the pick has to travel with it. Without it the
         // reader is offered a choice this component then drops on the floor.
         using var context = new BunitContext();
-        var changes = new List<KnowledgeStatusChange>();
+        var changes = new List<DevbookStatusChange>();
         var written = new List<string>();
 
         var view = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true)
-            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
-            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
+            .Add(d => d.RenderDevbookMetadata, true)
+            .Add(d => d.DevbookFolder, DevbookFolder.Tech)
+            .Add(d => d.OnDevbookStatusChanged, EventCallback.Factory.Create<DevbookStatusChange>(this, changes.Add))
             .Add(d => d.ValueChanged, EventCallback.Factory.Create<string>(this, written.Add)));
 
-        view.Find(".knowledge-record__headline .status-editor select").Change("retired");
+        view.Find(".devbook-record__headline .status-editor select").Change("retired");
 
         var change = Assert.Single(changes);
 
@@ -452,10 +452,10 @@ public sealed class MarkdownDocumentTests
         using var context = new BunitContext();
 
         var view = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true)
-            .Add(d => d.KnowledgeHrefFor, reference => $"/knowledge/{reference.Path}"));
+            .Add(d => d.RenderDevbookMetadata, true)
+            .Add(d => d.DevbookHrefFor, reference => $"/knowledge/{reference.Path}"));
 
-        Assert.Equal("/knowledge/.tech/technology-graph.md", view.Find("a.knowledge-ref--link").GetAttribute("href"));
+        Assert.Equal("/knowledge/.tech/technology-graph.md", view.Find("a.devbook-ref--link").GetAttribute("href"));
     }
 
     [Fact]
@@ -464,11 +464,11 @@ public sealed class MarkdownDocumentTests
         using var context = new BunitContext();
 
         var view = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true)
-            .Add(d => d.RenderKnowledgeMetadataFields, false));
+            .Add(d => d.RenderDevbookMetadata, true)
+            .Add(d => d.RenderDevbookMetadataFields, false));
 
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Equal("adopted", view.Find(".devbook-record__headline .badge--status").TextContent);
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
 
         // Suppressing the rows is not the same as declining to read the block:
         // the fence does not come back as a code block underneath.
@@ -482,17 +482,17 @@ public sealed class MarkdownDocumentTests
         // is anchored to do not exist while the text is a textarea, and the
         // author is looking at the fence itself.
         using var context = new BunitContext();
-        var changes = new List<KnowledgeStatusChange>();
+        var changes = new List<DevbookStatusChange>();
 
         var view = RenderChapter(context, parameters => parameters
-            .Add(d => d.RenderKnowledgeMetadata, true)
-            .Add(d => d.KnowledgeFolder, KnowledgeFolder.Tech)
-            .Add(d => d.OnKnowledgeStatusChanged, EventCallback.Factory.Create<KnowledgeStatusChange>(this, changes.Add))
+            .Add(d => d.RenderDevbookMetadata, true)
+            .Add(d => d.DevbookFolder, DevbookFolder.Tech)
+            .Add(d => d.OnDevbookStatusChanged, EventCallback.Factory.Create<DevbookStatusChange>(this, changes.Add))
             .Add(d => d.Editing, true));
 
         Assert.Single(view.FindAll("textarea"));
-        Assert.Empty(view.FindAll(".knowledge-record"));
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll(".devbook-record"));
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
 
         // No record means no picker, so there is nothing here to raise a status
         // change with — the guard covers the callback as much as the rest.
@@ -511,8 +511,8 @@ public sealed class MarkdownDocumentTests
         var view = RenderChapter(context);
 
         Assert.Contains("status: adopted", view.Find("pre.md-code code").TextContent, StringComparison.Ordinal);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
-        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
+        Assert.Empty(view.FindAll(".devbook-record"));
     }
 
     /// <summary>The same document, holding a knowledge chapter. Its own renderer

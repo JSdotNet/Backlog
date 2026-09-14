@@ -6,7 +6,7 @@
     than on render, so a page carrying six of these does not parse six chapters
     nobody looked at.
 
-    Knowledge metadata is on, and the folder is Design: these files *are* knowledge
+    Devbook metadata is on, and the folder is Design: these files *are* knowledge
     chapters, so their `meta` fences are drawn as the records they are rather than
     as code blocks. It is also the honest setting — reading `.design` as anything
     else would render the rule differently here from the way the product renders
@@ -24,8 +24,8 @@
         <ChildContent>
             <div class="sb-guideline__body" data-testid="@($"{TestId}-body")">
                 <MarkdownView Blocks="@Blocks"
-                              RenderKnowledgeMetadata="true"
-                              KnowledgeFolder="KnowledgeFolder.Design" />
+                              RenderDevbookMetadata="true"
+                              DevbookFolder="DevbookFolder.Design" />
             </div>
         </ChildContent>
     </FoldControl>

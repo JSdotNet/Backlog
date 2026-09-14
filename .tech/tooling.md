@@ -307,7 +307,7 @@ indexes.
   line-number drift. `--check` says nothing about the *values* in a `meta` block,
   though, so a second hard failure covers those:
   `.github/workflows/knowledge-metadata.yml` runs
-  `tools/knowledge/check-metadata.mjs`, this repository's own caller of the
+  `tools/devbook/check-metadata.mjs`, this repository's own caller of the
   generator's exported `validateDocument`, and a status outside a folder's ladder,
   an unknown `.domain` `type` or a field no schema defines fails the pull request.
   It is a separate script and a separate workflow because the generator, both
@@ -333,7 +333,7 @@ related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".
 The repo-native writer that compiles the knowledge corpus into one generated
 SQLite database.
 
-- **Used for** — `node tools/knowledge/build-database.mjs`, producing
+- **Used for** — `node tools/devbook/build-database.mjs`, producing
   `_meta/knowledge.db`: the reference graph, the resolved reading outline, every
   chapter's text and hashes, the FTS5 index, the Archify artifact rows, and an
   empty embedding table. One database for the repository, so a scope is
@@ -357,7 +357,7 @@ SQLite database.
   committed artifact could never be, and an uncommitted one can.
 - **Caveat** — the schema is written here and read from C#, which is a contract
   that can drift silently. It is one exported string in
-  `tools/knowledge/knowledge-schema.mjs`, and the C# contract tests build their
+  `tools/devbook/devbook-schema.mjs`, and the C# contract tests build their
   fixtures from that text rather than restating it.
 
 ## Archify

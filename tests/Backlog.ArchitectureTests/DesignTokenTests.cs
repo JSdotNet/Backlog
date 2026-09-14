@@ -173,14 +173,14 @@ public class DesignTokenTests
     ///
     /// <para><c>TreeView</c> builds its indent property from its own class prefix
     /// (<c>"--" + ClassPrefix + "-depth"</c>, <c>TreeView.razor</c>), so the strings
-    /// <c>--folder-tree-depth</c> and <c>--knowledge-menu-depth</c> appear nowhere in
+    /// <c>--folder-tree-depth</c> and <c>--devbook-menu-depth</c> appear nowhere in
     /// the sources even though both are set on every row. These two are listed
     /// because they are undetectable in principle, not merely inconvenient to
     /// detect — anything a search *can* find must be found rather than added here.</para></summary>
     private static readonly HashSet<string> RuntimeComposedTokens =
     [
         "--folder-tree-depth",
-        "--knowledge-menu-depth"
+        "--devbook-menu-depth"
     ];
 
     /// <summary>A fallback makes a reference to an undeclared token legal, and

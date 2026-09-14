@@ -105,12 +105,12 @@
                 Kind="@KindValue"
                 SizeInBytes="@SizeInBytes"
                 Metadata="@_fileRecord?.Metadata"
-                Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                ShowMetadataFields="@RenderKnowledgeMetadataFields"
-                CanEditStatus="@CanEditKnowledgeStatus"
+                Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                ShowMetadataFields="@RenderDevbookMetadataFields"
+                CanEditStatus="@CanEditDevbookStatus"
                 OnStatusChanged="ReportFileStatusAsync"
-                OnNavigate="@OnKnowledgeNavigate"
-                HrefFor="@KnowledgeHrefFor"
+                OnNavigate="@OnDevbookNavigate"
+                HrefFor="@DevbookHrefFor"
                 AllowCopy="@AllowCopy"
                 CopyLabel="@CopyLabel"
                 Body="@Body"
@@ -144,14 +144,14 @@
                                                 Body="@Body"
                                                 Language="@BodyLanguage"
                                                 AllowChapterCopy="@AllowChapterCopy"
-                                                RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                                                RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                                                CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
-                                                KnowledgeFolder="@KnowledgeFolder"
-                                                KnowledgeDocumentPath="@KnowledgeDocumentPath"
-                                                OnKnowledgeStatusChanged="@OnKnowledgeStatusChanged"
-                                                OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                                                KnowledgeHrefFor="@KnowledgeHrefFor"
+                                                RenderDevbookMetadata="@RenderDevbookMetadata"
+                                                RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
+                                                CanEditDevbookStatus="@CanEditDevbookStatus"
+                                                DevbookFolder="@DevbookFolder"
+                                                DevbookDocumentPath="@DevbookDocumentPath"
+                                                OnDevbookStatusChanged="@OnDevbookStatusChanged"
+                                                OnDevbookNavigate="@OnDevbookNavigate"
+                                                DevbookHrefFor="@DevbookHrefFor"
                                                 Comments="@Comments"
                                                 CommentLayout="@CommentLayout"
                                                 OnAddComment="@OnAddComment"
@@ -174,7 +174,7 @@
     /// <summary>
     /// The repository-relative path of the knowledge document this pane is showing,
     /// carrying its area folder. Forwarded verbatim to
-    /// <c>MarkdownView.KnowledgeDocumentPath</c>, which is what a relative link in
+    /// <c>MarkdownView.DevbookDocumentPath</c>, which is what a relative link in
     /// the body resolves against.
     ///
     /// <para>Separate from <see cref="Path"/> rather than read off it, for two
@@ -188,7 +188,7 @@
     /// says so.</para>
     /// </summary>
     [Parameter]
-    public string? KnowledgeDocumentPath { get; set; }
+    public string? DevbookDocumentPath { get; set; }
 
     /// <summary>Who or what the file comes from, e.g. "GitHub Copilot".</summary>
     [Parameter]
@@ -342,13 +342,13 @@
     /// put: a reader changing the file is the last one who should have to go
     /// looking for what state it is in.</para></summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Whether a metadata record draws the fields under the status too.
     /// Passed straight to the read view, which explains what the second tier is
     /// worth on a surface that is already showing the file.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+    public bool RenderDevbookMetadataFields { get; set; } = true;
 
     /// <summary>
     /// Whether a status shown here — the file's own, and every chapter's — may be
@@ -361,7 +361,7 @@
     /// </para>
     /// </summary>
     [Parameter]
-    public bool CanEditKnowledgeStatus { get; set; } = true;
+    public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the
@@ -398,21 +398,21 @@
     /// <summary>Which knowledge folder the file was read from, so a status can be
     /// checked against that folder's vocabulary.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>Raised when a reader picked a different status beside a chapter's
     /// heading. Nothing here writes it.</summary>
     [Parameter]
-    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+    public EventCallback<DevbookStatusChange> OnDevbookStatusChanged { get; set; }
 
     /// <summary>Raised with the reference a reader activated in a metadata
     /// record.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     /// <summary>Remarks against the file's blocks. Empty — the default — renders
     /// the file exactly as it did before comments existed.</summary>
@@ -507,7 +507,7 @@
     private MarkdownFileMetadata.FileRecord? _fileRecord;
     private string? _readRecordFrom;
     private bool _readRecord;
-    private KnowledgeFolder _readRecordFolder = KnowledgeFolder.Unknown;
+    private DevbookFolder _readRecordFolder = DevbookFolder.Unknown;
 
     /// <summary>The file's own <c>type</c>, when the folder this was read from
     /// draws that value as a mark. Held beside the record because the record no
@@ -574,7 +574,7 @@
     /// </summary>
     private void ReadFileRecord()
     {
-        if (!RenderKnowledgeMetadata || !RendersMarkdown)
+        if (!RenderDevbookMetadata || !RendersMarkdown)
         {
             _fileRecord = null;
             _fileType = null;
@@ -589,9 +589,9 @@
         // it: which of the record's fields is drawn as a mark instead of as a row is
         // a question about the folder, and the same bytes read as `.domain` and as
         // `.tech` are two different headers.
-        if (_readRecord && _readRecordFrom == text && _readRecordFolder == KnowledgeFolder) return;
+        if (_readRecord && _readRecordFrom == text && _readRecordFolder == DevbookFolder) return;
 
-        _readRecordFolder = KnowledgeFolder;
+        _readRecordFolder = DevbookFolder;
 
         // A block that states nothing is not a record. It matters here more than
         // anywhere else this is asked: the identity column is drawn *inside* the
@@ -614,7 +614,7 @@
         // exactly as it was read, which is what keeps `.tech`'s own `type` row on
         // screen and what keeps a `.domain` type nobody has drawn yet visible as the
         // word it is.
-        _fileType = KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, record?.Metadata.Type);
+        _fileType = DevbookTypeMarkers.MarkedIn(DevbookFolder, record?.Metadata.Type);
         _fileRecord = record is not null && _fileType is not null
             ? record with { Metadata = record.Metadata.WithoutType() }
             : record;
@@ -643,8 +643,8 @@
     private RenderFragment? FileTypeMark =>
         _fileType is null
             ? null
-            : @<KnowledgeTypeMarker Value="@_fileType"
-                                    CssClass="knowledge-type-marker--leads"
+            : @<DevbookTypeMarker Value="@_fileType"
+                                    CssClass="devbook-type-marker--leads"
                                     Labelled="true"
                                     ShowTooltip="false"
                                     TestId="@(TestId is null ? null : $"{TestId}-file-type-mark")" />;
@@ -656,11 +656,11 @@
     /// what the rest of this view anchors by — the record being drawn in the
     /// header does not move the fence it was read from. The heading's text,
     /// because that is what a host knows the chapter as. Nothing here writes it:
-    /// see <see cref="KnowledgeStatusChange"/>.
+    /// see <see cref="DevbookStatusChange"/>.
     /// </para>
     /// </summary>
     private Task ReportFileStatusAsync(string? status) =>
-        OnKnowledgeStatusChanged.InvokeAsync(new KnowledgeStatusChange(0, _fileRecord?.Title, status));
+        OnDevbookStatusChanged.InvokeAsync(new DevbookStatusChange(0, _fileRecord?.Title, status));
 
     private void ParseBody()
     {

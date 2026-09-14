@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-metadata.mjs — the metadata half of the knowledge gate.
 //
-//   node tools/knowledge/check-metadata.mjs [--root <path>]
+//   node tools/devbook/check-metadata.mjs [--root <path>]
 //
 // `.github/tools/knowledge-meta/metadata.mjs` exports `validateDocument`, which
 // is what knows a folder's `status` ladder, its `type` vocabulary, and which
@@ -14,14 +14,14 @@
 //
 // This is the missing caller, and it is deliberately a separate file rather
 // than an edit to the generator: everything under
-// `.github/tools/knowledge-meta/` is an installed copy of the knowledge-base
+// `.github/tools/knowledge-meta/` is an installed copy of the devbook-base
 // plugin's tooling, which CLAUDE.md says to re-sync and never edit here. The
 // same rule covers `build/Update-KnowledgeIndex.ps1` and both `knowledge-meta*`
 // workflows, so the CI wiring is repo-native too:
 // `.github/workflows/knowledge-metadata.yml`.
 //
-// Upstream runs this validation from the knowledge-graph canvas and the
-// `knowledge-base-validate` skill rather than from `--check`. CI is a third
+// Upstream runs this validation from the devbook-graph canvas and the
+// `devbook-base-validate` skill rather than from `--check`. CI is a third
 // consumer of the same exported seam, not a fork of it.
 
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -32,7 +32,7 @@ import { validateDocument } from '../../.github/tools/knowledge-meta/metadata.mj
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** The repository root, two levels up from `tools/knowledge/`. */
+/** The repository root, two levels up from `tools/devbook/`. */
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
 /** The folders `folderKindForPath` recognises. Only the ones present are scanned,
@@ -71,7 +71,7 @@ const STALE_TECH_KIND = /is missing required `kind` for the tech folder[.]$/;
  *  `index`/`number` on file-level blocks; the installed copy allows only
  *  `related, issue, effort, roadmap` plus a few folder extras. The chapter
  *  authors of this repository are told to write the *current* schema — the
- *  knowledge-base skills and `knowledge-chapter-metadata.instructions.md` come
+ *  devbook-base skills and `knowledge-chapter-metadata.instructions.md` come
  *  from the plugin, not from here — so blocking on these would fail a pull
  *  request for metadata that is correct.
  *
@@ -182,7 +182,7 @@ export async function checkRepository(root = DEFAULT_ROOT) {
 
 /** One line per folder plus a total, followed by every blocking finding. */
 export function formatReport(result) {
-    const lines = [`Knowledge metadata check — ${result.root}`, ''];
+    const lines = [`Devbook metadata check — ${result.root}`, ''];
 
     const row = (label, files, blocking, advisory, suppressed) =>
         `  ${label.padEnd(10)}${String(files).padStart(4)} files  `

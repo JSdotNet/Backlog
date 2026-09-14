@@ -1,4 +1,4 @@
-// Tests for check-metadata.mjs, run with `node --test tools/knowledge`.
+// Tests for check-metadata.mjs, run with `node --test tools/devbook`.
 //
 // Two kinds of case. The first reads this repository's own corpus and asserts
 // the gate is green on it, because a gate that is red the day it lands gets
@@ -47,7 +47,7 @@ function chapter(fileFields, chapterFields) {
  * start with one of the knowledge folders.
  */
 async function checkFixture(relPath, markdown) {
-    const root = await mkdtemp(join(tmpdir(), 'knowledge-check-'));
+    const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
         const file = join(root, ...relPath.split('/'));
         await mkdir(dirname(file), { recursive: true });
@@ -116,7 +116,7 @@ test('an adopted folder that holds nothing is an error, not a silent pass', asyn
     // `result.folders` carries every folder present on disk, empty included, so
     // the corpus assertion above can actually fail. Dropping empty entries is
     // what would let a renamed or unreadable folder go quietly ungated.
-    const root = await mkdtemp(join(tmpdir(), 'knowledge-check-'));
+    const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
         await mkdir(join(root, '.domain', 'sample'), { recursive: true });
         await writeFile(
@@ -243,7 +243,7 @@ test('the command exits 0 on this repository and 1 on a violation', async () => 
     const clean = spawnSync(process.execPath, [SCRIPT, '--root', REPO], { encoding: 'utf8' });
     assert.equal(clean.status, 0, `${clean.stdout}${clean.stderr}`);
 
-    const root = await mkdtemp(join(tmpdir(), 'knowledge-check-'));
+    const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
         await mkdir(join(root, '.domain', 'sample'), { recursive: true });
         await writeFile(
@@ -263,7 +263,7 @@ test('the command exits 0 on this repository and 1 on a violation', async () => 
 test('a root with no knowledge folders is an error, not a pass', async () => {
     // The one way to make this gate green by accident is to point it somewhere
     // that has nothing to check.
-    const root = await mkdtemp(join(tmpdir(), 'knowledge-check-'));
+    const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
         const empty = spawnSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' });
         assert.equal(empty.status, 2, `${empty.stdout}${empty.stderr}`);

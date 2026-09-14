@@ -137,13 +137,13 @@ public class ModuleBoundaryTests
     ///
     /// <para>This is the rule the workspace refactor was for. There used to be a
     /// <c>Backlog.Desktop.Workspace</c> project underneath all three contexts,
-    /// and because everyone could read it, everyone did: Second Brain's panels
+    /// and because everyone could read it, everyone did: Devbook's panels
     /// took the backlog root store and Tasks' list took the
-    /// knowledge-folder resolver. Splitting those four types into ports made the
+    /// devbook-folder resolver. Splitting those four types into ports made the
     /// coupling visible, and the obvious next move — port each type into the
     /// module that owns it — would only have converted a shared project into two
-    /// crossing references, <c>Knowledge.UI -&gt; Backlog.Abstractions</c> and
-    /// <c>Backlog.UI -&gt; Knowledge.Abstractions</c>. Both are exactly what
+    /// crossing references, <c>Devbook.UI -&gt; Backlog.Abstractions</c> and
+    /// <c>Backlog.UI -&gt; Devbook.Abstractions</c>. Both are exactly what
     /// <see cref="A_module_ui_reaches_into_another_context_only_where_the_context_map_says_so"/>
     /// forbids between <c>.UI</c> projects, and neither would have tripped it,
     /// because an <c>.Abstractions</c> project is not a <c>.UI</c> project.</para>

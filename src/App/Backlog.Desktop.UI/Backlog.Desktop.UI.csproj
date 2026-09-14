@@ -60,7 +60,7 @@
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
-         the GitHub repository/knowledge-folder settings plus the local clone
+         the GitHub repository/devbook-folder settings plus the local clone
          status the settings screen shows. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Claude\Backlog.Infrastructure.Claude.csproj" />
@@ -68,7 +68,7 @@
     <!-- The settings screen edits the workspace settings file itself: which
          folder the backlog lives in, which repository backs it, and which
          knowledge folders are configured for it. The last two are named in
-         adapter and Second Brain types, so they are not on the module's store
+         adapter and Devbook types, so they are not on the module's store
          port and this screen takes the adapter, as it already does for GitHub,
          Claude and Azure Foundry. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />

@@ -233,7 +233,7 @@ public sealed class MarkdownNotesGutterTests
     ///
     /// <para>So the pane hands the scrolling up to whatever it sits in. Both
     /// surfaces in this product that draw remarks already relied on that —
-    /// <c>Arc42KnowledgePanel</c> and <c>DomainKnowledgePanel</c> pass no
+    /// <c>Arc42DevbookPanel</c> and <c>DomainDevbookPanel</c> pass no
     /// <c>MaxHeight</c> and say so — and this makes it true wherever a margin is
     /// drawn rather than wherever the caller remembered.</para>
     /// </summary>

@@ -81,7 +81,7 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
         // folders left at their defaults. A repository somebody registered on
         // another install arrives here exactly this way, so a directory-less entry
         // is the ordinary shape of a registered repository rather than a lesser
-        // one — KnowledgeFolderSource already answers a blank clone directory with
+        // one — DevbookFolderSource already answers a blank clone directory with
         // "Add a local clone directory ... in Settings".
         _ = settings.SetRepositories([.. settings.Current.Repositories, registered]);
 

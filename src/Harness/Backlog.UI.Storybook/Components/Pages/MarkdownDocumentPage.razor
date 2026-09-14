@@ -34,9 +34,9 @@ Editing hands the same string to the editor that the parser was reading, so a bo
     </Story>
 
     <Story Name="Reading a knowledge chapter"
-           Description="`RenderKnowledgeMetadata` says the body is a chapter of a knowledge folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
+           Description="`RenderDevbookMetadata` says the body is a chapter of a knowledge folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
 
-`KnowledgeFolder` is what turns the status from a word into a value out of that folder's list, so the pill becomes a picker — and a picker is only worth offering if somebody is listening, which is `OnKnowledgeStatusChanged`. Pick one: the fence under the heading is rewritten below, because writing it is the host's and never this component's. `KnowledgeHrefFor` resolves a reference to an address, which is what makes `related` a link rather than a button the host has to handle.
+`DevbookFolder` is what turns the status from a word into a value out of that folder's list, so the pill becomes a picker — and a picker is only worth offering if somebody is listening, which is `OnDevbookStatusChanged`. Pick one: the fence under the heading is rewritten below, because writing it is the host's and never this component's. `DevbookHrefFor` resolves a reference to an address, which is what makes `related` a link rather than a button the host has to handle.
 
 All four are read-mode only. Press **Edit**: the author of a chapter is looking at the fence itself, and the record has nothing to be folded into."
            Code="@ChapterCode"
@@ -45,10 +45,10 @@ All four are read-mode only. Press **Edit**: the author of a chapter is looking 
         <div class="sb-surface" data-testid="markdown-document-knowledge">
             <MarkdownDocument @bind-Value="_chapterSource"
                               @bind-Editing="_chapterEditing"
-                              RenderKnowledgeMetadata="true"
-                              KnowledgeFolder="KnowledgeFolder.Tech"
-                              OnKnowledgeStatusChanged="HearChapterStatus"
-                              KnowledgeHrefFor="@ChapterHref"
+                              RenderDevbookMetadata="true"
+                              DevbookFolder="DevbookFolder.Tech"
+                              OnDevbookStatusChanged="HearChapterStatus"
+                              DevbookHrefFor="@ChapterHref"
                               Title="shared.md"
                               TestId="chapter" />
         </div>
@@ -172,13 +172,13 @@ Editing works the same either way: a fresh remark opens straight into a box with
     /// <summary>A real host maps a reference to whatever route it serves the
     /// chapter on. The storybook serves no knowledge folder, so it points at the
     /// page that does show how the mapping is written.</summary>
-    private static string? ChapterHref(KnowledgeReference reference) => "/markdown/references";
+    private static string? ChapterHref(DevbookReference reference) => "/markdown/references";
 
     /// <summary>What a host does with a pick: write it. This chapter is one
     /// chapter, so writing it is the one <c>status:</c> line in its fence — a real
     /// host writes the file the chapter was read from, and owns what happens when
     /// that file has moved on since.</summary>
-    private void HearChapterStatus(KnowledgeStatusChange change)
+    private void HearChapterStatus(DevbookStatusChange change)
     {
         var lines = _chapterSource.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var status = Array.FindIndex(lines, line => line.StartsWith("status:", StringComparison.Ordinal));
@@ -300,19 +300,19 @@ Editing works the same either way: a fresh remark opens straight into a box with
            every other body is read through. Read mode only — the editor is the
            fence as it was written. *@
         <MarkdownDocument @bind-Value="_chapter"
-                          RenderKnowledgeMetadata="true"
-                          KnowledgeFolder="KnowledgeFolder.Tech"
-                          OnKnowledgeStatusChanged="Write"
-                          KnowledgeHrefFor="@Route"
+                          RenderDevbookMetadata="true"
+                          DevbookFolder="DevbookFolder.Tech"
+                          OnDevbookStatusChanged="Write"
+                          DevbookHrefFor="@Route"
                           Title="shared.md" />
 
         @code {
             // The host owns the mapping, because only it knows what it serves.
-            private string? Route(KnowledgeReference reference) => $"/knowledge/{reference.Path}";
+            private string? Route(DevbookReference reference) => $"/knowledge/{reference.Path}";
 
             // And it owns the writing: the change names the chapter and the block
             // it came from, and nothing in the component touches the text.
-            private Task Write(KnowledgeStatusChange change) => _chapters.SetStatusAsync(change);
+            private Task Write(DevbookStatusChange change) => _chapters.SetStatusAsync(change);
         }
         """;
 

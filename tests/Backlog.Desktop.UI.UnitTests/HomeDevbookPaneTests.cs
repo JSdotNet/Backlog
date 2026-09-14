@@ -1,0 +1,180 @@
+using Backlog.Infrastructure.Copilot;
+using Bunit;
+using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.GitHub;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Backlog.Desktop.UI.UnitTests;
+
+public sealed class HomeDevbookPaneTests
+{
+    [Fact]
+    public async Task Clicking_knowledge_pane_renders_without_throwing()
+    {
+        await using var harness = CreateHarness();
+        harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var component = harness.Context.Render<Home>();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+
+        // Waited for rather than found: the pane option and the repository chips
+        // are gated on different things — the option on which knowledge areas are
+        // visible, the chips on the repositories the shared state loads — so the
+        // option being on screen says nothing about the chip beside it.
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        var devbookButton = component.Find("[data-testid='devbook-pane-option']");
+        devbookButton.Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.NotEmpty(component.FindAll(".devbook-menu__item"));
+        });
+    }
+
+    private static Harness CreateHarness()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-home-tests", Guid.NewGuid().ToString("n"));
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+
+        _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
+        _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
+        _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
+        _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
+        _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
+
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+
+        var repository = Assert.Single(repositories);
+        var configuredRepository = repository with
+        {
+            CloneDirectory = FindRepositoryRoot(),
+            DevbookFolders = DevbookFolderSetting.Defaults()
+        };
+        Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
+
+        var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
+
+        var context = new BunitContext();
+        context.Services.AddSingleton(store);
+        context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddSingleton(new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json")));
+        context.Services.AddSingleton(gitHubSettings);
+        context.Services.AddSingleton(gitHub);
+        context.Services.AddSingleton(new FeedbackReporter(gitHub));
+        context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
+        context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
+        context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
+        context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
+        // The Roadmap module the way a host wires it: a real plan document under the
+        // same storage root, so the band draws what was stored rather than a fixture.
+        context.Services.AddSingleton<IRoadmapPlanning>(sp =>
+            TasksTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // The band gathers an item's linked and tagged work through this port before it
+        // opens the editor, so a host that composes the band composes the rollup with it.
+        context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
+            new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
+                TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
+        context.Services.AddSingleton<InstructionSourceDiscovery>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
+        // Every knowledge panel now renders its selected chapter through the
+        // shared editing surface, and that surface writes. A host that composes
+        // the pane composes the writer with it.
+        context.Services.AddSingleton<DevbookChapterWriter>();
+        context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
+        context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+        context.Services.AddScoped(sp => TasksTestHost.StateFor(
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
+            sp.GetRequiredService<GitHubIntegration>(),
+            TasksCopilotCli.Unavailable,
+            toasts: sp.GetRequiredService<IToastChannel>()));
+        TasksTestHost.AddToastChannel(context.Services);
+
+        return new Harness(root, context);
+    }
+
+    private static string FindRepositoryRoot() => RepositoryRoot.Root.FullName;
+
+    private sealed record Harness(string Root, BunitContext Context) : IAsyncDisposable
+    {
+        /// <summary>
+        /// Awaited disposal, because the editing surface this harness renders
+        /// writes its last pending save on the way out. A synchronous
+        /// <c>Dispose</c> hands that save to the renderer's dispatcher and returns
+        /// before it lands, so the folder delete that follows could arrive while
+        /// the file was still being replaced — a locked temp file on a slow
+        /// machine and a green suite on a fast one.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            await Context.DisposeAsync();
+
+            try
+            {
+                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient
+    {
+        public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AzureFoundryChatResponse("Not used in this test."));
+    }
+
+    private sealed class StubGitHubClient : IGitHubClient
+    {
+        public Task<GitHubIssue> CreateIssueAsync(
+            GitHubRepositoryRef repository,
+            string title,
+            string? body,
+            IEnumerable<string>? labels = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubIssueSnapshot> GetIssueAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubUploadedFile> UploadFileAsync(
+            GitHubRepositoryRef repository,
+            string path,
+            string branch,
+            byte[] content,
+            string commitMessage,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class StubProbe : IGitHubConnectionProbe
+    {
+        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new GitHubConnection(false, "Not connected."));
+
+        public void Invalidate()
+        {
+        }
+    }
+}
