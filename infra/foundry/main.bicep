@@ -157,10 +157,16 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   properties: {
     customSubDomainName: accountName
     publicNetworkAccess: 'Enabled'
+    // The account hosts a Foundry project; leaving this out makes what-if predict its removal.
+    allowProjectManagement: true
   }
   tags: tags
 }
 
+// The account accepts one deployment operation at a time: run the loop in parallel and
+// every deployment after the first fails with RequestConflict ("Another operation is being
+// performed on the parent resource"), leaving the account half-populated.
+@batchSize(1)
 resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01' = [for deployment in selectedModelDeployments: {
   name: deployment.name
   parent: foundryAccount
