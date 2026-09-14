@@ -327,6 +327,7 @@ line of a list that may be hundreds long.
 | Blocked rows | A row that cannot start yet MUST refuse twice: its completion control renders as state, and its metadata line names what it is waiting for, first on the line. |
 | One next | Where an order is derived, exactly one row is marked as the one to start; rows that are merely startable take a second, quieter marker. The vocabulary MUST NOT change with the count. |
 | Recorded beats derived | A row somebody marked done is done, even where a step it waits on is outstanding. A recorded fact outranks a derived conclusion. |
+| Following a dependency | A name on the waiting-for line that resolves to a row MUST be followable: it takes the focus to that row and opens it. Where a scope hides that row, the scopes hiding it are widened — only those — rather than the entry being opened beside a list that does not show it. A name that resolves to nothing stays text, per the row below. |
 | Unresolvable dependencies | An id that names nothing in view keeps the row blocked and MUST be shown verbatim. Dropping it would report the row ready when the step it waits on is merely missing. |
 | Cycles | A cycle is flagged on every row in it, nothing is offered, and no edge is silently broken. Choosing which dependency is the wrong one is the author's decision. |
 | Bodies | A row may carry a body, folded by default; a list of ten open bodies is not a list. The fold reuses the product's shared disclosure rather than a second implementation of one. |
