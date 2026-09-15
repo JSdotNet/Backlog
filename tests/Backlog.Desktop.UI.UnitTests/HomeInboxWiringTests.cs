@@ -190,6 +190,7 @@ public sealed class HomeInboxWiringTests
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddCaptureModule();
+        InboxTestHost.AddCaptureDelivery(context.Services);
 
         TasksTestHost.AddToastChannel(context.Services);
         context.Services.AddScoped(sp => TasksTestHost.StateFor(

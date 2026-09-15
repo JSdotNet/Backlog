@@ -23,12 +23,20 @@ internal static partial class ContentKindDetector
     private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
 
     /// <summary>What the capture is, from its title and whatever body it
-    /// carries. Today's captures carry only a title, so the URL is usually in it.</summary>
-    public static ContentKind Detect(string title, string? bodyMd = null)
+    /// carries. A capture typed by hand carries only a title, so the URL is
+    /// usually in it.</summary>
+    public static ContentKind Detect(string title, string? bodyMd = null) => Detect(title, sourceUrl: null, bodyMd);
+
+    /// <summary>The same, for a channel that already knows the link — a feed
+    /// entry names its own. The named link is what the kind is read off; the
+    /// text is only searched for one when nothing was named, so a title that
+    /// mentions some other address does not reclassify the capture.</summary>
+    public static ContentKind Detect(string title, string? sourceUrl, string? bodyMd)
     {
         var text = string.IsNullOrWhiteSpace(bodyMd) ? title ?? string.Empty : $"{title}\n{bodyMd}";
+        var address = string.IsNullOrWhiteSpace(sourceUrl) ? FirstUrl(text) : sourceUrl.Trim();
 
-        if (FirstUrl(text) is { } address)
+        if (address is not null)
         {
             if (IsHost(address, "youtube.com") || IsHost(address, "youtu.be")) return ContentKind.YouTube;
             if (IsHost(address, "claude.ai") || IsHost(address, "claude.com")) return ContentKind.ClaudeArtifact;

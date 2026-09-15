@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The adapters behind the Capture module's two ports — what actually reads a
+    source, and where a capture goes once the run has made one:
+      Feeds/        FeedReader, Atom 1.0 and RSS 2.0 into CapturedEntry, and
+                    FeedFetcher, the one HTTP path every adapter reads through
+      YouTube/      ICaptureSourceAdapter for a channel: resolves a handle, a
+                    /channel/ URL or a bare id to the channel's Atom feed
+      Website/      ICaptureSourceAdapter for a page: reads it as a feed, or
+                    finds the feed the page advertises, links to, or keeps at
+                    a well-known path
+      Inbox/        ICaptureDelivery over the Inbox's published intake
+      Extensions/   AddCaptureAdapters() composition for hosts
+    Every fetch goes through IHttpClientFactory's named client with a timeout on
+    it (inherited ADR 0015): a run happens on the reader's machine when they
+    press the button, so a hung request would be a hung pane.
+
+    Of the Capture module it sees the implementation, and that reference is
+    deliberate: the ports are declared there, next to the handler that owns the
+    rules, rather than on the published surface a host reads. An adapter
+    referencing a module implementation is the normal direction — the same one
+    Backlog.Infrastructure.Sqlite takes — and the module never sees this project.
+    Of the Inbox it sees only the published surface: the delivery is the one
+    place a capture becomes an inbox capture, and it is here rather than in
+    either module because neither may see the other.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Capture</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ICaptureSourceAdapter, ICaptureDelivery and the shapes they are phrased
+         in. See the header for why the implementation and not only its
+         Abstractions. -->
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
+    <!-- IInboxIntake and the capture DTO the delivery hands it. The published
+         surface only. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The named feed client and its timeout. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- The standard resilience pipeline, tuned here for a button press
+         rather than inherited from the host's defaults; see
+         CaptureAdapterRegistration. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The feed reader and the fetcher are internal — nothing outside this
+         project should read a feed any other way — and the adapters are driven
+         through a scripted wire, so the tests need to see both. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Capture.UnitTests" />
+  </ItemGroup>
+
+</Project>

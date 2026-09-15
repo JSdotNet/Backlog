@@ -8,12 +8,16 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Inbox.Features.ReceiveCapture;
 
-/// <summary>A capture the sync client pulled from the replica, live or
-/// tombstoned, offered to the inbox.</summary>
+/// <summary>A capture that arrived with an id of its own — pulled from the
+/// replica, live or tombstoned, or read off a feed by a source monitor —
+/// offered to the inbox.</summary>
 public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 
 /// <summary>
-/// Decides what a replica capture means to this machine, by id and by status.
+/// Decides what an arriving capture means to this machine, by id and by
+/// status. Written for the replica's captures; a feed's take the same path
+/// with the same answers, and the replica-only cases simply never arise for
+/// them because a feed sends no tombstones.
 /// <para>
 /// The four outcomes are the four combinations of "known here" and "withdrawn
 /// there". An unknown live capture becomes an item with the capture's own id.
@@ -55,14 +59,24 @@ public sealed class ReceiveCaptureCommandHandler(IInboxItemRepository items, Tim
             // failing, for ever.
             if (withdrawn || string.IsNullOrWhiteSpace(capture.Title)) return InboxIntakeOutcome.Ignored;
 
+            // A channel that knows the link says so on the capture; one that
+            // does not leaves it null and the title is read for one, as a
+            // phone's one-line capture always has been.
+            var sourceUrl = string.IsNullOrWhiteSpace(capture.SourceUrl)
+                ? ContentKindDetector.FirstUrl(capture.Title)
+                : capture.SourceUrl.Trim();
+            var bodyMd = string.IsNullOrWhiteSpace(capture.BodyMd) ? null : capture.BodyMd.Trim();
+
             var item = InboxItem.FromCapture(
                 capture.Id,
                 capture.Title,
                 new InboxSource(InboxEnumMap.NormalizeChannel(capture.Channel), Person: null),
-                ContentKindDetector.FirstUrl(capture.Title),
-                ContentKindDetector.Detect(capture.Title),
+                sourceUrl,
+                ContentKindDetector.Detect(capture.Title, capture.SourceUrl, bodyMd),
                 capture.CapturedAt,
-                clock.GetUtcNow());
+                clock.GetUtcNow(),
+                bodyMd,
+                capture.ReplicaBacked);
 
             await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 

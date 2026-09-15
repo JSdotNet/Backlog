@@ -11,10 +11,12 @@ namespace Backlog.Modules.Capture.UnitTests;
 /// <summary>
 /// One run over the sources the reader has switched on.
 /// <para>
-/// What is under test is the shape of the answer rather than any capture: no
-/// adapter ships yet, so the run's whole job today is to say, per enabled
-/// source, that nothing could be fetched and why — and to keep saying it for the
-/// other sources when one of them blows up.
+/// The run owns every rule between an adapter and the Inbox: which of what an
+/// adapter found is new — decided by handing each entry over under a
+/// deterministic id and counting only the ones the receiving side had not seen
+/// — what each source's line says, and how one source's failure stays that
+/// source's. The adapters and the delivery are fakes here, so what is under
+/// test is the run and nothing it talks to.
 /// </para>
 /// </summary>
 public sealed class RunCaptureCommandHandlerTests
@@ -24,7 +26,7 @@ public sealed class RunCaptureCommandHandlerTests
     [Fact]
     public async Task Nothing_enabled_reports_an_empty_run()
     {
-        var handler = Handler(new FakeSettings());
+        var handler = Handler(new FakeSettings(), new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
 
@@ -40,7 +42,7 @@ public sealed class RunCaptureCommandHandlerTests
     {
         var settings = new FakeSettings();
         settings.SetEnabled(CaptureSourceKind.YouTube, true);
-        var handler = Handler(settings);
+        var handler = Handler(settings, new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
 
@@ -58,7 +60,7 @@ public sealed class RunCaptureCommandHandlerTests
         var settings = new FakeSettings();
         settings.SetEnabled(CaptureSourceKind.Website, true);
         settings.SetEnabled(CaptureSourceKind.Email, true);
-        var handler = Handler(settings);
+        var handler = Handler(settings, new FakeDelivery());
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
 
@@ -73,8 +75,8 @@ public sealed class RunCaptureCommandHandlerTests
         var settings = new FakeSettings();
         settings.SetEnabled(CaptureSourceKind.YouTube, true);
         settings.SetTargets(CaptureSourceKind.YouTube, ["https://www.youtube.com/@dotnet"]);
-        var adapter = new RecordingAdapter(CaptureSourceKind.YouTube, newItems: 3);
-        var handler = Handler(settings, adapter);
+        var adapter = new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b"), Entry("c"));
+        var handler = Handler(settings, new FakeDelivery(), adapter);
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
 
@@ -84,6 +86,108 @@ public sealed class RunCaptureCommandHandlerTests
         var source = Assert.Single(result.Value.Sources);
         Assert.Equal(3, source.NewItems);
         Assert.Equal(3, result.Value.TotalNewItems);
+        Assert.Equal("YouTube: 3 new items.", source.Message);
+    }
+
+    [Fact]
+    public async Task Each_entry_is_delivered_under_a_deterministic_id_with_what_the_adapter_found()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var delivery = new FakeDelivery();
+        var published = Now.AddDays(-2);
+        var entry = new CapturedEntry("https://example.org/post/1", "A post", "https://example.org/post/1", "The body.", published);
+        var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.Website, entry));
+
+        await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(delivery.Delivered);
+        Assert.Equal(CaptureIds.For(CaptureSourceKind.Website, "https://example.org/post/1"), item.Id);
+        Assert.Equal(CaptureSourceKind.Website, item.Kind);
+        Assert.Equal("A post", item.Title);
+        Assert.Equal("https://example.org/post/1", item.SourceUrl);
+        Assert.Equal("The body.", item.BodyMd);
+        Assert.Equal(published, item.CapturedAt);
+    }
+
+    [Fact]
+    public async Task An_entry_the_source_did_not_date_is_stamped_with_now()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var delivery = new FakeDelivery();
+        var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.Website, new CapturedEntry("undated", "Undated", null, null, PublishedAt: null)));
+
+        await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(Now, Assert.Single(delivery.Delivered).CapturedAt);
+    }
+
+    /// <summary>The whole point of the id: the second run over the same feed
+    /// hands the same ids over, the receiving side already has them, and the
+    /// run counts nothing new.</summary>
+    [Fact]
+    public async Task Entries_the_receiving_side_already_holds_are_not_counted_as_new()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.YouTube, true);
+        var delivery = new FakeDelivery();
+        var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b")));
+
+        var first = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+        var second = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, first.Value.TotalNewItems);
+        Assert.Equal(0, second.Value.TotalNewItems);
+        Assert.Equal("YouTube: 0 new items.", Assert.Single(second.Value.Sources).Message);
+        Assert.Equal(4, delivery.Offered.Count);
+    }
+
+    [Fact]
+    public async Task An_entry_with_no_title_is_skipped_rather_than_delivered()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var delivery = new FakeDelivery();
+        var handler = Handler(settings, delivery, new RecordingAdapter(
+            CaptureSourceKind.Website,
+            new CapturedEntry("blank", "   ", null, null, null),
+            Entry("kept")));
+
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Entry kept", Assert.Single(delivery.Offered).Title);
+        Assert.Equal(1, result.Value.TotalNewItems);
+    }
+
+    [Fact]
+    public async Task An_entry_the_receiving_side_ignored_is_not_counted()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var delivery = new FakeDelivery { Answer = CaptureDeliveryOutcome.Ignored };
+        var handler = Handler(settings, delivery, new RecordingAdapter(CaptureSourceKind.Website, Entry("a")));
+
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.Value.TotalNewItems);
+    }
+
+    [Fact]
+    public async Task The_adapters_notes_follow_the_count_on_the_sources_line()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var adapter = new RecordingAdapter(
+            CaptureSourceKind.Website,
+            new CaptureSourceFindings([Entry("a")], ["https://x: no feed found", "https://y: timed out"]));
+        var handler = Handler(settings, new FakeDelivery(), adapter);
+
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            "Website: 1 new item · https://x: no feed found · https://y: timed out.",
+            Assert.Single(result.Value.Sources).Message);
     }
 
     [Fact]
@@ -92,7 +196,7 @@ public sealed class RunCaptureCommandHandlerTests
         var settings = new FakeSettings();
         settings.SetEnabled(CaptureSourceKind.YouTube, true);
         settings.SetEnabled(CaptureSourceKind.Website, true);
-        var handler = Handler(settings, new ThrowingAdapter(CaptureSourceKind.YouTube, "The feed timed out."));
+        var handler = Handler(settings, new FakeDelivery(), new ThrowingAdapter(CaptureSourceKind.YouTube, "The feed timed out."));
 
         var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
 
@@ -108,8 +212,53 @@ public sealed class RunCaptureCommandHandlerTests
         Assert.Contains("no adapter", website.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, params ICaptureSourceAdapter[] adapters) =>
-        new(settings, adapters, new FakeTimeProvider(Now));
+    /// <summary>A delivery failing part-way is reported on that source's line
+    /// with the count so far intact: the entries before it did land, and a
+    /// line saying nothing did would leave the pane unrefreshed over items that
+    /// are there.</summary>
+    [Fact]
+    public async Task A_delivery_that_throws_is_that_sources_line_and_keeps_the_count_delivered_before_it()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.YouTube, true);
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var delivery = new FakeDelivery { ThrowOn = "b", ThrowMessage = "The store is locked." };
+        var handler = Handler(
+            settings,
+            delivery,
+            new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b"), Entry("c")),
+            new RecordingAdapter(CaptureSourceKind.Website, Entry("d")));
+
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+
+        var failed = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.YouTube);
+        Assert.Equal(1, failed.NewItems);
+        Assert.Equal("YouTube: 1 new item · The store is locked.", failed.Message);
+
+        var website = result.Value.Sources.Single(source => source.Kind == CaptureSourceKind.Website);
+        Assert.Equal(1, website.NewItems);
+        Assert.Equal(2, result.Value.TotalNewItems);
+    }
+
+    [Fact]
+    public async Task Cancellation_ends_the_run_rather_than_becoming_a_sources_line()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.YouTube, true);
+        using var cancellation = new CancellationTokenSource();
+        var handler = Handler(settings, new FakeDelivery(), new CancellingAdapter(CaptureSourceKind.YouTube, cancellation));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => handler.Handle(new RunCaptureCommand(), cancellation.Token));
+    }
+
+    private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, params ICaptureSourceAdapter[] adapters) =>
+        new(settings, adapters, delivery, new FakeTimeProvider(Now));
+
+    private static CapturedEntry Entry(string id) =>
+        new(id, $"Entry {id}", $"https://example.org/{id}", null, Now.AddHours(-1));
 
     private sealed class FakeSettings : ICaptureSourceSettings
     {
@@ -142,16 +291,50 @@ public sealed class RunCaptureCommandHandlerTests
         }
     }
 
-    private sealed class RecordingAdapter(CaptureSourceKind kind, int newItems) : ICaptureSourceAdapter
+    /// <summary>The receiving side, remembered rather than stored: an id seen
+    /// before is already known, which is exactly the Inbox's rule.</summary>
+    private sealed class FakeDelivery : ICaptureDelivery
     {
+        private readonly HashSet<Guid> _known = [];
+
+        public List<CaptureItem> Offered { get; } = [];
+
+        public List<CaptureItem> Delivered { get; } = [];
+
+        public CaptureDeliveryOutcome? Answer { get; init; }
+
+        public string? ThrowOn { get; init; }
+
+        public string ThrowMessage { get; init; } = "Delivery failed.";
+
+        public Task<CaptureDeliveryOutcome> DeliverAsync(CaptureItem item, CancellationToken cancellationToken = default)
+        {
+            Offered.Add(item);
+
+            if (ThrowOn is not null && item.Title == $"Entry {ThrowOn}") throw new InvalidOperationException(ThrowMessage);
+            if (Answer is { } answer) return Task.FromResult(answer);
+            if (!_known.Add(item.Id)) return Task.FromResult(CaptureDeliveryOutcome.AlreadyKnown);
+
+            Delivered.Add(item);
+            return Task.FromResult(CaptureDeliveryOutcome.Delivered);
+        }
+    }
+
+    private sealed class RecordingAdapter(CaptureSourceKind kind, CaptureSourceFindings findings) : ICaptureSourceAdapter
+    {
+        public RecordingAdapter(CaptureSourceKind kind, params CapturedEntry[] entries)
+            : this(kind, new CaptureSourceFindings(entries, []))
+        {
+        }
+
         public CaptureSourceKind Kind => kind;
 
         public MonitoredSource? Received { get; private set; }
 
-        public Task<CaptureRunSourceResult> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default)
+        public Task<CaptureSourceFindings> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default)
         {
             Received = source;
-            return Task.FromResult(new CaptureRunSourceResult(kind, newItems, $"{newItems} new."));
+            return Task.FromResult(findings);
         }
     }
 
@@ -159,7 +342,19 @@ public sealed class RunCaptureCommandHandlerTests
     {
         public CaptureSourceKind Kind => kind;
 
-        public Task<CaptureRunSourceResult> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default) =>
+        public Task<CaptureSourceFindings> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException(message);
+    }
+
+    private sealed class CancellingAdapter(CaptureSourceKind kind, CancellationTokenSource cancellation) : ICaptureSourceAdapter
+    {
+        public CaptureSourceKind Kind => kind;
+
+        public Task<CaptureSourceFindings> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default)
+        {
+            cancellation.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(CaptureSourceFindings.Empty);
+        }
     }
 }

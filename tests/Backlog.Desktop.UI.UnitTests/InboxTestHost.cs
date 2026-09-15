@@ -1,5 +1,8 @@
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Capture.Abstractions;
+using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
+using Backlog.Modules.Capture.Ports;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -33,6 +36,65 @@ internal static class InboxTestHost
         services.AddScoped<InboxDesktopState>();
 
         return fake;
+    }
+
+    /// <summary>The Capture module's delivery port, answered into the same
+    /// fake. Home injects the runner hard and the runner's handler takes the
+    /// delivery hard, so a host that renders Home composes one, the same as the
+    /// application hosts do with <c>AddCaptureAdapters()</c>. Resolved lazily
+    /// so it may be registered before or after <see cref="AddInboxState"/>.</summary>
+    public static IServiceCollection AddCaptureDelivery(IServiceCollection services)
+    {
+        services.AddSingleton<FakeInboxCaptureDelivery>(sp => new FakeInboxCaptureDelivery(sp.GetRequiredService<FakeInboxItems>()));
+        services.AddSingleton<ICaptureDelivery>(sp => sp.GetRequiredService<FakeInboxCaptureDelivery>());
+
+        return services;
+    }
+}
+
+/// <summary>
+/// Capture's delivery over the fake Inbox, with the one rule the shell depends
+/// on mirrored: an id delivered before is already known, so a second run over
+/// the same feed adds nothing.
+/// </summary>
+internal sealed class FakeInboxCaptureDelivery(FakeInboxItems inbox) : ICaptureDelivery
+{
+    private readonly HashSet<Guid> _known = [];
+
+    public List<CaptureItem> Delivered { get; } = [];
+
+    public Task<CaptureDeliveryOutcome> DeliverAsync(CaptureItem item, CancellationToken cancellationToken = default)
+    {
+        if (!_known.Add(item.Id)) return Task.FromResult(CaptureDeliveryOutcome.AlreadyKnown);
+
+        inbox.Seed(
+            item.Title,
+            channel: CaptureSourceKinds.Slug(item.Kind),
+            sourceUrl: item.SourceUrl,
+            bodyMd: item.BodyMd ?? string.Empty,
+            capturedAt: item.CapturedAt);
+        Delivered.Add(item);
+
+        return Task.FromResult(CaptureDeliveryOutcome.Delivered);
+    }
+}
+
+/// <summary>A source adapter a test arms by hand: whatever is in
+/// <see cref="Entries"/> is what the channel has, run after run.</summary>
+internal sealed class FakeCaptureSourceAdapter(CaptureSourceKind kind) : ICaptureSourceAdapter
+{
+    public CaptureSourceKind Kind => kind;
+
+    public List<CapturedEntry> Entries { get; } = [];
+
+    public List<string> Notes { get; } = [];
+
+    public int Runs { get; private set; }
+
+    public Task<CaptureSourceFindings> RunAsync(MonitoredSource source, CancellationToken cancellationToken = default)
+    {
+        Runs++;
+        return Task.FromResult(new CaptureSourceFindings([.. Entries], [.. Notes]));
     }
 }
 
