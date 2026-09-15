@@ -31,7 +31,7 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             return Task.FromResult(TechnologyDevbookView.Unavailable(
-                location with { Message = $"Technology devbook could not be read: {ex.Message}" }));
+                location with { Message = $"Technology could not be read: {ex.Message}" }));
         }
     }
 
@@ -63,8 +63,8 @@ public sealed record TechnologyDevbookView(
 
     public static TechnologyDevbookView Unavailable(DevbookFolderLocation location) => new(
         location,
-        "Technology devbook",
-        location.Message ?? "Technology devbook is unavailable.",
+        "Technology",
+        location.Message ?? "Technology is unavailable.",
         [],
         [],
         [],

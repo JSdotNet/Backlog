@@ -46,8 +46,9 @@ Rules:
   run and is invisible to review. `_reading-order.json` beside each knowledge
   folder is the one authored exception, and no generator writes it.
 - **Do not edit `.github/tools/knowledge-meta/` or `build/Update-KnowledgeIndex.ps1`.**
-  Both are installed copies of the `devbook` plugin's tooling, re-synced from
-  the plugin rather than maintained here. `tools/devbook/` is repo-native and
-  imports the installed generator's exports.
+  Both are the unchanged install from `knowledge-base`, the `devbook` plugin's
+  predecessor; re-syncing them from `devbook` is the contract v6 follow-up, and
+  they are never maintained here. `tools/devbook/` is repo-native and imports
+  the installed generator's exports.
 - Nothing here is committed: the database and the JSON are both git-ignored. If
   a chapter had to be fixed, say so and let the user decide what to commit.

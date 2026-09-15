@@ -30,12 +30,14 @@ never required for correctness, and the semantic tier's one live call.
 >
 > **The writer is repo-native, and that is a departure from the wording above.**
 > This record says "the Node generator" as though there were one. There are two:
-> `.github/tools/knowledge-meta/` is an installed copy of the `devbook`
-> plugin's tooling, which `CLAUDE.md` and `.tech/tooling.md#knowledge-meta-generator`
-> both say to re-sync and never edit here — and the installed copy is four plugin
-> releases behind. So `tools/devbook/build-database.mjs` *imports* that
-> generator's exported seam (`buildGraph`, `parseDocument`, `folderKindForPath`,
-> `discoverScopes`) rather than editing it, exactly as
+> `.github/tools/knowledge-meta/` is the unchanged install from `knowledge-base`,
+> the `devbook` plugin's predecessor, which `CLAUDE.md` and
+> `.tech/tooling.md#knowledge-meta-generator` both say never to edit here — and
+> that install was already four `knowledge-base` releases behind (measured against
+> `knowledge-base` 0.16.0) before the plugin was renamed; re-syncing it from
+> `devbook` is the contract v6 follow-up. So `tools/devbook/build-database.mjs`
+> *imports* that generator's exported seam (`buildGraph`, `parseDocument`,
+> `folderKindForPath`, `discoverScopes`) rather than editing it, exactly as
 > `tools/devbook/check-metadata.mjs` already does for `validateDocument`. The
 > rule this record actually cares about is unchanged and was the point of the
 > sentence: one Node writer, one implementation of the parse, and no C# that

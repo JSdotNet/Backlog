@@ -380,11 +380,11 @@ public sealed class WorkspaceSettingsStore
 
     public string? SetDevbookFolder(string key, bool enabled, string? path)
     {
-        if (string.IsNullOrWhiteSpace(key)) return "Choose a devbook folder before saving.";
+        if (string.IsNullOrWhiteSpace(key)) return "Choose a knowledge folder before saving.";
 
         var folders = DevbookFolderSetting.Normalize(DevbookFolders).ToList();
         var index = folders.FindIndex(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (index < 0) return $"Unknown devbook folder '{key}'.";
+        if (index < 0) return $"Unknown knowledge folder '{key}'.";
 
         folders[index] = folders[index] with
         {

@@ -292,7 +292,7 @@ public sealed class DevbookChapterResolverTests : IDisposable
     public void An_unavailable_folder_location_resolves_to_nothing()
     {
         var root = Area(".arc42", "08-crosscutting-concepts.md");
-        var location = DevbookFolderLocation.Unavailable(".arc42", "Architecture devbook folder is turned off.", fullPath: root);
+        var location = DevbookFolderLocation.Unavailable(".arc42", "Architecture knowledge folder is turned off.", fullPath: root);
 
         Assert.Null(DevbookChapterResolver.TryResolve("arc42", location, "08-crosscutting-concepts.md"));
         Assert.Null(DevbookChapterResolver.TryResolve("arc42", (DevbookFolderLocation?)null, "08-crosscutting-concepts.md"));

@@ -16,10 +16,10 @@
     header gives up kind, title and path to the file view that says all three.
 *@
 
-<section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain devbook">
+<section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain area">
     @if (_view is null)
     {
-        <Alert Message="Loading the domain devbook..." BaseClass="domain-devbook__state" Role="status" />
+        <Alert Message="Loading the domain area..." BaseClass="domain-devbook__state" Role="status" />
     }
     else if (_view.Error is not null)
     {
@@ -35,12 +35,12 @@
            link class and the one documented exception to wearing it, because the
            library ships no link component; putting it in the action slot adopts the
            block without quietly changing the one thing that was already decided. *@
-        <EmptyState Title="Domain devbook is unavailable"
+        <EmptyState Title="Domain is unavailable"
                     Description="@_view.Error"
                     TestId="domain-devbook-error"
                     role="status">
             <Action>
-                <a class="md-link" href="settings">Configure repository devbook folders</a>
+                <a class="md-link" href="settings">Configure repository knowledge folders</a>
             </Action>
         </EmptyState>
     }
@@ -576,7 +576,7 @@
         {
             GitFileAtRevisionState.Committed => (result.Content, (string?)null),
             GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
-            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The devbook folder is not inside a git repository."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The knowledge folder is not inside a git repository."),
             _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
         };
     }

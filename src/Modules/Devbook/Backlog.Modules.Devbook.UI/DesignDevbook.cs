@@ -37,7 +37,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         var location = source.Resolve(".design", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DesignDevbookModel.Unavailable(location.Message ?? "Design devbook is unavailable."));
+            return Task.FromResult(DesignDevbookModel.Unavailable(location.Message ?? "Design is unavailable."));
         }
 
         var folderPath = location.FullPath;
@@ -48,7 +48,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         if (files.Count == 0)
         {
             return Task.FromResult(DesignDevbookModel.Unavailable(
-                $"No Markdown files were found in the design devbook folder at {folderPath}."));
+                $"No Markdown files were found in the Design knowledge folder at {folderPath}."));
         }
 
         files = OrderFiles(files, folderPath);

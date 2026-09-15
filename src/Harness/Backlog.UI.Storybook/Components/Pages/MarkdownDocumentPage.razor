@@ -308,7 +308,7 @@ Editing works the same either way: a fresh remark opens straight into a box with
 
         @code {
             // The host owns the mapping, because only it knows what it serves.
-            private string? Route(DevbookReference reference) => $"/knowledge/{reference.Path}";
+            private string? Route(DevbookReference reference) => $"/devbook/{reference.Path}";
 
             // And it owns the writing: the change names the chapter and the block
             // it came from, and nothing in the component touches the text.

@@ -135,16 +135,19 @@ because scanning the corpus per query is a hang rather than a fallback.
 
 `tools/devbook/build-database.mjs` is repo-native and *imports* the installed
 generator's exported functions. Everything under `.github/tools/knowledge-meta/`, both
-`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are installed copies
-of the `devbook` plugin's tooling: re-sync them, never edit them here, and never
-hand-edit anything under `_meta/`. The installed generator still writes
+`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are the unchanged
+install from `knowledge-base`, the `devbook` plugin's predecessor: never edit them here,
+and never hand-edit anything under `_meta/`. Re-syncing them from `devbook` is the
+contract v6 follow-up, not something already done. The installed generator still writes
 `_meta/graph.json` and `_meta/index.json`; both are ignored now rather than committed.
 The convention behind all of this is that plugin's
 `knowledge-derived-artifacts.instructions.md`, and where this repository departs from it
 — on format, and on committing — ADR 0004 says so and says why. The plugin's
-`devbook-sync` and `devbook-check` skills replace `update-knowledge-index` and
-`knowledge-base-validate`; this repository still authors against the installed generator,
-and adopting the plugin's contract v6 through `devbook-sync` is a follow-up.
+`devbook-check` skill replaces its predecessor's `knowledge-base-validate`;
+`update-devbook-index` is this repository's own command and still ships as
+`.claude/commands/update-devbook-index.md`. This repository still authors against the
+installed generator, and adopting the plugin's contract v6 through `devbook-sync` is a
+follow-up.
 
 ## UI components
 

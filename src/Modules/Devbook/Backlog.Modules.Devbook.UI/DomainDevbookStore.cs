@@ -32,12 +32,12 @@ public sealed class DomainDevbookStore
         var location = source.Resolve(".domain", repositoryAlias);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DomainDevbookView.Unavailable(location.Message ?? "Domain devbook is unavailable."));
+            return Task.FromResult(DomainDevbookView.Unavailable(location.Message ?? "Domain is unavailable."));
         }
 
         var root = location.FullPath;
         var contextMapPath = Path.Combine(root, "context-map.md");
-        if (!File.Exists(contextMapPath)) return Task.FromResult(DomainDevbookView.Unavailable($"Domain devbook folder at {root} has no context-map.md."));
+        if (!File.Exists(contextMapPath)) return Task.FromResult(DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
 
         // The context map is what the panel opens on, so it is the one document
         // worth reading up front. Everything else waits until a context is

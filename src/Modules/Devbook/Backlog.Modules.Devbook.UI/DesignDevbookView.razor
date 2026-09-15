@@ -18,10 +18,10 @@
     there is no file view to hand it to, so the pane keeps growing and the
     section keeps scrolling it.
 *@
-<section class="@RootClass" aria-label="Design devbook" data-testid="design-devbook-view">
+<section class="@RootClass" aria-label="Design area" data-testid="design-devbook-view">
     @if (_model is null)
     {
-        <Alert Message="Loading the design devbook..." BaseClass="design-devbook__message" Role="status" />
+        <Alert Message="Loading the design area..." BaseClass="design-devbook__message" Role="status" />
     }
     else if (!_model.IsAvailable)
     {
@@ -56,7 +56,7 @@
            than on whichever file happened to be first. *@
         @if (SelectedFile is null)
         {
-            <nav class="design-devbook__nav" aria-label="Design devbook documents">
+            <nav class="design-devbook__nav" aria-label="Design documents">
                 @foreach (var file in _model.Files)
                 {
                     @* A link to a document is a different subject from the

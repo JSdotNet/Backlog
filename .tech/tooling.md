@@ -291,8 +291,10 @@ indexes.
 
 - **Used for** — `node .github/tools/knowledge-meta/build.mjs`, producing
   `_meta/graph.json` (the reference graph) and `_meta/index.json` (the reading
-  outline) per folder plus a repository-wide rollup. Installed by the
-  `devbook` plugin rather than hand-written here. Since local ADR 0004
+  outline) per folder plus a repository-wide rollup. Not hand-written here: it
+  is the unchanged install from `knowledge-base`, the `devbook` plugin's
+  predecessor, and re-syncing it from `devbook` is the contract v6 follow-up.
+  Since local ADR 0004
   neither file is committed: both are ignored, and what this repository reads is
   the database below, built from the same exported seam.
 - **Why** — it is what turns the metadata convention into something queryable,

@@ -506,7 +506,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         /// </summary>
         public void Settle(IRenderedComponent<Arc42DevbookPanel> component) =>
             component.WaitForAssertion(() =>
-                Assert.DoesNotContain("Loading the architecture devbook", component.Markup, StringComparison.Ordinal));
+                Assert.DoesNotContain("Loading the architecture area", component.Markup, StringComparison.Ordinal));
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }

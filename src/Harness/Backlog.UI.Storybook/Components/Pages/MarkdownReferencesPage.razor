@@ -345,7 +345,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
             @* The whole reference, already taken apart — the folder is usually
                what decides which surface should open. *@
             private void Follow(DevbookReference reference) =>
-                Navigation.NavigateTo($"/knowledge/{reference.Path}#{reference.Slug}");
+                Navigation.NavigateTo($"/devbook/{reference.Path}#{reference.Slug}");
         }
         """;
 
@@ -358,7 +358,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
                which is what a block pointing partly outside your reach needs. *@
             private string? Route(DevbookReference reference) =>
                 _served.Contains(reference.Path)
-                    ? $"/knowledge/{reference.Path}#{reference.Slug}"
+                    ? $"/devbook/{reference.Path}#{reference.Slug}"
                     : null;
         }
 

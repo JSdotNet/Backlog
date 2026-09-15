@@ -216,11 +216,13 @@ formerly `knowledge-base`, renamed with the Devbook context on 2026-09-15.
 
 - **Used for** — the authoring instructions for `.arc42`, `.domain`, `.tech`, and
   `.design` (the `knowledge-*.instructions.md` files keep their names); the
-  `to-spec-*`/`from-spec-*` skills between a chapter and its code; `devbook-sync`
-  and `devbook-check` in place of `update-knowledge-index` and
-  `knowledge-base-validate`; `knowledge-tech-update`; the `devbook-canvas`
-  extension; and the `knowledge-meta` generator installed into `.github/tools/`.
-  The per-folder writing flows moved out: `flow-arc42-content`, `flow-domain`,
+  `to-spec-*`/`from-spec-*` skills between a chapter and its code; `devbook-check`
+  in place of `knowledge-base-validate` (this repository's own
+  `update-devbook-index` command is not the plugin's and stays); `devbook-sync`;
+  `knowledge-tech-update`; the `devbook-canvas` extension; and the
+  `knowledge-meta` generator. What sits in `.github/tools/` today is the
+  unchanged `knowledge-base` install; re-syncing it from `devbook` is the
+  contract v6 follow-up. The per-folder writing flows moved out: `flow-arc42-content`, `flow-domain`,
   `flow-tech`, `flow-design` (and `flow-ai` for an `.ai/` folder this repository
   has not adopted) ship in the companion `devbook-flows` plugin, which depends on
   this one and on `delivery`. `.backlog` has no flow there, because the plugin's

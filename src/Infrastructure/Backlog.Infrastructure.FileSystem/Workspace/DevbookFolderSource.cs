@@ -132,14 +132,14 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"Storage has no {key} devbook folder setting.");
+                $"Storage has no {key} knowledge-folder setting.");
         }
 
         if (!folder.Enabled)
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{folder.DisplayName} devbook folder is turned off for storage.",
+                $"{folder.DisplayName} knowledge folder is turned off for storage.",
                 folder: folder,
                 rootPath: _store.RootDirectory);
         }
@@ -162,7 +162,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{repository.FullName} has no {key} devbook folder setting.",
+                $"{repository.FullName} has no {key} knowledge-folder setting.",
                 repository.FullName,
                 repositoryAlias: repository.Alias);
         }
@@ -171,7 +171,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{folder.DisplayName} devbook folder is turned off for {repository.FullName}.",
+                $"{folder.DisplayName} knowledge folder is turned off for {repository.FullName}.",
                 repository.FullName,
                 folder,
                 rootPath: repository.CloneDirectory,
@@ -202,7 +202,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"Add a local clone directory for {repository.FullName} in Settings to read the {folder.DisplayName} devbook folder.",
+                $"Add a local clone directory for {repository.FullName} in Settings to read the {folder.DisplayName} knowledge folder.",
                 repository.FullName,
                 folder,
                 repositoryAlias: repository.Alias);
@@ -258,7 +258,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{folder.DisplayName} devbook folder path is not valid: {ex.Message}",
+                $"{folder.DisplayName} knowledge folder path is not valid: {ex.Message}",
                 repository?.FullName,
                 folder,
                 fullPath,
@@ -276,8 +276,8 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             return DevbookFolderLocation.Unavailable(
                 key,
                 source is DevbookSourceKind.Branch
-                    ? $"{scopeLabel} has no {folder.DisplayName} devbook folder at {folder.EffectivePath}."
-                    : $"{folder.DisplayName} devbook folder was not found at {fullPath}.",
+                    ? $"{scopeLabel} has no {folder.DisplayName} knowledge folder at {folder.EffectivePath}."
+                    : $"{folder.DisplayName} knowledge folder was not found at {fullPath}.",
                 repository?.FullName,
                 folder,
                 fullPath,
