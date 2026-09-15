@@ -35,8 +35,9 @@ internal sealed class TaskItems(
         Guid? id,
         string rawText,
         int order,
+        string? sourceInboxId = null,
         CancellationToken cancellationToken = default) =>
-        save.Handle(new SaveTaskFromTextCommand(id, rawText, order), cancellationToken);
+        save.Handle(new SaveTaskFromTextCommand(id, rawText, order, sourceInboxId), cancellationToken);
 
     public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
         delete.Handle(new DeleteTaskCommand(id), cancellationToken);
@@ -62,6 +63,7 @@ internal sealed class TaskItems(
         string rawText,
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
+        string? sourceInboxId = null,
         CancellationToken cancellationToken = default) =>
-        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches), cancellationToken);
+        importPlan.Handle(new ImportPlanCommand(rawText, defaultRepo, repoMatches, sourceInboxId), cancellationToken);
 }

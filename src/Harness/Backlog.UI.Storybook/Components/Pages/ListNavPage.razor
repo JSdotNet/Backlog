@@ -1,0 +1,306 @@
+@page "/menus/list-nav"
+
+<PageTitle>List navigation — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="List navigation"
+           Summary="ListNav: the column of lists a pane keeps on its edge — fixed rows, folds of rows under headings, loose rows, each with its count — and the three ways a row asks for something: a click, a right-click, and a rename in place."
+           Guidelines="@Rules">
+
+    <Story Name="Lists, groups and counts"
+           Description="Selection and which groups are open both live in the page, not the component: it asks one predicate, marks one row current, and raises a callback for each. Every row carries its count — zero included, quietened rather than hidden — and a fixed row may lead with a glyph.
+
+One tab stop. Tab lands on the selected row; the arrows walk the rows a closed group is not hiding, Home and End jump to the ends, and Right and Left open and close a heading or step in and out of one. Enter and Space are the button's own."
+           Code="@ListsCode">
+        <div class="sb-menu">
+            <ListNav Fixed="Fixed"
+                     Groups="Groups"
+                     Ungrouped="Ungrouped"
+                     SelectedId="@_selectedId"
+                     IsGroupExpanded="id => _expanded.Contains(id)"
+                     OnSelect="OnSelect"
+                     OnToggleGroup="OnToggleGroup"
+                     AriaLabel="Lists"
+                     TestId="lists" />
+        </div>
+        <p class="sb-state" data-testid="lists-state">
+            Selected: @(_selectedId ?? "(none)") &nbsp;|&nbsp; Open: [@string.Join(", ", _expanded)]
+        </p>
+    </Story>
+
+    <Story Name="Context menu"
+           Description="Right-click a row, a heading, or the empty area under the rows, or press Shift+F10 on a focused row. The component reports which of the three was asked for and where, and the page opens the ContextMenu from the Menus chapter there with the items that target deserves — a list can be renamed or deleted, a heading renamed or ungrouped, and the root is where a new list comes from.
+
+The keyboard route and the pointer route are one event: a browser answers Shift+F10 with the same contextmenu event a right-click sends, at the focused row's position, so nothing here handles the key separately."
+           Code="@MenuCode">
+        <div class="sb-menu">
+            <ListNav Fixed="Fixed"
+                     Groups="Groups"
+                     Ungrouped="Ungrouped"
+                     SelectedId="inbox"
+                     IsGroupExpanded="WorkOpen"
+                     OnContextMenu="OpenMenu"
+                     AriaLabel="Lists with a menu"
+                     TestId="menu-lists" />
+        </div>
+        <ContextMenu Open="_menuOpen"
+                     OpenChanged="v => _menuOpen = v"
+                     X="_menuX"
+                     Y="_menuY"
+                     Items="MenuItemsFor(_menuTarget)"
+                     AriaLabel="List actions"
+                     TestId="list-menu"
+                     OnItemSelected="OnMenuItemSelected" />
+        <p class="sb-state" data-testid="menu-state">@(_menuState ?? "(nothing asked for yet)")</p>
+    </Story>
+
+    <Story Name="Inline rename"
+           Description="F2 on a focused row asks the page to start a rename; the page answers by setting EditingId, and the row becomes a field with its name selected. Enter or leaving the field commits, Escape cancels, and a name that is empty or unchanged is reported as a cancel rather than as a rename to the same thing — so the page closes the field on either callback without asking which it was.
+
+The button below is the pointer's way in, standing in for the Rename item a host puts on its context menu."
+           Code="@RenameCode">
+        <div class="sb-menu">
+            <ListNav Fixed="RenamableFixed"
+                     Groups="RenamableGroups"
+                     SelectedId="@_renameSelectedId"
+                     IsGroupExpanded="_ => true"
+                     EditingId="@_editingId"
+                     OnSelect="id => _renameSelectedId = id"
+                     OnRenameRequested="id => _editingId = id"
+                     OnRenameCommitted="OnRenameCommitted"
+                     OnRenameCancelled="() => _editingId = null"
+                     AriaLabel="Lists you can rename"
+                     TestId="rename-lists" />
+        </div>
+        <div class="sb-row">
+            <AppButton OnClick="() => _editingId = _renameSelectedId" TestId="rename-selected">Rename the selected row</AppButton>
+        </div>
+        <p class="sb-state" data-testid="rename-state">@(_renameState ?? "(no rename yet)")</p>
+    </Story>
+
+    <Story Name="Empty"
+           Description="Nothing to show is a navigation with no rows in it — no message of its own, because the empty state with its one action belongs to the pane around it. What the component still offers is the root menu: right-click the empty area, and a first list can be made from there."
+           Code="@EmptyCode">
+        <div class="sb-menu sb-surface">
+            <ListNav OnContextMenu="OpenEmptyMenu" AriaLabel="No lists yet" TestId="empty-lists" />
+        </div>
+        <ContextMenu Open="_emptyMenuOpen"
+                     OpenChanged="v => _emptyMenuOpen = v"
+                     X="_emptyMenuX"
+                     Y="_emptyMenuY"
+                     Items="RootItems"
+                     AriaLabel="List actions"
+                     TestId="empty-menu"
+                     OnItemSelected="OnEmptyMenuItemSelected" />
+        <p class="sb-state" data-testid="empty-state">@(_emptyState ?? "(nothing asked for yet)")</p>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#keyboard-navigation", "What a column of lists has to be walkable with, and which keys are the button's own."),
+        new("interaction-guidelines.md#focus-and-selection", "What the selected row looks like, and why it is neither the hovered row nor the focused one."),
+        new("accessibility.md#iconography-accessibility", "Why the glyph before a label is hidden from assistive technology.")
+    ];
+
+    private static readonly IReadOnlyList<ListNavEntry> Fixed =
+    [
+        new("inbox", "Inbox", 12, "✉"),
+        new("today", "Today", 0, "☀")
+    ];
+
+    private static readonly IReadOnlyList<ListNavGroup> Groups =
+    [
+        new("work", "Work",
+        [
+            new("backlog", "Backlog", 4),
+            new("reading", "Reading list", 7),
+            new("a-long-one", "A list whose name is longer than the column it sits in", 1)
+        ]),
+        new("home", "Home",
+        [
+            new("errands", "Errands", 2),
+            new("garden", "Garden", 0)
+        ])
+    ];
+
+    private static readonly IReadOnlyList<ListNavEntry> Ungrouped =
+    [
+        new("someday", "Someday", 31),
+        new("ideas", "Ideas", 5)
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> RootItems =
+    [
+        new("new-list", "New list", "+"),
+        new("new-group", "New group", "⊞")
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> GroupItems =
+    [
+        new("rename-group", "Rename group", "✎"),
+        new("new-list-in-group", "New list here", "+"),
+        MenuItem.Divider("sep"),
+        new("ungroup", "Ungroup", "⊟")
+    ];
+
+    private static readonly IReadOnlyList<MenuItem> EntryItems =
+    [
+        new("rename-list", "Rename", "✎"),
+        new("move-to-group", "Move to group…", "⇢"),
+        MenuItem.Divider("sep"),
+        new("delete-list", "Delete", "🗑", Destructive: true)
+    ];
+
+    private static IReadOnlyList<MenuItem> MenuItemsFor(ListNavTarget? target) => target?.Kind switch
+    {
+        ListNavTargetKind.Group => GroupItems,
+        ListNavTargetKind.Entry => EntryItems,
+        _ => RootItems
+    };
+
+    // --- Lists, groups and counts ---------------------------------------------
+
+    private readonly HashSet<string> _expanded = ["work"];
+    private string? _selectedId = "inbox";
+
+    private void OnSelect(string id) => _selectedId = id;
+
+    private void OnToggleGroup(string id)
+    {
+        if (!_expanded.Add(id)) _expanded.Remove(id);
+    }
+
+    // --- Context menu ----------------------------------------------------------
+
+    private bool _menuOpen;
+    private double _menuX;
+    private double _menuY;
+    private ListNavTarget? _menuTarget;
+    private string? _menuState;
+
+    private void OpenMenu((ListNavTarget Target, double X, double Y) request)
+    {
+        _menuTarget = request.Target;
+        _menuX = request.X;
+        _menuY = request.Y;
+        _menuOpen = true;
+        _menuState = $"Asked on {Describe(request.Target)}";
+    }
+
+    private void OnMenuItemSelected(MenuItem item) =>
+        _menuState = $"{item.Label} on {Describe(_menuTarget)}";
+
+    private static string Describe(ListNavTarget? target) => target switch
+    {
+        { Kind: ListNavTargetKind.Group } => $"group {target.Id}",
+        { Kind: ListNavTargetKind.Entry } => $"list {target.Id}",
+        _ => "the root"
+    };
+
+    // Which group the menu story holds open. A method rather than a lambda in
+    // the markup only because the lambda needs a quoted string, and a quoted
+    // string inside a quoted attribute is the one thing Razor cannot read.
+    private static bool WorkOpen(string id) => id == "work";
+
+    // --- Inline rename ---------------------------------------------------------
+    //
+    // The rename story keeps its own copy of the rows, because a rename changes
+    // them: the label the page shows afterwards is the one that was committed,
+    // and the other stories should not watch their rows change under them.
+
+    private List<ListNavEntry> _renamableFixed = [new("r-inbox", "Inbox", 12, "✉")];
+
+    private List<ListNavGroup> _renamableGroups =
+    [
+        new("r-work", "Work", [new("r-backlog", "Backlog", 4), new("r-reading", "Reading list", 7)])
+    ];
+
+    private IReadOnlyList<ListNavEntry> RenamableFixed => _renamableFixed;
+
+    private IReadOnlyList<ListNavGroup> RenamableGroups => _renamableGroups;
+
+    private string? _renameSelectedId = "r-backlog";
+    private string? _editingId;
+    private string? _renameState;
+
+    private void OnRenameCommitted((string Id, string Name) rename)
+    {
+        _renamableFixed = [.. _renamableFixed.Select(entry => entry.Id == rename.Id ? entry with { Label = rename.Name } : entry)];
+        _renamableGroups =
+        [
+            .. _renamableGroups.Select(group => group.Id == rename.Id
+                ? group with { Label = rename.Name }
+                : group with { Entries = [.. group.Entries.Select(entry => entry.Id == rename.Id ? entry with { Label = rename.Name } : entry)] })
+        ];
+
+        _editingId = null;
+        _renameState = $"Renamed {rename.Id} to \"{rename.Name}\"";
+    }
+
+    // --- Empty -----------------------------------------------------------------
+
+    private bool _emptyMenuOpen;
+    private double _emptyMenuX;
+    private double _emptyMenuY;
+    private string? _emptyState;
+
+    private void OpenEmptyMenu((ListNavTarget Target, double X, double Y) request)
+    {
+        _emptyMenuX = request.X;
+        _emptyMenuY = request.Y;
+        _emptyMenuOpen = true;
+    }
+
+    private void OnEmptyMenuItemSelected(MenuItem item) => _emptyState = $"Empty: {item.Label}";
+
+    private const string ListsCode = """
+        <ListNav Fixed="Fixed"
+                 Groups="Groups"
+                 Ungrouped="Ungrouped"
+                 SelectedId="@_selectedId"
+                 IsGroupExpanded="id => _expanded.Contains(id)"
+                 OnSelect="id => _selectedId = id"
+                 OnToggleGroup="OnToggleGroup"
+                 AriaLabel="Lists" />
+        """;
+
+    private const string MenuCode = """
+        <ListNav Fixed="Fixed" Groups="Groups" Ungrouped="Ungrouped"
+                 OnContextMenu="OpenMenu" />
+
+        <ContextMenu Open="_open" OpenChanged="v => _open = v" X="_x" Y="_y"
+                     Items="MenuItemsFor(_target)" OnItemSelected="OnMenuItemSelected" />
+
+        @code {
+            private void OpenMenu((ListNavTarget Target, double X, double Y) request)
+            {
+                _target = request.Target;   // Root, Group or Entry, with the id
+                (_x, _y) = (request.X, request.Y);
+                _open = true;
+            }
+        }
+        """;
+
+    private const string RenameCode = """
+        <ListNav Fixed="Fixed"
+                 Groups="Groups"
+                 EditingId="@_editingId"
+                 OnRenameRequested="id => _editingId = id"
+                 OnRenameCommitted="OnRenameCommitted"
+                 OnRenameCancelled="() => _editingId = null" />
+
+        @code {
+            private void OnRenameCommitted((string Id, string Name) rename)
+            {
+                // Apply the name, then close the field.
+                _editingId = null;
+            }
+        }
+        """;
+
+    private const string EmptyCode = """
+        <ListNav OnContextMenu="OpenMenu" AriaLabel="No lists yet" />
+        """;
+}

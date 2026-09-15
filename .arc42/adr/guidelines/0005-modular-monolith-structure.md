@@ -63,7 +63,7 @@ stable contract, not before.
 ## Deviations and gaps
 
 - **Modules are nested under `src/Modules/`** rather than sitting at the top of
-  `src/`. Deliberate: with eight modules plus `App`, `Aspire`, `Core`, and
+  `src/`. Deliberate: with nine modules plus `App`, `Aspire`, `Core`, and
   `Infrastructure`, a flat `src/` stops being readable.
 - **`src/Infrastructure/` is a fifth top-level folder** the organization's layout
   does not name. Adapters that serve several modules — Sqlite, GitHub, Claude,
@@ -74,9 +74,10 @@ stable contract, not before.
   web frontend calling module APIs; Backlog renders module screens in-process
   inside the MAUI hosts, so a module publishes Razor components alongside its
   contracts.
-- `Inbox` and `Devbook` have `.UI` projects (and Devbook an `.Abstractions`)
+- `Devbook`, `DevPc` and `Sessions` have `.UI` and `.Abstractions` projects
   but no module implementation project yet — their logic still sits in the UI
-  layer. That is the shape local ADR 0002 corrected for the Tasks module and
-  has not yet corrected here.
+  layer. That is the shape local ADR 0002 corrected for the Tasks module, and
+  that `Inbox` left on 2026-09-15 when it gained `Backlog.Modules.Inbox` and
+  `Backlog.Modules.Inbox.Abstractions` (see local ADR 0009).
 - Only `Sync` has an `.Api` project. The other modules are in-process and need no
   HTTP host.

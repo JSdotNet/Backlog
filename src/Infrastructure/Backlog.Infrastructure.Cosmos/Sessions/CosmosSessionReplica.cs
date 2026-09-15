@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,7 +6,6 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Ports;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -36,7 +34,9 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// </summary>
 internal sealed class CosmosSessionReplica : ISessionReplica
 {
-    private readonly Lazy<Container> _container;
+    private const string UnavailableMessage = "The session replica is not available yet. Try again shortly.";
+
+    private readonly CosmosContainerHandle _container;
     private readonly CosmosOptions _options;
     private readonly ILogger<CosmosSessionReplica> _log;
 
@@ -51,38 +51,13 @@ internal sealed class CosmosSessionReplica : ISessionReplica
         _options = options.Value;
         _log = log;
 
-        // Lazy, and PublicationOnly rather than the default
-        // ExecutionAndPublication, for the reason CosmosTaskReplica records: the
-        // default caches the exception as well as the value, so a service that
-        // started a second before its store would answer 503 for the life of the
-        // process — worse than failing to start, because Container Apps restarts
-        // a container that died and never one that is answering.
-        _container = new Lazy<Container>(() =>
-        {
-            // Activity.Current is cleared for the length of the construction for
-            // the same reason it is there: the SDK starts a background endpoint
-            // refresh when a client is built, a timer captures the
-            // ExecutionContext it was started on, and the refresh five minutes
-            // later would otherwise report itself as a child of whichever push
-            // happened to build the client — making that one span measure 300
-            // seconds. Only the first caller of either replica pays this; the
-            // client itself is a singleton both of them resolve.
-            var ambient = Activity.Current;
-            Activity.Current = null;
-
-            try
-            {
-                return services
-                    .GetRequiredService<CosmosClient>()
-                    .GetContainer(_options.DatabaseName, _options.SessionsContainerName);
-            }
-            finally
-            {
-                // The caller is mid-request and the rest of it belongs on the
-                // trace it arrived on.
-                Activity.Current = ambient;
-            }
-        }, LazyThreadSafetyMode.PublicationOnly);
+        // Resolved on first use, for the reasons CosmosContainerHandle records
+        // and every adapter in this project shares.
+        _container = new CosmosContainerHandle(
+            services,
+            _options.DatabaseName,
+            _options.SessionsContainerName,
+            UnavailableMessage);
     }
 
     public async Task<int> Append(
@@ -205,7 +180,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
             {
                 throw new SyncReplicaException(
                     SyncErrorCodes.ReplicaUnavailable,
-                    "The session replica is not available yet. Try again shortly.");
+                    UnavailableMessage);
             }
 
             var documents = Read(response.Content);
@@ -320,7 +295,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
 
     private static SyncReplicaException Unavailable(CosmosException failure) => new(
         SyncErrorCodes.ReplicaUnavailable,
-        "The session replica is not available yet. Try again shortly.",
+        UnavailableMessage,
         failure);
 
     /// <summary>A continuation Cosmos will not resume from. It is the client's to
@@ -334,20 +309,7 @@ internal sealed class CosmosSessionReplica : ISessionReplica
     /// <summary>The container, resolved once. Internal rather than private so
     /// that the activity the client is constructed under can be asserted without
     /// a call that would then try to reach Cosmos.</summary>
-    internal Container Container()
-    {
-        try
-        {
-            return _container.Value;
-        }
-        catch (Exception failure) when (failure is not SyncReplicaException)
-        {
-            throw new SyncReplicaException(
-                SyncErrorCodes.ReplicaUnavailable,
-                "The session replica is not available yet. Try again shortly.",
-                failure);
-        }
-    }
+    internal Container Container() => _container.Container();
 
     /// <summary>The envelope a change feed page arrives in. Only the documents
     /// are read; the <c>_rid</c> and <c>_count</c> beside them say nothing this

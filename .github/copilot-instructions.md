@@ -14,7 +14,7 @@ Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidel
 - `.arc42/adr/` — the decisions Backlog took for itself.
 - `.design/` — design and UX guidance, tokens, and the color scheme.
 
-See `.github/instructions/mcp-usage.instructions.md` for the full authority order and for
+See `.agents/rules/mcp-usage.md` for the full authority order and for
 which MCP servers are still in use. When a plugin-provided skill tells you to query a
 guidelines MCP server, read `.arc42/adr/guidelines/` instead.
 
@@ -26,7 +26,7 @@ guidelines MCP server, read `.arc42/adr/guidelines/` instead.
 > (`claude-desktop` plugin, `claude-desktop:orchestrator` agent). Keep the two in step when
 > changing the gate.
 
-Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.github/instructions/context-loading.instructions.md` for the Backlog-specific orchestration gate on code changes and the policy on which knowledge folders a workflow may load.
+Orchestration routing (which `orch-*` skill or specialist agent handles which task type) is delivered globally by the `copilot-app` plugin; it is not restated in this repository. See `.agents/rules/context-loading.md` for the Backlog-specific orchestration gate on code changes and the policy on which knowledge folders a workflow may load.
 
 **Orchestration gate.** Before the first `edit` or `create` to any file under `src/` or
 `tests/`, you MUST invoke the matching `orch-*` skill through the
@@ -57,7 +57,7 @@ without explicit user approval.
 
 ## Knowledge folders
 
-The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — chapter structure, `meta` blocks, derived `_meta/` indexes, and the knowledge graph canvas — is provided by the `devbook` plugin (`JSdotNet/ai-agent-stack:plugins/devbook`, formerly `knowledge-base`), and the per-folder flows — `flow-arc42-content`, `flow-domain`, `flow-tech`, `flow-design` — come from the `devbook-flows` plugin (`.backlog` has no successor flow until it is dropped with the devbook contract v6, a follow-up). Do not restate those authoring rules in this repository. The plugin's `devbook-check` skill replaces its predecessor's `knowledge-base-validate`; `update-devbook-index` is this repository's own command and still ships as `.claude/commands/update-devbook-index.md`. This repository still authors against the installed generator, and adopting the plugin's contract v6 through `devbook-sync` is a follow-up. Repository-specific policy that the plugin deliberately does not ship lives in `.github/instructions/context-loading.instructions.md`.
+The `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, and `.design/` convention — chapter structure, `meta` blocks, derived `_meta/` indexes, and the knowledge graph canvas — is provided by the `devbook` plugin (`JSdotNet/ai-agent-stack:plugins/devbook`, formerly `knowledge-base`), and the per-folder flows — `flow-arc42-content`, `flow-domain`, `flow-tech`, `flow-design` — come from the `devbook-flows` plugin (`.backlog` has no successor flow until it is dropped with the devbook contract v6, a follow-up). Do not restate those authoring rules in this repository. The plugin's `devbook-check` skill replaces its predecessor's `knowledge-base-validate`; `update-devbook-index` is this repository's own command and still ships as `.claude/commands/update-devbook-index.md`. This repository still authors against the installed generator, and adopting the plugin's contract v6 through `devbook-sync` is a follow-up. Repository-specific policy that the plugin deliberately does not ship lives in `.agents/rules/context-loading.md`.
 
 The generator at `.github/tools/knowledge-meta/`, the `knowledge-meta` and `knowledge-meta-nightly` workflows, and `build/Update-KnowledgeIndex.ps1` are the unchanged install from `knowledge-base`, the `devbook` plugin's predecessor; never edit them locally. Re-syncing them from `devbook` is the contract v6 follow-up, not something already done.
 
@@ -69,13 +69,15 @@ The database is **load-bearing at runtime**. The desktop Devbook panels read it 
 
 ## UI components
 
-See `.github/instructions/ui-components.instructions.md`: a screen under `src/App/` or `src/Modules/` renders the shared library's component (`src/Core/Backlog.UI.Components`) rather than growing its own copy, and a component that cannot wear the screen's classes gets the hook rather than a second implementation. `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces it and holds the documented exceptions.
+See `.agents/rules/ui-components.md`: a screen under `src/App/` or `src/Modules/` renders the shared library's component (`src/Core/Backlog.UI.Components`) rather than growing its own copy, and a component that cannot wear the screen's classes gets the hook rather than a second implementation. `tests/Backlog.ArchitectureTests/SharedControlAdoptionTests.cs` enforces it and holds the documented exceptions.
 
-See `.github/instructions/storybook.instructions.md` for authoring the review surface itself — which chrome component to use, which parameters to pass, and where a new page goes in `StorybookIndex`. The rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook` and are not restated in either file.
+See `.agents/rules/storybook.md` for authoring the review surface itself — which chrome component to use, which parameters to pass, and where a new page goes in `StorybookIndex`. The rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook` and are not restated in either file.
 
 ## Naming
 
-See `.github/instructions/naming.instructions.md` for repository-wide file and folder naming. Naming inside the knowledge folders is governed by the plugin's `knowledge-naming.instructions.md`.
+See `.agents/rules/naming.md` for repository-wide file and folder naming. Naming inside the knowledge folders is governed by the plugin's `knowledge-naming.instructions.md`.
+
+Path-scoped rules are authored once under `.agents/rules/` and wrapped per host — `.github/instructions/<topic>.instructions.md` (`applyTo`) for Copilot, `.claude/rules/<topic>.md` (`paths`) for Claude Code. `.agents/rules/README.md` is the convention.
 
 ## Guardrails
 

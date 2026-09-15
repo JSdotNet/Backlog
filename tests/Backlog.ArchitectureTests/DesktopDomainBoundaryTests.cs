@@ -144,15 +144,15 @@ public class DesktopDomainBoundaryTests
     /// <summary>
     /// Inbox is upstream of both Tasks and Devbook, and the
     /// two downstream contexts are a Partnership that coordinates by id rather
-    /// than by reaching into each other. The one edge the map allows in code is
-    /// Tasks conforming to the Inbox's published item contract —
-    /// which is why that pair is absent below and named instead in
-    /// <c>ModuleBoundaryTests.AllowedCrossContextUi</c>.
+    /// than by reaching into each other. No pair is exempt: the edge Tasks once
+    /// had on the Inbox — a conversion into the Inbox's published item
+    /// contract — went when the Inbox got a module of its own, and what the
+    /// Inbox routes to Tasks now travels through a port an adapter under
+    /// src/Infrastructure answers, where neither context's UI sees the other.
     /// <para>
     /// The project references say most of this already. This says it a file at a
-    /// time: Tasks' reference on the Inbox is real, so only the
-    /// source text can still tell the one conversion that earns it from a second
-    /// use that nobody weighed.
+    /// time, so a <c>using</c> that reaches sideways is caught where it is
+    /// written rather than once a reference has been added to carry it.
     /// </para>
     /// </summary>
     [Theory]
@@ -160,6 +160,7 @@ public class DesktopDomainBoundaryTests
     [InlineData("Inbox", "Devbook")]
     [InlineData("Devbook", "Tasks")]
     [InlineData("Devbook", "Inbox")]
+    [InlineData("Tasks", "Inbox")]
     [InlineData("Tasks", "Devbook")]
     public void A_context_never_names_another_context(string context, string forbidden)
     {
@@ -214,12 +215,10 @@ public class DesktopDomainBoundaryTests
     /// without asking. A sibling context named there would be handed to every
     /// component in the project at once.
     /// <para>
-    /// That includes the edge the context map allows. Tasks'
-    /// reference on the Inbox is earned by one conversion in <c>TasksDrafts</c>,
-    /// and it belongs in that file's own usings where a reader of the file sees
-    /// it — a project-wide import would turn a single conforming translation into
-    /// a standing invitation, and <see cref="A_context_never_names_another_context"/>
-    /// would have nothing left to point at.
+    /// The Inbox's own imports name its module's published surface and the
+    /// shared library, and nothing of Tasks or Devbook — the same line the
+    /// other two hold, now that no context conforms to another's contract in
+    /// code.
     /// </para>
     /// </summary>
     [Theory]

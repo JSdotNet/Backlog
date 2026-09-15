@@ -101,10 +101,13 @@ feature-flag: devbook-sections
 ```
 
 Switch between areas, and between repositories when more than one is registered,
-so the knowledge shown always belongs to a known repository. Every area is
-opt-in, and each can be switched off on its own or pointed at a non-standard
-folder; when none is left on there is nothing to browse and the pane says so
-rather than offering an empty tab strip.
+so the knowledge shown always belongs to a known repository. The pane reads one
+repository at a time even when the backlog beside it is scoped to several: it
+follows the first repository taken into that scope, so widening the list never
+moves the knowledge already being read. Every area is opt-in, and each can be
+switched off on its own or pointed at a non-standard folder; when none is left
+on there is nothing to browse and the pane says so rather than offering an empty
+tab strip.
 
 ### Rendered devbook documents
 

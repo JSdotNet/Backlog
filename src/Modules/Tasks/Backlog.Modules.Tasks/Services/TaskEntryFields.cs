@@ -19,15 +19,27 @@ internal static class TaskEntryFields
     /// <summary>Constructs a new entry from a parsed segment, at the given manual
     /// rank. Mirrors what a fresh <c>SaveTaskFromText</c> create used to do
     /// inline: born at <see cref="EntryStatus.Draft"/> unless the text itself
-    /// says otherwise, then every other field applied on top.</summary>
-    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order)
+    /// says otherwise, then every other field applied on top.
+    /// <para>
+    /// <paramref name="sourceInboxId"/> is the one field that only birth can
+    /// set: it is constructor-only on the aggregate, provenance rather than
+    /// content, so it goes through the full constructor here and nowhere in
+    /// <see cref="ApplyToExisting"/>. Null for every hand-typed entry; the inbox
+    /// item's id when the Inbox routed one.
+    /// </para></summary>
+    public static TaskItem CreateFrom(EntryTextParser.ParsedEntry parsed, int order, string? sourceInboxId = null)
     {
         var entry = new TaskItem(
+            Guid.NewGuid(),
             parsed.Title,
             parsed.Body,
             parsed.Type ?? EntryType.Task,
+            EntryStatus.Draft,
             parsed.Priority ?? Priority.Medium,
-            tags: parsed.Tags);
+            repoIds: null,
+            tags: parsed.Tags,
+            sourceInboxId,
+            createdAt: DateTimeOffset.UtcNow);
 
         // New entries are born at Draft. A status typed into the meta line is
         // applied as the direct value rather than stepped through the lifecycle,

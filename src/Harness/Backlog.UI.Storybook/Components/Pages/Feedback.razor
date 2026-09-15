@@ -38,6 +38,21 @@
         </div>
     </Story>
 
+    <Story Name="Alert carrying something after the message"
+           Description="ChildContent renders inside the same line as the message, after it. What it is for is the fact a message is about — the issue a report became, and a way to open it. Beside the component instead, as a second paragraph, that way back is either announced separately from the sentence that says it exists or not announced at all, because the element is the live region rather than the block around it.
+
+                        It qualifies a message and does not replace one: an alert with content and no message still renders nothing at all, so a host can keep binding a nullable message straight to it. No space is written between the two — the gap is the host's, which is what keeps every call site made before this parameter rendering the text it always did."
+           Code="@AlertContentCode">
+        <div class="sb-stack">
+            <Alert Message="Created" Role="status" TestId="alert-with-content">
+                &nbsp;<a href="https://github.com/JSdotNet/Backlog/issues/101"
+                         target="_blank"
+                         rel="noopener"
+                         aria-label="Open issue JSdotNet/Backlog#101 on GitHub">JSdotNet/Backlog#101</a>
+            </Alert>
+        </div>
+    </Story>
+
     <Story Name="EmptyState"
            Description="With an action when there is something to do about it, without one when there is not."
            Code="@EmptyCode">
@@ -257,6 +272,16 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
 
     private const string AlertInlineCode = """
         <Alert Message="@_refusal" Role="status" Inline />
+        """;
+
+    private const string AlertContentCode = """
+        <Alert Message="@_status" Role="status">
+            @if (_issue is { } issue)
+            {
+                &nbsp;<a href="@issue.Url" target="_blank" rel="noopener"
+                         aria-label="@($"Open issue {issue.RepoFullName}{issue.Label} on GitHub")">@($"{issue.RepoFullName}{issue.Label}")</a>
+            }
+        </Alert>
         """;
 
     private const string EmptyCode = """

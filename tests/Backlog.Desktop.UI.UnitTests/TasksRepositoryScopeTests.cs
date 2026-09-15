@@ -1,3 +1,5 @@
+using Backlog.Infrastructure.GitHub;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -109,11 +111,174 @@ public class TasksRepositoryScopeTests
         host.State.SetNoRepositoryFilter(true);
 
         Assert.Empty(host.State.FilteredRows);
-        Assert.Equal("backlog", host.State.SelectedRepositoryAlias);
+        Assert.Equal("backlog", host.State.AnchorRepositoryAlias);
 
         // And releasing it hands the repository scope back untouched.
         host.State.SetNoRepositoryFilter(false);
 
         Assert.Single(host.State.FilteredRows);
+    }
+
+    // --- More than one repository at once ------------------------------------------
+    //
+    // The scope is an ordered set. A plain press replaces it with one repository —
+    // or empties it, when that repository was the whole set — which is the single
+    // select the strip always had. A modifier press adds or removes one. The first
+    // entry is the anchor: the one the Devbook pane reads, because the pane can
+    // read one repository's folders and not several, and the repository the reader
+    // was already looking at is the one that should not move when they add another.
+
+    [Fact]
+    public async Task Toggling_a_second_repository_into_the_scope_keeps_both_repositories_rows()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        var mine = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        var theirs = await host.WriteEntryAsync("# Write it up\n`task` `repo:docs`\n");
+        var elsewhere = await host.WriteEntryAsync("# Publish it\n`task` `repo:site`\n");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+
+        Assert.Equal(["backlog", "docs"], host.State.SelectedRepositoryAliases);
+        Assert.Contains(mine, host.State.FilteredRows);
+        Assert.Contains(theirs, host.State.FilteredRows);
+        Assert.DoesNotContain(elsewhere, host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task The_first_repository_stays_the_anchor_while_others_join()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+
+        Assert.Equal("backlog", host.State.AnchorRepositoryAlias);
+    }
+
+    [Fact]
+    public async Task Toggling_the_anchor_out_hands_the_anchor_to_the_next_repository()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+        host.State.ToggleRepositoryInScope("backlog");
+
+        Assert.Equal(["docs"], host.State.SelectedRepositoryAliases);
+        Assert.Equal("docs", host.State.AnchorRepositoryAlias);
+    }
+
+    [Fact]
+    public async Task Toggling_the_last_repository_out_empties_the_scope()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        var piled = await host.WriteEntryAsync("# Buy milk\n`task`\n");
+
+        host.State.ToggleRepositoryInScope("backlog");
+        Assert.DoesNotContain(piled, host.State.FilteredRows);
+
+        host.State.ToggleRepositoryInScope("backlog");
+
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+        Assert.Equal(string.Empty, host.State.AnchorRepositoryAlias);
+        Assert.Contains(row, host.State.FilteredRows);
+        Assert.Contains(piled, host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task A_plain_selection_replaces_the_whole_set()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+        host.State.SetRepositoryFilter("docs");
+
+        Assert.Equal(["docs"], host.State.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public async Task Toggling_an_alias_nothing_is_configured_under_changes_nothing()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("retired");
+
+        Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
+    }
+
+    /// <summary>A repository removed from Settings leaves the scope on its own; the
+    /// others stay. Dropping the whole set for one missing member would throw away a
+    /// selection the reader still has chips on screen for.</summary>
+    [Fact]
+    public async Task A_repository_removed_from_settings_leaves_the_scope_alone()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+
+        var (remaining, _) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog");
+        Assert.Null(host.GitHub.Settings.SetRepositories(remaining));
+        host.State.SetNoRepositoryFilter(false);
+
+        Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public async Task A_new_entry_is_filed_under_the_anchor()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+        host.State.NewRow();
+
+        Assert.Contains("`repo:backlog`", host.State.SelectedRow?.RawText);
+        Assert.DoesNotContain("`repo:docs`", host.State.SelectedRow?.RawText);
+    }
+
+    /// <summary>Several repositories at once is a list affordance: the only reader
+    /// that can show more than one is the backlog list. The shell asks for this
+    /// when that list leaves the screen, so the scope goes back to the one
+    /// repository every remaining reader can take.</summary>
+    [Fact]
+    public async Task Narrowing_to_the_anchor_keeps_the_first_repository_and_drops_the_rest()
+    {
+        using var host = await TasksPaneHost.CreateAsync(
+            "backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs", "site = JSdotNet/Site");
+        var theirs = await host.WriteEntryAsync("# Write it up\n`task` `repo:docs`\n");
+
+        host.State.SetRepositoryFilter("backlog");
+        host.State.ToggleRepositoryInScope("docs");
+        host.State.ToggleRepositoryInScope("site");
+
+        host.State.NarrowRepositoryScopeToAnchor();
+
+        Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
+        Assert.DoesNotContain(theirs, host.State.FilteredRows);
+    }
+
+    [Fact]
+    public async Task Narrowing_a_scope_of_one_or_none_changes_nothing()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var changes = 0;
+        host.State.Changed += () => changes++;
+
+        host.State.NarrowRepositoryScopeToAnchor();
+        Assert.Empty(host.State.SelectedRepositoryAliases);
+
+        host.State.SetRepositoryFilter("backlog");
+        var before = changes;
+        host.State.NarrowRepositoryScopeToAnchor();
+
+        Assert.Equal(["backlog"], host.State.SelectedRepositoryAliases);
+        Assert.Equal(before, changes);
     }
 }

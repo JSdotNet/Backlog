@@ -1046,9 +1046,25 @@
 
     // Escape abandons a drag in flight, the way it abandons every other thing in
     // this product that can be put down.
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') cancelTaskDrag();
-    });
+    //
+    // A drag can be in flight while the caret sits in one of the list's two text
+    // fields, and those fields contain the key: a rename and the composer stop
+    // keydown so that a host's Escape is never the same press as abandoning a
+    // title (see TaskItem.OnRenameKeyAsync). That containment does not reach this
+    // listener. Blazor's :stopPropagation ends Blazor's own walk to the @onkeydown
+    // handlers above the field; it never calls the event's stopPropagation, the
+    // way :preventDefault does call its opposite number. A document listener is
+    // not on that walk, so it hears the key in either phase.
+    //
+    // Capture, then, because running before the rest is the right place for a
+    // gesture's way out — not because the bubble would miss it.
+    document.addEventListener(
+        'keydown',
+        (event) => {
+            if (event.key === 'Escape') cancelTaskDrag();
+        },
+        true
+    );
 
     // The click that follows the pointerup that ended a drag. It would land on the
     // row the drop was aimed at and select it, which is a second thing happening

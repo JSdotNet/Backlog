@@ -41,7 +41,7 @@ in sync by hand when either changes — there is no generator here.
 
 ```
 /plugin marketplace add .
-/plugin install backlog-tools@backlog-tools
+/plugin install backlog-tools@jsdotnet-backlog
 ```
 
 **Copilot CLI**, from the repository root:

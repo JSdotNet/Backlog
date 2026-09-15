@@ -238,16 +238,35 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
-    /// <summary>The repository currently scoping repository-authored backlog and
-    /// knowledge, or empty for all configured repositories.</summary>
-    public string SelectedRepositoryAlias { get; private set; } = string.Empty;
+    /// <summary>
+    /// The repositories currently scoping the backlog, in the order they were taken
+    /// into the scope; empty for all configured repositories.
+    /// <para>
+    /// An ordered set rather than one alias, because the list can be narrowed to
+    /// several repositories at once and the Devbook pane cannot: it reads one
+    /// repository's folders. The first entry is the <em>anchor</em> — see
+    /// <see cref="AnchorRepositoryAlias"/> — and the order is what makes the anchor
+    /// stable: adding a repository never moves the one the reader was already
+    /// reading beside.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> SelectedRepositoryAliases => _selectedRepositoryAliases;
+
+    private readonly List<string> _selectedRepositoryAliases = [];
+
+    /// <summary>The first repository in the scope, or empty when nothing is scoped.
+    /// It is the one the Devbook pane reads and the one a new entry is filed
+    /// under, because every reader that can take one repository and not several
+    /// takes this one.</summary>
+    public string AnchorRepositoryAlias =>
+        _selectedRepositoryAliases.Count > 0 ? _selectedRepositoryAliases[0] : string.Empty;
 
     /// <summary>
     /// True while the view is narrowed to the entries filed against no repository.
     /// <para>
-    /// A scope of its own rather than a value <see cref="SelectedRepositoryAlias"/>
+    /// A scope of its own rather than a value <see cref="SelectedRepositoryAliases"/>
     /// could hold, because "no repository" is not a repository and every reader of
-    /// that alias would have to be taught the exception. A sentinel there would be
+    /// that set would have to be taught the exception. A sentinel there would be
     /// handed to the Devbook pane, which answers an unresolvable alias with
     /// "select a configured repository"; written into a new draft as
     /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
@@ -754,29 +773,69 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>Scopes the backlog to one repository, replacing whatever the scope
+    /// held — or to every repository, when handed nothing or an alias that is not
+    /// configured. The plain press on a scope chip; <see cref="ToggleRepositoryInScope"/>
+    /// is the one with a modifier held.</summary>
     public void SetRepositoryFilter(string? repositoryAlias)
     {
-        var alias = repositoryAlias ?? string.Empty;
-        var repository = alias.Length == 0 ? null : _gitHub.Settings.Current.Find(alias);
-        if (alias.Length > 0 && repository is null)
+        var alias = ResolveAlias(repositoryAlias);
+
+        if (alias.Length == 0
+            ? _selectedRepositoryAliases.Count == 0
+            : _selectedRepositoryAliases is [var only] && string.Equals(only, alias, StringComparison.Ordinal))
         {
-            alias = string.Empty;
-        }
-        else if (repository is not null)
-        {
-            alias = repository.Alias;
+            return;
         }
 
-        if (string.Equals(SelectedRepositoryAlias, alias, StringComparison.Ordinal)) return;
+        _selectedRepositoryAliases.Clear();
+        if (alias.Length > 0) _selectedRepositoryAliases.Add(alias);
 
-        SelectedRepositoryAlias = alias;
         ApplyFilter();
         Changed?.Invoke();
     }
 
+    /// <summary>Takes a repository into the scope beside the ones already there, or
+    /// back out of it when it is there already. Additive in both directions, the
+    /// way <see cref="ToggleTagFilter"/> is: taking the last one out is how the
+    /// reader gets back to every repository. An alias nothing is configured under
+    /// changes nothing, since there is no chip it could correspond to.</summary>
+    public void ToggleRepositoryInScope(string? repositoryAlias)
+    {
+        var alias = ResolveAlias(repositoryAlias);
+        if (alias.Length == 0) return;
+
+        if (!_selectedRepositoryAliases.Remove(alias)) _selectedRepositoryAliases.Add(alias);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Drops every scoped repository but the anchor. More than one at a
+    /// time is a list affordance — the backlog list is the only reader that can
+    /// show several — so the shell asks for this when that list leaves the screen,
+    /// and the readers still on it get the one repository each of them can take.
+    /// Nothing to do, and nothing announced, with one or none scoped.</summary>
+    public void NarrowRepositoryScopeToAnchor()
+    {
+        if (_selectedRepositoryAliases.Count <= 1) return;
+
+        _selectedRepositoryAliases.RemoveRange(1, _selectedRepositoryAliases.Count - 1);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The configured spelling of an alias, or empty when nothing is
+    /// configured under it.</summary>
+    private string ResolveAlias(string? repositoryAlias) =>
+        string.IsNullOrEmpty(repositoryAlias)
+            ? string.Empty
+            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias ?? string.Empty;
+
     /// <summary>Turns the "no repository" scope on or off. See
     /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
-    /// value <see cref="SelectedRepositoryAlias"/> holds.</summary>
+    /// value <see cref="SelectedRepositoryAliases"/> holds.</summary>
     public void SetNoRepositoryFilter(bool only)
     {
         NoRepositoryOnly = only;
@@ -837,9 +896,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var widened = false;
 
-        if (SelectedRepositoryAlias.Length > 0 && !RowBelongsToSelectedRepository(row))
+        if (_selectedRepositoryAliases.Count > 0 && !RowBelongsToSelectedRepository(row))
         {
-            SelectedRepositoryAlias = string.Empty;
+            _selectedRepositoryAliases.Clear();
             widened = true;
         }
 
@@ -898,7 +957,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         var row = new EntryRow();
 
-        var seedRepository = SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
+        var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
 
         if (seedRepository is not null)
         {
@@ -1137,6 +1196,27 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (row.IsReadOnly) return;
 
+        if ((await DeleteOneAsync(row)).IsFailure) return;
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// Takes one row out of the store and the list, and nothing after that: no
+    /// renumbering and no refilter, because those are per batch and this is per
+    /// row. <see cref="DeleteRowAsync"/> is one row and the batch work;
+    /// <see cref="BulkDeleteAsync"/> is N of these and the batch work once.
+    /// <para>
+    /// A store that throws comes back as a value rather than out of here, so a
+    /// batch can carry on past it and say which row it was (guideline 0004). The
+    /// single-row path reads the same value and stops, which is what it did when
+    /// the catch was inline. A row that was never saved has nothing in the store
+    /// to refuse and simply leaves the list.
+    /// </para>
+    /// </summary>
+    private async Task<Result> DeleteOneAsync(EntryRow row)
+    {
         CancelDebounce(row);
 
         if (ReferenceEquals(EditingRow, row))
@@ -1159,22 +1239,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 _entries.Remove(id);
                 SetSaveState(AppSaveState.Saved);
             }
-            catch
+            catch (Exception exception)
             {
                 SetSaveState(AppSaveState.Error);
-                return;
+                return Result.Failure(Error.Unexpected("entry.delete_failed", exception.Message));
             }
-
-            Rows.Remove(row);
-            await NormalizeOrderAsync();
-            ApplyFilter();
-            return;
         }
 
         Rows.Remove(row);
-
-        await NormalizeOrderAsync();
-        ApplyFilter();
+        return Result.Success();
     }
 
     // --- Reordering ------------------------------------------------------
@@ -1676,6 +1749,62 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
+    /// Deletes every picked entry.
+    /// <para>
+    /// The one bulk act that is not a rewrite, so it does not go through
+    /// <see cref="ApplyToSelectionAsync"/> — but it answers in the same shape,
+    /// because the caller's question is the same: how many went, how many were
+    /// left alone, which ones the store refused. <c>Updated</c> is the count
+    /// deleted; <c>Unchanged</c> is the read-only rows, skipped exactly as the
+    /// rewrites skip them.
+    /// </para>
+    /// <para>
+    /// Per row it is <see cref="DeleteOneAsync"/>, the same steps the single-row
+    /// bin takes; per batch the renumber and the refilter happen once at the end
+    /// rather than N times, and the refilter is what empties the selection — a
+    /// picked row that is no longer in view is no longer picked, so the bar goes
+    /// away on its own rather than being told to.
+    /// </para>
+    /// <para>
+    /// No transaction, for the reason <see cref="ApplyToSelectionAsync"/> gives:
+    /// a refusal on one row does not undo the rows before it and does not stop
+    /// the rows after it. It is counted and named instead.
+    /// </para>
+    /// </summary>
+    public async Task<BulkEditOutcome> BulkDeleteAsync()
+    {
+        // Snapshotted for the same reason ApplyToSelectionAsync snapshots: the
+        // rows leave the list as they go, and the live selection with them.
+        var rows = SelectedRows;
+
+        if (rows.Count == 0) return BulkEditOutcome.Nothing;
+
+        var deleted = 0;
+        var skipped = 0;
+        var failures = new List<BulkEditFailure>();
+
+        foreach (var row in rows)
+        {
+            if (row.IsReadOnly)
+            {
+                skipped++;
+                continue;
+            }
+
+            var removed = await DeleteOneAsync(row);
+
+            if (removed.IsSuccess) deleted++;
+            else failures.Add(new BulkEditFailure(row.TaskId, row.PreviewTitle, removed.Error));
+        }
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+        Changed?.Invoke();
+
+        return new BulkEditOutcome(deleted, skipped, failures);
+    }
+
+    /// <summary>
     /// One field's rewrite, run down the picked rows.
     /// <para>
     /// <paramref name="rewrite"/> is handed a row and returns that row's text with
@@ -1842,6 +1971,37 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 return _pollTimer is not null;
             }
         }
+    }
+
+    /// <summary>
+    /// Starts over from the store because something else in this process wrote
+    /// to it — the Inbox routing an item into entries is the caller today, and
+    /// the shell is what calls, because only the shell sees both panes.
+    /// <para>
+    /// The poll below would notice the same write on its next tick, but the poll
+    /// can be switched off, and its first tick after start records the baseline
+    /// without reloading. Somebody who has just pressed "Move to backlog" should
+    /// see the entry now rather than a tick later or never, so this reloads
+    /// without asking whether the timestamp moved.
+    /// </para>
+    /// <para>
+    /// The one guard it keeps is the poll's: a reload replaces every row, and
+    /// doing that under a live caret or a save still on its way to the store
+    /// would take typed text off the screen. In that case the write is left for
+    /// the next tick, which sees the timestamp and reloads once the caret is
+    /// gone — the same bargain the poll makes.
+    /// </para>
+    /// </summary>
+    public async Task ReloadFromStoreAsync()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+        if (EditingRow is not null || SaveIsPending) return;
+
+        await ReloadRowsAsync();
+
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        Changed?.Invoke();
     }
 
     /// <summary>
@@ -2782,7 +2942,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         IEnumerable<EntryRow> rows = Rows;
 
-        if (SelectedRepositoryAlias.Length > 0)
+        if (_selectedRepositoryAliases.Count > 0)
         {
             rows = rows.Where(RowBelongsToSelectedRepository);
         }
@@ -2888,31 +3048,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
     }
 
-    /// <summary>A row is in the scoped repository when one of its targets names it.
-    /// Any rather than the first, because an entry that targets two repositories
-    /// belongs to both scopes — hiding it from one would be the scope disagreeing
-    /// with the entry's own text.</summary>
+    /// <summary>A row is in the scope when one of its targets names a scoped
+    /// repository. Any rather than the first, because an entry that targets two
+    /// repositories belongs to both scopes — hiding it from one would be the scope
+    /// disagreeing with the entry's own text.</summary>
     private bool RowBelongsToSelectedRepository(EntryRow row) =>
         row.PreviewRepoIds.Any(target =>
             _gitHub.ResolveRepository(target) is { } repository
-            && string.Equals(repository.Alias, SelectedRepositoryAlias, StringComparison.Ordinal));
+            && _selectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal));
 
     /// <summary>A repository stops existing when it is removed from settings, and a
     /// scope pointing at one that is gone would filter the list down to nothing with
-    /// no chip on screen to say why. Dropping back to all repositories is the same
-    /// answer <see cref="SetRepositoryFilter"/> gives an alias it cannot resolve.
+    /// no chip on screen to say why. It leaves the scope on its own and the others
+    /// stay — the reader still has chips pressed for those — which, with one
+    /// repository scoped, is the same answer <see cref="SetRepositoryFilter"/>
+    /// gives an alias it cannot resolve.
     /// <para>
     /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
     /// so there is nothing settings can take away from it.
     /// </para>
     /// </summary>
-    private void ForgetStaleRepositoryScope()
-    {
-        if (SelectedRepositoryAlias.Length > 0 && _gitHub.Settings.Current.Find(SelectedRepositoryAlias) is null)
-        {
-            SelectedRepositoryAlias = string.Empty;
-        }
-    }
+    private void ForgetStaleRepositoryScope() =>
+        _selectedRepositoryAliases.RemoveAll(alias => _gitHub.Settings.Current.Find(alias) is null);
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group

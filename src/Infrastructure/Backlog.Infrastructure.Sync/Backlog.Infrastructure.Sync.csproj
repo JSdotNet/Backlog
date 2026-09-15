@@ -6,8 +6,11 @@
     and the two browser harnesses — puts in front of it:
       IDeviceCredentialStore    where the long-lived registration credential is
                                 kept, with the DPAPI adapter ADR 0005 names as
-                                "the OS credential store" and an in-memory one
-                                for the Android head and for tests
+                                "the OS credential store", the platform-neutral
+                                half of the Android head's SecureStorage adapter
+                                (SecureValueDeviceCredentialStore over the
+                                ISecureValueStore port), and an in-memory one
+                                for tests
       SyncTokenProvider         trades that credential for a short-lived access
                                 token and caches it until just before it expires
       SyncAuthenticationHandler puts the token on an outgoing request
@@ -19,9 +22,12 @@
                                 as a plain file because neither value is a secret
       TaskReplicaMerge          the one place remote data overwrites local
                                 canonical data, and the only caller of
-                                ITaskRepository.SaveAsync in this project
-      TaskSyncSession           one exchange: push what changed here, pull what
-                                changed elsewhere
+                                ITaskRepository.SaveAsync in this project; a
+                                capture document goes to the Inbox's intake
+                                instead of the task store
+      TaskSyncSession           one exchange: push what changed here (tasks,
+                                then the Inbox's capture acknowledgements as
+                                tombstones), pull what changed elsewhere
       Extensions/               AddSyncClient() composition for hosts
     Of the Sync module it sees only the published surface — the wire records, the
     routes and the pairing-code format — and nothing else of it. Hosts choose
@@ -45,6 +51,13 @@
     <!-- TaskItem, its full constructor, LoadStamps and ITaskRepository. See the
          header for why the implementation and not only its Abstractions. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <!-- The Inbox's two sync-facing ports and the capture shape they are phrased
+         in: the merge hands a capture document to IInboxIntake, and the session
+         drains IInboxCaptureOutbox into tombstones on the push. The published
+         surface only, and both taken as optional so a head without an inbox store
+         composes unchanged. An adapter seeing a published surface is the normal
+         direction. -->
+    <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
     <!-- The published surface only, and deliberately not the Sessions .UI project
          that holds the local readers. Session replication reads AgentSession off
          whatever answers IAgentSessionSource and hands replicated records back as a

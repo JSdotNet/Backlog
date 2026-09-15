@@ -10,6 +10,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
@@ -844,6 +845,8 @@ public sealed class SettingsDevicesTests
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         testContext.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
+        testContext.Services.AddSingleton<ICaptureSourceSettings>(
+            new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         testContext.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         testContext.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         testContext.Services.AddSingleton(github);

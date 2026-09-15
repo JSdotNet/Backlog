@@ -294,6 +294,7 @@
                                   SelectionEnabled="@State.SelectionMode"
                                   SelectedIds="@State.SelectedIds"
                                   SelectedIdsChanged="OnSelectionChanged"
+                                  OnDismiss="OnRowDismiss"
                                   OnSelectedTabForward="MoveFocusToDetailAsync"
                                   OnSelected="OnEntrySelectedAsync"
                                   OnToggle="OnEntryToggledAsync"
@@ -846,8 +847,9 @@
     // --- The bulk bar ------------------------------------------------------
 
     /// <summary>
-    /// The eight fields a reader can change across a whole selection, as one band
-    /// of five acts across the width of the bar.
+    /// The eight fields a reader can change across a whole selection, and the one
+    /// thing they can do to it that is not a change, as one band across the width
+    /// of the bar: five acts and a delete.
     /// <para>
     /// Every one of them is a control the library already ships and the pane
     /// already uses elsewhere — nothing here is a second implementation of a
@@ -877,9 +879,10 @@
     /// <para>
     /// What is here now is the same pane in <c>Band</c>, which flows the groups
     /// across the width, plus one act per group rather than one act per field. The
-    /// resting bar is five triggers on a single line — My Day, Repository,
-    /// Classification, Scheduling, Tags — which is the "short row" the density
-    /// rule asks for and near enough its budget of four to argue about. Pressing
+    /// resting bar is five triggers and a delete on a single line — My Day,
+    /// Repository, Classification, Scheduling, Tags, Delete — which is the "short
+    /// row" the density rule asks for and near enough its budget of four to argue
+    /// about. Pressing
     /// one opens that group's controls beside its trigger, wrapping the band to a
     /// second line; pressing another puts the first away. Nine controls in a row
     /// would have used the width just as well and would have been the first
@@ -940,6 +943,19 @@
     /// different questions, and neither is "replace what is there". The removal
     /// options are scoped to what the selection actually wears — an option that
     /// could not remove anything is an option that does nothing.
+    /// </para>
+    /// <para>
+    /// Delete is last, and is the library's <c>DeleteButton</c> rather than a
+    /// <c>TaskAction</c>: the one destructive act on the bar is the one that
+    /// should not look like the five beside it, and the red slab is how every
+    /// other delete in this product looks. It applies on the press, like My Day
+    /// and like the single-row bin — it began as a disclosure whose second press
+    /// was the confirmation, and that was taken out on review: two presses for
+    /// what one row does in one is a bar that trusts the reader less than the row
+    /// does, and the count on the button already says what the press will take.
+    /// Last rather than first, because the row footer's argument for leading with
+    /// the bin — keep it away from the button that commits — points the other way
+    /// on a bar whose only other end is the count.
     /// </para>
     /// </summary>
     private RenderFragment RenderBulkActions() =>
@@ -1157,6 +1173,17 @@
                         </span>
                     }
                 </TaskActionGroup>
+
+                @* The library's one destructive button, wearing the count so the
+                   reader is looking at the number before the act. Live: a row
+                   unticked takes one off the button too. *@
+                <TaskActionGroup Label="Delete" TestId="bulk-group-delete">
+                    <DeleteButton Size="ButtonSize.Small"
+                                  Label="@($"Delete {State.SelectionCount} {TaskWord(State.SelectionCount)}")"
+                                  AriaLabel="@($"Delete the {State.SelectionCount} selected {TaskWord(State.SelectionCount)}")"
+                                  TestId="bulk-delete"
+                                  OnClick="OnBulkDeleteAsync" />
+                </TaskActionGroup>
             </Groups>
         </TaskActionPane>;
 
@@ -1198,6 +1225,32 @@
     }
 
     /// <summary>
+    /// Escape on a row's line: out of the mode, the way the chip is.
+    /// <para>
+    /// The list says so rather than this pane reading the key off the rows — the
+    /// two fields in a row contain their own Escape and the line does not, so
+    /// <c>TaskListView.OnDismiss</c> is already the press this mode may take and
+    /// nothing else. Backing out of a rename is not a decision about the picked
+    /// set, and it was the reason a row could not answer at all.
+    /// </para>
+    /// <para>
+    /// One press rather than the bar's two, and for the chip's reason: from a row
+    /// an open group may be scrolled out of view behind the rows, so a first press
+    /// that closed something invisible would read as a key that had not worked.
+    /// </para>
+    /// <para>
+    /// With no mode on there is nothing to leave, and Escape on a row is
+    /// deliberately not a way to close the pane beside the list. That press is the
+    /// pane's own — <see cref="OnDetailKeyDownAsync"/> — and a row that also closed
+    /// it would take the reading away from a reader who was scanning the list.
+    /// </para>
+    /// </summary>
+    private void OnRowDismiss()
+    {
+        if (State.SelectionMode) OnClearSelection();
+    }
+
+    /// <summary>
     /// Escape on the bar: the open group, and then the mode.
     /// <para>
     /// Three levels rather than two, and the innermost one is not decided here. A
@@ -1224,16 +1277,14 @@
     /// keystroke.
     /// </para>
     /// <para>
-    /// On the chip and on the bar, and deliberately not on the pane around them.
-    /// The list between the two is where a row's inline rename lives, and Escape
-    /// there already means "abandon this title" — the field raises it, does not
-    /// stop it propagating, and a pane-wide handler would therefore throw away the
-    /// reader's whole picked set every time they backed out of a rename. The list
-    /// also holds the add-entry field, whose Escape means the same for a task that
-    /// does not exist yet. Neither of those is a key this mode may take, so
-    /// Escape from a row is not offered at all rather than offered destructively;
-    /// the chip and the bar are the two surfaces that are only ever about the
-    /// selection, and both of them answer.
+    /// On the chip and on the bar — and, since the library's two task fields
+    /// contain their own Escape, on a row's line as well: see
+    /// <see cref="OnRowDismiss"/>. It could not be offered before that. A handler
+    /// covering the list would have heard the key the rename in a row answers, and
+    /// the add-entry field with it, so every abandoned title would also have thrown
+    /// away the reader's whole picked set. What changed is where the key stops
+    /// rather than what this mode wants: three surfaces answer now, and all three
+    /// are only ever about the selection.
     /// </para>
     /// </summary>
     private void OnSelectionBarKeyDown(KeyboardEventArgs e)
@@ -1390,9 +1441,19 @@
             ? Task.CompletedTask
             : ApplyBulkAsync(() => State.BulkRemoveTagAsync(tag));
 
+    private Task OnBulkDeleteAsync() =>
+        ApplyBulkAsync(State.BulkDeleteAsync, did: "deleted", none: "No tasks deleted", refused: "could not be deleted");
+
     /// <summary>Runs one bulk change and says what it did. Nothing selected says
-    /// nothing at all rather than raising a toast about no rows.</summary>
-    private async Task ApplyBulkAsync(Func<Task<BulkEditOutcome>> change)
+    /// nothing at all rather than raising a toast about no rows.
+    /// <para>The verbs are the sentence's, not the outcome's: an outcome counts
+    /// rows either way, and a delete that reported "2 tasks updated" would be
+    /// true in the outcome's terms and a lie in the reader's.</para></summary>
+    private async Task ApplyBulkAsync(
+        Func<Task<BulkEditOutcome>> change,
+        string did = "updated",
+        string none = "No tasks changed",
+        string refused = "could not be saved")
     {
         // The group that opened these controls has had its answer, so it closes —
         // the same close-on-commit the detail pane's own date and select handlers
@@ -1408,7 +1469,7 @@
         // sentence still leads with what landed, but a reader who asked for one
         // field on twenty rows and got it on eight needs the longer dwell to read
         // the rest of it.
-        var message = BulkMessage(outcome);
+        var message = BulkMessage(outcome, did, none, refused);
 
         Toasts.Publish(outcome.Failures.Count > 0
             ? ToastMessage.Warning(message, BulkResultTestId)
@@ -1425,17 +1486,17 @@
     /// the count of what <em>did</em> land never goes missing behind an error.
     /// </para>
     /// </summary>
-    private static string BulkMessage(BulkEditOutcome outcome)
+    private static string BulkMessage(BulkEditOutcome outcome, string did, string none, string refused)
     {
         var clauses = new List<string>
         {
             outcome.Updated > 0
-                ? $"{outcome.Updated} {TaskWord(outcome.Updated)} updated"
-                : "No tasks changed"
+                ? $"{outcome.Updated} {TaskWord(outcome.Updated)} {did}"
+                : none
         };
 
         if (outcome.Unchanged > 0) clauses.Add($"{outcome.Unchanged} already up to date");
-        if (outcome.Failures.Count > 0) clauses.Add($"{outcome.Failures.Count} could not be saved");
+        if (outcome.Failures.Count > 0) clauses.Add($"{outcome.Failures.Count} {refused}");
 
         return string.Join(", ", clauses) + ".";
     }
@@ -3077,9 +3138,11 @@
             if (present.Remove(section)) ordered.Add(section);
         }
 
-        if (!string.IsNullOrEmpty(State.SelectedRepositoryAlias))
+        // The scoped repositories first, in the order they were scoped, so the
+        // anchor heads the list; then the rest in the order Settings has them.
+        foreach (var alias in State.SelectedRepositoryAliases)
         {
-            Take(State.SelectedRepositoryAlias);
+            Take(alias);
         }
 
         foreach (var repository in State.Repositories)

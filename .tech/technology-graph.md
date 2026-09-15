@@ -360,7 +360,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): the Aspire and [Playwright](testing.md#playwright) servers, and the orchestration dashboard. Guidance is not one of them — it is checked in under `.arc42/adr/guidelines/` and `.design/`. |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
 | Environment | The Aspire app model: [.NET Aspire](shared.md#net-aspire) is what gives an agent a running system to observe, with logs and traces |
-| Filesystem | The worktree. `.github/instructions/context-loading.instructions.md` limits which knowledge folders a given workflow may read. |
+| Filesystem | The worktree. `.agents/rules/context-loading.md` limits which knowledge folders a given workflow may read. |
 | Sandbox | The git worktree, plus `aspire start --isolated` for ports and user-secrets state |
 | Permission mode, permission request | Harness-level; the repository does not pin one. The equivalent repository-level gate is Personal Validation, which no run may skip. |
 
@@ -389,7 +389,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Term | In this repository |
 |---|---|
 | AGENTS.md | Spelled `CLAUDE.md` and `.github/copilot-instructions.md` here — see [repository instruction files](ai-development.md#repository-instruction-files) |
-| Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.github/instructions/` |
+| Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
 | Progressive disclosure | The design of the whole knowledge convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
 | Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `orch-*` orchestrations, `.github/skills/pr-jsdotnet`, and the five `.agents/skills/` Aspire skills |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |

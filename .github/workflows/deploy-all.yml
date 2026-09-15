@@ -201,6 +201,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # Inherit rather than pass by name: SYNC_TOKEN_SIGNING_KEY is an *environment*
+    # secret, and this job has no environment to resolve it in — the called
+    # workflow's job does. Sync runs on a GitHub-hosted runner, so the concern
+    # that keeps Foundry off `inherit` (a self-hosted runner pre-authorised for
+    # every secret) does not apply here.
+    secrets: inherit
     with:
       mode: ${{ needs.plan.outputs.sync_mode }}
       environment_name: ${{ inputs.sync_environment }}

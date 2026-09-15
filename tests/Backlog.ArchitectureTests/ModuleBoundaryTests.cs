@@ -33,10 +33,13 @@ public class ModuleBoundaryTests
     /// </summary>
     private static readonly (string From, string To, string Relationship)[] AllowedCrossContextUi =
     [
-        ("Backlog.Modules.Tasks.UI", "Backlog.Modules.Inbox.UI",
-            "Conformist: TasksDrafts converts repository-authored rows into the Inbox's published "
-            + "InboxItem contract. Tasks conforms to what the Inbox publishes; the Inbox "
-            + "never reads back.")
+        // Empty on purpose, and kept as a table rather than deleted: the last
+        // entry — Tasks.UI conforming to the Inbox's published item contract
+        // through TasksDrafts — went when the Inbox got a module of its own. The
+        // join between the two is now a port in Inbox.Abstractions answered by
+        // an adapter under src/Infrastructure, which is where a cross-context
+        // edge belongs. The next entry, if there is one, needs the context map's
+        // say-so in its Relationship, as that one had.
     ];
 
     [Fact]

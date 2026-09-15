@@ -1,13 +1,21 @@
 ﻿@page "/"
 @implements IAsyncDisposable
 @using Backlog.Infrastructure.FileSystem
+@using Backlog.Infrastructure.Sync
+@using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
 @inject TasksDesktopState State
+@inject InboxDesktopState InboxState
+@inject IServiceProvider Services
 @inject IToastChannel Toasts
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAzureFoundryChatClient AzureFoundryChat
 @inject DevbookScope Devbook
 @inject ShellNavigationStore ShellNavigation
+@* Injected hard rather than resolved: the Inbox's Capture button is on screen
+   whenever the Inbox is, and a host that composes the Inbox without the module
+   behind it should fail at startup rather than quietly offer a dead button. *@
+@inject ICaptureRunner CaptureRunner
 
 @*
     This page. It owns the header and the AI panel, and decides which surface sits
@@ -55,17 +63,26 @@
         <div class="app-header__identity">
             @if (State.Repositories.Count > 0)
             {
+                @* One repository on a plain press, one more with Ctrl held — while the
+                   Tasks pane is on screen; see ScopeRepository below. The anchor — the
+                   first one taken, the one the Devbook pane reads — is marked only
+                   once a second chip is pressed: with one chip there is nothing for it
+                   to be distinct from, and the markup stays exactly what the single
+                   select produced. *@
                 <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
                     @foreach (var repository in State.Repositories)
                     {
-                        var selected = State.SelectedRepositoryAlias == repository.Alias;
+                        var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
+                        var anchor = selected && State.SelectedRepositoryAliases.Count > 1
+                            && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
                         <ToggleButton BaseClass="chip chip--scope"
-                                      CssClass="@RepositoryMarkClass(repository.Alias)"
+                                      CssClass="@RepositoryScopeChipClass(repository.Alias, anchor)"
                                       PressedCssClass="chip--active"
                                       Pressed="selected"
                                       TestId="repository-filter-option"
-                                      Title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
-                                      PressedChanged="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                                      Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
+                                      aria-current="@(anchor ? "true" : null)"
+                                      OnClick="args => ScopeRepository(repository.Alias, args)">
                             @repository.Alias
                         </ToggleButton>
                     }
@@ -537,7 +554,7 @@
             <div class="devbook-layout @((TasksPaneVisible && RightSidePaneVisible) ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxBeforeTasksVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                    <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                 }
 
                 @if (TasksPaneVisible)
@@ -571,12 +588,15 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane Items="InboxItems" OnOpen="OpenInboxItemAsync" Grouping="_inboxGrouping" GroupingChanged="grouping => _inboxGrouping = grouping" />
+                            <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
                         }
 
                         @if (DevbookPaneVisible)
                         {
-                            <DevbookPane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                            @* The anchor and not the whole scope: the pane reads one
+                               repository's folders, and the first one taken is the one
+                               the reader was already reading beside. *@
+                            <DevbookPane RepositoryAlias="@State.AnchorRepositoryAlias" />
                         }
                     </aside>
                 }
@@ -662,7 +682,15 @@
         }
 
         State.Changed += HandleStateChanged;
+        InboxState.Changed += HandleStateChanged;
+        InboxState.Routed += HandleInboxRouted;
         Features.Changed += HandleFeaturesChanged;
+
+        // Optional, the way Settings resolves it: a host without task sync
+        // composes no worker, and a test rendering this page should not have to.
+        _taskSync = ResolveTaskSync();
+        if (_taskSync is not null) _taskSync.Changed += HandleTaskSyncChanged;
+
         await State.InitializeAsync();
         SynchronizePaneAvailability();
     }
@@ -680,6 +708,18 @@
             {
                 // Without the interop the separator still resizes by keyboard.
             }
+        }
+
+        // The Inbox loads the first time its pane is on screen rather than when
+        // this page does, because the pane ships behind a flag and is closed by
+        // default — a store read for a pane nobody opened is a store read wasted.
+        // After every render rather than on a toggle handler, because there are
+        // three ways the pane opens (its own toggle, a restored selection, and
+        // the feature switching on) and one place to notice is better than three.
+        if (InboxPaneVisible && !_inboxInitialized)
+        {
+            _inboxInitialized = true;
+            await InboxState.InitializeAsync();
         }
 
         // The two branches below run on every render, not only the first: a
@@ -873,7 +913,7 @@
     /// rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
         IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
-        && Devbook.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
+        && Devbook.VisibleAreas(State.AnchorRepositoryAlias).Count > 0;
 
     private bool DevbookPaneVisible => DevbookPaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Devbook);
 
@@ -912,17 +952,116 @@
         StateHasChanged();
     });
 
-    /// <summary>What the Inbox has to show, in the Inbox's own contract. The
-    /// shell only passes it along; the projection itself belongs to the context
-    /// that owns the entries.</summary>
-    private IReadOnlyList<InboxItem> InboxItems => TasksDrafts.ForInbox(State.Rows);
+    /// <summary>Whether the Inbox has been told to load. Once per page: the
+    /// state itself outlives the page and keeps what it loaded, so a second
+    /// Home — Settings and back — asks again and gets a fresh read, which is
+    /// the cheap and correct answer for a store another device may have
+    /// written to meanwhile.</summary>
+    private bool _inboxInitialized;
 
-    /// <summary>How the reader last asked the Inbox to fold. Held here rather than
-    /// in the pane because the pane is drawn in one of two slots depending on
-    /// which other panes are open, and moving slots re-mounts it: triage opens the
-    /// backlog beside the Inbox, and a choice held in the pane would reset to a
-    /// flat list at exactly that moment.</summary>
-    private InboxGrouping _inboxGrouping;
+    /// <summary>The replication loop, or null in a host that composes none. The
+    /// Inbox listens to it here rather than itself because the Inbox's UI may
+    /// not see the sync adapter — the shell may, and forwarding one event is
+    /// the whole of what it does with it.</summary>
+    private TaskSyncWorker? _taskSync;
+
+    private TaskSyncWorker? ResolveTaskSync()
+    {
+        try
+        {
+            return Services.GetService<TaskSyncWorker>();
+        }
+        catch (InvalidOperationException)
+        {
+            // Registered but not constructible here — the same case Settings
+            // reads as "this host does not replicate".
+            return null;
+        }
+    }
+
+    /// <summary>A pull may have delivered a capture. Reloading the Inbox is a
+    /// database read, and only worth it once the pane has loaded at all — before
+    /// that the first load will read whatever arrived.
+    /// <para>
+    /// The task is not awaited — the event is synchronous and the renderer's
+    /// dispatcher owns the continuation — so a failure inside it has nowhere
+    /// to go but the toast. The catch is on this side of <c>InvokeAsync</c> so
+    /// an unobserved exception cannot take the circuit down for a read the
+    /// reader never asked for.
+    /// </para></summary>
+    private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
+    {
+        if (!_inboxInitialized) return;
+
+        try
+        {
+            await InboxState.ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a sync: {ex.Message}", InboxReloadErrorTestId));
+        }
+    });
+
+    /// <summary>Where the two discarded reloads report a failure, for a test
+    /// to find and a reader to read.</summary>
+    private const string InboxReloadErrorTestId = "inbox-reload-error";
+    private const string TasksReloadErrorTestId = "tasks-reload-error";
+
+    /// <summary>Whether a capture run is in flight, and what the last one said.
+    /// Held here rather than in the pane for the reason the Inbox's own view
+    /// state lives in <see cref="InboxDesktopState"/>: the pane re-mounts when
+    /// it changes slot, and a run's result dropping at that moment would leave
+    /// the reader with a button that did nothing. The Inbox's Add is not
+    /// answered here at all — the pane files it through its own module.</summary>
+    private bool _captureRunning;
+    private string? _captureMessage;
+
+    /// <summary>
+    /// The Inbox's Capture, answered: one run over the sources switched on in
+    /// Settings, reported back as a sentence the pane can print.
+    /// <para>
+    /// The runner never throws for a source — each answers for itself in the
+    /// result — so a throw here is the run itself failing to start, and that is
+    /// reported in the same line rather than left to the console.
+    /// </para>
+    /// </summary>
+    private async Task RunCaptureAsync()
+    {
+        if (_captureRunning) return;
+
+        _captureRunning = true;
+        _captureMessage = null;
+
+        try
+        {
+            _captureMessage = Describe(await CaptureRunner.RunAsync());
+        }
+        catch (Exception ex)
+        {
+            _captureMessage = $"Capture could not run: {ex.Message}";
+        }
+        finally
+        {
+            _captureRunning = false;
+        }
+    }
+
+    /// <summary>A run's result in one line. Nothing enabled points at the tab
+    /// that would change that; otherwise each source's own sentence, and the
+    /// total, so a run that found nothing still says it looked.</summary>
+    private static string Describe(CaptureRunResultDto run)
+    {
+        if (run.NothingEnabled)
+        {
+            return "No capture sources are enabled. Turn one on under Settings › Capture.";
+        }
+
+        var sources = string.Join(" · ", run.Sources.Select(source => source.Message));
+        var total = run.TotalNewItems == 1 ? "1 new item." : $"{run.TotalNewItems} new items.";
+
+        return $"{sources} {total}";
+    }
 
     private void SynchronizePaneAvailability()
     {
@@ -938,9 +1077,29 @@
     /// default pane.</summary>
     private void PersistPaneSelection()
     {
+        KeepRepositoryScopeSingleWithoutTasks();
+
         var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
         var pinned = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsPinned).Select(pane => pane.ToString()).ToArray();
         ShellNavigation.SetLastPanes(enabled, pinned);
+    }
+
+    /// <summary>
+    /// The scope holds several repositories only while the Tasks pane is on screen.
+    /// <para>
+    /// Several at once is a list affordance: the backlog list is the only pane that
+    /// can show more than one repository, and the Devbook pane reads exactly one.
+    /// So when the list goes — closed by the reader, or trimmed by a window that no
+    /// longer fits it — the scope drops back to the anchor, and what the Devbook
+    /// pane was reading is what it keeps reading. Called from every path that changes
+    /// which panes are on screen: the toggles and the restore go through
+    /// <see cref="PersistPaneSelection"/>, and the capacity trim calls it itself
+    /// because a trim is deliberately not persisted.
+    /// </para>
+    /// </summary>
+    private void KeepRepositoryScopeSingleWithoutTasks()
+    {
+        if (!TasksPaneVisible) State.NarrowRepositoryScopeToAnchor();
     }
 
     private bool PaneToggleDisabled(GlobalPane pane)
@@ -1013,33 +1172,40 @@
         PersistPaneSelection();
     }
 
-    /// <summary>Triage: the Inbox hands back the item it was asked to open, and
-    /// the shell shows it where work actually happens.
+    /// <summary>Triage: the Inbox turned an item into backlog entries, and the
+    /// shell shows them where work actually happens.
     /// <para>
     /// Alongside rather than a switch: this is the shell opening a pane on the
-    /// reader's behalf, and closing the Inbox they just picked the item from would
-    /// take away the list they were working through.
+    /// reader's behalf, and closing the Inbox they just routed the item from
+    /// would take away the queue they were working through.
     /// </para>
     /// <para>
-    /// Selects the entry rather than opening an editor on it. The raw-markdown
-    /// escape hatch stays behind Ctrl+Shift+M, because that is what makes it the
-    /// hatch `.design/content-editing.md#raw-markdown-escape-hatch` describes
-    /// rather than "the primary surface #editing-model rules out" — and the hatch
-    /// is the <em>selected</em> row being the row with an editor open, so asking
-    /// for one without selecting put nothing on screen at all. The same fix the
-    /// new-entry path took; see <c>TasksDesktopState.NewRow</c>.
+    /// The Tasks pane is reloaded from the store rather than told what changed.
+    /// The Inbox's module wrote the entries through a port an adapter answers,
+    /// so as far as the Tasks state is concerned somebody else wrote its
+    /// database — which is exactly the case its store reload already handles.
+    /// The shell knows both panes exist and nothing about what either holds.
     /// </para></summary>
-    private async Task OpenInboxItemAsync(InboxItem item)
+    private void HandleInboxRouted(InboxRoutedDto routed) => _ = InvokeAsync(async () =>
     {
-        if (TasksDrafts.Find(State.Rows, item) is not { } row) return;
-
         _globalPanes.TryOpenAlongside(GlobalPane.Tasks);
         PersistPaneSelection();
-        await State.SelectAsync(row);
-    }
 
-    /// <summary>The repository scope is global: it narrows the backlog list and,
-    /// through the alias handed to the pane, what knowledge is read beside it.</summary>
+        try
+        {
+            await State.ReloadFromStoreAsync();
+        }
+        catch (Exception ex)
+        {
+            // The entries were made — the Inbox said so — and only the pane
+            // beside it failed to show them. Said on a toast, for the reason
+            // HandleTaskSyncChanged gives: nothing awaits this.
+            Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after routing: {ex.Message}", TasksReloadErrorTestId));
+        }
+
+        StateHasChanged();
+    });
+
     /// <summary>
     /// The repository's identity mark, as classes.
     /// <para>
@@ -1074,12 +1240,59 @@
     /// </summary>
     private void ShowRepositoryColours(bool visible) => _ = State.SetRepositoryColoursVisible(visible);
 
-    private void ToggleRepositoryScopeAsync(string repositoryAlias)
+    /// <summary>
+    /// A press on a scope chip.
+    /// <para>
+    /// The repository scope is global: it narrows the backlog list and, through the
+    /// anchor handed to the pane, what knowledge is read beside it. A plain press is
+    /// the single select the strip always had — this repository, or none when it was
+    /// already alone in the scope. With Ctrl held (Cmd on a Mac) the press adds the
+    /// repository beside the ones already scoped, or takes it back out: the
+    /// convention every file manager has, so it needs no teaching beyond the tooltip.
+    /// A plain press on a chip inside a wider scope narrows to that one, for the
+    /// same reason — that is what a plain click on one of several selected files does.
+    /// </para>
+    /// <para>
+    /// The modifier counts only while the Tasks pane is on screen — see
+    /// <see cref="KeepRepositoryScopeSingleWithoutTasks"/>. Without the list there is
+    /// nothing a second repository could be shown in, so the press is an ordinary one.
+    /// </para>
+    /// </summary>
+    private void ScopeRepository(string repositoryAlias, MouseEventArgs args)
     {
-        var nextAlias = string.Equals(State.SelectedRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
-            ? string.Empty
-            : repositoryAlias;
-        State.SetRepositoryFilter(nextAlias);
+        if ((args.CtrlKey || args.MetaKey) && TasksPaneVisible)
+        {
+            State.ToggleRepositoryInScope(repositoryAlias);
+            return;
+        }
+
+        var alone = State.SelectedRepositoryAliases is [var only]
+            && string.Equals(only, repositoryAlias, StringComparison.Ordinal);
+        State.SetRepositoryFilter(alone ? string.Empty : repositoryAlias);
+    }
+
+    /// <summary>The identity mark, plus the anchor's own class while there is a
+    /// second chip for it to be distinct from.</summary>
+    private string? RepositoryScopeChipClass(string alias, bool anchor)
+    {
+        var mark = RepositoryMarkClass(alias);
+        if (!anchor) return mark;
+
+        return mark is null ? "chip--anchor" : mark + " chip--anchor";
+    }
+
+    /// <summary>What the chip does next, since the modifier is the one thing about
+    /// the strip nothing on screen shows.</summary>
+    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
+    {
+        // No list, no modifier to name: the chip says what a single select says.
+        if (!TasksPaneVisible) return selected ? $"Deselect {repository.FullName}" : repository.FullName;
+
+        if (!selected) return $"{repository.FullName}. Ctrl+click to add it to the scope";
+        if (State.SelectedRepositoryAliases.Count == 1) return $"Deselect {repository.FullName}";
+
+        var name = anchor ? $"{repository.FullName} — Devbook follows this one" : repository.FullName;
+        return $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope";
     }
 
     [JSInvokable]
@@ -1119,6 +1332,7 @@
             return Task.CompletedTask;
         }
 
+        KeepRepositoryScopeSingleWithoutTasks();
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -1136,7 +1350,10 @@
     public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+        InboxState.Changed -= HandleStateChanged;
+        InboxState.Routed -= HandleInboxRouted;
         Features.Changed -= HandleFeaturesChanged;
+        if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
 
         // Unregistered before the reference is disposed, so the map can never hold
         // one that is already dead. The other order leaves a window between the two

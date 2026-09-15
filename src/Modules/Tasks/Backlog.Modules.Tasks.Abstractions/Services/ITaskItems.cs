@@ -33,11 +33,18 @@ public interface ITaskItems
     /// because one save can produce two entries: completing a repeating entry
     /// leaves it completed and creates the next occurrence, and the caller has no
     /// other way to hear about the second one.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxId"/> is provenance for an entry the Inbox
+    /// routed here — the inbox item's id — and null for one typed by hand. It
+    /// is read on create only; the aggregate holds it as constructor-only, so an
+    /// update leaves whatever the entry was born with.
     /// </para></summary>
     Task<Result<SavedTaskDto>> SaveFromTextAsync(
         Guid? id,
         string rawText,
         int order,
+        string? sourceInboxId = null,
         CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
@@ -92,10 +99,16 @@ public interface ITaskItems
     /// the repository names the plan mentions: the name as written, mapped to the
     /// alias they meant. Names they did not match are resolved against the
     /// registry, and registered there when it has never seen them.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxId"/> is stamped on the entries the import
+    /// creates, and on nothing it updates or skips, for the reason
+    /// <see cref="SaveFromTextAsync"/> gives: the field is birth provenance.
     /// </para></summary>
     Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
+        string? sourceInboxId = null,
         CancellationToken cancellationToken = default);
 }

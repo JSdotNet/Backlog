@@ -10,11 +10,13 @@ var builder = DistributedApplication.CreateBuilder(args);
 // is the emulator, so the sync path builds and runs with no Azure account and no
 // subscription cost.
 //
-// The database and both containers are declared so the local shape matches the
-// deployed one: one database, `tasks` and `sessions`, both partitioned on /ownerId.
-// The two TTLs and the sessions indexing policy are NOT expressed here — the
-// emulator honours neither, and duplicating them would create a second place for
-// them to drift from infra/sync/main.bicep, which is where ADR 0005 puts them.
+// The database and all four containers are declared so the local shape matches
+// the deployed one: one database; `tasks` and `sessions` partitioned on /ownerId;
+// `devices` and `pairingCodes` partitioned on /id, because their one hot read has
+// only the document's own id in hand (see DeviceDocument). The TTLs and the
+// sessions indexing policy are NOT expressed here — the emulator honours neither,
+// and duplicating them would create a second place for them to drift from
+// infra/sync/main.bicep, which is where ADR 0005 puts them.
 #pragma warning disable ASPIRECOSMOSDB001 // RunAsPreviewEmulator is experimental; see comment below.
 // The preview (vNext) emulator rather than the original: it is the smaller image,
 // it does not need its self-signed certificate trusted on the host first, and it
@@ -33,6 +35,8 @@ var cosmos = builder.AddAzureCosmosDB("cosmos")
 var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");
 cosmosDatabase.AddContainer("sessions", "/ownerId");
+cosmosDatabase.AddContainer("devices", "/id");
+cosmosDatabase.AddContainer("pairingCodes", "/id");
 
 // Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
 //

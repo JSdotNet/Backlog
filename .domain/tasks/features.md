@@ -145,6 +145,12 @@ the same terms as completing those tasks one at a time.
 A selected task that leaves the current view — because a filter changed, or
 because the change itself moved it out — leaves the selection with it.
 
+The selection can also be deleted as a whole. The act is offered beside the
+field changes, names how many tasks it will take, and applies as directly as
+deleting one task does; the outcome is reported on the same terms as a field
+change, so a task the store refuses is counted rather than the batch abandoned.
+Deleting everything selected empties the selection.
+
 ## Effort registration
 
 ```meta
@@ -368,7 +374,10 @@ related: [.domain/devbook/features.md#bi-directional-linking]
 Search across title, body, tags, and linked knowledge notes; filter by area
 (a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
 status, priority, and recency; grouped views; and inline embedding of Second
-Brain content.
+Brain content. The repository scope can hold several repositories at once while
+the list is on screen — the list shows work filed against any of them — and
+narrows back to one when the list is not, since the list is the only surface
+that can show more than one.
 
 ### Manual ordering
 

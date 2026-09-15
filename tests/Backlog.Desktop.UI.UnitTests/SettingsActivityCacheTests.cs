@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Bunit;
@@ -116,6 +117,8 @@ public sealed class SettingsActivityCacheTests
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         context.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
+        context.Services.AddSingleton<ICaptureSourceSettings>(
+            new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
         context.Services.AddSingleton(new ClaudeSettingsStore(Path.Combine(root, "claude", "claude.json")));
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new NoGitHub(), new NoProbe()));

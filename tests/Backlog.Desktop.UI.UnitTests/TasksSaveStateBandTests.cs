@@ -273,8 +273,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
         public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
             inner.ListAsync(cancellationToken);
 
-        public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid? id, string rawText, int order, CancellationToken cancellationToken = default) =>
-            inner.SaveFromTextAsync(id, rawText, order, cancellationToken);
+        public Task<Result<SavedTaskDto>> SaveFromTextAsync(Guid? id, string rawText, int order, string? sourceInboxId = null, CancellationToken cancellationToken = default) =>
+            inner.SaveFromTextAsync(id, rawText, order, sourceInboxId, cancellationToken);
 
         public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
             inner.DeleteAsync(id, cancellationToken);
@@ -295,6 +295,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
             string rawText,
             string? defaultRepo = null,
             IReadOnlyDictionary<string, string>? repoMatches = null,
+            string? sourceInboxId = null,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The store is not reachable.");
     }

@@ -55,5 +55,17 @@ The intended reflex: to find the code for a feature, open
   all. Read
   `.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md` before
   treating it as an inconsistency.
-- Modules other than `Backlog` and `Roadmap` have not been carved into feature
-  slices yet.
+- `Backlog.Modules.Inbox` follows the same layout since 2026-09-15 —
+  `DomainModels/`, `Features/` (one slice per command, `ReceiveCapture` through
+  `EnsureDefaultOrganizer`), the `IInboxItemRepository` and
+  `IInboxOrganizerRepository` ports at the module root, `Services/`,
+  `Extensions/` — with its published surface in
+  `Backlog.Modules.Inbox.Abstractions`: the DTOs, the `IInboxItems` facade, and
+  the four ports the hosts and adapters answer (`IInboxIntake`,
+  `IInboxCaptureOutbox`, `IInboxBacklogTarget`, `IInboxPlanDrafter`). See local
+  ADR 0009.
+- `Capture` was born sliced — `Features/RunCapture/` behind an `ICaptureRunner`
+  facade — with its source-adapter port and no adapter yet behind it.
+- `Knowledge`, `DevPc` and `Sessions` remain UI-only, with an `.Abstractions`
+  project each and no module implementation project, so they have not been
+  carved into feature slices yet.

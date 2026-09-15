@@ -24,17 +24,23 @@ public sealed class SectionHeaderAdoptionTests
     public void The_inbox_pane_header_keeps_the_shape_it_hand_rolled()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
 
-        var pane = context.Render<InboxPane>(parameters => parameters
-            .Add(p => p.Items, Array.Empty<InboxItem>()));
+        // The pane reads its own module now rather than taking items; the
+        // header it draws above them is the same shape it always was.
+        var root = Path.Combine(Path.GetTempPath(), "backlog-section-header-adoption", Guid.NewGuid().ToString("n"));
+        context.Services.AddSingleton(new GitHubSettingsStore(Path.Combine(root, "github.json")));
+        _ = InboxTestHost.AddInboxState(context.Services);
+
+        var pane = context.Render<InboxPane>();
 
         var header = pane.Find(".inbox-pane__header");
 
         AssertPaneHeader(header, "inbox-pane", "inbox-pane-title");
 
-        // No actions on this pane, so no wrapper for them either.
-        Assert.Single(header.Children);
-        Assert.Empty(pane.FindAll(".inbox-pane__header-actions"));
+        // Add and Capture live in the actions slot under the pane's own name, the
+        // same shape the tools, sessions and dashboard panes keep.
+        AssertPaneHeaderActions(header, "inbox-pane");
     }
 
     [Fact]

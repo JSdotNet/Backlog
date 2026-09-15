@@ -207,13 +207,18 @@ Deployment considerations:
   are still ahead of it.
 - **Webhook timeout handling** — GitHub expects a response within ~10s, so the
   service stores-and-forwards.
-- **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized.
-  The device-token signing key (`Modules:Sync:Tokens:SigningKey`) belongs here
-  too: it is a required setting outside Development, the service refuses to
-  start without one, and `infra/sync/main.bicep` provisions the vault empty —
-  the key itself is not seeded by the template and has to be put there (or
-  supplied another way) before a production start succeeds. See
-  `docs/deployment/sync.md#identity-and-why-there-are-no-keys`.
+- **Secrets in Key Vault** — webhook secrets and OAuth tokens are externalized
+  there when they arrive; `infra/sync/main.bicep` provisions the vault and the
+  service identity's read role for them, and nothing reads it yet. The
+  device-token signing key (`Modules:Sync:Tokens:SigningKey`) deliberately does
+  **not** go through it: it is a required setting outside Development — the
+  service refuses to start without one — and it reaches the container as a
+  **container app secret** from a `@secure()` Bicep parameter, fed by the GitHub
+  environment secret `SYNC_TOKEN_SIGNING_KEY`. A missing key fails the provision
+  rather than the app, the value never touches disk or a log, and a scale-to-zero
+  app pays no vault round-trip on cold start. See
+  `docs/deployment/sync.md#the-device-token-signing-key`, which also covers what a
+  rotation invalidates.
 - **No blob storage** — attachments live on the desktop's local file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
@@ -243,8 +248,8 @@ prerequisites, and `docs/deployment/sync.md` is where they are written down.
 | **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. Resource-group scoped, so it deploys into a group created by hand rather than creating one. |
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
-| **CI/CD** | GitHub Actions on push to `main` — path-filtered to the sync service and its infrastructure — authenticating with **OIDC federated credentials**. No publish profile, no service principal secret in the repository. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same two containers, so the sync path builds and tests with no cloud account. |
+| **CI/CD** | GitHub Actions, **started by hand** (`Deploy Sync` or `Deploy All`) for now — the path-filtered push-to-`main` trigger ADR 0005 describes is parked until a first deploy has been watched succeed — authenticating with **OIDC federated credentials**. No publish profile, no service principal secret in the repository; the one secret carried is the service's own token signing key. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same four containers, so the sync path builds and tests with no cloud account. |
 | **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Application observability only: no domain data is written to either, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. The workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop against runaway logging — once reached, Azure drops the rest of the day, exceptions included, which is intended: on such a day the volume is the incident. See `docs/deployment/sync.md`. |
 
 The Bicep declares one resource ADR 0005 did not name: a container registry.
@@ -260,8 +265,8 @@ that costs anything while nobody is syncing.
 
 ```mermaid
 flowchart LR
-    Dev["Push to main"] --> GHA["GitHub Actions"]
-    GHA -->|"OIDC federated credential\n(no stored secret)"| AZD["azd deploy"]
+    Dev["Run workflow (manual)"] --> GHA["GitHub Actions"]
+    GHA -->|"OIDC federated credential\n(no Azure secret stored)"| AZD["azd deploy"]
     AZD --> Bicep["infra/sync/*.bicep"]
     Bicep --> ACA["Container Apps"]
     Bicep --> Cosmos["Cosmos DB (serverless)"]

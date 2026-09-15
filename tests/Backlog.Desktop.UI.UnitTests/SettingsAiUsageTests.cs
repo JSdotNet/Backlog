@@ -2,6 +2,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -276,6 +277,8 @@ public sealed class SettingsAiUsageTests
             new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         testContext.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
+        testContext.Services.AddSingleton<ICaptureSourceSettings>(
+            new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
         testContext.Services.AddSingleton(github);

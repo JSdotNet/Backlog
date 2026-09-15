@@ -13,6 +13,9 @@
     },
     "containerImage": {
       "value": "${SERVICE_SYNC_IMAGE_NAME=}"
+    },
+    "tokenSigningKey": {
+      "value": "${SYNC_TOKEN_SIGNING_KEY}"
     }
   }
 }

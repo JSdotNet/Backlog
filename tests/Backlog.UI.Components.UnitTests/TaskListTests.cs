@@ -2682,4 +2682,146 @@ public sealed class TaskListTests
 
         Assert.Empty(opened);
     }
+    // --- Where Escape stops ------------------------------------------------
+    //
+    // Both fields in this list consume Escape, and both are inside a host that
+    // may consume it too. TaskEscapeHarness is a host with a keydown handler
+    // above the list, so these can assert the half no other test can see: what
+    // the key did *not* reach. The record is the harness's own list of keys,
+    // because a key that went nowhere is indistinguishable from a key nobody
+    // pressed unless something above is counting.
+
+    /// <summary>
+    /// Escape in a row's rename belongs to that rename, and stops there.
+    /// <para>
+    /// The field abandons the title, which every other test here already covers.
+    /// What this one adds is that the host above the list never hears it: a host
+    /// whose Escape means something of its own — leave the selection, close the
+    /// pane beside the list — would otherwise take that decision as well, out of
+    /// the one keystroke the reader spent on backing out of a rename.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Escape_in_a_rename_stops_at_the_row_it_was_typed_in()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskEscapeHarness>();
+
+        view.Find("[data-testid='list-a-edit']").Click();
+        view.Find("[data-testid='list-a-rename']").Input("Abandoned");
+        view.Find("[data-testid='list-a-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        // The rename's own half, so that a boundary which also broke the
+        // abandoning would not pass.
+        Assert.Empty(view.Instance.Renames);
+        Assert.Equal("First", view.Find("[data-testid='list-a-title']").TextContent);
+
+        // And the half this harness exists for.
+        Assert.Empty(view.Instance.HostKeys);
+    }
+
+    /// <summary>The same field the step lists use, which is open from the start and
+    /// has no pencil behind it. Escape there puts the title back rather than
+    /// closing anything — and it is still the field's key rather than the
+    /// host's.</summary>
+    [Fact]
+    public void Escape_in_an_always_open_title_stops_there_too()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskEscapeHarness>(p => p
+            .Add(h => h.DirectRename, true));
+
+        view.Find("[data-testid='list-a-rename']").Input("Abandoned");
+        view.Find("[data-testid='list-a-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(view.Instance.Renames);
+        Assert.Equal("First", view.Find("[data-testid='list-a-rename']").GetAttribute("value"));
+        Assert.Empty(view.Instance.HostKeys);
+    }
+
+    /// <summary>Escape in the composer clears what was typed into it and stays put,
+    /// and the host hears nothing: a task that does not exist yet is still a draft
+    /// somebody is throwing away, and throwing it away is not leaving the
+    /// list.</summary>
+    [Fact]
+    public void Escape_in_the_add_field_stops_at_the_list()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskEscapeHarness>();
+
+        view.Find("[data-testid='list-add-input']").Input("Never mind");
+        view.Find("[data-testid='list-add-input']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(view.Instance.Added);
+
+        var field = view.Find("[data-testid='list-add-input']");
+
+        Assert.True(string.IsNullOrEmpty(field.GetAttribute("value")));
+        Assert.Empty(view.Instance.HostKeys);
+    }
+
+    /// <summary>
+    /// A row's own line is outside the boundary, and has to be: it is where a
+    /// reader scanning the list with the keyboard stands, and the row holds no
+    /// draft that Escape could put back.
+    /// <para>
+    /// So this is the one place a host can hear the key from — the same split the
+    /// bulk bar draws between a group's trigger and the controls it opens.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Escape_on_a_rows_line_is_the_hosts_to_answer()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskEscapeHarness>();
+
+        view.Find("[data-testid='list-a-open']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(["Escape"], view.Instance.HostKeys);
+    }
+
+    /// <summary>
+    /// And the list says so rather than leaving the host to read the key off the
+    /// DOM: Escape on a row is reported as one thing the host can answer.
+    /// <para>
+    /// It is a hook and not a wrapper the host puts around the list, because there
+    /// is nothing above the rows for a host to attach to — this component's own
+    /// markup is what a row's line sits in, and the host's alternative was a div
+    /// around a flex column of four elements whose gaps are part of the layout.
+    /// </para>
+    /// <para>
+    /// Only from the row's line. A field's Escape is the field's, and a control
+    /// the host put in a row's action slot keeps its own — a select closing the
+    /// list the browser opened is not a reader asking to leave the list.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Escape_on_a_rows_line_is_reported_as_a_dismissal()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskEscapeHarness>();
+
+        view.Find("[data-testid='list-a-open']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, view.Instance.Dismissals);
+
+        // The two fields are not a way out of the list, and this is the same fact
+        // the host-key tests state from the other side.
+        view.Find("[data-testid='list-add-input']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        view.Find("[data-testid='list-b-edit']").Click();
+        view.Find("[data-testid='list-b-rename']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal(1, view.Instance.Dismissals);
+    }
 }

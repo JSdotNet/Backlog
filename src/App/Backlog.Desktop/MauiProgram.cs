@@ -1,4 +1,5 @@
 using Backlog.Desktop.Services;
+using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.AppUpdate;
@@ -13,8 +14,15 @@ using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Inbox;
+using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Capture.Abstractions.Services;
+using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
@@ -130,6 +138,14 @@ public static class MauiProgram
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
 
+        // The same arrangement for capture: the module brings the run, and the host
+        // decides where the monitored sources are kept — its own per-user file
+        // beside the choices above, for the same reason theirs are not in
+        // settings.json. No source adapter is registered because none ships yet;
+        // the run says so per enabled source rather than needing one to exist.
+        builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddCaptureModule();
+
         // The two cross-context joins the plan takes part in, each a port a screen
         // owns and an adapter here answers because only an adapter may see both
         // contexts: the backlog's tag picker offers the plan's tags, and a roadmap
@@ -137,6 +153,23 @@ public static class MauiProgram
         // capture services the modules register as Scoped, so they are Scoped too —
         // registered in one place both hosts share so the lifetimes cannot drift.
         builder.Services.AddRoadmapCrossContextAdapters();
+
+        // The same arrangement for the inbox: the Inbox module brings its use
+        // cases, and the host picks the adapter — three tables in the same
+        // database the tasks use, following the same folder. One rooted store
+        // answers both of the module's repository ports, registered once and
+        // handed out under each, so the two cannot follow different roots.
+        builder.Services.AddSingleton<RootedSqliteInboxRepository>(sp =>
+            new RootedSqliteInboxRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        builder.Services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+        builder.Services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+        builder.Services.AddInboxModule();
+
+        // The cross-context join routing takes part in: the Inbox's backlog
+        // target, answered by an adapter over Tasks' published port because only
+        // an adapter may see both contexts. Scoped, for the reason the roadmap
+        // adapters are, and after AddTasksModule() for the same reason.
+        builder.Services.AddInboxCrossContextAdapters();
         // Half of a repository's configuration is workspace data and lives under
         // the backlog folder, so it follows that folder the way the task database
         // and the roadmap plan already do: the root is read per call rather than
@@ -210,6 +243,16 @@ public static class MauiProgram
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
         builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The Inbox's plan drafter over the same chat client. Singleton here, where
+        // the web harness registers it Scoped, because that is the lifetime the
+        // chain above it actually has in this host: InboxDesktopState is a
+        // singleton, and everything it reaches through IInboxItems - the handlers,
+        // and this - is resolved once from the root and kept for the window's
+        // life whatever its registration says. A Scoped registration would only
+        // hide that; naming it keeps the one HttpClient the drafter holds the same
+        // captive it already was, and no more so than the one Home.razor injects
+        // for the window's own AI question.
+        builder.Services.AddSingleton<IInboxPlanDrafter, AzureFoundryInboxPlanDrafter>();
         // The embedding deployment beside the chat one. Registered and never
         // called in this change: local ADR 0004's semantic tier is wired and
         // dormant, and the thing that would join it up - writing vectors into
@@ -296,6 +339,9 @@ public static class MauiProgram
         // the branch list somebody fetched in one is already there in the other.
         builder.Services.AddSingleton<DevbookSourceSelection>();
         builder.Services.AddSingleton<TasksDesktopState>();
+        // The Inbox pane's state, on the same terms as TasksDesktopState: one
+        // window, one user, one object that outlives the page it is drawn on.
+        builder.Services.AddSingleton<InboxDesktopState>();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the
         // shell's footer never learns which module is the interesting one. Same

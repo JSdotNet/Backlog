@@ -70,7 +70,7 @@ public sealed class TasksBulkEditTests
     /// Presses one of the bar's group triggers, which is what puts that group's
     /// controls on screen.
     /// <para>
-    /// The resting bar is five triggers on one line and no live control at all, so
+    /// The resting bar is five triggers and a delete on one line and no live control at all, so
     /// every field test says which group it is about before it can reach a field.
     /// One group is open at a time, so this also closes whatever was open.
     /// </para>
@@ -305,9 +305,9 @@ public sealed class TasksBulkEditTests
     /// read as a key that had not worked.
     /// </para>
     /// <para>
-    /// Only on the chip and on the bar — see the comment on
-    /// <c>OnSelectionBarKeyDown</c> for why it is not on the list, where a row
-    /// being renamed already owns the key.
+    /// The chip, the bar and a row's own line, which is the whole of what answers
+    /// this key — see <c>Escape_on_a_row_leaves_the_mode</c> for the third one,
+    /// and for why a row being renamed still does not.
     /// </para>
     /// </summary>
     [Fact]
@@ -418,6 +418,66 @@ public sealed class TasksBulkEditTests
         }
     }
 
+    /// <summary>
+    /// Escape on a row's own line leaves the mode, which is the third surface that
+    /// answers the key and the one a reader is actually standing on.
+    /// <para>
+    /// It could not be offered while the key climbed out of a row's rename: a
+    /// handler above the list would have heard both, so every abandoned rename
+    /// would have thrown away the picked set as well. The fields contain their own
+    /// Escape now — see <c>TaskItem.OnRenameKeyAsync</c> — and the row's line
+    /// holds no draft, so this press has nothing else it could have meant.
+    /// </para>
+    /// <para>
+    /// One press rather than the bar's two, for the chip's reason: from a row an
+    /// open group may be scrolled out of view behind the rows, and a first press
+    /// that closed something invisible reads as a key that did not work.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Escape_on_a_row_leaves_the_mode()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, _) = await TwoPickedAsync(host);
+
+        await OpenGroupAsync(pane, "classification");
+
+        await pane.Find($"[data-testid='{RowTestId(one)}-open']")
+            .KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.False(host.State.SelectionMode);
+        Assert.Equal(0, host.State.SelectionCount);
+    }
+
+    /// <summary>
+    /// Escape in a row's rename abandons the title and keeps the picked set, which
+    /// is the whole reason the row's exit could be added at all.
+    /// <para>
+    /// A reader in bulk selection who opens a rename, changes their mind and backs
+    /// out of it has said nothing about the twenty rows they picked before it. The
+    /// field's boundary is what makes that true, and this is the case it was put
+    /// there for.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Escape_in_a_rows_rename_keeps_the_picked_set()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, _) = await TwoPickedAsync(host);
+
+        await pane.Find($"[data-testid='{RowTestId(one)}-edit']").ClickAsync(new());
+
+        var field = pane.Find($"[data-testid='{RowTestId(one)}-rename']");
+
+        await field.InputAsync(new() { Value = "Renamed by mistake" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        // The rename went nowhere, and neither did the selection.
+        Assert.Contains("# Provision the box", one.RawText, StringComparison.Ordinal);
+        Assert.True(host.State.SelectionMode);
+        Assert.Equal(2, host.State.SelectionCount);
+    }
+
     /// <summary>A group's trigger sits outside that boundary, so Escape there is
     /// the group's — which is the way out for a reader who opened a group and
     /// changed their mind without ever entering it.</summary>
@@ -499,17 +559,18 @@ public sealed class TasksBulkEditTests
     /// This is the height claim, asserted rather than eyeballed. The bar stood at
     /// roughly three hundred and eighty pixels when every field had a row of its
     /// own: nine rows at the action pane's reserved line height, in three stacked
-    /// bands, with the right half of the bar empty. Five triggers and nothing else
-    /// is one line.
+    /// bands, with the right half of the bar empty. Five triggers, a delete and
+    /// nothing else is one line.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task The_resting_bar_is_five_acts_and_no_live_control()
+    public async Task The_resting_bar_is_five_acts_a_delete_and_no_live_control()
     {
         using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
         var (pane, _, _) = await TwoPickedAsync(host);
 
         Assert.Equal(5, pane.FindAll("[data-testid='bulk-actions'] .task-action").Count);
+        Assert.Single(pane.FindAll("[data-testid='bulk-actions'] [data-testid='bulk-delete']"));
 
         // Nothing to type into or pick from until a group is asked for. The
         // select-all box and the way out of the selection belong to SelectionBar
@@ -1130,5 +1191,154 @@ public sealed class TasksBulkEditTests
         Assert.Equal(0, outcome.Updated);
         Assert.Empty(outcome.Failures);
         Assert.Equal(before, one.RawText);
+    }
+
+    // --- Deleting the selection (AC6) --------------------------------------
+
+    /// <summary>One press. The delete applies directly, the way the single-row
+    /// bin and My Day do — it was a disclosure with a second press behind it
+    /// once, and review took that out.</summary>
+    private static Task DeleteSelectionAsync(IRenderedComponent<TasksPane> pane) =>
+        pane.Find("[data-testid='bulk-delete']").ClickAsync(new());
+
+    /// <summary>
+    /// The act is the library's destructive button and not a <c>TaskAction</c>
+    /// like the five beside it: the one irreversible thing on the bar is the one
+    /// that should not look like the others, and the red slab is what every
+    /// other delete in the product wears.
+    /// </summary>
+    [Fact]
+    public async Task Delete_is_the_librarys_destructive_button_and_not_a_trigger()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, _, _) = await TwoPickedAsync(host);
+
+        var button = pane.Find("[data-testid='bulk-delete']");
+
+        Assert.Contains("btn--danger", button.ClassName, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='bulk-action-delete-set']"));
+    }
+
+    /// <summary>The button says what it will take, so a reader who picked eight
+    /// rows is looking at the number before the act — and the number is live,
+    /// so unticking one takes one off the button.</summary>
+    [Fact]
+    public async Task The_delete_button_counts_what_it_will_take()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, _) = await TwoPickedAsync(host);
+
+        Assert.Contains(
+            "Delete 2 tasks",
+            pane.Find("[data-testid='bulk-delete']").TextContent,
+            StringComparison.Ordinal);
+
+        await pane.Find($"[data-testid='{RowTestId(one)}-select'] input").ClickAsync(new());
+
+        Assert.Contains(
+            "Delete 1 task",
+            pane.Find("[data-testid='bulk-delete']").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Deleting_the_selection_takes_every_picked_row_and_the_bar_with_it()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, _, _) = await TwoPickedAsync(host);
+
+        await DeleteSelectionAsync(pane);
+
+        Assert.Empty(host.State.Rows);
+        Assert.Equal(0, host.State.SelectionCount);
+        Assert.Empty(pane.FindAll("[data-testid='bulk-bar']"));
+        Assert.Contains("2 tasks deleted", Result(host), StringComparison.Ordinal);
+    }
+
+    /// <summary>Deleting the picked rows is deleting the picked rows: a third
+    /// entry that was never ticked is exactly where it was, text and all.</summary>
+    [Fact]
+    public async Task Deleting_the_selection_leaves_the_rows_that_were_not_picked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var (pane, one, two) = await TwoPickedAsync(host);
+        var three = await host.WriteEntryAsync("# Keep this one\n`task`\n");
+        var before = three.RawText;
+        pane.Render();
+
+        await DeleteSelectionAsync(pane);
+
+        var left = Assert.Single(host.State.Rows);
+        Assert.Equal(three.TaskId, left.TaskId);
+        Assert.Equal(before, left.RawText);
+        Assert.DoesNotContain(host.State.Rows, row => row.TaskId == one.TaskId || row.TaskId == two.TaskId);
+    }
+
+    [Fact]
+    public async Task One_row_deleted_reads_in_the_singular()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync(First);
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        await PickAsync(pane, one);
+
+        await DeleteSelectionAsync(pane);
+
+        Assert.Contains("1 task deleted", Result(host), StringComparison.Ordinal);
+    }
+
+    /// <summary>A detail pane open on one of the deleted entries is a pane about
+    /// nothing, and closes the way the single-row bin closes it.</summary>
+    [Fact]
+    public async Task Deleting_the_open_entry_closes_the_pane_beside_the_list()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync(First);
+        var two = await host.WriteEntryAsync(Second);
+        await host.OpenAsync(one);
+
+        host.State.SetSelection([one.TaskId, two.TaskId]);
+
+        var outcome = await host.State.BulkDeleteAsync();
+
+        Assert.Equal(2, outcome.Updated);
+        Assert.Empty(outcome.Failures);
+        Assert.Null(host.State.SelectedRow);
+    }
+
+    /// <summary>Gone from the store and not only from the list: a state that
+    /// loaded the same store fresh and found the rows again would make the toast
+    /// a lie.</summary>
+    [Fact]
+    public async Task Deleted_rows_stay_deleted_across_a_reload()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync(First);
+        var two = await host.WriteEntryAsync(Second);
+        await host.State.SelectAsync(null);
+
+        host.State.SetSelection([one.TaskId, two.TaskId]);
+        await host.State.BulkDeleteAsync();
+
+        // A second state against the same store, which is what a reload is.
+        await host.FromElsewhereAsync(elsewhere =>
+        {
+            Assert.Empty(elsewhere.Rows);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task A_bulk_delete_over_nothing_deletes_nothing()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync(First);
+
+        var outcome = await host.State.BulkDeleteAsync();
+
+        Assert.Equal(0, outcome.Total);
+        Assert.Single(host.State.Rows);
     }
 }

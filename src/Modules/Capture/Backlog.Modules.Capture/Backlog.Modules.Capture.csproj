@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Capture module — the Capture bounded context (.domain/capture).
+    Clean architecture, inside out:
+      Features/      one vertical slice per use case (command + handler)
+      Ports/         ICaptureSourceAdapter, one per source kind, answered by adapters
+      Services/      the published port, wired to the slices
+      Extensions/    AddCaptureModule() composition root for hosts
+    No adapter ships yet: a run over an enabled source reports that, per source,
+    rather than failing. This project may reference the shared kernel and its own
+    Abstractions, and nothing else in the solution. Hosts go the other way: they
+    call the facade and hold the DTOs.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Capture</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddCaptureModule(); the handler knows nothing about the
+         container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The handler and the adapter port are internal to the module's shape but
+         worth driving directly: what a run says per source is the module's
+         whole behaviour today. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Capture.UnitTests" />
+  </ItemGroup>
+
+</Project>

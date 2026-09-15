@@ -84,28 +84,61 @@
             <div class="feedback-dialog__screenshot">
                 @if (_feedbackScreenshot is not null)
                 {
+                    @* "Attached" rather than "Captured": the same preview holds a
+                       pasted image as well as a captured one. *@
                     <img class="feedback-dialog__screenshot-preview"
                          data-testid="feedback-screenshot-preview"
                          src="@_feedbackScreenshot.DataUrl"
-                         alt="Captured screenshot preview" />
+                         alt="Attached screenshot preview" />
                     <div class="feedback-dialog__screenshot-actions">
-                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-retake" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="CaptureScreenshotAsync">
+                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-retake" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
                             @(_feedbackCapturing ? "Capturing..." : "Retake screenshot")
                         </AppButton>
-                        <AppButton Variant="ButtonVariant.Ghost" data-testid="feedback-screenshot-remove" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="RemoveScreenshot">
+                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
+                            @(_feedbackPasting ? "Pasting..." : "Paste image")
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Ghost" data-testid="feedback-screenshot-remove" Disabled="@ScreenshotBusy" OnClick="RemoveScreenshot">
                             Remove
                         </AppButton>
                     </div>
                 }
                 else
                 {
-                    <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-attach" Disabled="@(_feedbackCapturing || _feedbackSubmitting)" OnClick="CaptureScreenshotAsync">
-                        @(_feedbackCapturing ? "Capturing..." : "Attach screenshot")
-                    </AppButton>
+                    @* Both origins side by side rather than one under the other:
+                       capturing and pasting are the same offer, and a reader who
+                       has already copied the picture should not have to read past
+                       the capture to find that out. *@
+                    <div class="feedback-dialog__screenshot-actions">
+                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-attach" Disabled="@ScreenshotBusy" OnClick="CaptureScreenshotAsync">
+                            @(_feedbackCapturing ? "Capturing..." : "Attach screenshot")
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.Secondary" data-testid="feedback-screenshot-paste" Disabled="@ScreenshotBusy" OnClick="PasteScreenshotAsync">
+                            @(_feedbackPasting ? "Pasting..." : "Paste image")
+                        </AppButton>
+                    </div>
                 }
             </div>
 
-            <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole" />
+            @* The link goes inside the status line rather than beside it: the
+               line is the live region, and a way back to the issue announced
+               separately from the sentence saying it exists is either read
+               twice or not at all. The library ships no link component — see the
+               `md-link` entry in SharedControlAdoptionTests — so the anchor is
+               written here, in Alert's own slot. *@
+            <Alert Message="@_feedbackMessage" BaseClass="@FeedbackStatusClass" Role="@FeedbackStatusRole">
+                @if (_feedbackIssueLink is { } issue)
+                {
+                    @* The gap is written here rather than left to CSS: the line is
+                       read out and copied as text, and a margin is neither. *@
+                    <text>&nbsp;</text>
+                    <a class="feedback-status__link"
+                       data-testid="feedback-issue-link"
+                       href="@issue.Url"
+                       target="_blank"
+                       rel="noopener"
+                       aria-label="@($"Open issue {issue.RepoFullName}{issue.Label} on GitHub")">@($"{issue.RepoFullName}{issue.Label}")</a>
+                }
+            </Alert>
         </ChildContent>
         <Footer>
             <AppButton Variant="ButtonVariant.Ghost" Disabled="@_feedbackSubmitting" OnClick="CloseFeedbackDialog">Cancel</AppButton>
@@ -120,12 +153,14 @@
     private bool _feedbackOpen;
     private bool _feedbackSubmitting;
     private bool _feedbackCapturing;
-    private bool _feedbackSucceeded;
+    private bool _feedbackPasting;
+    private FeedbackTone _feedbackTone;
     private string _feedbackTitle = string.Empty;
     private string _feedbackDetails = string.Empty;
     private string? _feedbackMessage;
     private GitHubFeedbackScreenshot? _feedbackScreenshot;
     private string? _feedbackScreenshotError;
+    private GitHubIssueLink? _feedbackIssueLink;
 
     protected override void OnInitialized() => Features.Changed += HandleFeaturesChanged;
 
@@ -141,15 +176,46 @@
     private string? FeatureStatusTitle(string featureKey) =>
         AppFeatureStatusBadge.TitleFor(AppFeatures.All, Features, featureKey);
 
-    private string FeedbackStatusClass => $"feedback-status {(_feedbackSucceeded ? "feedback-status--ok" : "feedback-status--error")}";
+    /// <summary>
+    /// How the status line announces itself. Three tones rather than the
+    /// succeeded/failed pair this started as, because a clipboard holding text
+    /// is neither: it is the normal state of a clipboard, and the live-region
+    /// table in <c>.design/accessibility.md</c> keeps <c>role="alert"</c> and the
+    /// error surface for Conflict and Error. An answer that interrupts to say
+    /// nothing is wrong spends both.
+    /// </summary>
+    private enum FeedbackTone
+    {
+        // The default, and what a cleared line falls back to — nothing is drawn
+        // without a message, and every message set without saying otherwise is a
+        // failure: a missing title, a refused capture, GitHub turning the report
+        // away.
+        Error,
+        Info,
+        Ok
+    }
 
-    private string FeedbackStatusRole => _feedbackSucceeded ? "status" : "alert";
+    private string FeedbackStatusClass => $"feedback-status {_feedbackTone switch
+    {
+        FeedbackTone.Ok => "feedback-status--ok",
+        FeedbackTone.Info => "feedback-status--info",
+        _ => "feedback-status--error"
+    }}";
+
+    private string FeedbackStatusRole => _feedbackTone == FeedbackTone.Error ? "alert" : "status";
+
+    /// <summary>Whether an image is on its way in. One flag for both origins,
+    /// because they end in the same attachment: reading the clipboard while a
+    /// capture is still resolving would decide which of the two won by whichever
+    /// finished last.</summary>
+    private bool ScreenshotBusy => _feedbackCapturing || _feedbackPasting || _feedbackSubmitting;
 
     private void OpenFeedbackDialog()
     {
         _feedbackOpen = true;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
     }
 
     private void CloseFeedbackDialog()
@@ -157,22 +223,25 @@
         if (_feedbackSubmitting) return;
 
         _feedbackOpen = false;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
     }
 
     private void OnFeedbackTitleInput(string value)
     {
         _feedbackTitle = value;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
     }
 
     private void OnFeedbackDetailsInput(string value)
     {
         _feedbackDetails = value;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
     }
 
     private async Task CaptureScreenshotAsync()
@@ -181,8 +250,9 @@
 
         _feedbackCapturing = true;
         _feedbackScreenshotError = null;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
 
         try
         {
@@ -199,7 +269,10 @@
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
-            _feedbackScreenshotError = ex.Message;
+            // Named here rather than in the reporter: the reporter is handed a
+            // failure and cannot tell which of the two origins produced it, and
+            // whoever reads the filed issue was not at the machine.
+            _feedbackScreenshotError = $"Screenshot capture failed: {ex.Message}";
             _feedbackMessage = _feedbackScreenshotError;
         }
         finally
@@ -208,31 +281,87 @@
         }
     }
 
+    /// <summary>
+    /// The clipboard's image, attached exactly as a capture is.
+    /// <para>
+    /// The one place it differs is the empty answer. A capture that produced
+    /// nothing failed; a clipboard holding text or nothing at all is the normal
+    /// state of a clipboard, so it is reported and nothing else changes — in
+    /// particular the attachment already made stays made, because clearing it
+    /// would lose a screenshot the reporter took deliberately over one wrong
+    /// click.
+    /// </para>
+    /// </summary>
+    private async Task PasteScreenshotAsync()
+    {
+        if (_feedbackPasting) return;
+
+        _feedbackPasting = true;
+        _feedbackScreenshotError = null;
+        _feedbackTone = FeedbackTone.Error;
+        _feedbackMessage = null;
+        _feedbackIssueLink = null;
+
+        try
+        {
+            var screenshot = await JS.InvokeAsync<GitHubFeedbackScreenshot?>("backlogReadClipboardImage");
+            if (screenshot is null)
+            {
+                _feedbackTone = FeedbackTone.Info;
+                _feedbackMessage = "The clipboard doesn't hold an image. Copy one, or attach a screenshot instead.";
+            }
+            else
+            {
+                _feedbackScreenshot = screenshot;
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // The clipboard, said so — the reporter cannot tell the two origins
+            // apart, and a refusal filed as a capture failure sends whoever reads
+            // the issue looking for a display picker nobody ever opened.
+            _feedbackScreenshotError = $"Reading the clipboard failed: {ex.Message}";
+            _feedbackMessage = _feedbackScreenshotError;
+        }
+        finally
+        {
+            _feedbackPasting = false;
+        }
+    }
+
+    // The link is cleared wherever the message is, here included: it is the tail
+    // of one line, so it lives exactly as long as the sentence it followed.
     private void RemoveScreenshot()
     {
         _feedbackScreenshot = null;
         _feedbackScreenshotError = null;
         _feedbackMessage = null;
+        _feedbackIssueLink = null;
     }
 
     private async Task SubmitFeedbackAsync()
     {
         if (string.IsNullOrWhiteSpace(_feedbackTitle))
         {
-            _feedbackSucceeded = false;
+            _feedbackTone = FeedbackTone.Error;
             _feedbackMessage = "Add a short title before creating the issue.";
+            _feedbackIssueLink = null;
             return;
         }
 
         _feedbackSubmitting = true;
-        _feedbackSucceeded = false;
+        _feedbackTone = FeedbackTone.Error;
         _feedbackMessage = _feedbackScreenshot is null ? "Creating the GitHub issue..." : "Uploading the screenshot...";
+        _feedbackIssueLink = null;
 
         try
         {
             var link = await Feedback.ReportAsync(_feedbackTitle, _feedbackDetails, _feedbackScreenshot, _feedbackScreenshotError);
-            _feedbackSucceeded = true;
-            _feedbackMessage = $"Created {link.RepoFullName}{link.Label}.";
+            _feedbackTone = FeedbackTone.Ok;
+            // The repository and the number are the link's own text, so the
+            // sentence stops before them rather than printing them twice.
+            _feedbackMessage = "Created";
+            _feedbackIssueLink = link;
             _feedbackTitle = string.Empty;
             _feedbackDetails = string.Empty;
             _feedbackScreenshot = null;
@@ -240,7 +369,7 @@
         }
         catch (GitHubException ex)
         {
-            _feedbackSucceeded = false;
+            _feedbackTone = FeedbackTone.Error;
             _feedbackMessage = ex.Message;
         }
         finally

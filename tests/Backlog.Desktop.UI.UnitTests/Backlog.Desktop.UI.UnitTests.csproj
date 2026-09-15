@@ -99,6 +99,10 @@
     <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <!-- Capture, both sides: the Home and Settings hosts here compose the module
+         the way the application hosts do, and the Inbox tests drive its port. -->
+    <ProjectReference Include="..\..\src\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>
 
