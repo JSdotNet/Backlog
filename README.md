@@ -36,7 +36,7 @@ Refine and prioritize work items linked to projects and GitHub repositories. Ite
 
 Prompts are stored, versioned, and linked to the project and work item they belong to. One-click copy delivers a prompt directly to your active tooling. Usage is tracked so high-value prompts surface again when they are relevant.
 
-### Second brain
+### Devbook
 
 Project knowledge, cross-project notes, and reference material are organized in a PARA-aligned structure. AI sessions and decisions are stored alongside the work they informed.
 
