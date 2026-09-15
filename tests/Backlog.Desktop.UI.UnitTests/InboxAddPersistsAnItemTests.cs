@@ -4,6 +4,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
+using Backlog.Modules.Capture.Ports;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
@@ -154,11 +155,14 @@ public sealed class InboxAddPersistsAnItemTests
         });
     }
 
+    /// <summary>Email has no adapter in the product yet, and this host
+    /// registers none for it either: the run says so on that source's line
+    /// rather than failing.</summary>
     [Fact]
-    public async Task Capture_with_youtube_enabled_reports_no_adapter_yet()
+    public async Task Capture_with_a_source_that_has_no_adapter_says_so()
     {
         using var harness = CreateHarness();
-        Assert.Null(harness.CaptureSources.SetEnabled(CaptureSourceKind.YouTube, true));
+        Assert.Null(harness.CaptureSources.SetEnabled(CaptureSourceKind.Email, true));
 
         var component = Render(harness);
         await WaitForInboxAsync(component);
@@ -168,15 +172,75 @@ public sealed class InboxAddPersistsAnItemTests
         component.WaitForAssertion(() =>
         {
             var result = component.Find("[data-testid='inbox-pane-capture-result']").TextContent;
-            Assert.Contains("YouTube", result, StringComparison.Ordinal);
-            Assert.Contains("no adapter is available yet", result, StringComparison.Ordinal);
-            Assert.Contains("0 new items", result, StringComparison.Ordinal);
+            Assert.Equal("Email: no adapter is available yet.", result.Trim());
         });
 
         // The button comes back once the run is done, and a run that found
         // nothing put nothing in the Inbox.
         Assert.False(component.Find("[data-testid='inbox-pane-capture']").HasAttribute("disabled"));
         Assert.Empty(harness.Inbox.Items);
+    }
+
+    /// <summary>The feature: what is new at an enabled source becomes Inbox
+    /// rows, on screen without a restart, and pressing the button again over
+    /// the same source adds nothing — the entry arrives under the same id.</summary>
+    [Fact]
+    public async Task Capture_puts_what_the_source_found_in_the_inbox_and_a_second_run_adds_nothing()
+    {
+        using var harness = CreateHarness();
+        Assert.Null(harness.CaptureSources.SetEnabled(CaptureSourceKind.YouTube, true));
+        Assert.Null(harness.CaptureSources.SetTargets(CaptureSourceKind.YouTube, ["@dotnet"]));
+        harness.Adapter.Entries.Add(new CapturedEntry(
+            "yt:video:abc123DEF45",
+            "What is new in Aspire 13",
+            "https://www.youtube.com/watch?v=abc123DEF45",
+            BodyMd: null,
+            PublishedAt: new DateTimeOffset(2026, 9, 10, 15, 0, 0, TimeSpan.Zero)));
+
+        var component = Render(harness);
+        await WaitForInboxAsync(component);
+
+        await component.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("YouTube: 1 new item.", component.Find("[data-testid='inbox-pane-capture-result']").TextContent.Trim());
+            Assert.Contains("What is new in Aspire 13", component.Find("[data-testid='inbox-pane-list']").TextContent, StringComparison.Ordinal);
+        });
+
+        var item = Assert.Single(harness.Inbox.Items);
+        Assert.Equal("youtube", item.Channel);
+        Assert.Equal("https://www.youtube.com/watch?v=abc123DEF45", item.SourceUrl);
+        Assert.Equal("YouTube", component.Find("[data-testid='inbox-pane-item-source']").TextContent.Trim());
+
+        await component.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+            Assert.Equal("YouTube: 0 new items.", component.Find("[data-testid='inbox-pane-capture-result']").TextContent.Trim()));
+        Assert.Single(harness.Inbox.Items);
+        Assert.Equal(2, harness.Adapter.Runs);
+    }
+
+    /// <summary>Two sources on: each says its own line, and the total follows
+    /// so the reader is not left adding up.</summary>
+    [Fact]
+    public async Task Capture_over_two_sources_reports_each_and_the_total()
+    {
+        using var harness = CreateHarness();
+        Assert.Null(harness.CaptureSources.SetEnabled(CaptureSourceKind.YouTube, true));
+        Assert.Null(harness.CaptureSources.SetEnabled(CaptureSourceKind.Email, true));
+        harness.Adapter.Entries.Add(new CapturedEntry("yt:video:one", "One", null, null, null));
+        harness.Adapter.Entries.Add(new CapturedEntry("yt:video:two", "Two", null, null, null));
+
+        var component = Render(harness);
+        await WaitForInboxAsync(component);
+
+        await component.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(
+                "YouTube: 2 new items. Email: no adapter is available yet. 2 new items in all.",
+                component.Find("[data-testid='inbox-pane-capture-result']").TextContent.Trim()));
     }
 
     // --- Driving it -------------------------------------------------------
@@ -291,10 +355,14 @@ public sealed class InboxAddPersistsAnItemTests
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
-        // The two halves of Capture the shell needs: the module for the run, and
-        // the host's choice of where the sources are kept.
+        // The halves of Capture the shell needs: the module for the run, the
+        // host's choice of where the sources are kept, one adapter a test can
+        // arm, and the delivery into the fake Inbox below.
+        var adapter = new FakeCaptureSourceAdapter(CaptureSourceKind.YouTube);
         context.Services.AddSingleton<ICaptureSourceSettings>(captureSources);
+        context.Services.AddSingleton<ICaptureSourceAdapter>(adapter);
         context.Services.AddCaptureModule();
+        InboxTestHost.AddCaptureDelivery(context.Services);
 
         TasksTestHost.AddToastChannel(context.Services);
 
@@ -304,13 +372,14 @@ public sealed class InboxAddPersistsAnItemTests
             TasksCopilotCli.Unavailable));
         var inbox = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context, captureSources, TasksTestHost.EntriesFor(store), inbox);
+        return new Harness(root, context, captureSources, adapter, TasksTestHost.EntriesFor(store), inbox);
     }
 
     private sealed record Harness(
         string Root,
         BunitContext Context,
         CaptureSourcesSettingsStore CaptureSources,
+        FakeCaptureSourceAdapter Adapter,
         ITaskItems Entries,
         FakeInboxItems Inbox) : IDisposable
     {

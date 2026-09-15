@@ -376,8 +376,10 @@ depends-on: [".tech/shared.md#net-runtime"]
 
 `IHttpClientFactory` and typed HTTP clients.
 
-- **Used for** — the outbound clients in `Backlog.Mobile.UI`, and the base every
-  vendor adapter (GitHub, Claude, Azure Foundry) is configured through.
+- **Used for** — the outbound clients in `Backlog.Mobile.UI`, the base every
+  vendor adapter (GitHub, Claude, Azure Foundry) is configured through, and the
+  named `capture-feeds` client `Backlog.Infrastructure.Capture` fetches YouTube
+  and website feeds on.
 - **Why** — correct socket lifetime handling, and one place to attach handlers.
 
 ## Microsoft.Extensions.Http.Resilience
@@ -392,7 +394,10 @@ depends-on: [".tech/shared.md#microsoftextensionshttp"]
 Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
 
 - **Used for** — the standard resilience handler `Backlog.Aspire.ServiceDefaults`
-  applies to every registered client.
+  applies to every registered client. The `capture-feeds` client in
+  `Backlog.Infrastructure.Capture` replaces that default with its own pipeline —
+  1 retry, a 10 s attempt timeout, 15 s total — because a feed poll is a button
+  press on the user's own machine, not a background job.
 - **Why** — every external call in this system crosses a network the app does not
   control, and the shipped defaults beat per-call ad-hoc retries.
 

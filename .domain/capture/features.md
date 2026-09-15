@@ -88,21 +88,24 @@ that would change that.
 
 ```meta
 type: sub-feature
-status: draft
+status: active
 ```
 
-Poll subscribed channels for new videos; auto-tag `#capture/youtube` and file
-under `inbox/incoming/youtube/{channel_name}/`.
+Poll a subscribed channel's video feed — given as a feed URL, a channel id, or
+a handle/user/c page resolved to one — for new videos. Delivers straight into
+the Inbox; no folder filing and no `#capture/youtube` auto-tag yet.
 
 ### Website monitor
 
 ```meta
 type: sub-feature
-status: draft
+status: active
 ```
 
-Watch configured URLs for content changes (RSS, DOM diff); auto-tag
-`#capture/web/{domain}`.
+Watch a configured URL for a discoverable feed — `<link rel=alternate>`, a
+same-host feed link, or a well-known path — and deliver new entries into the
+Inbox. No DOM-diff fallback for a site with no feed, no folder filing, and no
+`#capture/web/{domain}` auto-tag yet.
 
 ### News email ingestion
 

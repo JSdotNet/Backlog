@@ -144,13 +144,19 @@
                              aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
                             {
+                                @* The face carries the open count and the tooltip
+                                   carries both halves — see TagFilterOption. The
+                                   per-kind class is the same distinction the row
+                                   chips draw, so a person, a plan and a general tag
+                                   read apart on the bar the way they do on the row. *@
                                 <ToggleButton BaseClass="chip chip--filter"
+                                              CssClass="@TagFilterKindClass(tag)"
                                               PressedCssClass="chip--active"
                                               Pressed="@State.IsTagSelected(tag.Value)"
                                               TestId="tag-filter-option"
-                                              Title="@(State.IsTagSelected(tag.Value) ? $"Stop filtering by {tag.Label}" : $"Filter by {tag.Label}")"
+                                              Title="@TagFilterTitle(tag)"
                                               PressedChanged="_ => State.ToggleTagFilter(tag.Value)">
-                                    @tag.Label<span class="chip__count">@tag.Count</span>
+                                    @tag.Label<span class="chip__count">@tag.OpenCount</span>
                                 </ToggleButton>
                             }
                         </div>
@@ -1368,10 +1374,12 @@
             .Select(tag => new SelectorOption(tag, tag))];
 
     /// <summary>The tags the selection is actually wearing, which is the only set
-    /// removing one from it can honestly offer.</summary>
+    /// removing one from it can honestly offer. The title's people are in it —
+    /// a bulk remove is how <c>@bob</c> comes off ten rows at once — and the body's
+    /// tags are not, because prose is not the editor's to take a word out of.</summary>
     private IReadOnlyList<SelectorOption> SelectionTagOptions() =>
         [.. State.SelectedRows
-            .SelectMany(row => row.PreviewMetadataTags)
+            .SelectMany(row => row.PreviewEditableTags)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
             .Select(tag => new SelectorOption(tag, tag))];
@@ -2768,10 +2776,17 @@
     /// reads tags; this entry's are edited, and a control is not something a
     /// read-only strip can stand in for.
     /// </para>
+    /// <para>
+    /// The chips are <c>PreviewEditableTags</c> — the metadata line's tags and the
+    /// title's people — and not the metadata line alone, because the set the
+    /// picker hands back is the set the writer keeps. A picker that could not see
+    /// <c>@bob</c> on the title would hand back a set without him on its next
+    /// change, and he would be gone.
+    /// </para>
     /// </summary>
     private RenderFragment RenderTagEditor(EntryRow row) =>
         @<TagMultiSelect Options="@TagSelectorOptions(row)"
-                         SelectedValues="@row.PreviewMetadataTags"
+                         SelectedValues="@row.PreviewEditableTags"
                          SelectedValuesChanged="tags => State.ChangeTagsAsync(row, tags)"
                          AllowCreate="true"
                          Placeholder="Tags"
@@ -3294,6 +3309,30 @@
     {
         var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
         return text.ToLowerInvariant();
+    }
+
+    /// <summary>The bar's per-kind modifier, read off the stored value the way
+    /// <c>TagChip</c> reads its own. "Untagged" is a general chip: it names no tag,
+    /// so it wears no sigil and no shape of its own.</summary>
+    private static string TagFilterKindClass(TagFilterOption tag) => TagText.Kind(tag.Value) switch
+    {
+        TagKind.Person => "chip--tag-person",
+        TagKind.Plan => "chip--tag-plan",
+        _ => "chip--tag-general"
+    };
+
+    /// <summary>What pressing the chip does, then what is behind the number on it:
+    /// "Filter by #sync — 2 open, 1 completed". The completed clause is left off
+    /// when there is nothing finished, so a chip whose face already says everything
+    /// does not explain a zero.</summary>
+    private string TagFilterTitle(TagFilterOption tag)
+    {
+        var act = State.IsTagSelected(tag.Value) ? "Stop filtering by" : "Filter by";
+        var counts = tag.CompletedCount > 0
+            ? $"{tag.OpenCount} open, {tag.CompletedCount} completed"
+            : $"{tag.OpenCount} open";
+
+        return $"{act} {tag.Label} — {counts}";
     }
 
     /// <summary>"never checked" is a real, distinct answer from "open" — the

@@ -33,10 +33,14 @@ public sealed class RoadmapPlanTagSource : IRoadmapTagSource
 
         // First appearance wins, so the offered order is stable between reads — the
         // plan lists its items in one order and the picker should not shuffle them.
+        //
+        // Offered wearing the plan sigil, because that is how the backlog stores a
+        // tag that names a roadmap item: the plan holds the bare slug, the entry
+        // holds `+slug`, and the picker has to offer the value the entry will keep.
         foreach (var item in plan.Items)
         {
             if (string.IsNullOrWhiteSpace(item.Tag)) continue;
-            if (seen.Add(item.Tag)) tags.Add(item.Tag);
+            if (seen.Add(item.Tag)) tags.Add("+" + item.Tag);
         }
 
         return tags;

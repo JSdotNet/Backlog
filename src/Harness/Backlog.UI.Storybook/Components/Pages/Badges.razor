@@ -98,9 +98,9 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
     <Story Name="TagChip"
            Description="Removable chips actually remove: the list below is the page's state and shrinks as you dismiss them.
 
-There are two kinds of tag and one component. The chip reads its own kind off the text it is handed — a leading `@@` means a person, anything else is a general tag — so there is no parameter to set, no second component, and every caller that already drew tags got the person variant without being edited. The sigil is drawn rather than merely implied, which makes the pill behind a person tag the *second* carrier of the distinction and never the only one.
+There are three kinds of tag and one component. The chip reads its own kind off the text it is handed — a leading `@@` means a person, a leading `+` means a plan tag (the roadmap item an entry is filed under), anything else is a general tag — so there is no parameter to set, no second component, and every caller that already drew tags got the person and plan variants without being edited. The sigil is drawn rather than merely implied, which makes the pill behind a person tag and the outlined edge around a plan tag the *second* carrier of each distinction and never the only one. A plan tag is outlined rather than filled on purpose: filled means the product acts on it, and a plan tag is information about where the entry is filed.
 
-The hash is still the caller's, as it always was here: `TagChip` draws exactly the text it is given. What the row and the panel pass through first is `TagText.Display`, which adds a hash to a general tag and leaves a person tag alone — because a person tag keeps its `@@` in the stored value while a general tag is stored bare. That asymmetry is what lets every tag written before people existed keep meaning “general” with no migration behind it."
+The hash is still the caller's, as it always was here: `TagChip` draws exactly the text it is given. What the row and the panel pass through first is `TagText.Display`, which adds a hash to a general tag and leaves a person or plan tag alone — because those keep their sigil in the stored value while a general tag is stored bare. That asymmetry is what lets every tag written before people and plans existed keep meaning “general” with no migration behind it."
            Code="@TagCode">
         <div class="sb-stack">
             <div>
@@ -113,11 +113,11 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
                 </div>
             </div>
             <div>
-                <p class="sb-label">General and person</p>
-                <div class="sb-row" data-testid="person-tags">
+                <p class="sb-label">General, person and plan</p>
+                <div class="sb-row" data-testid="sigil-tags">
                     @foreach (var tag in SigilTags)
                     {
-                        <TagChip Text="@tag" TestId="@($"sigil-tag-{tag.TrimStart('@', '#')}")" />
+                        <TagChip Text="@tag" TestId="@($"sigil-tag-{tag.TrimStart('@', '#', '+')}")" />
                     }
                 </div>
             </div>
@@ -166,10 +166,10 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
     private static readonly string[] FeatureStatusValues = ["dev", "beta"];
     private static readonly string[] FixedTags = ["ui", "markdown", "aspire"];
 
-    /// <summary>One of each kind, written the way each is actually stored: a
-    /// person tag keeps its sigil in the value, a general tag is stored bare and
-    /// only ever wears its hash on screen.</summary>
-    private static readonly string[] SigilTags = ["#deploy", "@bob", "#release", "@carol"];
+    /// <summary>Each kind, written the way each is actually stored: a person tag
+    /// keeps its <c>@</c> and a plan tag its <c>+</c> in the value, a general tag
+    /// is stored bare and only ever wears its hash on screen.</summary>
+    private static readonly string[] SigilTags = ["#deploy", "@bob", "+release-q4", "#release", "@carol", "+sync-mvp"];
 
     private List<string> _tags = ["ui", "markdown", "sync", "aspire", "docs"];
 

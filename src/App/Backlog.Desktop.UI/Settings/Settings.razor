@@ -34,6 +34,7 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
+@using Backlog.SharedKernel.Results
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
 @using Backlog.Modules.Devbook.Abstractions
@@ -3636,24 +3637,6 @@
         StateHasChanged();
     });
 
-    /// <summary>Who the service says this device is, which is where the count of
-    /// paired devices comes from. An ordinary failure is still not reported: the
-    /// card has the stored identity to show, and an unreachable service saying so
-    /// twice on one screen is noise.
-    /// <para>
-    /// One failure is not ordinary. A 401 carrying
-    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/> is the service saying
-    /// it has no record of this device, and that is the whole state the panel
-    /// needs in order to offer a way back. Any other failure leaves the verdict
-    /// where it was rather than clearing it, because it is not an answer to the
-    /// same question.
-    /// </para>
-    /// <para>
-    /// And when the failure carried no answer at all, the panel goes and asks.
-    /// See <see cref="AskWhetherTheCredentialStillWorksAsync"/> for why that is
-    /// a question rather than a retry.
-    /// </para>
-    /// </summary>
     /// <summary>One sentence for where the sync traffic goes and why there,
     /// so "No such host is known" has its explanation next to the fix.</summary>
     private string SyncServiceStatusLine
@@ -3713,6 +3696,29 @@
         }
     }
 
+    /// <summary>Who the service says this device is, which is where the count of
+    /// paired devices comes from. An ordinary failure is still not reported: the
+    /// card has the stored identity to show, and an unreachable service saying so
+    /// twice on one screen is noise.
+    /// <para>
+    /// One failure is not ordinary. A 401 carrying
+    /// <see cref="SyncErrorCodes.DeviceCredentialInvalid"/> is the service saying
+    /// it has no record of this device, and that is the whole state the panel
+    /// needs in order to offer a way back. Any other failure leaves the verdict
+    /// where it was rather than clearing it, because it is not an answer to the
+    /// same question.
+    /// </para>
+    /// <para>
+    /// And when the failure carried no answer at all, the panel goes and asks.
+    /// See <see cref="AskWhetherTheCredentialStillWorksAsync"/> for why that is
+    /// a question rather than a retry - and for the one case in which the answer
+    /// is then used: a service that has just minted a token for this credential
+    /// has said the device is still in, so the count it refused a moment ago is
+    /// asked for once more, with that token. Without this, the first load after
+    /// the service restarted said "Paired as" and nothing about the other devices
+    /// until the tab was opened again.
+    /// </para>
+    /// </summary>
     private async Task RefreshDeviceStatusAsync()
     {
         if (_devicePairing is null || StoredDevice is null)
@@ -3723,27 +3729,43 @@
 
         try
         {
-            var result = await _devicePairing.GetStatusAsync();
-            _deviceStatus = result.IsSuccess ? result.Value : null;
+            if (RecordDeviceStatus(await _devicePairing.GetStatusAsync())) return;
 
-            if (result.IsSuccess)
-            {
-                _deviceStatusRejected = false;
-                return;
-            }
+            if (!await AskWhetherTheCredentialStillWorksAsync()) return;
 
-            if (string.Equals(result.Error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
-            {
-                _deviceStatusRejected = true;
-                return;
-            }
-
-            await AskWhetherTheCredentialStillWorksAsync();
+            // Once, and only here: the token endpoint has just answered that the
+            // credential is good, and the provider is holding the token it was
+            // answered with, so this call goes out with it rather than minting
+            // another. Whatever it says is taken as final - a second bare 401
+            // is not asked about again.
+            _ = RecordDeviceStatus(await _devicePairing.GetStatusAsync());
         }
         catch (Exception)
         {
             _deviceStatus = null;
         }
+    }
+
+    /// <summary>Takes a status answer onto the card. <c>true</c> when it was an
+    /// answer - a status, or the service saying the device is gone - and
+    /// <c>false</c> when it said nothing that settles the question.</summary>
+    private bool RecordDeviceStatus(Result<DeviceStatusResponse> result)
+    {
+        _deviceStatus = result.IsSuccess ? result.Value : null;
+
+        if (result.IsSuccess)
+        {
+            _deviceStatusRejected = false;
+            return true;
+        }
+
+        if (string.Equals(result.Error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
+        {
+            _deviceStatusRejected = true;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -3754,22 +3776,28 @@
     /// the body is the only thing it can be refusing.
     /// <para>
     /// This is a question, not a retry: the status call that failed is not sent
-    /// again, and a token that comes back is not used to reissue it. Nothing is
-    /// hammered either - the failed request has already dropped the token it was
-    /// refused for, so this is one call, and a service that is merely down
-    /// answers it with nothing and leaves the device paired.
+    /// again with the token it was refused for. Nothing is hammered either - the
+    /// failed request has already dropped that token, so this is one call, and a
+    /// service that is merely down answers it with nothing and leaves the device
+    /// paired. What the caller does with a <c>true</c> is the one bounded
+    /// exception: the count that the refused call was for is asked for again,
+    /// once, because the service has just said the credential is good and there
+    /// is now a token it will accept.
     /// </para>
     /// <para>
     /// Costs nothing when all is well, because a status call that succeeded
     /// never gets here.
     /// </para>
     /// </summary>
-    private async Task AskWhetherTheCredentialStillWorksAsync()
+    /// <returns><c>true</c> when the service issued a token for this credential;
+    /// <c>false</c> when it refused, was unreachable, or could not be asked.</returns>
+    private async Task<bool> AskWhetherTheCredentialStillWorksAsync()
     {
-        if (_deviceTokens is null || StoredDevice is null) return;
+        if (_deviceTokens is null || StoredDevice is null) return false;
 
-        // The verdict is the point; the token itself is of no interest here.
-        _ = await _deviceTokens.GetAccessTokenAsync();
+        // The verdict is the point; the token itself is of no interest here -
+        // the provider keeps it for the call that follows.
+        return await _deviceTokens.GetAccessTokenAsync() is not null;
     }
 
     /// <summary>

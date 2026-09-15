@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
+  </ItemGroup>
+
+</Project>

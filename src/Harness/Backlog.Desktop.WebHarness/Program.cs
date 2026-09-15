@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Sqlite;
@@ -157,6 +158,12 @@ builder.Services.AddInboxModule();
 // see both contexts. Scoped, for the reason the roadmap adapters are, and after
 // AddTasksModule() for the same reason.
 builder.Services.AddInboxCrossContextAdapters();
+
+// The other join the Inbox takes part in: Capture's feed readers and the delivery
+// that hands what they found to the Inbox's intake, answered by adapters because
+// neither module may see the other. After AddInboxModule() for the intake the
+// delivery captures.
+builder.Services.AddCaptureAdapters();
 // The same arrangement the desktop host makes: the shared registry follows the
 // workspace root, and moving the workspace re-reads it.
 builder.Services.AddSingleton(sp =>

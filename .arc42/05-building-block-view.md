@@ -263,6 +263,15 @@ the ordinary tasks push as tombstones. Both ports are optional constructor
 parameters, so a head without an inbox store — the phone — composes unchanged
 and leaves captures on the replica.
 
+A second, unrelated caller reaches the same port without touching the replica
+at all: `Backlog.Infrastructure.Capture`'s `InboxCaptureDelivery` answers the
+Capture module's `ICaptureDelivery` port by calling `IInboxIntake` directly,
+in-process, when a source monitor (YouTube channel, website feed) finds a new
+entry on the desktop. The id-keyed idempotency `IInboxIntake` already gives the
+sync path — a known id is a replay, not a duplicate — is what makes a second
+press of Capture free, with no seen-store of its own. See
+`.domain/context-map.md#strategic-rules`.
+
 ## Mobile App
 
 ```meta

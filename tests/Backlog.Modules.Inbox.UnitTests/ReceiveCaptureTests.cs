@@ -40,6 +40,66 @@ public sealed class ReceiveCaptureTests
         Assert.Equal(Arrival, item.ReceivedAt);
     }
 
+    /// <summary>A channel that knows the link — a feed reader — says so on the
+    /// capture rather than hiding it in the title, and the item takes that link
+    /// and the kind it implies even though the title itself is plain words.</summary>
+    [Fact]
+    public async Task A_capture_that_names_its_source_url_becomes_an_item_with_that_url_and_kind()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Aspire 13 walkthrough", channel: "youtube") with
+        {
+            SourceUrl = "https://www.youtube.com/watch?v=abc",
+            BodyMd = "What is new in Aspire 13.",
+        };
+
+        var outcome = await Receive(store, capture);
+
+        Assert.Equal(InboxIntakeOutcome.Received, outcome);
+
+        var item = Assert.Single(store.Items.Values);
+        Assert.Equal("Aspire 13 walkthrough", item.Title);
+        Assert.Equal(ContentKind.YouTube, item.Kind);
+        Assert.Equal("https://www.youtube.com/watch?v=abc", item.SourceUrl);
+        Assert.Equal("What is new in Aspire 13.", item.BodyMd);
+        Assert.Equal("youtube", item.Source.Channel);
+    }
+
+    /// <summary>A feed's capture reuses its id the way a replica's does — that
+    /// is what makes a second read free — but no document sits behind it on
+    /// the replica, so deciding on the item must not leave an acknowledgement
+    /// waiting to be pushed there.</summary>
+    [Fact]
+    public async Task A_capture_with_no_replica_behind_it_owes_the_replica_nothing_when_archived()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("A post", channel: "website") with { ReplicaBacked = false };
+
+        await Receive(store, capture);
+        var item = store.Items[capture.Id];
+        Assert.False(item.ReplicaBacked);
+
+        item.Archive(Items.Noon.AddMinutes(20));
+
+        Assert.False(item.ReplicaAckPending);
+    }
+
+    [Fact]
+    public async Task A_named_source_url_wins_over_one_found_in_the_title()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Read https://example.org/other later", channel: "website") with
+        {
+            SourceUrl = "https://example.org/post/1",
+        };
+
+        await Receive(store, capture);
+
+        var item = Assert.Single(store.Items.Values);
+        Assert.Equal("https://example.org/post/1", item.SourceUrl);
+        Assert.Equal(ContentKind.Article, item.Kind);
+    }
+
     [Fact]
     public async Task The_same_capture_arriving_again_is_already_known()
     {

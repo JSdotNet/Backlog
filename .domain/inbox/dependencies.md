@@ -22,7 +22,7 @@ related: [.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox; on the desktop this arrives as a replica capture document through Sync | `.domain/capture/domain.md#itemcaptured` | Relies on the Inbox accepting normalized items into the incoming queue. |
+| [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox. From another device it arrives as a replica capture document through Sync; on the desktop itself, a source monitor (YouTube channel, website) delivers it in-process through the `IInboxIntake` port instead, with no replica document in between | `.domain/capture/domain.md#itemcaptured` | Relies on the Inbox accepting normalized items into the incoming queue, keyed by the same per-entry id whichever path delivered it. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side queue-health feed | `.domain/inbox/features.md#queue-health` | Relies on Inbox queue-health metrics (unprocessed count, oldest age, automation run status). |
 | [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Monitoring = supplier) | Emits `FollowUpCaptured` back into the Inbox | `.domain/monitoring/domain.md#followupcaptured` | Dashboard follow-ups create new Inbox Items through a stable feedback contract. |
 

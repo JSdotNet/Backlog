@@ -1019,11 +1019,15 @@
 
     /// <summary>
     /// The Inbox's Capture, answered: one run over the sources switched on in
-    /// Settings, reported back as a sentence the pane can print.
+    /// Settings, reported back as a sentence the pane can print — and, when the
+    /// run delivered anything, the Inbox re-read so the new rows are on screen
+    /// without a restart, the way a sync pull re-reads it.
     /// <para>
     /// The runner never throws for a source — each answers for itself in the
     /// result — so a throw here is the run itself failing to start, and that is
-    /// reported in the same line rather than left to the console.
+    /// reported in the same line rather than left to the console. The re-read
+    /// is kept out of that try: its failure is the Inbox's to report, not the
+    /// run's, and the run's own line stands.
     /// </para>
     /// </summary>
     private async Task RunCaptureAsync()
@@ -1032,10 +1036,12 @@
 
         _captureRunning = true;
         _captureMessage = null;
+        CaptureRunResultDto? run = null;
 
         try
         {
-            _captureMessage = Describe(await CaptureRunner.RunAsync());
+            run = await CaptureRunner.RunAsync();
+            _captureMessage = Describe(run);
         }
         catch (Exception ex)
         {
@@ -1045,11 +1051,31 @@
         {
             _captureRunning = false;
         }
+
+        if (run is { TotalNewItems: > 0 }) await ReloadInboxAfterCaptureAsync();
+    }
+
+    /// <summary>The same read <see cref="HandleTaskSyncChanged"/> does after a
+    /// pull, for the same reason and with the same guard: before the pane has
+    /// loaded at all, the first load will read whatever the run delivered.</summary>
+    private async Task ReloadInboxAfterCaptureAsync()
+    {
+        if (!_inboxInitialized) return;
+
+        try
+        {
+            await InboxState.ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a capture: {ex.Message}", InboxReloadErrorTestId));
+        }
     }
 
     /// <summary>A run's result in one line. Nothing enabled points at the tab
-    /// that would change that; otherwise each source's own sentence, and the
-    /// total, so a run that found nothing still says it looked.</summary>
+    /// that would change that; otherwise each source's own sentence — which
+    /// already carries that source's count — and, when there was more than one
+    /// source, the total, so a reader is not left adding up.</summary>
     private static string Describe(CaptureRunResultDto run)
     {
         if (run.NothingEnabled)
@@ -1057,8 +1083,11 @@
             return "No capture sources are enabled. Turn one on under Settings › Capture.";
         }
 
-        var sources = string.Join(" · ", run.Sources.Select(source => source.Message));
-        var total = run.TotalNewItems == 1 ? "1 new item." : $"{run.TotalNewItems} new items.";
+        var sources = string.Join(" ", run.Sources.Select(source => source.Message));
+
+        if (run.Sources.Count == 1) return sources;
+
+        var total = run.TotalNewItems == 1 ? "1 new item in all." : $"{run.TotalNewItems} new items in all.";
 
         return $"{sources} {total}";
     }

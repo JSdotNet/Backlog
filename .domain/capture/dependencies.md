@@ -13,7 +13,7 @@ status: draft
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Capture = customer of Inbox intake) | Async handoff into the Inbox intake pipeline | `.domain/capture/domain.md#itemcaptured` | Capture depends on the Inbox accepting normalized captures and taking ownership of the resulting Inbox Item lifecycle. |
+| [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Capture = customer of Inbox intake) | Async handoff into the Inbox intake pipeline from another device, via the sync replica; on the desktop, a source monitor hands a new entry straight to the Inbox's `IInboxIntake` port in-process instead | `.domain/capture/domain.md#itemcaptured` | Capture depends on the Inbox accepting normalized captures and taking ownership of the resulting Inbox Item lifecycle. |
 | External sources (YouTube, websites/RSS, IMAP email, browser, IDE-class hosts: VS Code, Visual Studio, GitHub Copilot App) | ACL | Polling / event intake via source adapters | `.domain/capture/domain.md#source-adapter` | Raw content is acquired from third-party systems and normalized behind adapters so their formats never leak downstream. |
 
 ## Inbound dependents (known)

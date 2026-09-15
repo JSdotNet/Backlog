@@ -131,7 +131,12 @@ flowchart LR
   module references the other, and the adapter is the only place an inbox item
   becomes entry text. A capture reaches the Inbox from another device as a
   `capture`-kind document on the sync replica
-  (`.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`).
+  (`.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). On the
+  desktop, a source monitor (YouTube channel, website) reaches the Inbox
+  without the replica at all — it delivers in-process through the same
+  `IInboxIntake` port the sync path hands `capture`-kind documents to, keyed
+  by the same deterministic per-entry id, so the idempotency is the port's,
+  not the transport's.
 - `Tasks` and `Devbook` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.

@@ -41,10 +41,16 @@ public sealed class InboxItem
         string? bodyMd = null) =>
         new(Guid.CreateVersion7(), title, bodyMd ?? string.Empty, sourceUrl, capturedAt, receivedAt, kind, source, replicaBacked);
 
-    /// <summary>A capture pulled from the replica. It <em>reuses the capture's
-    /// id</em>, which is what makes intake idempotent by primary key: the same
-    /// document arriving again is the same row, and the desktop's own tombstone
-    /// echo finds the item it acknowledged.</summary>
+    /// <summary>A capture that arrived with an id of its own — pulled from the
+    /// replica, or read off a feed. It <em>reuses the capture's id</em>, which
+    /// is what makes intake idempotent by primary key: the same document
+    /// arriving again is the same row, the desktop's own tombstone echo finds
+    /// the item it acknowledged, and a feed read twice adds nothing.
+    /// <paramref name="bodyMd"/> is whatever the channel offered beneath the
+    /// title, and empty when it offered nothing. <paramref name="replicaBacked"/>
+    /// is true for the replica's own captures and false for a feed's: the id
+    /// is reused either way, but only the first has a document behind it to
+    /// acknowledge.</summary>
     public static InboxItem FromCapture(
         Guid captureId,
         string title,
@@ -52,8 +58,10 @@ public sealed class InboxItem
         string? sourceUrl,
         ContentKind kind,
         DateTimeOffset capturedAt,
-        DateTimeOffset receivedAt) =>
-        new(captureId, title, string.Empty, sourceUrl, capturedAt, receivedAt, kind, source, replicaBacked: true);
+        DateTimeOffset receivedAt,
+        string? bodyMd = null,
+        bool replicaBacked = true) =>
+        new(captureId, title, bodyMd ?? string.Empty, sourceUrl, capturedAt, receivedAt, kind, source, replicaBacked);
 
     /// <summary>Full constructor, also used by storage to rehydrate a persisted
     /// item. Born unprocessed and unstamped beyond <paramref name="receivedAt"/>;
