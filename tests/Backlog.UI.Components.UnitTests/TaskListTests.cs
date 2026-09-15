@@ -213,10 +213,11 @@ public sealed class TaskListTests
         Assert.NotNull(view.Find(".task-item__meta"));
     }
 
-    // --- Person tags ------------------------------------------------------
+    // --- Person and plan tags ---------------------------------------------
     //
-    // A person tag keeps its `@` in the stored value, so the row cannot assume a
-    // tag is drawn with a hash in front of it. Two kinds of tag, one sigil each.
+    // A person tag keeps its `@` in the stored value and a plan tag its `+`, so
+    // the row cannot assume a tag is drawn with a hash in front of it. Three
+    // kinds of tag, one sigil each.
 
     [Fact]
     public void A_person_tag_is_drawn_with_its_own_sigil_rather_than_a_hash()
@@ -245,6 +246,30 @@ public sealed class TaskListTests
 
         Assert.Contains("tag-chip--person", chips[0].ClassName);
         Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+    }
+
+    [Fact]
+    public void A_plan_chip_is_distinguishable_from_a_person_chip_and_a_general_chip()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "T", Tags: ["@bob", "+release-q4", "deploy"])));
+
+        var chips = view.FindAll(".task-item__tag");
+
+        // Drawn as stored, sigil and all — a hash bolted on to `+release-q4`
+        // would name nothing, the same way `#@bob` names nothing.
+        Assert.Equal(["@bob", "+release-q4", "#deploy"], chips.Select(c => c.TextContent));
+
+        // Each kind wears its own modifier and nobody else's: the plan chip is not
+        // a person pill, and the general chip is neither.
+        Assert.Contains("tag-chip--plan", chips[1].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[1].ClassName);
+        Assert.DoesNotContain("tag-chip--plan", chips[0].ClassName);
+        Assert.DoesNotContain("tag-chip--plan", chips[2].ClassName);
+        Assert.DoesNotContain("tag-chip--person", chips[2].ClassName);
     }
 
     [Fact]
@@ -324,6 +349,29 @@ public sealed class TaskListTests
 
         Assert.Equal("Mail bob@example.com about C# 14", title.TextContent);
         Assert.Empty(title.QuerySelectorAll(".task-item__title-tag"));
+    }
+
+    /// <summary>The plan sigil in a title, on both sides of the guard. The pair of
+    /// examples is the one <c>EntryTextParserTests</c> names — that is the promise
+    /// <c>TagText</c> makes for restating the parser's grammar rather than
+    /// referencing it.</summary>
+    [Fact]
+    public void A_plan_tag_in_the_title_is_a_chip_and_a_plus_inside_a_word_is_not()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Fix the c++ compiler for +release-q4")));
+
+        var title = view.Find(".task-item__title");
+
+        Assert.Equal("Fix the c++ compiler for +release-q4", title.TextContent);
+
+        var chip = Assert.Single(title.QuerySelectorAll(".task-item__title-tag"));
+
+        Assert.Equal("+release-q4", chip.TextContent);
+        Assert.Contains("tag-chip--plan", chip.ClassName);
     }
 
     /// <summary>

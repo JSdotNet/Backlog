@@ -1,10 +1,15 @@
 @*
-    A tag picker with no JS at all: the popup is a real listbox in the DOM, the
+    A tag picker with no interop: the popup is a real listbox in the DOM, the
     input owns the focus the whole time, and `aria-activedescendant` moves the
     reading cursor instead of the focus. That is what makes the keyboard route —
     Up/Down to walk the list, Enter to take one, Backspace on an empty input to
     drop the last chip, Escape to close — behave the same for a mouse user and a
     screen reader user.
+
+    The one thing the browser decides on its own is which of those keys keep
+    their default. components.js swallows Up/Down/Enter/Escape on
+    `.tag-select__input` at the keydown, by class, because a decision the server
+    makes arrives one key too late — see OnKeyDownAsync.
 
     An option may name a section it belongs to, and the open list draws those
     sections. Three things about how, because none of them is the obvious choice:
@@ -72,7 +77,6 @@
                @onfocus="() => _open = true"
                @onblur="OnBlur"
                @onkeydown="OnKeyDownAsync"
-               @onkeydown:preventDefault="_preventDefault"
                @attributes="AdditionalAttributes" />
     </div>
 
@@ -135,7 +139,6 @@
     private readonly string _id = "tag-select-" + Guid.NewGuid().ToString("N");
     private string _query = string.Empty;
     private bool _open;
-    private bool _preventDefault;
     private int _activeIndex = -1;
 
     [Parameter]
@@ -238,9 +241,13 @@
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
     {
         // Arrow keys would scroll the popup's ancestor and Enter would submit a
-        // surrounding form, so those are the keys we swallow — and only those.
-        _preventDefault = e.Key is "ArrowDown" or "ArrowUp" or "Enter" or "Escape";
-
+        // surrounding form, so those are the keys the browser swallows — and only
+        // those. Which keys is decided in components.js, on the `.tag-select__input`
+        // class, and deliberately not here: nothing this handler sets can reach the
+        // browser before the default it wants to stop has already run. It used to
+        // set a flag bound to `@onkeydown:preventDefault`, and the flag was rendered
+        // after this handler returned, so it applied to the *next* key — the arrow
+        // was never prevented and the letter typed after it was eaten.
         switch (e.Key)
         {
             case "ArrowDown":

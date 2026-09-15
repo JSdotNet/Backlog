@@ -1641,6 +1641,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// out here, per row, and handed to the parser's existing
     /// <c>WithTags</c> — the UI composes no token of its own (ADR 0002).
     /// </para>
+    /// <para>
+    /// Starts from <see cref="EntryRow.PreviewEditableTags"/>, the metadata line
+    /// and the title's people together, because that is the set the writer treats
+    /// as whole: a union built on the metadata line alone would hand it a set with
+    /// no people in it, and it would take every <c>@name</c> off every title as
+    /// the price of adding <c>#q4</c>.
+    /// </para>
     /// </summary>
     public Task<BulkEditOutcome> BulkAddTagsAsync(IEnumerable<string> tags)
     {
@@ -1655,14 +1662,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         return ApplyToSelectionAsync(row => EntryTextParser.WithTags(
             row.RawText,
-            row.PreviewMetadataTags
+            row.PreviewEditableTags
                 .Concat(added)
                 .Distinct(StringComparer.OrdinalIgnoreCase)));
     }
 
-    /// <summary>Takes one named tag off every picked entry. A row that never had
-    /// it is unchanged rather than rewritten, which is what keeps the count
-    /// honest when a tag is only on half the selection.</summary>
+    /// <summary>Takes one named tag off every picked entry — a person off the
+    /// title, anything else off the metadata line. A row that never had it is
+    /// unchanged rather than rewritten, which is what keeps the count honest when
+    /// a tag is only on half the selection.</summary>
     public Task<BulkEditOutcome> BulkRemoveTagAsync(string tag)
     {
         if (string.IsNullOrWhiteSpace(tag)) return Task.FromResult(BulkEditOutcome.Nothing);
@@ -1671,7 +1679,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         return ApplyToSelectionAsync(row => EntryTextParser.WithTags(
             row.RawText,
-            row.PreviewMetadataTags.Where(existing =>
+            row.PreviewEditableTags.Where(existing =>
                 !string.Equals(existing, removed, StringComparison.OrdinalIgnoreCase))));
     }
 
@@ -2923,15 +2931,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <para>
     /// Read off <c>PreviewTags</c>, which is the union of the metadata line, the
     /// title and the body: a <c>#tag</c> written mid-sentence, or an <c>@bob</c>
-    /// typed into the title, is a tag the reader can see on the row, so it is one
-    /// they can filter by. Values stay lower-cased exactly as the parser stores
-    /// them, which for a person tag includes its <c>@</c>.
+    /// or <c>+release-q4</c> typed into the title, is a tag the reader can see on
+    /// the row, so it is one they can filter by. Values stay lower-cased exactly as
+    /// the parser stores them, which for a person tag includes its <c>@</c> and for
+    /// a plan tag its <c>+</c>.
     /// </para>
     /// <para>
     /// The label is what the tag <em>reads</em> as, and that is no longer just the
-    /// value with a hash bolted on: a person tag already carries its own sigil, so
-    /// <c>TagText.Display</c> decides — the same helper the chips on the rows use,
-    /// so the filter and the row it filters cannot spell a tag differently.
+    /// value with a hash bolted on: a person or plan tag already carries its own
+    /// sigil, so <c>TagText.Display</c> decides — the same helper the chips on the
+    /// rows use, so the filter and the row it filters cannot spell a tag differently.
     /// </para>
     /// <para>
     /// Offered off the entries still in play, though — a tag whose every entry is
@@ -2941,14 +2950,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// on the bar forever, and the ones worth pressing would be the minority.
     /// </para>
     /// <para>
-    /// The counts do not follow it down, and the difference is the point. Which
-    /// entries a tag is <em>offered for</em> is a question about the reader's
-    /// attention; how many rows the tag <em>has</em> is a question about the list,
-    /// and the list is unchanged — finished entries are still there with no tag
-    /// pressed, so a chip promising fewer rows than pressing it produces would simply
-    /// be wrong. A
-    /// count still answers "how much is over there" over the whole repository scope,
-    /// the way the area and My Day counts beside it do.
+    /// The count follows the same reading. The number on the chip is the
+    /// <em>open</em> count — the entries wearing the tag that are not finished —
+    /// because that is the question a reader glancing along the bar is asking: how
+    /// much is still to do over there. What is finished is counted too, separately,
+    /// and carried by the chip's tooltip rather than its face. That split is what
+    /// keeps the chip honest twice over: the face answers the question actually
+    /// asked, and the tooltip explains why pressing the chip can list more rows
+    /// than the number — finished entries are still in the list while no status is
+    /// pressed, so they still appear under the tag, they are just not the work.
     /// </para>
     /// </summary>
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
@@ -2956,9 +2966,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var live = scopedRows.Where(row => !IsFinished(row)).ToList();
 
         // What the bar is allowed to name. Built from the live rows, then used to
-        // pick which groups survive below — so the decision about *whether* a tag
-        // appears is taken here and the decision about *what it counts* is taken over
-        // the full scope, which is the whole distinction this method draws.
+        // pick which groups survive below — a tag with no live entry has no chip,
+        // however many finished ones wear it.
         var offered = live
             .SelectMany(row => row.PreviewTags)
             .Where(tag => !string.IsNullOrEmpty(tag))
@@ -2971,10 +2980,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             return;
         }
 
+        // Grouped over the full scope and split by finished-or-not inside each
+        // group, so one pass yields both halves of the count. The ordering is the
+        // bar's: ordinal, which puts the sigilled kinds before the bare general tags.
         var used = scopedRows
-            .SelectMany(row => row.PreviewTags)
-            .Where(offered.Contains)
-            .GroupBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(row => row.PreviewTags.Select(tag => (Tag: tag, Finished: IsFinished(row))))
+            .Where(wearing => offered.Contains(wearing.Tag))
+            .GroupBy(wearing => wearing.Tag, StringComparer.OrdinalIgnoreCase)
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
 
@@ -2988,19 +3000,26 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             // Counted per tag rather than per row: a row wearing two tags is under
             // both of them, so the counts sum past the row count on purpose. Each one
-            // answers "how much is over there", which is the only question a chip is
-            // asked — see ScopedRows.
-            options.Add(new TagFilterOption(TagText.Display(group.Key), group.Key, group.Count()));
+            // answers "how much is still to do over there", which is the only
+            // question a chip's face is asked — see ScopedRows.
+            options.Add(new TagFilterOption(
+                TagText.Display(group.Key),
+                group.Key,
+                group.Count(wearing => !wearing.Finished),
+                group.Count(wearing => wearing.Finished)));
         }
 
         // "Untagged" is a chip like any other and earns its place the same way, off a
-        // live entry carrying no tag — while counting every such entry once it does.
-        if (live.Any(row => row.PreviewTags.Count == 0))
+        // live entry carrying no tag — and splits its count the same way once it does.
+        var untagged = scopedRows.Where(row => row.PreviewTags.Count == 0).ToList();
+
+        if (untagged.Any(row => !IsFinished(row)))
         {
             options.Add(new TagFilterOption(
                 "Untagged",
                 UntaggedTag,
-                scopedRows.Count(row => row.PreviewTags.Count == 0)));
+                untagged.Count(row => !IsFinished(row)),
+                untagged.Count(IsFinished)));
         }
 
         TagFilters = options;
@@ -3064,12 +3083,22 @@ public sealed record StatusFilterOption(string Label, string Wire);
 
 /// <summary>One entry in the tag filter. <paramref name="Label"/> carries the
 /// sigil the tag reads with everywhere else on the screen — a hash for a general
-/// tag, and for a person the <c>@</c> that is already part of the value;
-/// <paramref name="Value"/> is the lower-cased tag exactly as the parser stores it.
-/// <paramref name="Count"/> is an occurrence count rather than a share of the
-/// rows, and it does not move when another chip is pressed — see
-/// <c>TasksDesktopState.TagFilters</c>.</summary>
-public sealed record TagFilterOption(string Label, string Value, int Count);
+/// tag, and for a person or a plan tag the <c>@</c> or <c>+</c> that is already
+/// part of the value; <paramref name="Value"/> is the lower-cased tag exactly as
+/// the parser stores it.
+/// <para>
+/// The count is two numbers because the chip asks two questions of it.
+/// <paramref name="OpenCount"/> is the one on the chip's face: how many entries
+/// wearing the tag are still to do. <paramref name="CompletedCount"/> is the
+/// finished ones, carried by the tooltip so the reader is not surprised when
+/// pressing the chip lists more rows than the number — finished entries are still
+/// listed while no status is pressed. Both are occurrence counts rather than a
+/// share of the rows, and neither moves when another chip is pressed — see
+/// <c>TasksDesktopState.TagFilters</c>. Which kind of tag the chip is for is read
+/// off <paramref name="Value"/> with <c>TagText.Kind</c>, the way every other chip
+/// reads it, rather than being carried here as a second copy of the sigil.
+/// </para></summary>
+public sealed record TagFilterOption(string Label, string Value, int OpenCount, int CompletedCount);
 
 /// <summary>One thing the app read out of an entry's meta line. <paramref
 /// name="Explicit"/> distinguishes what was actually typed from what is merely
@@ -3235,6 +3264,33 @@ public sealed class EntryRow
     public IReadOnlyList<string> PreviewMetadataTags
     {
         get { Render(); return _parsed!.MetadataTags; }
+    }
+
+    /// <summary>
+    /// The tags the tag editor owns: the metadata line's, then the title's people.
+    /// <para>
+    /// This is the set <c>EntryTextParser.WithTags</c> takes as "the whole set", so
+    /// it is what the picker shows and what a bulk edit starts from. Showing the
+    /// metadata line alone was how a person tag vanished: the editor wrote
+    /// <c>@bob</c> on to the title, the chips read the metadata line, and the next
+    /// change from the picker handed back a set without him — which the writer
+    /// took at its word.
+    /// </para>
+    /// <para>
+    /// The people are read off <see cref="PreviewTags"/> rather than the title
+    /// directly, and that is safe for one reason: the body's grammar has no person
+    /// tag — <c>@carol</c> in a note is prose — so every <c>@</c> in the union is
+    /// the title's. A body <c>#tag</c> is in that union too and deliberately not in
+    /// this set; the editor does not own prose.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> PreviewEditableTags
+    {
+        get
+        {
+            Render();
+            return [.. _parsed!.MetadataTags, .. PreviewTags.Where(TagText.IsPerson)];
+        }
     }
 
     public string? PreviewArea

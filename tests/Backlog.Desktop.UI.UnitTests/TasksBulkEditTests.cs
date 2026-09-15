@@ -943,6 +943,69 @@ public sealed class TasksBulkEditTests
         Assert.Contains("`#writing`", two.RawText, StringComparison.Ordinal);
     }
 
+    /// <summary>A person goes on to every picked row's title, because the title is
+    /// where the grammar reads a person tag from. And a person already on a title
+    /// stays there: the union is built over the title's people as well as the
+    /// metadata line, or adding <c>#q4</c> would have been how <c>@carol</c> came
+    /// off.</summary>
+    [Fact]
+    public async Task Adding_a_person_reaches_every_rows_title()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync(First);
+        var two = await host.WriteEntryAsync("# Write the runbook @carol\n`idea` `#writing`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        await PickAsync(pane, one);
+        await PickAsync(pane, two);
+
+        await AddPickedTagAsync(pane, "@Bob");
+
+        // The group is open now; a second tag is typed straight into the field.
+        var field = pane.Find("[data-testid='bulk-tags-add'] input");
+        await field.InputAsync(new() { Value = "q4" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        await pane.Find("[data-testid='bulk-tags-apply']").ClickAsync(new());
+
+        Assert.StartsWith("# Provision the box @bob\n", one.RawText, StringComparison.Ordinal);
+        Assert.StartsWith("# Write the runbook @carol @bob\n", two.RawText, StringComparison.Ordinal);
+
+        Assert.Contains("`#q4`", one.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#q4`", two.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("@bob`", one.RawText, StringComparison.Ordinal);
+    }
+
+    /// <summary>Removing offers the selection's people alongside its metadata-line
+    /// tags, and taking one off takes it off each title that carried it.</summary>
+    [Fact]
+    public async Task Removing_a_person_takes_them_off_every_title_that_had_them()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync("# Provision the box @bob\n`task` `#infra`\n");
+        var two = await host.WriteEntryAsync("# Write the runbook @bob @carol\n`idea` `#writing`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        await PickAsync(pane, one);
+        await PickAsync(pane, two);
+
+        var removal = await OpenSelectAsync(pane, "tag-remove");
+        var offered = removal.QuerySelectorAll("option")
+            .Select(option => option.GetAttribute("value"))
+            .Where(value => !string.IsNullOrEmpty(value))
+            .OrderBy(tag => tag, StringComparer.Ordinal);
+        Assert.Equal(["@bob", "@carol", "infra", "writing"], offered);
+
+        await removal.ChangeAsync(new() { Value = "@bob" });
+
+        Assert.StartsWith("# Provision the box\n", one.RawText, StringComparison.Ordinal);
+        Assert.StartsWith("# Write the runbook @carol\n", two.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#infra`", one.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#writing`", two.RawText, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task The_tags_offered_for_removal_are_the_ones_the_selection_wears()
     {

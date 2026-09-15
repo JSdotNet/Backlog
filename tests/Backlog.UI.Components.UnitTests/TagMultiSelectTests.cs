@@ -96,6 +96,31 @@ public sealed class TagMultiSelectTests
         Assert.Equal(["qa-new-tag"], reported);
     }
 
+    /// <summary>
+    /// Which keys the browser swallows is decided in the browser, not by a flag the
+    /// server sets after the fact.
+    /// <para>
+    /// The field used to carry <c>@onkeydown:preventDefault</c> bound to a field
+    /// that the keydown handler set. Blazor reads that binding when the element is
+    /// rendered, so the value a key set was applied to the <em>next</em> key: the
+    /// arrow that opened the list was never prevented, and the letter typed after
+    /// it was eaten. bUnit renders the binding as a <c>blazor:</c> attribute on the
+    /// input, so its absence after a key that used to set the flag is the whole
+    /// proof that the mechanism is gone — the decision lives in components.js now.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void No_key_arms_a_prevent_default_for_the_key_after_it()
+    {
+        using var context = new BunitContext();
+
+        var select = context.Render<TagMultiSelect>(parameters => parameters.Add(s => s.Options, Options));
+
+        select.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        Assert.Null(select.Find("input").GetAttribute("blazor:onkeydown:preventdefault"));
+    }
+
     [Fact]
     public void Chips_past_the_visible_limit_collapse_into_a_count()
     {

@@ -501,6 +501,25 @@ h1, h2, h3 {
     opacity: 0.55;
 }
 
+/*
+   A tag chip on the bar wears the same kind as the row chip it filters for: the
+   person's pill and the plan's live-tone edge from .tag-chip--person and
+   .tag-chip--plan in components.css, on the bar's own chip shape. The general
+   chip is the default and needs no rule. Only the resting state differs — a
+   pressed chip is .chip--active whatever its kind, because "pressed" is one
+   state on this bar and the kind was already said by the sigil. The :not() is
+   what keeps that true: both rules are one class deep and this one is written
+   later, so without it the plan edge would paint over the active fill.
+*/
+.chip--tag-person {
+    border-radius: var(--border-radius-full);
+}
+
+.chip--tag-plan:not(.chip--active) {
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
 /* --- Icon link (header) --------------------------------------------------- */
 
 /*

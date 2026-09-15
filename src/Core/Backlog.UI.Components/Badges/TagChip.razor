@@ -66,7 +66,8 @@
 
     /// <summary>
     /// The chip reads its own kind off the text it was handed: a leading <c>@</c>
-    /// means a person, anything else is a general tag.
+    /// means a person, a leading <c>+</c> means a plan tag, anything else is a
+    /// general tag.
     /// <para>
     /// Derived rather than a parameter on purpose. The sigil is already in the
     /// stored value — that is what makes an unsigilled tag still mean "general"
@@ -76,14 +77,19 @@
     /// found and updated.
     /// </para>
     /// <para>
-    /// Colour is never the only carrier: the <c>@</c> is drawn, so the distinction
+    /// Colour is never the only carrier: the sigil is drawn, so the distinction
     /// survives a reader who cannot see the surface behind it.
     /// </para></summary>
     private string ClassValue
     {
         get
         {
-            var classes = TagText.IsPerson(Text) ? "tag-chip tag-chip--person" : "tag-chip";
+            var classes = TagText.Kind(Text) switch
+            {
+                TagKind.Person => "tag-chip tag-chip--person",
+                TagKind.Plan => "tag-chip tag-chip--plan",
+                _ => "tag-chip"
+            };
 
             return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
         }

@@ -1086,8 +1086,8 @@ button.badge:hover {
 }
 
 /*
-  A person tag — `@bob` — beside a general one. Two kinds of tag now share this
-  chip, so the difference has to be visible without being read.
+  A person tag — `@bob` — beside a general one. Three kinds of tag now share this
+  chip, so the differences have to be visible without being read.
 
   It is drawn as a quiet pill rather than a second hue. No colour value is
   introduced and no token is borrowed from a theme that reserves its names: the
@@ -1104,6 +1104,33 @@ button.badge:hover {
     color: var(--color-text-primary);
     background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
     border-radius: var(--border-radius-full);
+    padding: 0 var(--spacing-xs);
+}
+
+/*
+  A plan tag — `+release-q4` — the roadmap item an entry is filed under. The
+  third kind, and it has to read apart from both of the others at a glance.
+
+  It wears the `live` tone from .design/color-scheme.md#badge-and-chip-tones:
+  primary-light ink inside a primary-dark edge, the pair .badge--gh-open already
+  uses for "in progress, and the product may act on it" — which is what a plan
+  is. No new hue: the two tokens are the brand's own, at different depths.
+
+  Outlined and square-cornered, not filled and not a pill. Not filled because
+  filled means the product acts on it, and a plan tag is information about where
+  the entry is filed; the reader acts on it. Not a pill because the pill is the
+  person's shape, and the edge is the shape that says "this names a plan, not a
+  person". The general chip beside them wears neither an edge nor a surface.
+
+  Three carriers again: the `+` sigil is drawn in the label, the outlined square
+  edge is the shape, and the ink is the colour. The sigil is the one that
+  survives a reader who can see neither of the other two.
+*/
+.tag-chip--plan {
+    color: var(--color-primary-light);
+    background: transparent;
+    border: var(--border-width) solid var(--color-primary-dark);
+    border-radius: var(--border-radius-sm);
     padding: 0 var(--spacing-xs);
 }
 
@@ -6191,8 +6218,15 @@ select.field__input {
     outline: none;
 }
 
+/* `top` is load-bearing. The containing block is `.tag-select`, which is also a
+   `.field` — a grid — and an absolutely positioned child of a grid container
+   with `top: auto` takes its static position at the grid's content-box origin,
+   not where it would have flowed after the control. Left to auto, the list
+   opened over the chips and the input instead of under them. The margin is the
+   gap; `top` is what puts the list below the thing it belongs to. */
 .tag-select__list {
     position: absolute;
+    top: 100%;
     z-index: 10;
     left: 0;
     right: 0;
