@@ -17,9 +17,10 @@
 <div class="instruction-reach" data-testid="@TestId">
     <p class="instruction-reach__intro">
         <strong>Always</strong> is every session. <strong>On match</strong> is only when a path in the
-        stated scope is touched. <strong>Linked</strong> means a file the host does load names this one
-        in prose, so it can be opened but is not loaded. <strong>Not read</strong> means the host has no
-        path to it.
+        stated scope is touched. <strong>On demand</strong> is a skill: its description is carried every
+        session and its body is read when it is invoked. <strong>Linked</strong> means a file the host
+        does load names this one in prose, so it can be opened but is not loaded.
+        <strong>Not read</strong> means the host has no path to it.
     </p>
 
     @if (OneSided.Count > 0)
@@ -62,9 +63,11 @@
            next to the numbers rather than in a document nobody opens. *@
         <p class="instruction-reach__caveat">
             Tokens are estimated at four bytes each, not counted — no tokenizer ships with this app.
-            Lines are exact but measure formatting rather than content: in this repository
-            <code>copilot-instructions.md</code> has fewer lines than
-            <code>storybook.instructions.md</code> and more bytes, so lines rank the two backwards.
+            Lines are exact but measure formatting rather than content: a file with fewer lines and
+            more bytes than another ranks backwards by lines. Skills count for nothing here — a
+            description each every session, and a body only when one is invoked — and custom agents
+            (<code>.github/agents</code>, <code>.claude/agents</code>) are outside this reading
+            altogether: one loads when it is chosen, which no path predicts.
         </p>
     </div>
 
@@ -263,14 +266,14 @@
             </td>
             <td data-testid="instructions-reach-claude">
                 <Badge Kind="reach" Slug="@Slug(row.Claude)" Title="@Explain(row.Claude)">@Label(row.Claude)</Badge>
-                @if (row.Claude.Detail is { Length: > 0 } claudeDetail)
+                @if (Detail(row.Claude) is { Length: > 0 } claudeDetail)
                 {
                     <span class="instruction-reach__scope">@claudeDetail</span>
                 }
             </td>
             <td data-testid="instructions-reach-copilot">
                 <Badge Kind="reach" Slug="@Slug(row.Copilot)" Title="@Explain(row.Copilot)">@Label(row.Copilot)</Badge>
-                @if (row.Copilot.Detail is { Length: > 0 } copilotDetail)
+                @if (Detail(row.Copilot) is { Length: > 0 } copilotDetail)
                 {
                     <span class="instruction-reach__scope">@copilotDetail</span>
                 }
@@ -444,6 +447,7 @@
     {
         InstructionReach.Always => "Always",
         InstructionReach.OnMatch => "On match",
+        InstructionReach.OnDemand => "On demand",
         InstructionReach.Linked => "Linked",
         _ => "Not read"
     };
@@ -454,19 +458,33 @@
     {
         InstructionReach.Always => "always",
         InstructionReach.OnMatch => reach.Loaded ? "matched" : "on-match",
+        InstructionReach.OnDemand => "on-demand",
         InstructionReach.Linked => "linked",
         _ => "not-read"
+    };
+
+    /// <summary>The line under the badge: the scope, the reason, and whether an
+    /// import is what got it there. "imported" alone under an Always badge, and
+    /// after the globs under an On match one, so the two read the same way.</summary>
+    private static string? Detail(InstructionHostReach reach) => (reach.Detail, reach.Imported) switch
+    {
+        ({ Length: > 0 } detail, true) => $"{detail} · imported",
+        (_, true) => "imported",
+        (var detail, false) => detail
     };
 
     /// <summary>What the badge means, for a pointer. The scope sits beside the
     /// badge as text, so this says why rather than repeating where.</summary>
     private static string Explain(InstructionHostReach reach) => reach.Reach switch
     {
-        InstructionReach.Always when reach.Detail == "imported" =>
+        InstructionReach.Always when reach.Imported =>
             "Pulled in by an import from a file that loads every session.",
         InstructionReach.Always => "Loaded into every session.",
         InstructionReach.OnMatch when reach.Loaded => "A selected path falls in this scope, so it is loaded.",
+        InstructionReach.OnMatch when reach.Imported =>
+            "Pulled in by an import from a file that loads when a path in this scope is worked on.",
         InstructionReach.OnMatch => "Loaded when a path in this scope is worked on.",
+        InstructionReach.OnDemand => "A skill: its description is carried every session, its body when it is invoked.",
         InstructionReach.Linked => "Named by a file that is loaded, but not loaded itself.",
         _ => "This host has no path to the file."
     };

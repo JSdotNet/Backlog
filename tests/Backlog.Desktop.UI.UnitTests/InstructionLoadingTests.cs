@@ -9,8 +9,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class InstructionLoadingTests
 {
+    /// <summary>Not symmetrical: Claude Code reads only its own root file, while
+    /// Copilot reads its own and, as agent instructions, the root
+    /// <c>CLAUDE.md</c> too.</summary>
     [Fact]
-    public void Each_host_reads_its_own_root_file_and_not_the_others()
+    public void Claude_reads_only_its_root_file_and_copilot_reads_both()
     {
         var rows = Rows(
         [
@@ -20,7 +23,7 @@ public sealed class InstructionLoadingTests
 
         var claudeFile = Row(rows, "CLAUDE.md");
         Assert.Equal(InstructionReach.Always, claudeFile.Claude.Reach);
-        Assert.Equal(InstructionReach.NotRead, claudeFile.Copilot.Reach);
+        Assert.Equal(InstructionReach.Always, claudeFile.Copilot.Reach);
 
         var copilotFile = Row(rows, ".github/copilot-instructions.md");
         Assert.Equal(InstructionReach.Always, copilotFile.Copilot.Reach);
@@ -134,21 +137,152 @@ public sealed class InstructionLoadingTests
         Assert.Equal("src/**/*.ts", scoped.Detail);
     }
 
+    /// <summary>
+    /// The root file is Copilot's every session; a nested one is read for the
+    /// files under it. Claude Code reads neither — its documentation says so in
+    /// as many words, and points at an <c>@AGENTS.md</c> import instead.
+    /// <para>The root file used to read as "on match, <c>**</c>", which the totals
+    /// count as nothing until a path is picked, and a repository whose whole
+    /// Copilot setup is an <c>AGENTS.md</c> showed Copilot carrying 0 KB.</para>
+    /// </summary>
     [Fact]
-    public void Agents_files_are_copilots_by_directory_and_claude_does_not_read_them()
+    public void The_root_agents_file_is_copilots_every_session_and_a_nested_one_by_directory()
     {
-        var rows = Rows(
+        var comparison = InstructionLoading.Compare(
         [
-            Document("AGENTS.md", "# Agents"),
+            Document("AGENTS.md", "# Agents\n"),
             Document("src/AGENTS.md", "# Nested")
         ]);
+        var rows = comparison.Rows;
+
+        var root = Row(rows, "AGENTS.md");
+        Assert.Equal(InstructionReach.Always, root.Copilot.Reach);
+        Assert.True(root.Copilot.Loaded);
+        Assert.Equal(InstructionReach.NotRead, root.Claude.Reach);
 
         var nested = Row(rows, "src/AGENTS.md");
         Assert.Equal(InstructionReach.OnMatch, nested.Copilot.Reach);
         Assert.Equal("src/**", nested.Copilot.Detail);
         Assert.Equal(InstructionReach.NotRead, nested.Claude.Reach);
 
-        Assert.Equal("**", Row(rows, "AGENTS.md").Copilot.Detail);
+        Assert.Equal(1, comparison.Copilot.Files);
+        Assert.Equal(9, comparison.Copilot.Bytes);
+    }
+
+    /// <summary>
+    /// Copilot's documentation offers "a single CLAUDE.md or GEMINI.md file
+    /// stored in the root of the repository" as the alternative to AGENTS.md.
+    /// Read as an alternative: it stands in when there is no root AGENTS.md, and
+    /// steps aside when there is one.
+    /// </summary>
+    [Fact]
+    public void A_root_claude_file_stands_in_as_copilots_agent_instructions_when_there_is_no_agents_file()
+    {
+        var alone = Rows([Document("CLAUDE.md", "# Claude")]);
+        Assert.Equal(InstructionReach.Always, Row(alone, "CLAUDE.md").Copilot.Reach);
+        Assert.Equal("as agent instructions", Row(alone, "CLAUDE.md").Copilot.Detail);
+
+        var beside = Rows(
+        [
+            Document("CLAUDE.md", "# Claude"),
+            Document("AGENTS.md", "# Agents")
+        ]);
+        Assert.Equal(InstructionReach.NotRead, Row(beside, "CLAUDE.md").Copilot.Reach);
+
+        // Only the root file; a nested CLAUDE.md is Claude's alone.
+        var nested = Rows([Document("src/CLAUDE.md", "# Nested")]);
+        Assert.Equal(InstructionReach.NotRead, Row(nested, "src/CLAUDE.md").Copilot.Reach);
+    }
+
+    /// <summary>
+    /// The shape a repository takes when every folder's conventions live in an
+    /// <c>AGENTS.md</c> and a one-line <c>CLAUDE.md</c> beside it imports them:
+    /// the import is read when the importer is, so it inherits the importer's
+    /// scope rather than reading as unreachable.
+    /// </summary>
+    [Fact]
+    public void An_import_from_a_scoped_claude_file_is_loaded_with_that_files_scope()
+    {
+        var documents = new[]
+        {
+            Document("src/backend/CLAUDE.md", "@AGENTS.md"),
+            Document("src/backend/AGENTS.md", "# Backend")
+        };
+
+        var imported = Row(InstructionLoading.Compare(documents).Rows, "src/backend/AGENTS.md").Claude;
+        Assert.Equal(InstructionReach.OnMatch, imported.Reach);
+        Assert.Equal("src/backend/**", imported.Detail);
+        Assert.True(imported.Imported);
+        Assert.False(imported.Loaded);
+
+        var scoped = InstructionLoading.Compare(documents, ["src/backend/Common/Thing.cs"]);
+        Assert.True(Row(scoped.Rows, "src/backend/AGENTS.md").Claude.Loaded);
+        Assert.Equal(2, scoped.Claude.Files);
+    }
+
+    [Fact]
+    public void An_import_from_a_path_scoped_rule_carries_the_rules_paths()
+    {
+        var rows = Rows(
+        [
+            Document(".claude/rules/api.md", Frontmatter("paths: \"src/api/**\"") + "\n@../../docs/api.md"),
+            Document("docs/api.md", "# API")
+        ]);
+
+        var imported = Row(rows, "docs/api.md").Claude;
+        Assert.Equal(InstructionReach.OnMatch, imported.Reach);
+        Assert.Equal("src/api/**", imported.Detail);
+    }
+
+    /// <summary>A file the root imports is every session's, whatever else also
+    /// imports it: an import from a scoped file never narrows a wider reach.</summary>
+    [Fact]
+    public void An_always_import_is_not_narrowed_by_a_scoped_one()
+    {
+        var rows = Rows(
+        [
+            Document("CLAUDE.md", "@AGENTS.md"),
+            Document("src/CLAUDE.md", "@../AGENTS.md"),
+            Document("AGENTS.md", "# Shared")
+        ]);
+
+        Assert.Equal(InstructionReach.Always, Row(rows, "AGENTS.md").Claude.Reach);
+    }
+
+    /// <summary>
+    /// A skill is advertised every session and read when invoked, which is
+    /// neither a load nor a link. Claude Code discovers skills under
+    /// <c>.claude/skills</c>; Copilot under that folder, <c>.agents/skills</c>
+    /// and <c>.github/skills</c> — so a skill under <c>.agents</c> is one Copilot
+    /// can call and Claude cannot see, which is the drift this view exists to show.
+    /// </summary>
+    [Fact]
+    public void A_skill_is_on_demand_for_each_host_that_discovers_it()
+    {
+        var comparison = InstructionLoading.Compare(
+        [
+            Document(".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Deploys.\n---\n# Deploy\n"),
+            Document(".agents/skills/tenants/SKILL.md", "---\nname: tenants\n---\n# Tenants\n"),
+            Document(".github/skills/release/SKILL.md", "---\nname: release\n---\n# Release\n")
+        ]);
+        var rows = comparison.Rows;
+
+        var shared = Row(rows, ".claude/skills/deploy/SKILL.md");
+        Assert.Equal(InstructionReach.OnDemand, shared.Claude.Reach);
+        Assert.Equal(InstructionReach.OnDemand, shared.Copilot.Reach);
+        Assert.False(shared.IsOneSided);
+
+        var agents = Row(rows, ".agents/skills/tenants/SKILL.md");
+        Assert.Equal(InstructionReach.NotRead, agents.Claude.Reach);
+        Assert.Equal(InstructionReach.OnDemand, agents.Copilot.Reach);
+        Assert.True(agents.IsOneSided);
+
+        Assert.Equal(InstructionReach.OnDemand, Row(rows, ".github/skills/release/SKILL.md").Copilot.Reach);
+        Assert.Equal(InstructionReach.NotRead, Row(rows, ".github/skills/release/SKILL.md").Claude.Reach);
+
+        // Advertised is not loaded: nothing here counts towards what a host carries.
+        Assert.Equal(0, comparison.Claude.Files);
+        Assert.Equal(0, comparison.Copilot.Files);
     }
 
     [Fact]
@@ -246,8 +380,10 @@ public sealed class InstructionLoadingTests
 
         Assert.False(comparison.IsScoped);
         Assert.Equal(1, comparison.Claude.Files);
-        Assert.Equal(1, comparison.Copilot.Files);
+        // Its own root file and the root CLAUDE.md, which stands in for AGENTS.md.
+        Assert.Equal(2, comparison.Copilot.Files);
         Assert.Equal(5, comparison.Claude.Bytes);
+        Assert.Equal(13, comparison.Copilot.Bytes);
     }
 
     [Fact]

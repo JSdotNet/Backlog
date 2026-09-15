@@ -15,6 +15,15 @@ public sealed class InstructionSourceDiscovery
     ];
 
     /// <summary>
+    /// Claude Code's own worktrees, each a whole second checkout of the
+    /// repository under the folder this walks for instructions. Read as part of
+    /// the clone they counted every instruction file twice over and every
+    /// dependency's readme once — two and a half thousand files against the nine
+    /// that were actually the repository's.
+    /// </summary>
+    private const string ClaudeWorktrees = ".claude/worktrees/";
+
+    /// <summary>
     /// The instruction files that sit at the repository root rather than inside one
     /// of the instruction folders.
     ///
@@ -101,10 +110,18 @@ public sealed class InstructionSourceDiscovery
 
         AddDocument(root, ".github/copilot-instructions.md", "GitHub Copilot", "Repository-wide instructions", documents, seen);
         AddDocuments(root, ".github/instructions", "*.instructions.md", "GitHub Copilot", "Path-specific instructions", documents, seen);
+        AddDocuments(root, ".github/skills", "SKILL.md", "GitHub Copilot", "Agent skills", documents, seen);
         AddDocument(root, "CLAUDE.md", "Claude Code", "Project instructions", documents, seen);
         AddDocument(root, ".claude/CLAUDE.md", "Claude Code", "Project instructions", documents, seen);
         AddDocuments(root, ".claude/rules", "*.md", "Claude Code", "Path-specific rules", documents, seen);
+        // Skills before the folder walk, so they are labelled as skills rather
+        // than as whatever else lives under .claude.
+        AddDocuments(root, ".claude/skills", "SKILL.md", "Claude Code", "Agent skills", documents, seen);
         AddDocuments(root, ".claude", "*.md", "Claude Code", "Claude workspace files", documents, seen);
+        AddDocuments(root, ".agents/skills", "SKILL.md", "Shared agent convention", "Agent skills", documents, seen);
+        // Nested project files, read when Claude Code works under their folder.
+        // The root one is already in the set, so this only ever adds the rest.
+        AddDocuments(root, string.Empty, "CLAUDE.md", "Claude Code", "Directory-scoped project instructions", documents, seen);
         AddAgentsDocuments(root, documents, seen);
 
         documents.Sort(static (left, right) =>
@@ -163,6 +180,8 @@ public sealed class InstructionSourceDiscovery
 
         foreach (var fullPath in Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories))
         {
+            if (IsExcluded(root, fullPath)) continue;
+
             AddResolvedDocument(root, fullPath, agent, scope, documents, seen);
         }
     }
@@ -171,14 +190,20 @@ public sealed class InstructionSourceDiscovery
     {
         foreach (var fullPath in Directory.EnumerateFiles(root, "AGENTS.md", SearchOption.AllDirectories))
         {
-            var relativePath = Path.GetRelativePath(root, fullPath);
-            if (relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(IsExcludedDirectory))
-            {
-                continue;
-            }
+            if (IsExcluded(root, fullPath)) continue;
 
             AddResolvedDocument(root, fullPath, "Shared agent convention", "Directory-scoped agent instructions", documents, seen);
         }
+    }
+
+    /// <summary>Whether a file sits somewhere no host reads instructions from:
+    /// build output, dependencies, version control, or another worktree.</summary>
+    private static bool IsExcluded(string root, string fullPath)
+    {
+        var relativePath = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
+
+        return relativePath.StartsWith(ClaudeWorktrees, StringComparison.OrdinalIgnoreCase)
+            || relativePath.Split('/').Any(IsExcludedDirectory);
     }
 
     private static bool IsExcludedDirectory(string part) =>

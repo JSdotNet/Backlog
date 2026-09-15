@@ -879,6 +879,17 @@ button.badge:hover {
     color: var(--color-text-inverse);
 }
 
+/* A skill: advertised every session, read when called. The on-match outline in
+   the same hue, dotted — the host holds the door open rather than a path
+   opening it, and a dotted edge is a boundary that is there and not yet
+   crossed. Dotted rather than dashed so it does not read as the absence two
+   rows down. */
+.badge--reach-on-demand {
+    background: transparent;
+    border: var(--border-width) dotted var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
 .badge--reach-linked {
     background: transparent;
     border: var(--border-width) solid var(--color-border);

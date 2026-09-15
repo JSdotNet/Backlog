@@ -70,10 +70,30 @@ public sealed class UserContextSourcesTests : IDisposable
     {
         var sources = UserContextSources.Read(_home, _home);
 
-        Assert.Equal(4, sources.Count);
+        Assert.Equal(6, sources.Count);
         Assert.All(sources, source => Assert.Equal(UserContextState.Absent, source.State));
         Assert.Contains(sources, source => source.Host == "GitHub Copilot");
         Assert.Contains(sources, source => source.Host == "Claude Code");
+    }
+
+    /// <summary>Copilot's own personal instructions, which its CLI and
+    /// GitHub.com read from <c>~/.copilot</c> — a different folder from the
+    /// editor's prompt files, and a different surface.</summary>
+    [Fact]
+    public void Reads_copilots_personal_instructions_from_its_own_folder()
+    {
+        Write(".copilot/copilot-instructions.md", "# Mine");
+        Write(".copilot/instructions/style.instructions.md", "# Style");
+        Write(".copilot/instructions/notes.md", "not an instruction file");
+
+        var file = Source("Personal instructions");
+        Assert.Equal("GitHub Copilot", file.Host);
+        Assert.Equal(UserContextState.Present, file.State);
+        Assert.Equal(6, file.Bytes);
+
+        var folder = Source("Personal instruction files");
+        Assert.Equal("GitHub Copilot", folder.Host);
+        Assert.Equal(1, folder.Files);
     }
 
     /// <summary>
