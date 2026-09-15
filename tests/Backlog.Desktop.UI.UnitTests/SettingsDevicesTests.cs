@@ -632,7 +632,67 @@ public sealed class SettingsDevicesTests
 
         Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
         Assert.NotNull(context.Credentials.Current);
+
+        // A service that answered the question with nothing has not said the
+        // credential works, so there is nothing to ask the count with. Anything
+        // beyond the one question would be the hammering the question exists
+        // to avoid.
+        Assert.Single(context.Service.Paths, path => path.EndsWith("/devices/me", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// The ordinary outcome of the same opening move once registrations
+    /// survive a restart: the credential still works, the service says so by
+    /// minting a token, and the device is still paired. The refused status call
+    /// is what carried the count of other devices, so the panel asks for it
+    /// again - once, and only because the service has just answered that the
+    /// credential is good. Before this, the card said "Paired as" and nothing
+    /// about the other devices until the tab was opened a second time.
+    /// </summary>
+    [Fact]
+    public void A_stale_token_that_the_credential_replaces_brings_the_paired_count_back_on_first_load()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            withTokenPipeline: true,
+            respond: (request, index) => index switch
+            {
+                // The token cached from before the restart: minted happily.
+                0 => Token(),
+
+                // The bearer call, refused because the signing key moved.
+                1 => new HttpResponseMessage(HttpStatusCode.Unauthorized),
+
+                // The question, answered with a fresh token: still registered.
+                2 when IsTokenRequest(request) => Token(),
+
+                // The status call sent again with the token just minted.
+                3 when IsStatusRequest(request) => Status(pairedDeviceCount: 3),
+
+                _ => throw new InvalidOperationException($"Unexpected call #{index} to {request.RequestUri}."),
+            });
+
+        OpenDevicesTab(context.Component);
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "2 other devices are paired.",
+                context.Component.Find("[data-testid='devices-identity']").TextContent,
+                StringComparison.Ordinal));
+
+        Assert.Empty(context.Component.FindAll("[data-testid='devices-unregistered']"));
+        Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']"));
+
+        // Once. The second status call is the answer being used, not a retry
+        // loop: two status calls and two token calls, in that order.
+        Assert.Equal(
+            ["/api/sync/devices/token", "/api/sync/devices/me", "/api/sync/devices/token", "/api/sync/devices/me"],
+            context.Service.Paths);
+    }
+
+    private static bool IsStatusRequest(HttpRequestMessage request) =>
+        request.RequestUri?.AbsolutePath.EndsWith("/devices/me", StringComparison.Ordinal) == true;
 
     private static bool IsTokenRequest(HttpRequestMessage request) =>
         request.RequestUri?.AbsolutePath.EndsWith("/devices/token", StringComparison.Ordinal) == true;
@@ -650,6 +710,17 @@ public sealed class SettingsDevicesTests
         {
             Content = new StringContent(
                 $$"""{"accessToken":"a-token","expiresAt":"{{DateTimeOffset.UtcNow.AddMinutes(30):O}}","tokenType":"Bearer"}""",
+                Encoding.UTF8,
+                "application/json")
+        };
+
+    /// <summary>The status answer for the paired device, with the count the
+    /// card's second sentence is made from.</summary>
+    private static HttpResponseMessage Status(int pairedDeviceCount) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                $$"""{"ownerId":"{{Owner}}","deviceId":"{{Device}}","deviceName":"Workshop PC","pairedDeviceCount":{{pairedDeviceCount}}}""",
                 Encoding.UTF8,
                 "application/json")
         };
