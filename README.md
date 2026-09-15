@@ -128,6 +128,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
+| `src/Infrastructure/Backlog.Infrastructure.Capture` | Cross-cutting adapter — the YouTube channel and website feed monitors behind `ICaptureSourceAdapter`, fetched through the named `capture-feeds` HTTP client with its own resilience pipeline, delivering new entries straight into the Inbox over `IInboxIntake` |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |

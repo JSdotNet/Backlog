@@ -67,6 +67,13 @@ primary-path result.
   total, and Gateway connection mode. The mandatory-timeout rule is met; what is
   not is the circuit breaker, which the SDK has no equivalent for, and the retry
   is the SDK's 429-only policy rather than the standard pipeline's transient set.
-- No HTTP adapter sets a purposeful per-dependency timeout; all of them inherit
-  the standard handler's defaults.
+- **One HTTP adapter now sets a purposeful per-dependency timeout; the rest still
+  inherit the standard handler's defaults.** The named `capture-feeds` client in
+  `Backlog.Infrastructure.Capture` (`FeedFetcher`) configures its own pipeline —
+  1 retry, a 10 s attempt timeout, 15 s total — rather than the standard
+  handler's, and the response body read is bounded by the same clock so a slow
+  body cannot outlast the timeout that stopped the headers. The reason is where
+  the call runs: capture is triggered by a button press on the user's own
+  machine, so a hung request is a hung UI, not a background retry nobody is
+  watching.
 - Circuit-breaker state changes are not surfaced as metrics.
