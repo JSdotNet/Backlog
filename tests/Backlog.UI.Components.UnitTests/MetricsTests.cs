@@ -366,6 +366,35 @@ public sealed class MetricSparklineTests
     }
 
     [Fact]
+    public void The_end_marker_is_positioned_over_the_plot_rather_than_drawn_in_it()
+    {
+        // The plot stretches to its box with preserveAspectRatio="none", so a
+        // circle drawn inside it is an ellipse as wide as the tile is. The marker
+        // is HTML placed in percentages instead: last point, at its height.
+        using var context = new BunitContext();
+
+        var sparkline = context.Render<MetricSparkline>(parameters => parameters
+            .Add(s => s.Points, Series(1m, 4m, 2m)));
+
+        var marker = sparkline.Find(".metric-sparkline__marker");
+
+        Assert.Empty(sparkline.FindAll("svg .metric-sparkline__marker"));
+        Assert.Equal("true", marker.GetAttribute("aria-hidden"));
+        Assert.Equal("left: 100%; top: 50%", marker.GetAttribute("style"));
+    }
+
+    [Fact]
+    public void The_end_marker_sits_on_the_shared_scale_when_one_is_given()
+    {
+        using var context = new BunitContext();
+
+        var sparkline = context.Render<MetricSparkline>(parameters => parameters
+            .Add(s => s.Points, Series(1m, 2m))
+            .Add(s => s.Max, 8m));
+
+        Assert.Equal("left: 100%; top: 75%", sparkline.Find(".metric-sparkline__marker").GetAttribute("style"));
+    }
+    [Fact]
     public void The_wash_and_the_marker_can_both_be_turned_off()
     {
         using var context = new BunitContext();

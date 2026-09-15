@@ -9084,10 +9084,18 @@ select.field__input {
     stroke: none;
 }
 
+/* Not SVG: the plot stretches to its box, and a circle inside it stretches into
+   an ellipse as wide as the tile. A box positioned in percentages stays round. */
 .metric-sparkline__marker {
-    fill: var(--chart-series);
-    stroke: var(--chart-surface);
-    stroke-width: var(--border-width-2);
+    position: absolute;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
+    box-sizing: border-box;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-series);
+    border: var(--border-width-2) solid var(--chart-surface);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
 }
 
 /* --- Metrics: columns ---------------------------------------------------- */
