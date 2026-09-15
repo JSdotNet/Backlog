@@ -1,0 +1,386 @@
+name: Application Insights exceptions
+
+# Reads the exceptions Application Insights recorded for the cloud sync tier
+# (local ADR 0005; infra/sync/main.bicep provisions the component) and files one
+# GitHub issue per distinct problem, so a failure nobody was watching the portal
+# for still lands in the backlog by morning.
+#
+# One issue per `problemId`, which is Application Insights' own grouping of an
+# exception by type and throw site. The issue body carries the id in an HTML
+# comment, and a later run that finds the same problem again comments on the
+# open issue with the fresh count rather than opening a second one. A problem
+# whose issue was closed gets a new issue that links back to the closed one —
+# it came back, and that is worth a fresh look rather than a silent reopen.
+#
+# Authentication is the same OIDC federated credential Deploy Sync uses, with
+# the same five environment variables on the `backlog-sync` GitHub environment
+# (docs/deployment/sync.md). The service principal needs to read telemetry as
+# well as deploy: Contributor on the resource group covers it, and so would
+# Monitoring Reader on the component alone. No secret is stored anywhere.
+#
+# Two things to know:
+#
+#   1. The component is discovered by listing the resource group; set the
+#      `APPLICATIONINSIGHTS_NAME` variable on the environment instead when the
+#      group ever holds more than one.
+#   2. Nothing exports to the component until the sync service sends telemetry
+#      to Azure Monitor. Until then every run reports "no exceptions" honestly —
+#      an empty result is what the query returned, not a failure.
+
+on:
+  schedule:
+    # 04:23 UTC, a quiet hour; scheduled jobs are best-effort, so leave slack.
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'How far back to read exceptions, in hours'
+        required: false
+        default: '24'
+        type: string
+      dry_run:
+        description: 'Report what would be filed without touching issues'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-insights-exceptions
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  triage:
+    name: File issues for new exceptions
+    runs-on: ubuntu-latest
+    # Declaring the environment is what makes the OIDC token's subject
+    # `repo:JSdotNet/Backlog:environment:backlog-sync`, the one the federated
+    # credential trusts; see docs/deployment/sync.md.
+    environment: backlog-sync
+    permissions:
+      contents: read
+      issues: write
+      # Required for the OIDC federated credential: the runner mints a
+      # short-lived token Azure trusts, and nothing long-lived is stored.
+      id-token: write
+
+    env:
+      # Both triggers arrive here; a scheduled run has no inputs and takes the
+      # defaults, so a run that says nothing reads one day and files for real.
+      LOOKBACK_HOURS: ${{ inputs.lookback_hours || '24' }}
+      DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      APPLICATIONINSIGHTS_NAME: ${{ vars.APPLICATIONINSIGHTS_NAME }}
+      # The label every filed issue wears, and the only thing a later run
+      # lists to find the issues it filed before.
+      ISSUE_LABEL: app-insights-exception
+      # A ceiling on new issues per run. A bad night could produce dozens of
+      # distinct problems; the noisiest twenty get issues, the rest get the
+      # summary, and the next night picks up whatever is still happening.
+      MAX_NEW_ISSUES: '20'
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Verify configuration
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Fail before touching Azure, with the name of the variable that is
+          # missing, rather than as a sign-in nobody can tell apart from a
+          # revoked credential.
+          $required = @{
+            AZURE_CLIENT_ID       = $env:AZURE_CLIENT_ID
+            AZURE_TENANT_ID       = $env:AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID = $env:AZURE_SUBSCRIPTION_ID
+            AZURE_RESOURCE_GROUP  = $env:AZURE_RESOURCE_GROUP
+          }
+
+          $missing = $required.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key }
+          if ($missing) {
+            Write-Output "::error::Set these variables on the GitHub environment 'backlog-sync': $($missing -join ', '). See docs/deployment/sync.md."
+            exit 1
+          }
+
+          if ($env:LOOKBACK_HOURS -notmatch '^[1-9][0-9]{0,3}$') {
+            Write-Output "::error::lookback_hours must be a whole number of hours between 1 and 9999; got '$env:LOOKBACK_HOURS'."
+            exit 1
+          }
+
+      - name: Sign in to Azure
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve the Application Insights component
+        id: component
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $name = $env:APPLICATIONINSIGHTS_NAME
+          if (-not $name) {
+            # The bicep names it appi-<token>, and the token is derived rather
+            # than chosen, so the group is listed instead of the name guessed.
+            $names = az resource list `
+              --resource-group $env:AZURE_RESOURCE_GROUP `
+              --resource-type Microsoft.Insights/components `
+              --query '[].name' --output json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+
+            if (@($names).Count -eq 0) {
+              Write-Output "::error::No Application Insights component in resource group '$env:AZURE_RESOURCE_GROUP'. Provision the sync tier first (Deploy Sync), or set APPLICATIONINSIGHTS_NAME."
+              exit 1
+            }
+            if (@($names).Count -gt 1) {
+              Write-Output "::error::Resource group '$env:AZURE_RESOURCE_GROUP' holds $(@($names).Count) Application Insights components ($($names -join ', ')). Set APPLICATIONINSIGHTS_NAME on the environment to choose one."
+              exit 1
+            }
+            $name = @($names)[0]
+          }
+
+          # The query API addresses the component by its data-plane AppId, not
+          # its resource name.
+          $appId = az resource show `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --name $name `
+            --resource-type Microsoft.Insights/components `
+            --query 'properties.AppId' --output tsv
+          if ($LASTEXITCODE -ne 0 -or -not $appId) {
+            Write-Output "::error::Could not read the AppId of Application Insights component '$name'."
+            exit 1
+          }
+
+          "name=$name" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "app_id=$appId" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "portal_url=https://portal.azure.com/#@$env:AZURE_TENANT_ID/resource/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:AZURE_RESOURCE_GROUP/providers/Microsoft.Insights/components/$name/failures" |
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT
+
+      - name: Query exceptions
+        id: query
+        env:
+          APP_ID: ${{ steps.component.outputs.app_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # One row per problemId. take_any() picks a representative for the
+          # descriptive columns; they are the same for every row in a group by
+          # construction, since the id is derived from type and throw site.
+          $kql = @"
+          exceptions
+          | where timestamp > ago($($env:LOOKBACK_HOURS)h)
+          | summarize
+              occurrences = count(),
+              firstSeen = min(timestamp),
+              lastSeen = max(timestamp),
+              type = take_any(type),
+              message = take_any(outerMessage),
+              role = take_any(cloud_RoleName),
+              operation = take_any(operation_Name),
+              operationId = take_any(operation_Id),
+              stack = take_any(tostring(details[0].rawStack))
+            by problemId
+          | order by occurrences desc
+          | take 100
+          "@
+
+          # POST rather than GET so the query travels in the body: a KQL
+          # statement in a query string needs escaping at three layers, and
+          # every one of them has bitten someone.
+          $body = @{ query = $kql; timespan = "PT$($env:LOOKBACK_HOURS)H" } | ConvertTo-Json -Compress
+          $bodyPath = Join-Path $env:RUNNER_TEMP 'query.json'
+          [IO.File]::WriteAllText($bodyPath, $body)
+
+          $response = az rest `
+            --method post `
+            --resource 'https://api.applicationinsights.io' `
+            --url "https://api.applicationinsights.io/v1/apps/$env:APP_ID/query" `
+            --headers 'Content-Type=application/json' `
+            --body "@$bodyPath" `
+            --output json
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::The Application Insights query failed. If sign-in succeeded, the service principal is missing Monitoring Reader on the component."
+            exit 1
+          }
+
+          # -DateKind String keeps the timestamps as the ISO text the API sent,
+          # so the issue shows `2026-09-15T04:12:07Z` rather than a runner-local
+          # rendering of the same instant.
+          $table = ($response | ConvertFrom-Json -DateKind String).tables[0]
+          $columns = $table.columns.name
+          # @() around the loop: no rows gives an empty array, not $null, so
+          # the file below holds `[]` rather than `[null]`.
+          $rows = @(foreach ($row in $table.rows) {
+            $item = [ordered]@{}
+            for ($i = 0; $i -lt $columns.Count; $i++) { $item[$columns[$i]] = $row[$i] }
+            [pscustomobject]$item
+          })
+
+          $resultPath = Join-Path $env:RUNNER_TEMP 'exceptions.json'
+          ConvertTo-Json -InputObject $rows -Depth 5 | Set-Content -LiteralPath $resultPath
+          "path=$resultPath" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "count=$(@($rows).Count)" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+
+          Write-Output "$(@($rows).Count) distinct problem(s) in the last $env:LOOKBACK_HOURS hour(s)."
+
+      - name: File and update issues
+        id: file
+        env:
+          RESULT_PATH: ${{ steps.query.outputs.path }}
+          COMPONENT_NAME: ${{ steps.component.outputs.name }}
+          PORTAL_URL: ${{ steps.component.outputs.portal_url }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $problems = @(Get-Content -LiteralPath $env:RESULT_PATH -Raw | ConvertFrom-Json -DateKind String)
+          $dryRun = $env:DRY_RUN -eq 'true'
+          $marker = 'appinsights-problem-id'
+
+          if (-not $dryRun) {
+            # --force makes this idempotent: the label is created the first
+            # time and left alone after, rather than failing on "already exists".
+            gh label create $env:ISSUE_LABEL `
+              --description 'Filed automatically from Application Insights exceptions' `
+              --color 'B60205' --force
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+
+          # Every issue this workflow ever filed, open or closed, keyed by the
+          # problemId in its body. Listing by label is what keeps a hand-made
+          # issue that happens to mention an id from being mistaken for ours.
+          $known = @{}
+          $existing = gh issue list --label $env:ISSUE_LABEL --state all --limit 1000 `
+            --json number,state,url,body | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          foreach ($issue in $existing) {
+            if ($issue.body -match "<!-- $marker`: (.+?) -->") {
+              $id = $Matches[1]
+              # Prefer the open one when both exist; otherwise the latest.
+              if (-not $known.ContainsKey($id) -or ($issue.state -eq 'OPEN' -and $known[$id].state -ne 'OPEN')) {
+                $known[$id] = $issue
+              }
+            }
+          }
+
+          $created = [System.Collections.Generic.List[string]]::new()
+          $updated = [System.Collections.Generic.List[string]]::new()
+          $skipped = [System.Collections.Generic.List[string]]::new()
+          $newCount = 0
+
+          foreach ($p in $problems) {
+            $type = if ($p.type) { $p.type } else { 'Exception' }
+            $message = if ($p.message) { ($p.message -replace '\s+', ' ').Trim() } else { '(no message)' }
+            $shortMessage = if ($message.Length -gt 90) { $message.Substring(0, 90) + '…' } else { $message }
+            $title = "[App Insights] $type`: $shortMessage"
+            $stack = if ($p.stack) { $p.stack } else { '(no stack trace recorded)' }
+            if ($stack.Length -gt 6000) { $stack = $stack.Substring(0, 6000) + "`n… (truncated)" }
+
+            $summaryLine = "$($p.occurrences)× ``$type`` in ``$($p.role)`` — $shortMessage"
+
+            if ($known.ContainsKey($p.problemId) -and $known[$p.problemId].state -eq 'OPEN') {
+              $issue = $known[$p.problemId]
+              $comment = @(
+                "Still occurring: **$($p.occurrences)** time(s) in the last $env:LOOKBACK_HOURS hour(s), last seen ``$($p.lastSeen)`` in ``$($p.operation)``."
+                ""
+                "Sample operation id: ``$($p.operationId)``"
+              ) -join "`n"
+
+              if ($dryRun) {
+                $updated.Add("(dry run) would comment on $($issue.url): $summaryLine")
+              }
+              else {
+                $commentPath = Join-Path $env:RUNNER_TEMP 'comment.md'
+                Set-Content -LiteralPath $commentPath -Value $comment
+                gh issue comment $issue.number --body-file $commentPath
+                if ($LASTEXITCODE -ne 0) { exit 1 }
+                $updated.Add("$($issue.url): $summaryLine")
+              }
+              continue
+            }
+
+            if ($newCount -ge [int]$env:MAX_NEW_ISSUES) {
+              $skipped.Add($summaryLine)
+              continue
+            }
+
+            $previous = if ($known.ContainsKey($p.problemId)) {
+              "This problem was filed before as $($known[$p.problemId].url), which is closed. It is back."
+            } else { '' }
+
+            $body = @(
+              "<!-- $marker`: $($p.problemId) -->"
+              "Application Insights recorded this exception in the cloud sync tier."
+              ""
+              "| | |"
+              "| --- | --- |"
+              "| Type | ``$type`` |"
+              "| Role | ``$($p.role)`` |"
+              "| Operation | ``$($p.operation)`` |"
+              "| Occurrences | $($p.occurrences) in the last $env:LOOKBACK_HOURS hour(s) |"
+              "| First seen | ``$($p.firstSeen)`` |"
+              "| Last seen | ``$($p.lastSeen)`` |"
+              "| Sample operation id | ``$($p.operationId)`` |"
+              "| Component | [``$env:COMPONENT_NAME``]($env:PORTAL_URL) |"
+              ""
+              "**Message**"
+              ""
+              '```text'
+              $message
+              '```'
+              ""
+              "**Stack trace** (one sample)"
+              ""
+              '```text'
+              $stack
+              '```'
+              ""
+              $previous
+              ""
+              "_Filed by the Application Insights exceptions workflow. Later runs comment here while the problem keeps occurring; close the issue once it is fixed, and a recurrence opens a new one._"
+            ) -join "`n"
+
+            if ($dryRun) {
+              $created.Add("(dry run) would create: $title")
+            }
+            else {
+              $bodyPath = Join-Path $env:RUNNER_TEMP 'issue.md'
+              Set-Content -LiteralPath $bodyPath -Value $body
+              $url = gh issue create --title $title --body-file $bodyPath --label $env:ISSUE_LABEL
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+              $created.Add("$url`: $summaryLine")
+            }
+            $newCount++
+          }
+
+          $lines = @(
+            "### Application Insights exceptions"
+            ""
+            "- Component: ``$env:COMPONENT_NAME``"
+            "- Window: last $env:LOOKBACK_HOURS hour(s)"
+            "- Distinct problems: $($problems.Count)"
+            "- Mode: $(if ($dryRun) { 'dry run — nothing filed' } else { 'live' })"
+            ""
+          )
+          if ($problems.Count -eq 0) {
+            $lines += "No exceptions were recorded in the window."
+          }
+          if ($created.Count) { $lines += "#### New issues"; $lines += ($created | ForEach-Object { "- $_" }); $lines += "" }
+          if ($updated.Count) { $lines += "#### Still occurring"; $lines += ($updated | ForEach-Object { "- $_" }); $lines += "" }
+          if ($skipped.Count) {
+            $lines += "#### Not filed (over the $env:MAX_NEW_ISSUES-issue ceiling for one run)"
+            $lines += ($skipped | ForEach-Object { "- $_" })
+            $lines += ""
+          }
+          $lines | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+          Write-Output "Created $($created.Count), updated $($updated.Count), skipped $($skipped.Count)."
