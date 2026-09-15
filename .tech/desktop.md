@@ -176,6 +176,17 @@ The packaging and update format for the Windows client.
   `Publisher` (`CN=JSdotNet`) must match the App Installer's `MainPackage`
   exactly or updates will not apply. Because it is self-signed, the signing
   certificate has to be trusted on the target machine before the first install.
+- **Where it writes** — the manifest sets
+  `desktop6:FileSystemWriteVirtualization` to `disabled` (with the
+  `unvirtualizedResources` capability that requires), so the packaged app
+  writes to the `%LOCALAPPDATA%\Backlog` it names on the Storage settings page
+  rather than to the package's `LocalCache\Local` redirect. Installs from
+  before that opt-out left their state in the redirect; `PackagedAppData`
+  adopts it on the first start (see [Installation and
+  Updates](../.arc42/07-deployment-view.md#installation-and-updates)). Only a
+  packaged Release build runs MakeAppx over the manifest — PR CI builds with
+  `WindowsPackageType=None` — so a manifest change is checked with an unsigned
+  local publish (`-p:AppxPackageSigningEnabled=false`, MSIX left on).
 
 ## App Installer (`.appinstaller`)
 

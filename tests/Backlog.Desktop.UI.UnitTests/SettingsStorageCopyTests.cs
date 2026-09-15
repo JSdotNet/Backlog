@@ -159,13 +159,13 @@ public sealed class SettingsStorageCopyTests
 
     private const string StoragePathInput = "[data-testid='storage-path-input']";
 
-    /// <summary>Types a folder in and commits it, the way the field is wired:
-    /// the value follows every keystroke and the change is what applies it.</summary>
+    /// <summary>Types a folder in and moves to it, the way the screen is
+    /// wired: the value follows every keystroke and the button is what
+    /// applies it.</summary>
     private static void Commit(IRenderedComponent<Settings> component, string path)
     {
-        var field = component.Find(StoragePathInput);
-        field.Input(path);
-        field.Change(path);
+        component.Find(StoragePathInput).Input(path);
+        component.Find("[data-testid='move-storage-path']").Click();
     }
 
     /// <summary>A fake provider that claims any folder named after it, so a test

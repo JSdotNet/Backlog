@@ -4,7 +4,8 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  IgnorableNamespaces="uap rescap desktop6">
 
   <Identity Name="JSdotNet.Backlog.Desktop" Publisher="CN=JSdotNet" Version="0.0.0.0" />
 
@@ -14,6 +15,16 @@
     <DisplayName>Backlog</DisplayName>
     <PublisherDisplayName>JSdotNet</PublisherDisplayName>
     <Logo>$placeholder$.png</Logo>
+    <!--
+      Off, so the app writes to the AppData folder it names. A packaged app
+      has its %LocalAppData% writes redirected into
+      Packages\<family>\LocalCache\Local by default, and the Storage settings
+      page then points at a folder that does not exist in Explorer while the
+      backlog sits in one nobody was told about. PackagedAppData adopts what
+      an install written under that default left there. Ignorable, so an OS
+      older than desktop6 (1903) installs the package and keeps redirecting.
+    -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
   </Properties>
 
   <Dependencies>
@@ -41,6 +52,10 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <!-- What FileSystemWriteVirtualization=disabled above requires; MakeAppx
+         refuses the manifest without it. Restricted, like runFullTrust, which
+         a sideloaded package may declare. -->
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 
 </Package>

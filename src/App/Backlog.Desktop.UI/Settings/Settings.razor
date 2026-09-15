@@ -485,7 +485,14 @@
 
                     @* The error class goes on InputCssClass, not ErrorMessage: this
                        page reports the reason in its own status paragraph below, and
-                       ErrorMessage would render a second one as an Alert. *@
+                       ErrorMessage would render a second one as an Alert.
+
+                       No @onchange, and deliberately. The field used to commit a move
+                       on change, which fires on blur - so clicking "Switch without
+                       moving" after typing a folder moved the backlog there first and
+                       then switched to it, and the button could never do what it said.
+                       Enter still moves, because a key pressed on purpose is a choice;
+                       leaving the field is not. *@
                     <TextField Bare="true"
                                LabelCssClass="setting__label"
                                InputCssClass="@SettingInputClass(_error)"
@@ -497,7 +504,6 @@
                                aria-describedby="@StoragePathDescribedBy"
                                Value="@_draftPath"
                                ValueChanged="value => _draftPath = value"
-                               @onchange="ApplyAsync"
                                @onkeydown="OnKeyDownAsync" />
 
                     <p class="setting__status" id="storage-path-status" data-testid="storage-path-status" role="status">
@@ -519,17 +525,20 @@
                         }
                     </p>
 
-                    @* Two ways to leave a folder, and the field commits the safe one.
-                       Moving takes the backlog along; switching leaves it behind and
-                       reads whatever the other folder holds. Switching used to be the
-                       only way, which is how "Use the default folder" came to empty a
-                       backlog whose database was still sitting on OneDrive. *@
+                    @* Two ways to leave a folder, each a button, plus the default
+                       folder as the move it most often is. Moving takes the backlog
+                       along; switching leaves it behind and reads whatever the other
+                       folder holds. Switching used to be the only way, which is how
+                       "Use the default folder" came to empty a backlog whose database
+                       was still sitting on OneDrive - and moving used to be only the
+                       default button and the field's own change event, so the folder
+                       somebody typed had no button that said "move" over it. *@
                     <div class="setting__actions">
                         <AppButton Variant="ButtonVariant.None"
-                                   data-testid="reset-storage-path"
-                                   Disabled="@Store.IsDefaultRoot"
-                                   OnClick="MoveToDefaultAsync">
-                            Move to the default folder
+                                   data-testid="move-storage-path"
+                                   Disabled="@IsCurrentRootDraft"
+                                   OnClick="ApplyAsync">
+                            Move to this folder
                         </AppButton>
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="switch-storage-path"
@@ -537,12 +546,19 @@
                                    OnClick="SwitchAsync">
                             Switch without moving
                         </AppButton>
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="reset-storage-path"
+                                   Disabled="@Store.IsDefaultRoot"
+                                   OnClick="MoveToDefaultAsync">
+                            Move to the default folder
+                        </AppButton>
                     </div>
 
                     <p class="setting__note">
-                        Entering a folder moves the backlog: the database and everything beside it
-                        are copied there, and the app reads from the new folder from then on. The
-                        old folder is left as it was - delete it yourself once you are sure. A
+                        Moving takes the backlog along: the database, the inbox folder and the
+                        app's own configuration are copied there, and the app reads from the
+                        new folder from then on. Anything else you keep in the folder stays where
+                        it is, and so does the old copy - delete it yourself once you are sure. A
                         folder that already holds a backlog is never written over. Switch without
                         moving to open a backlog that already lives in the folder you entered; that
                         copies nothing.
@@ -2267,10 +2283,10 @@
         else if (e.Key == "Escape") _draftPath = Store.RootDirectory;
     }
 
-    /// <summary>What the field commits: the backlog goes along to the folder
-    /// typed in. The store copies before it repoints, and refuses a folder
-    /// that already holds a backlog, so the worst a slip here can do is leave
-    /// everything where it was and say why.</summary>
+    /// <summary>What "Move to this folder" and Enter in the field do: the
+    /// backlog goes along to the folder typed in. The store copies before it
+    /// repoints, and refuses a folder that already holds a backlog, so the
+    /// worst a slip here can do is leave everything where it was and say why.</summary>
     private Task ApplyAsync()
     {
         var previous = Store.RootDirectory;
@@ -2293,10 +2309,11 @@
 
     /// <summary>
     /// What the status line says after a commit. A commit that changed nothing
-    /// and failed nothing leaves the last outcome standing: Enter in the field
-    /// commits twice in a real browser - the key, then the change event the key
-    /// causes - and the second, no-op commit used to wipe "Moved" off the
-    /// screen before anybody read which folder still holds the old copy.
+    /// and failed nothing leaves the last outcome standing: Enter pressed again
+    /// on a field that now names the folder the app is in must not wipe "Moved"
+    /// off the screen before anybody read which folder still holds the old copy.
+    /// (It used to happen without a second key: the field committed on change
+    /// as well, and Enter caused both.)
     /// </summary>
     private void RecordRootChange(string previous, string? error, bool copied)
     {

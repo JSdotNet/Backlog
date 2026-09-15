@@ -1126,7 +1126,11 @@ public sealed record DevToolActionResult(bool Succeeded, string Message)
 public sealed record DevToolConfigurationPaths(string CatalogPath, string PcConfigPath)
 {
     private const string DefaultRepositoryRoot = "%USERPROFILE%\\.copilot\\repos\\Backlog";
-    private const string ToolFolderName = ".tools";
+
+    /// <summary>The folder the catalog sits in under a storage root. Public
+    /// because the workspace store has to know which folders in the root are
+    /// the app's when it moves one, and this is one of them.</summary>
+    public const string ToolFolderName = ".tools";
 
     /// <summary>What the catalog is called now that it drives two hosts. The file
     /// was <c>copilot-tools.json</c> when Copilot was the only thing in it, and the

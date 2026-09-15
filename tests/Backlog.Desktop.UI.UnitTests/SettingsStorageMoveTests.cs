@@ -62,10 +62,9 @@ public sealed class SettingsStorageMoveTests
     }
 
     /// <summary>
-    /// Enter in the field commits twice in a real browser: the key, and then
-    /// the change event the key causes. The second commit names the folder the
-    /// app is already in, and it must not wipe the sentence the first one put
-    /// on screen - that sentence is where the old copy is.
+    /// Enter pressed again on a field that now names the folder the app is
+    /// already in must not wipe the sentence the first press put on screen -
+    /// that sentence is where the old copy is.
     /// </summary>
     [Fact]
     public async Task Committing_the_same_folder_again_keeps_the_moved_status()
@@ -76,12 +75,58 @@ public sealed class SettingsStorageMoveTests
         OpenStorageTab(settings.Component);
         var target = Path.Combine(settings.Root, "elsewhere");
 
-        Commit(settings.Component, target);
-        Commit(settings.Component, target);
+        var field = settings.Component.Find(StoragePathInput);
+        field.Input(target);
+        field.KeyDown("Enter");
+        settings.Component.Find(StoragePathInput).KeyDown("Enter");
 
+        Assert.Equal(target, settings.Store.RootDirectory);
         var status = Status(settings.Component);
         Assert.Contains("Moved", status, StringComparison.Ordinal);
         Assert.Contains(previous, status, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The field commits nothing on its own. It used to move on its change
+    /// event, which fires on blur - so typing a folder and clicking "Switch
+    /// without moving" moved the backlog first and then switched to it, and
+    /// the button could never do what it said. Leaving the field now leaves
+    /// everything where it was; the buttons and Enter are the commits.
+    /// </summary>
+    [Fact]
+    public async Task Leaving_the_field_moves_nothing()
+    {
+        using var settings = RenderSettings();
+        var previous = settings.Store.RootDirectory;
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Stays put", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        OpenStorageTab(settings.Component);
+        var target = Path.Combine(settings.Root, "elsewhere");
+
+        var field = settings.Component.Find(StoragePathInput);
+        field.Input(target);
+
+        // No handler at all, which is the whole of the guarantee: nothing the
+        // field does on its own can reach the store.
+        Assert.Throws<MissingEventHandlerException>(() => field.Change(target));
+        Assert.Equal(previous, settings.Store.RootDirectory);
+        Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
+    }
+
+    /// <summary>The move has a button of its own, live once the field names
+    /// a folder other than the one the app is in. "Move to the default
+    /// folder" used to be the only move with a button, and the folder
+    /// somebody typed had nothing that said "move" over it.</summary>
+    [Fact]
+    public void The_move_button_wakes_up_when_a_different_folder_is_typed()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.True(settings.Component.Find(MoveButton).HasAttribute("disabled"));
+
+        settings.Component.Find(StoragePathInput).Input(Path.Combine(settings.Root, "elsewhere"));
+
+        Assert.False(settings.Component.Find(MoveButton).HasAttribute("disabled"));
     }
 
     /// <summary>The button that lost the backlog. It is the same move now, with
@@ -152,25 +197,34 @@ public sealed class SettingsStorageMoveTests
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        var tab = settings.Component.Find("#tabpanel-storage").TextContent;
+        // Collapsed, because the note wraps in the markup wherever it wraps
+        // and a phrase must not fail for landing on a line break.
+        var tab = System.Text.RegularExpressions.Regex.Replace(
+            settings.Component.Find("#tabpanel-storage").TextContent, @"\s+", " ");
 
         Assert.DoesNotContain("does not copy anything", tab, StringComparison.Ordinal);
         Assert.Contains("copied there", tab, StringComparison.Ordinal);
         Assert.Contains("never written over", tab, StringComparison.Ordinal);
+        // And it no longer promises "everything beside it": only the app's own
+        // files come, and the note says what stays.
+        Assert.DoesNotContain("everything beside it", tab, StringComparison.Ordinal);
+        Assert.Contains("stays where it is", tab, StringComparison.Ordinal);
     }
 
     private const string StoragePathInput = "[data-testid='storage-path-input']";
 
+    private const string MoveButton = "[data-testid='move-storage-path']";
+
     private static string Status(IRenderedComponent<Settings> component) =>
         component.Find("[data-testid='storage-path-status']").TextContent;
 
-    /// <summary>Types a folder in and commits it, the way the field is wired:
-    /// the value follows every keystroke and the change is what applies it.</summary>
+    /// <summary>Types a folder in and moves to it, the way the screen is
+    /// wired: the value follows every keystroke and the button is what
+    /// applies it.</summary>
     private static void Commit(IRenderedComponent<Settings> component, string path)
     {
-        var field = component.Find(StoragePathInput);
-        field.Input(path);
-        field.Change(path);
+        component.Find(StoragePathInput).Input(path);
+        component.Find(MoveButton).Click();
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>

@@ -69,6 +69,18 @@ Microsoft Store listing and no custom update server.
   `AddPackageByAppInstallerFileAsync`.
 - **Trust** — the certificate is self-signed for personal-scope use, so it must
   be trusted on the target machine before the first install.
+- **Where the data lives** — a packaged app's `%LOCALAPPDATA%` writes are
+  redirected into `Packages\<family>\LocalCache\Local` unless its manifest
+  opts out. Ours opts out (`desktop6:FileSystemWriteVirtualization=disabled`
+  plus the `unvirtualizedResources` capability), so the folder the Storage
+  settings page names is the folder that exists. Installs from before the
+  opt-out kept everything in the redirect, and the first start of a newer
+  build adopts it: `PackagedAppData` copies the database (through SQLite's
+  backup API), the `_inbox`/`config`/`.tools` folders and the per-device JSON
+  files into the real folder — never over something already there, never
+  deleting the redirected copy, and writing `settings.json` last so a failed
+  copy is retried on the next start. The redirected copy is the person's to
+  delete once the new install shows everything.
 - **Release automation** — `.github/workflows/release-desktop.yml` builds, signs
   (from repository secrets), generates the `.appinstaller`, and uploads both
   artifacts to the GitHub Release on a `v*` tag.
