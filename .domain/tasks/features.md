@@ -60,6 +60,13 @@ matching because the roadmap tag does not change when the item's title is rename
 Tags remain free-form strings on the task — nothing forces a tag to come from the
 roadmap — but the ones that do come from it line up on both sides on purpose.
 
+A roadmap tag is its own kind of tag on the task, and it reads as one: the picker
+offers the slug wearing a plan sigil, `+release-q4`, beside the `#` of a general
+tag and the `@` of a person, so a reader can tell at a glance which tags file the
+task against planned work. The sigil is the task's spelling, not the roadmap's —
+the item still holds the bare slug, and it gathers a task whether the task wears
+`+release-q4` or a bare `release-q4` filed before the sigil existed.
+
 ### Sub-items and steps
 
 ```meta
