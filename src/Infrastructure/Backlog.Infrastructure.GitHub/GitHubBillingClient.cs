@@ -106,6 +106,14 @@ public interface IGitHubBillingClient
 /// level; that refusal is reported as a reason rather than as a zero, because a
 /// dashboard that shows nothing spent is making a claim.
 /// </para>
+/// <para>
+/// One login per identity this machine holds: whoever <c>gh</c> is signed in as,
+/// and every account configured on the Accounts tab. A person with two GitHub
+/// accounts has two Copilot bills, and the figure the dashboard shows is their
+/// sum. Each login's search is the two-endpoint one above, and a
+/// <c>users/{login}</c> path binds to that login's own credential and endpoint
+/// through the transport, so a second account on another host is read there.
+/// </para>
 /// </remarks>
 public sealed class GitHubBillingClient(
     IGitHubTransport transport,
@@ -137,9 +145,9 @@ public sealed class GitHubBillingClient(
                 GitHubBillingScope.Unknown);
         }
 
-        var login = await identity.GetLoginAsync(cancellationToken).ConfigureAwait(false);
+        var logins = await LoginsAsync(cancellationToken).ConfigureAwait(false);
 
-        if (string.IsNullOrWhiteSpace(login))
+        if (logins.Count == 0)
         {
             return new GitHubBillingAvailability(
                 false,
@@ -149,7 +157,7 @@ public sealed class GitHubBillingClient(
 
         return new GitHubBillingAvailability(
             true,
-            $"Reading your Copilot AI-credit usage as {login} with the {transport.Description}.",
+            $"Reading your Copilot AI-credit usage as {string.Join(", ", logins)} with the {transport.Description}.",
             GitHubBillingScope.Unknown);
     }
 
@@ -159,14 +167,75 @@ public sealed class GitHubBillingClient(
         int? day = null,
         CancellationToken cancellationToken = default)
     {
-        var login = await identity.GetLoginAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new GitHubNotConfiguredException(
+        var logins = await LoginsAsync(cancellationToken).ConfigureAwait(false);
+
+        if (logins.Count == 0)
+        {
+            throw new GitHubNotConfiguredException(
                 "GitHub did not say who you are signed in as, so there is no account to read billing for.");
+        }
 
         var query = $"?year={year.ToString(CultureInfo.InvariantCulture)}"
             + $"&month={month.ToString(CultureInfo.InvariantCulture)}"
             + (day is { } chosen ? $"&day={chosen.ToString(CultureInfo.InvariantCulture)}" : string.Empty);
 
+        var read = new List<GitHubAiCreditUsage>();
+        GitHubException? refused = null;
+
+        foreach (var login in logins)
+        {
+            try
+            {
+                read.Add(await ReadLoginAsync(login, query, cancellationToken).ConfigureAwait(false));
+            }
+            catch (GitHubException ex)
+            {
+                // One account GitHub will not report is a gap, not a reason to
+                // blank the others - unless it was the only one, in which case
+                // its reason is the answer.
+                refused = ex;
+            }
+        }
+
+        if (read.Count == 0) throw refused!;
+
+        if (read.Count == 1) return read[0];
+
+        // Two bills, one figure. The scope is kept only when every account was
+        // read the same way; a personal plan beside an organization seat is not one
+        // scope, and Unknown says so rather than picking one.
+        var scopes = read.Select(usage => usage.Scope).Distinct().ToList();
+
+        return new GitHubAiCreditUsage(
+            [.. read.SelectMany(usage => usage.Items)],
+            scopes.Count == 1 ? scopes[0] : GitHubBillingScope.Unknown);
+    }
+
+    /// <summary>
+    /// The logins to read billing for: the signed-in identity first, then each
+    /// configured account, without repeats. Any of them may be absent - a machine
+    /// with no <c>gh</c> still has its pasted-token accounts, and one with no
+    /// accounts configured is the single-login behaviour this had before, exactly.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> LoginsAsync(CancellationToken cancellationToken)
+    {
+        var logins = new List<string>();
+
+        var signedIn = await identity.GetLoginAsync(cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(signedIn)) logins.Add(signedIn.Trim());
+
+        foreach (var account in settings.Current.Accounts)
+        {
+            if (!logins.Any(known => GitHubAccount.IsSameLogin(known, account.Login))) logins.Add(account.Login);
+        }
+
+        return logins;
+    }
+
+    /// <summary>One login's search: its own plan, then each configured organization
+    /// filtered to it.</summary>
+    private async Task<GitHubAiCreditUsage> ReadLoginAsync(string login, string query, CancellationToken cancellationToken)
+    {
         var personal = await TryReadAsync(
             $"users/{Uri.EscapeDataString(login)}/settings/billing/ai_credit/usage{query}",
             GitHubBillingScope.PersonalAccount,
@@ -192,10 +261,10 @@ public sealed class GitHubBillingClient(
 
         throw new GitHubException(
             organizations.Count == 0
-                ? "GitHub would not report AI-credit usage for your account, and no organization is configured to "
+                ? $"GitHub would not report AI-credit usage for {login}, and no organization is configured to "
                     + "ask instead. A Copilot seat paid for by an organization is billed to that organization, so "
                     + "the usage has to be read there."
-                : "GitHub would not report your AI-credit usage, for your account or for "
+                : $"GitHub would not report AI-credit usage for {login}, for the account or for "
                     + string.Join(", ", organizations)
                     + ". Reading one person's usage in an organization needs organization admin rights, and for an "
                     + "organization owned by an enterprise GitHub only answers it at enterprise level.");

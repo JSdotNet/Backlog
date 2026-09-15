@@ -194,118 +194,193 @@
                     <section class="setting" data-testid="claude-usage-settings" aria-label="Claude usage API settings">
                         <h2 class="setting__title">Claude usage API</h2>
                         <p class="setting__body">
-                            What Backlog needs to read your Claude usage and cost reports.
+                            What Backlog needs to read your Claude usage and cost reports. One card per
+                            organization you belong to - a personal Console beside an employer's - and
+                            the dashboard adds their spend up.
                         </p>
 
-                        @* Every field on this page is the shared TextField wearing
-                           the page's own label and input classes. Bare, because a
-                           settings section lays its label and box out itself, and a
-                           grid wrapper between them would move the spacing. *@
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Organization API endpoint"
-                                   Id="claude-usage-endpoint"
-                                   data-testid="claude-usage-endpoint-input"
-                                   Type="url"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Value="@_draftClaudeUsageEndpoint"
-                                   ValueChanged="value => _draftClaudeUsageEndpoint = value"
-                                   @onchange="ApplyClaudeUsageSettings"
-                                   @onkeydown="OnClaudeUsageKeyDown" />
-
-                        @* Which actor in the Claude organization is you. Not an endpoint
-                           and not a secret, but it belongs beside them rather than in a
-                           section of its own: it is the third thing needed before an
-                           organization-scoped usage report can be read as a personal one.
-                           The Claude Code report lists every actor in the organization, and
-                           there is no endpoint that says which one an admin key belongs to
-                           — an admin key belongs to the organization, not to a person. *@
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Your Claude account"
-                                   Id="claude-usage-actor"
-                                   data-testid="claude-usage-actor-input"
-                                   Type="email"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Value="@_draftClaudeUsageActor"
-                                   ValueChanged="value => _draftClaudeUsageActor = value"
-                                   @onchange="ApplyClaudeUsageSettings"
-                                   @onkeydown="OnClaudeUsageKeyDown" />
-
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Claude API key"
-                                   Id="claude-api-key"
-                                   data-testid="claude-api-key-input"
-                                   Type="password"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   HelpText="@ClaudeApiKeyHint"
-                                   Placeholder="@(Claude.Current.AdminApiKey is null ? "sk-ant-admin01-..." : "stored - hidden")"
-                                   Value="@_draftClaudeApiKey"
-                                   ValueChanged="value => _draftClaudeApiKey = value"
-                                   @onchange="ApplyClaudeApiKey"
-                                   @onkeydown="OnClaudeApiKeyDown" />
-
-                        @* The workspace narrows the message and cost reports. It does not
-                           narrow the Claude Code report, which is per-actor — that is what
-                           the account field above is for. *@
-                        <TextField Bare="true"
-                                   LabelCssClass="setting__label"
-                                   InputCssClass="setting__input"
-                                   Label="Workspace (optional)"
-                                   Id="claude-workspace"
-                                   data-testid="claude-workspace-input"
-                                   spellcheck="false"
-                                   autocomplete="off"
-                                   Placeholder="wrkspc_..."
-                                   HelpText="Reports one workspace instead of the whole organization. Leave it empty for everything."
-                                   Value="@_draftClaudeWorkspace"
-                                   ValueChanged="value => _draftClaudeWorkspace = value"
-                                   @onchange="ApplyClaudeUsageSettings"
-                                   @onkeydown="OnClaudeUsageKeyDown" />
-
-                        <p class="setting__status" data-testid="claude-usage-status" role="status">
-                            @if (_claudeUsageMessage is not null)
-                            {
-                                <span>@_claudeUsageMessage</span>
-                            }
-                            else
-                            {
-                                <span>
-                                    Usage metrics calls Claude at <code>@Claude.Current.ApiEndpoint</code>.
-                                    @if (!Claude.Current.IsConfigured)
-                                    {
-                                        <text> Claude needs a key before it can report anything.</text>
-                                    }
-                                    @if (string.IsNullOrWhiteSpace(Claude.Current.Actor))
-                                    {
-                                        <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
-                                    }
-                                    else
-                                    {
-                                        <text> The dashboard reports Claude usage for <code>@Claude.Current.Actor</code>.</text>
-                                    }
-                                </span>
-                            }
+                        <p class="setting__status" data-testid="claude-accounts-status" role="status">
+                            <span>@ClaudeAccountsSummary()</span>
                         </p>
+
+                        @* One subpage per account, the same shared strip the GitHub account
+                           cards use - only what is inside the card differs. There is always
+                           at least one: the store keeps a blank account rather than an empty
+                           list, so a fresh install sees the fields straight away. *@
+                        <Tabs Bare="true"
+                              ListCssClass="repo-subpages"
+                              ListTestId="claude-account-subpages"
+                              AriaLabel="Claude account pages"
+                              TabCssClass="repo-subpage"
+                              ActiveTabCssClass="repo-subpage repo-subpage--active"
+                              ActiveId="@ActiveClaudeAccount.Id"
+                              ActiveIdChanged="ShowClaudeAccountPage">
+                            @foreach (var account in Claude.Current.Accounts)
+                            {
+                                var claudeAccount = account;
+
+                                @* A plain Title rather than TitleContent: the label changes as
+                                   the card is filled in, and a string title is what the strip
+                                   knows how to notice changing. *@
+                                <TabPanel Id="@claudeAccount.Id"
+                                          Title="@claudeAccount.Label"
+                                          TabTestId="claude-account-subpage-tab"
+                                          Element="article"
+                                          BaseClass="repo-card"
+                                          TestId="claude-account-card"
+                                          aria-label="@($"{claudeAccount.Label} Claude account settings")">
+                                    <ChildContent>
+                                        <header class="repo-card__header">
+                                            <div>
+                                                <h3 class="repo-card__title">@claudeAccount.Label</h3>
+                                                <p class="repo-card__meta">
+                                                    <code>@claudeAccount.ApiEndpoint</code>
+                                                </p>
+                                            </div>
+
+                                            <AppButton Variant="ButtonVariant.None"
+                                                       TestId="remove-claude-account-button"
+                                                       OnClick="() => RemoveClaudeAccount(claudeAccount)">
+                                                Forget this account
+                                            </AppButton>
+                                        </header>
+
+                                        @* Every field on this page is the shared TextField wearing
+                                           the page's own label and input classes. Bare, because a
+                                           settings section lays its label and box out itself, and a
+                                           grid wrapper between them would move the spacing. *@
+                                        <TextField Bare="true"
+                                                   LabelCssClass="setting__label"
+                                                   InputCssClass="setting__input"
+                                                   Label="Name (optional)"
+                                                   Id="@($"claude-account-name-{claudeAccount.Id}")"
+                                                   data-testid="claude-account-name-input"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Placeholder="personal, work..."
+                                                   HelpText="Only for telling two accounts apart on this page."
+                                                   Value="@Draft(_draftClaudeNames, claudeAccount)"
+                                                   ValueChanged="value => _draftClaudeNames[claudeAccount.Id] = value"
+                                                   @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                                   @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                                        <TextField Bare="true"
+                                                   LabelCssClass="setting__label"
+                                                   InputCssClass="setting__input"
+                                                   Label="Organization API endpoint"
+                                                   Id="@($"claude-usage-endpoint-{claudeAccount.Id}")"
+                                                   data-testid="claude-usage-endpoint-input"
+                                                   Type="url"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Value="@Draft(_draftClaudeEndpoints, claudeAccount)"
+                                                   ValueChanged="value => _draftClaudeEndpoints[claudeAccount.Id] = value"
+                                                   @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                                   @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                                        @* Which actor in this Claude organization is you. Not an endpoint
+                                           and not a secret, but it belongs beside them rather than in a
+                                           section of its own: it is the third thing needed before an
+                                           organization-scoped usage report can be read as a personal one.
+                                           The Claude Code report lists every actor in the organization, and
+                                           there is no endpoint that says which one an admin key belongs to
+                                           - an admin key belongs to the organization, not to a person. *@
+                                        <TextField Bare="true"
+                                                   LabelCssClass="setting__label"
+                                                   InputCssClass="setting__input"
+                                                   Label="Your Claude account"
+                                                   Id="@($"claude-usage-actor-{claudeAccount.Id}")"
+                                                   data-testid="claude-usage-actor-input"
+                                                   Type="email"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Value="@Draft(_draftClaudeActors, claudeAccount)"
+                                                   ValueChanged="value => _draftClaudeActors[claudeAccount.Id] = value"
+                                                   @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                                   @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                                        <TextField Bare="true"
+                                                   LabelCssClass="setting__label"
+                                                   InputCssClass="setting__input"
+                                                   Label="Claude API key"
+                                                   Id="@($"claude-api-key-{claudeAccount.Id}")"
+                                                   data-testid="claude-api-key-input"
+                                                   Type="password"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   HelpText="@ClaudeApiKeyHint(claudeAccount)"
+                                                   Placeholder="@(claudeAccount.AdminApiKey is null ? "sk-ant-admin01-..." : "stored - hidden")"
+                                                   Value="@Draft(_draftClaudeApiKeys, claudeAccount)"
+                                                   ValueChanged="value => _draftClaudeApiKeys[claudeAccount.Id] = value"
+                                                   @onchange="() => ApplyClaudeApiKey(claudeAccount)"
+                                                   @onkeydown="e => OnClaudeApiKeyDown(e, claudeAccount)" />
+
+                                        @* The workspace narrows the message and cost reports. It does not
+                                           narrow the Claude Code report, which is per-actor - that is what
+                                           the account field above is for. *@
+                                        <TextField Bare="true"
+                                                   LabelCssClass="setting__label"
+                                                   InputCssClass="setting__input"
+                                                   Label="Workspace (optional)"
+                                                   Id="@($"claude-workspace-{claudeAccount.Id}")"
+                                                   data-testid="claude-workspace-input"
+                                                   spellcheck="false"
+                                                   autocomplete="off"
+                                                   Placeholder="wrkspc_..."
+                                                   HelpText="Reports one workspace instead of the whole organization. Leave it empty for everything."
+                                                   Value="@Draft(_draftClaudeWorkspaces, claudeAccount)"
+                                                   ValueChanged="value => _draftClaudeWorkspaces[claudeAccount.Id] = value"
+                                                   @onchange="() => ApplyClaudeUsageSettings(claudeAccount)"
+                                                   @onkeydown="e => OnClaudeUsageKeyDown(e, claudeAccount)" />
+
+                                        <p class="setting__status" data-testid="claude-usage-status" role="status">
+                                            @if (_claudeAccountMessages.GetValueOrDefault(claudeAccount.Id) is { } claudeMessage)
+                                            {
+                                                <span>@claudeMessage</span>
+                                            }
+                                            else
+                                            {
+                                                <span>
+                                                    Usage metrics calls Claude at <code>@claudeAccount.ApiEndpoint</code>.
+                                                    @if (!claudeAccount.IsConfigured)
+                                                    {
+                                                        <text> Claude needs a key before it can report anything.</text>
+                                                    }
+                                                    @if (string.IsNullOrWhiteSpace(claudeAccount.Actor))
+                                                    {
+                                                        <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
+                                                    }
+                                                    else
+                                                    {
+                                                        <text> The dashboard reports Claude usage for <code>@claudeAccount.Actor</code>.</text>
+                                                    }
+                                                </span>
+                                            }
+                                        </p>
+
+                                        <div class="setting__actions">
+                                            <AppButton Variant="ButtonVariant.None"
+                                                       data-testid="claude-clear-key-button"
+                                                       Disabled="@(claudeAccount.AdminApiKey is null)"
+                                                       OnClick="() => ClearClaudeApiKey(claudeAccount)">
+                                                Forget Claude key
+                                            </AppButton>
+                                        </div>
+                                    </ChildContent>
+                                </TabPanel>
+                            }
+                        </Tabs>
 
                         <div class="setting__actions">
                             <AppButton Variant="ButtonVariant.None"
-                                       data-testid="claude-clear-key-button"
-                                       Disabled="@(Claude.Current.AdminApiKey is null)"
-                                       OnClick="ClearClaudeApiKey">
-                                Forget Claude key
+                                       TestId="add-claude-account-button"
+                                       OnClick="AddClaudeAccount">
+                                Add another Claude account
                             </AppButton>
                         </div>
 
                         <p class="setting__note">
-                            Everything here is auto-saved. The key is kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
+                            Everything here is auto-saved. The keys are kept in <code>@Claude.SettingsPath</code> - outside the backlog folder, so they are never synced or committed with entries.
                         </p>
                     </section>
 
@@ -336,16 +411,31 @@
                             }
                             else
                             {
-                                <span>Usage metrics calls GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code>. Copilot metrics are organization-scoped and owner-only.</span>
+                                <span>Usage metrics calls GitHub at <code>@GitHub.Settings.Current.ApiEndpoint</code> as whichever account this machine is signed in as. Copilot metrics are organization-scoped and owner-only.</span>
                             }
                         </p>
 
-                        @* No token field here. GitHub authenticates per repository, on the
-                           Repositories tab, and signing in with the GitHub CLI is preferred
+                        @* Every configured account is read as well, each at its own endpoint
+                           - a login on an Enterprise Server is a login on a different API.
+                           Listed here so the whole picture is on one card; edited on the
+                           account's own card, because the endpoint is a fact about the
+                           account rather than about usage reporting. *@
+                        @foreach (var account in ConfiguredAccounts)
+                        {
+                            <p class="setting__status" data-testid="github-usage-account-endpoint" role="status">
+                                <span>
+                                    Usage for <code>@account.Login</code> is read at
+                                    <code>@(account.ApiEndpoint ?? GitHub.Settings.Current.ApiEndpoint)</code>@(account.ApiEndpoint is null ? " - the endpoint above." : ".")
+                                </span>
+                            </p>
+                        }
+
+                        @* No token field here. GitHub authenticates per account, on the
+                           Accounts tab, and signing in with the GitHub CLI is preferred
                            over a token at all - so a second place to type one would be a
                            second place for it to go stale. *@
                         <p class="setting__note">
-                            Auto-saved. GitHub access is set up per repository on the Repositories tab, or by signing in with the GitHub CLI.
+                            Auto-saved. GitHub access and a per-account endpoint are set up on the Accounts tab, or by signing in with the GitHub CLI.
                         </p>
                     </section>
                 }
@@ -1035,6 +1125,25 @@
                                         </AppButton>
                                     </div>
                                 }
+
+                                @* Where this login's API is. Blank follows the install-wide
+                                   endpoint on the AI tab, which is every github.com account;
+                                   a GitHub Enterprise Server login names its own here. *@
+                                <TextField Bare="true"
+                                           LabelCssClass="setting__label"
+                                           InputCssClass="setting__input"
+                                           Label="API endpoint (optional)"
+                                           Id="@($"account-endpoint-{activeAccount.Login}")"
+                                           data-testid="account-endpoint-input"
+                                           Type="url"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           Placeholder="@GitHub.Settings.Current.ApiEndpoint"
+                                           HelpText="Leave it empty to use the install-wide endpoint. Set it for a login on a GitHub Enterprise Server."
+                                           Value="@AccountEndpointDraft(activeAccount)"
+                                           ValueChanged="value => _draftAccountEndpoints[activeAccount.Login] = value"
+                                           @onchange="() => ApplyAccountEndpoint(activeAccount)"
+                                           @onkeydown="e => OnAccountEndpointKeyDown(e, activeAccount)" />
 
                                 <p class="setting__status" data-testid="account-status" role="status">
                                     @if (AccountProblem(activeAccount) is { } problem)
@@ -1943,16 +2052,23 @@
     private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
     private string _draftAzureFoundryApiKey = string.Empty;
     private string? _azureFoundryMessage;
-    private string _draftClaudeUsageEndpoint = string.Empty;
-    private string _draftClaudeUsageActor = string.Empty;
-    private string _draftClaudeWorkspace = string.Empty;
     private string _draftGitHubUsageEndpoint = string.Empty;
-    private string? _claudeUsageMessage;
     private string? _gitHubUsageMessage;
 
-    /// <summary>Typed, never loaded. The stored key is not read back into the field -
+    // One draft per Claude account per field, keyed by the account's id. The
+    // dictionaries are refilled from the store after every apply, so a card that
+    // was just saved shows what was saved rather than what was typed.
+    private readonly Dictionary<string, string> _draftClaudeNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeEndpoints = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeActors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftClaudeWorkspaces = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string?> _claudeAccountMessages = new(StringComparer.Ordinal);
+    private string? _activeClaudeAccountId;
+
+    /// <summary>Typed, never loaded. A stored key is not read back into its field -
     /// the placeholder is what says one is already there.</summary>
-    private string _draftClaudeApiKey = string.Empty;
+    private readonly Dictionary<string, string> _draftClaudeApiKeys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _draftAccountEndpoints = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _draftCloneDirectories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _draftDevbookPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _cloningRepositories = new(StringComparer.Ordinal);
@@ -2097,24 +2213,65 @@
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
     }
 
-    private void ApplyClaudeUsageSettings()
-    {
-        var endpointError = Claude.SetApiEndpoint(_draftClaudeUsageEndpoint);
-        var actorError = Claude.SetActor(_draftClaudeUsageActor);
-        var workspaceError = Claude.SetWorkspaceId(_draftClaudeWorkspace);
+    /// <summary>The account whose subpage is open - the chosen one while it still
+    /// exists, otherwise the first. The store never leaves the list empty, so there
+    /// is always a first.</summary>
+    private ClaudeAccount ActiveClaudeAccount =>
+        Claude.Current.Account(_activeClaudeAccountId) ?? Claude.Current.Accounts[0];
 
-        _claudeUsageMessage = string.Join(" ", new[] { endpointError, actorError, workspaceError }.Where(message => !string.IsNullOrWhiteSpace(message)));
-        if (string.IsNullOrWhiteSpace(_claudeUsageMessage))
+    private void ShowClaudeAccountPage(string id) => _activeClaudeAccountId = id;
+
+    private string ClaudeAccountsSummary() => Claude.Current.Accounts.Count switch
+    {
+        1 => "One Claude organization. Add another below if you also belong to a second one.",
+        var count => $"{count} Claude organizations. The dashboard adds their spend up."
+    };
+
+    private static string Draft(Dictionary<string, string> drafts, ClaudeAccount account) =>
+        drafts.GetValueOrDefault(account.Id) ?? string.Empty;
+
+    private void AddClaudeAccount()
+    {
+        var error = Claude.AddAccount();
+        var added = Claude.Current.Accounts[^1];
+
+        _activeClaudeAccountId = added.Id;
+        _claudeAccountMessages[added.Id] = error;
+        SyncUsageEndpointDrafts();
+    }
+
+    private void RemoveClaudeAccount(ClaudeAccount account)
+    {
+        var error = Claude.RemoveAccount(account.Id);
+
+        _claudeAccountMessages.Remove(account.Id);
+        _draftClaudeApiKeys.Remove(account.Id);
+        if (ClaudeAccount.IsSameId(_activeClaudeAccountId, account.Id)) _activeClaudeAccountId = null;
+
+        if (error is not null) _claudeAccountMessages[ActiveClaudeAccount.Id] = error;
+        SyncUsageEndpointDrafts();
+    }
+
+    private void ApplyClaudeUsageSettings(ClaudeAccount account)
+    {
+        var id = account.Id;
+        var errors = new[]
         {
-            _claudeUsageMessage = "Claude usage API settings updated.";
-        }
+            Claude.SetDisplayName(id, Draft(_draftClaudeNames, account)),
+            Claude.SetApiEndpoint(id, Draft(_draftClaudeEndpoints, account)),
+            Claude.SetActor(id, Draft(_draftClaudeActors, account)),
+            Claude.SetWorkspaceId(id, Draft(_draftClaudeWorkspaces, account))
+        };
+
+        var message = string.Join(" ", errors.Where(error => !string.IsNullOrWhiteSpace(error)));
+        _claudeAccountMessages[id] = string.IsNullOrWhiteSpace(message) ? "Claude usage API settings updated." : message;
 
         SyncUsageEndpointDrafts();
     }
 
-    private void OnClaudeUsageKeyDown(KeyboardEventArgs e)
+    private void OnClaudeUsageKeyDown(KeyboardEventArgs e, ClaudeAccount account)
     {
-        if (e.Key == "Enter") ApplyClaudeUsageSettings();
+        if (e.Key == "Enter") ApplyClaudeUsageSettings(account);
         else if (e.Key == "Escape") SyncUsageEndpointDrafts();
     }
 
@@ -2135,9 +2292,14 @@
 
     private void SyncUsageEndpointDrafts()
     {
-        _draftClaudeUsageEndpoint = Claude.Current.ApiEndpoint;
-        _draftClaudeUsageActor = Claude.Current.Actor ?? string.Empty;
-        _draftClaudeWorkspace = Claude.Current.WorkspaceId ?? string.Empty;
+        foreach (var account in Claude.Current.Accounts)
+        {
+            _draftClaudeNames[account.Id] = account.DisplayName ?? string.Empty;
+            _draftClaudeEndpoints[account.Id] = account.ApiEndpoint;
+            _draftClaudeActors[account.Id] = account.Actor ?? string.Empty;
+            _draftClaudeWorkspaces[account.Id] = account.WorkspaceId ?? string.Empty;
+        }
+
         _draftGitHubUsageEndpoint = GitHub.Settings.Current.ApiEndpoint;
     }
 
@@ -2147,34 +2309,35 @@
     /// - which it refuses - looks the same. So this names the one that fails rather
     /// than claiming the key is wrong.
     /// </summary>
-    private string? ClaudeApiKeyHint =>
-        Claude.Current.IsConfigured && !Claude.Current.LooksLikeAdminKey
+    private static string? ClaudeApiKeyHint(ClaudeAccount account) =>
+        account.IsConfigured && !account.LooksLikeAdminKey
             ? "That isn't an Admin API key. It will still be sent - Anthropic also takes a personal or "
               + "service account key - but a key scoped to a workspace is refused."
             : null;
 
-    private void ApplyClaudeApiKey()
+    private void ApplyClaudeApiKey(ClaudeAccount account)
     {
         // Blank never clears: that is what the button is for, and a blur on an empty
         // field is far more likely than a deliberate erasure.
-        if (string.IsNullOrWhiteSpace(_draftClaudeApiKey)) return;
+        var draft = Draft(_draftClaudeApiKeys, account);
+        if (string.IsNullOrWhiteSpace(draft)) return;
 
-        var error = Claude.SetAdminApiKey(_draftClaudeApiKey);
-        _claudeUsageMessage = error ?? "Claude API key stored.";
-        _draftClaudeApiKey = string.Empty;
+        var error = Claude.SetAdminApiKey(account.Id, draft);
+        _claudeAccountMessages[account.Id] = error ?? "Claude API key stored.";
+        _draftClaudeApiKeys[account.Id] = string.Empty;
     }
 
-    private void ClearClaudeApiKey()
+    private void ClearClaudeApiKey(ClaudeAccount account)
     {
-        var error = Claude.ClearAdminApiKey();
-        _claudeUsageMessage = error ?? "Claude API key forgotten.";
-        _draftClaudeApiKey = string.Empty;
+        var error = Claude.ClearAdminApiKey(account.Id);
+        _claudeAccountMessages[account.Id] = error ?? "Claude API key forgotten.";
+        _draftClaudeApiKeys[account.Id] = string.Empty;
     }
 
-    private void OnClaudeApiKeyDown(KeyboardEventArgs e)
+    private void OnClaudeApiKeyDown(KeyboardEventArgs e, ClaudeAccount account)
     {
-        if (e.Key == "Enter") ApplyClaudeApiKey();
-        else if (e.Key == "Escape") _draftClaudeApiKey = string.Empty;
+        if (e.Key == "Enter") ApplyClaudeApiKey(account);
+        else if (e.Key == "Escape") _draftClaudeApiKeys[account.Id] = string.Empty;
     }
 
     private void EnsureActiveSettingsPage()
@@ -3135,6 +3298,7 @@
     {
         _accountMessage = GitHub.Settings.RemoveAccount(account.Login);
         _draftAccountTokens.Remove(account.Login);
+        _draftAccountEndpoints.Remove(account.Login);
 
         if (GitHubAccount.IsSameLogin(_activeAccountLogin, account.Login)) _activeAccountLogin = null;
     }
@@ -3188,6 +3352,29 @@
     {
         if (e.Key == "Enter") ApplyAccountToken(account);
         else if (e.Key == "Escape") _draftAccountTokens[account.Login] = string.Empty;
+    }
+
+    private string AccountEndpointDraft(GitHubAccount account)
+    {
+        if (!_draftAccountEndpoints.TryGetValue(account.Login, out var draft))
+        {
+            draft = account.ApiEndpoint ?? string.Empty;
+            _draftAccountEndpoints[account.Login] = draft;
+        }
+
+        return draft;
+    }
+
+    private void ApplyAccountEndpoint(GitHubAccount account)
+    {
+        _accountMessage = GitHub.Settings.SetAccountApiEndpoint(account.Login, AccountEndpointDraft(account));
+        _draftAccountEndpoints[account.Login] = GitHub.Settings.Current.Account(account.Login)?.ApiEndpoint ?? string.Empty;
+    }
+
+    private void OnAccountEndpointKeyDown(KeyboardEventArgs e, GitHubAccount account)
+    {
+        if (e.Key == "Enter") ApplyAccountEndpoint(account);
+        else if (e.Key == "Escape") _draftAccountEndpoints[account.Login] = account.ApiEndpoint ?? string.Empty;
     }
 
     private void OnAccountLoginKeyDown(KeyboardEventArgs e)

@@ -4,18 +4,21 @@ using System.Text.Json;
 namespace Backlog.Infrastructure.Claude;
 
 /// <summary>
-/// Talks to the Claude Admin API with an Admin API key. There is no CLI
+/// Talks to the Claude Admin API with an account's Admin API key. There is no CLI
 /// alternative the way GitHub has <c>gh</c>, so this is the only transport —
 /// the interface exists so tests and future auth flows have somewhere to go.
+/// <para>
+/// Holds no settings of its own: the account travels with each call, so one
+/// transport serves every configured organization and the endpoint and key it
+/// sends are always the ones that belong together.
+/// </para>
 /// </summary>
 public sealed class ClaudeAdminTransport : IClaudeTransport
 {
     private readonly HttpClient _http;
-    private readonly ClaudeSettingsStore _settings;
 
-    public ClaudeAdminTransport(HttpClient http, ClaudeSettingsStore settings)
+    public ClaudeAdminTransport(HttpClient http)
     {
-        _settings = settings;
         _http = http;
 
         _http.DefaultRequestHeaders.UserAgent.TryParseAdd("Backlog");
@@ -23,17 +26,21 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
 
     public string Description => "Anthropic Admin API key";
 
-    public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(_settings.Current.IsConfigured);
+    public Task<bool> IsAvailableAsync(ClaudeAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return Task.FromResult(account.IsConfigured);
+    }
 
     public async Task<JsonElement> SendAsync(
+        ClaudeAccount account,
         HttpMethod method,
         string path,
         CancellationToken cancellationToken = default)
     {
-        var settings = _settings.Current;
+        ArgumentNullException.ThrowIfNull(account);
 
-        if (!settings.IsConfigured)
+        if (!account.IsConfigured)
         {
             throw new ClaudeNotConfiguredException(
                 "No Anthropic Admin API key is configured. Usage and cost reports come from the "
@@ -46,9 +53,9 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
         // account key that isn't scoped to a workspace — and only the last of those is
         // distinguishable from a workspace key by asking Anthropic. Its 401 and 403 are
         // translated below and say more than a prefix test could.
-        using var request = new HttpRequestMessage(method, EndpointUri(settings.ApiEndpoint, path));
-        request.Headers.TryAddWithoutValidation("x-api-key", settings.AdminApiKey);
-        request.Headers.TryAddWithoutValidation("anthropic-version", settings.ApiVersion);
+        using var request = new HttpRequestMessage(method, EndpointUri(account.ApiEndpoint, path));
+        request.Headers.TryAddWithoutValidation("x-api-key", account.AdminApiKey);
+        request.Headers.TryAddWithoutValidation("anthropic-version", account.ApiVersion);
 
         HttpResponseMessage response;
         try

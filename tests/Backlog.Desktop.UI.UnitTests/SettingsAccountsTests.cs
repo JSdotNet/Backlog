@@ -208,6 +208,38 @@ public sealed class SettingsAccountsTests
         Assert.Null(settings.GitHub.Current.Account("JSdotNet")!.Token);
     }
 
+    /// <summary>An endpoint typed on an account's card lands on that account and on
+    /// no other; blank hands the login back to the install-wide endpoint.</summary>
+    [Fact]
+    public void An_endpoint_typed_on_an_account_card_is_stored_against_that_account()
+    {
+        using var settings = RenderSettings(seed: store => Assert.Null(store.SetAccounts(
+        [
+            new GitHubAccount("JSdotNet"),
+            new GitHubAccount("octocat")
+        ])));
+
+        OpenAccountsTab(settings.Component);
+        settings.Component.FindAll("[data-testid='account-subpage-tab']")[1].Click();
+
+        var endpoint = settings.Component.Find("[data-testid='account-endpoint-input']");
+        Assert.Equal("account-endpoint-octocat", endpoint.GetAttribute("id"));
+        Assert.Equal(GitHubSettings.DefaultApiEndpoint, endpoint.GetAttribute("placeholder"));
+
+        endpoint.Input(" https://ghe.example.internal/api/v3/ ");
+        endpoint.Change(" https://ghe.example.internal/api/v3/ ");
+
+        Assert.Equal("https://ghe.example.internal/api/v3", settings.GitHub.Current.Account("octocat")!.ApiEndpoint);
+        Assert.Null(settings.GitHub.Current.Account("JSdotNet")!.ApiEndpoint);
+        Assert.Equal(GitHubSettings.DefaultApiEndpoint, settings.GitHub.Current.ApiEndpoint);
+
+        endpoint = settings.Component.Find("[data-testid='account-endpoint-input']");
+        endpoint.Input("   ");
+        endpoint.Change("   ");
+
+        Assert.Null(settings.GitHub.Current.Account("octocat")!.ApiEndpoint);
+    }
+
     /// <summary>
     /// The single most likely defect in the whole change, driven through the
     /// control somebody actually uses.

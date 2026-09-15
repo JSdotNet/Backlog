@@ -9,19 +9,29 @@ namespace Backlog.Infrastructure.Claude;
 /// </summary>
 public interface IClaudeUsageClient
 {
-    /// <summary>Whether usage reporting can be used at all, and why not when it can't.</summary>
+    /// <summary>Whether usage reporting can be used at all — by any configured
+    /// account — and why not when it can't.</summary>
     Task<ClaudeUsageAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Each report is read for one account. A person can belong to several Claude
+    /// organizations, each with its own key, so "the usage" is a question per
+    /// organization and the caller says which one; the dashboard asks every
+    /// configured account in turn and adds the answers up.
+    /// </summary>
     Task<ClaudeUsageReport> GetMessageUsageAsync(
+        ClaudeAccount account,
         ClaudeUsageWindow window,
         ClaudeUsageBucket bucket = ClaudeUsageBucket.Day,
         CancellationToken cancellationToken = default);
 
     Task<ClaudeCostReport> GetCostAsync(
+        ClaudeAccount account,
         ClaudeUsageWindow window,
         CancellationToken cancellationToken = default);
 
     Task<ClaudeCodeReport> GetClaudeCodeUsageAsync(
+        ClaudeAccount account,
         DateOnly date,
         CancellationToken cancellationToken = default);
 }
@@ -45,9 +55,9 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
 
     public async Task<ClaudeUsageAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default)
     {
-        var current = settings.Current;
+        var configured = settings.Current.Accounts.Where(account => account.IsConfigured).ToList();
 
-        if (!current.IsConfigured)
+        if (configured.Count == 0)
         {
             return new ClaudeUsageAvailability(
                 false,
@@ -59,26 +69,42 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
         // A key without the admin prefix is not refused here. Anthropic also accepts a
         // personal or service account key that isn't scoped to a workspace, and no key
         // string says which of those it is — Settings warns, and the server decides.
-        return await transport.IsAvailableAsync(cancellationToken).ConfigureAwait(false)
-            ? new ClaudeUsageAvailability(true, $"Reading organization usage with the {transport.Description}.")
-            : new ClaudeUsageAvailability(false, "The Anthropic Admin API isn't reachable right now.");
+        //
+        // Available when any account is: one organization the transport cannot reach
+        // is that organization's problem, reported per day by the adapter, not a
+        // reason to blank the others.
+        foreach (var account in configured)
+        {
+            if (await transport.IsAvailableAsync(account, cancellationToken).ConfigureAwait(false))
+            {
+                return new ClaudeUsageAvailability(
+                    true,
+                    configured.Count == 1
+                        ? $"Reading organization usage with the {transport.Description}."
+                        : $"Reading usage from {configured.Count} organizations with the {transport.Description}.");
+            }
+        }
+
+        return new ClaudeUsageAvailability(false, "The Anthropic Admin API isn't reachable right now.");
     }
 
     public async Task<ClaudeUsageReport> GetMessageUsageAsync(
+        ClaudeAccount account,
         ClaudeUsageWindow window,
         ClaudeUsageBucket bucket = ClaudeUsageBucket.Day,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(account);
         ArgumentNullException.ThrowIfNull(window);
         Validate(window);
 
-        var query = BaseQuery(window);
+        var query = BaseQuery(account, window);
         query.Add($"bucket_width={BucketWidth(bucket)}");
         query.Add("group_by[]=model");
         query.Add("group_by[]=api_key_id");
 
         var buckets = new List<ClaudeUsageBucketReport>();
-        await foreach (var element in ReadPagesAsync(MessagesUsagePath, query, cancellationToken).ConfigureAwait(false))
+        await foreach (var element in ReadPagesAsync(account, MessagesUsagePath, query, cancellationToken).ConfigureAwait(false))
         {
             buckets.Add(ReadUsageBucket(element));
         }
@@ -87,13 +113,15 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
     }
 
     public async Task<ClaudeCostReport> GetCostAsync(
+        ClaudeAccount account,
         ClaudeUsageWindow window,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(account);
         ArgumentNullException.ThrowIfNull(window);
         Validate(window);
 
-        var query = BaseQuery(window);
+        var query = BaseQuery(account, window);
 
         // The cost report only supports daily buckets; sending anything else is
         // rejected rather than rounded.
@@ -101,7 +129,7 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
         query.Add("group_by[]=description");
 
         var buckets = new List<ClaudeCostBucketReport>();
-        await foreach (var element in ReadPagesAsync(CostReportPath, query, cancellationToken).ConfigureAwait(false))
+        await foreach (var element in ReadPagesAsync(account, CostReportPath, query, cancellationToken).ConfigureAwait(false))
         {
             buckets.Add(ReadCostBucket(element));
         }
@@ -110,15 +138,18 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
     }
 
     public async Task<ClaudeCodeReport> GetClaudeCodeUsageAsync(
+        ClaudeAccount account,
         DateOnly date,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(account);
+
         // Unlike the other two reports this one covers exactly one day, so it
         // takes a date rather than a window.
         var query = new List<string> { $"starting_at={date:yyyy-MM-dd}" };
 
         var actors = new List<ClaudeCodeDailyUsage>();
-        await foreach (var element in ReadPagesAsync(ClaudeCodePath, query, cancellationToken).ConfigureAwait(false))
+        await foreach (var element in ReadPagesAsync(account, ClaudeCodePath, query, cancellationToken).ConfigureAwait(false))
         {
             actors.Add(ReadClaudeCodeDay(element, date));
         }
@@ -126,7 +157,7 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
         return actors.Count == 0 ? ClaudeCodeReport.Empty(date) : new ClaudeCodeReport(date, actors);
     }
 
-    private List<string> BaseQuery(ClaudeUsageWindow window)
+    private static List<string> BaseQuery(ClaudeAccount account, ClaudeUsageWindow window)
     {
         var query = new List<string>
         {
@@ -134,7 +165,7 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
             $"ending_at={Uri.EscapeDataString(Rfc3339(window.EndingAt))}"
         };
 
-        var workspace = settings.Current.WorkspaceId;
+        var workspace = account.WorkspaceId;
         if (!string.IsNullOrWhiteSpace(workspace))
         {
             query.Add($"workspace_ids[]={Uri.EscapeDataString(workspace)}");
@@ -145,6 +176,7 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
 
     /// <summary>Walks the report's pages, yielding every bucket in order.</summary>
     private async IAsyncEnumerable<JsonElement> ReadPagesAsync(
+        ClaudeAccount account,
         string path,
         IReadOnlyList<string> query,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
@@ -157,7 +189,7 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
             if (page is not null) parameters.Add($"page={Uri.EscapeDataString(page)}");
 
             var response = await transport
-                .SendAsync(HttpMethod.Get, $"{path}?{string.Join('&', parameters)}", cancellationToken)
+                .SendAsync(account, HttpMethod.Get, $"{path}?{string.Join('&', parameters)}", cancellationToken)
                 .ConfigureAwait(false);
 
             if (response.ValueKind != JsonValueKind.Object)
@@ -374,12 +406,12 @@ public sealed class UnavailableClaudeUsageClient : IClaudeUsageClient
     public Task<ClaudeUsageAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(new ClaudeUsageAvailability(false, Message));
 
-    public Task<ClaudeUsageReport> GetMessageUsageAsync(ClaudeUsageWindow window, ClaudeUsageBucket bucket = ClaudeUsageBucket.Day, CancellationToken cancellationToken = default) =>
+    public Task<ClaudeUsageReport> GetMessageUsageAsync(ClaudeAccount account, ClaudeUsageWindow window, ClaudeUsageBucket bucket = ClaudeUsageBucket.Day, CancellationToken cancellationToken = default) =>
         throw new ClaudeNotConfiguredException(Message);
 
-    public Task<ClaudeCostReport> GetCostAsync(ClaudeUsageWindow window, CancellationToken cancellationToken = default) =>
+    public Task<ClaudeCostReport> GetCostAsync(ClaudeAccount account, ClaudeUsageWindow window, CancellationToken cancellationToken = default) =>
         throw new ClaudeNotConfiguredException(Message);
 
-    public Task<ClaudeCodeReport> GetClaudeCodeUsageAsync(DateOnly date, CancellationToken cancellationToken = default) =>
+    public Task<ClaudeCodeReport> GetClaudeCodeUsageAsync(ClaudeAccount account, DateOnly date, CancellationToken cancellationToken = default) =>
         throw new ClaudeNotConfiguredException(Message);
 }

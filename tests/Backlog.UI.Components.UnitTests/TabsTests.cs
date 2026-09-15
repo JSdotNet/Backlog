@@ -156,6 +156,33 @@ public sealed class TabsTests
         Assert.Empty(tabs.FindAll(".tabs__tab"));
     }
 
+    /// <summary>
+    /// The strip draws each label while it renders, before the panel beneath has
+    /// taken this render's parameters. A title that changes after mount - a card
+    /// named as it is filled in - used to show one render late.
+    /// </summary>
+    [Fact]
+    public void A_panel_title_that_changes_is_drawn_on_the_strip_straight_away()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.ActiveId, "only")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "Before")));
+
+        Assert.Equal("Before", tabs.Find("[role='tab']").TextContent.Trim());
+
+        tabs.Render(parameters => parameters
+            .Add(t => t.ActiveId, "only")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "only")
+                .Add(p => p.Title, "After")));
+
+        Assert.Equal("After", tabs.Find("[role='tab']").TextContent.Trim());
+    }
+
     [Fact]
     public void A_panel_can_be_rendered_as_another_element_under_another_class()
     {

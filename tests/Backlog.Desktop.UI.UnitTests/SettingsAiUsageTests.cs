@@ -33,7 +33,7 @@ public sealed class SettingsAiUsageTests
         githubInput.Input(" https://ghe.example.internal/api/v3/ ");
         githubInput.Change();
 
-        Assert.Equal("https://claude.example.internal/v1", context.ClaudeStore.Current.ApiEndpoint);
+        Assert.Equal("https://claude.example.internal/v1", context.ClaudeStore.Current.Accounts[0].ApiEndpoint);
         Assert.Equal("https://ghe.example.internal/api/v3", context.GitHub.Settings.Current.ApiEndpoint);
         Assert.Contains("Claude usage API settings updated.", context.Component.Find("[data-testid='claude-usage-status']").TextContent);
         Assert.Contains("GitHub usage API settings updated.", context.Component.Find("[data-testid='github-usage-status']").TextContent);
@@ -96,7 +96,7 @@ public sealed class SettingsAiUsageTests
         actorInput.Input("  person@example.com  ");
         actorInput.Change();
 
-        Assert.Equal("person@example.com", context.ClaudeStore.Current.Actor);
+        Assert.Equal("person@example.com", context.ClaudeStore.Current.Accounts[0].Actor);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class SettingsAiUsageTests
         actorInput.Input("   ");
         actorInput.Change();
 
-        Assert.Null(context.ClaudeStore.Current.Actor);
+        Assert.Null(context.ClaudeStore.Current.Accounts[0].Actor);
     }
 
     /// <summary>
@@ -139,7 +139,7 @@ public sealed class SettingsAiUsageTests
         keyInput.Input("  sk-ant-admin01-example  ");
         keyInput.Change();
 
-        Assert.Equal("sk-ant-admin01-example", context.ClaudeStore.Current.AdminApiKey);
+        Assert.Equal("sk-ant-admin01-example", context.ClaudeStore.Current.Accounts[0].AdminApiKey);
 
         keyInput = context.Component.Find("[data-testid='claude-api-key-input']");
         Assert.Equal(string.Empty, keyInput.GetAttribute("value"));
@@ -163,7 +163,7 @@ public sealed class SettingsAiUsageTests
 
         context.Component.Find("[data-testid='claude-clear-key-button']").Click();
 
-        Assert.Null(context.ClaudeStore.Current.AdminApiKey);
+        Assert.Null(context.ClaudeStore.Current.Accounts[0].AdminApiKey);
         Assert.True(context.Component.Find("[data-testid='claude-clear-key-button']").HasAttribute("disabled"));
     }
 
@@ -186,7 +186,7 @@ public sealed class SettingsAiUsageTests
         keyInput.Input("sk-ant-api03-personal-key");
         keyInput.Change();
 
-        Assert.Equal("sk-ant-api03-personal-key", context.ClaudeStore.Current.AdminApiKey);
+        Assert.Equal("sk-ant-api03-personal-key", context.ClaudeStore.Current.Accounts[0].AdminApiKey);
 
         var keyId = context.Component.Find("[data-testid='claude-api-key-input']").GetAttribute("id");
         var hint = context.Component.Find($"#{keyId}-help").TextContent;
@@ -207,13 +207,126 @@ public sealed class SettingsAiUsageTests
         workspaceInput.Input("  wrkspc_01  ");
         workspaceInput.Change();
 
-        Assert.Equal("wrkspc_01", context.ClaudeStore.Current.WorkspaceId);
+        Assert.Equal("wrkspc_01", context.ClaudeStore.Current.Accounts[0].WorkspaceId);
 
         workspaceInput = context.Component.Find("[data-testid='claude-workspace-input']");
         workspaceInput.Input("   ");
         workspaceInput.Change();
 
-        Assert.Null(context.ClaudeStore.Current.WorkspaceId);
+        Assert.Null(context.ClaudeStore.Current.Accounts[0].WorkspaceId);
+    }
+
+    /// <summary>
+    /// One person, two Claude organizations. The second card gets its own endpoint,
+    /// actor and key; the first keeps what it had; and forgetting the second brings
+    /// the page back to one card without touching the first's key.
+    /// </summary>
+    [Fact]
+    public void A_second_claude_account_has_its_own_fields_and_forgetting_it_leaves_the_first_alone()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        var firstKey = context.Component.Find("[data-testid='claude-api-key-input']");
+        firstKey.Input("sk-ant-admin01-personal");
+        firstKey.Change();
+
+        context.Component.Find("[data-testid='add-claude-account-button']").Click();
+
+        Assert.Equal(2, context.ClaudeStore.Current.Accounts.Count);
+        Assert.Equal(2, context.Component.FindAll("[data-testid='claude-account-subpage-tab']").Count);
+        Assert.Contains("2 Claude organizations", context.Component.Find("[data-testid='claude-accounts-status']").TextContent, StringComparison.Ordinal);
+
+        // The new account's card is the one open, so its fields are the ones on screen.
+        var second = context.ClaudeStore.Current.Accounts[1];
+        var endpoint = context.Component.Find("[data-testid='claude-usage-endpoint-input']");
+        Assert.Equal($"claude-usage-endpoint-{second.Id}", endpoint.GetAttribute("id"));
+        endpoint.Input("https://claude.employer.example/");
+        endpoint.Change();
+
+        var actor = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actor.Input("me@employer.example");
+        actor.Change();
+
+        var key = context.Component.Find("[data-testid='claude-api-key-input']");
+        key.Input("sk-ant-admin01-work");
+        key.Change();
+
+        var name = context.Component.Find("[data-testid='claude-account-name-input']");
+        name.Input("work");
+        name.Change();
+
+        var accounts = context.ClaudeStore.Current.Accounts;
+        Assert.Equal("sk-ant-admin01-personal", accounts[0].AdminApiKey);
+        Assert.Equal(ClaudeSettingsStore.DefaultApiEndpoint, accounts[0].ApiEndpoint);
+        Assert.Equal("sk-ant-admin01-work", accounts[1].AdminApiKey);
+        Assert.Equal("https://claude.employer.example", accounts[1].ApiEndpoint);
+        Assert.Equal("me@employer.example", accounts[1].Actor);
+        Assert.Equal("work", accounts[1].DisplayName);
+
+        var tabs = context.Component.FindAll("[data-testid='claude-account-subpage-tab']").Select(tab => tab.TextContent.Trim()).ToArray();
+        Assert.Equal(["Claude account", "work"], tabs);
+
+        context.Component.Find("[data-testid='remove-claude-account-button']").Click();
+
+        var remaining = Assert.Single(context.ClaudeStore.Current.Accounts);
+        Assert.Equal("sk-ant-admin01-personal", remaining.AdminApiKey);
+        Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+    }
+
+    /// <summary>Switching subpages switches which account the fields write to.</summary>
+    [Fact]
+    public void Picking_a_claude_account_subpage_edits_that_account()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        context.Component.Find("[data-testid='add-claude-account-button']").Click();
+        var first = context.ClaudeStore.Current.Accounts[0];
+
+        context.Component.FindAll("[data-testid='claude-account-subpage-tab']")[0].Click();
+
+        var actor = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        Assert.Equal($"claude-usage-actor-{first.Id}", actor.GetAttribute("id"));
+        actor.Input("me@example.com");
+        actor.Change();
+
+        Assert.Equal("me@example.com", context.ClaudeStore.Current.Accounts[0].Actor);
+        Assert.Null(context.ClaudeStore.Current.Accounts[1].Actor);
+    }
+
+    /// <summary>
+    /// GitHub's card names every configured account and where its usage is read,
+    /// so the whole picture is on the one card - even though the endpoint itself is
+    /// edited on the account's own card, where the fact belongs.
+    /// </summary>
+    [Fact]
+    public void The_github_usage_card_lists_each_accounts_endpoint()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true, seed: store =>
+            Assert.Null(store.SetAccounts(
+            [
+                new GitHubAccount("JSdotNet"),
+                new GitHubAccount("octocat") { ApiEndpoint = "https://ghe.example.internal/api/v3" }
+            ])));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='github-usage-settings']")));
+
+        var lines = context.Component.FindAll("[data-testid='github-usage-account-endpoint']").Select(line => line.TextContent).ToArray();
+
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("JSdotNet", lines[0], StringComparison.Ordinal);
+        Assert.Contains("https://api.github.com", lines[0], StringComparison.Ordinal);
+        Assert.Contains("octocat", lines[1], StringComparison.Ordinal);
+        Assert.Contains("https://ghe.example.internal/api/v3", lines[1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -252,7 +365,10 @@ public sealed class SettingsAiUsageTests
     private static void OpenAiTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "AI").Click();
 
-    private static SettingsRenderContext RenderSettings(bool aiAssistantEnabled, bool usageMetricsEnabled)
+    private static SettingsRenderContext RenderSettings(
+        bool aiAssistantEnabled,
+        bool usageMetricsEnabled,
+        Action<GitHubSettingsStore>? seed = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
 
@@ -267,6 +383,7 @@ public sealed class SettingsAiUsageTests
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
         _ = githubSettings.SetRepositories(repositories);
+        seed?.Invoke(githubSettings);
 
         var github = new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe());
 

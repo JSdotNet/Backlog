@@ -13,12 +13,17 @@ public interface IClaudeTransport
     /// <summary>How this transport is described in Settings, e.g. "Admin API key".</summary>
     string Description { get; }
 
-    /// <summary>True when this transport can actually authenticate right now.</summary>
-    Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default);
+    /// <summary>True when this transport can authenticate as one account right now.</summary>
+    Task<bool> IsAvailableAsync(ClaudeAccount account, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends a request and returns the parsed JSON response. Throws
-    /// <see cref="ClaudeException"/> for anything Anthropic refused.</summary>
+    /// <summary>Sends a request as one account and returns the parsed JSON
+    /// response. Throws <see cref="ClaudeException"/> for anything Anthropic
+    /// refused.</summary>
+    /// <param name="account">Whose organization the call reads. Passed per call
+    /// rather than held by the transport because there is one transport and any
+    /// number of accounts, each with its own key and endpoint.</param>
     Task<JsonElement> SendAsync(
+        ClaudeAccount account,
         HttpMethod method,
         string path,
         CancellationToken cancellationToken = default);
