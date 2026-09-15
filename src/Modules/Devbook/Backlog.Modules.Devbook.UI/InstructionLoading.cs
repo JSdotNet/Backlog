@@ -20,6 +20,13 @@ public enum InstructionReach
     /// a load: whether it is followed is the model's choice on the day.</summary>
     Linked,
 
+    /// <summary>A skill: its name and description are carried every session so
+    /// the host knows it is there, and the body is read when the skill is
+    /// invoked — by the user, or by the model deciding it applies. More reach
+    /// than a link, because the host advertises it rather than leaving it to be
+    /// found; less than a match, because no path ever turns it on.</summary>
+    OnDemand,
+
     /// <summary>Loaded when the path being worked on matches this file's stated
     /// scope.</summary>
     OnMatch,
@@ -40,11 +47,16 @@ public enum InstructionReach
 /// a selected path falls in its scope; Linked and Not read never are. With
 /// nothing selected nothing matches, so this reads as the baseline without a
 /// nullable or a second code path.</param>
+/// <param name="Imported">Reached through an <c>@</c> import rather than stated
+/// outright. The host reads both the same; they are told apart on screen
+/// because one is a decision somebody made about this repository and the other
+/// is a consequence of it.</param>
 public sealed record InstructionHostReach(
     InstructionReach Reach,
     string? Detail = null,
     IReadOnlyList<string>? Scope = null,
-    bool Loaded = false);
+    bool Loaded = false,
+    bool Imported = false);
 
 /// <summary>
 /// How much of a context window one file is.
@@ -161,6 +173,13 @@ public static class InstructionLoading
     private const string CopilotInstructions = ".github/instructions/";
     private const string InstructionSuffix = ".instructions.md";
     private const string AgentsFile = "agents.md";
+    private const string SkillFile = "skill.md";
+
+    /// <summary>Where each host looks for skills. Copilot reads all three;
+    /// Claude Code reads only its own folder, so a skill under <c>.agents</c> or
+    /// <c>.github</c> is Copilot's alone.</summary>
+    private static readonly string[] ClaudeSkillFolders = [".claude/skills/"];
+    private static readonly string[] CopilotSkillFolders = [".github/skills/", ".claude/skills/", ".agents/skills/"];
 
     /// <summary>A fenced block, so an import written inside an example is an
     /// example.</summary>
@@ -196,6 +215,7 @@ public static class InstructionLoading
 
         var claudeLoaded = ClaudeSessionFiles(documents);
         var imported = ExpandImports(claudeLoaded, byPath);
+        var scopedImports = ExpandScopedImports(documents, claudeLoaded, byPath);
         var claudeProse = Prose(claudeLoaded, byPath);
 
         var copilotLoaded = CopilotSessionFiles(documents);
@@ -204,7 +224,7 @@ public static class InstructionLoading
         var rows = documents
             .Select(document => new InstructionLoadingRow(
                 document,
-                Resolve(ClaudeReach(document, claudeLoaded, imported, claudeProse), selected),
+                Resolve(ClaudeReach(document, claudeLoaded, imported, scopedImports, claudeProse), selected),
                 Resolve(CopilotReach(document, copilotLoaded, copilotProse), selected),
                 InstructionSize.Of(document)))
             .ToList();
@@ -277,15 +297,30 @@ public static class InstructionLoading
         return loaded;
     }
 
+    /// <summary>
+    /// The files Copilot reads every session: its own root file, the
+    /// path-specific files whose scope is the whole repository, and the root
+    /// <c>AGENTS.md</c> — its "agent instructions", read on every surface that
+    /// runs an agent.
+    /// <para>Copilot's documentation offers "a single CLAUDE.md or GEMINI.md file
+    /// stored in the root of the repository" as the alternative to AGENTS.md.
+    /// Read here as an alternative: the root <c>CLAUDE.md</c> stands in when
+    /// there is no root <c>AGENTS.md</c>, and steps aside when there is one. That
+    /// is the narrower of the two readings, and the one that never counts the
+    /// same instructions twice.</para>
+    /// </summary>
     private static HashSet<string> CopilotSessionFiles(IReadOnlyList<InstructionDocument> documents)
     {
         var loaded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasAgentsRoot = documents.Any(document => Normalize(document.RelativePath).Equals(AgentsFile, StringComparison.OrdinalIgnoreCase));
 
         foreach (var document in documents)
         {
             var path = Normalize(document.RelativePath);
 
             if (path.Equals(CopilotRoot, StringComparison.OrdinalIgnoreCase) ||
+                path.Equals(AgentsFile, StringComparison.OrdinalIgnoreCase) ||
+                (!hasAgentsRoot && path.Equals(ClaudeRoot, StringComparison.OrdinalIgnoreCase)) ||
                 (IsPathSpecific(path) && IsRepositoryWide(Globs(document))))
             {
                 loaded.Add(path);
@@ -331,6 +366,81 @@ public static class InstructionLoading
         return imported;
     }
 
+    /// <summary>
+    /// Follows <c>@</c> imports out of the files Claude Code reads on a path
+    /// match — a nested <c>CLAUDE.md</c>, a rule with <c>paths</c> — so that
+    /// what they pull in is read with the same scope they are, rather than as
+    /// unreachable. A one-line <c>src/backend/CLAUDE.md</c> importing the
+    /// <c>AGENTS.md</c> beside it is the whole of some repositories' Claude setup.
+    /// <para>A file already loaded every session is left alone: an import from a
+    /// scoped file never narrows a wider reach. A file two scoped files import
+    /// carries both their scopes.</para>
+    /// </summary>
+    private static Dictionary<string, List<string>> ExpandScopedImports(
+        IReadOnlyList<InstructionDocument> documents,
+        HashSet<string> alwaysLoaded,
+        IReadOnlyDictionary<string, InstructionDocument> byPath)
+    {
+        var scoped = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in documents)
+        {
+            var path = Normalize(document.RelativePath);
+            var scope = ClaudeScope(path, document);
+
+            if (scope is null || alwaysLoaded.Contains(path)) continue;
+
+            var reached = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { path };
+            var frontier = new List<string> { path };
+
+            for (var hop = 0; hop < MaxImportDepth && frontier.Count > 0; hop++)
+            {
+                var next = new List<string>();
+
+                foreach (var importer in frontier)
+                {
+                    if (!byPath.TryGetValue(importer, out var importing)) continue;
+
+                    foreach (var target in ImportsFrom(importing, byPath))
+                    {
+                        if (!reached.Add(target) || alwaysLoaded.Contains(target)) continue;
+
+                        next.Add(target);
+
+                        if (!scoped.TryGetValue(target, out var scopes))
+                        {
+                            scoped[target] = scopes = [];
+                        }
+
+                        foreach (var glob in scope)
+                        {
+                            if (!scopes.Contains(glob, StringComparer.OrdinalIgnoreCase)) scopes.Add(glob);
+                        }
+                    }
+                }
+
+                frontier = next;
+            }
+        }
+
+        return scoped;
+    }
+
+    /// <summary>The scope a Claude Code file states for itself, or null when it
+    /// states none: the <c>paths</c> of a rule, or the subtree under a nested
+    /// project file.</summary>
+    private static IReadOnlyList<string>? ClaudeScope(string path, InstructionDocument document)
+    {
+        if (IsRule(path) && Paths(document) is { Count: > 0 } paths) return paths;
+
+        if (FileName(path).Equals(ClaudeRoot, StringComparison.OrdinalIgnoreCase) && !IsClaudeProjectFile(path))
+        {
+            return [Subtree(path)];
+        }
+
+        return null;
+    }
+
     private static IEnumerable<string> ImportsFrom(InstructionDocument document, IReadOnlyDictionary<string, InstructionDocument> byPath)
     {
         var prose = Strip(document.Content);
@@ -344,18 +454,46 @@ public static class InstructionLoading
             // written — a root-relative import from a root file is both, and a
             // home-relative one is neither and is somebody else's repository.
             var candidates = directory.Length == 0
-                ? new[] { reference }
-                : [$"{directory}/{reference}", reference];
+                ? new string?[] { reference }
+                : [Combine(directory, reference), reference];
 
             foreach (var candidate in candidates)
             {
-                if (byPath.ContainsKey(candidate))
+                if (candidate is not null && byPath.ContainsKey(candidate))
                 {
                     yield return candidate;
                     break;
                 }
             }
         }
+    }
+
+    /// <summary>A reference resolved against the folder it was written in, with
+    /// <c>.</c> and <c>..</c> folded away so <c>@../AGENTS.md</c> from
+    /// <c>src/CLAUDE.md</c> is the root file and not a spelling of it nothing
+    /// else uses. Null when the reference climbs out of the repository, which is
+    /// somebody else's file.</summary>
+    private static string? Combine(string directory, string reference)
+    {
+        var parts = new List<string>(directory.Split('/'));
+
+        foreach (var segment in reference.Split('/'))
+        {
+            switch (segment)
+            {
+                case "" or ".":
+                    break;
+                case "..":
+                    if (parts.Count == 0) return null;
+                    parts.RemoveAt(parts.Count - 1);
+                    break;
+                default:
+                    parts.Add(segment);
+                    break;
+            }
+        }
+
+        return string.Join('/', parts);
     }
 
     /// <summary>The text of every file the host loads, as one body to search for
@@ -367,30 +505,30 @@ public static class InstructionLoading
         InstructionDocument document,
         HashSet<string> loaded,
         HashSet<string> imported,
+        IReadOnlyDictionary<string, List<string>> scopedImports,
         string prose)
     {
         var path = Normalize(document.RelativePath);
 
         if (loaded.Contains(path))
         {
-            return new InstructionHostReach(
-                InstructionReach.Always,
-                imported.Contains(path) ? "imported" : null);
+            return new InstructionHostReach(InstructionReach.Always, Imported: imported.Contains(path));
         }
 
-        if (IsRule(path) && Paths(document) is { Count: > 0 } scopes)
+        // A rule's own paths, or the subtree under a nested project file — which
+        // is read when something in its subtree is, the same shape as a glob and
+        // better read as one.
+        if (ClaudeScope(path, document) is { } scope)
         {
-            return new InstructionHostReach(InstructionReach.OnMatch, string.Join(", ", scopes), scopes);
+            return new InstructionHostReach(InstructionReach.OnMatch, string.Join(", ", scope), scope);
         }
 
-        // A project file below the root is read when something in its subtree is,
-        // which is the same shape as a glob and reads better as one.
-        if (FileName(path).Equals(ClaudeRoot, StringComparison.OrdinalIgnoreCase))
+        if (scopedImports.TryGetValue(path, out var inherited))
         {
-            var subtree = Subtree(path);
-
-            return new InstructionHostReach(InstructionReach.OnMatch, subtree, [subtree]);
+            return new InstructionHostReach(InstructionReach.OnMatch, string.Join(", ", inherited), inherited, Imported: true);
         }
+
+        if (IsSkill(path, ClaudeSkillFolders)) return new InstructionHostReach(InstructionReach.OnDemand);
 
         return Mentioned(path, prose)
             ? new InstructionHostReach(InstructionReach.Linked)
@@ -401,7 +539,12 @@ public static class InstructionLoading
     {
         var path = Normalize(document.RelativePath);
 
-        if (loaded.Contains(path)) return new InstructionHostReach(InstructionReach.Always);
+        if (loaded.Contains(path))
+        {
+            return new InstructionHostReach(
+                InstructionReach.Always,
+                path.Equals(ClaudeRoot, StringComparison.OrdinalIgnoreCase) ? "as agent instructions" : null);
+        }
 
         if (IsPathSpecific(path))
         {
@@ -410,6 +553,8 @@ public static class InstructionLoading
             return new InstructionHostReach(InstructionReach.OnMatch, string.Join(", ", globs), globs);
         }
 
+        // The root file is in the session set above; what is left is nested, and
+        // the nearest one takes precedence for the files under it.
         if (FileName(path).Equals(AgentsFile, StringComparison.OrdinalIgnoreCase))
         {
             var subtree = Subtree(path);
@@ -417,10 +562,17 @@ public static class InstructionLoading
             return new InstructionHostReach(InstructionReach.OnMatch, subtree, [subtree]);
         }
 
+        if (IsSkill(path, CopilotSkillFolders)) return new InstructionHostReach(InstructionReach.OnDemand);
+
         return Mentioned(path, prose)
             ? new InstructionHostReach(InstructionReach.Linked)
             : new InstructionHostReach(InstructionReach.NotRead);
     }
+
+    /// <summary>A <c>SKILL.md</c> under one of the folders a host looks in.</summary>
+    private static bool IsSkill(string path, IReadOnlyList<string> folders) =>
+        FileName(path).Equals(SkillFile, StringComparison.OrdinalIgnoreCase) &&
+        folders.Any(folder => path.StartsWith(folder, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Whether a loaded file names this path in its text, in either separator

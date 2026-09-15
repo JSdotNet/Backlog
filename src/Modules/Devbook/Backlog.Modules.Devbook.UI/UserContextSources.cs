@@ -74,6 +74,10 @@ public static class UserContextSources
             ReadFile(ClaudeCode, "User instructions", System.IO.Path.Combine(home, ".claude", "CLAUDE.md")),
             ReadFolder(ClaudeCode, "User rules", System.IO.Path.Combine(home, ".claude", "rules"), "*.md"),
             ReadMemory(home, repositoryRoot),
+            // Copilot's own personal instructions, read by its CLI and on
+            // GitHub.com; the editor's prompt files below are a different surface.
+            ReadFile(Copilot, "Personal instructions", System.IO.Path.Combine(home, ".copilot", "copilot-instructions.md")),
+            ReadFolder(Copilot, "Personal instruction files", System.IO.Path.Combine(home, ".copilot", "instructions"), "*.instructions.md"),
             ReadFolder(Copilot, "User prompt files", VsCodeUserFolder(home, "prompts"), "*.instructions.md")
         ];
     }

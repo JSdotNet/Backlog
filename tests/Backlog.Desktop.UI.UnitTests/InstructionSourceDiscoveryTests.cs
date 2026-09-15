@@ -55,6 +55,90 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
         Assert.Equal(["AGENTS.md"], result.Documents.Select(d => d.RelativePath));
     }
 
+    /// <summary>
+    /// Claude Code keeps its worktrees under <c>.claude/worktrees</c>, and each one
+    /// is a whole checkout — instruction files, dependencies and all. Walking
+    /// into them counted a repository with nine instruction files as having two
+    /// and a half thousand, nearly all of them somebody's <c>node_modules</c>.
+    /// </summary>
+    [Fact]
+    public void Ignores_other_worktrees_checked_out_under_the_claude_folder()
+    {
+        Write("CLAUDE.md", "# Root");
+        Write("AGENTS.md", "# Root agents");
+        Write(".claude/worktrees/feature-a/CLAUDE.md", "# Another checkout");
+        Write(".claude/worktrees/feature-a/AGENTS.md", "# Another checkout");
+        Write(".claude/worktrees/feature-a/.claude/rules/tests.md", "# Another checkout");
+        Write(".claude/worktrees/feature-a/src/frontend/node_modules/pkg/README.md", "# Dependency");
+        Write(".claude/node_modules/pkg/README.md", "# Dependency");
+
+        var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog") { CloneDirectory = _root };
+        var result = Assert.Single(new InstructionSourceDiscovery().Discover([repository]));
+
+        Assert.Equal(["CLAUDE.md", "AGENTS.md"], result.Documents.Select(d => d.RelativePath));
+    }
+
+    /// <summary>
+    /// A nested <c>CLAUDE.md</c> is read when Claude Code works under its folder,
+    /// and in a repository that keeps its conventions in <c>AGENTS.md</c> files it
+    /// is the one-line import that gets them to Claude at all. Undiscovered, every
+    /// nested <c>AGENTS.md</c> read as unreachable from Claude's side.
+    /// </summary>
+    [Fact]
+    public void Finds_nested_claude_files_beside_the_root_one()
+    {
+        Write("CLAUDE.md", "@AGENTS.md");
+        Write("src/backend/CLAUDE.md", "@AGENTS.md");
+        Write("src/backend/AGENTS.md", "# Backend");
+        Write("src/frontend/node_modules/pkg/CLAUDE.md", "# Dependency");
+
+        var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog") { CloneDirectory = _root };
+        var result = Assert.Single(new InstructionSourceDiscovery().Discover([repository]));
+
+        Assert.Equal(
+            [
+                "CLAUDE.md",
+                Path.Combine("src", "backend", "CLAUDE.md"),
+                Path.Combine("src", "backend", "AGENTS.md"),
+            ],
+            result.Documents.Select(d => d.RelativePath));
+
+        var nested = result.Documents[1];
+        Assert.Equal("Claude Code", nested.Agent);
+        Assert.Equal("Directory-scoped project instructions", nested.Scope);
+        Assert.Equal("Project instructions", result.Documents[0].Scope);
+    }
+
+    /// <summary>Skills, wherever a host looks for them — and labelled as skills
+    /// rather than as whatever folder they happen to sit in.</summary>
+    [Fact]
+    public void Finds_skills_in_every_folder_a_host_reads_them_from()
+    {
+        Write(".github/skills/release/SKILL.md", "# Release");
+        Write(".claude/skills/deploy/SKILL.md", "# Deploy");
+        Write(".claude/skills/deploy/reference.md", "# Not the skill itself");
+        Write(".agents/skills/tenants/SKILL.md", "# Tenants");
+        Write(".agents/skills/tenants/scripts/notes.md", "# Not a skill");
+
+        var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog") { CloneDirectory = _root };
+        var result = Assert.Single(new InstructionSourceDiscovery().Discover([repository]));
+
+        Assert.Equal(
+            [
+                Path.Combine(".github", "skills", "release", "SKILL.md"),
+                Path.Combine(".claude", "skills", "deploy", "reference.md"),
+                Path.Combine(".claude", "skills", "deploy", "SKILL.md"),
+                Path.Combine(".agents", "skills", "tenants", "SKILL.md"),
+            ],
+            result.Documents.Select(d => d.RelativePath));
+        Assert.All(
+            result.Documents.Where(d => d.Title == "SKILL.md"),
+            skill => Assert.Equal("Agent skills", skill.Scope));
+        Assert.Equal("GitHub Copilot", result.Documents[0].Agent);
+        Assert.Equal("Claude Code", result.Documents[1].Agent);
+        Assert.Equal("Shared agent convention", result.Documents[3].Agent);
+    }
+
     [Fact]
     public void Reports_missing_clone_directory_without_throwing()
     {
