@@ -44,8 +44,9 @@ This repository ships no repo-native `orch-*` skills. Every entrypoint is plugin
 the knowledge-folder flows (`flow-arc42-content`, `flow-domain`, `flow-tech`,
 `flow-design`) come from `devbook-flows`, which sits on the `devbook` plugin (formerly
 `knowledge-base`; `.backlog` has no successor flow until it is dropped with the devbook
-contract v6, a follow-up), and the rest — `orch-fallback` included — from `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`,
-which is a pull-request workflow rather than an orchestration.
+contract v6, a follow-up), and the rest — `orch-fallback` included — from
+`claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`, which is a
+pull-request workflow rather than an orchestration.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
 auto-enabled — see `plugins/backlog-tools/README.md` for install steps in either Claude
