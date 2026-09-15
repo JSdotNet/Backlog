@@ -316,6 +316,9 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
+        // One per window, and this head has one window: the error screen asks
+        // the footer's dialog to open through it.
+        builder.Services.AddSingleton<FeedbackReportChannel>();
         builder.Services.AddSingleton<DesignDevbookProvider>();
         builder.Services.AddSingleton<TechnologyDevbookService>();
         builder.Services.AddSingleton<DevbookAtlasService>();

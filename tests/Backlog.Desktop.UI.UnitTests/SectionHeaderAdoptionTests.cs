@@ -156,6 +156,7 @@ public sealed class SectionHeaderAdoptionTests
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         return context;
     }
