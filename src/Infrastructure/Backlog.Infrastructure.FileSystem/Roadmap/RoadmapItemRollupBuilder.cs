@@ -40,7 +40,7 @@ public static class RoadmapItemRollupBuilder
         foreach (var entry in backlog)
         {
             var direct = item.TaskId is { } linked && entry.Id == linked;
-            var tagged = hasTag && entry.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase);
+            var tagged = hasTag && entry.Tags.Any(candidate => CarriesPlanTag(candidate, tag!));
 
             if (!direct && !tagged) continue;
 
@@ -85,6 +85,23 @@ public static class RoadmapItemRollupBuilder
             if (!node.Roadmap.Contains(tag, StringComparer.OrdinalIgnoreCase)) continue;
             yield return new RoadmapGatheredLink(node.Id, node.Label, node.Effort, RollupOrigin.Tag);
         }
+    }
+
+    /// <summary>
+    /// Whether a backlog entry's stored tag names the roadmap item's slug.
+    /// <para>
+    /// A plan tag is stored as <c>+slug</c>, and an entry filed before the sigil
+    /// existed carries the bare <c>slug</c>; both roll up, or every entry already
+    /// on disk would drop off its item the day the sigil arrived. What must not roll
+    /// up is a person: <c>@release-q4</c> names somebody, and only the <c>+</c> is
+    /// lifted before the compare so it stays a mismatch.
+    /// </para>
+    /// </summary>
+    private static bool CarriesPlanTag(string candidate, string slug)
+    {
+        var bare = candidate.StartsWith('+') ? candidate[1..] : candidate;
+
+        return string.Equals(bare, slug, StringComparison.OrdinalIgnoreCase);
     }
 
     private static RollupOrigin Origin(bool direct, bool tagged) =>

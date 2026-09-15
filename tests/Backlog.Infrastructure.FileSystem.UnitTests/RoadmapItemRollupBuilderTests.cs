@@ -94,6 +94,46 @@ public class RoadmapItemRollupBuilderTests
         Assert.Equal(8, link.Effort);
     }
 
+    /// <summary>The backlog stores a tag that names a roadmap item as <c>+slug</c>;
+    /// the plan holds the bare slug. Both forms roll up — the sigilled one because it
+    /// is the stored form now, the bare one because it is what every entry filed
+    /// before the sigil existed still carries.</summary>
+    [Fact]
+    public void AnEntryWearingThePlanSigil_AndOneWearingTheBareSlug_BothRollUp()
+    {
+        var item = Item("release-q4");
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            item,
+            [
+                Entry(Guid.NewGuid(), "Filed under the plan tag", tags: ["+release-q4"], effort: 3),
+                Entry(Guid.NewGuid(), "Filed before the sigil", tags: ["release-q4"], effort: 2),
+                Entry(Guid.NewGuid(), "Unrelated", tags: ["other"], effort: 99)
+            ],
+            []);
+
+        Assert.Equal(
+            ["Filed under the plan tag", "Filed before the sigil"],
+            rollup.BacklogEntries.Select(link => link.Title));
+        Assert.All(rollup.BacklogEntries, link => Assert.Equal(RollupOrigin.Tag, link.Origin));
+        Assert.Equal(5, rollup.TotalEffort);
+    }
+
+    /// <summary>Only the plan sigil is lifted before the compare. A person tag that
+    /// happens to spell the slug names somebody, and somebody is not a roadmap item.</summary>
+    [Fact]
+    public void APersonTagSpellingTheSlug_DoesNotRollUp()
+    {
+        var item = Item("release-q4");
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            item,
+            [Entry(Guid.NewGuid(), "Assigned to a person called release-q4", tags: ["@release-q4"], effort: 3)],
+            []);
+
+        Assert.Empty(rollup.BacklogEntries);
+    }
+
     [Fact]
     public void NullEffort_IsLeftOutOfTheSum_ButKeptInTheUnestimatedCount()
     {

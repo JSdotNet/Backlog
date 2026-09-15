@@ -1081,6 +1081,34 @@
         true
     );
 
+    // The keys the tag picker takes for itself. Up/Down walk its list and would
+    // otherwise scroll whatever the popup sits in; Enter takes an option and would
+    // otherwise submit a surrounding form; Escape closes the list. Whether a key
+    // keeps its default has to be decided synchronously, at the keydown, and the
+    // server cannot do that: by the time TagMultiSelect's handler has run and
+    // rendered anything back, the default has already happened. Its old
+    // `@onkeydown:preventDefault` flag proved exactly that — rendered after the
+    // handler, it applied to the key *after* the one that set it, so the arrow was
+    // never stopped and the letter typed next was eaten. So the decision lives
+    // here, by class, on every picker at once. The same reasoning as
+    // backlogGuardTab above, minus the id: a picker's input is never re-minted.
+    //
+    // Only the default is refused. The event keeps bubbling: TasksPane's bulk bar
+    // builds on exactly that — the picker prevents Escape's default and lets it
+    // propagate, and the pane draws its own boundary around the group — so a
+    // stopPropagation here would quietly change a contract a host has already
+    // written its keyboard handling against.
+    const TAG_SELECT_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Enter', 'Escape']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!TAG_SELECT_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('.tag-select__input')) return;
+
+        event.preventDefault();
+    });
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.

@@ -15,8 +15,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// be a second "All" on a bar that already has one.
 /// </para>
 /// <para>
-/// Values are bare and lower-cased because that is how <c>EntryTextParser</c> stores
-/// a tag; the leading <c>#</c> is on the chip's label only, which is how a tag reads
+/// Values are lower-cased exactly as <c>EntryTextParser</c> stores a tag: bare for a
+/// general tag, with its <c>@</c> for a person and its <c>+</c> for a plan tag. The
+/// leading <c>#</c> is on the chip's label only, which is how a general tag reads
 /// everywhere else on this screen.
 /// </para>
 /// </summary>
@@ -92,17 +93,20 @@ public sealed class TagFilterTests
 
     /// <summary>A tag counts occurrences. Two entries wear <c>#sync</c> and two wear
     /// <c>#desktop</c> across four rows, so the tag counts sum to more than the pool —
-    /// which is right, because each one answers "how much is over there" rather than
-    /// "what is my share".</summary>
+    /// which is right, because each one answers "how much is still to do over there"
+    /// rather than "what is my share". Nothing in this fixture is finished, so the
+    /// open count is the whole count and the completed half is zero throughout.</summary>
     [Fact]
     public async Task The_counts_are_per_tag()
     {
         var (host, _, _, _, _) = await FourAsync();
         using var _host = host;
 
-        Assert.Equal(2, Option(host, "sync").Count);
-        Assert.Equal(2, Option(host, "desktop").Count);
-        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).Count);
+        Assert.Equal(2, Option(host, "sync").OpenCount);
+        Assert.Equal(2, Option(host, "desktop").OpenCount);
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).OpenCount);
+
+        Assert.All(host.State.TagFilters, option => Assert.Equal(0, option.CompletedCount));
     }
 
     /// <summary>The other half of "how much is over there": a count is about the pool,
@@ -120,9 +124,40 @@ public sealed class TagFilterTests
         host.State.SetMyDayFilter(DateOnly.FromDateTime(DateTime.Today));
         host.State.SetNoRepositoryFilter(true);
 
-        Assert.Equal(2, Option(host, "sync").Count);
-        Assert.Equal(2, Option(host, "desktop").Count);
-        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).Count);
+        Assert.Equal(2, Option(host, "sync").OpenCount);
+        Assert.Equal(2, Option(host, "desktop").OpenCount);
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).OpenCount);
+    }
+
+    /// <summary>The bar's chip wears the same kind as the row chip it filters for,
+    /// read off the stored value the way <c>TagChip</c> reads its own — so a person,
+    /// a plan and a general tag read apart on the bar without the reader having to
+    /// find the sigil. "Untagged" names no tag and is general.</summary>
+    [Fact]
+    public async Task A_filter_chip_wears_the_kind_of_the_tag_it_filters_for()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        await host.WriteEntryAsync("# Ship it @bob +release-q4\n`task` `!ready` `@platform` `#sync`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        var chips = pane.FindAll(Chip);
+
+        // Ordinal order puts the sigilled kinds first, then the bare general tag,
+        // then the chip that names no tag at all.
+        Assert.Equal(["+release-q4", "@bob", "#sync", "Untagged"], chips.Select(chip => chip.TextContent.TrimEnd('1')));
+
+        Assert.Contains("chip--tag-plan", chips[0].ClassList);
+        Assert.Contains("chip--tag-person", chips[1].ClassList);
+        Assert.Contains("chip--tag-general", chips[2].ClassList);
+        Assert.Contains("chip--tag-general", chips[3].ClassList);
+
+        // One kind each, never two.
+        Assert.All(chips, chip => Assert.Single(
+            chip.ClassList,
+            name => name.StartsWith("chip--tag-", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -422,17 +457,16 @@ public sealed class TagFilterTests
 
     // ---- What finished work contributes to the bar ----------------------------
     //
-    // Nothing. The bar is a set of places live work can be filed, and a tag whose
+    // Not a chip. The bar is a set of places live work can be filed, and a tag whose
     // every entry is already finished is not one of them — it is a dead end wearing
     // the same shape as a destination. So a tag earns its chip from the entries
     // still in play, and only from those.
     //
-    // The counts are the other half of that sentence, and they do not move: a count
-    // answers "how much is over there", the list still shows finished entries with
-    // no tag pressed, and so a chip that said anything but the whole number would be
-    // promising a shorter list than pressing it produces. Which entries a tag is
-    // offered *for* is the reader's question; how many rows the tag has is the
-    // list's, and the list has not changed.
+    // The count follows the same reading. The number on the chip is the open count
+    // — "how much is still to do over there" — and what is finished is counted
+    // separately and carried by the tooltip. The list still shows finished entries
+    // with no status pressed, so pressing the chip can list more rows than its
+    // number; the tooltip is what says so before the reader is surprised by it.
 
     /// <summary>Two tags typed, one of them only ever on an entry that is done. Only
     /// the live one is offered.</summary>
@@ -472,11 +506,12 @@ public sealed class TagFilterTests
             host.State.TagFilters.Select(option => option.Label));
     }
 
-    /// <summary>One entry still wearing it is enough to keep the chip — and keeps
-    /// the whole count with it, finished entries included, because pressing the chip
-    /// still produces every one of them.</summary>
+    /// <summary>One entry still wearing it is enough to keep the chip. The chip's
+    /// face counts that one — the open work — and the finished entry goes to the
+    /// tooltip, so the number says what is left and the tooltip says why pressing
+    /// the chip lists two.</summary>
     [Fact]
-    public async Task One_live_entry_keeps_the_chip_and_the_count_stays_whole()
+    public async Task One_live_entry_keeps_the_chip_and_the_face_counts_only_the_open_work()
     {
         using var host = await TasksPaneHost.CreateAsync();
 
@@ -484,18 +519,44 @@ public sealed class TagFilterTests
         var finished = await host.WriteEntryAsync("# Draft the invite\n`task` `!done` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
-        Assert.Equal(2, Option(host, "sync").Count);
+        Assert.Equal(1, Option(host, "sync").OpenCount);
+        Assert.Equal(1, Option(host, "sync").CompletedCount);
 
-        // And the list behind the count agrees with it.
-        host.State.ToggleTagFilter("sync");
+        var pane = host.Render();
+        var chip = Assert.Single(pane.FindAll(Chip));
+
+        Assert.Equal("#sync1", chip.TextContent);
+        Assert.Equal("Filter by #sync — 1 open, 1 completed", chip.GetAttribute("title"));
+
+        // The list behind the chip still holds both, which is what the tooltip
+        // exists to warn of — and the act on the tooltip turns around with the chip.
+        await chip.ClickAsync(new());
 
         Assert.Equal(
             [live.Id, finished.Id],
             host.State.FilteredRows.Select(row => row.Id));
+        Assert.Equal(
+            "Stop filtering by #sync — 1 open, 1 completed",
+            pane.Find(Chip).GetAttribute("title"));
+    }
+
+    /// <summary>A chip with nothing finished behind it does not explain a zero: the
+    /// tooltip carries the open count alone.</summary>
+    [Fact]
+    public async Task The_tooltip_leaves_the_completed_clause_off_while_nothing_is_finished()
+    {
+        var (host, _, _, _, _) = await FourAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+
+        Assert.Equal(
+            ["Filter by #desktop — 2 open", "Filter by #sync — 2 open", "Filter by Untagged — 1 open"],
+            pane.FindAll(Chip).Select(chip => chip.GetAttribute("title")));
     }
 
     /// <summary>"Untagged" is a chip like any other, so it wants a live entry behind
-    /// it too. Its count stays whole for the same reason theirs does.</summary>
+    /// it too, and splits its count the same way once it has one.</summary>
     [Fact]
     public async Task Untagged_wants_a_live_entry_carrying_no_tag()
     {
@@ -503,15 +564,18 @@ public sealed class TagFilterTests
 
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         var finished = await host.WriteEntryAsync("# Write the runbook\n`task` `!done` `@platform`\n");
+        await host.WriteEntryAsync("# Retire the runbook\n`task` `!done` `@platform`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(["#sync"], host.State.TagFilters.Select(option => option.Label));
 
-        // Reopen the untagged one and it is somewhere to go again, counting itself.
+        // Reopen one untagged entry and it is somewhere to go again: the face counts
+        // that one, and the other finished entry is the tooltip's.
         await Retag(host, finished, "# Write the runbook\n`task` `!ready` `@platform`\n");
 
         Assert.Equal(["#sync", "Untagged"], host.State.TagFilters.Select(option => option.Label));
-        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).Count);
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).OpenCount);
+        Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).CompletedCount);
     }
 
     /// <summary>The whole group goes when the only tags in scope are on finished

@@ -251,10 +251,12 @@ related: [.domain/roadmap/naming.md#roadmap-tag, .domain/tasks/features.md#filin
 A [Roadmap Item](../roadmap/domain.md#roadmap-item)'s tag, borrowed here as
 vocabulary. This context does not define the tag — it offers every roadmap tag in
 the task's tag picker so a task can be filed against planned work using the
-plan's own slug, and matching exactly is what lets the roadmap gather the task
-back. A task's `tags` stay free-form strings; a roadmap tag is simply one a
-person may pick from the shared vocabulary rather than invent. The canonical
-concept lives in [Roadmap Planning](../roadmap/naming.md#roadmap-tag).
+plan's own slug, and matching on that slug is what lets the roadmap gather the
+task back. On the task the slug wears a plan sigil — `+release-q4` — which is how
+it reads apart from a `#` general tag and an `@` person; the roadmap matches the
+slug with or without it. A task's `tags` stay free-form strings; a roadmap tag is
+simply one a person may pick from the shared vocabulary rather than invent. The
+canonical concept lives in [Roadmap Planning](../roadmap/naming.md#roadmap-tag).
 
 ## Roadmap
 

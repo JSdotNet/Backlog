@@ -875,6 +875,60 @@ public sealed class TasksDetailPaneTests
         Assert.Single(pane.FindAll("[data-testid='repo-badge']"));
     }
 
+    /// <summary>
+    /// A person added through the picker is written on to the title, which is the
+    /// one place the grammar reads a person tag from — and so the one place a save
+    /// can keep it. It used to be dropped: the meta-line writer skipped <c>@</c> tags,
+    /// correctly, and nothing else took them, so the chip appeared and the text did
+    /// not change.
+    /// <para>
+    /// Three things have to hold for the tag to have landed: the raw text carries it
+    /// on the title, the picker keeps showing it as a chip after the save — which is
+    /// what proves the picker reads the title and not the metadata line alone — and
+    /// the row draws it as a person chip.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_person_added_through_the_picker_lands_on_the_title()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `#sync`\n");
+
+        var pane = host.Render();
+
+        await AddTagAsync(pane, "@Bob");
+
+        Assert.StartsWith("# Ship it @bob\n", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#sync`", row.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("@bob`", row.RawText, StringComparison.Ordinal);
+
+        Assert.Equal(
+            ["sync", "@bob"],
+            pane.FindAll("[data-testid='entry-tags-input'] .tag-select__chip .tag-chip__label").Select(chip => chip.TextContent));
+
+        var onTheRow = pane.Find($"[data-testid='{RowTestId(row)}'] .task-item__title-tag");
+        Assert.Contains("tag-chip--person", onTheRow.ClassList);
+        Assert.Equal("@bob", onTheRow.TextContent.Trim());
+    }
+
+    /// <summary>The other direction: dropping the person's chip takes the tag off the
+    /// title and leaves the prose around it — and the metadata line — where they were.</summary>
+    [Fact]
+    public async Task Dropping_a_persons_chip_takes_the_tag_off_the_title()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it @bob today\n`task` `#sync`\n");
+
+        var pane = host.Render();
+
+        // The person's chip is the second one: the metadata line's tags come first.
+        await pane.FindAll("[data-testid='entry-tags-input'] .tag-chip__remove")[1].ClickAsync(new());
+
+        Assert.StartsWith("# Ship it today\n", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`#sync`", row.RawText, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(row)}'] .task-item__title-tag"));
+    }
+
     /// <summary>Types a tag into the picker and commits it, which is the gesture the
     /// picker calls "create": the popup opens on input, the new tag is the active
     /// option when nothing else matches, and Enter takes it.</summary>
